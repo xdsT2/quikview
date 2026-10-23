@@ -25,12 +25,12 @@ int main(int argc, char *argv[])
     // 应用图标：EXE 在 build/，资源在上一级 resources/
     {
         const QString base = QCoreApplication::applicationDirPath();
-        QString iconPath = base + QStringLiteral("/../resources/Honeyview.ico");
+        QString iconPath = base + QStringLiteral("/../resources/quikview.ico");
         if (!QFileInfo::exists(iconPath)) {
-            iconPath = base + QStringLiteral("/resources/Honeyview.ico");
+            iconPath = base + QStringLiteral("/resources/quikview.ico");
         }
         if (!QFileInfo::exists(iconPath)) {
-            iconPath = base + QStringLiteral("/Honeyview.ico");
+            iconPath = base + QStringLiteral("/quikview.ico");
         }
         if (QFileInfo::exists(iconPath)) {
             app.setWindowIcon(QIcon(iconPath));
