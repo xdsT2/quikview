@@ -1,6 +1,8 @@
 {
   "generator": "tools/03_gen_skin.py",
-  "note": "全部素材由脚本以 PIL 图元绘制，未使用任何第三方图像素材",
+  "note": "全部素材由脚本以 PIL 图元绘制，未使用任何第三方图像素材；尺寸/帧数/状态语义沿用它方界面的功能参数，图形元素自绘",
+  "license": "MIT（与本项目源码相同）",
+  "docs": "docs/ATTRIBUTION.md",
   "supersample": 4,
   "files": {
     "border_top.png": {
