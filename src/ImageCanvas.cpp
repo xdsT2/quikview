@@ -10,32 +10,24 @@
 #include <QScrollBar>
 #include <QWheelEvent>
 
-#include <cmath>
-
 namespace {
 
-// 原版空态风车 logo：4 个分离的 45° 方块按对角风车排布（角度 k*90+45°，
-// 方块中心半径 0.22S、边长 0.27S，对照实机采样）
-QPixmap makePinwheel(int S, const QColor &color)
+// 空态标识：同心圆环 + 右下短斜线，与 resources/quikview.ico 同一视觉语汇。
+// 自有几何图形（不使用任何第三方 logo 的构形）。
+QPixmap makePlaceholderMark(int S, const QColor &color)
 {
     QPixmap pm(S, S);
     pm.fill(Qt::transparent);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
-    p.setPen(Qt::NoPen);
-    p.setBrush(color);
+    p.setBrush(Qt::NoBrush);
+    p.setPen(QPen(color, qMax(1.0, S / 20.0)));
     const QPointF ctr(S / 2.0, S / 2.0);
-    const double r = 0.27 * S;
-    const double d = 0.26 * S;
-    for (int k = 0; k < 4; ++k) {
-        const double ang = qDegreesToRadians(k * 90.0 + 45.0);
-        const QPointF c2 = ctr + QPointF(r * std::cos(ang), r * std::sin(ang));
-        p.save();
-        p.translate(c2);
-        p.rotate(45);
-        p.drawRect(QRectF(-d / 2, -d / 2, d, d));
-        p.restore();
-    }
+    const double outer = 0.30 * S;
+    p.drawEllipse(ctr, outer, outer);
+    p.drawEllipse(ctr, outer * 0.52, outer * 0.52);
+    p.drawLine(QPointF(ctr.x() + outer * 0.60, ctr.y() + outer * 0.60),
+               QPointF(ctr.x() + outer * 0.98, ctr.y() + outer * 0.98));
     return pm;
 }
 
@@ -56,7 +48,7 @@ ImageCanvas::ImageCanvas(QWidget *parent)
 
     m_logo = new QLabel(viewport());
     m_logo->setAttribute(Qt::WA_TransparentForMouseEvents);
-    m_logo->setPixmap(makePinwheel(88, QColor("#626262")));
+    m_logo->setPixmap(makePlaceholderMark(88, QColor("#626262")));
     m_logo->adjustSize();
     m_logo->move((viewport()->width() - m_logo->width()) / 2,
                  (viewport()->height() - m_logo->height()) / 2);

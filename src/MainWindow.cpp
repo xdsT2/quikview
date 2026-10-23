@@ -215,8 +215,8 @@ MainWindow::~MainWindow()
 }
 
 // ---------------------------------------------------------------------------
-// 布局（skin_utf8.xml）：外框 6px / 标题栏 25 / 工具栏 31 / 画布 client；
-// 胶囊栏 460x80 浮于画布下缘中央（距底 26px）
+// 布局：外框 6px / 标题栏 25 / 工具栏 31 / 画布 client；
+// 胶囊栏 460x80 浮于画布下缘中央（距底 26px）——尺寸沿用 5.53 的可观察行为
 // ---------------------------------------------------------------------------
 
 void MainWindow::applyChromeLayout()
@@ -244,7 +244,7 @@ void MainWindow::applyChromeLayout()
     m_canvas->setGeometry(x, canvasTop, w, canvasH);
 
     if (m_control) {
-        // skin.xml：500 容器窗口居中 + 左 padding 30 → 胶囊中心右偏 ~15 逻辑 px
+        // 500 容器窗口居中 + 左 padding 30 → 胶囊中心右偏 ~15 逻辑 px（布局参数）
         m_control->move(x + (w - m_control->width()) / 2 + 18,
                         canvasTop + canvasH - m_control->height() - 26);
         m_control->raise();

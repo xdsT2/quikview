@@ -25,7 +25,7 @@ class Toast;
 class ZoomBadge;
 }
 
-// 主窗口：Honeyview 5.53 像素级复刻（skin_utf8.xml 布局参数）。
+// 主窗口：对照 Honeyview 5.53 的可观察布局（尺寸/间距参数）。
 // 无边框窗口：6px 外框 + 25px 标题栏 + 31px 工具栏 + 画布 + 底部胶囊控制栏。
 // 功能动作（createActions）为唯一真源，右键菜单 / 工具栏下拉菜单共用。
 class MainWindow : public QMainWindow

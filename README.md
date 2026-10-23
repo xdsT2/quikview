@@ -68,13 +68,23 @@ cmake --build build
 src/          主程序源码（13 个模块）
 shell/        壳扩展（缩略图 + 预览窗格）
 translations/ 语言文件（.ts）
+resources/    图标与界面素材（全部程序化生成，见 docs/ATTRIBUTION.md）
 config/       便携配置（config.ini，不入库）
 ```
 
+## 素材与许可
+
+界面素材（`resources/skin/`）与应用图标（`resources/quikview.ico`）全部由脚本程序化生成，
+不含任何第三方图像素材。每个文件的尺寸、字节数与 SHA-256 记在
+`resources/skin/PROVENANCE.json`；生成链与设计参数见 [docs/ATTRIBUTION.md](docs/ATTRIBUTION.md)。
+
+第三方库与商标声明见 [NOTICE](NOTICE)。
+
 ## 免责声明
 
-- 本项目为原创软件，与 Honeyview / Bandisoft 无任何从属或授权关系。
-- 不包含任何 Honeyview 的代码、二进制、图标、皮肤或语言文件。
+- 本项目为独立实现，与 Honeyview / Bandisoft 无任何从属、授权或背书关系。
+- 不包含任何 Honeyview 的代码、二进制、图标、皮肤素材或语言文件；
+  界面尺寸、帧序与热区布局参照其公开可观察行为自行实现。
 - "Honeyview" 及相关商标归其权利人所有。
 
 ## 许可证

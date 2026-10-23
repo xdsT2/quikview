@@ -107,7 +107,7 @@ void CaptionBar::startDrag()
 void CaptionBar::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
-    // 标题栏底：#ababab（border_captionbar.png tile 的均色）
+    // 标题栏底：#ababab（纯色填充，无贴图）
     p.fillRect(rect(), QColor("#ababab"));
 
     // 彩色 logo（btn_logo.png 帧0，缩到 18x16）
@@ -230,7 +230,7 @@ void ToolBar::setShowModeIcon(int index)
 
 QVector<ToolBar::Btn> ToolBar::buttons() const
 {
-    // 右对齐，右缘距窗口右 22px（skin.xml 惯例）
+    // 右对齐，右缘距窗口右 22px（布局参数沿用 5.53 的可观察行为）
     QFont f(QStringLiteral("Microsoft YaHei UI"), 9);
     const QFontMetrics fm(f);
     struct Def { const char *text; bool isLock; bool isShowmode; };
@@ -387,9 +387,9 @@ void ToolBar::leaveEvent(QEvent *)
 }
 
 // ===========================================================================
-// 胶囊控制栏 —— 全贴图方案（对照 quikview-controlbar-plan-2026-10-14.md）：
-// 底图 460x80 一张 + slider_bkgnd 拉伸轨道 + slider_thumb 三态 + 按钮贴图
-// （f0 常态 / f1 悬停 / f2 按下 / f3 禁用，像素分析核验）+ check2 锁定。
+// 胶囊控制栏 —— 整图贴图方案（对照 quikview-controlbar-plan-2026-10-14.md）：
+// 底图 pill_zoom.png 一张（缺图时回退 static_controlpanel.png），
+// 按钮/滑轨/面板全部烘焙在图里，热区由 items() 给出；滑块视觉尚未实现（见 §4.2）。
 // 禁止 QSS、禁止手绘任何本有贴图的元素。
 // ===========================================================================
 

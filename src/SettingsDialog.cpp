@@ -89,8 +89,8 @@ void iSet(const char *key, int v)
 }
 
 // ---------------------------------------------------------------------------
-// 页签贴图：setting_tab_0.png（未选中，帧1/帧2=悬停）/ setting_tab_1.png（选中，
-// 帧1=常态 / 帧3=按下）。4 帧横排。函数内 static 惰性构造，避免 QApplication
+// 页签贴图：setting_tab_0.png（未选中：帧0 常态 / 帧1 悬停）/ setting_tab_1.png
+// （选中：帧0 常态 / 帧2 按下）。4 帧横排，帧宽 = w/4。函数内 static 惰性构造，避免 QApplication
 // 之前初始化 QPixmap 导致 Qt6 fail-fast。
 // ---------------------------------------------------------------------------
 QPixmap &tabNormal()  { static QPixmap pm; return pm; }
