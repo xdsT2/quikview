@@ -32,26 +32,26 @@
     "btn_full.png": {
       "w": 96,
       "h": 21,
-      "bytes": 1497,
-      "sha256": "52b2b6cb3bd5d7b6ed239c7a252917de4829e715a46c309a5125e8df40e68014"
+      "bytes": 1436,
+      "sha256": "3809e38d5fe5eab43c6ea63090d6bf9bc79cc3321aa3be1d33c35df81b69b5bc"
     },
     "btn_minimize.png": {
       "w": 96,
       "h": 21,
-      "bytes": 392,
-      "sha256": "8a6581c369193212278eda17ef6e19ff834a9c573b3f64b77015d565a407ea2e"
+      "bytes": 377,
+      "sha256": "16d3a7caf2c9f9d731f76dbd016d0291fb02d6e7b6e8a38bd7659f3d51166bc1"
     },
     "btn_maximize.png": {
       "w": 96,
       "h": 21,
-      "bytes": 1052,
-      "sha256": "d965f25bad096df2f6f9027460e7957ce394fd46cfb6281edf61d1f4237fb81c"
+      "bytes": 980,
+      "sha256": "992e7de5272a6e45d6d9a0b85a951f0f097431c450a3d2faca4bd925304435fc"
     },
     "btn_maximize_2.png": {
       "w": 96,
       "h": 21,
-      "bytes": 1761,
-      "sha256": "86dd1a049051d3a14e8515f57d85ef9be6dba6003813d0115a1010b837497b5b"
+      "bytes": 1698,
+      "sha256": "a04aa9491ff7c5195e39f7d012d8c4b4f945761315a084d0360e339a23f491aa"
     },
     "btn_close.png": {
       "w": 200,
