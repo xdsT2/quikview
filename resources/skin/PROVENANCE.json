@@ -1,0 +1,127 @@
+{
+  "generator": "tools/03_gen_skin.py",
+  "note": "全部素材由脚本以 PIL 图元绘制，未使用任何第三方图像素材",
+  "supersample": 4,
+  "files": {
+    "border_top.png": {
+      "w": 60,
+      "h": 6,
+      "bytes": 99,
+      "sha256": "95c55a0de760bfe501376dc6173ba12feac74de9ed381440b9ecbabcb869bbe3"
+    },
+    "border_bottom.png": {
+      "w": 60,
+      "h": 6,
+      "bytes": 97,
+      "sha256": "19a6ee15ea1547a882b6997b060c6b918154caf4289fe805aa48a5176f625bdb"
+    },
+    "border_left.png": {
+      "w": 6,
+      "h": 60,
+      "bytes": 99,
+      "sha256": "89a5199a517c9262ed464faa04724bc57d7da09d421c3cd45687d7c48177bb9b"
+    },
+    "border_right.png": {
+      "w": 6,
+      "h": 60,
+      "bytes": 99,
+      "sha256": "b5bbd2415d8529f3d9ca5a75f06b3802441969253b83055cbc8a9cf28f1c1132"
+    },
+    "btn_full.png": {
+      "w": 96,
+      "h": 21,
+      "bytes": 1497,
+      "sha256": "52b2b6cb3bd5d7b6ed239c7a252917de4829e715a46c309a5125e8df40e68014"
+    },
+    "btn_minimize.png": {
+      "w": 96,
+      "h": 21,
+      "bytes": 392,
+      "sha256": "8a6581c369193212278eda17ef6e19ff834a9c573b3f64b77015d565a407ea2e"
+    },
+    "btn_maximize.png": {
+      "w": 96,
+      "h": 21,
+      "bytes": 1052,
+      "sha256": "d965f25bad096df2f6f9027460e7957ce394fd46cfb6281edf61d1f4237fb81c"
+    },
+    "btn_maximize_2.png": {
+      "w": 96,
+      "h": 21,
+      "bytes": 1761,
+      "sha256": "86dd1a049051d3a14e8515f57d85ef9be6dba6003813d0115a1010b837497b5b"
+    },
+    "btn_close.png": {
+      "w": 200,
+      "h": 21,
+      "bytes": 1985,
+      "sha256": "ce53eddb596487cef1ead472d9c7d34a4bb192e1997cdd0afbd75bf7fe46b8a1"
+    },
+    "btn_logo.png": {
+      "w": 140,
+      "h": 31,
+      "bytes": 1474,
+      "sha256": "5f5ee3f7c073b1a2d2a26dc45c03b7cb901bfef85173117b9161c73cde877a1e"
+    },
+    "static_toolbar1.png": {
+      "w": 30,
+      "h": 31,
+      "bytes": 127,
+      "sha256": "7fb5c31bacc3ce21e2488d19d57e5a9a0aa3e5914a2ea26776c8b58131f18600"
+    },
+    "static_showmode_0.png": {
+      "w": 28,
+      "h": 31,
+      "bytes": 448,
+      "sha256": "e924fd73572b120b19dd078d38b92e4cc50e904bba8d97dc80004c14a9f27a86"
+    },
+    "static_showmode_1.png": {
+      "w": 28,
+      "h": 31,
+      "bytes": 798,
+      "sha256": "f5a78c8975087e246e8dddbbd31ca91a6b2267f1ce8fe52fcb904a4e9df48741"
+    },
+    "static_showmode_2.png": {
+      "w": 28,
+      "h": 31,
+      "bytes": 731,
+      "sha256": "6b3bf02e8aa52a6661f3e4900ac565be877e4be5b8c75b3da487a5e40d5be0fc"
+    },
+    "static_showmode_3.png": {
+      "w": 28,
+      "h": 31,
+      "bytes": 591,
+      "sha256": "401a25771c8a73a2c8d3d4fe89f993a1256e8256f05e63a8ce62281e4d3b2cf9"
+    },
+    "static_showmode_4.png": {
+      "w": 28,
+      "h": 31,
+      "bytes": 589,
+      "sha256": "8f4482cceb24379d17cf0b2459f03293d06395ac53cb226b57daa670fee2fa34"
+    },
+    "setting_tab_0.png": {
+      "w": 120,
+      "h": 30,
+      "bytes": 213,
+      "sha256": "df55460255966dc32dba972194ab215a5f4082a4a009594f170a9b3b1e981aff"
+    },
+    "setting_tab_1.png": {
+      "w": 120,
+      "h": 30,
+      "bytes": 239,
+      "sha256": "7c46b637e7591713e1bc731336842a4e9094224b4f92431ded9916e4dc408fd0"
+    },
+    "static_controlpanel.png": {
+      "w": 460,
+      "h": 80,
+      "bytes": 13829,
+      "sha256": "57d9744b09d4f1186daee16f31c4ba08f4252b6b13141b3472a3c25ca4d0d6b2"
+    },
+    "pill_zoom.png": {
+      "w": 1680,
+      "h": 291,
+      "bytes": 94967,
+      "sha256": "72bdd46bcf71e1c4ff509992750b32c8fba8029f84eba41110e79462aff78f68"
+    }
+  }
+}

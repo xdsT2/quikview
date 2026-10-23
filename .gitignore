@@ -1,0 +1,37 @@
+# 构建产物
+build/
+build-*/
+out/
+*.user
+.vs/
+.idea/
+.vscode/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+
+# Qt / 生成文件
+moc_*
+*.moc
+qrc_*.cpp
+ui_*.h
+*.obj
+*.o
+
+# 系统
+Thumbs.db
+.DS_Store
+
+# 便携配置不应入库（用户本地状态）
+config.ini
+
+# 会话交接通道（监工侧↔执行侧协调文件，非项目资产）
+HANDOFF.md
+
+# 临时调试脚本与截图
+Temp/
+Temp_*.py
+shot*.png
