@@ -62,7 +62,9 @@ namespace {
 constexpr int kBrowserWidth = 260;   // 缩略图栏宽
 constexpr int kBrowserGap = 8;       // 与窗口左缘/画布之间的留白
 constexpr int kTopChromeH = 76;      // 标题栏 28 + 命令栏 34 + 视觉留白
-constexpr int kDockInset = 84;       // 底部胶囊占位
+// 底部独占区 100px：胶囊高 72 + 距底 19 + 9px 防遮挡间隙，状态文字也落在这块里。
+// 任何显示模式都保留它，胶囊与状态区因此永远不会压住图片。
+constexpr int kDockInset = 100;
 } // namespace
 
 MainWindow::MainWindow(QWidget *parent)
@@ -319,13 +321,10 @@ void MainWindow::applyChromeLayout()
     m_toolbar->raise();
 }
 
-// 画布可视区：顶部悬浮铬件、底部胶囊各留一段呼吸区；缩略图栏展开时再把左侧
-// 让出来——图片在「真正看得见的那块区域」里居中，既不会被面板压住一半，拖动
-// 和缩放也围绕这块区域进行。
 // 画布可视区：缩略图栏展开时让出左侧。
-// 上下安全区**只服务于「适合窗口」**——手动缩放 / 原始大小 / 适合宽度一律贴满整窗，
-// 悬浮铬件改用覆盖式（允许压在图片上）。否则手动放大后上下会留两条 76/84px 的
-// 死黑边，图片永远用不到完整窗口高度。
+// 上边距**只服务于「适合窗口」**——手动缩放 / 原始大小 / 适合宽度顶部全部贴满，
+// 悬浮铬件改用覆盖式（允许压住图片）；下边距反过来，**任何模式都固定留 100px**
+// 给胶囊与状态区，图片最长只能到底部 100px 处，胶囊任何时候都不遮挡图片。
 // 注意：这里刻意不看铬件显隐状态，显隐只影响透明度/位移，绝不能反过来改画布几何。
 void MainWindow::updateCanvasInsets()
 {
@@ -341,7 +340,7 @@ void MainWindow::updateCanvasInsets()
     const QMargins margins(left,
                            safeArea ? kTopChromeH : 0,
                            0,
-                           safeArea ? kDockInset : 0);
+                           full ? 0 : kDockInset);
     if (margins == m_canvasInsets) {
         return;
     }

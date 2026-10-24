@@ -274,6 +274,9 @@ void ImageCanvas::applyZoomAt(qreal zoom, const QPoint &anchorViewportPt)
         return;
     }
     const QPointF anchorScene = mapToScene(anchorViewportPt);
+    // 锚点同时记一份**窗口坐标系**的副本：进入手动缩放时主窗口会把顶部 76px 安全区
+    // 收掉，视口在窗口里整体上移，若仍按视口坐标对齐，图片会跟着往上窜 30~40px。
+    const QPoint anchorWindowPt = viewport()->mapTo(this, anchorViewportPt);
     resetTransform();
     scale(zoom, zoom);
     m_zoom = zoom;
@@ -282,7 +285,7 @@ void ImageCanvas::applyZoomAt(qreal zoom, const QPoint &anchorViewportPt)
     // 先发信号：主窗口会在这里同步把上下安全区归零（并 centerOn 保持中心），
     // 之后再按锚点做一次像素级对齐，避免「进入手动缩放」那一下跳图。
     emit zoomChanged(m_zoom);
-    keepScenePointAt(anchorScene, anchorViewportPt);
+    keepScenePointAt(anchorScene, viewport()->mapFrom(this, anchorWindowPt));
 }
 
 void ImageCanvas::wheelEvent(QWheelEvent *event)
