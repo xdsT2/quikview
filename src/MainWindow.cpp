@@ -59,12 +59,10 @@ inline short yFromLparam(long v) { return static_cast<short>(HIWORD(v)); }
 #endif
 
 namespace {
-constexpr int kBrowserWidth = 260;   // 缩略图栏宽
-constexpr int kBrowserGap = 8;       // 与窗口左缘/画布之间的留白
-constexpr int kTopChromeH = 76;      // 标题栏 28 + 命令栏 34 + 视觉留白
-// 底部独占区 100px：胶囊高 72 + 距底 19 + 9px 防遮挡间隙，状态文字也落在这块里。
-// 任何显示模式都保留它，胶囊与状态区因此永远不会压住图片。
-constexpr int kDockInset = 100;
+constexpr int kBrowserWidth = 160;   // 缩略图面板宽（20:53：小而随内容）
+constexpr int kBrowserGap = 12;      // 面板与窗口左缘/画布之间的留白
+constexpr int kTopChromeH = 76;      // 标题栏 28 + 命令栏 34 + 视觉留白（仅作面板/浮层定位）
+
 } // namespace
 
 MainWindow::MainWindow(QWidget *parent)
@@ -243,6 +241,53 @@ MainWindow::MainWindow(QWidget *parent)
     setupFade(m_toolbar, m_toolbarOpacity, m_toolbarFade);
     setupFade(m_control, m_dockOpacity, m_dockFade);
 
+    // 淡出结束才算 Hidden：动画途中不销毁、不重建、不切控件，避免出现闪烁。
+    connect(m_dockFade, &QPropertyAnimation::finished, this, [this]() {
+        if (m_dockOpacity && qFuzzyCompare(m_dockOpacity->opacity() + 1.0, 0.0 + 1.0)) {
+            m_control->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+            m_control->hide();
+            m_dockPhase = ChromePhase::Hidden;
+        } else {
+            m_dockPhase = ChromePhase::Visible;
+        }
+    });
+    connect(m_captionFade, &QPropertyAnimation::finished, this, [this]() {
+        const bool hidden = m_captionOpacity
+                            && qFuzzyCompare(m_captionOpacity->opacity() + 1.0, 0.0 + 1.0);
+        if (hidden) {
+            if (m_caption) {
+                m_caption->hide();
+            }
+            if (m_toolbar) {
+                m_toolbar->hide();
+            }
+            m_topPhase = ChromePhase::Hidden;
+        } else {
+            m_topPhase = ChromePhase::Visible;
+        }
+    });
+
+    // 离开热区后延迟淡出：进出边缘时不会因为一两帧抖动就闪一下。
+    m_topHideTimer = new QTimer(this);
+    m_topHideTimer->setSingleShot(true);
+    m_topHideTimer->setInterval(150);
+    connect(m_topHideTimer, &QTimer::timeout, this, [this]() {
+        if (m_topPhase == ChromePhase::Visible || m_topPhase == ChromePhase::Showing) {
+            setTopChromeVisible(false);
+            m_topPhase = ChromePhase::Hiding;
+        }
+    });
+
+    m_dockHideTimer = new QTimer(this);
+    m_dockHideTimer->setSingleShot(true);
+    m_dockHideTimer->setInterval(150);
+    connect(m_dockHideTimer, &QTimer::timeout, this, [this]() {
+        if (m_dockPhase == ChromePhase::Visible || m_dockPhase == ChromePhase::Showing) {
+            setDockVisible(false);
+            m_dockPhase = ChromePhase::Hiding;
+        }
+    });
+
     m_chromeTimer = new QTimer(this);
     m_chromeTimer->setInterval(60);
     connect(m_chromeTimer, &QTimer::timeout, this, &MainWindow::updateChromeProximity);
@@ -306,8 +351,10 @@ void MainWindow::applyChromeLayout()
         m_zoomBadge->raise();
     }
     if (m_browser && m_browser->isVisible()) {
+        // 高度随卡片数量，最多占到窗口底部（面板不再强制满高，也不再为胶囊让位）
+        const int avail = h - 76 - kBrowserGap;
         m_browser->setGeometry(x + kBrowserGap, y + 76, kBrowserWidth,
-                               h - 76 - kDockInset);
+                               qMin(m_browser->preferredHeight(), avail));
         m_browser->raise();
     }
     // 图片信息：右侧内缩浮层（原型 344 宽、上下左右各留 14）
@@ -321,10 +368,9 @@ void MainWindow::applyChromeLayout()
     m_toolbar->raise();
 }
 
-// 画布可视区：缩略图栏展开时让出左侧。
-// 上边距**只服务于「适合窗口」**——手动缩放 / 原始大小 / 适合宽度顶部全部贴满，
-// 悬浮铬件改用覆盖式（允许压住图片）；下边距反过来，**任何模式都固定留 100px**
-// 给胶囊与状态区，图片最长只能到底部 100px 处，胶囊任何时候都不遮挡图片。
+// 画布可视区：21:15 交办——图片客户区上下恒为 0，画布直接通顶通底，
+// 顶部栏 / 胶囊 / 左下信息 / 右下序号全部作为浮层覆盖，不占布局。
+// 只有缩略图面板展开时让出左侧（160 + 两侧 12 = 184）。
 // 注意：这里刻意不看铬件显隐状态，显隐只影响透明度/位移，绝不能反过来改画布几何。
 void MainWindow::updateCanvasInsets()
 {
@@ -336,11 +382,7 @@ void MainWindow::updateCanvasInsets()
     if (!full && m_browser && m_browser->isVisible()) {
         left = kBrowserWidth + 2 * kBrowserGap;
     }
-    const bool safeArea = !full && m_canvas->isFitToWindow();
-    const QMargins margins(left,
-                           safeArea ? kTopChromeH : 0,
-                           0,
-                           full ? 0 : kDockInset);
+    const QMargins margins(left, 0, 0, 0);
     if (margins == m_canvasInsets) {
         return;
     }
@@ -357,8 +399,9 @@ void MainWindow::toggleBrowserPanel()
     if (m_browser->isVisible()) {
         // show 后顶层 layout 会把尺寸拉回 sizeHint，须在显示后重设几何
         const int fw = isFullScreen() ? 0 : 1;
+        const int avail = height() - 2 * fw - 76 - kBrowserGap;
         m_browser->setGeometry(fw + kBrowserGap, fw + 76, kBrowserWidth,
-                               height() - 2 * fw - 76 - kDockInset);
+                               qMin(m_browser->preferredHeight(), avail));
         m_browser->raise();
     }
     updateCanvasInsets();
@@ -375,7 +418,11 @@ void MainWindow::setTopChromeVisible(bool visible, bool animate)
         if (!widget || !effect || !animation) {
             return;
         }
-        widget->setAttribute(Qt::WA_TransparentForMouseEvents, !visible);
+        // 21:15：鼠标命中只在这一帧「要显示」时才打开；隐藏要等淡出动画结束
+        // （finished 回调里关命中并 hide），动画中途仍可点，避免边淡边吃事件。
+        if (visible) {
+            widget->setAttribute(Qt::WA_TransparentForMouseEvents, false);
+        }
         // 状态（或正在进行的同一目标动画）已经到位就不要再 show/raise/重启动画：
         // 60ms 一次的热区轮询会把它变成持续重绘，点按钮时表现为整条栏闪一下。
         const bool fading = animation->state() == QAbstractAnimation::Running
@@ -396,6 +443,10 @@ void MainWindow::setTopChromeVisible(bool visible, bool animate)
             animation->start();
         } else {
             effect->setOpacity(visible ? 1.0 : 0.0);
+            if (!visible) {
+                widget->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+                widget->hide();
+            }
         }
     };
     apply(m_caption, m_captionOpacity, m_captionFade);
@@ -411,7 +462,9 @@ void MainWindow::setDockVisible(bool visible, bool animate)
         visible = false;
     }
     m_dockVisible = visible;
-    m_control->setAttribute(Qt::WA_TransparentForMouseEvents, !visible);
+    if (visible) {
+        m_control->setAttribute(Qt::WA_TransparentForMouseEvents, false);
+    }
     if (!m_dockOpacity || !m_dockFade) {
         return;
     }
@@ -433,6 +486,12 @@ void MainWindow::setDockVisible(bool visible, bool animate)
         m_dockFade->start();
     } else {
         m_dockOpacity->setOpacity(visible ? 1.0 : 0.0);
+        // 不做动画时不会有 finished 回调，必须在这里把隐藏彻底收尾，
+        // 否则透明但仍在的胶囊会继续吃鼠标。
+        if (!visible) {
+            m_control->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+            m_control->hide();
+        }
     }
 }
 
@@ -443,6 +502,8 @@ void MainWindow::toggleTopLock()
         m_toolbar->setLocked(m_topLocked);
     }
     setTopChromeVisible(true);
+    m_topPhase = ChromePhase::Visible;
+    m_topHideTimer->stop();
     if (m_toast) {
         m_toast->showMessage(m_topLocked ? tr("顶部栏已锁定") : tr("顶部栏已解锁"));
     }
@@ -455,26 +516,111 @@ void MainWindow::toggleDockLock()
         m_control->setLocked(m_dockLocked);
     }
     setDockVisible(true);
+    m_dockPhase = ChromePhase::Visible;
+    m_dockHideTimer->stop();
     if (m_toast) {
         m_toast->showMessage(m_dockLocked ? tr("底部控制胶囊已锁定")
                                           : tr("底部控制胶囊已解锁"));
     }
 }
 
+// 热区判定统一从这里取「鼠标在窗口内的位置」。默认就是真实光标；
+// --smoke hover:x:y 会灌入一个合成坐标，让滞回/防闪烁能被复现地验证
+// （外部挪鼠标的时序跟窗口位置都不稳，测出来不可信）。
+QPoint MainWindow::probeLocalPoint() const
+{
+    return m_probeCursorActive ? m_probeCursor : mapFromGlobal(QCursor::pos());
+}
+
 void MainWindow::updateChromeProximity()
 {
+    // 21:15：只要窗口可见就响应热区，不再要求 isActiveWindow()——非前台可见窗口
+    // 同样要能靠悬停唤出铬件，而且这里从不 activateWindow()，不会抢焦点。
     if (!isVisible() || isMinimized()) {
         return;
     }
-    const QPoint local = mapFromGlobal(QCursor::pos());
-    const bool inside = rect().contains(local);
-    if (!m_topLocked) {
-        setTopChromeVisible(isActiveWindow() && inside && local.y() <= 76);
+    updateTopProximity();
+    updateDockProximity();
+}
+
+// 顶部两条：进入窗口上方 76px 显示，退到 96px 以下才隐藏（20px 滞回）。
+void MainWindow::updateTopProximity()
+{
+    if (!m_caption) {
+        return;
     }
-    if (!m_dockLocked) {
-        setDockVisible(isActiveWindow() && inside && local.y() >= height() - 124);
-    } else if (m_emptyState && m_emptyState->isVisible()) {
-        setDockVisible(false);
+    const QPoint local = probeLocalPoint();
+    const bool inside = rect().contains(local);
+
+    if (m_topLocked) {
+        m_topHideTimer->stop();
+        if (m_topPhase != ChromePhase::Visible && m_topPhase != ChromePhase::Showing) {
+            setTopChromeVisible(true, false);
+            m_topPhase = ChromePhase::Visible;
+        }
+        return;
+    }
+
+    const bool shown = (m_topPhase == ChromePhase::Visible || m_topPhase == ChromePhase::Showing);
+    const bool want = inside && local.y() <= (shown ? 96 : 76);
+
+    if (want) {
+        m_topHideTimer->stop();
+        if (m_topPhase == ChromePhase::Hidden || m_topPhase == ChromePhase::Hiding) {
+            setTopChromeVisible(true);
+            m_topPhase = ChromePhase::Showing;
+        }
+    } else if (shown && !m_topHideTimer->isActive()) {
+        m_topHideTimer->start();
+    }
+}
+
+// 底部胶囊：进入窗口下方 124px 显示，退到 140px 以上才隐藏（16px 滞回）；
+// 胶囊自身矩形外扩 12px 恒为热区，鼠标一旦进来就立刻取消隐藏计时。
+void MainWindow::updateDockProximity()
+{
+    if (!m_control) {
+        return;
+    }
+    if (m_emptyState && m_emptyState->isVisible()) {
+        m_dockHideTimer->stop();
+        if (m_dockPhase != ChromePhase::Hidden) {
+            setDockVisible(false, false);
+            m_dockPhase = ChromePhase::Hidden;
+        }
+        return;
+    }
+    if (m_dockLocked) {
+        m_dockHideTimer->stop();
+        if (m_dockPhase != ChromePhase::Visible && m_dockPhase != ChromePhase::Showing) {
+            setDockVisible(true, false);
+            m_dockPhase = ChromePhase::Visible;
+        }
+        return;
+    }
+
+    const QPoint local = probeLocalPoint();
+    const bool inside = rect().contains(local);
+    const bool overDock = m_control->geometry().adjusted(-12, -12, 12, 12).contains(local);
+    const bool shown = (m_dockPhase == ChromePhase::Visible || m_dockPhase == ChromePhase::Showing);
+
+    bool want;
+    if (overDock) {
+        want = true;
+    } else if (!inside) {
+        want = false;
+    } else {
+        want = shown ? (local.y() >= height() - 140) : (local.y() >= height() - 124);
+    }
+
+    if (want) {
+        m_dockHideTimer->stop();
+        if (m_dockPhase == ChromePhase::Hidden || m_dockPhase == ChromePhase::Hiding) {
+            setDockVisible(true);
+            m_dockPhase = ChromePhase::Showing;
+        }
+    } else if (shown && !m_dockHideTimer->isActive()) {
+        m_dockHideTimer->start();
     }
 }
 
@@ -1147,9 +1293,8 @@ void MainWindow::applyRuntimeSettings()
     m_canvas->setWheelZoomEnabled(cfg.wheelZoom());
     m_canvas->setMiddlePanEnabled(cfg.middlePan());
 
-    const QString ts = cfg.thumbnailSize();
-    m_browser->setThumbSize(ts == QLatin1String("small") ? 96
-                            : ts == QLatin1String("large") ? 160 : 128);
+    // 缩略图预览尺寸按 20:53 交办固定 128×128（面板 160 宽），
+    // 设置里的「缩略图大小」项暂时不再影响面板，等确认后再决定是否从设置页移除。
 
     m_dir->setEdgeAction(cfg.edgeAction());
 
@@ -1285,9 +1430,12 @@ void MainWindow::updateCanvasLogo()
         if (m_statusOverlay) {
             m_statusOverlay->clear();
         }
+        m_dockHideTimer->stop();
         setDockVisible(false, false);
+        m_dockPhase = ChromePhase::Hidden;
     } else if (m_dockLocked) {
         setDockVisible(true, false);
+        m_dockPhase = ChromePhase::Visible;
     } else {
         // 翻页会经过这里。之前无条件隐藏胶囊、再被热区轮询唤出，点一下就是
         // 一次「闪」。改为按鼠标实际位置重新判定，鼠标还在胶囊上就保持原样。
@@ -1476,6 +1624,21 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                        Qt::NoScrollPhase, false);
         QApplication::sendEvent(m_control, &ev);
     }
+    // hover:x:y —— 灌入合成光标（窗口内坐标）驱动热区；hover:off 交回真实鼠标。
+    // 外部真挪鼠标的时序 + 窗口定位都会漂，测滞回不可信，这里直接喂点。
+    else if (c.startsWith(QLatin1String("hover:"))) {
+        const QString v = c.mid(6);
+        if (v == QLatin1String("off")) {
+            m_probeCursorActive = false;
+        } else {
+            const QStringList a = v.split(QLatin1Char(':'));
+            if (a.size() == 2) {
+                m_probeCursor = QPoint(a.at(0).toInt(), a.at(1).toInt());
+                m_probeCursorActive = true;
+            }
+        }
+        updateChromeProximity();
+    }
     // —— 二级界面（截图冒烟用，非模态打开以便截到窗口本身）——
     else if (c == QLatin1String("settings")) {
         auto *dlg = new SettingsDialog(this);
@@ -1518,6 +1681,12 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << " cap=" << (m_control ? m_control->size().width() : 0) << 'x'
                << (m_control ? m_control->size().height() : 0)
                << " pct=" << m_control->zoomPercent()
+               // 显隐状态机相位（0 Hidden / 1 Showing / 2 Visible / 3 Hiding），
+               // 滞回与防闪烁只能靠它验证，截图看不出中间态
+               << " dock=" << static_cast<int>(m_dockPhase)
+               << " dockvis=" << (m_control && m_control->isVisible() ? 1 : 0)
+               << " dockop=" << (m_dockOpacity ? QString::number(m_dockOpacity->opacity(), 'f', 2) : QStringLiteral("na"))
+               << " top=" << static_cast<int>(m_topPhase)
                << " dpr=" << devicePixelRatioF()
                << "\n";
         }

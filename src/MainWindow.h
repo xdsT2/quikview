@@ -140,6 +140,9 @@ private:
     void toggleTopLock();
     void toggleDockLock();
     void updateChromeProximity();
+    void updateTopProximity();
+    void updateDockProximity();
+    QPoint probeLocalPoint() const;
     QStringList listSiblingFolders();   // 同级含图文件夹（名称序），文件夹跳转用
     static QStringList imageExtensions();
     static QStringList listImagesInDir(const QString &dirPath);
@@ -217,7 +220,16 @@ private:
     QWidget *m_sideNext = nullptr;
 
     // 悬浮铬件显隐：上下两套状态完全独立，各自可锁定常显。
+    // 21:15：显隐是独立视觉状态机（Hidden → Showing → Visible → Hiding 单一状态源），
+    // 只改 opacity / 鼠标命中，绝不动画布几何；热区带滞回，避免边缘来回抖动导致闪烁。
+    enum class ChromePhase { Hidden, Showing, Visible, Hiding };
     QTimer *m_chromeTimer = nullptr;
+    QTimer *m_topHideTimer = nullptr;
+    QTimer *m_dockHideTimer = nullptr;
+    ChromePhase m_topPhase = ChromePhase::Visible;
+    bool m_probeCursorActive = false;   // --smoke hover:x:y 时用合成坐标代替真实光标
+    QPoint m_probeCursor;
+    ChromePhase m_dockPhase = ChromePhase::Visible;
     QGraphicsOpacityEffect *m_captionOpacity = nullptr;
     QGraphicsOpacityEffect *m_toolbarOpacity = nullptr;
     QGraphicsOpacityEffect *m_dockOpacity = nullptr;

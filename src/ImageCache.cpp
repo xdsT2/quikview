@@ -2,6 +2,7 @@
 
 #include <QFutureWatcher>
 #include <QImage>
+#include <QImageIOHandler>
 #include <QImageReader>
 #include <QtConcurrent/QtConcurrent>
 
@@ -64,8 +65,27 @@ void ImageCache::requestThumbnail(const QString &path, const QSize &size)
     auto future = QtConcurrent::run([path, size]() {
         QImageReader reader(path);
         reader.setAutoTransform(true);
-        reader.setScaledSize(size);
-        return reader.read();
+        // 先按 KeepAspectRatio 算出真正要解码的尺寸，再 setScaledSize。
+        // 直接 setScaledSize(方形) 会把图片硬拉到正方形——缩略图被拉伸就是这么来的。
+        // EXIF 旋转 90/270 时宽高互换，判断错了同样会算歪。
+        QSize src = reader.size();
+        if (src.isValid() && src.width() > 0 && src.height() > 0) {
+            const QImageIOHandler::Transformations t = reader.transformation();
+            if (t.testFlag(QImageIOHandler::TransformationRotate90)
+                || t.testFlag(QImageIOHandler::TransformationRotate270)) {
+                src.transpose();
+            }
+            const QSize fit = src.scaled(size, Qt::KeepAspectRatio);
+            if (fit.isValid() && fit.width() > 0 && fit.height() > 0) {
+                reader.setScaledSize(fit);
+            }
+        }
+        QImage img = reader.read();
+        // 兜底：个别解码器不认 setScaledSize，读回来再缩一次（同样保持比例）
+        if (!img.isNull() && (img.width() > size.width() || img.height() > size.height())) {
+            img = img.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        }
+        return img;
     });
 
     auto *watcher = new QFutureWatcher<QImage>(this);
