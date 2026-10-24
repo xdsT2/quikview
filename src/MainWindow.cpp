@@ -300,8 +300,11 @@ void MainWindow::applyChromeLayout()
                                h - 76 - kDockInset);
         m_browser->raise();
     }
-    if (m_metadata && m_metadata->isVisible() && m_metadata->isFloating()) {
-        m_metadata->resize(320, height() / 2);
+    // 图片信息：右侧内缩浮层（原型 344 宽、上下左右各留 14）
+    if (m_metadata && m_metadata->isVisible()) {
+        m_metadata->setGeometry(x + w - UiStyle::InfoPanelW - 14, y + 14,
+                                UiStyle::InfoPanelW, h - 28);
+        m_metadata->raise();
     }
 
     m_caption->raise();
@@ -578,15 +581,16 @@ void MainWindow::createActions()
     actOpen = mk(tr("打开(&O)..."), QKeySequence::Open, &MainWindow::onOpen);
     actOpenFolder = mk(tr("打开文件夹..."), {}, &MainWindow::onOpenFolder);
     actSaveAs = mk(tr("另存为…(&S)"), QKeySequence::SaveAs, &MainWindow::onSaveAs);
-    actPrint = mk(tr("打印(&P)..."), QKeySequence::Print, &MainWindow::onPrint);
+    actPrint = mk(tr("打印"), QKeySequence::Print, &MainWindow::onPrint);
     actBatchConvert = mk(tr("批量转换(&B)"), {}, &MainWindow::onBatchConvert);
     actSettings = mk(tr("设置(&C)"), QKeySequence(QStringLiteral("F9")), &MainWindow::onSettings);
-    actFavorite = mk(tr("收藏/取消收藏(&F)"), QKeySequence(QStringLiteral("F2")), &MainWindow::onToggleFavorite);
-    actDelete = mk(tr("删除(&D)"), QKeySequence::Delete, &MainWindow::onDeleteFile);
-    actCopyToFolder = mk(tr("复制到 图片文件夹..."), QKeySequence(QStringLiteral("Ins")), &MainWindow::onCopyToFolder);
+    // 书签菜单：添加书签 B（原型），勾选/取消勾选由 onToggleFavorite 承担
+    actFavorite = mk(tr("添加书签"), QKeySequence(QStringLiteral("B")), &MainWindow::onToggleFavorite);
+    actDelete = mk(tr("删除"), QKeySequence::Delete, &MainWindow::onDeleteFile);
+    actCopyToFolder = mk(tr("复制到 图片文件夹"), QKeySequence(QStringLiteral("Ins")), &MainWindow::onCopyToFolder);
     actOpenWithEditor = mk(tr("用图像编辑器打开"), QKeySequence(QStringLiteral("Ctrl+E")), &MainWindow::onOpenWithEditor);
     actCopyToClipboard = mk(tr("复制到剪贴板"), QKeySequence::Copy, &MainWindow::onCopyToClipboard);
-    actWallpaper = mk(tr("设为壁纸(&W)"), {}, &MainWindow::onSetWallpaper);
+    actWallpaper = mk(tr("设为桌面壁纸…"), {}, &MainWindow::onSetWallpaper);
     actAbout = mk(tr("关于 QuikView"), {}, &MainWindow::onAbout);
     actQuit = new QAction(tr("退出(&Q)"), this);
     actQuit->setShortcut(QKeySequence::Quit);
@@ -595,9 +599,9 @@ void MainWindow::createActions()
     // 视图（浏览方式单选：原始 0 / 适合窗口 9 / 适合宽度 8，对照原版快捷键）
     auto *viewModeGroup = new QActionGroup(this);
     viewModeGroup->setExclusive(true);
-    actActualSize = mk(tr("原始大小 (100%)\t0"), QKeySequence(QStringLiteral("0")), &MainWindow::onActualSize);
-    actFit = mk(tr("适合窗口\t9"), QKeySequence(QStringLiteral("9")), &MainWindow::onFit);
-    actFitWidth = mk(tr("适合宽度\t8"), QKeySequence(QStringLiteral("8")), &MainWindow::onFitWidth);
+    actActualSize = mk(tr("原始大小 (100%)"), QKeySequence(QStringLiteral("0")), &MainWindow::onActualSize);
+    actFit = mk(tr("适合窗口"), QKeySequence(QStringLiteral("9")), &MainWindow::onFit);
+    actFitWidth = mk(tr("适合宽度"), QKeySequence(QStringLiteral("8")), &MainWindow::onFitWidth);
     for (auto *a : { actActualSize, actFit, actFitWidth }) {
         a->setCheckable(true);
         viewModeGroup->addAction(a);
@@ -625,6 +629,10 @@ void MainWindow::createActions()
     actToggleMeta = new QAction(tr("显示/隐藏信息面板(&I)"), this);
     actToggleMeta->setCheckable(true);
     connect(actToggleMeta, &QAction::toggled, m_metadata, &QWidget::setVisible);
+    // 面板自带 × 关掉时，把菜单勾选态同步回未勾选，避免「关了还打勾」
+    connect(m_metadata, &MetadataPanel::closed, this, [this]() {
+        actToggleMeta->setChecked(false);
+    });
 
     actDark = new QAction(tr("深色模式(&D)"), this);
     actDark->setCheckable(true);
@@ -643,12 +651,15 @@ void MainWindow::createActions()
     actCrop = mk(tr("裁剪(&C)"), QKeySequence(QStringLiteral("X")), &MainWindow::onCrop);
     actResize = mk(tr("调整大小(&R)"), {}, &MainWindow::onResize);
 
-    // 图像效果（三选一）
+    // 图像效果（三选一，对照原型 contextItems：无 U / 减淡 I / 减淡 + 锐化 S）
     auto *effectGroup = new QActionGroup(this);
     effectGroup->setExclusive(true);
     actEffectNone = new QAction(tr("无"), this);
     actEffectSoften = new QAction(tr("减淡"), this);
-    actEffectSharpen = new QAction(tr("减淡+锐化"), this);
+    actEffectSharpen = new QAction(tr("减淡 + 锐化"), this);
+    actEffectNone->setShortcut(QKeySequence(QStringLiteral("U")));
+    actEffectSoften->setShortcut(QKeySequence(QStringLiteral("I")));
+    actEffectSharpen->setShortcut(QKeySequence(QStringLiteral("S")));
     for (auto *a : { actEffectNone, actEffectSoften, actEffectSharpen }) {
         a->setCheckable(true);
         effectGroup->addAction(a);
@@ -658,11 +669,11 @@ void MainWindow::createActions()
     connect(actEffectSoften, &QAction::triggered, this, [this]() { onEffect(1); });
     connect(actEffectSharpen, &QAction::triggered, this, [this]() { onEffect(2); });
 
-    // 插值算法（二选一）
+    // 插值算法（二选一，文案对照原型"插值算法"子菜单；Lanczos 暂无实现）
     auto *interpGroup = new QActionGroup(this);
     interpGroup->setExclusive(true);
-    actInterpFast = new QAction(tr("快速"), this);
-    actInterpSmooth = new QAction(tr("平滑"), this);
+    actInterpFast = new QAction(tr("Bilinear 插值 (快)"), this);
+    actInterpSmooth = new QAction(tr("Bicubic 插值 (慢，高品质)"), this);
     actInterpFast->setCheckable(true);
     actInterpSmooth->setCheckable(true);
     interpGroup->addAction(actInterpFast);
@@ -702,166 +713,384 @@ void MainWindow::createActions()
 }
 
 // ---------------------------------------------------------------------------
-// 工具栏下拉菜单（对照原版：浏览/幻灯片放映/书签/编辑/复制到/锁定）
+// 工具栏下拉菜单 / 右键菜单
+// 唯一真源：Temp/quikview-secondary-prototype.html 的 toolbarMenus / contextSubmenus /
+// contextItems。菜单每次弹出重建，条目/顺序/快捷键/勾选态直接照抄原型；
+// 快捷键写在 '\t' 之后只作右对齐展示，真实按键绑定仍由已有 QAction::setShortcut 承担。
 // ---------------------------------------------------------------------------
 
+namespace {
+
+// 菜单项：label + 右对齐快捷键（仅展示）。fn 为动作实现。
+template <typename Fn>
+QAction *addMenuItem(QMenu *menu, const QString &label, const QString &shortcut, Fn fn)
+{
+    QString text = label;
+    if (!shortcut.isEmpty()) {
+        text += QLatin1Char('\t') + shortcut;
+    }
+    QAction *action = menu->addAction(text);
+    QObject::connect(action, &QAction::triggered, action, fn);
+    return action;
+}
+
+// 带勾选态的菜单项：checked 由调用方按真实运行状态给出。
+template <typename Fn>
+QAction *addCheckableItem(QMenu *menu, const QString &label, const QString &shortcut,
+                          bool checked, Fn fn)
+{
+    QAction *action = addMenuItem(menu, label, shortcut, fn);
+    action->setCheckable(true);
+    action->setChecked(checked);
+    return action;
+}
+
+} // namespace
+
+// 浏览：原始大小 / 适合窗口 / 适合宽度 / 智能双页×2 / 拉伸小图（7 项）
 QMenu *MainWindow::buildBrowseMenu()
 {
     auto *menu = new QMenu(this);
-    menu->addAction(actActualSize);
-    menu->addAction(actFit);
-    menu->addAction(actFitWidth);
+    menu->addAction(actActualSize);   // 0
+    menu->addAction(actFit);          // 9
+    menu->addAction(actFitWidth);     // 8
+    addMenuItem(menu, tr("智能双页阅览 (左→右)"), QStringLiteral("7"), [this]() {
+        m_toast->showMessage(tr("「智能双页阅览」暂未实现"));
+    });
+    addMenuItem(menu, tr("智能双页阅览 (左←右)"), QStringLiteral("6"), [this]() {
+        m_toast->showMessage(tr("「智能双页阅览」暂未实现"));
+    });
+    menu->addSeparator();
+    addMenuItem(menu, tr("拉伸小图"), QStringLiteral("Z"), [this]() {
+        m_toast->showMessage(tr("「拉伸小图」暂未实现"));
+    });
+    UiStyle::polishMenu(menu);
+    return menu;
+}
+
+// 幻灯片放映：停止放映 + 1~9 秒（Ctrl+1~9）+ 10/15/20/25/30/60/90 秒 + 循环 + 随机（19 项）
+QMenu *MainWindow::buildSlideshowMenu()
+{
+    auto *menu = new QMenu(this);
+    addCheckableItem(menu, tr("停止放映"), QStringLiteral("Ctrl+0"), !m_slideshow, [this]() {
+        if (m_slideshow) {
+            actSlideshow->setChecked(false);
+        }
+    });
+
+    // 间隔秒数：同一时间只有一个勾选（真实值来自 config/slideshow_interval_ms）
+    auto *intervalGroup = new QActionGroup(menu);
+    intervalGroup->setExclusive(true);
+    const int currentSec = qMax(1, Config::instance().slideshowIntervalMs() / 1000);
+    const QList<int> seconds = { 1, 2, 3, 4, 5, 6, 7, 8, 9,
+                                 10, 15, 20, 25, 30, 60, 90 };
+    for (int s : seconds) {
+        const QString shortcut = s <= 9 ? QStringLiteral("Ctrl+%1").arg(s) : QString();
+        QAction *a = addCheckableItem(menu, tr("%1 秒").arg(s), shortcut, currentSec == s,
+                                      [this, s]() {
+            Config::instance().settings().setValue(QStringLiteral("config/slideshow_interval_ms"),
+                                                   s * 1000);
+            m_slideshowTimer->setInterval(s * 1000);
+            if (m_slideshow) {
+                m_slideshowTimer->start();
+            }
+        });
+        intervalGroup->addAction(a);
+    }
+
+    menu->addSeparator();
+    // 循环：对应"到达首尾时转到首个文件"（config/edge_action = first）
+    addCheckableItem(menu, tr("循环"), QString(),
+                     Config::instance().edgeAction() == QLatin1String("first"), [this]() {
+        const QString next = Config::instance().edgeAction() == QLatin1String("first")
+                                 ? QStringLiteral("stop") : QStringLiteral("first");
+        Config::instance().settings().setValue(QStringLiteral("config/edge_action"), next);
+        m_dir->setEdgeAction(next);
+    });
+    addCheckableItem(menu, tr("随机"), QString(), m_slideshowRandom, [this]() {
+        m_slideshowRandom = !m_slideshowRandom;
+        Config::instance().settings().setValue(QStringLiteral("config/slideshow_random"),
+                                               m_slideshowRandom);
+    });
+    UiStyle::polishMenu(menu);
+    return menu;
+}
+
+// 书签：添加书签 / 编辑书签 / 删除所有书签 / 书签设置（6 项含 2 条分隔）
+QMenu *MainWindow::buildBookmarkMenu()
+{
+    auto *menu = new QMenu(this);
+    menu->addAction(actFavorite);   // 添加书签 B
+    addMenuItem(menu, tr("编辑书签"), QStringLiteral("F3"), [this]() {
+        m_toast->showMessage(tr("「编辑书签」暂未实现"));
+    });
+    menu->addSeparator();
+    addMenuItem(menu, tr("删除所有书签"), QString(), [this]() {
+        Config::instance().settings().setValue(QStringLiteral("favorites"), QStringList());
+        refreshLibraryMenus();
+        m_toast->showMessage(tr("已删除所有书签"));
+    });
+    menu->addSeparator();
+    addMenuItem(menu, tr("书签设置"), QString(), [this]() { onSettings(); });
+    UiStyle::polishMenu(menu);
+    return menu;
+}
+
+// 编辑：反色 / Gamma / 垂直翻转 / 水平翻转 / 转换图片 / 壁纸 / 打印 / 编辑器（8 项）
+QMenu *MainWindow::buildEditMenu()
+{
+    auto *menu = new QMenu(this);
+    addMenuItem(menu, tr("反色"), QString(), [this]() {
+        m_toast->showMessage(tr("「反色」暂未实现"));
+    });
+    addMenuItem(menu, tr("Gamma 补偿…"), QString(), [this]() {
+        m_toast->showMessage(tr("「Gamma 补偿」暂未实现"));
+    });
+    menu->addAction(actFlipV);
+    menu->addAction(actFlipH);
+    menu->addSeparator();
+    // 原版"转换图片"即图片转换对话框；本项目对应 BatchConvertDialog（标题「图片转换」）
+    addMenuItem(menu, tr("转换图片 (旋转/裁剪)"), QStringLiteral("Ctrl+T"), [this]() {
+        onBatchConvert();
+    });
+    menu->addAction(actWallpaper);
+    menu->addAction(actPrint);
+    menu->addAction(actOpenWithEditor);
+    UiStyle::polishMenu(menu);
+    return menu;
+}
+
+// 复制到：图片文件夹 1 / 2、移动到 1、路径定义、打开文件夹 1（5 项）
+QMenu *MainWindow::buildCopytoMenu()
+{
+    auto *menu = new QMenu(this);
+    auto transferTo = [this, menu](const QString &label, const QString &shortcut,
+                                   const QString &key, bool moveFile) {
+        addMenuItem(menu, label, shortcut, [this, key, moveFile]() {
+            const QString dir = Config::instance().settings().value(key).toString();
+            if (dir.isEmpty()) {
+                m_toast->showMessage(tr("请先在 设置 → 杂项 中配置图片文件夹"));
+                return;
+            }
+            if (m_currentPath.isEmpty()) {
+                return;
+            }
+            const QString dest = QDir(dir).filePath(QFileInfo(m_currentPath).fileName());
+            if (QFileInfo::exists(dest)) {
+                m_toast->showMessage(tr("目标已存在：%1").arg(dest));
+                return;
+            }
+            const bool ok = moveFile ? QFile::rename(m_currentPath, dest)
+                                     : QFile::copy(m_currentPath, dest);
+            if (!ok) {
+                m_toast->showMessage(tr("操作失败：%1").arg(dest));
+            } else if (moveFile) {
+                m_toast->showMessage(tr("已移动到：%1").arg(dest));
+            } else {
+                m_toast->showMessage(tr("已复制到：%1").arg(dest));
+            }
+        });
+    };
+    transferTo(tr("复制到 图片文件夹 1"), QStringLiteral("Insert"),
+               QStringLiteral("config/etc/photo_folder_1"), false);
+    transferTo(tr("复制到 图片文件夹 2"), QStringLiteral("Shift+Insert"),
+               QStringLiteral("config/etc/photo_folder_2"), false);
+    transferTo(tr("移动到 图片文件夹 1"), QStringLiteral("Ctrl+Insert"),
+               QStringLiteral("config/etc/photo_folder_1"), true);
+    menu->addSeparator();
+    addMenuItem(menu, tr("图片文件夹 路径定义"), QString(), [this]() { onSettings(); });
+    addMenuItem(menu, tr("打开 图片文件夹 1"), QString(), [this]() {
+        const QString dir = Config::instance().settings()
+                                .value(QStringLiteral("config/etc/photo_folder_1")).toString();
+        if (dir.isEmpty() || !QFileInfo::exists(dir)) {
+            m_toast->showMessage(tr("请先在 设置 → 杂项 中配置图片文件夹"));
+            return;
+        }
+        QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
+    });
+    UiStyle::polishMenu(menu);
+    return menu;
+}
+
+// 系统菜单（原型未定义，保留"更多"菜单：收纳 5 个下拉不再出现的既有功能，
+// 避免已实现的动作丢失入口）
+QMenu *MainWindow::buildSystemMenu()
+{
+    auto *menu = new QMenu(this);
+    menu->addAction(actOpen);
+    menu->addAction(actOpenFolder);
+    menu->addAction(actSaveAs);
     menu->addSeparator();
     menu->addAction(actSlideshow);
-    menu->addAction(actNextFrame);
     menu->addAction(actPrevFrame);
+    menu->addAction(actNextFrame);
+    menu->addAction(actCrop);
+    menu->addAction(actResize);
     menu->addSeparator();
-    auto *sort = menu->addMenu(tr("排序方式"));
+    menu->addAction(actDark);
+    menu->addAction(actSettings);
+    menu->addAction(actAbout);
+    menu->addSeparator();
+    menu->addAction(actQuit);
+    UiStyle::polishMenu(menu);
+    return menu;
+}
+
+// 右键菜单：25 个根项 + 7 组级联（浏览导航/插值算法/图片效果/排序方式/
+// 浏览方式/缩放工具/图像旋转），条目顺序与分隔线位置照抄 contextItems。
+QMenu *MainWindow::buildContextMenu()
+{
+    auto *menu = new QMenu(this);
+    // 暂无实现的条目：点击后明确提示，不做静默无反应
+    auto pending = [this](QMenu *target, const QString &label, const QString &shortcut) {
+        addMenuItem(target, label, shortcut, [this, label]() {
+            m_toast->showMessage(tr("「%1」暂未实现").arg(label));
+        });
+    };
+
+    // —— 文件 ——
+    addMenuItem(menu, tr("打开图片"), QStringLiteral("F2"), [this]() { onOpen(); });
+    addMenuItem(menu, tr("打开文件夹"), QStringLiteral("F"), [this]() { onOpenFolder(); });
+    addMenuItem(menu, tr("关闭"), QStringLiteral("F4"), [this]() { close(); });
+    pending(menu, tr("选择图片"), QStringLiteral("Enter"));
+    addMenuItem(menu, tr("定位文件"), QStringLiteral("Ctrl+Enter"), [this]() {
+        if (m_currentPath.isEmpty()) {
+            return;
+        }
+        QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(m_currentPath).absolutePath()));
+    });
+    menu->addSeparator();
+
+    // —— 显示效果（真实勾选态由 actEffect* 单选组承载）——
+    menu->addAction(actEffectNone);
+    menu->addAction(actEffectSoften);
+    menu->addAction(actEffectSharpen);
+    menu->addSeparator();
+
+    // —— 浏览导航（10 项）——
+    QMenu *nav = menu->addMenu(tr("浏览导航"));
+    addMenuItem(nav, tr("下一张图片"), QStringLiteral("→"), [this]() { onNext(); });
+    addMenuItem(nav, tr("上一张图片"), QStringLiteral("←"), [this]() { onPrev(); });
+    addMenuItem(nav, tr("首张图片"), QStringLiteral("Home"), [this]() { onFirst(); });
+    addMenuItem(nav, tr("末尾图片"), QStringLiteral("End"), [this]() { onLast(); });
+    addMenuItem(nav, tr("向下10张图片"), QStringLiteral("Ctrl+PageDown"), [this]() { onNext10(); });
+    addMenuItem(nav, tr("向上10张图片"), QStringLiteral("Ctrl+PageUp"), [this]() { onPrev10(); });
+    // 随机跳转：向后 = 只在当前位置之后取，越界回绕
+    auto jumpRandom = [this](bool forward) {
+        const int n = m_dir->count();
+        if (n < 2) {
+            return;
+        }
+        const int cur = m_dir->index();
+        int lo = 0;
+        int hi = n - 1;
+        if (forward) {
+            lo = cur + 1;
+            if (lo > hi) {
+                lo = 0;
+                hi = cur - 1;
+            }
+        } else {
+            hi = cur - 1;
+            if (hi < lo) {
+                lo = cur + 1;
+                hi = n - 1;
+            }
+        }
+        if (hi < lo) {
+            return;
+        }
+        const int target = lo + QRandomGenerator::global()->bounded(hi - lo + 1);
+        m_dir->setIndex(target);
+        loadAsync(m_dir->current());
+    };
+    addMenuItem(nav, tr("向后随机转到某张图片"), QStringLiteral("Ctrl+Alt+PageDown"),
+                [jumpRandom]() { jumpRandom(true); });
+    addMenuItem(nav, tr("向前随机转到某张图片"), QStringLiteral("Ctrl+Alt+PageUp"),
+                [jumpRandom]() { jumpRandom(false); });
+    addMenuItem(nav, tr("下一个 文件夹/压缩包"), QStringLiteral("]"), [this]() { onNextFolder(); });
+    addMenuItem(nav, tr("上一个 文件夹/压缩包"), QStringLiteral("["), [this]() { onPrevFolder(); });
+    UiStyle::polishMenu(nav);
+
+    // —— 插值算法（3 项，勾选态跟随真实设置）——
+    QMenu *interp = menu->addMenu(tr("插值算法"));
+    actInterpFast->setChecked(!m_smoothInterpolation);
+    actInterpSmooth->setChecked(m_smoothInterpolation);
+    interp->addAction(actInterpFast);
+    interp->addAction(actInterpSmooth);
+    pending(interp, tr("Lanczos 插值 (慢，高品质)"), QString());
+    UiStyle::polishMenu(interp);
+
+    // —— 图片效果（4 项）——
+    QMenu *fx = menu->addMenu(tr("图片效果"));
+    pending(fx, tr("反色"), QString());
+    pending(fx, tr("Gamma 补偿…"), QString());
+    fx->addAction(actFlipV);
+    fx->addAction(actFlipH);
+    UiStyle::polishMenu(fx);
+
+    // —— 排序方式（5 项 + 1 条分隔，勾选态来自真实排序设置）——
+    QMenu *sort = menu->addMenu(tr("排序方式"));
+    const int sortMode = Config::instance().sortMode();
+    actSortName->setChecked(sortMode == 0);
+    actSortTime->setChecked(sortMode == 1);
+    actSortSize->setChecked(sortMode == 2);
+    actSortType->setChecked(sortMode == 3);
+    actSortDesc->setChecked(Config::instance().sortDescending());
     sort->addAction(actSortName);
     sort->addAction(actSortTime);
     sort->addAction(actSortSize);
     sort->addAction(actSortType);
     sort->addSeparator();
     sort->addAction(actSortDesc);
-    auto *interp = menu->addMenu(tr("插值算法"));
-    interp->addAction(actInterpFast);
-    interp->addAction(actInterpSmooth);
-    auto *fx = menu->addMenu(tr("图像效果"));
-    fx->addAction(actEffectNone);
-    fx->addAction(actEffectSoften);
-    fx->addAction(actEffectSharpen);
+    UiStyle::polishMenu(sort);
     menu->addSeparator();
-    menu->addAction(actDark);
-    return menu;
-}
 
-QMenu *MainWindow::buildSlideshowMenu()
-{
-    auto *menu = new QMenu(this);
-    menu->addAction(actSlideshow);
-    menu->addSeparator();
-    // 随机播放（对照原版 MENUSTR_SLIDESHOW_RANDOM）
-    auto *randAction = menu->addAction(tr("随机"));
-    randAction->setCheckable(true);
-    randAction->setChecked(m_slideshowRandom);
-    connect(randAction, &QAction::toggled, this, [this](bool on) {
-        m_slideshowRandom = on;
-        Config::instance().settings().setValue(QStringLiteral("config/slideshow_random"), on);
-    });
-    // 间隔秒数
-    auto *intervalMenu = menu->addMenu(tr("放映间隔"));
-    const QList<int> secs = { 1, 2, 3, 5, 10, 15, 30, 60, 90 };
-    auto *group = new QActionGroup(menu);
-    group->setExclusive(true);
-    const int cur = Config::instance().slideshowIntervalMs() / 1000;
-    for (int s : secs) {
-        auto *a = intervalMenu->addAction(s == 1 ? tr("1 秒") : tr("%1 秒").arg(s));
-        a->setCheckable(true);
-        a->setChecked(cur == s);
-        group->addAction(a);
-        connect(a, &QAction::triggered, this, [this, s]() {
-            Config::instance().settings().setValue(QStringLiteral("config/slideshow_interval_ms"), s * 1000);
-            m_slideshowTimer->setInterval(s * 1000);
-            if (m_slideshow) {
-                m_slideshowTimer->start();
-            }
-        });
-    }
-    // 到达首尾行为
-    auto *edge = menu->addMenu(tr("到达首尾图片时"));
-    const QString curEdge = Config::instance().edgeAction();
-    const QList<QPair<QString, QString>> edges = {
-        { "first", tr("转到首个文件") }, { "stop", tr("停止") }, { "ask", tr("询问") },
-    };
-    for (const auto &e : edges) {
-        auto *a = edge->addAction(e.second);
-        a->setCheckable(true);
-        a->setChecked(curEdge == e.first);
-        connect(a, &QAction::triggered, this, [this, e]() {
-            Config::instance().settings().setValue(QStringLiteral("config/edge_action"), e.first);
-            m_dir->setEdgeAction(e.first);
-        });
-    }
-    return menu;
-}
+    // —— 浏览方式（原型取 showmode 前 5 项）——
+    QMenu *show = menu->addMenu(tr("浏览方式"));
+    actActualSize->setChecked(m_viewMode == 0);
+    actFit->setChecked(m_viewMode == 1);
+    actFitWidth->setChecked(m_viewMode == 2);
+    show->addAction(actActualSize);
+    show->addAction(actFit);
+    show->addAction(actFitWidth);
+    pending(show, tr("智能双页阅览 (左→右)"), QStringLiteral("7"));
+    pending(show, tr("智能双页阅览 (左←右)"), QStringLiteral("6"));
+    UiStyle::polishMenu(show);
 
-QMenu *MainWindow::buildBookmarkMenu()
-{
-    auto *menu = new QMenu(this);
-    menu->addAction(actFavorite);
-    if (!m_favMenu) {
-        m_favMenu = new QMenu(tr("收藏夹"), this);
-    }
-    refreshLibraryMenus();
-    menu->addMenu(m_favMenu);
-    menu->addSeparator();
-    menu->addAction(tr("打开设置（书签页）"), this, &MainWindow::onSettings);
-    return menu;
-}
-
-QMenu *MainWindow::buildEditMenu()
-{
-    auto *menu = new QMenu(this);
-    menu->addAction(actRotateLeft);
-    menu->addAction(actRotateRight);
-    menu->addAction(actFlipV);
-    menu->addAction(actFlipH);
-    menu->addSeparator();
-    menu->addAction(actCrop);
-    menu->addAction(actResize);
-    menu->addSeparator();
-    menu->addAction(actBatchConvert);
-    menu->addAction(actWallpaper);
-    menu->addAction(actPrint);
-    menu->addAction(actOpenWithEditor);
-    return menu;
-}
-
-QMenu *MainWindow::buildCopytoMenu()
-{
-    auto *menu = new QMenu(this);
-    menu->addAction(actCopyToFolder);
-    menu->addAction(actDelete);
-    menu->addSeparator();
-    menu->addAction(actCopyToClipboard);
-    menu->addAction(actSaveAs);
-    menu->addSeparator();
-    menu->addAction(tr("打开图片文件夹"), this, [this]() {
-        const QString d = Config::instance().settings()
-                              .value(QStringLiteral("config/etc/photo_folder_1")).toString();
-        if (!d.isEmpty()) {
-            QDesktopServices::openUrl(QUrl::fromLocalFile(d));
-        } else {
-            m_toast->showMessage(tr("请先在设置 → 杂项 中配置图片文件夹"));
+    // —— 缩放工具（6 项）——
+    QMenu *zoom = menu->addMenu(tr("缩放工具"));
+    addMenuItem(zoom, tr("放大"), QStringLiteral("+"), [this]() { onZoomIn(); });
+    addMenuItem(zoom, tr("缩小"), QStringLiteral("−"), [this]() { onZoomOut(); });
+    pending(zoom, tr("锁定"), QStringLiteral("Ctrl+K"));
+    addMenuItem(zoom, tr("100%"), QStringLiteral("*"), [this]() { setViewMode(0); });
+    addMenuItem(zoom, tr("放大 (1%)"), QStringLiteral("Ctrl++"), [this]() {
+        if (!m_currentImage.isNull()) {
+            m_canvas->setZoom(m_canvas->zoom() + 0.01);
         }
     });
-    menu->addAction(actSettings);
-    return menu;
-}
+    addMenuItem(zoom, tr("缩小 (1%)"), QStringLiteral("Ctrl+−"), [this]() {
+        if (!m_currentImage.isNull()) {
+            m_canvas->setZoom(m_canvas->zoom() - 0.01);
+        }
+    });
+    UiStyle::polishMenu(zoom);
 
-QMenu *MainWindow::buildSystemMenu()
-{
-    auto *menu = new QMenu(this);
-    menu->addAction(actOpen);
-    menu->addAction(actOpenFolder);
+    // —— 图像旋转（4 项）——
+    QMenu *rot = menu->addMenu(tr("图像旋转"));
+    addCheckableItem(rot, tr("不旋转"), QStringLiteral("Alt+Up"), false, [this]() {
+        m_toast->showMessage(tr("「不旋转」暂未实现"));
+    });
+    rot->addAction(actRotateLeft);    // 逆时针 90° Alt+Left
+    rot->addAction(actRotateRight);   // 顺时针 90° Alt+Right
+    addMenuItem(rot, tr("旋转 180°"), QStringLiteral("Alt+Down"), [this]() { rotateImage(180); });
+    UiStyle::polishMenu(rot);
     menu->addSeparator();
-    menu->addAction(actSettings);
-    menu->addAction(actAbout);
-    menu->addSeparator();
-    menu->addAction(actQuit);
-    return menu;
-}
 
-QMenu *MainWindow::buildContextMenu()
-{
-    auto *menu = new QMenu(this);
-
-    menu->addAction(actOpen);
-    menu->addAction(actOpenFolder);
-    menu->addSeparator();
-    menu->addAction(actToggleMeta);
+    // —— 信息 / 文件操作 ——
+    addCheckableItem(menu, tr("EXIF 信息"), QStringLiteral("TAB"), m_metadata->isVisible(),
+                     [this]() { actToggleMeta->setChecked(!m_metadata->isVisible()); });
     menu->addAction(actWallpaper);
-    menu->addSeparator();
     menu->addAction(actDelete);
     menu->addAction(actCopyToFolder);
     menu->addAction(actOpenWithEditor);
@@ -871,38 +1100,12 @@ QMenu *MainWindow::buildContextMenu()
     }
     menu->addSeparator();
 
-    QMenu *rot = menu->addMenu(tr("旋转"));
-    rot->addAction(actRotateLeft);
-    rot->addAction(actRotateRight);
-    rot->addAction(actFlipH);
-    rot->addAction(actFlipV);
+    // —— 应用 ——
+    addMenuItem(menu, tr("设置"), QStringLiteral("F5"), [this]() { onSettings(); });
+    addMenuItem(menu, tr("关于"), QStringLiteral("F1"), [this]() { onAbout(); });
+    addMenuItem(menu, tr("退出"), QStringLiteral("X"), [this]() { close(); });
 
-    QMenu *effect = menu->addMenu(tr("图像效果"));
-    effect->addAction(actEffectNone);
-    effect->addAction(actEffectSoften);
-    effect->addAction(actEffectSharpen);
-
-    menu->addAction(actCrop);
-    menu->addAction(actResize);
-    menu->addSeparator();
-    // 浏览导航子菜单（原版 MENUSTR_PAGEMOVE）
-    QMenu *nav = menu->addMenu(tr("浏览导航"));
-    nav->addAction(actPrev);
-    nav->addAction(actNext);
-    nav->addAction(actFirst);
-    nav->addAction(actLast);
-    nav->addSeparator();
-    nav->addAction(actPrev10);
-    nav->addAction(actNext10);
-    nav->addSeparator();
-    nav->addAction(actPrevFolder);
-    nav->addAction(actNextFolder);
-    menu->addAction(actSlideshow);
-    menu->addSeparator();
-    menu->addAction(actSettings);
-    menu->addAction(actAbout);
-    menu->addAction(actQuit);
-
+    UiStyle::polishMenu(menu);
     return menu;
 }
 
@@ -1215,6 +1418,28 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     else if (c == QLatin1String("locktop")) { if (!m_topLocked) toggleTopLock(); }
     else if (c == QLatin1String("lockdock")) { if (!m_dockLocked) toggleDockLock(); }
     else if (c == QLatin1String("fullscreen")) isFullScreen() ? showNormal() : showFullScreen();
+    // —— 二级界面（截图冒烟用，非模态打开以便截到窗口本身）——
+    else if (c == QLatin1String("settings")) {
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+    }
+    else if (c == QLatin1String("convert")) {
+        auto *dlg = new BatchConvertDialog(m_dir->files(), this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+    }
+    else if (c == QLatin1String("info")) {
+        if (m_metadata) {
+            m_metadata->show();
+            m_metadata->raise();
+            applyChromeLayout();
+        }
+    }
+    else if (c == QLatin1String("ctxmenu")) {
+        QMenu *menu = buildContextMenu();
+        menu->popup(mapToGlobal(QPoint(width() / 2 - 120, height() / 3)));
+    }
 }
 
 void MainWindow::onPrev()

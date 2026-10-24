@@ -74,6 +74,12 @@ int main(int argc, char *argv[])
                                QStringLiteral("Grab the window to <out.png> after all commands, then quit"),
                                QStringLiteral("out"));
     parser.addOption(shotOpt);
+    // 调试：--screenshot-ui <out.png> 抓「当前最上层的那个窗口」（菜单 > 模态框 > 活动窗口 > 主窗口）。
+    // 二级界面（设置/图片转换/图片信息/右键菜单）都是独立顶层窗口，window.grab() 截不到。
+    QCommandLineOption shotUiOpt(QStringLiteral("screenshot-ui"),
+                                 QStringLiteral("Grab the active top-level window (menu/dialog) to <out.png>"),
+                                 QStringLiteral("out"));
+    parser.addOption(shotUiOpt);
     parser.addPositionalArgument(QStringLiteral("file"), QStringLiteral("Image file to open"));
     parser.process(app);
 
@@ -103,6 +109,27 @@ int main(int argc, char *argv[])
         const QString out = parser.value(shotOpt);
         QTimer::singleShot(settleDelay, &window, [&window, out]() {
             window.grab().save(out);
+            QApplication::quit();
+        });
+    }
+
+    if (parser.isSet(shotUiOpt)) {
+        const QString out = parser.value(shotUiOpt);
+        QTimer::singleShot(settleDelay + 250, &window, [&window, out]() {
+            QWidget *target = QApplication::activePopupWidget();
+            if (!target) target = QApplication::activeModalWidget();
+            if (!target) {
+                // 非模态对话框：取最后一个可见的顶层窗口
+                const auto tops = QApplication::topLevelWidgets();
+                for (QWidget *w : tops) {
+                    if (w != &window && w->isVisible() && w->windowType() == Qt::Window) {
+                        target = w;
+                    }
+                }
+            }
+            if (!target) target = QApplication::activeWindow();
+            if (!target) target = &window;
+            target->grab().save(out);
             QApplication::quit();
         });
     }
