@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QGraphicsView>
+#include <QMargins>
 
 class QGraphicsPixmapItem;
 class QGraphicsRectItem;
@@ -17,10 +18,17 @@ public:
     explicit ImageCanvas(QWidget *parent = nullptr);
 
     void setPixmap(const QPixmap &pixmap);
+    // 旋转/翻转等原地替换：保持当前缩放与视口中心（anchorNorm 为新图中要占据
+    // 视口中心的归一化坐标），避免转完后图像跳位或被重新适配。
+    void setPixmapPreservingView(const QPixmap &pixmap, const QPointF &anchorNorm,
+                                 qreal zoom, bool fitWindow, bool fitWidth);
+    // 视口中心落在当前图片内的归一化坐标（0..1），无图时返回 (0.5, 0.5)
+    QPointF viewCenterNormalized() const;
     void clear();
     void setSmooth(bool on);
     void setWheelZoomEnabled(bool on) { m_wheelZoom = on; }
     void setMiddlePanEnabled(bool on) { m_middlePan = on; }
+    void setContentMargins(const QMargins &margins);
     void fitToWindow();
     void fitToWidth();                    // 浏览模式 2：按图宽缩放，垂直可滚
     void zoomIn();

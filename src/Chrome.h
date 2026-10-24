@@ -11,23 +11,20 @@
 class QTimer;
 class QGraphicsOpacityEffect;
 class QPropertyAnimation;
+
 // ---------------------------------------------------------------------------
-// Honeyview 5.53 主窗口铬件（布局参数 + 尺寸沿用其可观察行为，
-// 贴图为本项目自绘）。四个自绘部件：标题栏 / 工具栏 / 底部胶囊控制栏 / 消息提示。
-// 皮肤贴图 4 帧横排：帧0 常态 / 帧1 悬停 / 帧2 按下 / 帧3 禁用。
+// QuikView Windows 11 铬件。
+// 全部为自绘控件：标题栏 / 命令栏 / 浮动控制胶囊 / 状态浮层 / 空状态 / 消息条。
+// 视觉参数来自 Temp/quikview-win11-prototype.html。
 // ---------------------------------------------------------------------------
 namespace Chrome {
 
 // resources/skin 目录解析（构建树与部署树都覆盖）
 QString skinDir();
-
-// 取整张贴图
 QPixmap skinPixmap(const QString &name);
-// 取 4 帧贴图的第 idx 帧
 QPixmap skinFrame(const QString &name, int idx);
 
-// ============================ 标题栏（25px） ============================
-// 布局：左 logo(btn_logo) + 标题文字；右 全屏/最小/最大(btn_* 24x21) + 关闭(红 50x21)
+// ============================ 标题栏（28px） ============================
 class CaptionBar : public QWidget
 {
     Q_OBJECT
@@ -48,38 +45,37 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void contextMenuEvent(QContextMenuEvent *event) override;
     void leaveEvent(QEvent *event) override;
 
 private:
-    QVector<QRect> buttonRects() const;   // 0=full 1=min 2=max 3=close
+    QRect buttonRect(int index) const;   // 0=min 1=max 2=close
     int hitTest(const QPoint &pos) const;
-    void startDrag();
 
     QString m_title;
     int m_hover = -1;
     int m_press = -1;
-    bool m_dragging = false;
-    QPoint m_dragOffset;
 };
 
-// ============================ 工具栏（31px） ============================
-// 右对齐按钮组（自右向左）：锁定 / 复制到 / 编辑 / 书签 / 幻灯片放映 / 浏览
-// 每钮 = 文字 + btn_expand 下拉箭头（锁定为文字 + btn_small_check 圆勾）
-// 浏览钮最左带 static_showmode_0..4 模式图标。悬停浅蓝 tint。
+// ============================ 命令栏（34px） ============================
 class ToolBar : public QWidget
 {
     Q_OBJECT
 public:
     explicit ToolBar(QWidget *parent = nullptr);
-    void setShowModeIcon(int index);   // 0..4 -> static_showmode_0..4
+    void setShowModeIcon(int index);   // 兼容旧调用，视觉暂不展示模式小图
+    void setLocked(bool locked);
+    bool isLocked() const { return m_locked; }
 
 signals:
+    void openClicked();
     void browseMenuRequested(const QPoint &globalPos);
     void slideshowMenuRequested(const QPoint &globalPos);
     void bookmarkMenuRequested(const QPoint &globalPos);
     void editMenuRequested(const QPoint &globalPos);
     void copytoMenuRequested(const QPoint &globalPos);
     void lockToggled();
+    void moreMenuRequested(const QPoint &globalPos);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -90,10 +86,11 @@ protected:
 
 private:
     struct Btn {
+        int id = -1;
         QString text;
-        bool isLock;
-        bool isShowmode;
         QRect rect;
+        bool primary = false;
+        bool caret = false;
     };
     QVector<Btn> buttons() const;
     int hitTest(const QPoint &pos) const;
@@ -101,22 +98,23 @@ private:
     int m_hover = -1;
     int m_press = -1;
     int m_showModeIcon = 0;
+    bool m_locked = false;
 };
 
-// ==================== 底部胶囊控制栏（460x80，浮于画布下缘） ====================
-// static_controlpanel.png 整体贴图；左 ▲打开 ☰列表，中部滑轨 + − ↺ ↻ 锁定，
-// 右 ‹ ›。大圆钮 46x46（btn_open/btn_list/btn_prev/btn_next 含圆底），
-// 小钮 28x28（btn_small_zoomin/zoomout、btn_rotate_left/right）。
+// ==================== 底部胶囊控制栏（408x72，浮于画布下缘） ====================
 class ControlBar : public QWidget
 {
     Q_OBJECT
 public:
     explicit ControlBar(QWidget *parent = nullptr);
     void setZoomPercent(int percent);   // 画布缩放百分比（100 = 实际大小）
+    void setLocked(bool locked);
+    bool isLocked() const { return m_locked; }
 
 signals:
     void openClicked();
     void listClicked();
+    void fitClicked();
     void zoomInClicked();
     void zoomOutClicked();
     void rotateLeftClicked();
@@ -124,37 +122,86 @@ signals:
     void lockToggled();
     void prevClicked();
     void nextClicked();
-    void prev10Clicked();   // 右键点 ‹（skin: CommandR=CMD_PREV10）
-    void next10Clicked();   // 右键点 ›
-    void prevFolderClicked();  // 中键点 ‹（skin: CommandM=CMD_PREVPATH）
-    void nextFolderClicked();  // 中键点 ›
+    void prev10Clicked();       // 右键点 ‹
+    void next10Clicked();       // 右键点 ›
+    void prevFolderClicked();   // 中键点 ‹
+    void nextFolderClicked();   // 中键点 ›
     void zoomRequested(int percent);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
-    void mouseMoveEvent(QMouseEvent *) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
-    void leaveEvent(QEvent *) override;
+    void leaveEvent(QEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
 
 private:
+    enum class Action {
+        None, Open, List, Fit, RotateLeft, RotateRight,
+        Prev, Next, Lock, ZoomOut, ZoomIn, ZoomValue, Slider
+    };
     struct Item {
-        const char *name;
+        Action action = Action::None;
         QRect rect;
     };
     QVector<Item> items() const;
-    int hitTest(const QPoint &pos) const;   // -1 无
-    void applySliderValueFromX(int x);      // 轨道 x -> 滑轨值 -> zoomRequested
-    QRect sliderTrackRect() const;          // 轨道槽（贴图拉伸区）
+    Action hitTest(const QPoint &pos) const;
+    void applySliderValueFromX(int x);
+    int currentSliderPercent() const;
 
     int m_hover = -1;
     int m_press = -1;
-    bool m_dragging = false;                // 拖动滑轨中
-    int m_value = 0;                        // 滑轨值 -100..100（0 = 100%）
+    bool m_dragging = false;
+    bool m_locked = false;
+    int m_percent = 68;
+};
+
+// ============================ 状态浮层 ============================
+// 左下图片信息、右下图片序号；始终显示，不拦截鼠标。
+class StatusOverlay : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit StatusOverlay(QWidget *parent = nullptr);
+    void setImageInfo(const QString &text);
+    void setCounter(const QString &text);
+    void clear();
+
+protected:
+    void paintEvent(QPaintEvent *event) override;
+
+private:
+    QString m_info;
+    QString m_counter;
+};
+
+// ============================ 空状态 ============================
+class EmptyState : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit EmptyState(QWidget *parent = nullptr);
+
+signals:
+    void openClicked();
+    void folderClicked();
+
+protected:
+    void paintEvent(QPaintEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void leaveEvent(QEvent *event) override;
+
+private:
+    QRect primaryRect() const;
+    QRect secondaryRect() const;
+    int m_hover = -1;
+    int m_press = -1;
 };
 
 // ============================ 消息提示 ============================
-// 画布顶部居中的深色圆角条，2 秒后消失
 class Toast : public QWidget
 {
     Q_OBJECT
@@ -170,8 +217,7 @@ private:
     QTimer *m_timer = nullptr;
 };
 
-// ==================== 左下角缩放浮标（SPEC Viewer 合同） ====================
-// 缩放/浏览方式变化时短暂显示（"适合窗口"/"适合宽度"/"214%"），1.5s 后淡出，非常驻
+// ==================== 左下角缩放浮标 ====================
 class ZoomBadge : public QWidget
 {
     Q_OBJECT

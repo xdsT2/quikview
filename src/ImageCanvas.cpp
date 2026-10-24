@@ -44,7 +44,9 @@ ImageCanvas::ImageCanvas(QWidget *parent)
     // 原版无可见滚动条（平移走左键拖动/滚轮缩放）
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    setBackgroundBrush(QColor(32, 32, 32));
+    setFrameShape(QFrame::NoFrame);
+    setBackgroundBrush(QColor(QStringLiteral("#161719")));
+    setStyleSheet(QStringLiteral("QGraphicsView{background:#161719;border:0;}"));
 
     m_logo = new QLabel(viewport());
     m_logo->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -71,10 +73,56 @@ void ImageCanvas::setPixmap(const QPixmap &pixmap)
     m_rubber = nullptr;
     m_zoom = 1.0;
     resetTransform();
+    // QGraphicsScene 的 sceneRect 只涨不缩：换图后必须显式重置成新图尺寸，
+    // 否则小于视口的图会按旧矩形的中心对齐，表现为「图偏在左边」。
+    scene()->setSceneRect(m_item->boundingRect());
     fitToWindow();
     if (m_logo) {
         m_logo->hide();
     }
+}
+
+void ImageCanvas::setPixmapPreservingView(const QPixmap &pixmap, const QPointF &anchorNorm,
+                                          qreal zoom, bool fitWindow, bool fitWidth)
+{
+    const bool hadItem = (m_item != nullptr);
+    scene()->clear();
+    m_item = scene()->addPixmap(pixmap);
+    m_item->setTransformationMode(Qt::SmoothTransformation);
+    m_rubber = nullptr;
+    resetTransform();
+    scene()->setSceneRect(m_item->boundingRect());   // 同 setPixmap：防止沿用旧矩形
+    if (!hadItem || fitWindow) {
+        fitToWindow();
+        return;
+    }
+    if (fitWidth) {
+        fitToWidth();
+        return;
+    }
+    const qreal z = zoom > 0.0 ? zoom : 1.0;
+    scale(z, z);
+    m_zoom = z;
+    m_fitToWindow = false;
+    m_fitWidth = false;
+    const QRectF r = m_item->sceneBoundingRect();
+    centerOn(r.left() + qBound(0.0, anchorNorm.x(), 1.0) * r.width(),
+             r.top() + qBound(0.0, anchorNorm.y(), 1.0) * r.height());
+    emit zoomChanged(m_zoom);
+}
+
+QPointF ImageCanvas::viewCenterNormalized() const
+{
+    if (!m_item) {
+        return QPointF(0.5, 0.5);
+    }
+    const QRectF r = m_item->sceneBoundingRect();
+    if (r.width() <= 0.0 || r.height() <= 0.0) {
+        return QPointF(0.5, 0.5);
+    }
+    const QPointF c = mapToScene(viewport()->rect().center());
+    return QPointF(qBound(0.0, (c.x() - r.left()) / r.width(), 1.0),
+                   qBound(0.0, (c.y() - r.top()) / r.height(), 1.0));
 }
 
 void ImageCanvas::clear()
@@ -84,6 +132,21 @@ void ImageCanvas::clear()
     m_rubber = nullptr;
     if (m_logo) {
         m_logo->show();
+    }
+}
+
+void ImageCanvas::setContentMargins(const QMargins &margins)
+{
+    // 边距变化会改变可视区，自定义缩放下必须把原来的视图中心还原回去，
+    // 否则展开缩略图栏后图片会被压到一边、拖动也对不上。
+    const QPointF keep = m_item ? mapToScene(viewport()->rect().center()) : QPointF();
+    setViewportMargins(margins.left(), margins.top(), margins.right(), margins.bottom());
+    if (m_fitToWindow) {
+        fitToWindow();
+    } else if (m_fitWidth) {
+        fitToWidth();
+    } else if (m_item) {
+        centerOn(keep);
     }
 }
 

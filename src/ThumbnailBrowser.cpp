@@ -12,13 +12,26 @@ ThumbnailBrowser::ThumbnailBrowser(ImageCache *cache, QWidget *parent)
     , m_cache(cache)
 {
     setObjectName(QStringLiteral("thumbnailBrowser"));
-    // 普通子部件面板（原版 Honeyview 的缩略图栏无标题栏）：深色底 + 1px 边框
+    // 普通 QWidget 子类默认不画样式表背景（会露出一整块生硬的黑底、也没有
+    // 边框圆角），必须显式开 WA_StyledBackground 才会按下面的规则绘制。
+    setAttribute(Qt::WA_StyledBackground, true);
     setStyleSheet(QStringLiteral(
-        "ThumbnailBrowser { background: #1f1f1f; border: 1px solid #3c3c3c; }"
-        "QListWidget { background: #1f1f1f; border: none; color: #d8d8d8; }"));
+        "#thumbnailBrowser { background: #22242a; border: 1px solid rgba(255,255,255,10%);"
+        " border-radius: 8px; }"
+        "QListWidget { background: transparent; border: none; color: #c9ccd1; outline: none; }"
+        "QListWidget::item { padding: 4px 2px 6px 2px; border-radius: 6px; }"
+        "QListWidget::item:hover { background: rgba(255,255,255,6%); }"
+        "QListWidget::item:selected { background: rgba(85,192,240,18%);"
+        " color: #ffffff; border: 1px solid rgba(85,192,240,45%); }"
+        "QScrollBar:vertical { background: transparent; width: 8px; margin: 2px; }"
+        "QScrollBar::handle:vertical { background: rgba(255,255,255,22%);"
+        " border-radius: 4px; min-height: 28px; }"
+        "QScrollBar::handle:vertical:hover { background: rgba(255,255,255,34%); }"
+        "QScrollBar::add-line, QScrollBar::sub-line,"
+        " QScrollBar::add-page, QScrollBar::sub-page { background: transparent; height: 0; }"));
 
     auto *lay = new QVBoxLayout(this);
-    lay->setContentsMargins(4, 4, 4, 4);
+    lay->setContentsMargins(6, 6, 6, 6);
     m_list = new QListWidget(this);
     m_list->setViewMode(QListView::IconMode);
     m_list->setIconSize(QSize(m_thumbSize, m_thumbSize));

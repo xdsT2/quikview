@@ -5,10 +5,13 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QContextMenuEvent>
+#include <QCursor>
 #include <QDesktopServices>
 #include <QDir>
+#include <QEasingCurve>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QGraphicsOpacityEffect>
 #include <QImage>
 #include <QInputDialog>
 #include <QKeyEvent>
@@ -20,6 +23,7 @@
 #include <QPrintDialog>
 #include <QPrinter>
 #include <QProcess>
+#include <QPropertyAnimation>
 #include <QRandomGenerator>
 #include <QResizeEvent>
 #include <QTimer>
@@ -51,15 +55,23 @@ inline short yFromLparam(long v) { return static_cast<short>(HIWORD(v)); }
 }
 #endif
 
+namespace {
+constexpr int kBrowserWidth = 260;   // 缩略图栏宽
+constexpr int kBrowserGap = 8;       // 与窗口左缘/画布之间的留白
+constexpr int kTopChromeH = 76;      // 标题栏 28 + 命令栏 34 + 视觉留白
+constexpr int kDockInset = 84;       // 底部胶囊占位
+} // namespace
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     // Honeyview 无边框铬件窗口
     setWindowFlags(windowFlags() | Qt::FramelessWindowHint);
     setWindowTitle(QStringLiteral("QuikView"));
-    resize(970, 806);
-    setMinimumSize(500, 400);
+    resize(1080, 815);
+    setMinimumSize(720, 500);
     setAcceptDrops(true);
+    setMouseTracking(true);
 
 #ifdef Q_OS_WIN
     // Windows 11 原生窗口圆角（DWMWA_WINDOW_CORNER_PREFERENCE=33, ROUND=2）。
@@ -107,7 +119,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // —— 铬件 ——
     m_caption = new Chrome::CaptionBar(this);
-    m_caption->setTitle(QStringLiteral("QuikView"));
+    m_caption->setTitle(tr("未打开图片"));
     connect(m_caption, &Chrome::CaptionBar::fullscreenClicked, this, [this]() {
         isFullScreen() ? showNormal() : showFullScreen();
     });
@@ -123,6 +135,7 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
     m_toolbar = new Chrome::ToolBar(this);
+    connect(m_toolbar, &Chrome::ToolBar::openClicked, this, &MainWindow::onOpen);
     connect(m_toolbar, &Chrome::ToolBar::browseMenuRequested, this, [this](const QPoint &g) {
         QMenu *menu = buildBrowseMenu();
         menu->exec(g);
@@ -148,23 +161,22 @@ MainWindow::MainWindow(QWidget *parent)
         menu->exec(g);
         delete menu;
     });
-    connect(m_toolbar, &Chrome::ToolBar::lockToggled, this, &MainWindow::toggleAlwaysOnTop);
+    connect(m_toolbar, &Chrome::ToolBar::lockToggled, this, &MainWindow::toggleTopLock);
+    connect(m_toolbar, &Chrome::ToolBar::moreMenuRequested, this, [this](const QPoint &g) {
+        QMenu *menu = buildSystemMenu();
+        menu->exec(g);
+        delete menu;
+    });
 
     m_control = new Chrome::ControlBar(this);
     connect(m_control, &Chrome::ControlBar::openClicked, this, &MainWindow::onOpen);
-    connect(m_control, &Chrome::ControlBar::listClicked, this, [this]() {
-        m_browser->setVisible(!m_browser->isVisible());
-        if (m_browser->isVisible()) {
-            // show 后顶层 layout 会拉回 sizeHint，须重设面板几何
-            m_browser->setGeometry(6 + 8, 62 + 8, 260, height() - 62 - 6 - 16);
-            m_browser->raise();
-        }
-    });
+    connect(m_control, &Chrome::ControlBar::listClicked, this, &MainWindow::toggleBrowserPanel);
     connect(m_control, &Chrome::ControlBar::zoomInClicked, this, &MainWindow::onZoomIn);
     connect(m_control, &Chrome::ControlBar::zoomOutClicked, this, &MainWindow::onZoomOut);
+    connect(m_control, &Chrome::ControlBar::fitClicked, this, &MainWindow::onFit);
     connect(m_control, &Chrome::ControlBar::rotateLeftClicked, this, &MainWindow::onRotateLeft);
     connect(m_control, &Chrome::ControlBar::rotateRightClicked, this, &MainWindow::onRotateRight);
-    connect(m_control, &Chrome::ControlBar::lockToggled, this, &MainWindow::toggleAlwaysOnTop);
+    connect(m_control, &Chrome::ControlBar::lockToggled, this, &MainWindow::toggleDockLock);
     connect(m_control, &Chrome::ControlBar::prevClicked, this, &MainWindow::onPrev);
     connect(m_control, &Chrome::ControlBar::nextClicked, this, &MainWindow::onNext);
     connect(m_control, &Chrome::ControlBar::prev10Clicked, this, &MainWindow::onPrev10);
@@ -202,11 +214,34 @@ MainWindow::MainWindow(QWidget *parent)
 
     m_toast = new Chrome::Toast(this);
     m_zoomBadge = new Chrome::ZoomBadge(this);
+    m_statusOverlay = new Chrome::StatusOverlay(this);
+    m_emptyState = new Chrome::EmptyState(this);
+    connect(m_emptyState, &Chrome::EmptyState::openClicked, this, &MainWindow::onOpen);
+    connect(m_emptyState, &Chrome::EmptyState::folderClicked, this, &MainWindow::onOpenFolder);
+
+    // 悬浮铬件透明度：顶部两条同步淡入淡出，底部胶囊独立。
+    auto setupFade = [this](QWidget *widget, QGraphicsOpacityEffect *&effect,
+                            QPropertyAnimation *&animation) {
+        effect = new QGraphicsOpacityEffect(widget);
+        effect->setOpacity(1.0);
+        widget->setGraphicsEffect(effect);
+        animation = new QPropertyAnimation(effect, "opacity", this);
+        animation->setDuration(180);
+        animation->setEasingCurve(QEasingCurve::OutCubic);
+    };
+    setupFade(m_caption, m_captionOpacity, m_captionFade);
+    setupFade(m_toolbar, m_toolbarOpacity, m_toolbarFade);
+    setupFade(m_control, m_dockOpacity, m_dockFade);
+
+    m_chromeTimer = new QTimer(this);
+    m_chromeTimer->setInterval(60);
+    connect(m_chromeTimer, &QTimer::timeout, this, &MainWindow::updateChromeProximity);
 
     createActions();
     applyRuntimeSettings();
     applyChromeLayout();
     updateCanvasLogo();
+    m_chromeTimer->start();
 }
 
 MainWindow::~MainWindow()
@@ -215,8 +250,9 @@ MainWindow::~MainWindow()
 }
 
 // ---------------------------------------------------------------------------
-// 布局：外框 6px / 标题栏 25 / 工具栏 31 / 画布 client；
-// 胶囊栏 460x80 浮于画布下缘中央（距底 26px）——尺寸沿用 5.53 的可观察行为
+// 布局：1px 外框；顶部铬件（28+34）悬浮覆盖画布；胶囊 408x72 浮于下缘 19px。
+// 画布始终占满客户区，只通过 viewport margin 给图片留出视觉呼吸区，避免
+// 顶部栏显隐时图片被重新排版（原型中的“卡一下”）。
 // ---------------------------------------------------------------------------
 
 void MainWindow::applyChromeLayout()
@@ -224,45 +260,202 @@ void MainWindow::applyChromeLayout()
     if (!m_canvas || !m_caption) {
         return;
     }
-    const int fw = 6;                       // 外框厚
-    const int capH = 25, tbH = 31;
     const bool full = isFullScreen();
-    const int top = full ? 0 : fw;
+    const int fw = full ? 0 : 1;
+    const int x = fw;
+    const int y = fw;
+    const int w = width() - 2 * fw;
+    const int h = height() - 2 * fw;
 
-    m_caption->setVisible(!full);
-    m_toolbar->setVisible(!full);
+    m_caption->setGeometry(x, y, w, 28);
+    m_toolbar->setGeometry(x, y + 28, w, 34);
+    m_canvas->setGeometry(x, y, w, h);
+    updateCanvasInsets();
 
-    const int x = full ? 0 : fw;
-    const int w = width() - (full ? 0 : 2 * fw);
-    int canvasTop = top;
-    if (!full) {
-        m_caption->setGeometry(x, fw, w, capH);
-        m_toolbar->setGeometry(x, fw + capH, w, tbH);
-        canvasTop = fw + capH + tbH;
+    if (m_emptyState) {
+        m_emptyState->setGeometry(x, y, w, h);
+        if (m_emptyState->isVisible()) {
+            m_emptyState->raise();
+        }
     }
-    const int canvasH = height() - canvasTop - (full ? 0 : fw);
-    m_canvas->setGeometry(x, canvasTop, w, canvasH);
-
+    if (m_statusOverlay) {
+        m_statusOverlay->setGeometry(x, y, w, h);
+        m_statusOverlay->raise();
+    }
     if (m_control) {
-        // 500 容器窗口居中 + 左 padding 30 → 胶囊中心右偏 ~15 逻辑 px（布局参数）
-        m_control->move(x + (w - m_control->width()) / 2 + 18,
-                        canvasTop + canvasH - m_control->height() - 26);
+        m_control->move(x + (w - m_control->width()) / 2,
+                        y + h - m_control->height() - 19);
         m_control->raise();
     }
     if (m_toast) {
-        m_toast->setGeometry(x, canvasTop, w, 56);
+        m_toast->setGeometry(x, y + 76, w, 56);
         m_toast->raise();
     }
     if (m_zoomBadge) {
-        m_zoomBadge->move(x + 12, canvasTop + canvasH - m_zoomBadge->height() - 12);
+        m_zoomBadge->move(x + 12, y + h - m_zoomBadge->height() - 34);
         m_zoomBadge->raise();
     }
     if (m_browser && m_browser->isVisible()) {
-        m_browser->setGeometry(x + 8, canvasTop + 8, 260, canvasH - 16);
+        m_browser->setGeometry(x + kBrowserGap, y + 76, kBrowserWidth,
+                               h - 76 - kDockInset);
         m_browser->raise();
     }
     if (m_metadata && m_metadata->isVisible() && m_metadata->isFloating()) {
         m_metadata->resize(320, height() / 2);
+    }
+
+    m_caption->raise();
+    m_toolbar->raise();
+}
+
+// 画布可视区：顶部悬浮铬件、底部胶囊各留一段呼吸区；缩略图栏展开时再把左侧
+// 让出来——图片在「真正看得见的那块区域」里居中，既不会被面板压住一半，拖动
+// 和缩放也围绕这块区域进行。
+void MainWindow::updateCanvasInsets()
+{
+    if (!m_canvas) {
+        return;
+    }
+    const bool full = isFullScreen();
+    int left = 0;
+    if (!full && m_browser && m_browser->isVisible()) {
+        left = kBrowserWidth + 2 * kBrowserGap;
+    }
+    const QMargins margins(left, full ? 0 : kTopChromeH, 0, full ? 0 : kDockInset);
+    if (margins == m_canvasInsets) {
+        return;
+    }
+    m_canvasInsets = margins;
+    m_canvas->setContentMargins(margins);
+}
+
+void MainWindow::toggleBrowserPanel()
+{
+    if (!m_browser) {
+        return;
+    }
+    m_browser->setVisible(!m_browser->isVisible());
+    if (m_browser->isVisible()) {
+        // show 后顶层 layout 会把尺寸拉回 sizeHint，须在显示后重设几何
+        const int fw = isFullScreen() ? 0 : 1;
+        m_browser->setGeometry(fw + kBrowserGap, fw + 76, kBrowserWidth,
+                               height() - 2 * fw - 76 - kDockInset);
+        m_browser->raise();
+    }
+    updateCanvasInsets();
+}
+
+void MainWindow::setTopChromeVisible(bool visible, bool animate)
+{
+    if (!m_caption || !m_toolbar) {
+        return;
+    }
+    m_topVisible = visible;
+    auto apply = [&](QWidget *widget, QGraphicsOpacityEffect *effect,
+                     QPropertyAnimation *animation) {
+        if (!widget || !effect || !animation) {
+            return;
+        }
+        widget->setAttribute(Qt::WA_TransparentForMouseEvents, !visible);
+        // 状态（或正在进行的同一目标动画）已经到位就不要再 show/raise/重启动画：
+        // 60ms 一次的热区轮询会把它变成持续重绘，点按钮时表现为整条栏闪一下。
+        const bool fading = animation->state() == QAbstractAnimation::Running
+                            && qFuzzyCompare(animation->endValue().toDouble() + 1.0,
+                                             (visible ? 1.0 : 0.0) + 1.0);
+        if (widget->isVisible() == visible
+            && (fading || qFuzzyCompare(effect->opacity() + 1.0, (visible ? 1.0 : 0.0) + 1.0))) {
+            return;
+        }
+        if (visible) {
+            widget->show();
+            widget->raise();
+        }
+        animation->stop();
+        animation->setStartValue(effect->opacity());
+        animation->setEndValue(visible ? 1.0 : 0.0);
+        if (animate && !qFuzzyCompare(effect->opacity(), visible ? 1.0 : 0.0)) {
+            animation->start();
+        } else {
+            effect->setOpacity(visible ? 1.0 : 0.0);
+        }
+    };
+    apply(m_caption, m_captionOpacity, m_captionFade);
+    apply(m_toolbar, m_toolbarOpacity, m_toolbarFade);
+}
+
+void MainWindow::setDockVisible(bool visible, bool animate)
+{
+    if (!m_control) {
+        return;
+    }
+    if (m_emptyState && m_emptyState->isVisible()) {
+        visible = false;
+    }
+    m_dockVisible = visible;
+    m_control->setAttribute(Qt::WA_TransparentForMouseEvents, !visible);
+    if (!m_dockOpacity || !m_dockFade) {
+        return;
+    }
+    const bool fading = m_dockFade->state() == QAbstractAnimation::Running
+                        && qFuzzyCompare(m_dockFade->endValue().toDouble() + 1.0,
+                                         (visible ? 1.0 : 0.0) + 1.0);
+    if (m_control->isVisible() == visible
+        && (fading || qFuzzyCompare(m_dockOpacity->opacity() + 1.0, (visible ? 1.0 : 0.0) + 1.0))) {
+        return; // 同上：目标状态已达成，不做无谓重绘
+    }
+    if (visible) {
+        m_control->show();
+        m_control->raise();
+    }
+    m_dockFade->stop();
+    m_dockFade->setStartValue(m_dockOpacity->opacity());
+    m_dockFade->setEndValue(visible ? 1.0 : 0.0);
+    if (animate && !qFuzzyCompare(m_dockOpacity->opacity(), visible ? 1.0 : 0.0)) {
+        m_dockFade->start();
+    } else {
+        m_dockOpacity->setOpacity(visible ? 1.0 : 0.0);
+    }
+}
+
+void MainWindow::toggleTopLock()
+{
+    m_topLocked = !m_topLocked;
+    if (m_toolbar) {
+        m_toolbar->setLocked(m_topLocked);
+    }
+    setTopChromeVisible(true);
+    if (m_toast) {
+        m_toast->showMessage(m_topLocked ? tr("顶部栏已锁定") : tr("顶部栏已解锁"));
+    }
+}
+
+void MainWindow::toggleDockLock()
+{
+    m_dockLocked = !m_dockLocked;
+    if (m_control) {
+        m_control->setLocked(m_dockLocked);
+    }
+    setDockVisible(true);
+    if (m_toast) {
+        m_toast->showMessage(m_dockLocked ? tr("底部控制胶囊已锁定")
+                                          : tr("底部控制胶囊已解锁"));
+    }
+}
+
+void MainWindow::updateChromeProximity()
+{
+    if (!isVisible() || isMinimized()) {
+        return;
+    }
+    const QPoint local = mapFromGlobal(QCursor::pos());
+    const bool inside = rect().contains(local);
+    if (!m_topLocked) {
+        setTopChromeVisible(isActiveWindow() && inside && local.y() <= 76);
+    }
+    if (!m_dockLocked) {
+        setDockVisible(isActiveWindow() && inside && local.y() >= height() - 124);
+    } else if (m_emptyState && m_emptyState->isVisible()) {
+        setDockVisible(false);
     }
 }
 
@@ -275,34 +468,13 @@ void MainWindow::resizeEvent(QResizeEvent *event)
 void MainWindow::paintEvent(QPaintEvent *event)
 {
     QMainWindow::paintEvent(event);
-    // 6px 外框（border_*.png 拉伸；均值 #ababab）
     QPainter p(this);
-    const int fw = 6;
-    const QPixmap left = Chrome::skinPixmap(QStringLiteral("border_left.png"));
-    const QPixmap right = Chrome::skinPixmap(QStringLiteral("border_right.png"));
-    const QPixmap bottom = Chrome::skinPixmap(QStringLiteral("border_bottom.png"));
-    const QPixmap top = Chrome::skinPixmap(QStringLiteral("border_top.png"));
-    const int h = height();
-    const int w = width();
-    if (!left.isNull()) {
-        p.drawPixmap(QRect(0, 0, fw, h), left, QRect(0, 0, left.width(), left.height()));
-    } else {
-        p.fillRect(0, 0, fw, h, QColor("#ababab"));
-    }
-    if (!right.isNull()) {
-        p.drawPixmap(QRect(w - fw, 0, fw, h), right, QRect(0, 0, right.width(), right.height()));
-    } else {
-        p.fillRect(w - fw, 0, fw, h, QColor("#ababab"));
-    }
-    if (!bottom.isNull()) {
-        p.drawPixmap(QRect(0, h - fw, w, fw), bottom, QRect(0, 0, bottom.width(), bottom.height()));
-    } else {
-        p.fillRect(0, h - fw, w, fw, QColor("#ababab"));
-    }
-    if (!top.isNull()) {
-        p.drawPixmap(QRect(0, 0, w, fw), top, QRect(0, 0, top.width(), top.height()));
-    } else {
-        p.fillRect(0, 0, w, fw, QColor("#ababab"));
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.fillRect(rect(), QColor(QStringLiteral("#161719")));
+    if (!isFullScreen()) {
+        p.setPen(QPen(QColor(QStringLiteral("#3a3c40")), 1));
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5));
     }
 }
 
@@ -871,7 +1043,73 @@ void MainWindow::showImage(const QImage &image, const QString &path)
 
 void MainWindow::updateCanvasLogo()
 {
-    m_canvas->setLogoVisible(m_currentImage.isNull());
+    const bool empty = m_currentImage.isNull();
+    m_canvas->setLogoVisible(false);
+    if (m_emptyState) {
+        m_emptyState->setVisible(empty);
+        if (empty) {
+            m_emptyState->raise();
+        }
+    }
+    if (m_statusOverlay) {
+        m_statusOverlay->setVisible(!empty);
+    }
+    if (empty) {
+        if (m_statusOverlay) {
+            m_statusOverlay->clear();
+        }
+        setDockVisible(false, false);
+    } else if (m_dockLocked) {
+        setDockVisible(true, false);
+    } else {
+        // 翻页会经过这里。之前无条件隐藏胶囊、再被热区轮询唤出，点一下就是
+        // 一次「闪」。改为按鼠标实际位置重新判定，鼠标还在胶囊上就保持原样。
+        updateChromeProximity();
+    }
+    updateInfoOverlay();
+}
+
+void MainWindow::updateInfoOverlay()
+{
+    if (!m_statusOverlay) {
+        return;
+    }
+    if (m_currentImage.isNull() || m_currentPath.isEmpty()) {
+        m_statusOverlay->clear();
+        return;
+    }
+    const QFileInfo fi(m_currentPath);
+    QStringList parts;
+    parts << QStringLiteral("%1 × %2").arg(m_currentImage.width()).arg(m_currentImage.height());
+    if (fi.exists()) {
+        const qint64 bytes = fi.size();
+        if (bytes >= 1024 * 1024) {
+            parts << QStringLiteral("%1 MB").arg(bytes / 1024.0 / 1024.0, 0, 'f', 1);
+        } else {
+            parts << QStringLiteral("%1 KB").arg(qMax<qint64>(1, bytes / 1024));
+        }
+    }
+    QString suffix = fi.suffix().toUpper();
+    if (suffix == QLatin1String("JPG")) {
+        suffix = QStringLiteral("JPEG");
+    } else if (suffix == QLatin1String("TIF")) {
+        suffix = QStringLiteral("TIFF");
+    }
+    if (!suffix.isEmpty()) {
+        parts << suffix;
+    }
+    m_statusOverlay->setImageInfo(parts.join(QStringLiteral("  •  ")));
+
+    if (m_dir) {
+        const QStringList files = m_dir->files();
+        const int index = m_dir->index();
+        if (!files.isEmpty() && index >= 0) {
+            m_statusOverlay->setCounter(
+                QStringLiteral("%1 / %2").arg(index + 1).arg(files.size()));
+        } else {
+            m_statusOverlay->setCounter(QString());
+        }
+    }
 }
 
 void MainWindow::updateStatus(const QString &path)
@@ -954,6 +1192,8 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     else if (c == QLatin1String("actual"))     setViewMode(0);
     else if (c == QLatin1String("zoomin"))     onZoomIn();
     else if (c == QLatin1String("zoomout"))    onZoomOut();
+    else if (c == QLatin1String("rotateleft")) onRotateLeft();
+    else if (c == QLatin1String("rotateright")) onRotateRight();
     else if (c == QLatin1String("slideshow"))  actSlideshow->trigger();
     else if (c.startsWith(QLatin1String("sort:"))) {
         bool ok = false;
@@ -970,14 +1210,10 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     }
     else if (c == QLatin1String("sortdesc"))   actSortDesc->toggle();
     else if (c == QLatin1String("browser")) {
-        m_browser->setVisible(!m_browser->isVisible());
-        if (m_browser->isVisible()) {
-            // QWidget 顶层 layout 会在 show 时把尺寸拉回 sizeHint，须在
-            // 显示后重设面板几何（与 applyChromeLayout 同公式）。
-            m_browser->setGeometry(6 + 8, 62 + 8, 260, height() - 62 - 6 - 16);
-            m_browser->raise();
-        }
+        toggleBrowserPanel();
     }
+    else if (c == QLatin1String("locktop")) { if (!m_topLocked) toggleTopLock(); }
+    else if (c == QLatin1String("lockdock")) { if (!m_dockLocked) toggleDockLock(); }
     else if (c == QLatin1String("fullscreen")) isFullScreen() ? showNormal() : showFullScreen();
 }
 
@@ -1179,34 +1415,74 @@ void MainWindow::onPrevFrame()
 // 编辑
 // ---------------------------------------------------------------------------
 
+// 原地旋转：保留当前缩放比例与「视口中心看到的那一点」，转完后这一点仍在
+// 视口中心，所以图像不会跳位、也不会被悄悄退回适配窗口。
+void MainWindow::rotateImage(int degrees)
+{
+    if (m_currentImage.isNull() || !m_canvas) {
+        return;
+    }
+    const QPointF n = m_canvas->viewCenterNormalized();
+    const qreal z = m_canvas->zoom();
+    const bool fitWindow = m_canvas->isFitToWindow();
+    const bool fitWidth = m_canvas->isFitToWidth();
+
+    QTransform t;
+    t.rotate(degrees);
+    m_currentImage = m_currentImage.transformed(t);
+
+    // 归一化锚点跟着画布一起转：顺 90°(u,v)→(1-v,u)，逆 90°(u,v)→(v,1-u)
+    QPointF anchor = n;
+    if (degrees == 90) {
+        anchor = QPointF(1.0 - n.y(), n.x());
+    } else if (degrees == -90) {
+        anchor = QPointF(n.y(), 1.0 - n.x());
+    }
+
+    resetEffect();
+    m_canvas->setPixmapPreservingView(QPixmap::fromImage(m_currentImage), anchor,
+                                      z, fitWindow, fitWidth);
+    updateInfoOverlay();
+}
+
 void MainWindow::onRotateLeft()
 {
-    QTransform t; t.rotate(-90);
-    m_currentImage = m_currentImage.transformed(t);
-    resetEffect();
-    m_canvas->setPixmap(QPixmap::fromImage(m_currentImage));
+    rotateImage(-90);
 }
 
 void MainWindow::onRotateRight()
 {
-    QTransform t; t.rotate(90);
-    m_currentImage = m_currentImage.transformed(t);
-    resetEffect();
-    m_canvas->setPixmap(QPixmap::fromImage(m_currentImage));
+    rotateImage(90);
 }
 
 void MainWindow::onFlipH()
 {
+    if (m_currentImage.isNull()) {
+        return;
+    }
+    const QPointF n = m_canvas->viewCenterNormalized();
+    const qreal z = m_canvas->zoom();
+    const bool fitWindow = m_canvas->isFitToWindow();
+    const bool fitWidth = m_canvas->isFitToWidth();
     m_currentImage = m_currentImage.flipped(Qt::Horizontal);
     resetEffect();
-    m_canvas->setPixmap(QPixmap::fromImage(m_currentImage));
+    m_canvas->setPixmapPreservingView(QPixmap::fromImage(m_currentImage),
+                                      QPointF(1.0 - n.x(), n.y()), z, fitWindow, fitWidth);
 }
 
 void MainWindow::onFlipV()
 {
+    if (m_currentImage.isNull()) {
+        return;
+    }
+    const QPointF n = m_canvas->viewCenterNormalized();
+    const qreal z = m_canvas->zoom();
+    const bool fitWindow = m_canvas->isFitToWindow();
+    const bool fitWidth = m_canvas->isFitToWidth();
     m_currentImage = m_currentImage.flipped(Qt::Vertical);
     resetEffect();
-    m_canvas->setPixmap(QPixmap::fromImage(m_currentImage));
+    m_canvas->setPixmapPreservingView(QPixmap::fromImage(m_currentImage),
+                                      QPointF(n.x(), 1.0 - n.y()), z, fitWindow, fitWidth);
 }
 
 void MainWindow::onEffect(int mode)
@@ -1368,7 +1644,7 @@ void MainWindow::onDeleteFile()
         updateCanvasLogo();
         m_browser->setFiles({}, -1);
         setWindowTitle(QStringLiteral("QuikView"));
-        m_caption->setTitle(QStringLiteral("QuikView"));
+        m_caption->setTitle(tr("未打开图片"));
         m_toast->showMessage(tr("已删除"));
     }
 }

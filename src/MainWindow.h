@@ -2,6 +2,7 @@
 
 #include <QImage>
 #include <QMainWindow>
+#include <QMargins>
 
 class ImageCanvas;
 class ImageCache;
@@ -16,6 +17,8 @@ class QMenu;
 class QMouseEvent;
 class QResizeEvent;
 class QKeyEvent;
+class QGraphicsOpacityEffect;
+class QPropertyAnimation;
 
 namespace Chrome {
 class CaptionBar;
@@ -23,6 +26,8 @@ class ToolBar;
 class ControlBar;
 class Toast;
 class ZoomBadge;
+class StatusOverlay;
+class EmptyState;
 }
 
 // 主窗口：对照 Honeyview 5.53 的可观察布局（尺寸/间距参数）。
@@ -124,8 +129,17 @@ private:
     void updateStatus(const QString &path);
     void toggleAlwaysOnTop();
     void applyChromeLayout();
+    void updateCanvasInsets();               // 缩略图栏展开时让出左侧可视区
+    void toggleBrowserPanel();
+    void rotateImage(int degrees);           // 原地旋转（保持缩放与视图中心）
     void updateCanvasLogo();
+    void updateInfoOverlay();
     void syncZoom();
+    void setTopChromeVisible(bool visible, bool animate = true);
+    void setDockVisible(bool visible, bool animate = true);
+    void toggleTopLock();
+    void toggleDockLock();
+    void updateChromeProximity();
     QStringList listSiblingFolders();   // 同级含图文件夹（名称序），文件夹跳转用
     static QStringList imageExtensions();
     static QStringList listImagesInDir(const QString &dirPath);
@@ -197,8 +211,25 @@ private:
     Chrome::ControlBar *m_control = nullptr;
     Chrome::Toast *m_toast = nullptr;
     Chrome::ZoomBadge *m_zoomBadge = nullptr;
+    Chrome::StatusOverlay *m_statusOverlay = nullptr;
+    Chrome::EmptyState *m_emptyState = nullptr;
     QWidget *m_sidePrev = nullptr;
     QWidget *m_sideNext = nullptr;
+
+    // 悬浮铬件显隐：上下两套状态完全独立，各自可锁定常显。
+    QTimer *m_chromeTimer = nullptr;
+    QGraphicsOpacityEffect *m_captionOpacity = nullptr;
+    QGraphicsOpacityEffect *m_toolbarOpacity = nullptr;
+    QGraphicsOpacityEffect *m_dockOpacity = nullptr;
+    QPropertyAnimation *m_captionFade = nullptr;
+    QPropertyAnimation *m_toolbarFade = nullptr;
+    QPropertyAnimation *m_dockFade = nullptr;
+    bool m_topLocked = false;
+    bool m_dockLocked = false;
+    bool m_topVisible = true;
+    bool m_dockVisible = true;
+    QMargins m_canvasInsets{-1, -1, -1, -1};   // 当前画布可视区边距（-1 = 未应用）
+
     bool m_fullscreen = false;
     int m_viewMode = 1;      // 0=原始 1=适合窗口 2=适合宽度
     bool m_firstImage = true;
