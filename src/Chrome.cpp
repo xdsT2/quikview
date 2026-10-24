@@ -1,4 +1,5 @@
 #include "Chrome.h"
+#include "UiStyle.h"
 
 #include <QApplication>
 #include <QContextMenuEvent>
@@ -6,8 +7,10 @@
 #include <QCursor>
 #include <QDir>
 #include <QFileInfo>
+#include <QFocusEvent>
 #include <QFontMetrics>
 #include <QGraphicsOpacityEffect>
+#include <QKeyEvent>
 #include <QLinearGradient>
 #include <QMouseEvent>
 #include <QPainter>
@@ -20,6 +23,17 @@
 #include <QWindow>
 #include <algorithm>
 #include <cmath>
+
+#ifdef Q_OS_WIN
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
+#  include <windows.h>
+#endif
+
 
 namespace Chrome {
 namespace {
@@ -210,7 +224,312 @@ void setPointerCursor(QWidget *w, bool pointer)
     }
 }
 
+// ---------------------------------------------------------------------------
+// 按钮状态画刷（标题栏 / 命令栏 / 底部胶囊共用，交接单 §7「控件状态」）
+// 全部只画，不动几何：按压缩放通过 painter 变换完成，rect 本身永远不变。
+// ---------------------------------------------------------------------------
+
+// 交接单 §7 指定的两个状态底色；其余颜色取自 UiStyle 令牌。
+const QColor kHoverBg(0x45, 0x48, 0x4d);   // Hover  #45484d
+const QColor kPressBg(0x29, 0x2b, 0x2f);   // Pressed #292b2f
+
+constexpr qreal kPressScale = 0.94;        // 按下时绘制缩放
+constexpr int kHoverMs = 120;              // Hover 淡入
+constexpr int kPressMs = 90;               // 按下 / 释放
+constexpr int kTickMs = 16;
+
+// ---- 底部胶囊几何（交接单 §7，与原型 .control-dock 一致）----
+constexpr int kDockW = 408;
+constexpr int kDockH = 72;
+constexpr int kDockPadX = 9;
+constexpr int kDockPadTop = 6;
+constexpr int kDockPadBottom = 7;
+constexpr int kRowGap = 3;        // 两排之间
+constexpr int kItemGap = 3;       // 同排按钮之间
+constexpr int kZoomRowH = 26;
+constexpr int kActionRowH = 30;
+constexpr int kBtnW = 32;
+constexpr int kBtnH = 30;
+constexpr int kZoomBtnW = 30;
+constexpr int kZoomBtnH = 26;
+constexpr int kPercentW = 44;
+constexpr int kGridGap = 7;       // 缩放行四列列间距
+constexpr int kSepW = 1;
+constexpr int kSepH = 16;
+constexpr int kSepMargin = 3;     // 分隔线左右外边距
+constexpr qreal kIconSize = 17.0; // 普通图标
+constexpr qreal kNavIconSize = 19.0;
+constexpr qreal kNavIconStroke = 1.8;
+constexpr qreal kIconStroke = 1.55;
+constexpr qreal kRadius = 5.0;
+
+struct ButtonPalette {
+    QColor base = QColor(0, 0, 0, 0);          // 常态底（alpha=0 表示无）
+    QColor baseBorder = QColor(0, 0, 0, 0);    // 常态描边
+    QColor hover = kHoverBg;                   // Hover 底
+    QColor press = kPressBg;                   // Pressed 底
+    QColor checkedBg = QColor(85, 192, 240, 31);    // 锁定 / 选中底
+    QColor checkedBorder = QColor(85, 192, 240, 64); // 锁定 / 选中描边
+    QColor ink = QColor(0xd9, 0xda, 0xdd);     // 常态前景
+    QColor checkedInk;                         // 锁定 / 选中前景（无效则用 ink）
+    qreal radius = kRadius;
+};
+
+QColor blendColor(const QColor &a, const QColor &b, qreal t)
+{
+    t = qBound(0.0, t, 1.0);
+    return QColor(qRound(a.red() + (b.red() - a.red()) * t),
+                  qRound(a.green() + (b.green() - a.green()) * t),
+                  qRound(a.blue() + (b.blue() - a.blue()) * t));
+}
+
+// 开始绘制一个按钮：底色 / 描边 / 焦点环按状态出图，内容随后用同一坐标绘制。
+// 按压缩放只作用于 painter，调用方传入的 rect（= 命中区域）不被修改。
+QRectF beginButton(QPainter &p, const QRectF &rect, const BtnState &s,
+                   const BtnVisual &v, const ButtonPalette &pal)
+{
+    p.save();
+
+    const qreal scale = 1.0 - (1.0 - kPressScale) * v.press;
+    if (scale < 0.9995) {
+        p.translate(rect.center());
+        p.scale(scale, scale);
+        p.translate(-rect.center());
+    }
+    if (s.disabled) {
+        p.setOpacity(p.opacity() * 0.42);
+    }
+
+    const QRectF r = rect.adjusted(0.5, 0.5, -0.5, -0.5);
+    const qreal amt = s.disabled ? 0.0 : qMax(v.hover, v.press);
+    const bool checked = s.checked && !s.danger;
+
+    p.setPen(Qt::NoPen);
+    if (pal.base.alpha() > 0) {
+        p.setBrush(pal.base);
+        p.drawRoundedRect(r, pal.radius, pal.radius);
+    }
+
+    if (checked) {
+        QColor bg = pal.checkedBg;
+        bg.setAlphaF(qMin(1.0, bg.alphaF() * (1.0 + 0.9 * v.hover)));
+        p.setBrush(bg);
+        p.drawRoundedRect(r, pal.radius, pal.radius);
+        // 选中态按下：压暗而不是盖掉蓝色底
+        if (v.press > 0.004) {
+            QColor dim = pal.press;
+            dim.setAlphaF(0.45 * v.press);
+            p.setBrush(dim);
+            p.drawRoundedRect(r, pal.radius, pal.radius);
+        }
+    } else if (amt > 0.004) {
+        QColor bg = blendColor(pal.hover, pal.press, v.press);
+        bg.setAlphaF(qMin(1.0, bg.alphaF() * amt));
+        p.setBrush(bg);
+        p.drawRoundedRect(r, pal.radius, pal.radius);
+    }
+
+    QColor border = QColor(0, 0, 0, 0);
+    if (checked) {
+        border = pal.checkedBorder;
+        border.setAlphaF(qMin(1.0, border.alphaF() * (1.0 + 0.9 * v.hover)));
+    } else if (pal.base.alpha() > 0) {
+        border = pal.baseBorder;
+    } else if (amt > 0.004) {
+        border = pal.baseBorder;
+        border.setAlphaF(border.alphaF() * amt);
+    }
+    if (border.alpha() > 0) {
+        p.setPen(QPen(border, 1));
+        p.setBrush(Qt::NoBrush);
+        p.drawRoundedRect(r, pal.radius, pal.radius);
+    }
+
+    // 键盘焦点环：2px 淡蓝，只在键盘进入时出现，和 Hover 明确区分
+    if (s.focus && !s.disabled) {
+        p.setPen(QPen(QColor(85, 192, 240, 215), 2));
+        p.setBrush(Qt::NoBrush);
+        p.drawRoundedRect(rect.adjusted(1.5, 1.5, -1.5, -1.5),
+                          pal.radius + 0.5, pal.radius + 0.5);
+    }
+    return rect;
+}
+
+void endButton(QPainter &p)
+{
+    p.restore();
+}
+
+QColor buttonInk(const BtnState &s, const ButtonPalette &pal)
+{
+    if (s.checked && !s.danger) {
+        return pal.checkedInk.isValid() ? pal.checkedInk : pal.ink;
+    }
+    return pal.ink;
+}
+
+// 等宽数字：逐字符按最宽数字排版，百分比变化时整体宽度与居中都不抖。
+void drawTabularText(QPainter &p, const QRectF &r, const QString &text,
+                     const QColor &color, int pixelSize)
+{
+    const QFont f = uiFont(pixelSize);
+    p.setFont(f);
+    const QFontMetricsF fm(f);
+    qreal digitW = 0.0;
+    for (int d = 0; d <= 9; ++d) {
+        digitW = qMax(digitW, fm.horizontalAdvance(QString::number(d)));
+    }
+    qreal total = 0.0;
+    for (const QChar &ch : text) {
+        total += ch.isDigit() ? digitW : fm.horizontalAdvance(QString(ch));
+    }
+    qreal x = r.center().x() - total / 2.0;
+    p.setPen(color);
+    for (const QChar &ch : text) {
+        const qreal w = ch.isDigit() ? digitW : fm.horizontalAdvance(QString(ch));
+        p.drawText(QRectF(x, r.top(), w, r.height()), Qt::AlignCenter, QString(ch));
+        x += w;
+    }
+}
+
+qreal stepToward(qreal cur, qreal target, qreal dt, int durationMs)
+{
+    if (durationMs <= 0) {
+        return target;
+    }
+    const qreal d = dt / static_cast<qreal>(durationMs);
+    return (target > cur) ? qMin(target, cur + d) : qMax(target, cur - d);
+}
+
 } // namespace
+
+// ===========================================================================
+// 按钮状态动画器（三个铬件共用）
+// ===========================================================================
+
+bool reducedMotion()
+{
+    static const bool reduced = []() -> bool {
+        const QByteArray env = qgetenv("QUIKVIEW_REDUCE_MOTION").trimmed().toLower();
+        if (!env.isEmpty()) {
+            return !(env == "0" || env == "false" || env == "off");
+        }
+#ifdef Q_OS_WIN
+        BOOL animations = TRUE;
+        if (::SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, &animations, 0)) {
+            return animations == FALSE;
+        }
+#endif
+        return false;
+    }();
+    return reduced;
+}
+
+ButtonFeedback::ButtonFeedback(QObject *parent)
+    : QObject(parent)
+{
+    m_timer = new QTimer(this);
+    m_timer->setTimerType(Qt::PreciseTimer);
+    m_timer->setInterval(kTickMs);
+    connect(m_timer, &QTimer::timeout, this, &ButtonFeedback::tick);
+}
+
+void ButtonFeedback::setHover(int index)
+{
+    if (m_hover == index) {
+        return;
+    }
+    m_hover = index;
+    if (index >= 0 && !m_vals.contains(index)) {
+        m_vals.insert(index, BtnVisual());
+    }
+    start();
+}
+
+void ButtonFeedback::setPressed(int index)
+{
+    if (m_pressed == index) {
+        return;
+    }
+    m_pressed = index;
+    if (index >= 0 && !m_vals.contains(index)) {
+        m_vals.insert(index, BtnVisual());
+    }
+    start();
+}
+
+void ButtonFeedback::reset()
+{
+    m_hover = -1;
+    m_pressed = -1;
+    if (m_timer->isActive()) {
+        m_timer->stop();
+    }
+    if (m_vals.isEmpty()) {
+        return;
+    }
+    m_vals.clear();
+    emit changed();
+}
+
+BtnVisual ButtonFeedback::visual(int index) const
+{
+    return m_vals.value(index);
+}
+
+void ButtonFeedback::start()
+{
+    if (reducedMotion()) {
+        snap();
+        return;
+    }
+    if (!m_timer->isActive()) {
+        m_clock.restart();
+        m_timer->start();
+    }
+}
+
+// 减少动画：直接落到终态，仍然保留背景色反馈
+void ButtonFeedback::snap()
+{
+    m_vals.clear();
+    if (m_hover >= 0) {
+        m_vals[m_hover].hover = 1.0;
+    }
+    if (m_pressed >= 0) {
+        m_vals[m_pressed].hover = 1.0;
+        m_vals[m_pressed].press = 1.0;
+    }
+    emit changed();
+}
+
+void ButtonFeedback::tick()
+{
+    const qreal dt = static_cast<qreal>(qMax<qint64>(1, m_clock.restart()));
+    bool busy = false;
+    for (auto it = m_vals.begin(); it != m_vals.end();) {
+        BtnVisual &v = it.value();
+        const qreal hoverTarget = (it.key() == m_hover) ? 1.0 : 0.0;
+        const qreal pressTarget = (it.key() == m_pressed) ? 1.0 : 0.0;
+        v.hover = stepToward(v.hover, hoverTarget, dt, kHoverMs);
+        v.press = stepToward(v.press, pressTarget, dt, kPressMs);
+
+        const bool settled = qFuzzyCompare(v.hover + 1.0, hoverTarget + 1.0)
+                          && qFuzzyCompare(v.press + 1.0, pressTarget + 1.0);
+        if (settled && hoverTarget == 0.0 && pressTarget == 0.0) {
+            it = m_vals.erase(it);
+            continue;
+        }
+        if (!settled) {
+            busy = true;
+        }
+        ++it;
+    }
+    emit changed();
+    if (!busy) {
+        m_timer->stop();
+    }
+}
 
 // ===========================================================================
 // 皮肤贴图兼容接口（旧布局代码仍可能引用）
@@ -259,6 +578,8 @@ CaptionBar::CaptionBar(QWidget *parent)
     setMouseTracking(true);
     setFixedHeight(28);
     setAttribute(Qt::WA_OpaquePaintEvent);
+    m_feedback = new ButtonFeedback(this);
+    connect(m_feedback, &ButtonFeedback::changed, this, [this]() { update(); });
 }
 
 void CaptionBar::setTitle(const QString &title)
@@ -319,17 +640,31 @@ void CaptionBar::paintEvent(QPaintEvent *)
     // 窗口按钮
     for (int i = 0; i < 3; ++i) {
         const QRect r = buttonRect(i);
-        const bool hover = (m_hover == i);
-        if (i == 2 && hover) {
-            p.fillRect(r, QColor(QStringLiteral("#c42b1c")));
-        } else if (hover) {
-            p.fillRect(r, QColor(QStringLiteral("#343539")));
+        BtnState st;
+        st.hover = (m_hover == i);
+        st.pressed = (m_press == i);
+        st.danger = (i == 2);
+        BtnVisual v = m_feedback->visual(i);
+
+        ButtonPalette pal;
+        pal.radius = 0;   // Windows 窗口按钮保持直角
+        pal.ink = QColor(QStringLiteral("#c9c9c9"));
+        if (st.danger) {
+            pal.hover = UiStyle::color(UiStyle::Danger);
+            pal.press = UiStyle::color(UiStyle::Danger).darker(122);
+            pal.ink = (st.hover || st.pressed) ? QColor(Qt::white)
+                                               : QColor(QStringLiteral("#c9c9c9"));
+        } else {
+            pal.hover = QColor(QStringLiteral("#343539"));
+            pal.press = QColor(QStringLiteral("#2a2b2e"));
         }
-        QColor ink = (i == 2 && hover) ? QColor(Qt::white)
-                                       : QColor(QStringLiteral("#c9c9c9"));
+
+        beginButton(p, QRectF(r), st, v, pal);
         const Icon icon = i == 0 ? Icon::MinWindow
                                  : (i == 1 ? Icon::MaxWindow : Icon::Close);
-        drawIcon(p, icon, QRectF(r.center().x() - 6, r.center().y() - 6, 12, 12), ink, 1.4);
+        drawIcon(p, icon, QRectF(r.center().x() - 6, r.center().y() - 6, 12, 12),
+                 pal.ink, 1.4);
+        endButton(p);
     }
 }
 
@@ -338,6 +673,7 @@ void CaptionBar::mousePressEvent(QMouseEvent *e)
     if (e->button() == Qt::LeftButton) {
         m_press = hitTest(e->pos());
         if (m_press >= 0) {
+            m_feedback->setPressed(m_press);   // 按下即出反馈
             update();
             return;
         }
@@ -353,6 +689,7 @@ void CaptionBar::mouseReleaseEvent(QMouseEvent *e)
 {
     const int i = m_press;
     m_press = -1;
+    m_feedback->setPressed(-1);
     update();
     if (e->button() == Qt::LeftButton && i >= 0 && i == hitTest(e->pos())) {
         switch (i) {
@@ -368,6 +705,7 @@ void CaptionBar::mouseReleaseEvent(QMouseEvent *e)
 void CaptionBar::mouseMoveEvent(QMouseEvent *e)
 {
     m_hover = hitTest(e->pos());
+    m_feedback->setHover(m_hover);
     setPointerCursor(this, m_hover >= 0);
     update();
     QWidget::mouseMoveEvent(e);
@@ -390,6 +728,7 @@ void CaptionBar::contextMenuEvent(QContextMenuEvent *e)
 void CaptionBar::leaveEvent(QEvent *)
 {
     m_hover = -1;
+    m_feedback->setHover(-1);
     setPointerCursor(this, false);
     update();
 }
@@ -404,6 +743,9 @@ ToolBar::ToolBar(QWidget *parent)
     setMouseTracking(true);
     setFixedHeight(34);
     setAttribute(Qt::WA_OpaquePaintEvent);
+    setFocusPolicy(Qt::StrongFocus);   // 键盘可达：Tab 进入后显示 2px 焦点环
+    m_feedback = new ButtonFeedback(this);
+    connect(m_feedback, &ButtonFeedback::changed, this, [this]() { update(); });
 }
 
 void ToolBar::setShowModeIcon(int index)
@@ -463,55 +805,53 @@ void ToolBar::paintEvent(QPaintEvent *)
     const QVector<Btn> btns = buttons();
     for (int i = 0; i < btns.size(); ++i) {
         const Btn &b = btns[i];
-        const bool hovered = (m_hover == i);
-        const bool activeLock = b.id == 6 && m_locked;
+        BtnState st;
+        st.hover = (m_hover == i);
+        st.pressed = (m_press == i);
+        st.checked = (b.id == 6 && m_locked);
+        st.focus = (m_keyboardFocus && m_focus == i);
+        BtnVisual v = m_feedback->visual(i);
 
+        ButtonPalette pal;
         if (b.primary) {
-            const QColor bg = hovered ? QColor(QStringLiteral("#0e7fb5"))
-                                      : QColor(QStringLiteral("#0b6f9f"));
-            p.setPen(QPen(QColor(QStringLiteral("#2485b3")), 1));
-            p.setBrush(bg);
-            p.drawRoundedRect(QRectF(b.rect).adjusted(0.5, 0.5, -0.5, -0.5), 5, 5);
+            pal.base = QColor(QStringLiteral("#0b6f9f"));
+            pal.baseBorder = QColor(QStringLiteral("#2485b3"));
+            pal.hover = QColor(QStringLiteral("#0e7fb5"));
+            pal.press = QColor(QStringLiteral("#0a5c84"));
+            pal.ink = QColor(Qt::white);
+        } else {
+            pal.hover = kHoverBg;
+            pal.press = kPressBg;
+            pal.baseBorder = rgba(255, 255, 255, 19);
+            pal.checkedBg = UiStyle::accentSoft();
+            pal.checkedBorder = rgba(85, 192, 240, 64);
+            pal.ink = QColor(QStringLiteral("#d9dadd"));
+            pal.checkedInk = UiStyle::accent();
+        }
+
+        beginButton(p, QRectF(b.rect), st, v, pal);
+        const QColor ink = buttonInk(st, pal);
+        if (b.primary) {
             drawIcon(p, Icon::Folder, QRectF(b.rect.x() + 10, b.rect.center().y() - 8, 16, 16),
-                     QColor(QStringLiteral("#ffffff")));
+                     ink);
             p.setFont(uiFont(12, QFont::DemiBold));
-            p.setPen(QColor(QStringLiteral("#ffffff")));
+            p.setPen(ink);
             p.drawText(QRect(b.rect.x() + 31, b.rect.y(), b.rect.width() - 35, b.rect.height()),
                        Qt::AlignVCenter | Qt::AlignLeft, b.text);
+            endButton(p);
             continue;
         }
 
-        if (hovered || activeLock) {
-            QColor bg = activeLock ? rgba(85, 192, 240, 31)
-                                   : QColor(QStringLiteral("#383a3e"));
-            QColor border = activeLock ? rgba(85, 192, 240, 64)
-                                       : rgba(255, 255, 255, 19);
-            p.setPen(QPen(border, 1));
-            p.setBrush(bg);
-            p.drawRoundedRect(QRectF(b.rect).adjusted(0.5, 0.5, -0.5, -0.5), 5, 5);
-        }
-
-        const QColor ink = activeLock ? QColor(QStringLiteral("#55c0f0"))
-                                      : QColor(QStringLiteral("#d9dadd"));
         const QRectF iconRect(b.rect.x() + 9, b.rect.center().y() - 8, 16, 16);
+        const QRectF centerIcon(b.rect.center().x() - 8, b.rect.center().y() - 8, 16, 16);
         switch (b.id) {
         case 1: drawIcon(p, Icon::Grid, iconRect, ink); break;
         case 2: drawIcon(p, Icon::Play, iconRect, ink); break;
-        case 3: drawIcon(p, Icon::Bookmark,
-                         QRectF(b.rect.center().x() - 8, b.rect.center().y() - 8, 16, 16), ink);
-            break;
-        case 4: drawIcon(p, Icon::Edit,
-                         QRectF(b.rect.center().x() - 8, b.rect.center().y() - 8, 16, 16), ink);
-            break;
-        case 5: drawIcon(p, Icon::Copy,
-                         QRectF(b.rect.center().x() - 8, b.rect.center().y() - 8, 16, 16), ink);
-            break;
-        case 6: drawIcon(p, Icon::Lock,
-                         QRectF(b.rect.center().x() - 8, b.rect.center().y() - 8, 16, 16), ink);
-            break;
-        case 7: drawIcon(p, Icon::More,
-                         QRectF(b.rect.center().x() - 8, b.rect.center().y() - 8, 16, 16), ink);
-            break;
+        case 3: drawIcon(p, Icon::Bookmark, centerIcon, ink); break;
+        case 4: drawIcon(p, Icon::Edit, centerIcon, ink); break;
+        case 5: drawIcon(p, Icon::Copy, centerIcon, ink); break;
+        case 6: drawIcon(p, Icon::Lock, centerIcon, ink); break;
+        case 7: drawIcon(p, Icon::More, centerIcon, ink); break;
         default: break;
         }
 
@@ -527,6 +867,7 @@ void ToolBar::paintEvent(QPaintEvent *)
                          QColor(QStringLiteral("#8e9297")), 1.4);
             }
         }
+        endButton(p);
     }
 
     // 工具组前的分隔线
@@ -535,10 +876,51 @@ void ToolBar::paintEvent(QPaintEvent *)
     p.fillRect(QRect(sepX, 8, 1, height() - 17), rgba(255, 255, 255, 19));
 }
 
+void ToolBar::activate(int index, const QPoint &globalPos)
+{
+    switch (index) {
+    case 0: emit openClicked(); break;
+    case 1: emit browseMenuRequested(globalPos); break;
+    case 2: emit slideshowMenuRequested(globalPos); break;
+    case 3: emit bookmarkMenuRequested(globalPos); break;
+    case 4: emit editMenuRequested(globalPos); break;
+    case 5: emit copytoMenuRequested(globalPos); break;
+    case 6: emit lockToggled(); break;
+    case 7: emit moreMenuRequested(globalPos); break;
+    default: break;
+    }
+}
+
+void ToolBar::moveFocus(int step)
+{
+    const int n = buttons().size();
+    if (n <= 0) {
+        return;
+    }
+    int next = (m_focus < 0) ? (step > 0 ? 0 : n - 1) : m_focus + step;
+    if (next < 0 || next >= n) {
+        // 走到边界：把焦点交还给外层焦点链
+        m_focus = -1;
+        m_keyboardFocus = false;
+        m_feedback->setHover(-1);
+        update();
+        focusNextPrevChild(step > 0);
+        return;
+    }
+    m_focus = next;
+    m_feedback->setHover(next);
+    update();
+}
+
 void ToolBar::mousePressEvent(QMouseEvent *e)
 {
     if (e->button() == Qt::LeftButton) {
+        if (m_keyboardFocus) {
+            m_keyboardFocus = false;   // 鼠标接管后不再显示焦点环
+            m_focus = -1;
+        }
         m_press = hitTest(e->pos());
+        m_feedback->setPressed(m_press);   // 按下即出反馈，不等 clicked
         update();
     }
     QWidget::mousePressEvent(e);
@@ -548,29 +930,20 @@ void ToolBar::mouseReleaseEvent(QMouseEvent *e)
 {
     const int i = m_press;
     m_press = -1;
+    m_feedback->setPressed(-1);
     update();
     if (e->button() != Qt::LeftButton || i < 0 || i != hitTest(e->pos())) {
         QWidget::mouseReleaseEvent(e);
         return;
     }
-    const QPoint g = e->globalPosition().toPoint();
-    switch (i) {
-    case 0: emit openClicked(); break;
-    case 1: emit browseMenuRequested(g); break;
-    case 2: emit slideshowMenuRequested(g); break;
-    case 3: emit bookmarkMenuRequested(g); break;
-    case 4: emit editMenuRequested(g); break;
-    case 5: emit copytoMenuRequested(g); break;
-    case 6: emit lockToggled(); break;
-    case 7: emit moreMenuRequested(g); break;
-    default: break;
-    }
+    activate(i, e->globalPosition().toPoint());
     QWidget::mouseReleaseEvent(e);
 }
 
 void ToolBar::mouseMoveEvent(QMouseEvent *e)
 {
     m_hover = hitTest(e->pos());
+    m_feedback->setHover(m_hover);
     setPointerCursor(this, m_hover >= 0);
     update();
     QWidget::mouseMoveEvent(e);
@@ -579,8 +952,96 @@ void ToolBar::mouseMoveEvent(QMouseEvent *e)
 void ToolBar::leaveEvent(QEvent *)
 {
     m_hover = -1;
+    m_feedback->setHover(-1);
     setPointerCursor(this, false);
     update();
+}
+
+void ToolBar::focusInEvent(QFocusEvent *e)
+{
+    const bool byKeyboard = (e->reason() == Qt::TabFocusReason
+                             || e->reason() == Qt::BacktabFocusReason
+                             || e->reason() == Qt::ShortcutFocusReason);
+    m_keyboardFocus = byKeyboard;
+    m_focus = byKeyboard ? 0 : -1;
+    if (byKeyboard) {
+        m_feedback->setHover(qMax(0, m_focus));
+    }
+    update();
+    QWidget::focusInEvent(e);
+}
+
+void ToolBar::focusOutEvent(QFocusEvent *e)
+{
+    m_focus = -1;
+    m_keyboardFocus = false;
+    m_press = -1;
+    m_feedback->reset();
+    update();
+    QWidget::focusOutEvent(e);
+}
+
+void ToolBar::keyPressEvent(QKeyEvent *e)
+{
+    if (!m_keyboardFocus) {
+        // 鼠标点进来的焦点不抢全局快捷键（方向键翻页 / 空格下一张）
+        QWidget::keyPressEvent(e);
+        return;
+    }
+    switch (e->key()) {
+    case Qt::Key_Tab:
+    case Qt::Key_Backtab:
+        moveFocus((e->key() == Qt::Key_Backtab || (e->modifiers() & Qt::ShiftModifier)) ? -1 : 1);
+        e->accept();
+        return;
+    case Qt::Key_Left:
+    case Qt::Key_Right:
+    case Qt::Key_Up:
+    case Qt::Key_Down:
+        moveFocus((e->key() == Qt::Key_Left || e->key() == Qt::Key_Up) ? -1 : 1);
+        e->accept();
+        return;
+    case Qt::Key_Space:
+    case Qt::Key_Return:
+    case Qt::Key_Enter:
+        if (!e->isAutoRepeat() && m_focus >= 0) {
+            m_press = m_focus;
+            m_feedback->setPressed(m_press);
+            m_feedback->setHover(m_focus);
+            update();
+        }
+        e->accept();
+        return;
+    case Qt::Key_Escape:
+        clearFocus();
+        e->accept();
+        return;
+    default:
+        break;
+    }
+    QWidget::keyPressEvent(e);
+}
+
+void ToolBar::keyReleaseEvent(QKeyEvent *e)
+{
+    if (m_keyboardFocus
+        && (e->key() == Qt::Key_Space || e->key() == Qt::Key_Return
+            || e->key() == Qt::Key_Enter)
+        && !e->isAutoRepeat()) {
+        const int i = m_press;
+        m_press = -1;
+        m_feedback->setPressed(-1);
+        update();
+        if (i >= 0 && i == m_focus) {
+            const QVector<Btn> btns = buttons();
+            if (i < btns.size()) {
+                activate(i, mapToGlobal(btns[i].rect.center()));
+            }
+        }
+        e->accept();
+        return;
+    }
+    QWidget::keyReleaseEvent(e);
 }
 
 // ===========================================================================
@@ -591,9 +1052,12 @@ ControlBar::ControlBar(QWidget *parent)
     : QWidget(parent)
 {
     setMouseTracking(true);
-    setFixedSize(408, 72);
+    setFixedSize(kDockW, kDockH);
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_NoSystemBackground);
+    setFocusPolicy(Qt::StrongFocus);
+    m_feedback = new ButtonFeedback(this);
+    connect(m_feedback, &ButtonFeedback::changed, this, [this]() { update(); });
 }
 
 void ControlBar::setZoomPercent(int percent)
@@ -613,31 +1077,76 @@ void ControlBar::setLocked(bool locked)
 
 QVector<ControlBar::Item> ControlBar::items() const
 {
-    return {
-        { Action::Open,        QRect(41, 35, 32, 30) },
-        { Action::List,        QRect(76, 35, 32, 30) },
-        { Action::Fit,         QRect(124, 35, 32, 30) },
-        { Action::RotateLeft,  QRect(172, 35, 32, 30) },
-        { Action::RotateRight, QRect(207, 35, 32, 30) },
-        { Action::Prev,        QRect(255, 35, 32, 30) },
-        { Action::Next,        QRect(290, 35, 32, 30) },
-        { Action::Lock,        QRect(338, 35, 32, 30) },
-        { Action::ZoomOut,     QRect(12, 6, 32, 26) },
-        { Action::Slider,      QRect(50, 9, 260, 20) },
-        { Action::ZoomIn,      QRect(316, 6, 32, 26) },
-        { Action::ZoomValue,   QRect(354, 6, 42, 26) },
-    };
+    return layoutItems(nullptr);
 }
 
-ControlBar::Action ControlBar::hitTest(const QPoint &pos) const
+// 胶囊的唯一布局来源（交接单 §7）：
+//   内边距 上 6 / 左右 9 / 下 7，两排间距 3；缩放行 26，操作行 30。
+QVector<ControlBar::Item> ControlBar::layoutItems(QVector<int> *separators) const
 {
-    const QVector<Item> list = items();
-    for (const Item &item : list) {
-        if (item.rect.contains(pos)) {
-            return item.action;
+    QVector<Item> out;
+
+    // ---- 缩放行：减号 / 滑杆 / 加号 / 百分比 四列网格，列间距 7，垂直居中 ----
+    const int zoomY = kDockPadTop;
+    const int sliderW = kDockW - 2 * kDockPadX - 2 * kZoomBtnW - kPercentW - 3 * kGridGap;
+    int x = kDockPadX;
+    out.append({ Action::ZoomOut, QRect(x, zoomY, kZoomBtnW, kZoomBtnH) });
+    x += kZoomBtnW + kGridGap;
+    out.append({ Action::Slider, QRect(x, zoomY, sliderW, kZoomRowH) });
+    x += sliderW + kGridGap;
+    out.append({ Action::ZoomIn, QRect(x, zoomY, kZoomBtnW, kZoomBtnH) });
+    x += kZoomBtnW + kGridGap;
+    out.append({ Action::ZoomValue, QRect(x, zoomY, kPercentW, kZoomRowH) });
+
+    // ---- 操作行：8 × 32×30 按钮 + 4 条分隔线，整行在两内边距之间水平居中 ----
+    struct Cell {
+        Action action;
+        bool sepBefore;
+    };
+    const Cell cells[] = {
+        { Action::Open, false },        { Action::List, false },
+        { Action::Fit, true },          { Action::RotateLeft, true },
+        { Action::RotateRight, false },
+        { Action::Prev, true },         { Action::Next, false },
+        { Action::Lock, true },
+    };
+    const int count = static_cast<int>(sizeof(cells) / sizeof(cells[0]));
+
+    int contentW = kItemGap * (count - 1);
+    for (const Cell &c : cells) {
+        contentW += kBtnW;
+        if (c.sepBefore) {
+            // 分隔线：自身 1px + 左右各 3px 外边距 + 它自己占一个按钮间距
+            contentW += kSepW + 2 * kSepMargin + kItemGap;
         }
     }
-    return Action::None;
+
+    const int actionY = kDockPadTop + kZoomRowH + kRowGap;
+    const int contentArea = kDockW - 2 * kDockPadX;
+    int cur = kDockPadX + qRound((contentArea - contentW) / 2.0);
+    for (const Cell &c : cells) {
+        if (c.sepBefore) {
+            const int sepX = cur + kSepMargin;   // cur 已含上一个按钮后的间距
+            if (separators) {
+                separators->append(sepX);
+            }
+            cur = sepX + kSepW + kSepMargin + kItemGap;
+        }
+        out.append({ c.action, QRect(cur, actionY, kBtnW, kBtnH) });
+        cur += kBtnW + kItemGap;
+    }
+    return out;
+}
+
+int ControlBar::hitIndex(const QPoint &pos) const
+{
+    const QVector<Item> list = items();
+    for (int i = 0; i < list.size(); ++i) {
+        if (list[i].rect.contains(pos)) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 int ControlBar::currentSliderPercent() const
@@ -647,7 +1156,20 @@ int ControlBar::currentSliderPercent() const
 
 void ControlBar::applySliderValueFromX(int x)
 {
-    const qreal ratio = qBound(0.0, (x - 50.0) / 260.0, 1.0);
+    QRect track;
+    const QVector<Item> list = items();
+    for (const Item &item : list) {
+        if (item.action == Action::Slider) {
+            track = item.rect;
+            break;
+        }
+    }
+    if (track.isNull()) {
+        return;
+    }
+    const qreal left = track.left() + 5.5;    // 手柄半径内缩，与绘制一致
+    const qreal right = track.right() - 5.5;
+    const qreal ratio = qBound(0.0, (x - left) / qMax(1.0, right - left), 1.0);
     const int pct = qRound(10.0 + ratio * 190.0);
     if (pct == m_percent) {
         return;
@@ -662,150 +1184,133 @@ void ControlBar::paintEvent(QPaintEvent *)
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
 
+    // 胶囊底：整条只有这一层，缩放行不再叠第二层背景
     p.setPen(QPen(rgba(255, 255, 255, 33), 1));
     p.setBrush(rgba(40, 42, 45, 242));
     p.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), 10, 10);
 
-    const QVector<Item> list = items();
+    QVector<int> separators;
+    const QVector<Item> list = layoutItems(&separators);
+
+    // 分隔线：1px 宽 / 16px 高，操作行垂直居中
+    const int sepY = kDockPadTop + kZoomRowH + kRowGap + (kActionRowH - kSepH) / 2;
+    for (int sx : separators) {
+        p.fillRect(QRect(sx, sepY, kSepW, kSepH), rgba(255, 255, 255, 23));
+    }
+
     for (int i = 0; i < list.size(); ++i) {
-        const Item &item = list[i];
+        const Item &item = list.at(i);
+        BtnVisual v = m_feedback->visual(i);
+
         if (item.action == Action::Slider) {
+            const QRectF track = item.rect;
+            const qreal y = track.center().y() + 0.5;
+            const qreal left = track.left() + 5.5;     // 手柄半径，避免两端被裁
+            const qreal right = track.right() - 5.5;
+            // 拖动中轨道略微提亮，和单纯 Hover 区分
+            QColor idle(QStringLiteral("#5d6166"));
+            if (v.press > 0.004) {
+                idle = blendColor(idle, QColor(0x7a, 0x7e, 0x84), 0.55 * v.press);
+            }
+            p.setPen(QPen(idle, 3, Qt::SolidLine, Qt::RoundCap));
+            p.drawLine(QPointF(left, y), QPointF(right, y));
+            const qreal ratio = (currentSliderPercent() - 10.0) / 190.0;
+            const qreal thumbX = left + ratio * (right - left);
+            p.setPen(QPen(UiStyle::accent(), 3, Qt::SolidLine, Qt::RoundCap));
+            p.drawLine(QPointF(left, y), QPointF(thumbX, y));
+            // 手柄：Hover 1.12 / Dragging 1.22，取较大者不叠加
+            const qreal grow = 1.0 + qMax(0.12 * v.hover, 0.22 * v.press);
+            const qreal hot = qMax(v.hover, v.press);
+            QColor thumb(QStringLiteral("#f3f5f6"));
+            if (hot > 0.01) {
+                thumb = blendColor(thumb, UiStyle::accent(), hot);
+            }
+            p.setPen(Qt::NoPen);
+            p.setBrush(thumb);
+            p.drawEllipse(QPointF(thumbX, y), 5.5 * grow, 5.5 * grow);
             continue;
         }
-        const bool hovered = (m_hover == i);
-        const bool activeLock = item.action == Action::Lock && m_locked;
-        if (hovered || activeLock) {
-            if (activeLock) {
-                p.setPen(QPen(rgba(85, 192, 240, 64), 1));
-                p.setBrush(rgba(85, 192, 240, 31));
-            } else {
-                p.setPen(Qt::NoPen);
-                p.setBrush(QColor(QStringLiteral("#45484d")));
-            }
-            p.drawRoundedRect(QRectF(item.rect).adjusted(0.5, 0.5, -0.5, -0.5), 5, 5);
-        }
-    }
 
-    // 分隔线
-    const int separators[] = { 115, 160, 243, 326 };
-    for (int x : separators) {
-        p.fillRect(QRect(x, 42, 1, 16), rgba(255, 255, 255, 23));
-    }
+        BtnState st;
+        st.hover = (m_hover == i);
+        st.pressed = (m_press == i);
+        st.checked = (item.action == Action::Lock && m_locked);
+        st.focus = (m_keyboardFocus && m_focus == i);
 
-    const QColor ink(QStringLiteral("#d7d9dc"));
-    const QColor muted(QStringLiteral("#b7bbc0"));
-    const QColor accent(QStringLiteral("#55c0f0"));
-
-    for (int i = 0; i < list.size(); ++i) {
-        const Item &item = list[i];
-        const QColor color = (item.action == Action::Lock && m_locked) ? accent : ink;
-        const QRect r = item.rect;
+        ButtonPalette pal;
+        pal.hover = kHoverBg;
+        pal.press = kPressBg;
+        pal.baseBorder = rgba(255, 255, 255, 19);
+        pal.checkedBg = UiStyle::accentSoft();
+        pal.checkedBorder = rgba(85, 192, 240, 64);
+        pal.ink = QColor(QStringLiteral("#d7d9dc"));
+        pal.checkedInk = UiStyle::accent();
         switch (item.action) {
-        case Action::Open:
-            drawIcon(p, Icon::Folder, QRectF(r.center().x() - 9, r.center().y() - 9, 18, 18),
-                     color, 1.55);
-            break;
-        case Action::List:
-            drawIcon(p, Icon::Grid, QRectF(r.center().x() - 8.5, r.center().y() - 8.5, 17, 17),
-                     color, 1.5);
-            break;
-        case Action::Fit:
-            drawIcon(p, Icon::Fit, QRectF(r.center().x() - 8.5, r.center().y() - 8.5, 17, 17),
-                     color, 1.5);
-            break;
-        case Action::RotateLeft:
-            drawIcon(p, Icon::RotateLeft,
-                     QRectF(r.center().x() - 9, r.center().y() - 9, 18, 18), color, 1.5);
-            break;
-        case Action::RotateRight:
-            drawIcon(p, Icon::RotateRight,
-                     QRectF(r.center().x() - 9, r.center().y() - 9, 18, 18), color, 1.5);
-            break;
         case Action::Prev:
-            drawIcon(p, Icon::Left, QRectF(r.center().x() - 9.5, r.center().y() - 9.5, 19, 19),
-                     QColor(QStringLiteral("#f0f0f0")), 1.8);
-            break;
         case Action::Next:
-            drawIcon(p, Icon::Right, QRectF(r.center().x() - 9.5, r.center().y() - 9.5, 19, 19),
-                     QColor(QStringLiteral("#f0f0f0")), 1.8);
-            break;
-        case Action::Lock:
-            drawIcon(p, Icon::Lock, QRectF(r.center().x() - 8.5, r.center().y() - 8.5, 17, 17),
-                     color, 1.5);
+            pal.ink = QColor(QStringLiteral("#f0f0f0"));
             break;
         case Action::ZoomOut:
-            drawIcon(p, Icon::Minus, QRectF(r.center().x() - 8, r.center().y() - 8, 16, 16),
-                     muted, 1.5);
-            break;
         case Action::ZoomIn:
-            drawIcon(p, Icon::Plus, QRectF(r.center().x() - 8, r.center().y() - 8, 16, 16),
-                     muted, 1.5);
-            break;
         case Action::ZoomValue:
-            p.setFont(uiFont(11));
-            p.setPen(muted);
-            p.drawText(r, Qt::AlignCenter, QStringLiteral("%1%").arg(m_percent));
+            pal.ink = QColor(QStringLiteral("#b7bbc0"));
             break;
-        case Action::Slider: {
-            const qreal trackY = r.center().y();
-            p.setPen(QPen(QColor(QStringLiteral("#5d6166")), 3, Qt::SolidLine,
-                          Qt::RoundCap));
-            p.drawLine(QPointF(r.left(), trackY), QPointF(r.right(), trackY));
-            const qreal ratio = (currentSliderPercent() - 10.0) / 190.0;
-            const qreal thumbX = r.left() + ratio * r.width();
-            p.setPen(QPen(accent, 3, Qt::SolidLine, Qt::RoundCap));
-            p.drawLine(QPointF(r.left(), trackY), QPointF(thumbX, trackY));
-            p.setPen(Qt::NoPen);
-            p.setBrush(QColor(QStringLiteral("#f3f5f6")));
-            p.drawEllipse(QPointF(thumbX, trackY), 5.5, 5.5);
-            break;
-        }
         default:
             break;
         }
-    }
-}
 
-void ControlBar::mousePressEvent(QMouseEvent *e)
-{
-    const Action action = hitTest(e->pos());
-    if (e->button() == Qt::RightButton) {
-        if (action == Action::Prev) { emit prev10Clicked(); return; }
-        if (action == Action::Next) { emit next10Clicked(); return; }
-    }
-    if (e->button() == Qt::MiddleButton) {
-        if (action == Action::Prev) { emit prevFolderClicked(); return; }
-        if (action == Action::Next) { emit nextFolderClicked(); return; }
-    }
-    if (e->button() == Qt::LeftButton) {
-        m_press = static_cast<int>(action);
-        if (action == Action::Slider) {
-            m_dragging = true;
-            applySliderValueFromX(e->pos().x());
-            return;
+        const QRect r = item.rect;
+        beginButton(p, QRectF(r), st, v, pal);
+        const QColor ink = buttonInk(st, pal);
+        const QRectF centerIcon(r.center().x() - kIconSize / 2.0,
+                                r.center().y() - kIconSize / 2.0, kIconSize, kIconSize);
+        const QRectF navIcon(r.center().x() - kNavIconSize / 2.0,
+                             r.center().y() - kNavIconSize / 2.0, kNavIconSize, kNavIconSize);
+
+        switch (item.action) {
+        case Action::Open:
+            drawIcon(p, Icon::Folder, centerIcon, ink, kIconStroke);
+            break;
+        case Action::List:
+            drawIcon(p, Icon::Grid, centerIcon, ink, kIconStroke);
+            break;
+        case Action::Fit:
+            drawIcon(p, Icon::Fit, centerIcon, ink, kIconStroke);
+            break;
+        case Action::RotateLeft:
+            drawIcon(p, Icon::RotateLeft, centerIcon, ink, kIconStroke);
+            break;
+        case Action::RotateRight:
+            drawIcon(p, Icon::RotateRight, centerIcon, ink, kIconStroke);
+            break;
+        case Action::Prev:
+            drawIcon(p, Icon::Left, navIcon, ink, kNavIconStroke);
+            break;
+        case Action::Next:
+            drawIcon(p, Icon::Right, navIcon, ink, kNavIconStroke);
+            break;
+        case Action::Lock:
+            drawIcon(p, Icon::Lock, centerIcon, ink, kIconStroke);
+            break;
+        case Action::ZoomOut:
+            drawIcon(p, Icon::Minus, centerIcon, ink, kIconStroke);
+            break;
+        case Action::ZoomIn:
+            drawIcon(p, Icon::Plus, centerIcon, ink, kIconStroke);
+            break;
+        case Action::ZoomValue:
+            drawTabularText(p, QRectF(r), QStringLiteral("%1%").arg(m_percent), ink, 11);
+            break;
+        default:
+            break;
         }
-        update();
+        endButton(p);
     }
-    QWidget::mousePressEvent(e);
 }
 
-void ControlBar::mouseReleaseEvent(QMouseEvent *e)
+void ControlBar::activate(Action action)
 {
-    const Action pressed = static_cast<Action>(m_press);
-    m_press = -1;
-    if (m_dragging) {
-        m_dragging = false;
-        update();
-        QWidget::mouseReleaseEvent(e);
-        return;
-    }
-    update();
-    if (e->button() != Qt::LeftButton || pressed == Action::None
-        || pressed != hitTest(e->pos())) {
-        QWidget::mouseReleaseEvent(e);
-        return;
-    }
-    switch (pressed) {
+    switch (action) {
     case Action::Open: emit openClicked(); break;
     case Action::List: emit listClicked(); break;
     case Action::Fit: emit fitClicked(); break;
@@ -818,6 +1323,81 @@ void ControlBar::mouseReleaseEvent(QMouseEvent *e)
     case Action::ZoomIn: emit zoomInClicked(); break;
     case Action::ZoomValue: emit fitClicked(); break;
     default: break;
+    }
+}
+
+void ControlBar::moveFocus(int step)
+{
+    const int n = items().size();
+    if (n <= 0) {
+        return;
+    }
+    const int next = (m_focus < 0) ? (step > 0 ? 0 : n - 1) : m_focus + step;
+    if (next < 0 || next >= n) {
+        // 走到边界：把焦点交还给外层焦点链
+        m_focus = -1;
+        m_keyboardFocus = false;
+        m_feedback->setHover(-1);
+        update();
+        focusNextPrevChild(step > 0);
+        return;
+    }
+    m_focus = next;
+    m_feedback->setHover(next);
+    update();
+}
+
+void ControlBar::mousePressEvent(QMouseEvent *e)
+{
+    const QVector<Item> list = items();
+    const int idx = hitIndex(e->pos());
+    const Action action = (idx >= 0 && idx < list.size()) ? list[idx].action : Action::None;
+
+    if (e->button() == Qt::RightButton) {
+        if (action == Action::Prev) { emit prev10Clicked(); return; }
+        if (action == Action::Next) { emit next10Clicked(); return; }
+    }
+    if (e->button() == Qt::MiddleButton) {
+        if (action == Action::Prev) { emit prevFolderClicked(); return; }
+        if (action == Action::Next) { emit nextFolderClicked(); return; }
+    }
+    if (e->button() == Qt::LeftButton) {
+        if (m_keyboardFocus) {
+            m_keyboardFocus = false;   // 鼠标接管后不再显示焦点环
+            m_focus = -1;
+        }
+        m_press = idx;
+        m_feedback->setPressed(idx);   // 按下即出反馈，不等 clicked
+        if (action == Action::Slider) {
+            m_dragging = true;
+            applySliderValueFromX(e->pos().x());
+            return;
+        }
+        update();
+    }
+    QWidget::mousePressEvent(e);
+}
+
+void ControlBar::mouseReleaseEvent(QMouseEvent *e)
+{
+    const int pressedIndex = m_press;
+    m_press = -1;
+    m_feedback->setPressed(-1);
+    if (m_dragging) {
+        m_dragging = false;
+        update();
+        QWidget::mouseReleaseEvent(e);
+        return;
+    }
+    update();
+    if (e->button() != Qt::LeftButton || pressedIndex < 0
+        || pressedIndex != hitIndex(e->pos())) {
+        QWidget::mouseReleaseEvent(e);
+        return;
+    }
+    const QVector<Item> list = items();
+    if (pressedIndex < list.size()) {
+        activate(list[pressedIndex].action);
     }
     QWidget::mouseReleaseEvent(e);
 }
@@ -836,6 +1416,7 @@ void ControlBar::mouseMoveEvent(QMouseEvent *e)
             break;
         }
     }
+    m_feedback->setHover(m_hover);
     if (m_hover >= 0 && list[m_hover].action == Action::Slider) {
         setCursor(Qt::SizeHorCursor);
     } else {
@@ -848,8 +1429,97 @@ void ControlBar::mouseMoveEvent(QMouseEvent *e)
 void ControlBar::leaveEvent(QEvent *)
 {
     m_hover = -1;
+    m_feedback->setHover(-1);
     setPointerCursor(this, false);
     update();
+}
+
+void ControlBar::focusInEvent(QFocusEvent *e)
+{
+    const bool byKeyboard = (e->reason() == Qt::TabFocusReason
+                             || e->reason() == Qt::BacktabFocusReason
+                             || e->reason() == Qt::ShortcutFocusReason);
+    m_keyboardFocus = byKeyboard;
+    m_focus = byKeyboard ? 0 : -1;
+    if (byKeyboard) {
+        m_feedback->setHover(m_focus);
+    }
+    update();
+    QWidget::focusInEvent(e);
+}
+
+void ControlBar::focusOutEvent(QFocusEvent *e)
+{
+    m_focus = -1;
+    m_keyboardFocus = false;
+    m_press = -1;
+    m_dragging = false;
+    m_feedback->reset();
+    update();
+    QWidget::focusOutEvent(e);
+}
+
+void ControlBar::keyPressEvent(QKeyEvent *e)
+{
+    if (!m_keyboardFocus) {
+        // 鼠标点进来的焦点不抢全局快捷键（方向键翻页 / 空格下一张）
+        QWidget::keyPressEvent(e);
+        return;
+    }
+    switch (e->key()) {
+    case Qt::Key_Tab:
+    case Qt::Key_Backtab:
+        moveFocus((e->key() == Qt::Key_Backtab || (e->modifiers() & Qt::ShiftModifier)) ? -1 : 1);
+        e->accept();
+        return;
+    case Qt::Key_Left:
+    case Qt::Key_Right:
+    case Qt::Key_Up:
+    case Qt::Key_Down:
+        moveFocus((e->key() == Qt::Key_Left || e->key() == Qt::Key_Up) ? -1 : 1);
+        e->accept();
+        return;
+    case Qt::Key_Space:
+    case Qt::Key_Return:
+    case Qt::Key_Enter:
+        if (!e->isAutoRepeat() && m_focus >= 0) {
+            m_press = m_focus;
+            m_feedback->setPressed(m_press);
+            m_feedback->setHover(m_focus);
+            update();
+        }
+        e->accept();
+        return;
+    case Qt::Key_Escape:
+        clearFocus();
+        e->accept();
+        return;
+    default:
+        break;
+    }
+    QWidget::keyPressEvent(e);
+}
+
+void ControlBar::keyReleaseEvent(QKeyEvent *e)
+{
+    if (m_keyboardFocus
+        && (e->key() == Qt::Key_Space || e->key() == Qt::Key_Return
+            || e->key() == Qt::Key_Enter)
+        && !e->isAutoRepeat()) {
+        const int i = m_press;
+        m_press = -1;
+        m_feedback->setPressed(-1);
+        update();
+        if (i >= 0 && i == m_focus) {
+            const QVector<Item> list = items();
+            if (i < list.size() && list[i].action != Action::Slider) {
+                activate(list[i].action);
+            }
+        }
+        e->accept();
+        return;
+    }
+    QWidget::keyReleaseEvent(e);
 }
 
 void ControlBar::wheelEvent(QWheelEvent *e)

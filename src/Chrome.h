@@ -1,6 +1,9 @@
 #pragma once
 
 #include <QColor>
+#include <QElapsedTimer>
+#include <QHash>
+#include <QObject>
 #include <QPixmap>
 #include <QPoint>
 #include <QRect>
@@ -11,6 +14,8 @@
 class QTimer;
 class QGraphicsOpacityEffect;
 class QPropertyAnimation;
+class QFocusEvent;
+class QKeyEvent;
 
 // ---------------------------------------------------------------------------
 // QuikView Windows 11 铬件。
@@ -23,6 +28,58 @@ namespace Chrome {
 QString skinDir();
 QPixmap skinPixmap(const QString &name);
 QPixmap skinFrame(const QString &name, int idx);
+
+// ===========================================================================
+// 按钮状态（标题栏 / 命令栏 / 底部胶囊共用的唯一一份状态描述）
+// 说明：状态与插值量只参与**绘制**，绝不改动按钮 geometry、行高或胶囊尺寸。
+// ===========================================================================
+struct BtnState {
+    bool hover = false;      // 指针悬停
+    bool pressed = false;    // 按下（鼠标按下 / 键盘 Space、Enter 按住）
+    bool checked = false;    // 锁定 / 选中（淡蓝底 + 蓝描边 + 蓝图标）
+    bool focus = false;      // 键盘焦点（2px 淡蓝焦点环）
+    bool disabled = false;   // 降低不透明度，不响应 Hover / Pressed 动画
+    bool danger = false;     // 关闭按钮：红色 Hover，不套蓝色选中态
+};
+
+// 由 ButtonFeedback 推进的绘制插值量（0..1）。
+struct BtnVisual {
+    qreal hover = 0.0;   // 120ms 淡入
+    qreal press = 0.0;   // 90ms，绘制时整体缩放至 94%
+};
+
+// 系统「减少动画」：QUIKVIEW_REDUCE_MOTION 环境变量优先，其次 Windows 客户端动画设置。
+// 开启时关掉缩放与淡入动画，但保留背景色反馈。
+bool reducedMotion();
+
+// 一个铬件内所有按钮共用的状态动画器。
+// 单一 16ms 定时器推进所有按钮的插值，中断/连点/拖出都能收尾干净。
+class ButtonFeedback : public QObject
+{
+    Q_OBJECT
+public:
+    explicit ButtonFeedback(QObject *parent = nullptr);
+
+    void setHover(int index);      // -1 = 无悬停（会淡出）
+    void setPressed(int index);    // -1 = 松开（会 90ms 恢复，不弹跳）
+    void reset();                  // 立即收回全部状态（禁用 / 失去焦点）
+    BtnVisual visual(int index) const;
+    int pressedIndex() const { return m_pressed; }
+
+signals:
+    void changed();                // 插值变化，宿主调用 update()
+
+private:
+    void tick();
+    void start();
+    void snap();
+
+    QHash<int, BtnVisual> m_vals;
+    int m_hover = -1;
+    int m_pressed = -1;
+    QTimer *m_timer = nullptr;
+    QElapsedTimer m_clock;
+};
 
 // ============================ 标题栏（28px） ============================
 class CaptionBar : public QWidget
@@ -55,6 +112,7 @@ private:
     QString m_title;
     int m_hover = -1;
     int m_press = -1;
+    ButtonFeedback *m_feedback = nullptr;
 };
 
 // ============================ 命令栏（34px） ============================
@@ -83,6 +141,10 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
     void leaveEvent(QEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
+    void keyReleaseEvent(QKeyEvent *event) override;
+    void focusInEvent(QFocusEvent *event) override;
+    void focusOutEvent(QFocusEvent *event) override;
 
 private:
     struct Btn {
@@ -94,11 +156,16 @@ private:
     };
     QVector<Btn> buttons() const;
     int hitTest(const QPoint &pos) const;
+    void activate(int index, const QPoint &globalPos);
+    void moveFocus(int step);
 
     int m_hover = -1;
     int m_press = -1;
     int m_showModeIcon = 0;
     bool m_locked = false;
+    ButtonFeedback *m_feedback = nullptr;
+    int m_focus = -1;            // 键盘焦点所在按钮
+    bool m_keyboardFocus = false; // 焦点是否由键盘进入（决定是否显示焦点环、是否吃空格）
 };
 
 // ==================== 底部胶囊控制栏（408x72，浮于画布下缘） ====================
@@ -135,6 +202,10 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
     void leaveEvent(QEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
+    void keyReleaseEvent(QKeyEvent *event) override;
+    void focusInEvent(QFocusEvent *event) override;
+    void focusOutEvent(QFocusEvent *event) override;
 
 private:
     enum class Action {
@@ -146,7 +217,10 @@ private:
         QRect rect;
     };
     QVector<Item> items() const;
-    Action hitTest(const QPoint &pos) const;
+    QVector<Item> layoutItems(QVector<int> *separators) const;  // 唯一布局来源
+    int hitIndex(const QPoint &pos) const;
+    void activate(Action action);
+    void moveFocus(int step);
     void applySliderValueFromX(int x);
     int currentSliderPercent() const;
 
@@ -155,6 +229,9 @@ private:
     bool m_dragging = false;
     bool m_locked = false;
     int m_percent = 68;
+    ButtonFeedback *m_feedback = nullptr;
+    int m_focus = -1;
+    bool m_keyboardFocus = false;
 };
 
 // ============================ 状态浮层 ============================
