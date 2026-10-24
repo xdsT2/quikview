@@ -1,0 +1,10 @@
+<RCC>
+    <!-- 注意：prefix="/" + file 路径自带 ui/ → 资源路径 :/ui/xxx.png。
+         不要写成 prefix="/ui" + file "ui/xxx.png"，那会变成 :/ui/ui/xxx.png。 -->
+    <qresource prefix="/">
+        <file>ui/check.png</file>
+        <file>ui/check-light.png</file>
+        <file>ui/chevron-down.png</file>
+        <file>ui/chevron-right.png</file>
+    </qresource>
+</RCC>

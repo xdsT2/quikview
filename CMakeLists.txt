@@ -51,8 +51,10 @@ add_executable(quikview WIN32
     src/FrameNavigator.cpp
     src/FrameNavigator.h
     src/Theme.h
+    src/UiStyle.h
     src/MainWindow.cpp
     src/MainWindow.h
+    resources/ui.qrc
 )
 
 target_include_directories(quikview PRIVATE src)
