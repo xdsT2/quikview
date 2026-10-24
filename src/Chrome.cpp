@@ -1314,7 +1314,7 @@ QString ControlBar::tipText(Action action) const
     case Action::Prev: return tr("上一张图片 (←)");
     case Action::Next: return tr("下一张图片 (→)");
     case Action::Lock: return m_locked ? tr("解锁控制栏") : tr("锁定控制栏");
-    case Action::Slider: return tr("缩放");
+    case Action::Slider: return tr("缩放（拖动缩放，滚轮切换图片）");
     case Action::ZoomValue: return tr("适合窗口");
     case Action::None: break;
     }
