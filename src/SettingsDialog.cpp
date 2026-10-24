@@ -588,7 +588,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     root->addWidget(footer);
 
     loadFromConfig();
-    selectPage(4);
+    selectPage(0);
 }
 
 // ===========================================================================
