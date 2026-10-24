@@ -206,14 +206,22 @@ ExifParser::Result ExifParser::parse(const QString &filePath)
                 return QString();
             };
             // 参考方向标签
+            // 注意：真实相机常把 'N'/'E' 写成 "N\0\0"（count=2~4），直接 fromLatin1
+            // 会把内嵌 NUL 带进 QString，界面上显示成方框——先按 NUL 截断再取。
+            const auto refChar = [&data](int off, int count) {
+                QByteArray s = data.mid(off, count);
+                const int nul = s.indexOf('\0');
+                if (nul >= 0) s.truncate(nul);
+                return QString::fromLatin1(s).trimmed();
+            };
             for (int i = 0; i < count; ++i) {
                 const int entry = gOff + 2 + i * 12;
                 if (entry + 12 > data.size()) break;
                 const quint16 tag = rd.u16(entry);
                 if (rd.u16(entry + 2) != 2) continue;
                 const int off = tiff + static_cast<int>(rd.u32(entry + 8));
-                if (tag == 0x0001) latRef = QString::fromLatin1(data.mid(off, rd.u32(entry + 4)));
-                else if (tag == 0x0003) lngRef = QString::fromLatin1(data.mid(off, rd.u32(entry + 4)));
+                if (tag == 0x0001) latRef = refChar(off, static_cast<int>(rd.u32(entry + 4)));
+                else if (tag == 0x0003) lngRef = refChar(off, static_cast<int>(rd.u32(entry + 4)));
             }
             const QString latD = readCoord(0x0002);
             const QString lngD = readCoord(0x0004);
