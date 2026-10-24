@@ -174,6 +174,10 @@ QTreeWidget, QTreeView, QListView, QTableWidget { background: #1e2023; color: #d
     border: 1px solid rgba(255,255,255,0.085); border-radius: 6px;
     alternate-background-color: #222427; selection-background-color: rgba(85,192,240,0.18);
     selection-color: #ffffff; }
+/* 列表/树的悬停只在行上给浅底，不做整体缩放（交互状态统一规范 P0-3） */
+QTreeView::item:hover, QListView::item:hover, QTableWidget::item:hover { background: #33363b; }
+QTreeView::item:selected, QListView::item:selected, QTableWidget::item:selected {
+    background: rgba(85,192,240,0.18); color: #ffffff; }
 QHeaderView::section { background: #292b2f; color: #9ca2aa; border: 0;
     border-bottom: 1px solid rgba(255,255,255,0.085); padding: 5px 8px; font-size: 11px; }
 QTabWidget::pane { border: 0; }
