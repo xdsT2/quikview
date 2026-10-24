@@ -90,10 +90,29 @@ QString DirectoryLoader::next()
     return m_files.at(m_index);
 }
 
+// 一次走 step 张：双页阅览一跨页是 2 张，普通浏览是 1 张。
+// 到边界按 edgeAction 处理——stop 原地不动并返回空串（调用方据此提示），
+// first 回绕到另一端（保留原有循环语义）。
+QString DirectoryLoader::advance(int step)
+{
+    if (m_files.isEmpty() || step == 0) {
+        return QString();
+    }
+    const int target = m_index + step;
+    if (target < 0 || target >= m_files.size()) {
+        if (m_edgeAction != QLatin1String("first")) {
+            return QString();
+        }
+        m_index = target < 0 ? m_files.size() - 1 : 0;
+    } else {
+        m_index = target;
+    }
+    return m_files.at(m_index);
+}
+
 QString DirectoryLoader::prev()
 {
-    if (m_files.isEmpty()) {
-        return QString();
+    if (m_files.isEmpty()) {        return QString();
     }
     if (m_edgeAction == QLatin1String("stop") && m_index <= 0) {
         return QString();

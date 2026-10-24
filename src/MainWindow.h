@@ -139,6 +139,14 @@ private:
     void onGamma();
     void onStretchSmall(bool on);
     void setInterpolationMode(const QString &mode);
+    void toggleZoomLock();                   // 锁定缩放（Ctrl+K）：翻页沿用同一比例
+    void onPageSelect();                     // 选择图片（Enter）：按序号跳转
+    void onEditBookmarks();                  // 编辑书签（F3）：书签管理对话框
+    bool isSpreadMode() const;               // 智能双页阅览（viewMode 3/4）
+    void setSpreadMode(int mode);            // 3 = 左→右，4 = 左←右
+    QString spreadSecondPath() const;        // 跨页的右/左手那张
+    QImage readImageSync(const QString &path) const;   // 同步解码（双页拼图用）
+    void refreshSpread();                    // 按当前索引重新拼接跨页
     void updateCanvasLogo();
     void updateInfoOverlay();
     void syncZoom();
@@ -171,6 +179,8 @@ private:
     QAction *actQuit = nullptr;
     QAction *actFit = nullptr;
     QAction *actFitWidth = nullptr;
+    QAction *actTwoL2R = nullptr;    // 智能双页阅览（左→右）7
+    QAction *actTwoR2L = nullptr;    // 智能双页阅览（左←右）6
     QAction *actZoomIn = nullptr;
     QAction *actZoomOut = nullptr;
     QAction *actActualSize = nullptr;
@@ -264,6 +274,7 @@ private:
     bool m_flipV = false;
     bool m_negative = false;   // 反相
     qreal m_gamma = 1.0;       // Gamma 补偿（1.0 = 不变）
+    bool m_zoomLocked = false; // 锁定缩放：翻页后不做适配，沿用同一比例
     int m_interpMode = 1;      // 0 bilinear / 1 bicubic / 2 lanczos
     bool m_slideshow = false;
     bool m_slideshowRandom = false;

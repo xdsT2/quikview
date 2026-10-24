@@ -7,16 +7,21 @@
 #include <QContextMenuEvent>
 #include <QCursor>
 #include <QDesktopServices>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QEasingCurve>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGraphicsOpacityEffect>
+#include <QHBoxLayout>
 #include <QImage>
+#include <QImageReader>
 #include <QInputDialog>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QListWidget>
 #include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
@@ -25,12 +30,14 @@
 #include <QPrinter>
 #include <QProcess>
 #include <QPropertyAnimation>
+#include <QPushButton>
 #include <QRandomGenerator>
 #include <QResizeEvent>
 #include <QTextStream>
 #include <QTimer>
 #include <QTransform>
 #include <QUrl>
+#include <QVBoxLayout>
 #include <QWheelEvent>
 
 #include "BatchConvertDialog.h"
@@ -63,6 +70,27 @@ namespace {
 constexpr int kBrowserWidth = 160;   // 缩略图面板宽（20:53：小而随内容）
 constexpr int kBrowserGap = 12;      // 面板与窗口左缘/画布之间的留白
 constexpr int kTopChromeH = 76;      // 标题栏 28 + 命令栏 34 + 视觉留白（仅作面板/浮层定位）
+
+// 双页拼图：两页等高并排，高度取较高的一页，另一页按比例放大，
+// 避免跨页出现深色竖缝。左←右（漫画式）由调用方调换左右顺序。
+QImage composeSpread(const QImage &left, const QImage &right)
+{
+    if (left.isNull()) {
+        return right;
+    }
+    if (right.isNull()) {
+        return left;
+    }
+    const int h = qMax(left.height(), right.height());
+    const QImage l = left.scaledToHeight(h, Qt::SmoothTransformation);
+    const QImage r = right.scaledToHeight(h, Qt::SmoothTransformation);
+    QImage out(l.width() + r.width(), h, QImage::Format_ARGB32);
+    out.fill(Qt::black);
+    QPainter p(&out);
+    p.drawImage(0, 0, l);
+    p.drawImage(l.width(), 0, r);
+    return out;
+}
 
 } // namespace
 
@@ -765,7 +793,13 @@ void MainWindow::createActions()
     actActualSize = mk(tr("原始大小 (100%)"), QKeySequence(QStringLiteral("0")), &MainWindow::onActualSize);
     actFit = mk(tr("适合窗口"), QKeySequence(QStringLiteral("9")), &MainWindow::onFit);
     actFitWidth = mk(tr("适合宽度"), QKeySequence(QStringLiteral("8")), &MainWindow::onFitWidth);
-    for (auto *a : { actActualSize, actFit, actFitWidth }) {
+    actTwoL2R = new QAction(tr("智能双页阅览 (左→右)"), this);
+    actTwoL2R->setShortcut(QKeySequence(QStringLiteral("7")));
+    connect(actTwoL2R, &QAction::triggered, this, [this]() { setViewMode(3); });
+    actTwoR2L = new QAction(tr("智能双页阅览 (左←右)"), this);
+    actTwoR2L->setShortcut(QKeySequence(QStringLiteral("6")));
+    connect(actTwoR2L, &QAction::triggered, this, [this]() { setViewMode(4); });
+    for (auto *a : { actActualSize, actFit, actFitWidth, actTwoL2R, actTwoR2L }) {
         a->setCheckable(true);
         viewModeGroup->addAction(a);
     }
@@ -909,12 +943,8 @@ QMenu *MainWindow::buildBrowseMenu()
     menu->addAction(actActualSize);   // 0
     menu->addAction(actFit);          // 9
     menu->addAction(actFitWidth);     // 8
-    addMenuItem(menu, tr("智能双页阅览 (左→右)"), QStringLiteral("7"), [this]() {
-        m_toast->showMessage(tr("「智能双页阅览」暂未实现"));
-    });
-    addMenuItem(menu, tr("智能双页阅览 (左←右)"), QStringLiteral("6"), [this]() {
-        m_toast->showMessage(tr("「智能双页阅览」暂未实现"));
-    });
+    menu->addAction(actTwoL2R);
+    menu->addAction(actTwoR2L);
     menu->addSeparator();
     auto *actStretch = addMenuItem(menu, tr("拉伸小图"), QStringLiteral("Z"), [this]() {
         onStretchSmall(!Config::instance().stretchSmall());
@@ -978,9 +1008,7 @@ QMenu *MainWindow::buildBookmarkMenu()
 {
     auto *menu = new QMenu(this);
     menu->addAction(actFavorite);   // 添加书签 B
-    addMenuItem(menu, tr("编辑书签"), QStringLiteral("F3"), [this]() {
-        m_toast->showMessage(tr("「编辑书签」暂未实现"));
-    });
+    addMenuItem(menu, tr("编辑书签"), QStringLiteral("F3"), [this]() { onEditBookmarks(); });
     menu->addSeparator();
     addMenuItem(menu, tr("删除所有书签"), QString(), [this]() {
         Config::instance().settings().setValue(QStringLiteral("favorites"), QStringList());
@@ -1094,18 +1122,12 @@ QMenu *MainWindow::buildSystemMenu()
 QMenu *MainWindow::buildContextMenu()
 {
     auto *menu = new QMenu(this);
-    // 暂无实现的条目：点击后明确提示，不做静默无反应
-    auto pending = [this](QMenu *target, const QString &label, const QString &shortcut) {
-        addMenuItem(target, label, shortcut, [this, label]() {
-            m_toast->showMessage(tr("「%1」暂未实现").arg(label));
-        });
-    };
 
     // —— 文件 ——
     addMenuItem(menu, tr("打开图片"), QStringLiteral("F2"), [this]() { onOpen(); });
     addMenuItem(menu, tr("打开文件夹"), QStringLiteral("F"), [this]() { onOpenFolder(); });
     addMenuItem(menu, tr("关闭"), QStringLiteral("F4"), [this]() { close(); });
-    pending(menu, tr("选择图片"), QStringLiteral("Enter"));
+    addMenuItem(menu, tr("选择图片"), QStringLiteral("Enter"), [this]() { onPageSelect(); });
     addMenuItem(menu, tr("定位文件"), QStringLiteral("Ctrl+Enter"), [this]() {
         if (m_currentPath.isEmpty()) {
             return;
@@ -1209,15 +1231,18 @@ QMenu *MainWindow::buildContextMenu()
     show->addAction(actActualSize);
     show->addAction(actFit);
     show->addAction(actFitWidth);
-    pending(show, tr("智能双页阅览 (左→右)"), QStringLiteral("7"));
-    pending(show, tr("智能双页阅览 (左←右)"), QStringLiteral("6"));
+    actTwoL2R->setChecked(m_viewMode == 3);
+    actTwoR2L->setChecked(m_viewMode == 4);
+    show->addAction(actTwoL2R);
+    show->addAction(actTwoR2L);
     UiStyle::polishMenu(show);
 
     // —— 缩放工具（6 项）——
     QMenu *zoom = menu->addMenu(tr("缩放工具"));
     addMenuItem(zoom, tr("放大"), QStringLiteral("+"), [this]() { onZoomIn(); });
     addMenuItem(zoom, tr("缩小"), QStringLiteral("−"), [this]() { onZoomOut(); });
-    pending(zoom, tr("锁定"), QStringLiteral("Ctrl+K"));
+    addCheckableItem(zoom, tr("锁定"), QStringLiteral("Ctrl+K"), m_zoomLocked,
+                     [this]() { toggleZoomLock(); });
     addMenuItem(zoom, tr("100%"), QStringLiteral("*"), [this]() { setViewMode(0); });
     addMenuItem(zoom, tr("放大 (1%)"), QStringLiteral("Ctrl++"), [this]() {
         if (!m_currentImage.isNull()) {
@@ -1282,6 +1307,8 @@ void MainWindow::applyRuntimeSettings()
 
     setInterpolationMode(cfg.interpolation());
     m_canvas->setStretchSmall(cfg.stretchSmall());
+    m_zoomLocked = Config::instance().settings()
+                       .value(QStringLiteral("config/zoom_fix"), false).toBool();
     m_canvas->setWheelZoomEnabled(cfg.wheelZoom());
     m_canvas->setMiddlePanEnabled(cfg.middlePan());
 
@@ -1383,24 +1410,40 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error)
 
 void MainWindow::showImage(const QImage &image, const QString &path)
 {
+    // 双页模式先把相邻两页拼成一张大图，后面所有几何/颜色变换都作用在整跨页上，
+    // 视图层面永远只有「一张图」，不需要两套坐标。
+    QImage base = image;
+    if (isSpreadMode()) {
+        const QImage second = readImageSync(spreadSecondPath());
+        base = (m_viewMode == 3) ? composeSpread(image, second) : composeSpread(second, image);
+    }
     // m_sourceImage 保存「文件里的原始像素」，旋转/翻转/反相/Gamma 全都从它派生。
     // 这样「不旋转」才能真回到原样，而不是靠撤销栈一层层退。
-    m_sourceImage = image;
+    m_sourceImage = base;
     m_netRotation = 0;
     m_flipH = false;
     m_flipV = false;
     m_negative = false;
     m_gamma = 1.0;
-    m_currentImage = image;
-    m_originalImage = image;
+    m_currentImage = base;
+    m_originalImage = base;
     m_effect = 0;
     if (actEffectNone) {
         actEffectNone->setChecked(true);
     }
-    m_canvas->setPixmap(QPixmap::fromImage(image));
-    // 首图按设置默认（fit/actual）；之后翻页保持用户当前浏览方式
-    if (m_firstImage && Config::instance().defaultZoom() == QLatin1String("actual")) {
+    const qreal prevZoom = m_canvas->zoom();
+    m_canvas->setPixmap(QPixmap::fromImage(base));
+    // 首图按设置默认（fit/actual）；之后翻页保持用户当前浏览方式。
+    // 锁定缩放时两者都不走：直接沿用上一张的比例，换图不跳比例。
+    if (m_zoomLocked && !m_firstImage && prevZoom > 0.0) {
+        m_canvas->setPixmapPreservingView(QPixmap::fromImage(base), QPointF(0.5, 0.5),
+                                          prevZoom, false, false);
+        m_viewMode = 0;
+    } else if (m_firstImage && Config::instance().defaultZoom() == QLatin1String("actual")) {
         setViewMode(0);
+    } else if (isSpreadMode()) {
+        // 双页：每次换页都按新的跨页重新适配
+        m_canvas->fitToWindow();
     } else {
         setViewMode(m_viewMode);
     }
@@ -1525,6 +1568,11 @@ void MainWindow::setViewMode(int mode)
     case 2:
         m_canvas->fitToWidth();
         break;
+    case 3:
+    case 4:
+        // 智能双页阅览：重新拼跨页 + 适配（勾选态与 toast 都在 setSpreadMode 里）
+        setSpreadMode(mode);
+        return;
     case 1:
     default:
         m_canvas->fitToWindow();
@@ -1611,6 +1659,17 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         onStretchSmall(c == QLatin1String("stretchon"));
     }
     else if (c.startsWith(QLatin1String("interp:"))) { setInterpolationMode(c.mid(7)); }
+    else if (c == QLatin1String("spread:l2r")) { setViewMode(3); }
+    else if (c == QLatin1String("spread:r2l")) { setViewMode(4); }
+    else if (c == QLatin1String("zoomlock")) { toggleZoomLock(); }
+    else if (c.startsWith(QLatin1String("page:"))) {
+        const int n = c.mid(5).toInt();
+        if (m_dir->isValid() && n >= 1 && n <= m_dir->count()) {
+            m_dir->setIndex(n - 1);
+            const QString p = m_dir->current();
+            if (!p.isEmpty()) loadAsync(p);
+        }
+    }
     // 循环开关（用于验收「首尾边界」两种模式）。applyRuntimeSettings() 会从配置回读，
     // 所以这里必须写配置，否则下一次加载就被覆盖。
     else if (c == QLatin1String("loopon") || c == QLatin1String("loopoff")) {
@@ -1693,6 +1752,8 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << (m_control ? m_control->size().height() : 0)
                << " pct=" << m_control->zoomPercent()
                << " rot=" << m_netRotation
+               << " vm=" << m_viewMode
+               << " zlock=" << (m_zoomLocked ? 1 : 0)
                << " neg=" << (m_negative ? 1 : 0)
                << " gam=" << QString::number(m_gamma, 'f', 2)
                << " stretch=" << (m_canvas && m_canvas->stretchSmall() ? 1 : 0)
@@ -1717,14 +1778,16 @@ void MainWindow::onPrev()
     if (!m_dir->isValid()) {
         return;
     }
+    // 双页阅览一次翻一跨页（2 张），普通浏览是 1 张
+    const int step = isSpreadMode() ? 2 : 1;
     const int before = m_dir->index();
-    const QString p = m_dir->prev();
+    const QString p = m_dir->advance(-step);
     if (p.isEmpty()) {
         if (m_toast) m_toast->showMessage(tr("已经是第一张图片"));
         return;
     }
     loadAsync(p);
-    if (before == 0 && m_dir->count() > 1 && m_toast) {
+    if (before - step < 0 && m_dir->count() > 1 && m_toast) {
         m_toast->showMessage(tr("已回到最后一张图片"));
     }
 }
@@ -1734,14 +1797,15 @@ void MainWindow::onNext()
     if (!m_dir->isValid()) {
         return;
     }
+    const int step = isSpreadMode() ? 2 : 1;
     const int before = m_dir->index();
-    const QString p = m_dir->next();
+    const QString p = m_dir->advance(step);
     if (p.isEmpty()) {
         if (m_toast) m_toast->showMessage(tr("已经是最后一张图片"));
         return;
     }
     loadAsync(p);
-    if (before == m_dir->count() - 1 && m_dir->count() > 1 && m_toast) {
+    if (before + step >= m_dir->count() && m_dir->count() > 1 && m_toast) {
         m_toast->showMessage(tr("已回到第一张图片"));
     }
 }
@@ -2155,6 +2219,237 @@ void MainWindow::resetEffect()
     m_effect = 0;
     if (actEffectNone) {
         actEffectNone->setChecked(true);
+    }
+}
+
+// 锁定缩放（原版 TEXT_MSG_ZOOMFIX_ON/OFF）：开启后翻页不做适配，沿用同一比例。
+// 和「适合窗口」是互斥的两条路：锁定时改窗口尺寸也不会重算，符合「锁定」的直觉。
+void MainWindow::toggleZoomLock()
+{
+    m_zoomLocked = !m_zoomLocked;
+    Config::instance().settings().setValue(QStringLiteral("config/zoom_fix"), m_zoomLocked);
+    if (m_toast) {
+        m_toast->showMessage(m_zoomLocked ? tr("锁定缩放：开") : tr("锁定缩放：关"));
+    }
+}
+
+// 选择图片（原版 MENUSTR_PAGESELECT / Enter）：按序号跳到序列里的某一张。
+void MainWindow::onPageSelect()
+{
+    if (!m_dir || !m_dir->isValid() || m_dir->count() <= 1) {
+        if (m_toast) {
+            m_toast->showMessage(tr("当前目录没有可跳转的图片序列"));
+        }
+        return;
+    }
+    bool ok = false;
+    const int cur = m_dir->index() + 1;
+    const int total = m_dir->count();
+    const int n = QInputDialog::getInt(this, tr("选择图片"),
+                                       tr("跳到第几张（共 %1 张）：").arg(total),
+                                       cur, 1, total, 1, &ok);
+    if (!ok || n == cur) {
+        return;
+    }
+    m_dir->setIndex(n - 1);
+    const QString p = m_dir->current();
+    if (!p.isEmpty()) {
+        loadAsync(p);
+    }
+}
+
+// 编辑书签（F3）：列出已存书签，支持打开 / 删除选中 / 全部删除。
+void MainWindow::onEditBookmarks()
+{
+    QDialog dlg(this);
+    dlg.setWindowTitle(tr("编辑书签"));
+    dlg.setModal(true);
+    dlg.setStyleSheet(UiStyle::dialogQss());
+    dlg.resize(620, 420);
+
+    auto *root = new QVBoxLayout(&dlg);
+    root->setContentsMargins(18, 16, 18, 14);
+    root->setSpacing(10);
+
+    auto *hint = new QLabel(tr("双击一行可直接打开；书签就是收藏过的图片路径。"), &dlg);
+    hint->setStyleSheet(QStringLiteral("color:#9aa0a6;font-size:12px;"));
+    root->addWidget(hint);
+
+    auto *list = new QListWidget(&dlg);
+    list->setAlternatingRowColors(false);
+    list->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    root->addWidget(list, 1);
+
+    const QStringList favs = Config::instance().favorites();
+    for (const QString &f : favs) {
+        auto *item = new QListWidgetItem(QFileInfo(f).fileName() + QStringLiteral("    ") + f, list);
+        item->setData(Qt::UserRole, f);
+        item->setToolTip(f);
+    }
+    if (favs.isEmpty()) {
+        auto *empty = new QListWidgetItem(tr("（还没有书签，按 B 可把当前图片加为书签）"), list);
+        empty->setFlags(Qt::NoItemFlags);
+    }
+
+    auto *buttons = new QDialogButtonBox(&dlg);
+    auto *openBtn = buttons->addButton(tr("打开"), QDialogButtonBox::ActionRole);
+    auto *delBtn = buttons->addButton(tr("删除选中"), QDialogButtonBox::DestructiveRole);
+    auto *clearBtn = buttons->addButton(tr("全部删除"), QDialogButtonBox::DestructiveRole);
+    buttons->addButton(QDialogButtonBox::Close);
+    for (auto *b : buttons->buttons()) {
+        b->setCursor(Qt::PointingHandCursor);
+        b->setMinimumWidth(88);
+    }
+    root->addWidget(buttons);
+
+    // 书签改动立即落盘：对话框关掉以后菜单里的「最近/书签」列表要跟着变。
+    auto persist = [this, list]() {
+        QStringList out;
+        for (int i = 0; i < list->count(); ++i) {
+            const QString p = list->item(i)->data(Qt::UserRole).toString();
+            if (!p.isEmpty()) {
+                out << p;
+            }
+        }
+        Config::instance().settings().setValue(QStringLiteral("favorites"), out);
+        refreshLibraryMenus();
+        return out.size();
+    };
+
+    connect(openBtn, &QPushButton::clicked, &dlg, [this, list]() {
+        auto *cur = list->currentItem();
+        if (!cur || cur->data(Qt::UserRole).toString().isEmpty()) {
+            return;
+        }
+        const QString p = cur->data(Qt::UserRole).toString();
+        if (!QFileInfo::exists(p)) {
+            m_toast->showMessage(tr("文件已不存在"));
+            return;
+        }
+        loadAsync(p);
+    });
+    connect(list, &QListWidget::itemDoubleClicked, &dlg, [this](QListWidgetItem *item) {
+        if (!item) {
+            return;
+        }
+        const QString p = item->data(Qt::UserRole).toString();
+        if (p.isEmpty()) {
+            return;
+        }
+        if (!QFileInfo::exists(p)) {
+            m_toast->showMessage(tr("文件已不存在"));
+            return;
+        }
+        loadAsync(p);
+    });
+    connect(delBtn, &QPushButton::clicked, &dlg, [list, persist]() {
+        const auto sel = list->selectedItems();
+        for (auto *it : sel) {
+            delete it;
+        }
+        persist();
+    });
+    connect(clearBtn, &QPushButton::clicked, &dlg, [list, persist]() {
+        list->clear();
+        persist();
+    });
+    connect(buttons, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+    dlg.exec();
+}
+
+// ---------------------------------------------------------------------------
+// 智能双页阅览（原版 MENUSTR_SHOWMODE_TWO_L2R / R2L，快捷键 7 / 6）
+// 实现方式：把相邻两页横向拼成一张大图，当作单图交给画布。这样 fit / 缩放 /
+// 拖动 / 旋转 / 反相 / Gamma 全部自动沿用单图那套逻辑，不需要在画布层开双槽，
+// 也不会出现「左页缩了右页没缩」这类两套坐标打架的问题。
+// ---------------------------------------------------------------------------
+
+bool MainWindow::isSpreadMode() const
+{
+    return m_viewMode == 3 || m_viewMode == 4;
+}
+
+// 同步解码：双页拼图需要立刻拿到另一页，异步缓存那条链路来不及。
+QImage MainWindow::readImageSync(const QString &path) const
+{
+    if (path.isEmpty()) {
+        return QImage();
+    }
+    QString err;
+    QImage img = loadRawImage(path, &err);
+    if (!img.isNull()) {
+        return img;
+    }
+    img = loadHeifImage(path, &err);
+    if (!img.isNull()) {
+        return img;
+    }
+    QImageReader reader(path);
+    reader.setAutoTransform(true);
+    return reader.read();
+}
+
+QString MainWindow::spreadSecondPath() const
+{
+    if (!m_dir || !m_dir->isValid()) {
+        return QString();
+    }
+    const int n = m_dir->index() + 1;
+    return n < m_dir->count() ? m_dir->files().at(n) : QString();
+}
+
+namespace {
+
+} // namespace
+
+void MainWindow::refreshSpread()
+{
+    if (!m_canvas || m_currentPath.isEmpty() || !isSpreadMode()) {
+        return;
+    }
+    const QImage first = readImageSync(m_currentPath);
+    if (first.isNull()) {
+        return;
+    }
+    const QImage second = readImageSync(spreadSecondPath());
+    // 左←右（漫画式）：第一页在右边、第二页在左边
+    m_sourceImage = (m_viewMode == 3) ? composeSpread(first, second)
+                                      : composeSpread(second, first);
+    m_netRotation = 0;
+    m_flipH = false;
+    m_flipV = false;
+    m_originalImage = m_sourceImage;
+    m_effect = 0;
+    if (actEffectNone) {
+        actEffectNone->setChecked(true);
+    }
+    applyAdjustments(QPointF(0.5, 0.5));
+    m_canvas->fitToWindow();
+    updateInfoOverlay();
+}
+
+void MainWindow::setSpreadMode(int mode)
+{
+    m_viewMode = mode;
+    refreshSpread();
+    if (actTwoL2R) {
+        actTwoL2R->setChecked(mode == 3);
+    }
+    if (actTwoR2L) {
+        actTwoR2L->setChecked(mode == 4);
+    }
+    if (actActualSize) {
+        actActualSize->setChecked(false);
+    }
+    if (actFit) {
+        actFit->setChecked(false);
+    }
+    if (actFitWidth) {
+        actFitWidth->setChecked(false);
+    }
+    if (m_toast) {
+        m_toast->showMessage(mode == 3 ? tr("智能双页阅览（左→右）")
+                                       : tr("智能双页阅览（左←右）"));
     }
 }
 
