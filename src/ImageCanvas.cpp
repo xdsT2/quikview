@@ -229,44 +229,60 @@ void ImageCanvas::fitToWidth()
 
 void ImageCanvas::zoomIn()
 {
-    scale(1.25, 1.25);
-    m_fitToWindow = false;
-    m_fitWidth = false;
-    m_zoom = transform().m11();
-    emit zoomChanged(m_zoom);
+    applyZoomAt(m_zoom * 1.25, viewport()->rect().center());
 }
 
 void ImageCanvas::zoomOut()
 {
-    scale(0.8, 0.8);
-    m_fitToWindow = false;
-    m_fitWidth = false;
-    m_zoom = transform().m11();
-    emit zoomChanged(m_zoom);
+    applyZoomAt(m_zoom * 0.8, viewport()->rect().center());
 }
 
 void ImageCanvas::zoomActual()
 {
-    if (m_item) {
-        resetTransform();
-        m_zoom = 1.0;
-        m_fitToWindow = false;
-        m_fitWidth = false;
-        emit zoomChanged(m_zoom);
-    }
+    applyZoomAt(1.0, viewport()->rect().center());
 }
 
 void ImageCanvas::setZoom(qreal zoom)
 {
+    applyZoomAt(zoom, viewport()->rect().center());
+}
+
+// 缩放锚点还原：图片比视口小时 Qt 自己居中（滚动条无行程），此时不需要对齐；
+// 超出视口时按「场景点当前落在哪」与「它应该落在哪」的像素差推滚动条。
+void ImageCanvas::keepScenePointAt(const QPointF &scenePt, const QPoint &viewportPt)
+{
+    if (!m_item) {
+        return;
+    }
+    const qreal z = transform().m11();
+    const QRectF r = m_item->sceneBoundingRect();
+    if (r.width() * z <= viewport()->width() && r.height() * z <= viewport()->height()) {
+        return;
+    }
+    const QPointF now = mapFromScene(scenePt);
+    const QPoint d(qRound(now.x()) - viewportPt.x(), qRound(now.y()) - viewportPt.y());
+    if (d.isNull()) {
+        return;
+    }
+    horizontalScrollBar()->setValue(horizontalScrollBar()->value() + d.x());
+    verticalScrollBar()->setValue(verticalScrollBar()->value() + d.y());
+}
+
+void ImageCanvas::applyZoomAt(qreal zoom, const QPoint &anchorViewportPt)
+{
     if (!m_item || zoom <= 0.0) {
         return;
     }
+    const QPointF anchorScene = mapToScene(anchorViewportPt);
     resetTransform();
     scale(zoom, zoom);
     m_zoom = zoom;
     m_fitToWindow = false;
     m_fitWidth = false;
+    // 先发信号：主窗口会在这里同步把上下安全区归零（并 centerOn 保持中心），
+    // 之后再按锚点做一次像素级对齐，避免「进入手动缩放」那一下跳图。
     emit zoomChanged(m_zoom);
+    keepScenePointAt(anchorScene, anchorViewportPt);
 }
 
 void ImageCanvas::wheelEvent(QWheelEvent *event)
@@ -276,11 +292,8 @@ void ImageCanvas::wheelEvent(QWheelEvent *event)
         return;
     }
     const qreal factor = event->angleDelta().y() > 0 ? 1.25 : 0.8;
-    scale(factor, factor);
-    m_fitToWindow = false;
-    m_fitWidth = false;
-    m_zoom = transform().m11();
-    emit zoomChanged(m_zoom);
+    // 滚轮以鼠标位置为锚点（原型/交接单 §5）
+    applyZoomAt(m_zoom * factor, event->position().toPoint());
     event->accept();
 }
 

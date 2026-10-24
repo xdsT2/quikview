@@ -9,6 +9,7 @@
 #include <QDesktopServices>
 #include <QDir>
 #include <QEasingCurve>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGraphicsOpacityEffect>
@@ -26,6 +27,7 @@
 #include <QPropertyAnimation>
 #include <QRandomGenerator>
 #include <QResizeEvent>
+#include <QTextStream>
 #include <QTimer>
 #include <QTransform>
 #include <QUrl>
@@ -210,6 +212,9 @@ MainWindow::MainWindow(QWidget *parent)
                 m_toolbar->setShowModeIcon(0);
             }
         }
+        // 缩放模式变了就重算内容边距：进入手动缩放时上下安全区归零，
+        // 回到「适合窗口」时再让出来。
+        updateCanvasInsets();
     });
 
     m_toast = new Chrome::Toast(this);
@@ -314,6 +319,11 @@ void MainWindow::applyChromeLayout()
 // 画布可视区：顶部悬浮铬件、底部胶囊各留一段呼吸区；缩略图栏展开时再把左侧
 // 让出来——图片在「真正看得见的那块区域」里居中，既不会被面板压住一半，拖动
 // 和缩放也围绕这块区域进行。
+// 画布可视区：缩略图栏展开时让出左侧。
+// 上下安全区**只服务于「适合窗口」**——手动缩放 / 原始大小 / 适合宽度一律贴满整窗，
+// 悬浮铬件改用覆盖式（允许压在图片上）。否则手动放大后上下会留两条 76/84px 的
+// 死黑边，图片永远用不到完整窗口高度。
+// 注意：这里刻意不看铬件显隐状态，显隐只影响透明度/位移，绝不能反过来改画布几何。
 void MainWindow::updateCanvasInsets()
 {
     if (!m_canvas) {
@@ -324,7 +334,11 @@ void MainWindow::updateCanvasInsets()
     if (!full && m_browser && m_browser->isVisible()) {
         left = kBrowserWidth + 2 * kBrowserGap;
     }
-    const QMargins margins(left, full ? 0 : kTopChromeH, 0, full ? 0 : kDockInset);
+    const bool safeArea = !full && m_canvas->isFitToWindow();
+    const QMargins margins(left,
+                           safeArea ? kTopChromeH : 0,
+                           0,
+                           safeArea ? kDockInset : 0);
     if (margins == m_canvasInsets) {
         return;
     }
@@ -1155,6 +1169,14 @@ void MainWindow::applyRuntimeSettings()
     if (actSortDesc) {
         actSortDesc->setChecked(cfg.sortDescending());
     }
+
+#ifdef Q_OS_WIN
+    // setWindowFlag() 会让 Qt 按 flags 重建原生样式，把 WS_THICKFRAME|WS_CAPTION
+    // 一起抹掉。没有 WS_THICKFRAME，Windows 对 WM_NCLBUTTONDOWN 的命中结果直接
+    // 忽略——点边框既不进入 SC_SIZE 循环也不改尺寸（表现为窗口"拖不动边"）。
+    // 这里统一补回，幂等。
+    applyNativeFrameStyles();
+#endif
 }
 
 void MainWindow::toggleAlwaysOnTop()
@@ -1439,6 +1461,26 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     else if (c == QLatin1String("ctxmenu")) {
         QMenu *menu = buildContextMenu();
         menu->popup(mapToGlobal(QPoint(width() / 2 - 120, height() / 3)));
+    }
+    // 调试/验收：把缩放与边距的**真实数值**追加到日志（截图只能看个大概）
+    else if (c == QLatin1String("report")) {
+        QFile f(QStringLiteral("Temp/zoom-report.txt"));
+        if (f.open(QIODevice::Append | QIODevice::Text)) {
+            QTextStream ts(&f);
+            const QPointF ctr = m_canvas->viewCenterNormalized();
+            ts << "mode=" << m_viewMode
+               << " zoom=" << QString::number(m_canvas->zoom(), 'f', 4)
+               << " center=" << QString::number(ctr.x(), 'f', 4) << '/' << QString::number(ctr.y(), 'f', 4)
+               << " fitWin=" << (m_canvas->isFitToWindow() ? 1 : 0)
+               << " fitW=" << (m_canvas->isFitToWidth() ? 1 : 0)
+               << " canvas=" << m_canvas->width() << 'x' << m_canvas->height()
+               << " viewport=" << m_canvas->viewport()->width() << 'x' << m_canvas->viewport()->height()
+               << " margins=" << m_canvasInsets.left() << ',' << m_canvasInsets.top() << ','
+               << m_canvasInsets.right() << ',' << m_canvasInsets.bottom()
+               << " win=" << width() << 'x' << height()
+               << " dpr=" << devicePixelRatioF()
+               << "\n";
+        }
     }
 }
 

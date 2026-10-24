@@ -36,6 +36,9 @@ public:
     void zoomActual();
     qreal zoom() const { return m_zoom; }
     void setZoom(qreal zoom);
+    // 以 anchorViewportPt（视口坐标）为锚点应用缩放，进入手动模式且不触发 Fit。
+    // 滚轮用鼠标位置，按钮/键盘/滑杆用视口中心。
+    void applyZoomAt(qreal zoom, const QPoint &anchorViewportPt);
     bool isFitToWindow() const { return m_fitToWindow; }
     bool isFitToWidth() const { return m_fitWidth; }
 
@@ -60,6 +63,9 @@ protected:
     void resizeEvent(QResizeEvent *event) override;
 
 private:
+    // 把场景点重新对回指定的视口点（用于边距/缩放变化后还原缩放锚点）
+    void keepScenePointAt(const QPointF &scenePt, const QPoint &viewportPt);
+
     QGraphicsPixmapItem *m_item = nullptr;
     QGraphicsRectItem *m_rubber = nullptr;
     QLabel *m_logo = nullptr;
