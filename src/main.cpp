@@ -74,6 +74,12 @@ int main(int argc, char *argv[])
                                QStringLiteral("Grab the window to <out.png> after all commands, then quit"),
                                QStringLiteral("out"));
     parser.addOption(shotOpt);
+    // 调试：--shot-delay <ms> 覆盖截图前等待（默认 全部命令后 +2.2s）。
+    // 用于抓只活 2 秒的 toast / 过渡动画这类「截图总是差一点」的状态。
+    QCommandLineOption shotDelayOpt(QStringLiteral("shot-delay"),
+                                    QStringLiteral("Override screenshot delay in ms"),
+                                    QStringLiteral("ms"));
+    parser.addOption(shotDelayOpt);
     // 调试：--screenshot-ui <out.png> 抓「当前最上层的那个窗口」（菜单 > 模态框 > 活动窗口 > 主窗口）。
     // 二级界面（设置/图片转换/图片信息/右键菜单）都是独立顶层窗口，window.grab() 截不到。
     QCommandLineOption shotUiOpt(QStringLiteral("screenshot-ui"),
@@ -103,6 +109,10 @@ int main(int argc, char *argv[])
             delay += 1300;
         }
         settleDelay = delay + 900;   // 全部命令执行完再留渲染余量
+    }
+
+    if (parser.isSet(shotDelayOpt)) {
+        settleDelay = parser.value(shotDelayOpt).toInt();
     }
 
     if (parser.isSet(shotOpt)) {

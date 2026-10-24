@@ -31,6 +31,7 @@
 #include <QTimer>
 #include <QTransform>
 #include <QUrl>
+#include <QWheelEvent>
 
 #include "BatchConvertDialog.h"
 #include "Chrome.h"
@@ -102,6 +103,8 @@ MainWindow::MainWindow(QWidget *parent)
     m_canvas = new ImageCanvas(this);
     m_cache = new ImageCache(this);
     m_dir = new DirectoryLoader;
+    // 启动就套用「循环」设置：此前只在菜单里切换时才生效，保存过的值重启后等于没读
+    m_dir->setEdgeAction(Config::instance().edgeAction());
     m_frames = new FrameNavigator;
 
     m_metadata = new MetadataPanel(this);
@@ -255,7 +258,7 @@ MainWindow::~MainWindow()
 }
 
 // ---------------------------------------------------------------------------
-// 布局：1px 外框；顶部铬件（28+34）悬浮覆盖画布；胶囊 408x72 浮于下缘 19px。
+// 布局：1px 外框；顶部铬件（28+34）悬浮覆盖画布；胶囊 440x72 浮于下缘 19px。
 // 画布始终占满客户区，只通过 viewport margin 给图片留出视觉呼吸区，避免
 // 顶部栏显隐时图片被重新排版（原型中的“卡一下”）。
 // ---------------------------------------------------------------------------
@@ -1420,6 +1423,17 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     else if (c == QLatin1String("rotateleft")) onRotateLeft();
     else if (c == QLatin1String("rotateright")) onRotateRight();
     else if (c == QLatin1String("slideshow"))  actSlideshow->trigger();
+    // resize:WxH —— 模拟用户拖窗口改变尺寸（验收「调窗口不打回适合窗口」）
+    else if (c.startsWith(QLatin1String("resize:"))) {
+        const QStringList wh = c.mid(7).split(QLatin1Char('x'));
+        if (wh.size() == 2) {
+            const int rw = wh[0].toInt();
+            const int rh = wh[1].toInt();
+            if (rw > 200 && rh > 200) {
+                resize(rw, rh);
+            }
+        }
+    }
     else if (c.startsWith(QLatin1String("sort:"))) {
         bool ok = false;
         const int mode = c.mid(5).toInt(&ok);
@@ -1439,7 +1453,30 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     }
     else if (c == QLatin1String("locktop")) { if (!m_topLocked) toggleTopLock(); }
     else if (c == QLatin1String("lockdock")) { if (!m_dockLocked) toggleDockLock(); }
+    // 循环开关（用于验收「首尾边界」两种模式）。applyRuntimeSettings() 会从配置回读，
+    // 所以这里必须写配置，否则下一次加载就被覆盖。
+    else if (c == QLatin1String("loopon") || c == QLatin1String("loopoff")) {
+        const QString edge = (c == QLatin1String("loopon")) ? QStringLiteral("first")
+                                                            : QStringLiteral("stop");
+        Config::instance().settings().setValue(QStringLiteral("config/edge_action"), edge);
+        m_dir->setEdgeAction(edge);
+    }
     else if (c == QLatin1String("fullscreen")) isFullScreen() ? showNormal() : showFullScreen();
+    // wheel:slider|bar:up|down[:ctrl] —— 合成一次滚轮事件，验证「滑杆上滚翻页 / 其余位置缩放 / Ctrl 保留缩放」。
+    // 外部注入滚轮要过 DPI 与消息循环，结果不可复现；这里直接把事件送到胶囊，判定只依赖胶囊自身逻辑。
+    else if (c.startsWith(QLatin1String("wheel:"))) {
+        const QStringList a = c.mid(6).split(QLatin1Char(':'));
+        const bool onSlider = (a.value(0) == QLatin1String("slider"));
+        const int dy = (a.value(1) == QLatin1String("up")) ? 120 : -120;
+        const bool ctrl = (a.value(2) == QLatin1String("ctrl"));
+        // 胶囊几何固定 440x72：第一排滑杆在该点，第二排取一个非滑杆位置
+        const QPointF local(onSlider ? 193.0 : 150.0, onSlider ? 19.0 : 50.0);
+        QWheelEvent ev(local, m_control->mapToGlobal(local.toPoint()), QPoint(0, 0),
+                       QPoint(0, dy), Qt::NoButton,
+                       ctrl ? Qt::ControlModifier : Qt::NoModifier,
+                       Qt::NoScrollPhase, false);
+        QApplication::sendEvent(m_control, &ev);
+    }
     // —— 二级界面（截图冒烟用，非模态打开以便截到窗口本身）——
     else if (c == QLatin1String("settings")) {
         auto *dlg = new SettingsDialog(this);
@@ -1478,22 +1515,51 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << " margins=" << m_canvasInsets.left() << ',' << m_canvasInsets.top() << ','
                << m_canvasInsets.right() << ',' << m_canvasInsets.bottom()
                << " win=" << width() << 'x' << height()
+               << " idx=" << m_dir->index() << '/' << m_dir->count()
+               << " cap=" << (m_control ? m_control->size().width() : 0) << 'x'
+               << (m_control ? m_control->size().height() : 0)
+               << " pct=" << m_control->zoomPercent()
                << " dpr=" << devicePixelRatioF()
                << "\n";
         }
     }
 }
 
+// 首尾边界：所有翻页入口（胶囊、菜单、快捷键、滚轮）都走这里，规则只有一份。
+//   非循环（edge_action=stop）：停在边界并提示；
+//   循环（edge_action=first）：回绕，但明确告知回到了另一端。
 void MainWindow::onPrev()
 {
+    if (!m_dir->isValid()) {
+        return;
+    }
+    const int before = m_dir->index();
     const QString p = m_dir->prev();
-    if (!p.isEmpty()) loadAsync(p);
+    if (p.isEmpty()) {
+        if (m_toast) m_toast->showMessage(tr("已经是第一张图片"));
+        return;
+    }
+    loadAsync(p);
+    if (before == 0 && m_dir->count() > 1 && m_toast) {
+        m_toast->showMessage(tr("已回到最后一张图片"));
+    }
 }
 
 void MainWindow::onNext()
 {
+    if (!m_dir->isValid()) {
+        return;
+    }
+    const int before = m_dir->index();
     const QString p = m_dir->next();
-    if (!p.isEmpty()) loadAsync(p);
+    if (p.isEmpty()) {
+        if (m_toast) m_toast->showMessage(tr("已经是最后一张图片"));
+        return;
+    }
+    loadAsync(p);
+    if (before == m_dir->count() - 1 && m_dir->count() > 1 && m_toast) {
+        m_toast->showMessage(tr("已回到第一张图片"));
+    }
 }
 
 // 10 张跳转：边界停住并提示（TEXT_MSG_FIRSTPAGE/LASTPAGE）
@@ -1503,7 +1569,7 @@ void MainWindow::onPrev10()
     if (!p.isEmpty()) {
         loadAsync(p);
     } else if (m_dir->isValid()) {
-        m_toast->showMessage(tr("第一张图片"));
+        m_toast->showMessage(tr("已经是第一张图片"));
     }
 }
 
@@ -1513,7 +1579,7 @@ void MainWindow::onNext10()
     if (!p.isEmpty()) {
         loadAsync(p);
     } else if (m_dir->isValid()) {
-        m_toast->showMessage(tr("最后一张图片"));
+        m_toast->showMessage(tr("已经是最后一张图片"));
     }
 }
 
