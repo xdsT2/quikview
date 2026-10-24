@@ -16,6 +16,7 @@ class QGraphicsOpacityEffect;
 class QPropertyAnimation;
 class QFocusEvent;
 class QKeyEvent;
+class QWheelEvent;
 
 // ---------------------------------------------------------------------------
 // QuikView Windows 11 铬件。
@@ -81,6 +82,32 @@ private:
     QElapsedTimer m_clock;
 };
 
+// ===========================================================================
+// 统一 Tooltip 提示器（标题栏 / 命令栏 / 底部胶囊共用）
+// 悬停 400ms 出现；离开、按下、滚动由宿主调用 hideNow() 立即消失。
+// 显示位置按文本宽度估算后夹在宿主窗口 frameGeometry 内，不越出窗口。
+// ===========================================================================
+class TooltipHint : public QObject
+{
+    Q_OBJECT
+public:
+    explicit TooltipHint(QWidget *host);
+
+    // text 为空 = 取消；anchorGlobal 为指针的全局坐标。文本变化才重新计时。
+    void hover(const QString &text, const QPoint &anchorGlobal);
+    void hideNow();
+    bool isShown() const { return m_shown; }
+
+private:
+    void reveal();
+
+    QWidget *m_host = nullptr;
+    QTimer *m_timer = nullptr;
+    QString m_text;
+    QPoint m_anchor;
+    bool m_shown = false;
+};
+
 // ============================ 标题栏（28px） ============================
 class CaptionBar : public QWidget
 {
@@ -104,15 +131,18 @@ protected:
     void mouseDoubleClickEvent(QMouseEvent *event) override;
     void contextMenuEvent(QContextMenuEvent *event) override;
     void leaveEvent(QEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
 
 private:
     QRect buttonRect(int index) const;   // 0=min 1=max 2=close
     int hitTest(const QPoint &pos) const;
+    QString tipText(int index) const;
 
     QString m_title;
     int m_hover = -1;
     int m_press = -1;
     ButtonFeedback *m_feedback = nullptr;
+    TooltipHint *m_tip = nullptr;
 };
 
 // ============================ 命令栏（34px） ============================
@@ -145,6 +175,7 @@ protected:
     void keyReleaseEvent(QKeyEvent *event) override;
     void focusInEvent(QFocusEvent *event) override;
     void focusOutEvent(QFocusEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
 
 private:
     struct Btn {
@@ -158,23 +189,26 @@ private:
     int hitTest(const QPoint &pos) const;
     void activate(int index, const QPoint &globalPos);
     void moveFocus(int step);
+    QString tipText(int index) const;
 
     int m_hover = -1;
     int m_press = -1;
     int m_showModeIcon = 0;
     bool m_locked = false;
     ButtonFeedback *m_feedback = nullptr;
+    TooltipHint *m_tip = nullptr;
     int m_focus = -1;            // 键盘焦点所在按钮
     bool m_keyboardFocus = false; // 焦点是否由键盘进入（决定是否显示焦点环、是否吃空格）
 };
 
-// ==================== 底部胶囊控制栏（408x72，浮于画布下缘） ====================
+// ==================== 底部胶囊控制栏（440x72，浮于画布下缘） ====================
 class ControlBar : public QWidget
 {
     Q_OBJECT
 public:
     explicit ControlBar(QWidget *parent = nullptr);
     void setZoomPercent(int percent);   // 画布缩放百分比（100 = 实际大小）
+    int zoomPercent() const { return m_percent; }   // 供冒烟报告核对滑条与画布是否同步
     void setLocked(bool locked);
     bool isLocked() const { return m_locked; }
 
@@ -223,6 +257,7 @@ private:
     void moveFocus(int step);
     void applySliderValueFromX(int x);
     int currentSliderPercent() const;
+    QString tipText(Action action) const;
 
     int m_hover = -1;
     int m_press = -1;
@@ -230,6 +265,7 @@ private:
     bool m_locked = false;
     int m_percent = 68;
     ButtonFeedback *m_feedback = nullptr;
+    TooltipHint *m_tip = nullptr;
     int m_focus = -1;
     bool m_keyboardFocus = false;
 };

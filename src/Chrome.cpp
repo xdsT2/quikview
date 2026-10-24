@@ -19,6 +19,7 @@
 #include <QPropertyAnimation>
 #include <QStringList>
 #include <QTimer>
+#include <QToolTip>
 #include <QWheelEvent>
 #include <QWindow>
 #include <algorithm>
@@ -239,7 +240,7 @@ constexpr int kPressMs = 90;               // 按下 / 释放
 constexpr int kTickMs = 16;
 
 // ---- 底部胶囊几何（交接单 §7，与原型 .control-dock 一致）----
-constexpr int kDockW = 408;
+constexpr int kDockW = 440;
 constexpr int kDockH = 72;
 constexpr int kDockPadX = 9;
 constexpr int kDockPadTop = 6;
@@ -250,10 +251,8 @@ constexpr int kZoomRowH = 26;
 constexpr int kActionRowH = 30;
 constexpr int kBtnW = 32;
 constexpr int kBtnH = 30;
-constexpr int kZoomBtnW = 30;
-constexpr int kZoomBtnH = 26;
 constexpr int kPercentW = 44;
-constexpr int kGridGap = 7;       // 缩放行四列列间距
+constexpr int kGridGap = 10;      // 缩放行两列列间距（滑杆 / 百分比）
 constexpr int kSepW = 1;
 constexpr int kSepH = 16;
 constexpr int kSepMargin = 3;     // 分隔线左右外边距
@@ -262,6 +261,13 @@ constexpr qreal kNavIconSize = 19.0;
 constexpr qreal kNavIconStroke = 1.8;
 constexpr qreal kIconStroke = 1.55;
 constexpr qreal kRadius = 5.0;
+
+// ---- Tooltip（交接单 §7「文字提示」）----
+constexpr int kTipDelayMs = 400;  // 悬停多久出现
+constexpr int kTipPadW = 24;      // 估算宽度：QSS 左右 padding 8+8 + 边框
+constexpr int kTipPadH = 16;      // 估算高度：上下 padding 6+6 + 边框
+constexpr int kTipEdge = 8;       // 距窗口左右最小留白
+constexpr int kTipSlack = 16;     // 预留 Qt 显示时自带的偏移，保证不越出窗口
 
 struct ButtonPalette {
     QColor base = QColor(0, 0, 0, 0);          // 常态底（alpha=0 表示无）
@@ -532,6 +538,83 @@ void ButtonFeedback::tick()
 }
 
 // ===========================================================================
+// Tooltip 提示器（三个铬件共用）
+// ===========================================================================
+
+TooltipHint::TooltipHint(QWidget *host)
+    : QObject(host)
+    , m_host(host)
+{
+    m_timer = new QTimer(this);
+    m_timer->setSingleShot(true);
+    connect(m_timer, &QTimer::timeout, this, &TooltipHint::reveal);
+}
+
+void TooltipHint::hover(const QString &text, const QPoint &anchorGlobal)
+{
+    if (text.isEmpty()) {
+        hideNow();
+        return;
+    }
+    if (text == m_text) {
+        if (m_shown) {
+            return;                  // 同一目标继续悬停：不重排、不闪烁
+        }
+        if (m_timer->isActive()) {
+            m_anchor = anchorGlobal; // 计时中只跟随指针
+            return;
+        }
+    }
+    if (m_shown) {
+        m_shown = false;
+        QToolTip::hideText();
+    }
+    m_text = text;
+    m_anchor = anchorGlobal;
+    m_timer->start(kTipDelayMs);
+}
+
+void TooltipHint::hideNow()
+{
+    m_timer->stop();
+    m_text.clear();
+    if (m_shown) {
+        m_shown = false;
+        QToolTip::hideText();
+    }
+}
+
+void TooltipHint::reveal()
+{
+    if (!m_host || m_text.isEmpty()) {
+        return;
+    }
+    const QFontMetrics fm(QToolTip::font());
+    const int tipW = fm.horizontalAdvance(m_text) + kTipPadW;
+    const int tipH = fm.height() + kTipPadH;
+
+    // 默认在锚点下方、贴住铬件本体；Qt 显示时还会再加一点自身偏移，夹紧时预留 kTipSlack。
+    const QRect hostRect(m_host->mapToGlobal(QPoint(0, 0)), m_host->size());
+    QPoint pos(m_anchor.x() - tipW / 2, hostRect.bottom() + 8);
+    if (QWidget *win = m_host->window()) {
+        const QRect frame = win->frameGeometry();
+        // 下方放不下就翻到铬件上方（胶囊贴窗口下缘时必然走这一支）
+        if (pos.y() + tipH + kTipSlack > frame.bottom()) {
+            pos.ry() = hostRect.top() - tipH - 8;
+        }
+        // 夹在窗口内：左右各留 8px、上下各留 4px，保证不越出窗口
+        const int leftMin = frame.left() + kTipEdge;
+        const int leftMax = qMax(leftMin, frame.right() - tipW - kTipEdge - kTipSlack);
+        const int topMin = frame.top() + 4;
+        const int topMax = qMax(topMin, frame.bottom() - tipH - 4 - kTipSlack);
+        pos.setX(qBound(leftMin, pos.x(), leftMax));
+        pos.setY(qBound(topMin, pos.y(), topMax));
+    }
+    m_shown = true;
+    QToolTip::showText(pos, m_text, m_host);
+}
+
+// ===========================================================================
 // 皮肤贴图兼容接口（旧布局代码仍可能引用）
 // ===========================================================================
 
@@ -580,6 +663,7 @@ CaptionBar::CaptionBar(QWidget *parent)
     setAttribute(Qt::WA_OpaquePaintEvent);
     m_feedback = new ButtonFeedback(this);
     connect(m_feedback, &ButtonFeedback::changed, this, [this]() { update(); });
+    m_tip = new TooltipHint(this);
 }
 
 void CaptionBar::setTitle(const QString &title)
@@ -602,6 +686,18 @@ int CaptionBar::hitTest(const QPoint &pos) const
         }
     }
     return -1;
+}
+
+// 窗口控制按钮提示；最大化按钮随状态在「最大化 / 还原」之间切换
+QString CaptionBar::tipText(int index) const
+{
+    switch (index) {
+    case 0: return tr("最小化");
+    case 1: return (window() && window()->isMaximized()) ? tr("还原") : tr("最大化");
+    case 2: return tr("关闭");
+    default: break;
+    }
+    return QString();
 }
 
 void CaptionBar::paintEvent(QPaintEvent *)
@@ -670,6 +766,7 @@ void CaptionBar::paintEvent(QPaintEvent *)
 
 void CaptionBar::mousePressEvent(QMouseEvent *e)
 {
+    m_tip->hideNow();   // 按下立即收起提示
     if (e->button() == Qt::LeftButton) {
         m_press = hitTest(e->pos());
         if (m_press >= 0) {
@@ -707,6 +804,13 @@ void CaptionBar::mouseMoveEvent(QMouseEvent *e)
     m_hover = hitTest(e->pos());
     m_feedback->setHover(m_hover);
     setPointerCursor(this, m_hover >= 0);
+    if (e->buttons() != Qt::NoButton) {
+        m_tip->hideNow();   // 按住拖动期间不出提示
+    } else if (m_hover >= 0) {
+        m_tip->hover(tipText(m_hover), e->globalPosition().toPoint());
+    } else {
+        m_tip->hideNow();
+    }
     update();
     QWidget::mouseMoveEvent(e);
 }
@@ -730,7 +834,15 @@ void CaptionBar::leaveEvent(QEvent *)
     m_hover = -1;
     m_feedback->setHover(-1);
     setPointerCursor(this, false);
+    m_tip->hideNow();
     update();
+}
+
+// 滚轮也算「离开交互」：提示立即收起，其余行为交回基础实现
+void CaptionBar::wheelEvent(QWheelEvent *e)
+{
+    m_tip->hideNow();
+    QWidget::wheelEvent(e);
 }
 
 // ===========================================================================
@@ -746,6 +858,7 @@ ToolBar::ToolBar(QWidget *parent)
     setFocusPolicy(Qt::StrongFocus);   // 键盘可达：Tab 进入后显示 2px 焦点环
     m_feedback = new ButtonFeedback(this);
     connect(m_feedback, &ButtonFeedback::changed, this, [this]() { update(); });
+    m_tip = new TooltipHint(this);
 }
 
 void ToolBar::setShowModeIcon(int index)
@@ -792,6 +905,23 @@ int ToolBar::hitTest(const QPoint &pos) const
         }
     }
     return -1;
+}
+
+// 仅图标按钮 / 可切换按钮的文字提示；锁定项随状态切换
+QString ToolBar::tipText(int index) const
+{
+    switch (index) {
+    case 0: return tr("打开");
+    case 1: return tr("浏览");
+    case 2: return tr("幻灯片放映");
+    case 3: return tr("书签");
+    case 4: return tr("编辑");
+    case 5: return tr("复制到");
+    case 6: return m_locked ? tr("解锁工具栏") : tr("锁定工具栏");
+    case 7: return tr("更多");
+    default: break;
+    }
+    return QString();
 }
 
 void ToolBar::paintEvent(QPaintEvent *)
@@ -914,6 +1044,7 @@ void ToolBar::moveFocus(int step)
 
 void ToolBar::mousePressEvent(QMouseEvent *e)
 {
+    m_tip->hideNow();   // 按下立即收起提示
     if (e->button() == Qt::LeftButton) {
         if (m_keyboardFocus) {
             m_keyboardFocus = false;   // 鼠标接管后不再显示焦点环
@@ -945,6 +1076,13 @@ void ToolBar::mouseMoveEvent(QMouseEvent *e)
     m_hover = hitTest(e->pos());
     m_feedback->setHover(m_hover);
     setPointerCursor(this, m_hover >= 0);
+    if (e->buttons() != Qt::NoButton) {
+        m_tip->hideNow();   // 按住拖动期间不出提示
+    } else if (m_hover >= 0) {
+        m_tip->hover(tipText(m_hover), e->globalPosition().toPoint());
+    } else {
+        m_tip->hideNow();
+    }
     update();
     QWidget::mouseMoveEvent(e);
 }
@@ -954,7 +1092,14 @@ void ToolBar::leaveEvent(QEvent *)
     m_hover = -1;
     m_feedback->setHover(-1);
     setPointerCursor(this, false);
+    m_tip->hideNow();
     update();
+}
+
+void ToolBar::wheelEvent(QWheelEvent *e)
+{
+    m_tip->hideNow();
+    QWidget::wheelEvent(e);
 }
 
 void ToolBar::focusInEvent(QFocusEvent *e)
@@ -977,6 +1122,7 @@ void ToolBar::focusOutEvent(QFocusEvent *e)
     m_keyboardFocus = false;
     m_press = -1;
     m_feedback->reset();
+    m_tip->hideNow();
     update();
     QWidget::focusOutEvent(e);
 }
@@ -1058,6 +1204,7 @@ ControlBar::ControlBar(QWidget *parent)
     setFocusPolicy(Qt::StrongFocus);
     m_feedback = new ButtonFeedback(this);
     connect(m_feedback, &ButtonFeedback::changed, this, [this]() { update(); });
+    m_tip = new TooltipHint(this);
 }
 
 void ControlBar::setZoomPercent(int percent)
@@ -1082,32 +1229,31 @@ QVector<ControlBar::Item> ControlBar::items() const
 
 // 胶囊的唯一布局来源（交接单 §7）：
 //   内边距 上 6 / 左右 9 / 下 7，两排间距 3；缩放行 26，操作行 30。
+//   第一排：滑杆 / 44px 百分比，两列，列间距 10，垂直居中。
+//   第二排：打开、缩略图 ｜ 适合窗口、缩小、放大 ｜ 左旋、右旋 ｜ 上一张、下一张 ｜ 锁定。
 QVector<ControlBar::Item> ControlBar::layoutItems(QVector<int> *separators) const
 {
     QVector<Item> out;
 
-    // ---- 缩放行：减号 / 滑杆 / 加号 / 百分比 四列网格，列间距 7，垂直居中 ----
+    // ---- 缩放行：滑杆 / 百分比 两列，列间距 10，整行垂直居中 ----
     const int zoomY = kDockPadTop;
-    const int sliderW = kDockW - 2 * kDockPadX - 2 * kZoomBtnW - kPercentW - 3 * kGridGap;
+    const int sliderW = kDockW - 2 * kDockPadX - kPercentW - kGridGap;
     int x = kDockPadX;
-    out.append({ Action::ZoomOut, QRect(x, zoomY, kZoomBtnW, kZoomBtnH) });
-    x += kZoomBtnW + kGridGap;
     out.append({ Action::Slider, QRect(x, zoomY, sliderW, kZoomRowH) });
     x += sliderW + kGridGap;
-    out.append({ Action::ZoomIn, QRect(x, zoomY, kZoomBtnW, kZoomBtnH) });
-    x += kZoomBtnW + kGridGap;
     out.append({ Action::ZoomValue, QRect(x, zoomY, kPercentW, kZoomRowH) });
 
-    // ---- 操作行：8 × 32×30 按钮 + 4 条分隔线，整行在两内边距之间水平居中 ----
+    // ---- 操作行：10 × 32×30 按钮 + 4 条分隔线，整行在两内边距之间水平居中 ----
     struct Cell {
         Action action;
         bool sepBefore;
     };
     const Cell cells[] = {
-        { Action::Open, false },        { Action::List, false },
-        { Action::Fit, true },          { Action::RotateLeft, true },
+        { Action::Open, false },      { Action::List, false },
+        { Action::Fit, true },        { Action::ZoomOut, false },
+        { Action::ZoomIn, false },    { Action::RotateLeft, true },
         { Action::RotateRight, false },
-        { Action::Prev, true },         { Action::Next, false },
+        { Action::Prev, true },       { Action::Next, false },
         { Action::Lock, true },
     };
     const int count = static_cast<int>(sizeof(cells) / sizeof(cells[0]));
@@ -1152,6 +1298,27 @@ int ControlBar::hitIndex(const QPoint &pos) const
 int ControlBar::currentSliderPercent() const
 {
     return qBound(10, m_percent, 200);
+}
+
+// 胶囊内每个控件（含滑杆）都必须有提示；锁定项随状态切换
+QString ControlBar::tipText(Action action) const
+{
+    switch (action) {
+    case Action::Open: return tr("打开");
+    case Action::List: return tr("缩略图栏");
+    case Action::Fit: return tr("适合窗口");
+    case Action::ZoomOut: return tr("缩小");
+    case Action::ZoomIn: return tr("放大");
+    case Action::RotateLeft: return tr("逆时针旋转 90° (Alt+Left)");
+    case Action::RotateRight: return tr("顺时针旋转 90° (Alt+Right)");
+    case Action::Prev: return tr("上一张图片 (←)");
+    case Action::Next: return tr("下一张图片 (→)");
+    case Action::Lock: return m_locked ? tr("解锁控制栏") : tr("锁定控制栏");
+    case Action::Slider: return tr("缩放");
+    case Action::ZoomValue: return tr("适合窗口");
+    case Action::None: break;
+    }
+    return QString();
 }
 
 void ControlBar::applySliderValueFromX(int x)
@@ -1349,6 +1516,7 @@ void ControlBar::moveFocus(int step)
 
 void ControlBar::mousePressEvent(QMouseEvent *e)
 {
+    m_tip->hideNow();   // 按下立即收起提示
     const QVector<Item> list = items();
     const int idx = hitIndex(e->pos());
     const Action action = (idx >= 0 && idx < list.size()) ? list[idx].action : Action::None;
@@ -1405,6 +1573,7 @@ void ControlBar::mouseReleaseEvent(QMouseEvent *e)
 void ControlBar::mouseMoveEvent(QMouseEvent *e)
 {
     if (m_dragging && (e->buttons() & Qt::LeftButton)) {
+        m_tip->hideNow();   // 拖动滑杆时不出提示
         applySliderValueFromX(e->pos().x());
         return;
     }
@@ -1422,6 +1591,13 @@ void ControlBar::mouseMoveEvent(QMouseEvent *e)
     } else {
         setPointerCursor(this, m_hover >= 0);
     }
+    if (e->buttons() != Qt::NoButton) {
+        m_tip->hideNow();   // 按住拖动期间不出提示
+    } else if (m_hover >= 0) {
+        m_tip->hover(tipText(list[m_hover].action), e->globalPosition().toPoint());
+    } else {
+        m_tip->hideNow();
+    }
     update();
     QWidget::mouseMoveEvent(e);
 }
@@ -1431,6 +1607,7 @@ void ControlBar::leaveEvent(QEvent *)
     m_hover = -1;
     m_feedback->setHover(-1);
     setPointerCursor(this, false);
+    m_tip->hideNow();
     update();
 }
 
@@ -1455,6 +1632,7 @@ void ControlBar::focusOutEvent(QFocusEvent *e)
     m_press = -1;
     m_dragging = false;
     m_feedback->reset();
+    m_tip->hideNow();
     update();
     QWidget::focusOutEvent(e);
 }
@@ -1522,9 +1700,29 @@ void ControlBar::keyReleaseEvent(QKeyEvent *e)
     QWidget::keyReleaseEvent(e);
 }
 
+// 滑杆上滚轮翻页（上滚上一张 / 下滚下一张），Ctrl+滚轮或滑杆以外仍为缩放。
 void ControlBar::wheelEvent(QWheelEvent *e)
 {
-    const int step = e->angleDelta().y() > 0 ? 10 : -10;
+    m_tip->hideNow();   // 滚动立即收起提示
+
+    const QPoint pos = e->position().toPoint();
+    const QVector<Item> list = items();
+    const int idx = hitIndex(pos);
+    const bool onSlider = (idx >= 0 && idx < list.size()
+                           && list[idx].action == Action::Slider);
+    const int delta = e->angleDelta().y();
+
+    if (onSlider && !(e->modifiers() & Qt::ControlModifier)) {
+        if (delta > 0) {
+            emit prevClicked();
+        } else if (delta < 0) {
+            emit nextClicked();
+        }
+        e->accept();
+        return;
+    }
+
+    const int step = delta > 0 ? 10 : -10;
     emit zoomRequested(qBound(10, m_percent + step, 200));
     e->accept();
 }
