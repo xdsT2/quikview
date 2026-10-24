@@ -46,6 +46,8 @@ add_executable(quikview WIN32
     src/Chrome.h
     src/BatchConvertDialog.cpp
     src/BatchConvertDialog.h
+    src/GammaDialog.cpp
+    src/GammaDialog.h
     src/ThumbnailBrowser.cpp
     src/ThumbnailBrowser.h
     src/FrameNavigator.cpp

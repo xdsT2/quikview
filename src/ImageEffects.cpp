@@ -3,6 +3,8 @@
 #include <QColor>
 #include <QtGlobal>
 
+#include <cmath>
+
 namespace {
 
 // 通用 3x3 卷积，边界按边缘像素钳位（clamp）。
@@ -64,4 +66,37 @@ QImage applySharpen(const QImage &src)
                               -1.0,  5.0, -1.0,
                                0.0, -1.0,  0.0};
     return convolve3x3(src, kernel, 1.0);
+}
+
+QImage applyNegative(const QImage &src)
+{
+    if (src.isNull()) {
+        return QImage();
+    }
+    QImage out = src.convertToFormat(QImage::Format_ARGB32);
+    // InvertRgb 只翻 RGB，Alpha 保留——否则带透明的 PNG 会变成不透明黑底。
+    out.invertPixels(QImage::InvertRgb);
+    return out;
+}
+
+QImage applyGamma(const QImage &src, qreal gamma)
+{
+    if (src.isNull() || qFuzzyCompare(gamma, 1.0) || gamma <= 0.0) {
+        return src;
+    }
+    // 查找表只算 256 次幂，之后整图只是一次查表 + 写回。
+    uchar lut[256];
+    const qreal inv = 1.0 / gamma;
+    for (int i = 0; i < 256; ++i) {
+        lut[i] = static_cast<uchar>(qBound(0, qRound(255.0 * std::pow(i / 255.0, inv)), 255));
+    }
+    QImage out = src.convertToFormat(QImage::Format_ARGB32);
+    for (int y = 0; y < out.height(); ++y) {
+        auto *line = reinterpret_cast<QRgb *>(out.scanLine(y));
+        for (int x = 0; x < out.width(); ++x) {
+            const QRgb p = line[x];
+            line[x] = qRgba(lut[qRed(p)], lut[qGreen(p)], lut[qBlue(p)], qAlpha(p));
+        }
+    }
+    return out;
 }

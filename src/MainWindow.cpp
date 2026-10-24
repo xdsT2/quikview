@@ -38,6 +38,7 @@
 #include "Config.h"
 #include "DirectoryLoader.h"
 #include "FrameNavigator.h"
+#include "GammaDialog.h"
 #include "HeifLoader.h"
 #include "ImageCache.h"
 #include "ImageCanvas.h"
@@ -831,27 +832,19 @@ void MainWindow::createActions()
     connect(actEffectSoften, &QAction::triggered, this, [this]() { onEffect(1); });
     connect(actEffectSharpen, &QAction::triggered, this, [this]() { onEffect(2); });
 
-    // 插值算法（二选一，文案对照原型"插值算法"子菜单；Lanczos 暂无实现）
+    // 插值算法（三选一，对照原版 MENUSTR_INTERPOLATEMODE_*）
     auto *interpGroup = new QActionGroup(this);
     interpGroup->setExclusive(true);
     actInterpFast = new QAction(tr("Bilinear 插值 (快)"), this);
     actInterpSmooth = new QAction(tr("Bicubic 插值 (慢，高品质)"), this);
-    actInterpFast->setCheckable(true);
-    actInterpSmooth->setCheckable(true);
-    interpGroup->addAction(actInterpFast);
-    interpGroup->addAction(actInterpSmooth);
-    actInterpSmooth->setChecked(m_smoothInterpolation);
-    actInterpFast->setChecked(!m_smoothInterpolation);
-    connect(actInterpFast, &QAction::triggered, this, [this]() {
-        m_smoothInterpolation = false;
-        m_canvas->setSmooth(false);
-        Config::instance().settings().setValue(QStringLiteral("config/interpolation"), QStringLiteral("fast"));
-    });
-    connect(actInterpSmooth, &QAction::triggered, this, [this]() {
-        m_smoothInterpolation = true;
-        m_canvas->setSmooth(true);
-        Config::instance().settings().setValue(QStringLiteral("config/interpolation"), QStringLiteral("smooth"));
-    });
+    actInterpLanczos = new QAction(tr("Lanczos 插值 (慢，高品质)"), this);
+    for (auto *a : { actInterpFast, actInterpSmooth, actInterpLanczos }) {
+        a->setCheckable(true);
+        interpGroup->addAction(a);
+    }
+    connect(actInterpFast, &QAction::triggered, this, [this]() { setInterpolationMode(QStringLiteral("bilinear")); });
+    connect(actInterpSmooth, &QAction::triggered, this, [this]() { setInterpolationMode(QStringLiteral("bicubic")); });
+    connect(actInterpLanczos, &QAction::triggered, this, [this]() { setInterpolationMode(QStringLiteral("lanczos")); });
 
     // 排序方式（四选一 + 降序开关，对照原版 MENUSTR_SORT_*）
     auto *sortGroup = new QActionGroup(this);
@@ -923,9 +916,11 @@ QMenu *MainWindow::buildBrowseMenu()
         m_toast->showMessage(tr("「智能双页阅览」暂未实现"));
     });
     menu->addSeparator();
-    addMenuItem(menu, tr("拉伸小图"), QStringLiteral("Z"), [this]() {
-        m_toast->showMessage(tr("「拉伸小图」暂未实现"));
+    auto *actStretch = addMenuItem(menu, tr("拉伸小图"), QStringLiteral("Z"), [this]() {
+        onStretchSmall(!Config::instance().stretchSmall());
     });
+    actStretch->setCheckable(true);
+    actStretch->setChecked(Config::instance().stretchSmall());
     UiStyle::polishMenu(menu);
     return menu;
 }
@@ -1002,12 +997,8 @@ QMenu *MainWindow::buildBookmarkMenu()
 QMenu *MainWindow::buildEditMenu()
 {
     auto *menu = new QMenu(this);
-    addMenuItem(menu, tr("反色"), QString(), [this]() {
-        m_toast->showMessage(tr("「反色」暂未实现"));
-    });
-    addMenuItem(menu, tr("Gamma 补偿…"), QString(), [this]() {
-        m_toast->showMessage(tr("「Gamma 补偿」暂未实现"));
-    });
+    addCheckableItem(menu, tr("反色"), QStringLiteral("Ctrl+I"), m_negative, [this]() { onNegative(); });
+    addMenuItem(menu, tr("Gamma 补偿…"), QStringLiteral("Ctrl+G"), [this]() { onGamma(); });
     menu->addAction(actFlipV);
     menu->addAction(actFlipH);
     menu->addSeparator();
@@ -1176,17 +1167,19 @@ QMenu *MainWindow::buildContextMenu()
 
     // —— 插值算法（3 项，勾选态跟随真实设置）——
     QMenu *interp = menu->addMenu(tr("插值算法"));
-    actInterpFast->setChecked(!m_smoothInterpolation);
-    actInterpSmooth->setChecked(m_smoothInterpolation);
+    actInterpFast->setChecked(m_interpMode == 0);
+    actInterpSmooth->setChecked(m_interpMode == 1);
+    actInterpLanczos->setChecked(m_interpMode == 2);
     interp->addAction(actInterpFast);
     interp->addAction(actInterpSmooth);
-    pending(interp, tr("Lanczos 插值 (慢，高品质)"), QString());
+    addCheckableItem(interp, tr("Lanczos 插值 (慢，高品质)"), QString(), m_interpMode == 2,
+                     [this]() { setInterpolationMode(QStringLiteral("lanczos")); });
     UiStyle::polishMenu(interp);
 
     // —— 图片效果（4 项）——
     QMenu *fx = menu->addMenu(tr("图片效果"));
-    pending(fx, tr("反色"), QString());
-    pending(fx, tr("Gamma 补偿…"), QString());
+    addCheckableItem(fx, tr("反色"), QStringLiteral("Ctrl+I"), m_negative, [this]() { onNegative(); });
+    addMenuItem(fx, tr("Gamma 补偿…"), QStringLiteral("Ctrl+G"), [this]() { onGamma(); });
     fx->addAction(actFlipV);
     fx->addAction(actFlipH);
     UiStyle::polishMenu(fx);
@@ -1240,9 +1233,8 @@ QMenu *MainWindow::buildContextMenu()
 
     // —— 图像旋转（4 项）——
     QMenu *rot = menu->addMenu(tr("图像旋转"));
-    addCheckableItem(rot, tr("不旋转"), QStringLiteral("Alt+Up"), false, [this]() {
-        m_toast->showMessage(tr("「不旋转」暂未实现"));
-    });
+    addCheckableItem(rot, tr("不旋转"), QStringLiteral("Alt+Up"),
+                     m_netRotation == 0 && !m_flipH && !m_flipV, [this]() { resetGeometry(); });
     rot->addAction(actRotateLeft);    // 逆时针 90° Alt+Left
     rot->addAction(actRotateRight);   // 顺时针 90° Alt+Right
     addMenuItem(rot, tr("旋转 180°"), QStringLiteral("Alt+Down"), [this]() { rotateImage(180); });
@@ -1288,8 +1280,8 @@ void MainWindow::applyRuntimeSettings()
 
     setWindowFlag(Qt::WindowStaysOnTopHint, cfg.alwaysOnTop());
 
-    m_smoothInterpolation = (cfg.interpolation() != QLatin1String("fast"));
-    m_canvas->setSmooth(m_smoothInterpolation);
+    setInterpolationMode(cfg.interpolation());
+    m_canvas->setStretchSmall(cfg.stretchSmall());
     m_canvas->setWheelZoomEnabled(cfg.wheelZoom());
     m_canvas->setMiddlePanEnabled(cfg.middlePan());
 
@@ -1391,6 +1383,14 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error)
 
 void MainWindow::showImage(const QImage &image, const QString &path)
 {
+    // m_sourceImage 保存「文件里的原始像素」，旋转/翻转/反相/Gamma 全都从它派生。
+    // 这样「不旋转」才能真回到原样，而不是靠撤销栈一层层退。
+    m_sourceImage = image;
+    m_netRotation = 0;
+    m_flipH = false;
+    m_flipV = false;
+    m_negative = false;
+    m_gamma = 1.0;
     m_currentImage = image;
     m_originalImage = image;
     m_effect = 0;
@@ -1600,6 +1600,17 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     }
     else if (c == QLatin1String("locktop")) { if (!m_topLocked) toggleTopLock(); }
     else if (c == QLatin1String("lockdock")) { if (!m_dockLocked) toggleDockLock(); }
+    // 图像效果 / 几何（第一批功能验收用）
+    else if (c == QLatin1String("negative")) { onNegative(); }
+    else if (c.startsWith(QLatin1String("gamma:"))) {
+        m_gamma = qBound(0.10, c.mid(6).toDouble(), 3.00);
+        applyAdjustments(m_canvas ? m_canvas->viewCenterNormalized() : QPointF(0.5, 0.5));
+    }
+    else if (c == QLatin1String("rotatenone")) { resetGeometry(); }
+    else if (c == QLatin1String("stretchon") || c == QLatin1String("stretchoff")) {
+        onStretchSmall(c == QLatin1String("stretchon"));
+    }
+    else if (c.startsWith(QLatin1String("interp:"))) { setInterpolationMode(c.mid(7)); }
     // 循环开关（用于验收「首尾边界」两种模式）。applyRuntimeSettings() 会从配置回读，
     // 所以这里必须写配置，否则下一次加载就被覆盖。
     else if (c == QLatin1String("loopon") || c == QLatin1String("loopoff")) {
@@ -1681,6 +1692,11 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << " cap=" << (m_control ? m_control->size().width() : 0) << 'x'
                << (m_control ? m_control->size().height() : 0)
                << " pct=" << m_control->zoomPercent()
+               << " rot=" << m_netRotation
+               << " neg=" << (m_negative ? 1 : 0)
+               << " gam=" << QString::number(m_gamma, 'f', 2)
+               << " stretch=" << (m_canvas && m_canvas->stretchSmall() ? 1 : 0)
+               << " interp=" << m_interpMode
                // 显隐状态机相位（0 Hidden / 1 Showing / 2 Visible / 3 Hiding），
                // 滞回与防闪烁只能靠它验证，截图看不出中间态
                << " dock=" << static_cast<int>(m_dockPhase)
@@ -1920,17 +1936,14 @@ void MainWindow::onPrevFrame()
 // 视口中心，所以图像不会跳位、也不会被悄悄退回适配窗口。
 void MainWindow::rotateImage(int degrees)
 {
-    if (m_currentImage.isNull() || !m_canvas) {
+    if (m_sourceImage.isNull() || !m_canvas) {
         return;
     }
     const QPointF n = m_canvas->viewCenterNormalized();
-    const qreal z = m_canvas->zoom();
-    const bool fitWindow = m_canvas->isFitToWindow();
-    const bool fitWidth = m_canvas->isFitToWidth();
 
-    QTransform t;
-    t.rotate(degrees);
-    m_currentImage = m_currentImage.transformed(t);
+    // 净角度累加后取模：反复转 90° 四次回到 0，且每次都从**源图**重算，
+    // 不会在已经转过的图上再转（那样重采样损失会一遍遍叠上去）。
+    m_netRotation = ((m_netRotation + degrees) % 360 + 360) % 360;
 
     // 归一化锚点跟着画布一起转：顺 90°(u,v)→(1-v,u)，逆 90°(u,v)→(v,1-u)
     QPointF anchor = n;
@@ -1938,12 +1951,52 @@ void MainWindow::rotateImage(int degrees)
         anchor = QPointF(1.0 - n.y(), n.x());
     } else if (degrees == -90) {
         anchor = QPointF(n.y(), 1.0 - n.x());
+    } else if (degrees == 180 || degrees == -180) {
+        anchor = QPointF(1.0 - n.x(), 1.0 - n.y());
     }
+    rebuildFromSource(anchor);
+}
 
-    resetEffect();
-    m_canvas->setPixmapPreservingView(QPixmap::fromImage(m_currentImage), anchor,
-                                      z, fitWindow, fitWidth);
+// 从源图重新应用「净旋转 + 翻转」，再走一遍反相 / Gamma / 图片效果，最后保视图刷新。
+// 所有几何类操作（旋转、翻转、不旋转）都收敛到这一个入口，规则只有一份。
+void MainWindow::rebuildFromSource(const QPointF &anchor)
+{
+    if (m_sourceImage.isNull() || !m_canvas) {
+        return;
+    }
+    QTransform t;
+    t.rotate(m_netRotation);
+    if (m_flipH) {
+        t.scale(-1, 1);   // 屏幕方向左右镜像
+    }
+    if (m_flipV) {
+        t.scale(1, -1);
+    }
+    m_originalImage = m_sourceImage.transformed(t);
+    m_effect = 0;
+    if (actEffectNone) {
+        actEffectNone->setChecked(true);
+    }
+    applyAdjustments(anchor);
     updateInfoOverlay();
+}
+
+// 不旋转：清空所有几何变换，回到文件原始像素
+void MainWindow::resetGeometry()
+{
+    if (m_sourceImage.isNull() || !m_canvas) {
+        return;
+    }
+    if (m_netRotation == 0 && !m_flipH && !m_flipV) {
+        if (m_toast) {
+            m_toast->showMessage(tr("图像未旋转"));
+        }
+        return;
+    }
+    m_netRotation = 0;
+    m_flipH = false;
+    m_flipV = false;
+    rebuildFromSource(QPointF(0.5, 0.5));
 }
 
 void MainWindow::onRotateLeft()
@@ -1958,32 +2011,23 @@ void MainWindow::onRotateRight()
 
 void MainWindow::onFlipH()
 {
-    if (m_currentImage.isNull()) {
+    if (m_sourceImage.isNull()) {
         return;
     }
     const QPointF n = m_canvas->viewCenterNormalized();
-    const qreal z = m_canvas->zoom();
-    const bool fitWindow = m_canvas->isFitToWindow();
-    const bool fitWidth = m_canvas->isFitToWidth();
-    m_currentImage = m_currentImage.flipped(Qt::Horizontal);
-    resetEffect();
-    m_canvas->setPixmapPreservingView(QPixmap::fromImage(m_currentImage),
-                                      QPointF(1.0 - n.x(), n.y()), z, fitWindow, fitWidth);
+    m_flipH = !m_flipH;
+    // 屏幕左右镜像：锚点的 u 跟着翻，v 不动
+    rebuildFromSource(QPointF(1.0 - n.x(), n.y()));
 }
 
 void MainWindow::onFlipV()
 {
-    if (m_currentImage.isNull()) {
+    if (m_sourceImage.isNull()) {
         return;
     }
     const QPointF n = m_canvas->viewCenterNormalized();
-    const qreal z = m_canvas->zoom();
-    const bool fitWindow = m_canvas->isFitToWindow();
-    const bool fitWidth = m_canvas->isFitToWidth();
-    m_currentImage = m_currentImage.flipped(Qt::Vertical);
-    resetEffect();
-    m_canvas->setPixmapPreservingView(QPixmap::fromImage(m_currentImage),
-                                      QPointF(n.x(), 1.0 - n.y()), z, fitWindow, fitWidth);
+    m_flipV = !m_flipV;
+    rebuildFromSource(QPointF(n.x(), 1.0 - n.y()));
 }
 
 void MainWindow::onEffect(int mode)
@@ -1994,21 +2038,115 @@ void MainWindow::onEffect(int mode)
 
 void MainWindow::applyEffect()
 {
+    applyAdjustments(m_canvas ? m_canvas->viewCenterNormalized() : QPointF(0.5, 0.5));
+}
+
+// 统一渲染管线：m_originalImage（几何已就位）→ 反相 → Gamma → 减淡/锐化 → 画布。
+// 顺序固定，每一步都读上一步的副本、不写回 m_originalImage，
+// 所以反复切换（反相开关几十次、Gamma 拖着滑）不会累积误差或越调越糊。
+void MainWindow::applyAdjustments(const QPointF &anchor)
+{
     if (m_originalImage.isNull()) {
         return;
     }
+    QImage img = m_originalImage;
+    if (m_negative) {
+        img = applyNegative(img);
+    }
+    if (!qFuzzyCompare(m_gamma, 1.0)) {
+        img = applyGamma(img, m_gamma);
+    }
     switch (m_effect) {
     case 1:
-        m_currentImage = applySoften(m_originalImage);
+        img = applySoften(img);
         break;
     case 2:
-        m_currentImage = applySharpen(applySoften(m_originalImage));
+        img = applySharpen(applySoften(img));
         break;
     default:
-        m_currentImage = m_originalImage;
         break;
     }
-    m_canvas->setPixmap(QPixmap::fromImage(m_currentImage));
+    m_currentImage = img;
+    if (!m_canvas) {
+        return;
+    }
+    m_canvas->setPixmapPreservingView(QPixmap::fromImage(m_currentImage), anchor,
+                                      m_canvas->zoom(), m_canvas->isFitToWindow(),
+                                      m_canvas->isFitToWidth());
+}
+
+void MainWindow::onNegative()
+{
+    if (m_originalImage.isNull() || !m_canvas) {
+        return;
+    }
+    m_negative = !m_negative;
+    applyAdjustments(m_canvas->viewCenterNormalized());
+    if (m_toast) {
+        m_toast->showMessage(m_negative ? tr("反色：开") : tr("反色：关"));
+    }
+}
+
+void MainWindow::onGamma()
+{
+    if (m_originalImage.isNull() || !m_canvas) {
+        return;
+    }
+    GammaDialog dlg(m_gamma, this);
+    // 拖动滑块实时预览：直接改 m_gamma 再重算，取消时回滚原值。
+    const qreal before = m_gamma;
+    connect(&dlg, &GammaDialog::valueChanged, this, [this](qreal g) {
+        m_gamma = g;
+        applyAdjustments(m_canvas->viewCenterNormalized());
+    });
+    if (dlg.exec() != QDialog::Accepted) {
+        m_gamma = before;
+        applyAdjustments(m_canvas->viewCenterNormalized());
+        return;
+    }
+    m_gamma = dlg.value();
+    applyAdjustments(m_canvas->viewCenterNormalized());
+    if (m_toast) {
+        m_toast->showMessage(qFuzzyCompare(m_gamma, 1.0)
+                                 ? tr("Gamma 补偿：已还原")
+                                 : tr("Gamma 补偿：%1").arg(m_gamma, 0, 'f', 2));
+    }
+}
+
+// 拉伸小图像（原版 Z）：只影响「适合窗口」——开启后小于窗口的图会等比放大填满。
+void MainWindow::onStretchSmall(bool on)
+{
+    Config::instance().settings().setValue(QStringLiteral("config/stretch_small"), on);
+    if (m_canvas) {
+        m_canvas->setStretchSmall(on);
+    }
+    if (m_toast) {
+        m_toast->showMessage(on ? tr("拉伸小图像：开") : tr("拉伸小图像：关"));
+    }
+}
+
+void MainWindow::setInterpolationMode(const QString &mode)
+{
+    int m = 1;
+    if (mode == QLatin1String("bilinear")) {
+        m = 0;
+    } else if (mode == QLatin1String("lanczos")) {
+        m = 2;
+    }
+    m_interpMode = m;
+    if (m_canvas) {
+        m_canvas->setInterpolationMode(m);
+    }
+    Config::instance().settings().setValue(QStringLiteral("config/interpolation"), mode);
+    if (actInterpFast) {
+        actInterpFast->setChecked(m == 0);
+    }
+    if (actInterpSmooth) {
+        actInterpSmooth->setChecked(m == 1);
+    }
+    if (actInterpLanczos) {
+        actInterpLanczos->setChecked(m == 2);
+    }
 }
 
 void MainWindow::resetEffect()
@@ -2056,8 +2194,8 @@ void MainWindow::onResize()
     }
     const QSize ns = m_currentImage.size() * pct / 100;
     m_currentImage = m_currentImage.scaled(ns, Qt::KeepAspectRatio,
-                                            m_smoothInterpolation ? Qt::SmoothTransformation
-                                                                  : Qt::FastTransformation);
+                                            m_interpMode == 0 ? Qt::FastTransformation
+                                                              : Qt::SmoothTransformation);
     showImage(m_currentImage, m_currentPath);
 }
 

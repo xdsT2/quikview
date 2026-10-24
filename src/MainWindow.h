@@ -132,6 +132,13 @@ private:
     void updateCanvasInsets();               // 缩略图栏展开时让出左侧可视区
     void toggleBrowserPanel();
     void rotateImage(int degrees);           // 原地旋转（保持缩放与视图中心）
+    void resetGeometry();                    // 不旋转：清空旋转/翻转，回到源图
+    void rebuildFromSource(const QPointF &anchor);   // 从源图重算净几何变换
+    void applyAdjustments(const QPointF &anchor);    // 反相 + Gamma + 效果，保视图刷新
+    void onNegative();
+    void onGamma();
+    void onStretchSmall(bool on);
+    void setInterpolationMode(const QString &mode);
     void updateCanvasLogo();
     void updateInfoOverlay();
     void syncZoom();
@@ -191,6 +198,7 @@ private:
     QAction *actEffectSharpen = nullptr;
     QAction *actInterpFast = nullptr;
     QAction *actInterpSmooth = nullptr;
+    QAction *actInterpLanczos = nullptr;
     QAction *actSortName = nullptr;
     QAction *actSortTime = nullptr;
     QAction *actSortSize = nullptr;
@@ -247,10 +255,16 @@ private:
     bool m_firstImage = true;
 
     QString m_currentPath;
+    QImage m_sourceImage;      // 文件原始像素，不做任何旋转/翻转/效果（「不旋转」的基准）
     QImage m_currentImage;
     QImage m_originalImage;
     int m_effect = 0;
-    bool m_smoothInterpolation = true;
+    int m_netRotation = 0;     // 净旋转角：0 / 90 / 180 / 270
+    bool m_flipH = false;
+    bool m_flipV = false;
+    bool m_negative = false;   // 反相
+    qreal m_gamma = 1.0;       // Gamma 补偿（1.0 = 不变）
+    int m_interpMode = 1;      // 0 bilinear / 1 bicubic / 2 lanczos
     bool m_slideshow = false;
     bool m_slideshowRandom = false;
     bool m_cropMode = false;

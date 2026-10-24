@@ -122,7 +122,21 @@ QString Config::thumbnailSize() const
 
 QString Config::interpolation() const
 {
-    return m_settings.value(QStringLiteral("config/interpolation"), QStringLiteral("smooth")).toString();
+    const QString v = m_settings.value(QStringLiteral("config/interpolation"),
+                                       QStringLiteral("bicubic")).toString();
+    // 兼容旧配置：fast → bilinear，smooth → bicubic（老版本只存这两档）
+    if (v == QLatin1String("fast")) {
+        return QStringLiteral("bilinear");
+    }
+    if (v == QLatin1String("smooth")) {
+        return QStringLiteral("bicubic");
+    }
+    return v;
+}
+
+bool Config::stretchSmall() const
+{
+    return m_settings.value(QStringLiteral("config/stretch_small"), false).toBool();
 }
 
 bool Config::smoothZoom() const

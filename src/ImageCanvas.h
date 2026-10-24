@@ -26,6 +26,14 @@ public:
     QPointF viewCenterNormalized() const;
     void clear();
     void setSmooth(bool on);
+    // 插值算法："bilinear"(0) / "bicubic"(1) / "lanczos"(2)。bicubic 走 GPU 平滑，
+    // lanczos 在缩小显示时按目标尺寸做一次高质量重采样（原版标注「慢，高品质」）。
+    enum InterpMode { InterpBilinear = 0, InterpBicubic = 1, InterpLanczos = 2 };
+    void setInterpolationMode(int mode);
+    int interpolationMode() const { return m_interp; }
+    // 原版「拉伸小图像」：关（默认）时小于窗口的图保持 100% 不放大
+    void setStretchSmall(bool on);
+    bool stretchSmall() const { return m_stretchSmall; }
     void setWheelZoomEnabled(bool on) { m_wheelZoom = on; }
     void setMiddlePanEnabled(bool on) { m_middlePan = on; }
     void setContentMargins(const QMargins &margins);
@@ -65,6 +73,9 @@ protected:
 private:
     // 把场景点重新对回指定的视口点（用于边距/缩放变化后还原缩放锚点）
     void keepScenePointAt(const QPointF &scenePt, const QPoint &viewportPt);
+    // Lanczos：缩小显示时按目标尺寸重采样一次，用 devicePixelRatio 保持逻辑尺寸
+    // 不变（scene 几何、fit/center/归一化锚点全都不受影响），只提高采样质量。
+    void refreshSampling();
 
     QGraphicsPixmapItem *m_item = nullptr;
     QGraphicsRectItem *m_rubber = nullptr;
@@ -79,5 +90,9 @@ private:
     bool m_smooth = true;
     bool m_wheelZoom = true;
     bool m_middlePan = true;
+    bool m_stretchSmall = false;
+    int m_interp = InterpBicubic;
+    QPixmap m_sourcePixmap;      // 未经 Lanczos 预处理的原图，缩放变化时按它重算
+    QSize m_samplingSize;        // 上次 Lanczos 重采样的目标像素尺寸（相同就跳过重算）
     qreal m_zoom = 1.0;
 };

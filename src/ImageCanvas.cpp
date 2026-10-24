@@ -10,7 +10,93 @@
 #include <QScrollBar>
 #include <QWheelEvent>
 
+#include <cmath>
+
 namespace {
+
+// 分离式 Lanczos3 重采样：先水平后垂直，两个方向各 3-lobe 窗口。
+// 只用于「缩小显示」——原版把 Lanczos 标成「慢，高品质」，正是因为它比
+// GPU 的双线性/双三次慢一个量级，换来的是缩略时更少的振铃/摩尔纹。
+QImage lanczosResample(const QImage &src, const QSize &dst)
+{
+    if (src.isNull() || dst.isEmpty() || dst == src.size()) {
+        return src;
+    }
+    const QImage s = src.convertToFormat(QImage::Format_ARGB32);
+    const int sw = s.width();
+    const int sh = s.height();
+    const int dw = dst.width();
+    const int dh = dst.height();
+
+    auto kernel = [](double x) {
+        if (qFuzzyIsNull(x)) {
+            return 1.0;
+        }
+        if (x <= -3.0 || x >= 3.0) {
+            return 0.0;
+        }
+        const double px = M_PI * x;
+        return (3.0 * std::sin(px) * std::sin(px / 3.0)) / (px * px);
+    };
+
+    // —— 水平 ——
+    QImage tmp(dw, sh, QImage::Format_ARGB32);
+    const double rx = static_cast<double>(dw) / sw;
+    for (int y = 0; y < sh; ++y) {
+        const QRgb *lrow = reinterpret_cast<const QRgb *>(s.constScanLine(y));
+        QRgb *orow = reinterpret_cast<QRgb *>(tmp.scanLine(y));
+        for (int x = 0; x < dw; ++x) {
+            const double cx = (x + 0.5) / rx - 0.5;
+            const int x0 = static_cast<int>(std::floor(cx)) - 2;
+            const int x1 = static_cast<int>(std::floor(cx)) + 3;
+            double a = 0.0, r = 0.0, g = 0.0, b = 0.0, wsum = 0.0;
+            for (int xx = x0; xx <= x1; ++xx) {
+                const double wgt = kernel(xx - cx);
+                if (wgt == 0.0) {
+                    continue;
+                }
+                const QRgb p = lrow[qBound(0, xx, sw - 1)];
+                a += qAlpha(p) * wgt;
+                r += qRed(p) * wgt;
+                g += qGreen(p) * wgt;
+                b += qBlue(p) * wgt;
+                wsum += wgt;
+            }
+            const double inv = wsum == 0.0 ? 1.0 : 1.0 / wsum;
+            orow[x] = qRgba(qBound(0, qRound(r * inv), 255), qBound(0, qRound(g * inv), 255),
+                            qBound(0, qRound(b * inv), 255), qBound(0, qRound(a * inv), 255));
+        }
+    }
+
+    // —— 垂直 ——
+    QImage out(dw, dh, QImage::Format_ARGB32);
+    const double ry = static_cast<double>(dh) / sh;
+    for (int y = 0; y < dh; ++y) {
+        const double cy = (y + 0.5) / ry - 0.5;
+        const int y0 = static_cast<int>(std::floor(cy)) - 2;
+        const int y1 = static_cast<int>(std::floor(cy)) + 3;
+        QRgb *orow = reinterpret_cast<QRgb *>(out.scanLine(y));
+        for (int x = 0; x < dw; ++x) {
+            double a = 0.0, r = 0.0, g = 0.0, b = 0.0, wsum = 0.0;
+            for (int yy = y0; yy <= y1; ++yy) {
+                const double wgt = kernel(yy - cy);
+                if (wgt == 0.0) {
+                    continue;
+                }
+                const QRgb p = reinterpret_cast<const QRgb *>(tmp.constScanLine(qBound(0, yy, sh - 1)))[x];
+                a += qAlpha(p) * wgt;
+                r += qRed(p) * wgt;
+                g += qGreen(p) * wgt;
+                b += qBlue(p) * wgt;
+                wsum += wgt;
+            }
+            const double inv = wsum == 0.0 ? 1.0 : 1.0 / wsum;
+            orow[x] = qRgba(qBound(0, qRound(r * inv), 255), qBound(0, qRound(g * inv), 255),
+                            qBound(0, qRound(b * inv), 255), qBound(0, qRound(a * inv), 255));
+        }
+    }
+    return out;
+}
 
 // 空态标识：同心圆环 + 右下短斜线，与 resources/quikview.ico 同一视觉语汇。
 // 自有几何图形（不使用任何第三方 logo 的构形）。
@@ -65,6 +151,7 @@ void ImageCanvas::setLogoVisible(bool on)
 
 void ImageCanvas::setPixmap(const QPixmap &pixmap)
 {
+    m_sourcePixmap = pixmap;
     scene()->clear();
     m_item = scene()->addPixmap(pixmap);
     // QGraphicsPixmapItem 默认 FastTransformation——painter 的
@@ -86,6 +173,7 @@ void ImageCanvas::setPixmapPreservingView(const QPixmap &pixmap, const QPointF &
                                           qreal zoom, bool fitWindow, bool fitWidth)
 {
     const bool hadItem = (m_item != nullptr);
+    m_sourcePixmap = pixmap;
     scene()->clear();
     m_item = scene()->addPixmap(pixmap);
     m_item->setTransformationMode(Qt::SmoothTransformation);
@@ -160,6 +248,73 @@ void ImageCanvas::setSmooth(bool on)
     setRenderHints(hints);
 }
 
+void ImageCanvas::setInterpolationMode(int mode)
+{
+    m_interp = mode;
+    // bilinear 关掉平滑；bicubic / lanczos 都要 GPU 平滑兜底（放大路径仍靠它）。
+    setSmooth(mode != InterpBilinear);
+    if (m_item) {
+        m_item->setTransformationMode(mode == InterpBilinear ? Qt::FastTransformation
+                                                             : Qt::SmoothTransformation);
+    }
+    m_samplingSize = QSize();
+    refreshSampling();
+}
+
+void ImageCanvas::setStretchSmall(bool on)
+{
+    if (m_stretchSmall == on) {
+        return;
+    }
+    m_stretchSmall = on;
+    if (m_fitToWindow) {
+        fitToWindow();
+    } else if (m_fitWidth) {
+        fitToWidth();
+    }
+}
+
+// Lanczos 只处理「缩小显示」这一种情况：按目标屏幕像素重采样一次，再把结果
+// 塞回 item 并用 devicePixelRatio 把逻辑尺寸还原成原图大小。scene 几何因此完全
+// 不变，fit / centerOn / viewCenterNormalized 全都不用改，只是采样更干净。
+void ImageCanvas::refreshSampling()
+{
+    if (!m_item || m_sourcePixmap.isNull()) {
+        return;
+    }
+    const QSizeF isz = m_sourcePixmap.deviceIndependentSize();
+    if (isz.width() <= 0.0 || isz.height() <= 0.0) {
+        return;
+    }
+    if (m_interp != InterpLanczos || m_zoom >= 0.999 || m_zoom <= 0.0) {
+        if (m_item->pixmap().cacheKey() != m_sourcePixmap.cacheKey()) {
+            m_item->setPixmap(m_sourcePixmap);
+            m_samplingSize = QSize();
+        }
+        return;
+    }
+    const int tw = qMax(1, qRound(isz.width() * m_zoom));
+    const int th = qMax(1, qRound(isz.height() * m_zoom));
+    if (m_samplingSize == QSize(tw, th)) {
+        return;   // 目标尺寸没变，复用上一次的重采样结果
+    }
+    // 目标像素数过大时直接放弃：单次重采样的耗时与目标面积成正比，
+    // 超过 12MP 已经不是「看大图」而是拖 UI 了，交给 GPU 平滑即可。
+    if (static_cast<qint64>(tw) * th > 12000000) {
+        if (m_item->pixmap().cacheKey() != m_sourcePixmap.cacheKey()) {
+            m_item->setPixmap(m_sourcePixmap);
+        }
+        m_samplingSize = QSize(tw, th);
+        return;
+    }
+    const QImage small = lanczosResample(m_sourcePixmap.toImage(), QSize(tw, th));
+    QPixmap pm = QPixmap::fromImage(small);
+    pm.setDevicePixelRatio(static_cast<qreal>(tw) / isz.width());
+    m_item->setPixmap(pm);
+    m_item->setTransformationMode(Qt::SmoothTransformation);
+    m_samplingSize = QSize(tw, th);
+}
+
 void ImageCanvas::setCropMode(bool on)
 {
     m_cropMode = on;
@@ -191,10 +346,24 @@ void ImageCanvas::fitToWindow()
     if (!m_item) {
         return;
     }
-    fitInView(m_item, Qt::KeepAspectRatio);
+    const QSizeF isz = m_item->pixmap().deviceIndependentSize();
+    const qreal iw = isz.width();
+    const qreal ih = isz.height();
+    if (iw <= 0.0 || ih <= 0.0) {
+        return;
+    }
+    resetTransform();
+    qreal s = qMin(viewport()->width() / iw, viewport()->height() / ih);
+    // 原版「拉伸小图像」默认关闭：小于窗口的图保持 100%，点 Z 开启后才等比放大填满。
+    if (!m_stretchSmall) {
+        s = qMin<qreal>(1.0, s);
+    }
+    scale(s, s);
     m_fitToWindow = true;
     m_fitWidth = false;
-    m_zoom = transform().m11();
+    m_zoom = s;
+    centerOn(m_item);
+    refreshSampling();
     emit zoomChanged(m_zoom);
 }
 
@@ -205,25 +374,28 @@ void ImageCanvas::fitToWidth()
     if (!m_item) {
         return;
     }
-    const qreal iw = m_item->pixmap().width();
+    const QSizeF isz = m_item->pixmap().deviceIndependentSize();
+    const qreal iw = isz.width();
+    const qreal ih = isz.height();
     if (iw <= 0) {
         return;
     }
     resetTransform();
     // 宽度贴合要预留可能出现的垂直滚动条宽度，避免出现横向滚动条
-    const int sbw = verticalScrollBar()->isVisible() || m_item->pixmap().height() > viewport()->height()
+    const int sbw = verticalScrollBar()->isVisible() || ih > viewport()->height()
                         ? verticalScrollBar()->sizeHint().width() : 0;
     const qreal z = qMax(1.0, static_cast<qreal>(viewport()->width() - sbw)) / iw;
     scale(z, z);
     m_zoom = z;
     m_fitToWindow = false;
     m_fitWidth = true;
-    if (m_item->pixmap().height() * z <= viewport()->height()) {
+    if (ih * z <= viewport()->height()) {
         centerOn(m_item);
     } else {
         horizontalScrollBar()->setValue(0);
         verticalScrollBar()->setValue(0);
     }
+    refreshSampling();
     emit zoomChanged(m_zoom);
 }
 
@@ -286,6 +458,7 @@ void ImageCanvas::applyZoomAt(qreal zoom, const QPoint &anchorViewportPt)
     // 之后再按锚点做一次像素级对齐，避免「进入手动缩放」那一下跳图。
     emit zoomChanged(m_zoom);
     keepScenePointAt(anchorScene, viewport()->mapFrom(this, anchorWindowPt));
+    refreshSampling();
 }
 
 void ImageCanvas::wheelEvent(QWheelEvent *event)
