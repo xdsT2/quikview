@@ -255,6 +255,16 @@ MainWindow::MainWindow(QWidget *parent)
         jumpTo(m_dir->current());
     });
 
+    // 画布两侧箭头带点击翻页（对齐原版 40px 侧边带）：首尾行为由
+    // onPrev/onNext 复用 config/edge_action，不另写一套
+    connect(m_canvas, &ImageCanvas::edgeTurnRequested, this, [this](int delta) {
+        if (delta < 0) {
+            onPrev();
+        } else {
+            onNext();
+        }
+    });
+
     // 画布缩放联动：左下角浮标 + 浏览方式图标降级（胶囊滑杆已是翻页进度，不再跟随缩放）
     connect(m_canvas, &ImageCanvas::zoomChanged, this, [this](qreal z) {
         if (m_zoomBadge && !m_currentImage.isNull()) {

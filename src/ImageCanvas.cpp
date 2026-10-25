@@ -1,5 +1,6 @@
 #include "ImageCanvas.h"
 
+#include <QGraphicsOpacityEffect>
 #include <QGraphicsPixmapItem>
 #include <QGraphicsRectItem>
 #include <QGraphicsScene>
@@ -8,6 +9,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPixmap>
+#include <QPropertyAnimation>
 #include <QScrollBar>
 #include <QWheelEvent>
 
@@ -169,6 +171,87 @@ QPixmap makePlaceholderMark(int S, const QColor &color)
 
 } // namespace
 
+// ---------------------------------------------------------------------------
+// 侧边翻页箭头（原型 .side-nav：48x88 命中区视觉、30px 白色雪佛龙、贴边 6px、
+// 垂直居中）。纯视觉：WA_TransparentForMouseEvents，命中判定在画布上；
+// 显隐带 160ms 淡入淡出（对齐铬件 180ms 量级）。
+// ---------------------------------------------------------------------------
+class ImageCanvas::SideArrow : public QWidget
+{
+public:
+    enum Dir { Prev, Next };
+
+    SideArrow(Dir dir, QWidget *parent)
+        : QWidget(parent), m_dir(dir)
+    {
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setAttribute(Qt::WA_NoSystemBackground);
+        setFixedSize(48, 88);
+        m_effect = new QGraphicsOpacityEffect(this);
+        m_effect->setOpacity(0.0);
+        setGraphicsEffect(m_effect);
+        m_fade = new QPropertyAnimation(m_effect, "opacity", this);
+        m_fade->setDuration(160);
+        connect(m_fade, &QPropertyAnimation::finished, this, [this]() {
+            if (!m_shown) {
+                hide();
+            }
+        });
+    }
+
+    void setShown(bool on)
+    {
+        if (on == m_shown) {
+            return;
+        }
+        m_shown = on;
+        m_fade->stop();
+        m_fade->setStartValue(m_effect->opacity());
+        m_fade->setEndValue(on ? 1.0 : 0.0);
+        if (on) {
+            show();
+        }
+        m_fade->start();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        // 24 单位图标放大到 30px；先压一层深色投影（亮图上保底可读），再画主色
+        const qreal s = 30.0 / 24.0;
+        const QPointF c = rect().center();
+        const QPointF a((m_dir == Prev ? 15 : 9) - 12, 5 - 12);
+        const QPointF b((m_dir == Prev ? 8 : 15) - 12, 12 - 12);
+        const QPointF d((m_dir == Prev ? 15 : 9) - 12, 19 - 12);
+        struct Pass {
+            QColor color;
+            qreal width;
+            QPointF offset;
+        };
+        const Pass passes[] = {
+            { QColor(0, 0, 0, 120), 2.6 * s, QPointF(0, 1.2) },
+            { QColor(240, 243, 245, 185), 1.8 * s, QPointF(0, 0) },
+        };
+        for (const Pass &pass : passes) {
+            QPen pen(pass.color, pass.width);
+            pen.setCapStyle(Qt::RoundCap);
+            pen.setJoinStyle(Qt::RoundJoin);
+            p.setPen(pen);
+            p.setBrush(Qt::NoBrush);
+            p.drawLine(c + a * s + pass.offset, c + b * s + pass.offset);
+            p.drawLine(c + b * s + pass.offset, c + d * s + pass.offset);
+        }
+    }
+
+private:
+    Dir m_dir;
+    QGraphicsOpacityEffect *m_effect = nullptr;
+    QPropertyAnimation *m_fade = nullptr;
+    bool m_shown = false;
+};
+
 ImageCanvas::ImageCanvas(QWidget *parent)
     : QGraphicsView(parent)
 {
@@ -190,6 +273,14 @@ ImageCanvas::ImageCanvas(QWidget *parent)
     m_logo->adjustSize();
     m_logo->move((viewport()->width() - m_logo->width()) / 2,
                  (viewport()->height() - m_logo->height()) / 2);
+
+    // 侧边翻页箭头（原版 bDoNotShowSideArrow=0 的视觉）：纯视觉不接鼠标，
+    // 命中判定始终在画布上；悬停无按键 move 事件依赖 viewport 的 mouse tracking
+    viewport()->setMouseTracking(true);
+    m_arrowPrev = new SideArrow(SideArrow::Prev, viewport());
+    m_arrowNext = new SideArrow(SideArrow::Next, viewport());
+    m_arrowPrev->hide();
+    m_arrowNext->hide();
 
     // 交互收尾：拖窗口边界 / 连续缩放停止 150ms 后补做一次重采样（只补当前 m_zoom）
     m_sampleFlush.setSingleShot(true);
@@ -291,6 +382,7 @@ void ImageCanvas::setContentMargins(const QMargins &margins)
     // 否则展开缩略图栏后图片会被压到一边、拖动也对不上。
     const QPointF keep = m_item ? mapToScene(viewport()->rect().center()) : QPointF();
     setViewportMargins(margins.left(), margins.top(), margins.right(), margins.bottom());
+    placeEdgeArrows();   // 左带/箭头随视口右移，不压在缩略图面板上
     if (m_fitToWindow) {
         fitToWindow();
     } else if (m_fitWidth) {
@@ -602,6 +694,53 @@ void ImageCanvas::scrollVerticallyBy(qreal fraction)
     bar->setValue(bar->value() + qRound(viewport()->height() * fraction));
 }
 
+// ---------------------------------------------------------------------------
+// 侧边翻页箭头带（原版实测：左右各约 40px 的带，不是按图片半边分）：
+//   左带 x ∈ [6, 40)，右带 x ∈ (w-40, w-6)，最外 6px 留给窗口边缘。
+//   视口坐标，与图片缩放无关；缩略图面板展开时 setViewportMargins 已把
+//   视口右移，左带天然落在面板右侧。无图 / 裁剪模式不响应。
+// ---------------------------------------------------------------------------
+int ImageCanvas::edgeTurnDelta(const QPoint &pos) const
+{
+    if (!m_item || m_sourcePixmap.isNull() || m_cropMode) {
+        return 0;
+    }
+    constexpr int kEdge = 40;
+    constexpr int kGuard = 6;
+    const int w = viewport()->width();
+    if (pos.x() >= kGuard && pos.x() < kEdge) {
+        return -1;
+    }
+    if (pos.x() > w - kEdge && pos.x() < w - kGuard) {
+        return +1;
+    }
+    return 0;
+}
+
+// 悬停反馈：带内手掌光标；指针距视口左/右缘 120px 内淡入对应箭头（原型
+// nearLeft/nearRight 口径），离开淡出。
+void ImageCanvas::updateEdgeHover(const QPoint &pos)
+{
+    const int delta = edgeTurnDelta(pos);
+    viewport()->setCursor(delta != 0 ? Qt::PointingHandCursor : Qt::ArrowCursor);
+    const int w = viewport()->width();
+    m_arrowPrev->setShown(delta != 0 || (m_item && !m_sourcePixmap.isNull() && !m_cropMode
+                                         && pos.x() >= 0 && pos.x() < 120));
+    m_arrowNext->setShown(delta != 0 || (m_item && !m_sourcePixmap.isNull() && !m_cropMode
+                                         && pos.x() > w - 120 && pos.x() <= w));
+}
+
+void ImageCanvas::placeEdgeArrows()
+{
+    if (!m_arrowPrev) {
+        return;
+    }
+    const QRect vp = viewport()->rect();
+    const QSize sz = m_arrowPrev->size();
+    m_arrowPrev->move(6, (vp.height() - sz.height()) / 2);
+    m_arrowNext->move(vp.width() - 6 - sz.width(), (vp.height() - sz.height()) / 2);
+}
+
 void ImageCanvas::mousePressEvent(QMouseEvent *event)
 {
     if (m_cropMode && event->button() == Qt::LeftButton && m_item) {
@@ -620,6 +759,12 @@ void ImageCanvas::mousePressEvent(QMouseEvent *event)
         setCursor(Qt::ClosedHandCursor);
         event->accept();
         return;
+    }
+    // 左键按下先记账：松手时才判断「点击」还是「拖拽平移」（见 mouseReleaseEvent）
+    if (event->button() == Qt::LeftButton) {
+        m_pressTracked = m_item != nullptr && !m_sourcePixmap.isNull() && !m_cropMode;
+        m_pressPos = event->pos();
+        m_pressClock.restart();
     }
     // 左键平移由 QGraphicsView::ScrollHandDrag 原生处理，勿拦截基类事件。
     QGraphicsView::mousePressEvent(event);
@@ -641,6 +786,14 @@ void ImageCanvas::mouseMoveEvent(QMouseEvent *event)
         event->accept();
         return;
     }
+    // 悬停（无按键）：箭头带光标 + 箭头显隐（viewport 开了 mouse tracking）
+    if (event->buttons() == Qt::NoButton) {
+        updateEdgeHover(event->pos());
+    } else if (m_pressTracked && (event->buttons() & Qt::LeftButton)
+               && (event->pos() - m_pressPos).manhattanLength() >= 3) {
+        // 位移到 3px 即判定为拖拽平移，松手不再翻页（原逻辑不受影响）
+        m_pressTracked = false;
+    }
     QGraphicsView::mouseMoveEvent(event);
 }
 
@@ -657,7 +810,31 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent *event)
         event->accept();
         return;
     }
+    // 箭头带内的「点击」翻页：左键 + 位移 <3px + 按压 <300ms。先让基类把
+    // ScrollHandDrag 收干净，再发信号（loadAsync 异步，不会在事件里重入画布）。
+    if (event->button() == Qt::LeftButton && m_pressTracked) {
+        m_pressTracked = false;
+        const bool isClick = m_pressClock.isValid() && m_pressClock.elapsed() < 300
+                             && (event->pos() - m_pressPos).manhattanLength() < 3;
+        const int delta = isClick ? edgeTurnDelta(event->pos()) : 0;
+        QGraphicsView::mouseReleaseEvent(event);
+        if (delta != 0) {
+            emit edgeTurnRequested(delta);
+        }
+        return;
+    }
     QGraphicsView::mouseReleaseEvent(event);
+}
+
+void ImageCanvas::leaveEvent(QEvent *event)
+{
+    // 指针离开画布：光标还原、箭头淡出（否则停在带内会一直挂着）
+    if (m_arrowPrev) {
+        m_arrowPrev->setShown(false);
+        m_arrowNext->setShown(false);
+        viewport()->unsetCursor();
+    }
+    QGraphicsView::leaveEvent(event);
 }
 
 void ImageCanvas::resizeEvent(QResizeEvent *event)
@@ -679,4 +856,5 @@ void ImageCanvas::resizeEvent(QResizeEvent *event)
         m_logo->move((viewport()->width() - m_logo->width()) / 2,
                      (viewport()->height() - m_logo->height()) / 2);
     }
+    placeEdgeArrows();
 }

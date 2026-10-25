@@ -71,6 +71,10 @@ public:
 signals:
     // 任何缩放来源（滚轮/按钮/适配模式）变更后发出，供控制栏滑条与浮标联动
     void zoomChanged(qreal zoom);
+    // 画布两侧 40px 箭头带内「点击」（位移 <3px、按压 <300ms）翻页：
+    // -1 = 上一张 / +1 = 下一张。首尾行为由 MainWindow 走 onPrev/onNext
+    // 复用 config/edge_action，不在这里另写一套。
+    void edgeTurnRequested(int delta);
 
 protected:
     void wheelEvent(QWheelEvent *event) override;
@@ -81,6 +85,7 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
+    void leaveEvent(QEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
 
 private:
@@ -96,6 +101,11 @@ private:
     // 与 fitToWindow()/fitToWidth() 共用；resizeEvent 拖动期只调这里不算采样。
     void fitToWindowGeom();
     void fitToWidthGeom();
+    // 侧边翻页箭头带：命中判定 + 悬停光标/箭头显隐。pos 为视口坐标，
+    // 与图片缩放无关；左带被缩略图面板压缩时随视口边距自动右移。
+    int edgeTurnDelta(const QPoint &pos) const;
+    void updateEdgeHover(const QPoint &pos);
+    void placeEdgeArrows();
 
     QGraphicsPixmapItem *m_item = nullptr;
     QGraphicsRectItem *m_rubber = nullptr;
@@ -119,4 +129,12 @@ private:
     // 交互收尾定时器：拖动/连续缩放停止 150ms 后补做一次重采样（单发）
     QTimer m_sampleFlush;
     QElapsedTimer m_lastSampleReq;   // 上一次 refreshSampling 请求时刻（判连续交互）
+    // 左键按下记账：松手时「位移 <3px 且 <300ms 且在箭头带内」才算点击翻页，
+    // 其余仍是 ScrollHandDrag 拖拽平移
+    QElapsedTimer m_pressClock;
+    QPoint m_pressPos;
+    bool m_pressTracked = false;
+    class SideArrow;
+    SideArrow *m_arrowPrev = nullptr;   // 悬停带内 160ms 淡入，纯视觉不接鼠标
+    SideArrow *m_arrowNext = nullptr;
 };
