@@ -1,85 +1,160 @@
 #!/usr/bin/env bash
-# QuikView Windows 打包脚本：产出可直接分发的 zip。
-#
-# 设计要点（对应 DEPLOY-SIZE 报告与 2026-10-25 P3 交接）：
-# 1. 绝不直接压 build/ 目录——里面有 CMakeCache.txt / build.ninja / .obj 等
-#    约 5MB 构建残留，且 exe 依赖的 DLL 混着不需要的文件。
-# 2. 用干净 staging：exe + windeployqt(--no-translations) + 固定清单的第三方 DLL。
-# 3. 已知坑：libmng-2.dll 不在 exe 导入表里（只有 Qt 插件 qmng.dll 用它），
-#    windeployqt 不会自动补——漏了 mng 打不开。它在下面 THIRDPARTY 清单里，缺失即报错。
-# 4. 本脚本只打包含 MSYS2 依赖的常规包；ICU（约 36.5MB）随 MSYS2 Qt6Core 走，
-#    见 DEPLOY-SIZE 报告「Qt 来源」一节。
+# QuikView Windows 打包：产出可直接分发的 zip。
 #
 # 用法：
 #   tools/package.sh [build目录] [输出目录]
-#   LIBHEIF_DLL=/path/libheif.dll tools/package.sh   # 可选：用自建解码版 libheif 替换
-# 产物：dist/QuikView-win64-<日期>.zip
+#
+# 设计要点：
+# 1. 绝不直接压 build/——里面混着 CMakeCache / .obj 与不需要的 DLL。
+# 2. 干净 staging：exe → windeployqt → 依赖闭包 → 自检 → 压包。
+# 3. 依赖闭包用 objdump 逐层读导入表，从 Qt 的 bin 目录补齐。
+#    不用固定清单：MSYS2 换版本时 DLL 名字会变（libraw-25 这种带 ABI 号），
+#    写死清单迟早漏；缺失项一律打印出来，不静默吞。
+# 4. qjp2 / libjasper 必须剔除：MSYS2 的 jasper-4.2.9 带断言，插件一旦能
+#    加载，打开 .jp2 就撞 jas_init 的 !jas_global.initialized，弹出
+#    「Microsoft Visual C++ Runtime Library」中止框，用户看到的是「点了没反应」。
+#    JP2/J2K 本来就不在解码白名单里，不发插件即可干净地回退到「不支持」。
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BUILD_DIR="${1:-$REPO_ROOT/build}"
 OUT_DIR="${2:-$REPO_ROOT/dist}"
-STAGE="$OUT_DIR/QuikView"
 
-MSYS64="${MSYS64:-/e/Agent/Tencent/WorkBuddy/Workspace/tools/msys64/mingw64}"
-export PATH="$MSYS64/bin:$PATH"
+# 统一转绝对路径：脚本后面会 cd 到 staging 里跑冒烟，相对路径会写错地方
+case "$BUILD_DIR" in /*|[A-Za-z]:*) ;; *) BUILD_DIR="$PWD/$BUILD_DIR" ;; esac
+case "$OUT_DIR"   in /*|[A-Za-z]:*) ;; *) OUT_DIR="$PWD/$OUT_DIR"     ;; esac
 
-command -v windeployqt >/dev/null || { echo "需要 windeployqt（msys64）" >&2; exit 1; }
+VERSION="$(sed -n 's/^project(quikview VERSION \([0-9.]*\).*/\1/p' "$REPO_ROOT/CMakeLists.txt" | head -1)"
+[ -n "$VERSION" ] || { echo "读不到 CMakeLists 里的版本号" >&2; exit 1; }
+
+STAGE_NAME="quikview-${VERSION}-win64"
+STAGE="$OUT_DIR/$STAGE_NAME"
+
+command -v windeployqt >/dev/null || { echo "需要 windeployqt（MSYS2 mingw64 在 PATH 里）" >&2; exit 1; }
+command -v objdump >/dev/null || { echo "需要 objdump" >&2; exit 1; }
+QT_BIN="$(cd "$(dirname "$(command -v windeployqt)")" && pwd)"
 [ -f "$BUILD_DIR/quikview.exe" ] || { echo "先构建：cmake --build $BUILD_DIR" >&2; exit 1; }
 
-# ---- 1. 干净 staging ----
-rm -rf "$OUT_DIR"
+echo "[1/5] staging"
+rm -rf "$OUT_DIR/$STAGE_NAME"
 mkdir -p "$STAGE"
 cp "$BUILD_DIR/quikview.exe" "$STAGE/"
 
-# ---- 2. Qt 运行时与插件（不带翻译文件；编译器 runtime 由下面清单统一提供）----
-windeployqt --no-translations --no-compiler-runtime --no-system-d3d-compiler \
+echo "[2/5] windeployqt（Qt 运行时 + 插件）"
+windeployqt --release --no-translations --no-opengl-sw \
+    --no-system-d3d-compiler --no-system-dxc-compiler --no-quick-import \
     --dir "$STAGE" "$STAGE/quikview.exe" >/dev/null
 
-# Qt 插件目录 windeployqt 只拷常用项，QMNG 等需要整目录兜底（mng 在白名单里）
-mkdir -p "$STAGE/imageformats"
-cp -f "$BUILD_DIR/imageformats/"*.dll "$STAGE/imageformats/"
+# 图像格式插件整目录兜底：windeployqt 有时只挑它认为用得到的
+if [ -d "$QT_BIN/../share/qt6/plugins/imageformats" ]; then
+    mkdir -p "$STAGE/imageformats"
+    cp -f "$QT_BIN/../share/qt6/plugins/imageformats/"*.dll "$STAGE/imageformats/"
+fi
 
-# ---- 3. 第三方 DLL 固定清单（2026-10-25 实测部署闭包，37 项）----
-# 版本口径：与 MSYS2 mingw64 当前仓库一致；libheif 可被 LIBHEIF_DLL 覆盖为
-# 自建"仅解码"版（tools/build-libheif.sh），可省约 36MB（见 DEPLOY-SIZE 报告）。
-THIRDPARTY=(
-    libaom.dll libb2-1.dll libbrotlicommon.dll libbrotlidec.dll libbz2-1.dll
-    libcryptopp.dll libdav1d-7.dll libde265-0.dll libdouble-conversion.dll
-    libfreetype-6.dll libgcc_s_seh-1.dll libglib-2.0-0.dll libgomp-1.dll
-    libgraphite2.dll libharfbuzz-0.dll libheif.dll libiconv-2.dll
-    libicudt78.dll libicuin78.dll libicuuc78.dll libintl-8.dll libjpeg-8.dll
-    liblcms2-2.dll libmd4c.dll libmng-2.dll libpcre2-16-0.dll libpcre2-8-0.dll
-    libpng16-16.dll libraw-25.dll libsharpyuv-0.dll libstdc++-6.dll
-    libwebp-7.dll libwebpdemux-2.dll libwebpmux-3.dll libwinpthread-1.dll
-    libzstd.dll zlib1.dll
+echo "[3/5] 补齐非 Qt 依赖（objdump 闭包）"
+declare -A SEEN=()
+QUEUE=()
+while IFS= read -r -d '' f; do QUEUE+=("$f"); done \
+    < <(find "$STAGE" -type f \( -name '*.exe' -o -name '*.dll' \) -print0)
+
+# Windows 自带的，不复制
+is_system() {
+    case "$(echo "$1" | tr 'A-Z' 'a-z')" in
+        kernel32.dll|user32.dll|gdi32.dll|advapi32.dll|shell32.dll|ole32.dll) return 0 ;;
+        oleaut32.dll|comdlg32.dll|comctl32.dll|shlwapi.dll|dwmapi.dll|uxtheme.dll) return 0 ;;
+        winmm.dll|ws2_32.dll|ntdll.dll|msvcrt.dll|msimg32.dll|version.dll) return 0 ;;
+        opengl32.dll|glu32.dll|imm32.dll|wtsapi32.dll|userenv.dll|netapi32.dll) return 0 ;;
+        psapi.dll|secur32.dll|crypt32.dll|bcrypt.dll|dbghelp.dll|setupapi.dll) return 0 ;;
+        winspool.drv|d3d11.dll|d3d12.dll|d3d9.dll|dxgi.dll|dwrite.dll|d2d1.dll) return 0 ;;
+        dcomp.dll|mpr.dll|wldap32.dll|authz.dll|pdh.dll|powrprof.dll|propsys.dll) return 0 ;;
+        rpcrt4.dll|sspicli.dll|iphlpapi.dll|dnsapi.dll|winhttp.dll|mswsock.dll) return 0 ;;
+        normaliz.dll|gdiplus.dll|mscms.dll|wintrust.dll|shcore.dll|usp10.dll) return 0 ;;
+        ncrypt.dll|twinapi.dll|cfgmgr32.dll|api-ms-win-*|ext-ms-win-*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+COPIED=0
+MISSING=()
+while [ ${#QUEUE[@]} -gt 0 ]; do
+    cur="${QUEUE[0]}"
+    QUEUE=("${QUEUE[@]:1}")
+    while IFS= read -r dep; do
+        [ -n "$dep" ] || continue
+        key="$(echo "$dep" | tr 'A-Z' 'a-z')"
+        [ -n "${SEEN[$key]:-}" ] && continue
+        SEEN[$key]=1
+        is_system "$dep" && continue
+        [ -f "$STAGE/$dep" ] && continue
+        if [ -f "$QT_BIN/$dep" ]; then
+            cp -f "$QT_BIN/$dep" "$STAGE/"
+            COPIED=$((COPIED + 1))
+            QUEUE+=("$STAGE/$dep")
+        else
+            MISSING+=("$dep ← $(basename "$cur")")
+        fi
+    done < <(objdump -p "$cur" 2>/dev/null | sed -n 's/.*DLL Name: *//p')
+done
+echo "  补齐 $COPIED 个"
+if [ ${#MISSING[@]} -gt 0 ]; then
+    echo "  找不到（需人工确认）：" >&2
+    printf '    ! %s\n' "${MISSING[@]}" >&2
+fi
+
+echo "[4/5] 剔除不支持的格式插件"
+for name in qjp2.dll libjasper.dll; do
+    find "$STAGE" -name "$name" -type f -print0 | while IFS= read -r -d '' hit; do
+        rm -f "$hit"
+        echo "  删除 ${hit#"$STAGE"/}"
+    done
+done
+
+# 自检：缺任何一个，用户拿到的就是「起不来」或「格式打不开」
+REQUIRED=(
+    quikview.exe Qt6Core.dll Qt6Gui.dll Qt6Widgets.dll Qt6PrintSupport.dll
+    platforms/qwindows.dll styles/qmodernwindowsstyle.dll
+    imageformats/qjpeg.dll imageformats/qgif.dll imageformats/qico.dll
+    imageformats/qwebp.dll imageformats/qtiff.dll imageformats/qicns.dll
+    imageformats/qmng.dll imageformats/qtga.dll imageformats/qwbmp.dll
+    libheif.dll libraw-25.dll
 )
-MISSING=0
-for d in "${THIRDPARTY[@]}"; do
-    if [ -f "$BUILD_DIR/$d" ]; then
-        cp -f "$BUILD_DIR/$d" "$STAGE/"
-    else
-        echo "缺少 $d（build 目录里没有）" >&2
-        MISSING=1
+BAD=0
+for r in "${REQUIRED[@]}"; do
+    if [ ! -f "$STAGE/$r" ]; then
+        echo "  自检缺文件：$r" >&2
+        BAD=1
     fi
 done
-[ "$MISSING" = "0" ] || { echo "第三方 DLL 清单不齐，中止打包" >&2; exit 1; }
+[ "$BAD" = "0" ] || { echo "自检失败，中止" >&2; exit 1; }
 
-# 可选：用自建解码版 libheif 替换（省约 36MB，见 tools/build-libheif.sh）
-if [ -n "${LIBHEIF_DLL:-}" ]; then
-    cp -f "$LIBHEIF_DLL" "$STAGE/libheif.dll"
-    echo "已替换为自建 libheif：$(du -h "$LIBHEIF_DLL" | cut -f1)"
+# 可选冒烟：SAMPLE=/path/to/img 时验证 staging 里的 exe 能自渲染
+if [ -n "${SAMPLE:-}" ] && [ -f "$SAMPLE" ]; then
+    if (cd "$STAGE" && ./quikview.exe "$SAMPLE" --screenshot "$OUT_DIR/_smoke.png" \
+            --shot-delay 1500 >/dev/null 2>&1) && [ -f "$OUT_DIR/_smoke.png" ]; then
+        echo "  冒烟：OK"
+    else
+        echo "  冒烟：失败（产物仍会生成，但请复查）" >&2
+    fi
+    rm -f "$OUT_DIR/_smoke.png"
 fi
 
-# ---- 4. 冒烟：staging 里的 exe 能自渲染出一张图 ----
-if [ -f /e/A1/XiaoMiFeng/Temp/_sample.heic ]; then
-    (cd "$STAGE" && ./quikview.exe /e/A1/XiaoMiFeng/Temp/_sample.heic \
-        --screenshot "$OUT_DIR/_pkg_smoke.png" --shot-delay 1500 >/dev/null 2>&1) \
-        && echo "打包冒烟：OK" || echo "打包冒烟：警告——样本验证未跑（不影响产物）"
-    rm -f "$OUT_DIR/_pkg_smoke.png"
+echo "[5/5] 压包"
+ZIP="$OUT_DIR/$STAGE_NAME.zip"
+rm -f "$ZIP"
+cd "$OUT_DIR"
+if command -v zip >/dev/null 2>&1; then
+    zip -qr "$(basename "$ZIP")" "$STAGE_NAME"
+elif command -v python >/dev/null 2>&1; then
+    python -m zipfile -c "$(basename "$ZIP")" "$STAGE_NAME"
+elif command -v powershell >/dev/null 2>&1; then
+    powershell -NoProfile -Command \
+        "Compress-Archive -Path '$STAGE_NAME' -DestinationPath '$(basename "$ZIP")' -Force"
+else
+    echo "没有可用的压缩工具（zip / python / powershell）" >&2
+    exit 1
 fi
-
-# ---- 5. 压 zip ----
-ZIP="$OUT_DIR/QuikView-win64-$(date +%Y%m%d).zip"
-(cd "$OUT_DIR" && python -m zipfile -c "$(basename "$ZIP")" QuikView)
-echo "产物：$ZIP（$(du -h "$ZIP" | cut -f1)）"
+cd "$REPO_ROOT"
+SIZE="$(du -h "$ZIP" | cut -f1)"
+echo
+echo "产物：$ZIP（$SIZE）"
+sha256sum "$ZIP" 2>/dev/null || true

@@ -63,8 +63,8 @@ jobs:
           ls -lh build/quikview.exe
 
       # 打包成可分发 zip 供下载验证（不进 release；发布走正式流程另行触发）
-      # tools/package.sh：干净 staging + windeployqt --no-translations
-      #   + 第三方 DLL 固定清单（含 windeployqt 不会补的 libmng-2.dll）
+      # tools/package.sh：干净 staging + windeployqt + objdump 依赖闭包 + 自检，
+      # 并剔除 qjp2/libjasper（该插件打开 .jp2 会触发 Jasper 断言）
       - name: 打包
         run: bash tools/package.sh build dist
 
@@ -72,6 +72,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: QuikView-win64
-          path: dist/QuikView-win64-*.zip
+          path: dist/quikview-*-win64.zip
           retention-days: 14
           if-no-files-found: error
