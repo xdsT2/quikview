@@ -1535,8 +1535,11 @@ void MainWindow::updateInfoOverlay()
     // 多帧文件：信息行追加当前帧 / 总帧。图片序号（1/6）在 setCounter，
     // 帧号（12/48）只进这里，两个计数不能混。
     if (m_frames && m_frames->hasFrames()) {
-        parts << tr("第 %1/%2 帧").arg(m_frames->frameIndex() + 1)
-                                   .arg(m_frames->frameCount());
+        // MNG 顺序模式不预扫描总帧数，frameCount()=0 表示未知，只显示当前帧号
+        const int total = m_frames->frameCount();
+        parts << (total > 1
+                      ? tr("第 %1/%2 帧").arg(m_frames->frameIndex() + 1).arg(total)
+                      : tr("第 %1 帧").arg(m_frames->frameIndex() + 1));
     }
     m_statusOverlay->setImageInfo(parts.join(QStringLiteral("  •  ")));
 
@@ -2592,32 +2595,16 @@ void MainWindow::onResize()
 void MainWindow::onOpen()
 {
     const QString path = QFileDialog::getOpenFileName(
-        this, tr("打开图片"), QString(),
-        tr("图片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有文件 (*)"));
+        this, tr("打开图片"), QString(), DirectoryLoader::imageFilter());
     if (!path.isEmpty()) {
         openFile(path);
     }
 }
 
-QStringList MainWindow::imageExtensions()
-{
-    return {
-        QStringLiteral("*.png"), QStringLiteral("*.jpg"), QStringLiteral("*.jpeg"),
-        QStringLiteral("*.bmp"), QStringLiteral("*.gif"), QStringLiteral("*.webp"),
-        QStringLiteral("*.heic"), QStringLiteral("*.avif"),
-        QStringLiteral("*.tif"), QStringLiteral("*.tiff"), QStringLiteral("*.ico"),
-        QStringLiteral("*.ppm"), QStringLiteral("*.pgm"), QStringLiteral("*.pbm"),
-        QStringLiteral("*.xbm"), QStringLiteral("*.xpm"),
-        QStringLiteral("*.dng"), QStringLiteral("*.nef"), QStringLiteral("*.cr2"),
-        QStringLiteral("*.arw"), QStringLiteral("*.rw2"), QStringLiteral("*.orf"),
-        QStringLiteral("*.raf"), QStringLiteral("*.pef"), QStringLiteral("*.raw"),
-    };
-}
-
 QStringList MainWindow::listImagesInDir(const QString &dirPath)
 {
     const QDir dir(dirPath);
-    const QStringList entries = dir.entryList(imageExtensions(),
+    const QStringList entries = dir.entryList(DirectoryLoader::imageExtensions(),
                                               QDir::Files | QDir::Readable,
                                               QDir::Name | QDir::LocaleAware);
     QStringList out;

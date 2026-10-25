@@ -1,5 +1,7 @@
 #include "SettingsDialog.h"
 
+#include "DirectoryLoader.h"
+
 #include <QAbstractButton>
 #include <QCheckBox>
 #include <QColorDialog>
@@ -823,7 +825,7 @@ void SettingsDialog::buildViewPage(QWidget *page)
     pathRow->addWidget(btnOpenFolder);
     connect(btnBrowse, &QPushButton::clicked, this, [this]() {
         const QString f = QFileDialog::getOpenFileName(
-            this, tr("选择图片"), m_bkgndPath->text(), tr("图像文件 (*.png *.jpg *.jpeg *.bmp)"));
+            this, tr("选择图片"), m_bkgndPath->text(), DirectoryLoader::imageFilter());
         if (!f.isEmpty())
             m_bkgndPath->setText(f);
     });

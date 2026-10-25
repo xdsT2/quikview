@@ -1,25 +1,81 @@
 #include "DirectoryLoader.h"
 
 #include <QCollator>
+#include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
 
 #include <algorithm>
 
+namespace {
+
+struct ImageGroup
+{
+    const char *label;              // 文件对话框里的分组标题
+    const char *const *exts;        // 不带 "*."，全小写
+    int count;
+};
+
+// 解码白名单唯一事实来源。目录扫描（imageExtensions）与文件对话框过滤器
+// （imageFilter）都从这张表派生，别处不许再写一份扩展名列表。
+//
+// 依据 Qt 6.11.2 实测 supportedImageFormats()：tga / jp2 / j2k / icns / mng /
+// wbmp / cur / jfif 本来就能解码，此前只是没列进来，用户才打不开。
+// 分组只影响对话框展示顺序，不影响扫描结果。
+const char *const kCommonExts[] = { "png", "jpg", "jpeg", "jfif", "bmp", "gif",
+                                    "webp", "tif", "tiff" };
+const char *const kIconExts[]   = { "ico", "cur", "icns" };
+const char *const kOtherExts[]  = { "tga", "jp2", "j2k", "mng", "wbmp",
+                                    "ppm", "pgm", "pbm", "xbm", "xpm" };
+const char *const kCameraExts[] = { "heic", "avif", "dng", "nef", "cr2", "arw",
+                                    "rw2", "orf", "raf", "pef", "raw" };
+
+const ImageGroup kImageGroups[] = {
+    { QT_TRANSLATE_NOOP("DirectoryLoader", "常用图片"), kCommonExts,
+      int(sizeof(kCommonExts) / sizeof(kCommonExts[0])) },
+    { QT_TRANSLATE_NOOP("DirectoryLoader", "图标与光标"), kIconExts,
+      int(sizeof(kIconExts) / sizeof(kIconExts[0])) },
+    { QT_TRANSLATE_NOOP("DirectoryLoader", "其他图片"), kOtherExts,
+      int(sizeof(kOtherExts) / sizeof(kOtherExts[0])) },
+    { QT_TRANSLATE_NOOP("DirectoryLoader", "相机与无损"), kCameraExts,
+      int(sizeof(kCameraExts) / sizeof(kCameraExts[0])) },
+};
+
+QStringList groupPatterns(const ImageGroup &g)
+{
+    QStringList out;
+    out.reserve(g.count);
+    for (int i = 0; i < g.count; ++i) {
+        out << QStringLiteral("*.") + QLatin1String(g.exts[i]);
+    }
+    return out;
+}
+
+}   // namespace
+
 QStringList DirectoryLoader::imageExtensions()
 {
-    // Qt6 支持的常见格式（qt6-base + qt6-imageformats 插件）
-    return {
-        QStringLiteral("*.png"), QStringLiteral("*.jpg"), QStringLiteral("*.jpeg"),
-        QStringLiteral("*.bmp"), QStringLiteral("*.gif"), QStringLiteral("*.webp"),
-        QStringLiteral("*.heic"), QStringLiteral("*.avif"),
-        QStringLiteral("*.tif"), QStringLiteral("*.tiff"), QStringLiteral("*.ico"),
-        QStringLiteral("*.ppm"), QStringLiteral("*.pgm"), QStringLiteral("*.pbm"),
-        QStringLiteral("*.xbm"), QStringLiteral("*.xpm"),
-        QStringLiteral("*.dng"), QStringLiteral("*.nef"), QStringLiteral("*.cr2"),
-        QStringLiteral("*.arw"), QStringLiteral("*.rw2"), QStringLiteral("*.orf"),
-        QStringLiteral("*.raf"), QStringLiteral("*.pef"), QStringLiteral("*.raw"),
-    };
+    QStringList out;
+    for (const ImageGroup &g : kImageGroups) {
+        out << groupPatterns(g);
+    }
+    return out;
+}
+
+QString DirectoryLoader::imageFilter()
+{
+    QStringList entries;
+    for (const ImageGroup &g : kImageGroups) {
+        entries << QStringLiteral("%1 (%2)")
+                       .arg(QCoreApplication::translate("DirectoryLoader", g.label),
+                            groupPatterns(g).join(QLatin1Char(' ')));
+    }
+    // 「所有图片」直接用白名单拼，保证和扫描口径永远一致
+    entries << QStringLiteral("%1 (%2)")
+                   .arg(QCoreApplication::translate("DirectoryLoader", "所有图片"),
+                        imageExtensions().join(QLatin1Char(' ')));
+    entries << QCoreApplication::translate("DirectoryLoader", "所有文件 (*)");
+    return entries.join(QStringLiteral(";;"));
 }
 
 bool DirectoryLoader::open(const QString &filePath)

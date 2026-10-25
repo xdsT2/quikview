@@ -165,7 +165,6 @@ private:
     void updateDockProximity();
     QPoint probeLocalPoint() const;
     QStringList listSiblingFolders();   // 同级含图文件夹（名称序），文件夹跳转用
-    static QStringList imageExtensions();
     static QStringList listImagesInDir(const QString &dirPath);
 
     // —— 共享动作（唯一真源）——

@@ -34,9 +34,13 @@ public:
     const QStringList &files() const { return m_files; }
     void setIndex(int i) { if (i >= 0 && i < m_files.size()) m_index = i; }
 
-private:
+    // 解码白名单唯一事实来源：目录扫描、文件对话框过滤器都从这里派生。
+    // 新增格式只改 DirectoryLoader.cpp 里的 kImageGroups 表，别处不许重复列表。
     static QStringList imageExtensions();
+    // QFileDialog 过滤器串：按类型分组 + 末尾「所有图片」「所有文件」
+    static QString imageFilter();
 
+private:
     QStringList m_files;
     int m_index = -1;
     int m_sort = 0;
