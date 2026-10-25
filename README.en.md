@@ -3,8 +3,11 @@
 A fast, clean image viewer for Windows. C++ / Qt6, MIT licensed.
 
 [![CI](https://github.com/xdsT2/quikview/actions/workflows/ci.yml/badge.svg)](https://github.com/xdsT2/quikview/actions/workflows/ci.yml)
+[![Download](https://img.shields.io/github/v/release/xdsT2/quikview?include_prereleases&label=download)](https://github.com/xdsT2/quikview/releases/latest)
 
 [简体中文](README.md) | **English**
+
+> **Don't want to build it yourself?** Grab `quikview-*-win64.zip` from [Releases](https://github.com/xdsT2/quikview/releases/latest) — unzip and run, no Qt installation needed.
 
 ![QuikView main window: thumbnail browser on the left, control capsule at the bottom](docs/img/main-window.png)
 
