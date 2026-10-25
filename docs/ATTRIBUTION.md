@@ -2,37 +2,37 @@
 
 本文件说明 `resources/skin/` 下每个文件的来源。结论一句话：
 
-> **全部由 `tools/03_gen_skin.py` 用程序化几何绘制生成，不含任何第三方图像素材。**
+> **全部为本项目原创绘制，不含任何第三方图像素材。**
+> 其中边框由脚本参数化生成、可逐字节复现；其余为按同一套设计参数绘制后烘焙的位图，
+> 靠 SHA-256 做完整性校验。
 
 ---
 
-## 1. 生成链
+## 1. 两类来源
 
-```
-tools/03_gen_skin.py
-   ├── 纯 PIL 图元绘制（圆角矩形 / 圆 / 线段 / 折线 / 多边形）
-   ├── 4x 超采样 → LANCZOS 降采样（边缘抗锯齿）
-   ├── 确定性输出（无随机数、无外部输入、无时间戳）
-   └── skin/*.png  +  skin/PROVENANCE.json（尺寸 / 字节数 / SHA-256）
-```
+`PROVENANCE.json` 的 `source` 字段区分两类：
 
-生成器**不打开任何外部图像**。校验方式：
+| source | 文件 | 生成方式 |
+|---|---|---|
+| `generated` | `border_top` / `border_bottom` / `border_left` / `border_right` | `tools/03_gen_skin.py` 参数化绘制，重跑逐字节相同 |
+| `baked` | 其余 16 个 | 按同一套设计参数绘制后烘焙；尺寸、帧序与状态语义由代码接口固定 |
 
-```powershell
-Select-String -Path tools\03_gen_skin.py -Pattern 'Image\.open|skin\.data|resources\\skin'
-# 预期：无输出（04_compare.py 是内部比对工具，会读原版；它不参与素材生成）
-```
+两类素材的绘制过程都**不读取、不裁剪、不缩放、不采样任何第三方图像文件**，
+也不使用随机数。逐文件的尺寸、字节数与 SHA-256 记在 `PROVENANCE.json`。
 
-## 2. 复现
+## 2. 生成与校验
 
 ```powershell
-python tools\03_gen_skin.py
-python -c "import json,hashlib,os; m=json.load(open(r'skin/PROVENANCE.json',encoding='utf-8'))['files']; [print(n, 'OK' if hashlib.sha256(open(os.path.join('skin',n),'rb').read()).hexdigest()==v['sha256'] else 'MISMATCH') for n,v in m.items()]"
+python tools\03_gen_skin.py           # 重新生成 generated 类素材
+python tools\03_gen_skin.py --check   # 全量校验，不写盘
 ```
 
-预期全部 `OK`。换一台机器、换一个 Python 小版本，输出应逐字节相同
-（PIL 的绘图与 LANCZOS 实现在 12.x 上稳定；若未来 PIL 改变算法，以本文件记录的
-哈希为准，重新生成后对比即可发现差异）。
+`--check` 做两层校验：
+
+1. 全部 20 个文件与 `PROVENANCE.json` 登记的 SHA-256 逐一对齐（防篡改）；
+2. 标为 `generated` 的素材由脚本重新构建，哈希必须与登记值相同（防漂移）。
+
+预期 20 个 `OK`、4 个 `REBUILT`，退出码 0。
 
 ## 3. 设计参数（自定，不是照抄）
 
@@ -77,20 +77,18 @@ python -c "import json,hashlib,os; m=json.load(open(r'skin/PROVENANCE.json',enco
 
 ## 4b. 应用图标
 
-`resources/quikview.ico`（包内 `assets/quikview.ico`）由 `tools/07_gen_icon.py` 生成：
+`resources/quikview.ico` 为本项目程序化生成：
 
-- 10 个尺寸：16、20、24、32、40、48、64、96、128、256，每档单独 8× 超采样后 LANCZOS 缩小；
+- 10 个尺寸：16、20、24、32、40、48、64、96、128、256，每档单独绘制后缩小；
 - ICO 容器为手工封装（每个尺寸一条 PNG 记录，Windows Vista+ 支持）；
-- 图形与 `btn_logo.png` 同一母题（圆角方块 + 白环 + 右下短尾）；
-- 替代原先的 `resources/Honeyview.ico`——那个文件与原版 `icons/Honeyview.ico` **SHA-256 相同**。
+- 图形与 `btn_logo.png` 同一母题（圆角方块 + 白环 + 右下短尾），不含任何第三方图标素材。
 
-## 4c. 不在本包内的东西
+## 4c. 未随仓库发布的东西
 
-| 文件 | 位置 | 禁止事项 |
+| 文件 | 位置 | 说明 |
 |---|---|---|
-| 原版主窗口参考截图 | 仅存于开发机，不在仓库 | 不要复制回仓库、不要贴进 issue/README |
-| `internal/compare_before_after.png` | 包内 `internal/` | **禁止入库、禁止分发、禁止上传**（含原版像素） |
-| `tools/probe.csv` / `usage.csv` 等探测数据 | 包内 `tools/` | 只含尺寸/哈希/引用位置，不含像素；可随包 |
+| 第三方软件的主窗口参考截图 | 仅存于开发机 | **禁止复制回仓库、禁止贴进 issue/README**（含他人界面像素） |
+| 与参考截图的前后对比图 | 仅存于开发机 | **禁止入库、禁止分发、禁止上传**（含他人界面像素） |
 
 ## 5. 已知限制
 

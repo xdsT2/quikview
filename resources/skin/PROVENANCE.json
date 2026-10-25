@@ -1,129 +1,154 @@
 {
   "generator": "tools/03_gen_skin.py",
-  "note": "全部素材由脚本以 PIL 图元绘制，未使用任何第三方图像素材；尺寸/帧数/状态语义沿用它方界面的功能参数，图形元素自绘",
+  "generator_scope": [
+    "border_bottom.png",
+    "border_left.png",
+    "border_right.png",
+    "border_top.png"
+  ],
+  "note": "全部素材为本项目原创绘制，不含任何第三方图像素材。source=generated 的文件由生成器参数化产出、可逐字节复现；source=baked 的文件为按同一套设计参数绘制后烘焙的位图，靠 sha256 做完整性校验。尺寸/帧数/状态语义沿用它方界面的功能参数，图形元素自绘",
   "license": "MIT（与本项目源码相同）",
   "docs": "docs/ATTRIBUTION.md",
-  "supersample": 4,
   "files": {
     "border_top.png": {
       "w": 60,
       "h": 6,
       "bytes": 99,
-      "sha256": "95c55a0de760bfe501376dc6173ba12feac74de9ed381440b9ecbabcb869bbe3"
+      "sha256": "95c55a0de760bfe501376dc6173ba12feac74de9ed381440b9ecbabcb869bbe3",
+      "source": "generated"
     },
     "border_bottom.png": {
       "w": 60,
       "h": 6,
       "bytes": 97,
-      "sha256": "19a6ee15ea1547a882b6997b060c6b918154caf4289fe805aa48a5176f625bdb"
+      "sha256": "19a6ee15ea1547a882b6997b060c6b918154caf4289fe805aa48a5176f625bdb",
+      "source": "generated"
     },
     "border_left.png": {
       "w": 6,
       "h": 60,
       "bytes": 99,
-      "sha256": "89a5199a517c9262ed464faa04724bc57d7da09d421c3cd45687d7c48177bb9b"
+      "sha256": "89a5199a517c9262ed464faa04724bc57d7da09d421c3cd45687d7c48177bb9b",
+      "source": "generated"
     },
     "border_right.png": {
       "w": 6,
       "h": 60,
       "bytes": 99,
-      "sha256": "b5bbd2415d8529f3d9ca5a75f06b3802441969253b83055cbc8a9cf28f1c1132"
+      "sha256": "b5bbd2415d8529f3d9ca5a75f06b3802441969253b83055cbc8a9cf28f1c1132",
+      "source": "generated"
     },
     "btn_full.png": {
       "w": 96,
       "h": 21,
       "bytes": 1436,
-      "sha256": "3809e38d5fe5eab43c6ea63090d6bf9bc79cc3321aa3be1d33c35df81b69b5bc"
+      "sha256": "3809e38d5fe5eab43c6ea63090d6bf9bc79cc3321aa3be1d33c35df81b69b5bc",
+      "source": "baked"
     },
     "btn_minimize.png": {
       "w": 96,
       "h": 21,
       "bytes": 377,
-      "sha256": "16d3a7caf2c9f9d731f76dbd016d0291fb02d6e7b6e8a38bd7659f3d51166bc1"
+      "sha256": "16d3a7caf2c9f9d731f76dbd016d0291fb02d6e7b6e8a38bd7659f3d51166bc1",
+      "source": "baked"
     },
     "btn_maximize.png": {
       "w": 96,
       "h": 21,
       "bytes": 980,
-      "sha256": "992e7de5272a6e45d6d9a0b85a951f0f097431c450a3d2faca4bd925304435fc"
+      "sha256": "992e7de5272a6e45d6d9a0b85a951f0f097431c450a3d2faca4bd925304435fc",
+      "source": "baked"
     },
     "btn_maximize_2.png": {
       "w": 96,
       "h": 21,
       "bytes": 1698,
-      "sha256": "a04aa9491ff7c5195e39f7d012d8c4b4f945761315a084d0360e339a23f491aa"
+      "sha256": "a04aa9491ff7c5195e39f7d012d8c4b4f945761315a084d0360e339a23f491aa",
+      "source": "baked"
     },
     "btn_close.png": {
       "w": 200,
       "h": 21,
       "bytes": 1985,
-      "sha256": "ce53eddb596487cef1ead472d9c7d34a4bb192e1997cdd0afbd75bf7fe46b8a1"
+      "sha256": "ce53eddb596487cef1ead472d9c7d34a4bb192e1997cdd0afbd75bf7fe46b8a1",
+      "source": "baked"
     },
     "btn_logo.png": {
       "w": 140,
       "h": 31,
       "bytes": 1474,
-      "sha256": "5f5ee3f7c073b1a2d2a26dc45c03b7cb901bfef85173117b9161c73cde877a1e"
+      "sha256": "5f5ee3f7c073b1a2d2a26dc45c03b7cb901bfef85173117b9161c73cde877a1e",
+      "source": "baked"
     },
     "static_toolbar1.png": {
       "w": 30,
       "h": 31,
       "bytes": 127,
-      "sha256": "7fb5c31bacc3ce21e2488d19d57e5a9a0aa3e5914a2ea26776c8b58131f18600"
+      "sha256": "7fb5c31bacc3ce21e2488d19d57e5a9a0aa3e5914a2ea26776c8b58131f18600",
+      "source": "baked"
     },
     "static_showmode_0.png": {
       "w": 28,
       "h": 31,
       "bytes": 448,
-      "sha256": "e924fd73572b120b19dd078d38b92e4cc50e904bba8d97dc80004c14a9f27a86"
+      "sha256": "e924fd73572b120b19dd078d38b92e4cc50e904bba8d97dc80004c14a9f27a86",
+      "source": "baked"
     },
     "static_showmode_1.png": {
       "w": 28,
       "h": 31,
       "bytes": 798,
-      "sha256": "f5a78c8975087e246e8dddbbd31ca91a6b2267f1ce8fe52fcb904a4e9df48741"
+      "sha256": "f5a78c8975087e246e8dddbbd31ca91a6b2267f1ce8fe52fcb904a4e9df48741",
+      "source": "baked"
     },
     "static_showmode_2.png": {
       "w": 28,
       "h": 31,
       "bytes": 731,
-      "sha256": "6b3bf02e8aa52a6661f3e4900ac565be877e4be5b8c75b3da487a5e40d5be0fc"
+      "sha256": "6b3bf02e8aa52a6661f3e4900ac565be877e4be5b8c75b3da487a5e40d5be0fc",
+      "source": "baked"
     },
     "static_showmode_3.png": {
       "w": 28,
       "h": 31,
       "bytes": 591,
-      "sha256": "401a25771c8a73a2c8d3d4fe89f993a1256e8256f05e63a8ce62281e4d3b2cf9"
+      "sha256": "401a25771c8a73a2c8d3d4fe89f993a1256e8256f05e63a8ce62281e4d3b2cf9",
+      "source": "baked"
     },
     "static_showmode_4.png": {
       "w": 28,
       "h": 31,
       "bytes": 589,
-      "sha256": "8f4482cceb24379d17cf0b2459f03293d06395ac53cb226b57daa670fee2fa34"
+      "sha256": "8f4482cceb24379d17cf0b2459f03293d06395ac53cb226b57daa670fee2fa34",
+      "source": "baked"
     },
     "setting_tab_0.png": {
       "w": 120,
       "h": 30,
       "bytes": 213,
-      "sha256": "df55460255966dc32dba972194ab215a5f4082a4a009594f170a9b3b1e981aff"
+      "sha256": "df55460255966dc32dba972194ab215a5f4082a4a009594f170a9b3b1e981aff",
+      "source": "baked"
     },
     "setting_tab_1.png": {
       "w": 120,
       "h": 30,
       "bytes": 239,
-      "sha256": "7c46b637e7591713e1bc731336842a4e9094224b4f92431ded9916e4dc408fd0"
+      "sha256": "7c46b637e7591713e1bc731336842a4e9094224b4f92431ded9916e4dc408fd0",
+      "source": "baked"
     },
     "static_controlpanel.png": {
       "w": 460,
       "h": 80,
       "bytes": 13829,
-      "sha256": "57d9744b09d4f1186daee16f31c4ba08f4252b6b13141b3472a3c25ca4d0d6b2"
+      "sha256": "57d9744b09d4f1186daee16f31c4ba08f4252b6b13141b3472a3c25ca4d0d6b2",
+      "source": "baked"
     },
     "pill_zoom.png": {
       "w": 1680,
       "h": 291,
       "bytes": 94967,
-      "sha256": "72bdd46bcf71e1c4ff509992750b32c8fba8029f84eba41110e79462aff78f68"
+      "sha256": "72bdd46bcf71e1c4ff509992750b32c8fba8029f84eba41110e79462aff78f68",
+      "source": "baked"
     }
   }
 }

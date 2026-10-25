@@ -70,15 +70,16 @@ cmake --build build
 src/          主程序源码（13 个模块）
 shell/        壳扩展（缩略图 + 预览窗格）
 translations/ 语言文件（.ts）
-resources/    图标与界面素材（全部程序化生成，见 docs/ATTRIBUTION.md）
+resources/    图标与界面素材（全部原创绘制，见 docs/ATTRIBUTION.md）
 config/       便携配置（config.ini，不入库）
 ```
 
 ## 素材与许可
 
-界面素材（`resources/skin/`）与应用图标（`resources/quikview.ico`）全部由脚本程序化生成，
+界面素材（`resources/skin/`）与应用图标（`resources/quikview.ico`）全部为本项目程序化绘制，
 不含任何第三方图像素材。每个文件的尺寸、字节数与 SHA-256 记在
-`resources/skin/PROVENANCE.json`；生成链与设计参数见 [docs/ATTRIBUTION.md](docs/ATTRIBUTION.md)。
+`resources/skin/PROVENANCE.json`（`source` 字段区分脚本生成与烘焙两类）；
+生成器与设计参数见 [docs/ATTRIBUTION.md](docs/ATTRIBUTION.md)。
 
 第三方库与商标声明见 [NOTICE](NOTICE)。
 
