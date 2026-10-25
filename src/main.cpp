@@ -11,12 +11,16 @@
 #include "MainWindow.h"
 #include "Theme.h"
 
+#ifndef QUIKVIEW_VERSION
+#define QUIKVIEW_VERSION "0.0.0"
+#endif
+
 int main(int argc, char *argv[])
 {
     // 高 DPI：Qt6 默认开启，这里显式声明保证跨平台一致
     QApplication app(argc, argv);
     QApplication::setApplicationName(QStringLiteral("QuikView"));
-    QApplication::setApplicationVersion(QStringLiteral("0.3.0"));
+    QApplication::setApplicationVersion(QStringLiteral(QUIKVIEW_VERSION));
     QApplication::setOrganizationName(QStringLiteral("QuikView"));
 
     // Honeyview 铬件：默认 UI 字体（微软雅黑 9pt）

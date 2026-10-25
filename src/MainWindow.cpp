@@ -57,6 +57,12 @@
 #include "ThumbnailBrowser.h"
 #include "Wallpaper.h"
 
+// 版本号由 CMakeLists 的 project(VERSION ...) 注入（见 QUIKVIEW_VERSION），
+// 这里只做兜底，避免脱离 CMake 直接编译时报未定义。
+#ifndef QUIKVIEW_VERSION
+#define QUIKVIEW_VERSION "0.0.0"
+#endif
+
 #ifdef Q_OS_WIN
 #define NOMINMAX
 #include <windows.h>
@@ -2826,8 +2832,9 @@ void MainWindow::onAbout()
 {
     QMessageBox::about(this, tr("关于 QuikView"),
                        tr("<h3>QuikView</h3>"
-                          "<p>版本 0.3.0</p>"
-                          "<p>MIT 许可证开源，零遥测、零推广。</p>"));
+                          "<p>版本 %1</p>"
+                          "<p>MIT 许可证开源，零遥测、零推广。</p>")
+                           .arg(QStringLiteral(QUIKVIEW_VERSION)));
 }
 
 // ---------------------------------------------------------------------------

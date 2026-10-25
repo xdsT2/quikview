@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(quikview VERSION 0.2.0 LANGUAGES CXX)
+project(quikview VERSION 0.3.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -60,6 +60,11 @@ add_executable(quikview WIN32
 )
 
 target_include_directories(quikview PRIVATE src)
+
+# 版本号单一来源：CMakeLists 的 project(VERSION ...)。
+# main.cpp 的 QApplication::setApplicationVersion 与「关于」对话框都读这个宏，
+# 别再各写各的字面量。
+target_compile_definitions(quikview PRIVATE QUIKVIEW_VERSION="${PROJECT_VERSION}")
 
 # 翻译：.ts → .qm，嵌入资源 :/i18n
 qt_add_translations(quikview

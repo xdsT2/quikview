@@ -81,6 +81,22 @@ QString DirectoryLoader::imageFilter()
     return entries.join(QStringLiteral(";;"));
 }
 
+QList<DirectoryLoader::Group> DirectoryLoader::imageGroups()
+{
+    QList<Group> out;
+    out.reserve(int(sizeof(kImageGroups) / sizeof(kImageGroups[0])));
+    for (const ImageGroup &g : kImageGroups) {
+        Group item;
+        item.label = QCoreApplication::translate("DirectoryLoader", g.label);
+        item.exts.reserve(g.count);
+        for (int i = 0; i < g.count; ++i) {
+            item.exts << QLatin1String(g.exts[i]);
+        }
+        out.append(item);
+    }
+    return out;
+}
+
 bool DirectoryLoader::open(const QString &filePath)
 {
     const QFileInfo fi(filePath);

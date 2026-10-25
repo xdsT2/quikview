@@ -40,6 +40,16 @@ public:
     // QFileDialog 过滤器串：按类型分组 + 末尾「所有图片」「所有文件」
     static QString imageFilter();
 
+    // 分组视图：设置页「格式关联」直接消费本表。
+    // 历史上设置页手写过第三份列表（含 jxl / zip / rar 等打不开的格式），
+    // 用户勾了关联双击却打不开；统一到这里派生，新增格式只改 kImageGroups。
+    struct Group
+    {
+        QString label;      // 已按 DirectoryLoader 上下文翻译
+        QStringList exts;   // 不带 "*."，全小写
+    };
+    static QList<Group> imageGroups();
+
 private:
     QStringList m_files;
     int m_index = -1;

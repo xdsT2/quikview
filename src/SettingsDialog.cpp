@@ -517,7 +517,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     buildGeneralPage(addPage(tr("一般"), tr("窗口行为、通知、更新与到达首尾时的操作。")));
     buildViewPage(addPage(tr("浏览"), tr("控制主窗口、控制栏、文件名和信息的显示方式。")));
     buildImageProcPage(addPage(tr("图像处理"), tr("设置缓存、透明背景、插值算法与翻页效果。")));
-    buildAssocPage(addPage(tr("格式关联"), tr("选择由 QuikView 打开的图片与压缩包格式。")));
+    buildAssocPage(addPage(tr("格式关联"), tr("选择由 QuikView 打开的图片格式。")));
     buildKeyboardPage(addPage(tr("键盘"), tr("自定义浏览、编辑与窗口操作快捷键。")));
     buildMousePage(addPage(tr("鼠标"), tr("设置鼠标按键、滚轮与双击行为。")));
     buildBookmarkPage(addPage(tr("书签"), tr("管理书签保存、共享与压缩包位置记忆。")));
@@ -937,27 +937,12 @@ void SettingsDialog::buildAssocPage(QWidget *page)
     if (auto *v = qobject_cast<QVBoxLayout *>(sec->layout()))
         v->addWidget(gridHost);
 
-    struct FormatGroup {
-        const char *name;
-        const char *const *exts;
-        int count;
-    };
-    static const char *const commonExts[] = { "jpg", "jpeg", "jpe", "jfif", "png", "gif",
-                                              "bmp", "dib", "tif", "tiff" };
-    static const char *const newExts[]    = { "webp", "heic", "heif", "avif", "jxl", "jp2",
-                                              "j2k", "jpf", "jpm", "tga" };
-    static const char *const rawExts[]    = { "crw", "cr2", "cr3", "nef", "arw", "orf", "raf",
-                                              "rw2", "raw", "dng", "pef", "srw" };
-    static const char *const zipExts[]    = { "zip", "cbz", "rar", "cbr", "7z", "alz",
-                                              "egg", "lzh", "tar", "gz" };
-    const FormatGroup groups[] = {
-        { QT_TR_NOOP("常用格式"), commonExts, 10 },
-        { QT_TR_NOOP("新图像文件格式"), newExts, 10 },
-        { QT_TR_NOOP("相机无损格式"), rawExts, 12 },
-        { QT_TR_NOOP("压缩格式"), zipExts, 10 },
-    };
+    // 格式清单唯一来源：DirectoryLoader::imageGroups()。
+    // 这里不再手写第三份——旧代码单独维护过一份，列了 jxl / zip / rar / 7z
+    // 这些 QuikView 根本打不开的格式，用户勾选关联后双击直接失败。
+    const QList<DirectoryLoader::Group> formatGroups = DirectoryLoader::imageGroups();
 
-    for (int g = 0; g < 4; ++g) {
+    for (int g = 0; g < formatGroups.size(); ++g) {
         auto *group = new QFrame(gridHost);
         group->setObjectName(QStringLiteral("formatGroup"));
         auto *gl = new QVBoxLayout(group);
@@ -968,7 +953,7 @@ void SettingsDialog::buildAssocPage(QWidget *page)
         auto *hl = new QHBoxLayout(head);
         hl->setContentsMargins(0, 0, 0, 0);
         hl->setSpacing(5);
-        auto *name = new QLabel(tr(groups[g].name), head);
+        auto *name = new QLabel(formatGroups.at(g).label, head);
         name->setObjectName(QStringLiteral("sectionTitle"));
         hl->addWidget(name);
         hl->addStretch(1);
@@ -984,8 +969,9 @@ void SettingsDialog::buildAssocPage(QWidget *page)
         cg->setHorizontalSpacing(5);
         cg->setVerticalSpacing(0);
         QList<QCheckBox *> boxes;
-        for (int i = 0; i < groups[g].count; ++i) {
-            const QString ext = QString::fromLatin1(groups[g].exts[i]);
+        const QStringList exts = formatGroups.at(g).exts;
+        for (int i = 0; i < exts.size(); ++i) {
+            const QString ext = exts.at(i);
             auto *cb = new QCheckBox(ext, checksHost);
             cb->setCursor(Qt::PointingHandCursor);
             cb->setMinimumHeight(22);
