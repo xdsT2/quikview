@@ -19,13 +19,16 @@ struct ImageGroup
 // 解码白名单唯一事实来源。目录扫描（imageExtensions）与文件对话框过滤器
 // （imageFilter）都从这张表派生，别处不许再写一份扩展名列表。
 //
-// 依据 Qt 6.11.2 实测 supportedImageFormats()：tga / jp2 / j2k / icns / mng /
+// 依据 Qt 6.11.2 实测 supportedImageFormats()：tga / icns / mng /
 // wbmp / cur / jfif 本来就能解码，此前只是没列进来，用户才打不开。
 // 分组只影响对话框展示顺序，不影响扫描结果。
+// jp2/j2k 已移除（2026-10-25）：Qt 的 openjpeg 插件对常见 JP2 报
+// component data type mismatch，Jasper 能读的文件现实中基本不存在——
+// 与动 WebP 同一原则：做不好就不让用户碰到。插件保留，将来换解码器可直接恢复。
 const char *const kCommonExts[] = { "png", "jpg", "jpeg", "jfif", "bmp", "gif",
                                     "webp", "tif", "tiff" };
 const char *const kIconExts[]   = { "ico", "cur", "icns" };
-const char *const kOtherExts[]  = { "tga", "jp2", "j2k", "mng", "wbmp",
+const char *const kOtherExts[]  = { "tga", "mng", "wbmp",
                                     "ppm", "pgm", "pbm", "xbm", "xpm" };
 const char *const kCameraExts[] = { "heic", "avif", "dng", "nef", "cr2", "arw",
                                     "rw2", "orf", "raf", "pef", "raw" };
