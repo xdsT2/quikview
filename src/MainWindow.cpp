@@ -42,6 +42,8 @@
 
 #include "BatchConvertDialog.h"
 #include "Chrome.h"
+
+#include <functional>
 #include "Config.h"
 #include "DirectoryLoader.h"
 #include "FrameNavigator.h"
@@ -824,25 +826,43 @@ void MainWindow::createActions()
         addAction(a);
         return a;
     };
+    // 同 mk，但槽是 lambda（按键对齐 Honeyview 时大量一次性动作没有独立槽）
+    auto mkFn = [this](const QString &text, const QKeySequence &seq,
+                       const std::function<void()> &fn) {
+        auto *a = new QAction(text, this);
+        if (!seq.isEmpty()) {
+            a->setShortcut(seq);
+        }
+        connect(a, &QAction::triggered, this, [fn]() { fn(); });
+        addAction(a);
+        return a;
+    };
 
-    // 文件
+    // 文件（快捷键对照 Honeyview 语言表 MENUSTR_*，下同）
     actOpen = mk(tr("打开(&O)..."), QKeySequence::Open, &MainWindow::onOpen);
-    actOpenFolder = mk(tr("打开文件夹..."), {}, &MainWindow::onOpenFolder);
+    actOpen->setShortcuts({ QKeySequence::Open, QKeySequence(QStringLiteral("F2")) });
+    actOpenFolder = mk(tr("打开文件夹..."), QKeySequence(QStringLiteral("F")), &MainWindow::onOpenFolder);
     actSaveAs = mk(tr("另存为…(&S)"), QKeySequence::SaveAs, &MainWindow::onSaveAs);
-    actPrint = mk(tr("打印"), QKeySequence::Print, &MainWindow::onPrint);
-    actBatchConvert = mk(tr("批量转换(&B)"), {}, &MainWindow::onBatchConvert);
-    actSettings = mk(tr("设置(&C)"), QKeySequence(QStringLiteral("F9")), &MainWindow::onSettings);
+    actPrint = mk(tr("打印"), QKeySequence::Print, &MainWindow::onPrint);          // Ctrl+P
+    actBatchConvert = mk(tr("批量转换(&B)"), QKeySequence(QStringLiteral("Ctrl+T")), &MainWindow::onBatchConvert);
+    // Honeyview：F5 = 设置。F9 保留为副键（旧标签与文档一直写 F9）
+    actSettings = mk(tr("设置(&C)"), QKeySequence(QStringLiteral("F5")), &MainWindow::onSettings);
+    actSettings->setShortcuts({ QKeySequence(QStringLiteral("F5")), QKeySequence(QStringLiteral("F9")) });
     // 书签菜单：添加书签 B（原型），勾选/取消勾选由 onToggleFavorite 承担
     actFavorite = mk(tr("添加书签"), QKeySequence(QStringLiteral("B")), &MainWindow::onToggleFavorite);
-    actDelete = mk(tr("删除"), QKeySequence::Delete, &MainWindow::onDeleteFile);
+    actDelete = mk(tr("删除"), QKeySequence::Delete, &MainWindow::onDeleteFile);   // Del
     actCopyToFolder = mk(tr("复制到 图片文件夹"), QKeySequence(QStringLiteral("Ins")), &MainWindow::onCopyToFolder);
     actOpenWithEditor = mk(tr("用图像编辑器打开"), QKeySequence(QStringLiteral("Ctrl+E")), &MainWindow::onOpenWithEditor);
     actCopyToClipboard = mk(tr("复制到剪贴板"), QKeySequence::Copy, &MainWindow::onCopyToClipboard);
     actWallpaper = mk(tr("设为桌面壁纸…"), {}, &MainWindow::onSetWallpaper);
-    actAbout = mk(tr("关于 QuikView"), {}, &MainWindow::onAbout);
+    actAbout = mk(tr("关于 QuikView"), QKeySequence(QStringLiteral("F1")), &MainWindow::onAbout);
+    // Honeyview：X = 退出。Ctrl+Q 保留为副键
     actQuit = new QAction(tr("退出(&Q)"), this);
-    actQuit->setShortcut(QKeySequence::Quit);
+    actQuit->setShortcuts({ QKeySequence(QStringLiteral("X")), QKeySequence::Quit });
     connect(actQuit, &QAction::triggered, qApp, &QApplication::quit);
+    addAction(actQuit);   // 不挂到窗口快捷键不参与分发（此前 Ctrl+Q 是死的）
+    // Honeyview：F4 = 关闭
+    mkFn(tr("关闭"), QKeySequence(QStringLiteral("F4")), [this]() { close(); });
 
     // 视图（浏览方式单选：原始 0 / 适合窗口 9 / 适合宽度 8，对照原版快捷键）
     auto *viewModeGroup = new QActionGroup(this);
@@ -859,15 +879,21 @@ void MainWindow::createActions()
     for (auto *a : { actActualSize, actFit, actFitWidth, actTwoL2R, actTwoR2L }) {
         a->setCheckable(true);
         viewModeGroup->addAction(a);
+        addAction(a);   // 不挂窗口快捷键不参与分发（此前 7/6 是死的）
     }
     actFit->setChecked(true);
     actZoomIn = mk(tr("放大(&+)"), QKeySequence::ZoomIn, &MainWindow::onZoomIn);
     actZoomOut = mk(tr("缩小(&-)"), QKeySequence::ZoomOut, &MainWindow::onZoomOut);
+    // 无修饰的 + / - 作为第二快捷键（对照原版 MENUSTR_ZOOM_IN/OUT），菜单显示仍取第一个
+    actZoomIn->setShortcuts({ QKeySequence::ZoomIn, QKeySequence(QStringLiteral("+")) });
+    actZoomOut->setShortcuts({ QKeySequence::ZoomOut, QKeySequence(QStringLiteral("-")) });
     // ←/→ 由 QAction 承担：主菜单右侧会自动显示箭头，避免和 keyPressEvent 两处处理。
     // PageUp/PageDown 作为副快捷键保留（原先就是翻页），显示仍取第一个 ←/→。
+    // Backspace = 上一张（原版空格/退格翻页语义，空格在 keyPressEvent 已有）。
     actPrev = mk(tr("上一张图片"), QKeySequence(Qt::Key_Left), &MainWindow::onPrev);
     actNext = mk(tr("下一张图片"), QKeySequence(Qt::Key_Right), &MainWindow::onNext);
-    actPrev->setShortcuts({ QKeySequence(Qt::Key_Left), QKeySequence(Qt::Key_PageUp) });
+    actPrev->setShortcuts({ QKeySequence(Qt::Key_Left), QKeySequence(Qt::Key_PageUp),
+                            QKeySequence(Qt::Key_Backspace) });
     actNext->setShortcuts({ QKeySequence(Qt::Key_Right), QKeySequence(Qt::Key_PageDown) });
     // 菜单右侧要显示箭头而不是 Qt 的英文键名（Right/Left）。QMenu 把 '\t' 之后当快捷键列，
     // 这里显式写箭头：快捷键仍由 QAction 承担，显示文案单独指定。
@@ -886,10 +912,23 @@ void MainWindow::createActions()
 
     actSlideshow = new QAction(tr("幻灯片放映(&S)"), this);
     actSlideshow->setCheckable(true);
+    // 放映本体无直接键（原版同）：Ctrl+0 停止 / Ctrl+1..9 以 N 秒开始放映，
+    // 见下面的 slideshow interval 动作组。
+    addAction(actSlideshow);
     connect(actSlideshow, &QAction::toggled, this, &MainWindow::setSlideshow);
+    // Ctrl+0 = 停止放映；Ctrl+1..9 = 以 N 秒间隔开始（对照原版 MENUSTR_SLIDESHOW_*）
+    mk(tr("停止放映"), QKeySequence(QStringLiteral("Ctrl+0")), &MainWindow::onSlideshowStop);
+    for (int s = 1; s <= 9; ++s) {
+        mkFn(tr("%1 秒放映").arg(s), QKeySequence(QStringLiteral("Ctrl+%1").arg(s)),
+           [this, s]() { onSlideshowInterval(s); });
+    }
 
     actToggleMeta = new QAction(tr("显示/隐藏信息面板(&I)"), this);
     actToggleMeta->setCheckable(true);
+    // Tab = 信息面板开关（对照原版）。Chrome 工具栏的 Tab 焦点导航分支已删，
+    // 避免工具栏吃掉 Tab 导致快捷键失效。
+    actToggleMeta->setShortcut(QKeySequence(QStringLiteral("Tab")));
+    addAction(actToggleMeta);
     // 浮层几何依赖可见性（隐藏时 applyChromeLayout 跳过它），显示后要立刻排一次
     connect(actToggleMeta, &QAction::toggled, this, [this](bool on) {
         m_metadata->setVisible(on);
@@ -917,10 +956,68 @@ void MainWindow::createActions()
     // 编辑（旋转快捷键对照原版 MENUSTR_ROTATION_*：Alt+Left/Right）
     actRotateLeft = mk(tr("逆时针旋转 90°"), QKeySequence(QStringLiteral("Alt+Left")), &MainWindow::onRotateLeft);
     actRotateRight = mk(tr("顺时针旋转 90°"), QKeySequence(QStringLiteral("Alt+Right")), &MainWindow::onRotateRight);
-    actFlipH = mk(tr("水平翻转"), {}, &MainWindow::onFlipH);
-    actFlipV = mk(tr("垂直翻转"), {}, &MainWindow::onFlipV);
-    actCrop = mk(tr("裁剪(&C)"), QKeySequence(QStringLiteral("X")), &MainWindow::onCrop);
+    // 不旋转 Alt+Up / 旋转 180° Alt+Down（MENUSTR_ROTATION_NONE/180）
+    mk(tr("不旋转"), QKeySequence(QStringLiteral("Alt+Up")), &MainWindow::resetGeometry);
+    mkFn(tr("旋转 180°"), QKeySequence(QStringLiteral("Alt+Down")), [this]() { rotateImage(180); });
+    // 翻转：Ctrl+M 水平 / Ctrl+F 垂直（MENUSTR_IMAGE_PRICESSING_MIRROR/FLIP）
+    actFlipH = mk(tr("水平翻转"), QKeySequence(QStringLiteral("Ctrl+M")), &MainWindow::onFlipH);
+    actFlipV = mk(tr("垂直翻转"), QKeySequence(QStringLiteral("Ctrl+F")), &MainWindow::onFlipV);
+    // 原版 X = 退出程序（已绑 actQuit）；裁剪走菜单/转换对话框，不占单键
+    actCrop = mk(tr("裁剪(&C)"), {}, &MainWindow::onCrop);
     actResize = mk(tr("调整大小(&R)"), {}, &MainWindow::onResize);
+    // 反色 Ctrl+I / Gamma 补偿 Ctrl+G（MENUSTR_IMAGE_PROCESSING_NEGATIVE/GAMMA）
+    actNegative = mk(tr("反色"), QKeySequence(QStringLiteral("Ctrl+I")), &MainWindow::onNegative);
+    actNegative->setCheckable(true);
+    actGamma = mk(tr("Gamma 补偿…"), QKeySequence(QStringLiteral("Ctrl+G")), &MainWindow::onGamma);
+    // 拉伸小图 Z（MENUSTR_FILTER_STRETCHWHENSMALL）：菜单勾选态用这一份
+    actStretchSmall = mk(tr("拉伸小图"), QKeySequence(QStringLiteral("Z")), &MainWindow::onToggleStretchSmall);
+    actStretchSmall->setCheckable(true);
+    actStretchSmall->setChecked(Config::instance().stretchSmall());
+    // 缩放锁定 Ctrl+K（MENUSTR_ZOOM_FIX）
+    actZoomLock = mk(tr("锁定缩放"), QKeySequence(QStringLiteral("Ctrl+K")), &MainWindow::toggleZoomLock);
+    actZoomLock->setCheckable(true);
+    // 100% 也响应 *（MENUSTR_ZOOM_100）；0 仍是主键
+    actActualSize->setShortcuts({ QKeySequence(QStringLiteral("0")), QKeySequence(QStringLiteral("*")) });
+    // 1% 步进（MENUSTR_ZOOM_IN_1/OUT_1）
+    mkFn(tr("放大 (1%)"), QKeySequence(QStringLiteral("Ctrl++")), [this]() {
+        if (!m_currentImage.isNull()) {
+            m_canvas->setZoom(m_canvas->zoom() + 0.01);
+        }
+    });
+    mkFn(tr("缩小 (1%)"), QKeySequence(QStringLiteral("Ctrl+-")), [this]() {
+        if (!m_currentImage.isNull()) {
+            m_canvas->setZoom(m_canvas->zoom() - 0.01);
+        }
+    });
+    // 选择图片 Enter（MENUSTR_PAGESELECT）：裁剪模式下 Enter 先落地选区
+    mkFn(tr("选择图片"), QKeySequence(Qt::Key_Return), [this]() {
+        if (m_cropMode) {
+            applyCrop();
+            return;
+        }
+        onPageSelect();
+    });
+    mkFn(tr("选择图片 (小键盘)"), QKeySequence(Qt::Key_Enter), [this]() {
+        if (m_cropMode) {
+            applyCrop();
+            return;
+        }
+        onPageSelect();
+    });
+    // 定位文件 Ctrl+Enter（MENUSTR_OPEN_FILEPOSITION）
+    mkFn(tr("定位文件"), QKeySequence(QStringLiteral("Ctrl+Return")), [this]() {
+        if (m_currentPath.isEmpty()) {
+            return;
+        }
+        QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(m_currentPath).absolutePath()));
+    });
+    // 随机跳转 Ctrl+Alt+PageDown/Up（MENUSTR_PAGEMOVE_RAND_*）
+    mkFn(tr("向后随机转到某张图片"), QKeySequence(QStringLiteral("Ctrl+Alt+PageDown")),
+       [this]() { onJumpRandom(true); });
+    mkFn(tr("向前随机转到某张图片"), QKeySequence(QStringLiteral("Ctrl+Alt+PageUp")),
+       [this]() { onJumpRandom(false); });
+    // 编辑书签 F3（MENUSTR_BOOKMARK_EDIT）
+    mk(tr("编辑书签"), QKeySequence(QStringLiteral("F3")), &MainWindow::onEditBookmarks);
 
     // 图像效果（三选一，对照原型 contextItems：无 U / 减淡 I / 减淡 + 锐化 S）
     auto *effectGroup = new QActionGroup(this);
@@ -934,6 +1031,7 @@ void MainWindow::createActions()
     for (auto *a : { actEffectNone, actEffectSoften, actEffectSharpen }) {
         a->setCheckable(true);
         effectGroup->addAction(a);
+        addAction(a);   // 不挂窗口快捷键不参与分发（此前 U/I/S 是死的）
     }
     actEffectNone->setChecked(true);
     connect(actEffectNone, &QAction::triggered, this, [this]() { onEffect(0); });
@@ -1020,11 +1118,8 @@ QMenu *MainWindow::buildBrowseMenu()
     menu->addAction(actTwoL2R);
     menu->addAction(actTwoR2L);
     menu->addSeparator();
-    auto *actStretch = addMenuItem(menu, tr("拉伸小图"), QStringLiteral("Z"), [this]() {
-        onStretchSmall(!Config::instance().stretchSmall());
-    });
-    actStretch->setCheckable(true);
-    actStretch->setChecked(Config::instance().stretchSmall());
+    actStretchSmall->setChecked(Config::instance().stretchSmall());
+    menu->addAction(actStretchSmall);   // Z
     UiStyle::polishMenu(menu);
     return menu;
 }
@@ -1099,8 +1194,9 @@ QMenu *MainWindow::buildBookmarkMenu()
 QMenu *MainWindow::buildEditMenu()
 {
     auto *menu = new QMenu(this);
-    addCheckableItem(menu, tr("反色"), QStringLiteral("Ctrl+I"), m_negative, [this]() { onNegative(); });
-    addMenuItem(menu, tr("Gamma 补偿…"), QStringLiteral("Ctrl+G"), [this]() { onGamma(); });
+    actNegative->setChecked(m_negative);
+    menu->addAction(actNegative);      // Ctrl+I
+    menu->addAction(actGamma);         // Ctrl+G
     menu->addAction(actFlipV);
     menu->addAction(actFlipH);
     menu->addSeparator();
@@ -1148,9 +1244,9 @@ QMenu *MainWindow::buildCopytoMenu()
     };
     transferTo(tr("复制到 图片文件夹 1"), QStringLiteral("Insert"),
                QStringLiteral("config/etc/photo_folder_1"), false);
-    transferTo(tr("复制到 图片文件夹 2"), QStringLiteral("Shift+Insert"),
+    transferTo(tr("复制到 图片文件夹 2"), QString(),
                QStringLiteral("config/etc/photo_folder_2"), false);
-    transferTo(tr("移动到 图片文件夹 1"), QStringLiteral("Ctrl+Insert"),
+    transferTo(tr("移动到 图片文件夹 1"), QString(),
                QStringLiteral("config/etc/photo_folder_1"), true);
     menu->addSeparator();
     addMenuItem(menu, tr("图片文件夹 路径定义"), QString(), [this]() { onSettings(); });
@@ -1197,7 +1293,7 @@ QMenu *MainWindow::buildContextMenu()
 {
     auto *menu = new QMenu(this);
 
-    // —— 文件 ——
+    // —— 文件（快捷键对照 Honeyview，且都已真实绑定）——
     addMenuItem(menu, tr("打开图片"), QStringLiteral("F2"), [this]() { onOpen(); });
     addMenuItem(menu, tr("打开文件夹"), QStringLiteral("F"), [this]() { onOpenFolder(); });
     addMenuItem(menu, tr("关闭"), QStringLiteral("F4"), [this]() { close(); });
@@ -1226,39 +1322,11 @@ QMenu *MainWindow::buildContextMenu()
     addMenuItem(nav, tr("末尾图片"), QStringLiteral("End"), [this]() { onLast(); });
     addMenuItem(nav, tr("向下10张图片"), QStringLiteral("Ctrl+PageDown"), [this]() { onNext10(); });
     addMenuItem(nav, tr("向上10张图片"), QStringLiteral("Ctrl+PageUp"), [this]() { onPrev10(); });
-    // 随机跳转：向后 = 只在当前位置之后取，越界回绕
-    auto jumpRandom = [this](bool forward) {
-        const int n = m_dir->count();
-        if (n < 2) {
-            return;
-        }
-        const int cur = m_dir->index();
-        int lo = 0;
-        int hi = n - 1;
-        if (forward) {
-            lo = cur + 1;
-            if (lo > hi) {
-                lo = 0;
-                hi = cur - 1;
-            }
-        } else {
-            hi = cur - 1;
-            if (hi < lo) {
-                lo = cur + 1;
-                hi = n - 1;
-            }
-        }
-        if (hi < lo) {
-            return;
-        }
-        const int target = lo + QRandomGenerator::global()->bounded(hi - lo + 1);
-        m_dir->setIndex(target);
-        jumpTo(m_dir->current());
-    };
+    // 随机跳转（实现在 onJumpRandom，Ctrl+Alt+PageUp/Down 已真实绑定）
     addMenuItem(nav, tr("向后随机转到某张图片"), QStringLiteral("Ctrl+Alt+PageDown"),
-                [jumpRandom]() { jumpRandom(true); });
+                [this]() { onJumpRandom(true); });
     addMenuItem(nav, tr("向前随机转到某张图片"), QStringLiteral("Ctrl+Alt+PageUp"),
-                [jumpRandom]() { jumpRandom(false); });
+                [this]() { onJumpRandom(false); });
     addMenuItem(nav, tr("下一个 文件夹/压缩包"), QStringLiteral("]"), [this]() { onNextFolder(); });
     addMenuItem(nav, tr("上一个 文件夹/压缩包"), QStringLiteral("["), [this]() { onPrevFolder(); });
     UiStyle::polishMenu(nav);
@@ -1276,8 +1344,9 @@ QMenu *MainWindow::buildContextMenu()
 
     // —— 图片效果（4 项）——
     QMenu *fx = menu->addMenu(tr("图片效果"));
-    addCheckableItem(fx, tr("反色"), QStringLiteral("Ctrl+I"), m_negative, [this]() { onNegative(); });
-    addMenuItem(fx, tr("Gamma 补偿…"), QStringLiteral("Ctrl+G"), [this]() { onGamma(); });
+    actNegative->setChecked(m_negative);
+    fx->addAction(actNegative);        // Ctrl+I
+    fx->addAction(actGamma);           // Ctrl+G
     fx->addAction(actFlipV);
     fx->addAction(actFlipH);
     UiStyle::polishMenu(fx);
@@ -1317,9 +1386,9 @@ QMenu *MainWindow::buildContextMenu()
     QMenu *zoom = menu->addMenu(tr("缩放工具"));
     addMenuItem(zoom, tr("放大"), QStringLiteral("+"), [this]() { onZoomIn(); });
     addMenuItem(zoom, tr("缩小"), QStringLiteral("−"), [this]() { onZoomOut(); });
-    addCheckableItem(zoom, tr("锁定"), QStringLiteral("Ctrl+K"), m_zoomLocked,
-                     [this]() { toggleZoomLock(); });
-    addMenuItem(zoom, tr("100%"), QStringLiteral("*"), [this]() { setViewMode(0); });
+    actZoomLock->setChecked(m_zoomLocked);
+    zoom->addAction(actZoomLock);       // Ctrl+K
+    addMenuItem(zoom, tr("100%"), QString(), [this]() { setViewMode(0); });
     addMenuItem(zoom, tr("放大 (1%)"), QStringLiteral("Ctrl++"), [this]() {
         if (!m_currentImage.isNull()) {
             m_canvas->setZoom(m_canvas->zoom() + 0.01);
@@ -1927,6 +1996,7 @@ void MainWindow::onNext()
 // 10 张跳转：边界停住并提示（TEXT_MSG_FIRSTPAGE/LASTPAGE）
 void MainWindow::onPrev10()
 {
+    if (qEnvironmentVariableIsSet("QUIKVIEW_PERF")) { qWarning("PERF onPrev10 fired"); }
     const QString p = m_dir->prev10();
     if (!p.isEmpty()) {
         loadAsync(p);
@@ -1937,6 +2007,7 @@ void MainWindow::onPrev10()
 
 void MainWindow::onNext10()
 {
+    if (qEnvironmentVariableIsSet("QUIKVIEW_PERF")) { qWarning("PERF onNext10 fired"); }
     const QString p = m_dir->next10();
     if (!p.isEmpty()) {
         loadAsync(p);
@@ -2064,6 +2135,59 @@ void MainWindow::setSlideshow(bool on)
 }
 
 void MainWindow::onSlideshow() { setSlideshow(!m_slideshow); }
+
+// Ctrl+0：停止放映（勾选态经由 actSlideshow toggled 回到 setSlideshow(false)）
+void MainWindow::onSlideshowStop()
+{
+    if (m_slideshow) {
+        actSlideshow->setChecked(false);
+    }
+}
+
+// Ctrl+1..9：记住间隔并开始放映（已在放映则只换节奏）
+void MainWindow::onSlideshowInterval(int sec)
+{
+    Config::instance().settings().setValue(QStringLiteral("config/slideshow_interval_ms"),
+                                           sec * 1000);
+    m_slideshowTimer->setInterval(sec * 1000);
+    if (m_slideshow) {
+        m_slideshowTimer->start();
+    } else {
+        actSlideshow->setChecked(true);
+    }
+}
+
+// Ctrl+Alt+PageUp/Down：随机跳转。向后 = 只在当前位置之后取（越界回绕到前段），
+// 向前对称；与原版 MENUSTR_PAGEMOVE_RAND_* 语义一致。
+void MainWindow::onJumpRandom(bool forward)
+{
+    const int n = m_dir->count();
+    if (n < 2) {
+        return;
+    }
+    const int cur = m_dir->index();
+    int lo = 0;
+    int hi = n - 1;
+    if (forward) {
+        lo = cur + 1;
+        if (lo > hi) {
+            lo = 0;
+            hi = cur - 1;
+        }
+    } else {
+        hi = cur - 1;
+        if (hi < lo) {
+            lo = cur + 1;
+            hi = n - 1;
+        }
+    }
+    if (hi < lo) {
+        return;
+    }
+    const int target = lo + QRandomGenerator::global()->bounded(hi - lo + 1);
+    m_dir->setIndex(target);
+    jumpTo(m_dir->current());
+}
 
 // 幻灯片翻页 tick：随机模式跳到不同于当前的随机张（count>1），否则顺序下一张
 void MainWindow::onSlideshowTick()
@@ -2370,6 +2494,13 @@ void MainWindow::onStretchSmall(bool on)
     if (m_toast) {
         m_toast->showMessage(on ? tr("拉伸小图像：开") : tr("拉伸小图像：关"));
     }
+}
+
+// Z：拉伸小图开关（同步勾选态；具体行为在 onStretchSmall）
+void MainWindow::onToggleStretchSmall()
+{
+    onStretchSmall(!Config::instance().stretchSmall());
+    actStretchSmall->setChecked(Config::instance().stretchSmall());
 }
 
 void MainWindow::setInterpolationMode(const QString &mode)
@@ -2938,13 +3069,6 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
         }
         onNext();
         return;
-    case Qt::Key_Return:
-    case Qt::Key_Enter:
-        if (m_cropMode) {
-            applyCrop();
-            return;
-        }
-        break;
     case Qt::Key_Escape:
         if (m_cropMode) {
             onCrop(); // 取消裁剪

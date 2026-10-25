@@ -1163,11 +1163,6 @@ void ToolBar::keyPressEvent(QKeyEvent *e)
         return;
     }
     switch (e->key()) {
-    case Qt::Key_Tab:
-    case Qt::Key_Backtab:
-        moveFocus((e->key() == Qt::Key_Backtab || (e->modifiers() & Qt::ShiftModifier)) ? -1 : 1);
-        e->accept();
-        return;
     case Qt::Key_Left:
     case Qt::Key_Right:
     case Qt::Key_Up:
@@ -1721,11 +1716,6 @@ void ControlBar::keyPressEvent(QKeyEvent *e)
         }
     }
     switch (e->key()) {
-    case Qt::Key_Tab:
-    case Qt::Key_Backtab:
-        moveFocus((e->key() == Qt::Key_Backtab || (e->modifiers() & Qt::ShiftModifier)) ? -1 : 1);
-        e->accept();
-        return;
     case Qt::Key_Left:
     case Qt::Key_Right:
     case Qt::Key_Up:

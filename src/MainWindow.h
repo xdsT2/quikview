@@ -98,6 +98,10 @@ private slots:
     void onCrop();
     void onResize();
     void onEffect(int mode);
+    void onJumpRandom(bool forward);   // 随机跳转（Ctrl+Alt+PageUp/Down，原版语义）
+    void onSlideshowStop();            // Ctrl+0：停止放映
+    void onSlideshowInterval(int sec); // Ctrl+1..9 = 以 N 秒间隔开始放映
+    void onToggleStretchSmall();       // 拉伸小图（Z）开关
     void onActivateImage(int index);
     // 帧
     void onNextFrame();
@@ -204,6 +208,9 @@ private:
     QAction *actRotateRight = nullptr;
     QAction *actFlipH = nullptr;
     QAction *actFlipV = nullptr;
+    QAction *actNegative = nullptr;    // 反色（Ctrl+I）
+    QAction *actGamma = nullptr;       // Gamma 补偿（Ctrl+G）
+    QAction *actZoomLock = nullptr;    // 缩放锁定（Ctrl+K）
     QAction *actCrop = nullptr;
     QAction *actResize = nullptr;
     QAction *actNextFrame = nullptr;
@@ -221,6 +228,7 @@ private:
     QAction *actSortSize = nullptr;
     QAction *actSortType = nullptr;
     QAction *actSortDesc = nullptr;
+    QAction *actStretchSmall = nullptr;   // 拉伸小图（Z，原版 MENUSTR_FILTER_STRETCHWHENSMALL）
 
     // —— 引擎成员 ——
     ImageCanvas *m_canvas = nullptr;
