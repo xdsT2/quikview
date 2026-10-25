@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  artwork:
+    name: 素材溯源校验
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 安装 Pillow
+        run: python -m pip install --upgrade pip pillow
+
+      # 全量比对 resources/skin/*.png 的 SHA-256：
+      # 任一文件被改动、或生成器与已提交素材不再一致，这里就会失败。
+      - name: 校验素材哈希
+        run: python tools/03_gen_skin.py --check
+
+  build:
+    name: Windows 构建
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Qt 6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.*'
+          arch: win64_msvc2022_64
+          cache: true
+
+      - name: 准备 MSVC 环境
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      # 不装 libraw / libheif：CI 验证的是「依赖缺席时的降级路径」也能编译通过，
+      # 这两个库缺失时 HAS_LIBRAW / HAS_LIBHEIF 不定义，RAW 与 HEIC 入口自动关闭。
+      - name: 配置
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: 编译
+        run: cmake --build build
+
+      - name: 确认产物存在
+        run: |
+          if (-not (Test-Path build/quikview.exe)) { Write-Error "quikview.exe 未生成" }
+          Get-Item build/quikview.exe | Format-List Name, Length
+        shell: pwsh
