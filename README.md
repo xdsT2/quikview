@@ -2,6 +2,8 @@
 
 一个快速、干净的看图器。C++ / Qt6，MIT 开源。
 
+[![CI](https://github.com/xdsT2/quikview/actions/workflows/ci.yml/badge.svg)](https://github.com/xdsT2/quikview/actions/workflows/ci.yml)
+
 **简体中文** | [English](README.en.md)
 
 ![QuikView 主窗口：左侧缩略图浏览器、底部控制胶囊](docs/img/main-window.png)

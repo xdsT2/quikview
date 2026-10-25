@@ -2,6 +2,8 @@
 
 A fast, clean image viewer for Windows. C++ / Qt6, MIT licensed.
 
+[![CI](https://github.com/xdsT2/quikview/actions/workflows/ci.yml/badge.svg)](https://github.com/xdsT2/quikview/actions/workflows/ci.yml)
+
 [简体中文](README.md) | **English**
 
 ![QuikView main window: thumbnail browser on the left, control capsule at the bottom](docs/img/main-window.png)
