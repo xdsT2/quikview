@@ -19,7 +19,6 @@ public:
 
     QString language() const;
     bool showSelectLangDialog() const;
-    bool checkUpdates() const;
     QString theme() const;   // "dark" | "light"
     int slideshowIntervalMs() const;  // 默认 3000
     bool slideshowRandom() const;     // 幻灯片随机播放（默认 false）
@@ -33,7 +32,6 @@ public:
     bool notifyCorner() const;         // 在边角显示通知信息
     bool alwaysOnTop() const;          // 总在最前
     bool escExit() const;              // 按 ESC 退出
-    bool checkMinorUpdates() const;    // 检查小版本更新
     QString edgeAction() const;        // "first" | "stop" | "ask"（默认 "stop"）
 
     // 浏览
@@ -43,6 +41,7 @@ public:
     QString interpolation() const;     // "bilinear" | "bicubic" | "lanczos"（默认 "bicubic"）
     bool smoothZoom() const;           // 默认平滑缩放
     bool stretchSmall() const;         // 适合窗口时把小于窗口的图放大填满（默认 false）
+    bool hdrTonemap() const;           // HDR 色调映射（高位深→SDR，命令栏 HDR 钮，默认 true）
 
     // 鼠标
     bool wheelZoom() const;            // 滚轮缩放

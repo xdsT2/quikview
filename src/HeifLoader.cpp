@@ -1,10 +1,13 @@
 #include "HeifLoader.h"
 
+#include "ToneMap.h"
+
 #include <libheif/heif.h>
 
 #include <QFileInfo>
 
 #include <cstdint>
+#include <cmath>
 #include <cstring>
 
 namespace {
@@ -53,9 +56,48 @@ QImage ditherRgb16LeToRgb888(const uint8_t *data, size_t stride, int w, int h, i
     return out;
 }
 
+// HDR 开启时替代抖动：RRGGBB_LE 平面（源位深原值，非满量程 16bit）直接做
+// ACES 色调映射。白点按 99.5% 分位在实际像素值上统计，rangeBits 不参与。
+QImage toneMapRgb16LeToRgb888(const uint8_t *data, size_t stride, int w, int h)
+{
+    const auto pixelAt = [](const uint8_t *p, int *r, int *g, int *b) {
+        *r = p[0] | (p[1] << 8);
+        *g = p[2] | (p[3] << 8);
+        *b = p[4] | (p[5] << 8);
+    };
+
+    // 亮度抽样（~40 万样本以内），口径与 ToneMap::sampleLuma16 一致
+    const int step = qMax(1, int(std::sqrt(double(w) * h / 400000.0)));
+    QVector<quint32> samples;
+    samples.reserve((w / step + 1) * (h / step + 1));
+    for (int y = 0; y < h; y += step) {
+        const uint8_t *src = data + static_cast<size_t>(y) * stride;
+        for (int x = 0; x < w; x += step) {
+            int r, g, b;
+            pixelAt(src + static_cast<size_t>(x) * 6, &r, &g, &b);
+            samples.append((2126 * quint32(r) + 7152 * quint32(g) + 722 * quint32(b)) / 10000);
+        }
+    }
+    const ToneMap::Curve16 curve = ToneMap::buildCurve16(samples);
+
+    QImage out(w, h, QImage::Format_RGB888);
+    for (int y = 0; y < h; ++y) {
+        const uint8_t *src = data + static_cast<size_t>(y) * stride;
+        uint8_t *dst = out.scanLine(y);
+        for (int x = 0; x < w; ++x) {
+            int r, g, b;
+            pixelAt(src + static_cast<size_t>(x) * 6, &r, &g, &b);
+            dst[x * 3 + 0] = curve.map[r];
+            dst[x * 3 + 1] = curve.map[g];
+            dst[x * 3 + 2] = curve.map[b];
+        }
+    }
+    return out;
+}
+
 } // namespace
 
-QImage loadHeifImage(const QString &path, QString *errorOut)
+QImage loadHeifImage(const QString &path, QString *errorOut, bool toneMapSdr)
 {
     const QByteArray local = QFileInfo(path).absoluteFilePath().toLocal8Bit();
 
@@ -124,7 +166,9 @@ QImage loadHeifImage(const QString &path, QString *errorOut)
     QImage out;
     if (highDepth) {
         const int rangeBits = heif_image_get_bits_per_pixel_range(img, heif_channel_interleaved);
-        out = ditherRgb16LeToRgb888(data, stride, w, h, rangeBits > 0 ? rangeBits : lumaBits);
+        out = toneMapSdr
+            ? toneMapRgb16LeToRgb888(data, stride, w, h)
+            : ditherRgb16LeToRgb888(data, stride, w, h, rangeBits > 0 ? rangeBits : lumaBits);
     } else {
         // interleaved_RGB 为 8 位、每像素 3 字节；stride 可能带 padding，逐行拷贝。
         out = QImage(w, h, QImage::Format_RGB888);

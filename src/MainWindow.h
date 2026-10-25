@@ -98,6 +98,10 @@ private slots:
     void onCrop();
     void onResize();
     void onEffect(int mode);
+    void onJumpRandom(bool forward);   // 随机跳转（Ctrl+Alt+PageUp/Down，原版语义）
+    void onSlideshowStop();            // Ctrl+0：停止放映
+    void onSlideshowInterval(int sec); // Ctrl+1..9 = 以 N 秒间隔开始放映
+    void onToggleStretchSmall();       // 拉伸小图（Z）开关
     void onActivateImage(int index);
     // 帧
     void onNextFrame();
@@ -108,7 +112,7 @@ private slots:
     void animationTick();
     void showAnimFrame(const QImage &img);
     // 异步加载
-    void onFullReady(const QString &path, const QImage &image);
+    void onFullReady(const QString &path, const QImage &image, bool preview);
     void onLoadFailed(const QString &path, const QString &error);
     // 幻灯片
     void onSlideshowTick();
@@ -127,7 +131,9 @@ private:
 
     void applyRuntimeSettings();
     void loadAsync(const QString &path);
-    void showImage(const QImage &image, const QString &path);
+    // 显式跳转：先清空解码队列再加载（区别于顺序翻页的逐张播放）
+    void jumpTo(const QString &path);
+    void showImage(const QImage &image, const QString &path, bool preview = false);
     void setSlideshow(bool on);
     void applyCrop();
     void refreshLibraryMenus();
@@ -156,7 +162,6 @@ private:
     void refreshSpread();                    // 按当前索引重新拼接跨页
     void updateCanvasLogo();
     void updateInfoOverlay();
-    void syncZoom();
     void setTopChromeVisible(bool visible, bool animate = true);
     void setDockVisible(bool visible, bool animate = true);
     void toggleTopLock();
@@ -203,6 +208,9 @@ private:
     QAction *actRotateRight = nullptr;
     QAction *actFlipH = nullptr;
     QAction *actFlipV = nullptr;
+    QAction *actNegative = nullptr;    // 反色（Ctrl+I）
+    QAction *actGamma = nullptr;       // Gamma 补偿（Ctrl+G）
+    QAction *actZoomLock = nullptr;    // 缩放锁定（Ctrl+K）
     QAction *actCrop = nullptr;
     QAction *actResize = nullptr;
     QAction *actNextFrame = nullptr;
@@ -220,6 +228,7 @@ private:
     QAction *actSortSize = nullptr;
     QAction *actSortType = nullptr;
     QAction *actSortDesc = nullptr;
+    QAction *actStretchSmall = nullptr;   // 拉伸小图（Z，原版 MENUSTR_FILTER_STRETCHWHENSMALL）
 
     // —— 引擎成员 ——
     ImageCanvas *m_canvas = nullptr;
@@ -291,6 +300,7 @@ private:
     bool m_negative = false;   // 反相
     qreal m_gamma = 1.0;       // Gamma 补偿（1.0 = 不变）
     bool m_zoomLocked = false; // 锁定缩放：翻页后不做适配，沿用同一比例
+    bool m_hdrTonemap = false; // HDR 色调映射（命令栏 HDR 钮 / config/hdr_tonemap，默认 true）
     int m_interpMode = 1;      // 0 bilinear / 1 bicubic / 2 lanczos
     bool m_slideshow = false;
     bool m_slideshowRandom = false;

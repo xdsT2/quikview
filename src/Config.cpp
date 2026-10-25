@@ -45,11 +45,6 @@ bool Config::showSelectLangDialog() const
     return m_settings.value(QStringLiteral("config/show_select_lang_dialog"), true).toBool();
 }
 
-bool Config::checkUpdates() const
-{
-    return m_settings.value(QStringLiteral("config/check_updates"), false).toBool();
-}
-
 QString Config::theme() const
 {
     return m_settings.value(QStringLiteral("config/theme"), QStringLiteral("dark")).toString();
@@ -105,11 +100,6 @@ bool Config::escExit() const
     return m_settings.value(QStringLiteral("config/esc_exit"), true).toBool();
 }
 
-bool Config::checkMinorUpdates() const
-{
-    return m_settings.value(QStringLiteral("config/check_minor_updates"), false).toBool();
-}
-
 QString Config::edgeAction() const
 {
     return m_settings.value(QStringLiteral("config/edge_action"), QStringLiteral("stop")).toString();
@@ -137,6 +127,11 @@ QString Config::interpolation() const
 bool Config::stretchSmall() const
 {
     return m_settings.value(QStringLiteral("config/stretch_small"), false).toBool();
+}
+
+bool Config::hdrTonemap() const
+{
+    return m_settings.value(QStringLiteral("config/hdr_tonemap"), true).toBool();
 }
 
 bool Config::smoothZoom() const

@@ -231,23 +231,22 @@ QPushButton#closeBtn:hover { background: #c42b1c; color: #ffffff; }
 )");
 }
 
-// 图片信息浮层
+// 图片信息浮层（左上覆盖层，对齐原型 .info-overlay）
 inline QString panelQss()
 {
     return QStringLiteral(R"(
-QWidget#infoPanel { background: rgba(35,36,39,0.98); border: 1px solid #46494f; border-radius: 9px; }
-QWidget#infoHead { background: transparent; border-bottom: 1px solid rgba(255,255,255,0.085); }
-QLabel#infoTitle { font-size: 13px; color: #f2f2f2; }
-QPushButton#iconAction { background: transparent; border: 0; border-radius: 5px;
-    color: #aeb3ba; min-width: 28px; min-height: 26px; padding: 0; }
-QPushButton#iconAction:hover { background: #36393e; color: #ffffff; }
-QLabel#fileName { font-size: 14px; color: #f2f2f2; }
-QLabel#filePath { font-size: 11px; color: #92979e; }
-QWidget#metaGroup > QLabel#groupTitle { font-size: 11px; color: #858b93; }
-QLabel#metaKey { color: #8f959d; font-size: 11px; }
-QLabel#metaValue { color: #d5d7da; font-size: 11px; }
-QWidget#previewBox { background: #191a1d; border: 1px solid rgba(255,255,255,0.085);
-    border-radius: 7px; }
+QWidget#infoPanel { background: rgba(28,29,31,0.92); border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 8px; }
+QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; border: 0; }
+QLabel#infoKey { font-size: 12px; color: #9ba0a5; }
+QLabel#infoVal { font-size: 12px; color: #e9eaec; }
+QLabel#emptyHint { font-size: 12px; color: #92979e; }
+QPushButton#mapLink { background: transparent; border: 0; padding: 0;
+    text-align: left; font-size: 12px; color: #55c0f0; }
+QPushButton#mapLink:hover { color: #72caf1; }
+QPushButton#histToggle { background: transparent; border: 0; padding: 0;
+    text-align: left; font-size: 12px; color: #9ba0a5; }
+QPushButton#histToggle:hover { color: #e9eaec; }
 )");
 }
 

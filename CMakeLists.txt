@@ -29,6 +29,8 @@ add_executable(quikview WIN32
     src/DirectoryLoader.cpp
     src/DirectoryLoader.h
     src/ImageEffects.cpp
+    src/ToneMap.cpp
+    src/ToneMap.h
     src/ImageEffects.h
     src/RawImageLoader.cpp
     src/RawImageLoader.h

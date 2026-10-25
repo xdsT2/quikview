@@ -875,24 +875,41 @@ void ToolBar::setLocked(bool locked)
     update();
 }
 
+void ToolBar::setHdr(bool on)
+{
+    if (m_hdr == on) {
+        return;
+    }
+    m_hdr = on;
+    update();
+}
+
+// 按钮几何从左往右累加（原实现 262/295/328 硬编码，插按钮即错位）；
+// 锁定 / 更多仍锚定右边缘。id：0打开 1浏览 2幻灯片 3书签 4HDR 5编辑 6复制到 7锁定 8更多。
 QVector<ToolBar::Btn> ToolBar::buttons() const
 {
     QVector<Btn> out;
     const int y = 4;
     const int h = 26;
-    out.append({ 0, QStringLiteral("打开"), QRect(8, y, 68, h), true, false });
-    out.append({ 1, QStringLiteral("浏览"), QRect(79, y, 72, h), false, true });
-    out.append({ 2, QStringLiteral("幻灯片放映"), QRect(154, y, 96, h), false, false });
-
-    int x = 262;
+    int x = 8;
+    out.append({ 0, QStringLiteral("打开"), QRect(x, y, 68, h), true, false });
+    x += 68 + 3;
+    out.append({ 1, QStringLiteral("浏览"), QRect(x, y, 72, h), false, true });
+    x += 72 + 3;
+    out.append({ 2, QStringLiteral("幻灯片放映"), QRect(x, y, 96, h), false, false });
+    x += 96;
+    // 幻灯片与工具组之间的分隔线画在 x+7（见 paintEvent），按钮从 x+12 起步
+    x += 12;
     out.append({ 3, QString(), QRect(x, y, 30, h), false, false });
-    x += 33;
-    out.append({ 4, QString(), QRect(x, y, 30, h), false, false });
-    x += 33;
+    x += 30 + 3;
+    out.append({ 4, QStringLiteral("HDR"), QRect(x, y, 44, h), false, false });
+    x += 44 + 3;
     out.append({ 5, QString(), QRect(x, y, 30, h), false, false });
+    x += 30 + 3;
+    out.append({ 6, QString(), QRect(x, y, 30, h), false, false });
 
-    out.append({ 6, QString(), QRect(width() - 68, y, 30, h), false, false });
-    out.append({ 7, QString(), QRect(width() - 38, y, 30, h), false, false });
+    out.append({ 7, QString(), QRect(width() - 68, y, 30, h), false, false });
+    out.append({ 8, QString(), QRect(width() - 38, y, 30, h), false, false });
     return out;
 }
 
@@ -907,7 +924,7 @@ int ToolBar::hitTest(const QPoint &pos) const
     return -1;
 }
 
-// 仅图标按钮 / 可切换按钮的文字提示；锁定项随状态切换
+// 仅图标按钮 / 可切换按钮的文字提示；HDR 与锁定项随状态切换
 QString ToolBar::tipText(int index) const
 {
     switch (index) {
@@ -915,10 +932,11 @@ QString ToolBar::tipText(int index) const
     case 1: return tr("浏览");
     case 2: return tr("幻灯片放映");
     case 3: return tr("书签");
-    case 4: return tr("编辑");
-    case 5: return tr("复制到");
-    case 6: return m_locked ? tr("解锁工具栏") : tr("锁定工具栏");
-    case 7: return tr("更多");
+    case 4: return m_hdr ? tr("关闭 HDR") : tr("开启 HDR");
+    case 5: return tr("编辑");
+    case 6: return tr("复制到");
+    case 7: return m_locked ? tr("解锁工具栏") : tr("锁定工具栏");
+    case 8: return tr("更多");
     default: break;
     }
     return QString();
@@ -938,7 +956,7 @@ void ToolBar::paintEvent(QPaintEvent *)
         BtnState st;
         st.hover = (m_hover == i);
         st.pressed = (m_press == i);
-        st.checked = (b.id == 6 && m_locked);
+        st.checked = (b.id == 7 && m_locked) || (b.id == 4 && m_hdr);
         st.focus = (m_keyboardFocus && m_focus == i);
         BtnVisual v = m_feedback->visual(i);
 
@@ -978,10 +996,19 @@ void ToolBar::paintEvent(QPaintEvent *)
         case 1: drawIcon(p, Icon::Grid, iconRect, ink); break;
         case 2: drawIcon(p, Icon::Play, iconRect, ink); break;
         case 3: drawIcon(p, Icon::Bookmark, centerIcon, ink); break;
-        case 4: drawIcon(p, Icon::Edit, centerIcon, ink); break;
-        case 5: drawIcon(p, Icon::Copy, centerIcon, ink); break;
-        case 6: drawIcon(p, Icon::Lock, centerIcon, ink); break;
-        case 7: drawIcon(p, Icon::More, centerIcon, ink); break;
+        case 4: {
+            // HDR：纯文字钮（原型 .command.hdr-toggle .label：11px/600/.3px 字距）
+            QFont f = uiFont(11, QFont::DemiBold);
+            f.setLetterSpacing(QFont::AbsoluteSpacing, 0.3);
+            p.setFont(f);
+            p.setPen(ink);
+            p.drawText(b.rect, Qt::AlignCenter, b.text);
+            break;
+        }
+        case 5: drawIcon(p, Icon::Edit, centerIcon, ink); break;
+        case 6: drawIcon(p, Icon::Copy, centerIcon, ink); break;
+        case 7: drawIcon(p, Icon::Lock, centerIcon, ink); break;
+        case 8: drawIcon(p, Icon::More, centerIcon, ink); break;
         default: break;
         }
 
@@ -1013,10 +1040,11 @@ void ToolBar::activate(int index, const QPoint &globalPos)
     case 1: emit browseMenuRequested(globalPos); break;
     case 2: emit slideshowMenuRequested(globalPos); break;
     case 3: emit bookmarkMenuRequested(globalPos); break;
-    case 4: emit editMenuRequested(globalPos); break;
-    case 5: emit copytoMenuRequested(globalPos); break;
-    case 6: emit lockToggled(); break;
-    case 7: emit moreMenuRequested(globalPos); break;
+    case 4: m_hdr = !m_hdr; emit hdrToggled(); break;
+    case 5: emit editMenuRequested(globalPos); break;
+    case 6: emit copytoMenuRequested(globalPos); break;
+    case 7: emit lockToggled(); break;
+    case 8: emit moreMenuRequested(globalPos); break;
     default: break;
     }
 }
@@ -1135,11 +1163,6 @@ void ToolBar::keyPressEvent(QKeyEvent *e)
         return;
     }
     switch (e->key()) {
-    case Qt::Key_Tab:
-    case Qt::Key_Backtab:
-        moveFocus((e->key() == Qt::Key_Backtab || (e->modifiers() & Qt::ShiftModifier)) ? -1 : 1);
-        e->accept();
-        return;
     case Qt::Key_Left:
     case Qt::Key_Right:
     case Qt::Key_Up:
@@ -1207,9 +1230,10 @@ ControlBar::ControlBar(QWidget *parent)
     m_tip = new TooltipHint(this);
 }
 
-void ControlBar::setZoomPercent(int percent)
+void ControlBar::setPage(int current, int total)
 {
-    m_percent = qBound(1, percent, 3200);
+    m_pageCount = qMax(0, total);
+    m_page = m_pageCount > 0 ? qBound(1, current, m_pageCount) : 1;
     update();
 }
 
@@ -1228,20 +1252,23 @@ QVector<ControlBar::Item> ControlBar::items() const
 }
 
 // 胶囊的唯一布局来源（交接单 §7）：
-//   内边距 上 6 / 左右 9 / 下 7，两排间距 3；缩放行 26，操作行 30。
-//   第一排：滑杆 / 44px 百分比，两列，列间距 10，垂直居中。
+//   内边距 上 6 / 左右 9 / 下 7，两排间距 3；翻页行 26，操作行 30。
+//   第一排：翻页滑杆 / 44px 页码（"3 / 24"），两列，列间距 10，垂直居中；
+//           未打开文件（total=0）整行不布置。
 //   第二排：打开、缩略图 ｜ 适合窗口、缩小、放大 ｜ 左旋、右旋 ｜ 上一张、下一张 ｜ 锁定。
 QVector<ControlBar::Item> ControlBar::layoutItems(QVector<int> *separators) const
 {
     QVector<Item> out;
 
-    // ---- 缩放行：滑杆 / 百分比 两列，列间距 10，整行垂直居中 ----
-    const int zoomY = kDockPadTop;
-    const int sliderW = kDockW - 2 * kDockPadX - kPercentW - kGridGap;
-    int x = kDockPadX;
-    out.append({ Action::Slider, QRect(x, zoomY, sliderW, kZoomRowH) });
-    x += sliderW + kGridGap;
-    out.append({ Action::ZoomValue, QRect(x, zoomY, kPercentW, kZoomRowH) });
+    // ---- 翻页行：滑杆 / 页码 两列，列间距 10，整行垂直居中 ----
+    if (m_pageCount > 0) {
+        const int zoomY = kDockPadTop;
+        const int sliderW = kDockW - 2 * kDockPadX - kPercentW - kGridGap;
+        int x = kDockPadX;
+        out.append({ Action::PageSlider, QRect(x, zoomY, sliderW, kZoomRowH) });
+        x += sliderW + kGridGap;
+        out.append({ Action::PageValue, QRect(x, zoomY, kPercentW, kZoomRowH) });
+    }
 
     // ---- 操作行：10 × 32×30 按钮 + 4 条分隔线，整行在两内边距之间水平居中 ----
     struct Cell {
@@ -1295,9 +1322,30 @@ int ControlBar::hitIndex(const QPoint &pos) const
     return -1;
 }
 
-int ControlBar::currentSliderPercent() const
+int ControlBar::clampedPage(int page) const
 {
-    return qBound(10, m_percent, 200);
+    return qBound(1, page, qMax(1, m_pageCount));
+}
+
+// 把滑杆横向位置换算成 1..total 的页码（与绘制的手柄内缩口径一致）
+int ControlBar::sliderPageFromX(int x) const
+{
+    QRect track;
+    const QVector<Item> list = items();
+    for (const Item &item : list) {
+        if (item.action == Action::PageSlider) {
+            track = item.rect;
+            break;
+        }
+    }
+    if (track.isNull()) {
+        return m_page;
+    }
+    const qreal left = track.left() + 5.5;    // 手柄半径内缩，与绘制一致
+    const qreal right = track.right() - 5.5;
+    const qreal ratio = qBound(0.0, (x - left) / qMax(1.0, right - left), 1.0);
+    const int maxPage = qMax(1, m_pageCount);
+    return qBound(1, qRound(1.0 + ratio * (maxPage - 1)), maxPage);
 }
 
 // 胶囊内每个控件（含滑杆）都必须有提示；锁定项随状态切换
@@ -1314,35 +1362,24 @@ QString ControlBar::tipText(Action action) const
     case Action::Prev: return tr("上一张图片 (←)");
     case Action::Next: return tr("下一张图片 (→)");
     case Action::Lock: return m_locked ? tr("解锁控制栏") : tr("锁定控制栏");
-    case Action::Slider: return tr("缩放（拖动缩放，滚轮切换图片）");
-    case Action::ZoomValue: return tr("适合窗口");
+    case Action::PageSlider:
+        return sliderEnabled() ? tr("浏览进度：拖动切换图片；滚轮上一张/下一张")
+                               : tr("浏览进度：只有一张图片");
+    case Action::PageValue: return tr("适合窗口");
     case Action::None: break;
     }
     return QString();
 }
 
-void ControlBar::applySliderValueFromX(int x)
+// 拖动过程中只更新滑杆视觉与页码文本，绝不发 pageRequested——
+// 否则 24 张目录一路拖过去就是 24 次全尺寸解码；真正跳图在松手时发一次。
+void ControlBar::applyPageFromX(int x)
 {
-    QRect track;
-    const QVector<Item> list = items();
-    for (const Item &item : list) {
-        if (item.action == Action::Slider) {
-            track = item.rect;
-            break;
-        }
-    }
-    if (track.isNull()) {
+    const int page = sliderPageFromX(x);
+    if (page == m_page) {
         return;
     }
-    const qreal left = track.left() + 5.5;    // 手柄半径内缩，与绘制一致
-    const qreal right = track.right() - 5.5;
-    const qreal ratio = qBound(0.0, (x - left) / qMax(1.0, right - left), 1.0);
-    const int pct = qRound(10.0 + ratio * 190.0);
-    if (pct == m_percent) {
-        return;
-    }
-    m_percent = pct;
-    emit zoomRequested(pct);
+    m_page = page;
     update();
 }
 
@@ -1369,11 +1406,16 @@ void ControlBar::paintEvent(QPaintEvent *)
         const Item &item = list.at(i);
         BtnVisual v = m_feedback->visual(i);
 
-        if (item.action == Action::Slider) {
+        if (item.action == Action::PageSlider) {
             const QRectF track = item.rect;
             const qreal y = track.center().y() + 0.5;
             const qreal left = track.left() + 5.5;     // 手柄半径，避免两端被裁
             const qreal right = track.right() - 5.5;
+            // 单张禁用：整段按 58% 不透明度画（原型 button:disabled），不可交互
+            const bool enabled = sliderEnabled();
+            if (!enabled) {
+                p.setOpacity(p.opacity() * 0.58);
+            }
             // 拖动中轨道略微提亮，和单纯 Hover 区分
             QColor idle(QStringLiteral("#5d6166"));
             if (v.press > 0.004) {
@@ -1381,7 +1423,10 @@ void ControlBar::paintEvent(QPaintEvent *)
             }
             p.setPen(QPen(idle, 3, Qt::SolidLine, Qt::RoundCap));
             p.drawLine(QPointF(left, y), QPointF(right, y));
-            const qreal ratio = (currentSliderPercent() - 10.0) / 190.0;
+            // 已读进度：1/(n-1) 线性映射；单张时按原型铺满
+            const qreal ratio = enabled
+                ? (m_page - 1) / qMax(1.0, qreal(m_pageCount - 1))
+                : 1.0;
             const qreal thumbX = left + ratio * (right - left);
             p.setPen(QPen(UiStyle::accent(), 3, Qt::SolidLine, Qt::RoundCap));
             p.drawLine(QPointF(left, y), QPointF(thumbX, y));
@@ -1419,7 +1464,7 @@ void ControlBar::paintEvent(QPaintEvent *)
             break;
         case Action::ZoomOut:
         case Action::ZoomIn:
-        case Action::ZoomValue:
+        case Action::PageValue:
             pal.ink = QColor(QStringLiteral("#b7bbc0"));
             break;
         default:
@@ -1465,8 +1510,9 @@ void ControlBar::paintEvent(QPaintEvent *)
         case Action::ZoomIn:
             drawIcon(p, Icon::Plus, centerIcon, ink, kIconStroke);
             break;
-        case Action::ZoomValue:
-            drawTabularText(p, QRectF(r), QStringLiteral("%1%").arg(m_percent), ink, 11);
+        case Action::PageValue:
+            drawTabularText(p, QRectF(r), tr("%1 / %2").arg(m_page).arg(qMax(0, m_pageCount)),
+                            ink, 11);
             break;
         default:
             break;
@@ -1488,7 +1534,7 @@ void ControlBar::activate(Action action)
     case Action::Lock: emit lockToggled(); break;
     case Action::ZoomOut: emit zoomOutClicked(); break;
     case Action::ZoomIn: emit zoomInClicked(); break;
-    case Action::ZoomValue: emit fitClicked(); break;
+    case Action::PageValue: emit fitClicked(); break;
     default: break;
     }
 }
@@ -1536,9 +1582,10 @@ void ControlBar::mousePressEvent(QMouseEvent *e)
         }
         m_press = idx;
         m_feedback->setPressed(idx);   // 按下即出反馈，不等 clicked
-        if (action == Action::Slider) {
+        if (action == Action::PageSlider && sliderEnabled()) {
             m_dragging = true;
-            applySliderValueFromX(e->pos().x());
+            m_pressPage = m_page;
+            applyPageFromX(e->pos().x());
             return;
         }
         update();
@@ -1554,6 +1601,13 @@ void ControlBar::mouseReleaseEvent(QMouseEvent *e)
     if (m_dragging) {
         m_dragging = false;
         update();
+        // 整段拖动只在这里发一次：松手才真正跳图（拖动中只动视觉）
+        if (pressedIndex >= 0 && pressedIndex < items().size()
+            && items()[pressedIndex].action == Action::PageSlider
+            && m_page != m_pressPage) {
+            emit pageRequested(m_page);
+        }
+        m_pressPage = m_page;
         QWidget::mouseReleaseEvent(e);
         return;
     }
@@ -1574,7 +1628,7 @@ void ControlBar::mouseMoveEvent(QMouseEvent *e)
 {
     if (m_dragging && (e->buttons() & Qt::LeftButton)) {
         m_tip->hideNow();   // 拖动滑杆时不出提示
-        applySliderValueFromX(e->pos().x());
+        applyPageFromX(e->pos().x());
         return;
     }
     const QVector<Item> list = items();
@@ -1586,8 +1640,8 @@ void ControlBar::mouseMoveEvent(QMouseEvent *e)
         }
     }
     m_feedback->setHover(m_hover);
-    if (m_hover >= 0 && list[m_hover].action == Action::Slider) {
-        setCursor(Qt::SizeHorCursor);
+    if (m_hover >= 0 && list[m_hover].action == Action::PageSlider) {
+        setCursor(sliderEnabled() ? Qt::SizeHorCursor : Qt::ArrowCursor);
     } else {
         setPointerCursor(this, m_hover >= 0);
     }
@@ -1644,12 +1698,24 @@ void ControlBar::keyPressEvent(QKeyEvent *e)
         QWidget::keyPressEvent(e);
         return;
     }
+    // 焦点落在滑杆上：←/→ 步进一张并立即加载（发 pageRequested），不挪焦点
+    if (m_focus >= 0 && m_focus < items().size()
+        && items()[m_focus].action == Action::PageSlider) {
+        if (e->key() == Qt::Key_Left || e->key() == Qt::Key_Right) {
+            const int step = e->key() == Qt::Key_Left ? -1 : 1;
+            if (sliderEnabled()) {
+                const int page = clampedPage(m_page + step);
+                if (page != m_page) {
+                    m_page = page;
+                    update();
+                    emit pageRequested(m_page);
+                }
+            }
+            e->accept();
+            return;
+        }
+    }
     switch (e->key()) {
-    case Qt::Key_Tab:
-    case Qt::Key_Backtab:
-        moveFocus((e->key() == Qt::Key_Backtab || (e->modifiers() & Qt::ShiftModifier)) ? -1 : 1);
-        e->accept();
-        return;
     case Qt::Key_Left:
     case Qt::Key_Right:
     case Qt::Key_Up:
@@ -1690,7 +1756,7 @@ void ControlBar::keyReleaseEvent(QKeyEvent *e)
         update();
         if (i >= 0 && i == m_focus) {
             const QVector<Item> list = items();
-            if (i < list.size() && list[i].action != Action::Slider) {
+            if (i < list.size() && list[i].action != Action::PageSlider) {
                 activate(list[i].action);
             }
         }
@@ -1700,7 +1766,8 @@ void ControlBar::keyReleaseEvent(QKeyEvent *e)
     QWidget::keyReleaseEvent(e);
 }
 
-// 滑杆上滚轮翻页（上滚上一张 / 下滚下一张），Ctrl+滚轮或滑杆以外仍为缩放。
+// 滑杆上滚轮翻页（上滚上一张 / 下滚下一张），保持原行为不改成缩放；
+// 胶囊其余位置滚轮不做事（缩放只属于画布滚轮与 ZoomBadge 反馈）。
 void ControlBar::wheelEvent(QWheelEvent *e)
 {
     m_tip->hideNow();   // 滚动立即收起提示
@@ -1709,21 +1776,16 @@ void ControlBar::wheelEvent(QWheelEvent *e)
     const QVector<Item> list = items();
     const int idx = hitIndex(pos);
     const bool onSlider = (idx >= 0 && idx < list.size()
-                           && list[idx].action == Action::Slider);
+                           && list[idx].action == Action::PageSlider);
     const int delta = e->angleDelta().y();
 
-    if (onSlider && !(e->modifiers() & Qt::ControlModifier)) {
+    if (onSlider && sliderEnabled()) {
         if (delta > 0) {
             emit prevClicked();
         } else if (delta < 0) {
             emit nextClicked();
         }
-        e->accept();
-        return;
     }
-
-    const int step = delta > 0 ? 10 : -10;
-    emit zoomRequested(qBound(10, m_percent + step, 200));
     e->accept();
 }
 
