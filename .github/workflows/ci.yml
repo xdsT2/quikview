@@ -26,33 +26,38 @@ jobs:
         run: python tools/03_gen_skin.py --check
 
   build:
-    name: Windows 构建
+    name: Windows 构建 (MSYS2)
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
     steps:
       - uses: actions/checkout@v4
 
-      - name: 安装 Qt 6
-        uses: jurplel/install-qt-action@v4
+      # 按 README「MSYS2 一键」那条路径构建：与开发者本地环境一致，
+      # 顺带验证文档里写的依赖清单确实完整可用。
+      - name: 安装工具链与依赖
+        uses: msys2/setup-msys2@v2
         with:
-          version: '6.8.*'
-          arch: win64_msvc2022_64
-          cache: true
+          msystem: MINGW64
+          update: false
+          install: >-
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-qt6-base
+            mingw-w64-x86_64-qt6-tools
+            mingw-w64-x86_64-qt6-imageformats
+            mingw-w64-x86_64-libraw
+            mingw-w64-x86_64-libheif
 
-      - name: 准备 MSVC 环境
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
-      # 不装 libraw / libheif：CI 验证的是「依赖缺席时的降级路径」也能编译通过，
-      # 这两个库缺失时 HAS_LIBRAW / HAS_LIBHEIF 不定义，RAW 与 HEIC 入口自动关闭。
       - name: 配置
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/mingw64
 
       - name: 编译
         run: cmake --build build
 
       - name: 确认产物存在
         run: |
-          if (-not (Test-Path build/quikview.exe)) { Write-Error "quikview.exe 未生成" }
-          Get-Item build/quikview.exe | Format-List Name, Length
-        shell: pwsh
+          test -f build/quikview.exe || { echo "quikview.exe 未生成"; exit 1; }
+          ls -lh build/quikview.exe
