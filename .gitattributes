@@ -1,0 +1,38 @@
+# 统一换行处理：仓库内存 LF，检出时按平台转换。
+# 不加这段的话，Windows 上 core.autocrlf=true 会让每次克隆都出现整文件 diff。
+* text=auto
+
+# 文本文件显式声明
+*.c         text
+*.cc        text
+*.cpp       text
+*.h         text
+*.hpp       text
+*.py        text
+*.md        text
+*.txt       text
+*.ts        text
+*.json      text
+*.cmake     text
+CMakeLists.txt text
+NOTICE      text
+LICENSE     text
+
+# 脚本按平台固定换行：批处理必须 CRLF，shell 必须 LF
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+*.sh        text eol=lf
+
+# 二进制资源，禁止任何换行或编码转换
+*.png       binary
+*.ico       binary
+*.icns      binary
+*.jpg       binary
+*.jpeg      binary
+*.bmp       binary
+*.gif       binary
+*.webp      binary
+*.exe       binary
+*.dll       binary
+*.lib       binary
+*.qm        binary
