@@ -127,6 +127,8 @@ private:
 
     void applyRuntimeSettings();
     void loadAsync(const QString &path);
+    // 显式跳转：先清空解码队列再加载（区别于顺序翻页的逐张播放）
+    void jumpTo(const QString &path);
     void showImage(const QImage &image, const QString &path, bool preview = false);
     void setSlideshow(bool on);
     void applyCrop();

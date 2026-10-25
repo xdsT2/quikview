@@ -252,7 +252,7 @@ MainWindow::MainWindow(QWidget *parent)
             return;
         }
         m_dir->setIndex(index - 1);
-        loadAsync(m_dir->current());
+        jumpTo(m_dir->current());
     });
 
     // 画布缩放联动：左下角浮标 + 浏览方式图标降级（胶囊滑杆已是翻页进度，不再跟随缩放）
@@ -1243,7 +1243,7 @@ QMenu *MainWindow::buildContextMenu()
         }
         const int target = lo + QRandomGenerator::global()->bounded(hi - lo + 1);
         m_dir->setIndex(target);
-        loadAsync(m_dir->current());
+        jumpTo(m_dir->current());
     };
     addMenuItem(nav, tr("向后随机转到某张图片"), QStringLiteral("Ctrl+Alt+PageDown"),
                 [jumpRandom]() { jumpRandom(true); });
@@ -1435,7 +1435,15 @@ void MainWindow::openFile(const QString &path)
         Config::instance().addRecentFile(m_currentPath);
         refreshLibraryMenus();
     }
-    loadAsync(m_currentPath);
+    jumpTo(m_currentPath);
+}
+
+// 显式跳转（打开/换目录/滑块/缩略图/书签/首尾/随机/排序）：清空播放队列，
+// 避免跳转后先把旧队列播完才理新位置。顺序翻页（onNext/onPrev/±10/幻灯片）不走这里。
+void MainWindow::jumpTo(const QString &path)
+{
+    m_cache->cancelPending();
+    loadAsync(path);
 }
 
 void MainWindow::loadAsync(const QString &path)
@@ -1448,9 +1456,8 @@ void MainWindow::loadAsync(const QString &path)
 
 void MainWindow::onFullReady(const QString &path, const QImage &image, bool preview)
 {
-    if (path != m_currentPath) {
-        return; // 过期结果（用户已切到别的图）
-    }
+    // FIFO 单飞保证 emit 顺序 == 请求顺序，这里不再做过期丢弃：
+    // 连按/长按时每张都按序上屏（快帧先到先显示，全图到了替换）。
     showImage(image, path, preview);
 }
 
@@ -1644,7 +1651,7 @@ void MainWindow::onActivateImage(int index)
     m_dir->setIndex(index);
     const QString p = m_dir->current();
     if (!p.isEmpty()) {
-        loadAsync(p);
+        jumpTo(p);
     }
 }
 
@@ -1932,7 +1939,7 @@ void MainWindow::onFirst()
 {
     if (m_dir->count() > 0) {
         m_dir->setIndex(0);
-        loadAsync(m_dir->current());
+        jumpTo(m_dir->current());
     }
 }
 
@@ -1940,7 +1947,7 @@ void MainWindow::onLast()
 {
     if (m_dir->count() > 0) {
         m_dir->setIndex(m_dir->count() - 1);
-        loadAsync(m_dir->current());
+        jumpTo(m_dir->current());
     }
 }
 
@@ -2017,7 +2024,7 @@ void MainWindow::onSort(int mode)
     }
     if (m_dir->open(m_currentPath)) {
         m_browser->setFiles(m_dir->files(), m_dir->index());
-        loadAsync(m_currentPath);
+        jumpTo(m_currentPath);
     }
 }
 
@@ -2030,7 +2037,7 @@ void MainWindow::onSortDescending(bool on)
     }
     if (m_dir->open(m_currentPath)) {
         m_browser->setFiles(m_dir->files(), m_dir->index());
-        loadAsync(m_currentPath);
+        jumpTo(m_currentPath);
     }
 }
 
@@ -2420,7 +2427,7 @@ void MainWindow::onPageSelect()
     m_dir->setIndex(n - 1);
     const QString p = m_dir->current();
     if (!p.isEmpty()) {
-        loadAsync(p);
+        jumpTo(p);
     }
 }
 
@@ -2492,7 +2499,7 @@ void MainWindow::onEditBookmarks()
             m_toast->showMessage(tr("文件已不存在"));
             return;
         }
-        loadAsync(p);
+        jumpTo(p);
     });
     connect(list, &QListWidget::itemDoubleClicked, &dlg, [this](QListWidgetItem *item) {
         if (!item) {
@@ -2506,7 +2513,7 @@ void MainWindow::onEditBookmarks()
             m_toast->showMessage(tr("文件已不存在"));
             return;
         }
-        loadAsync(p);
+        jumpTo(p);
     });
     connect(delBtn, &QPushButton::clicked, &dlg, [list, persist]() {
         const auto sel = list->selectedItems();

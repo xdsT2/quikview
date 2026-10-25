@@ -20,22 +20,53 @@ QImage ImageCache::cachedFull(const QString &path) const
 
 void ImageCache::requestFull(const QString &path, const QSize &previewSize)
 {
-    m_currentPath = path;        // 完成时只把「最新想要的那张」上屏
     m_previewSize = previewSize;
     if (m_fullInFlight.contains(path)) {
-        return;
+        return;   // 正在解
     }
-    if (m_fullCache.contains(path)) {
+    if (m_queue.contains(path)) {
+        return;   // 已在队列
+    }
+    const bool busy = !m_fullInFlight.isEmpty() || !m_queue.isEmpty();
+    if (m_fullCache.contains(path) && !busy) {
+        // 空闲时缓存命中直接上屏；忙时也必须排队，否则会插队破坏
+        // 「emit 顺序 == requestFull 调用顺序」
         emit fullReady(path, *m_fullCache.object(path), false);
         return;
     }
-    if (!m_fullInFlight.isEmpty()) {
-        // latest-wins 单飞：已有全图解码在飞时只覆盖待解目标，不再叠加并发任务。
-        // 7 连按 = 1 路解码在飞 + 1 个待解目标，而不是 7 路并发互相抢核。
-        m_pendingPath = path;
+    m_queue.append(path);
+    // 队列上限 8：超出丢最旧的「尚未开始解码」项（在飞队首不动），
+    // 最新请求永远在队尾，最终必停在最新那张
+    while (m_queue.size() > 8) {
+        bool dropped = false;
+        for (int i = 0; i < m_queue.size(); ++i) {
+            if (!m_fullInFlight.contains(m_queue.at(i))) {
+                m_queue.removeAt(i);
+                dropped = true;
+                break;
+            }
+        }
+        if (!dropped) {
+            break;   // 理论到不了：在飞至多 1 个 < 队列上限
+        }
+    }
+    if (m_fullInFlight.isEmpty()) {
+        startNext();
+    }
+}
+
+void ImageCache::startNext()
+{
+    while (!m_queue.isEmpty() && m_fullInFlight.isEmpty()) {
+        const QString path = m_queue.takeFirst();
+        if (m_fullCache.contains(path)) {
+            // 排队期间被缓存命中（如先前的解码完成入缓存）：按序直接上屏
+            emit fullReady(path, *m_fullCache.object(path), false);
+            continue;
+        }
+        startFullDecode(path, m_previewSize);
         return;
     }
-    startFullDecode(path, previewSize);
 }
 
 void ImageCache::startFullDecode(const QString &path, const QSize &previewSize)
@@ -49,11 +80,6 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize)
             QImageReader fast(path);
             fast.setAutoTransform(true);
             QSize src = fast.size();
-            if (qEnvironmentVariableIsSet("QUIKVIEW_PERF")) {
-                qWarning("PERF fast %s: src=%dx%d supportsScaled=%d", path.toUtf8().constData(),
-                         src.width(), src.height(),
-                         int(fast.supportsOption(QImageIOHandler::ScaledSize)));
-            }
             if (src.isValid() && src.width() > 0 && src.height() > 0
                 && fast.supportsOption(QImageIOHandler::ScaledSize)) {
                 // EXIF 旋转 90/270 时 size() 是转之前的，先转置再按视口适配
@@ -68,10 +94,6 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize)
                     fast.setScaledSize(scaled);
                     const QImage prev = fast.read();
                     // 个别插件谎报支持 ScaledSize：读回尺寸不符就当没有快帧
-                    if (qEnvironmentVariableIsSet("QUIKVIEW_PERF")) {
-                        qWarning("PERF fast %s: want=%dx%d got=%dx%d", path.toUtf8().constData(),
-                                 scaled.width(), scaled.height(), prev.width(), prev.height());
-                    }
                     if (!prev.isNull() && prev.size() == scaled) {
                         emit fullReady(path, prev, true);
                     }
@@ -94,6 +116,8 @@ void ImageCache::finishFullDecode(const QString &path, const QImage &img)
         return;
     }
     m_fullInFlight.remove(path);
+    const bool drop = m_dropInFlightResult;
+    m_dropInFlightResult = false;
     if (img.isNull()) {
         emit loadFailed(path, QStringLiteral("无法解码"));
     } else {
@@ -101,26 +125,19 @@ void ImageCache::finishFullDecode(const QString &path, const QImage &img)
         // （此前 insert 不传成本=每条记 1，512MB 上限形同虚设）
         m_fullCache.insert(path, new QImage(img),
                            static_cast<int>(qMin<qint64>(img.sizeInBytes(), qint64(INT_MAX))));
-        if (path == m_currentPath || path == m_pendingPath) {
+        if (!drop) {
+            // FIFO：按入队顺序无条件上屏（显式跳转的在飞旧结果除外）
             emit fullReady(path, img, false);
         }
-        // 否则静默丢弃：连按被顶掉的图只进缓存，不上屏
     }
-    if (path == m_pendingPath) {
-        m_pendingPath.clear();
-    }
-    // 接着解最新想要的那张（事件驱动，无定时器等待）
-    if (!m_pendingPath.isEmpty() && m_fullInFlight.isEmpty()) {
-        const QString next = m_pendingPath;
-        m_pendingPath.clear();
-        if (m_fullCache.contains(next)) {
-            if (next == m_currentPath) {
-                emit fullReady(next, *m_fullCache.object(next), false);
-            }
-        } else {
-            startFullDecode(next, m_previewSize);
-        }
-    }
+    startNext();
+}
+
+void ImageCache::cancelPending()
+{
+    m_queue.clear();
+    // 在飞的那个拦不住了（QtConcurrent 不可取消），结果到达时只进缓存不上屏
+    m_dropInFlightResult = !m_fullInFlight.isEmpty();
 }
 
 void ImageCache::requestThumbnail(const QString &path, const QSize &size)
@@ -184,5 +201,6 @@ void ImageCache::clearFull()
 {
     m_fullInFlight.clear();
     m_fullCache.clear();
-    m_pendingPath.clear();
+    m_queue.clear();
+    m_dropInFlightResult = false;
 }
