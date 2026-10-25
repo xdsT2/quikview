@@ -3,11 +3,11 @@
 一个快速、干净的看图器。C++ / Qt6，MIT 开源。
 
 [![CI](https://github.com/xdsT2/quikview/actions/workflows/ci.yml/badge.svg)](https://github.com/xdsT2/quikview/actions/workflows/ci.yml)
-[![下载](https://img.shields.io/github/v/release/xdsT2/quikview?include_prereleases&label=%E4%B8%8B%E8%BD%BD)](https://github.com/xdsT2/quikview/releases/latest)
+[![下载](https://img.shields.io/github/v/release/xdsT2/quikview?include_prereleases&label=%E4%B8%8B%E8%BD%BD)](https://github.com/xdsT2/quikview/releases)
 
 **简体中文** | [English](README.en.md)
 
-> **不想自己编译？** 到 [Releases](https://github.com/xdsT2/quikview/releases/latest) 下 `quikview-*-win64.zip`，解压双击即用，不需要装 Qt。
+> **不想自己编译？** 到 [Releases](https://github.com/xdsT2/quikview/releases) 下 `quikview-*-win64.zip`，解压双击即用，不需要装 Qt。
 
 ![QuikView 主窗口：左侧缩略图浏览器、底部控制胶囊](docs/img/main-window.png)
 
