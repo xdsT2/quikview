@@ -1,7 +1,9 @@
 #pragma once
 
+#include <QElapsedTimer>
 #include <QGraphicsView>
 #include <QMargins>
+#include <QTimer>
 
 class QGraphicsPixmapItem;
 class QGraphicsRectItem;
@@ -18,7 +20,9 @@ class ImageCanvas : public QGraphicsView
 public:
     explicit ImageCanvas(QWidget *parent = nullptr);
 
-    void setPixmap(const QPixmap &pixmap);
+    // fitAfter=false 时不做适配，只装图（调用方随后自行 fit/setViewMode），
+    // 用于消除「setPixmap 内部 fit 一次 + setViewMode 又 fit 一次」的双重计算。
+    void setPixmap(const QPixmap &pixmap, bool fitAfter = true);
     // 旋转/翻转等原地替换：保持当前缩放与视口中心（anchorNorm 为新图中要占据
     // 视口中心的归一化坐标），避免转完后图像跳位或被重新适配。
     void setPixmapPreservingView(const QPixmap &pixmap, const QPointF &anchorNorm,
@@ -84,7 +88,14 @@ private:
     void keepScenePointAt(const QPointF &scenePt, const QPoint &viewportPt);
     // Lanczos：缩小显示时按目标尺寸重采样一次，用 devicePixelRatio 保持逻辑尺寸
     // 不变（scene 几何、fit/center/归一化锚点全都不受影响），只提高采样质量。
+    // refreshSampling() 带交互态闸门：拖窗口/连续缩放时只记账不计算，
+    // 停止 150ms 后由 m_sampleFlush 调 doRefreshSampling() 补一次。
     void refreshSampling();
+    void doRefreshSampling();
+    // fit/fitWidth 的纯几何部分（resetTransform+scale+flags+centerOn+emit），
+    // 与 fitToWindow()/fitToWidth() 共用；resizeEvent 拖动期只调这里不算采样。
+    void fitToWindowGeom();
+    void fitToWidthGeom();
 
     QGraphicsPixmapItem *m_item = nullptr;
     QGraphicsRectItem *m_rubber = nullptr;
@@ -100,8 +111,12 @@ private:
     bool m_wheelZoom = true;
     bool m_middlePan = true;
     bool m_stretchSmall = false;
+    bool m_resizeBurst = false;  // 窗口边界拖动进行中（resizeEvent 置位，收尾定时器复位）
     int m_interp = InterpBicubic;
     QPixmap m_sourcePixmap;      // 未经 Lanczos 预处理的原图，缩放变化时按它重算
     QSize m_samplingSize;        // 上次 Lanczos 重采样的目标像素尺寸（相同就跳过重算）
     qreal m_zoom = 1.0;
+    // 交互收尾定时器：拖动/连续缩放停止 150ms 后补做一次重采样（单发）
+    QTimer m_sampleFlush;
+    QElapsedTimer m_lastSampleReq;   // 上一次 refreshSampling 请求时刻（判连续交互）
 };

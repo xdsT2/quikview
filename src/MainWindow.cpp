@@ -1460,7 +1460,10 @@ void MainWindow::showImage(const QImage &image, const QString &path)
         actEffectNone->setChecked(true);
     }
     const qreal prevZoom = m_canvas->zoom();
-    m_canvas->setPixmap(QPixmap::fromImage(base));
+    // fitAfter=false：这里只装图，适配交给下面的 setViewMode / fitToWindow
+    // 做一次——否则 setPixmap 内部先 fit 一次、setViewMode 又 fit 一次，
+    // Lanczos 模式下等于每次翻页多做一次全图重采样。
+    m_canvas->setPixmap(QPixmap::fromImage(base), /*fitAfter=*/false);
     // 首图按设置默认（fit/actual）；之后翻页保持用户当前浏览方式。
     // 锁定缩放时两者都不走：直接沿用上一张的比例，换图不跳比例。
     if (m_zoomLocked && !m_firstImage && prevZoom > 0.0) {
