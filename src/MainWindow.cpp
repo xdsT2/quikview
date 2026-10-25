@@ -774,6 +774,9 @@ void MainWindow::createActions()
             a->setShortcut(seq);
         }
         connect(a, &QAction::triggered, this, slot);
+        // QAction 的快捷键只有在「挂到窗口」后才参与 QShortcutMap 分发。
+        // 此前所有动作都只 new 没 addAction，Ctrl+O 之类一直靠菜单/冒烟直调才生效。
+        addAction(a);
         return a;
     };
 
@@ -815,8 +818,16 @@ void MainWindow::createActions()
     actFit->setChecked(true);
     actZoomIn = mk(tr("放大(&+)"), QKeySequence::ZoomIn, &MainWindow::onZoomIn);
     actZoomOut = mk(tr("缩小(&-)"), QKeySequence::ZoomOut, &MainWindow::onZoomOut);
-    actPrev = mk(tr("上一张图片"), {}, &MainWindow::onPrev);
-    actNext = mk(tr("下一张图片"), {}, &MainWindow::onNext);
+    // ←/→ 由 QAction 承担：主菜单右侧会自动显示箭头，避免和 keyPressEvent 两处处理。
+    // PageUp/PageDown 作为副快捷键保留（原先就是翻页），显示仍取第一个 ←/→。
+    actPrev = mk(tr("上一张图片"), QKeySequence(Qt::Key_Left), &MainWindow::onPrev);
+    actNext = mk(tr("下一张图片"), QKeySequence(Qt::Key_Right), &MainWindow::onNext);
+    actPrev->setShortcuts({ QKeySequence(Qt::Key_Left), QKeySequence(Qt::Key_PageUp) });
+    actNext->setShortcuts({ QKeySequence(Qt::Key_Right), QKeySequence(Qt::Key_PageDown) });
+    // 菜单右侧要显示箭头而不是 Qt 的英文键名（Right/Left）。QMenu 把 '\t' 之后当快捷键列，
+    // 这里显式写箭头：快捷键仍由 QAction 承担，显示文案单独指定。
+    actPrev->setText(tr("上一张图片") + QLatin1Char('\t') + QStringLiteral("←"));
+    actNext->setText(tr("下一张图片") + QLatin1Char('\t') + QStringLiteral("→"));
     // 浏览导航（对照原版 MENUSTR_PAGEMOVE_*）：10 张跳转/首尾，边界 toast
     actPrev10 = mk(tr("向上10张图片"), QKeySequence(QStringLiteral("Ctrl+PageUp")), &MainWindow::onPrev10);
     actNext10 = mk(tr("向下10张图片"), QKeySequence(QStringLiteral("Ctrl+PageDown")), &MainWindow::onNext10);
@@ -1153,8 +1164,10 @@ QMenu *MainWindow::buildContextMenu()
 
     // —— 浏览导航（10 项）——
     QMenu *nav = menu->addMenu(tr("浏览导航"));
-    addMenuItem(nav, tr("下一张图片"), QStringLiteral("→"), [this]() { onNext(); });
-    addMenuItem(nav, tr("上一张图片"), QStringLiteral("←"), [this]() { onPrev(); });
+    // ←/→ 不再手写死字符串：挂真实 QAction，菜单右侧自动显示 QAction 的快捷键（←/→），
+    // 快捷键只有一个事实来源，不会再出现「菜单写 →、实际按了没反应」。
+    nav->addAction(actNext);
+    nav->addAction(actPrev);
     addMenuItem(nav, tr("首张图片"), QStringLiteral("Home"), [this]() { onFirst(); });
     addMenuItem(nav, tr("末尾图片"), QStringLiteral("End"), [this]() { onLast(); });
     addMenuItem(nav, tr("向下10张图片"), QStringLiteral("Ctrl+PageDown"), [this]() { onNext10(); });
@@ -2823,27 +2836,16 @@ void MainWindow::onAbout()
 
 void MainWindow::keyPressEvent(QKeyEvent *event)
 {
-    if (event->modifiers() & Qt::ControlModifier) {
-        switch (event->key()) {
-        case Qt::Key_Right:
-            onNextFrame();
-            return;
-        case Qt::Key_Left:
-            onPrevFrame();
-            return;
-        default:
-            break;
-        }
-    }
     switch (event->key()) {
-    case Qt::Key_Left:
-    case Qt::Key_PageUp:
-        onPrev();
+    case Qt::Key_Up:
+    case Qt::Key_Down: {
+        // ↑/↓ = 上移/下移（原版语义，不是翻页）；Shift 加大到半屏。
+        // ←/→/PageUp/PageDown 已交给 QAction 快捷键，这里不再重复处理。
+        const qreal frac = (event->modifiers() & Qt::ShiftModifier) ? 0.5 : 0.1;
+        m_canvas->scrollVerticallyBy(event->key() == Qt::Key_Down ? frac : -frac);
+        event->accept();
         return;
-    case Qt::Key_Right:
-    case Qt::Key_PageDown:
-        onNext();
-        return;
+    }
     case Qt::Key_Space:
         // 空格：多帧动图 = 播放/暂停；静态图保持原行为（下一张）
         if (m_frames && m_frames->hasFrames() && m_frames->animatable()) {

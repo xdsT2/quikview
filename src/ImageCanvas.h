@@ -8,6 +8,7 @@ class QGraphicsRectItem;
 class QLabel;
 class QWheelEvent;
 class QMouseEvent;
+class QKeyEvent;
 
 // 图片画布：缩放 + 平移 + 适配窗口 + 裁剪选区。M0 用 QGraphicsView 实现；
 // 后续 M1 接自绘高性能渲染（自定义 QWidget + 分块纹理）再替换。
@@ -50,6 +51,10 @@ public:
     bool isFitToWindow() const { return m_fitToWindow; }
     bool isFitToWidth() const { return m_fitWidth; }
 
+    // ↑/↓（原版「上移/下移」）：按视口高度比例滚动，边界由滚动条自己钳制。
+    // 画面小于视口（适应窗口）时没有可滚动范围，等于不动。
+    void scrollVerticallyBy(qreal fraction);
+
     // 裁剪模式：进入后左键拖拽画选区，selectionRect() 返回图像像素坐标
     void setCropMode(bool on);
     bool cropMode() const { return m_cropMode; }
@@ -65,6 +70,10 @@ signals:
 
 protected:
     void wheelEvent(QWheelEvent *event) override;
+    // 画布不消费导航键：QGraphicsView/QAbstractScrollArea 默认会把方向键吃掉做滚动，
+    // 事件就传不到 MainWindow::keyPressEvent。这里统一 ignore() 冒泡。
+    // 注意不能用 setFocusPolicy(NoFocus) 一刀切——裁剪模式还要靠画布收 Esc。
+    void keyPressEvent(QKeyEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;

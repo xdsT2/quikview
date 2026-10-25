@@ -3,6 +3,7 @@
 #include <QGraphicsPixmapItem>
 #include <QGraphicsRectItem>
 #include <QGraphicsScene>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QMouseEvent>
 #include <QPainter>
@@ -471,6 +472,41 @@ void ImageCanvas::wheelEvent(QWheelEvent *event)
     // 滚轮以鼠标位置为锚点（原型/交接单 §5）
     applyZoomAt(m_zoom * factor, event->position().toPoint());
     event->accept();
+}
+
+void ImageCanvas::keyPressEvent(QKeyEvent *event)
+{
+    // QAbstractScrollArea 默认把方向键/翻页键消费成滚动，画布只要拿到焦点，
+    // 事件就再也到不了 MainWindow。滚动条是 AlwaysOff，于是表现为「按了没反应」。
+    // 统一 ignore() 让事件冒泡；不要用 NoFocus 一刀切，裁剪模式还要收 Esc。
+    switch (event->key()) {
+    case Qt::Key_Left:
+    case Qt::Key_Right:
+    case Qt::Key_Up:
+    case Qt::Key_Down:
+    case Qt::Key_PageUp:
+    case Qt::Key_PageDown:
+        event->ignore();
+        return;
+    default:
+        break;
+    }
+    QGraphicsView::keyPressEvent(event);
+}
+
+void ImageCanvas::scrollVerticallyBy(qreal fraction)
+{
+    // ↑/↓ = 上移/下移（原版语义）。按视口高度比例滚，setValue 自带边界钳制，
+    // 到顶/到底自然停住；适应窗口时没有可滚动范围，直接不动。
+    QScrollBar *bar = verticalScrollBar();
+    if (!bar) {
+        return;
+    }
+    const int span = bar->maximum() - bar->minimum();
+    if (span <= 0) {
+        return;
+    }
+    bar->setValue(bar->value() + qRound(viewport()->height() * fraction));
 }
 
 void ImageCanvas::mousePressEvent(QMouseEvent *event)

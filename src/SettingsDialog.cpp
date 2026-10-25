@@ -1024,8 +1024,18 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     if (!pageLay)
         return;
 
+    // 快捷键自定义尚未接通：整表灰掉并注明，避免「能改但不生效」的假象。
+    // 勾选/热键/下拉仍保留为占位，等 QAction 统一注册表做完再开放。
+    auto *hint = new QLabel(tr("暂不支持自定义：本轮快捷键为固定绑定，此处仅作展示。"), page);
+    hint->setObjectName(QStringLiteral("pageHint"));
+    hint->setStyleSheet(QStringLiteral("QLabel#pageHint{color:#9aa0a6;font-size:11px;}"));
+    hint->setWordWrap(true);
+    pageLay->addWidget(hint);
+
     auto *table = new QFrame(page);
     table->setObjectName(QStringLiteral("keyTable"));
+    table->setEnabled(false);            // 灰显占位，不接受编辑
+    table->setToolTip(tr("暂不支持自定义快捷键"));
     auto *tl = new QVBoxLayout(table);
     tl->setContentsMargins(0, 0, 0, 0);
     tl->setSpacing(0);
