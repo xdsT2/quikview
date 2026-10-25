@@ -514,13 +514,13 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     root->addWidget(body, 1);
 
     // —— 页面（每页一个 QScrollArea，内容 widget 存 m_pages）——
-    buildGeneralPage(addPage(tr("一般"), tr("窗口行为、通知、更新与到达首尾时的操作。")));
+    buildGeneralPage(addPage(tr("一般"), tr("窗口行为、通知与到达首尾时的操作。")));
     buildViewPage(addPage(tr("浏览"), tr("控制主窗口、控制栏、文件名和信息的显示方式。")));
     buildImageProcPage(addPage(tr("图像处理"), tr("设置缓存、透明背景、插值算法与翻页效果。")));
     buildAssocPage(addPage(tr("格式关联"), tr("选择由 QuikView 打开的图片格式。")));
     buildKeyboardPage(addPage(tr("键盘"), tr("自定义浏览、编辑与窗口操作快捷键。")));
     buildMousePage(addPage(tr("鼠标"), tr("设置鼠标按键、滚轮与双击行为。")));
-    buildBookmarkPage(addPage(tr("书签"), tr("管理书签保存、共享与压缩包位置记忆。")));
+    buildBookmarkPage(addPage(tr("书签"), tr("管理书签保存与共享。")));
     buildContextMenuPage(addPage(tr("上下文菜单"), tr("设置资源管理器中的 QuikView 功能入口。")));
     buildEtcPage(addPage(tr("杂项"), tr("图片文件夹、外部编辑器与 RAW 文件行为。")));
     buildLangPage(addPage(tr("语言"), tr("选择界面语言并管理语言文件。")));
@@ -783,14 +783,13 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
     addCheck(sec, tr("在边角显示通知信息，而非中心"), "notify_corner", false, true);
     addCheck(sec, tr("总在最前 (Ctrl+A)"), "always_on_top", false, false);
     addCheck(sec, tr("按 ESC 退出"), "esc_exit", false, true);
-    addCheck(sec, tr("检查更新"), "check_updates", false, false);
-    addCheck(sec, tr("检查小版本更新"), "check_minor_updates", false, false);
+    // 「检查更新 / 检查小版本更新」已删：无联网能力（不依赖 Qt6Network），
+    // Config::checkUpdates()/checkMinorUpdates() 除定义外零调用点，勾了也不会有任何事发生。
 
     sec = beginSection(page, tr("到达首尾图片时"));
     const auto opts = lastFileOptions();
     addComboRow(sec, tr("到达首尾图片时执行"), "edge_action", QStringLiteral("stop"), opts, 160);
-    addComboRow(sec, tr("到达压缩包内首尾图片时执行"), "edge_action_archive",
-                QStringLiteral("ask"), opts, 160);
+    // 「到达压缩包内首尾图片时执行」已删：压缩包浏览未实现，该场景不存在。
 }
 
 // ===========================================================================
@@ -874,8 +873,14 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
 
     addCheck(sec, tr("图片大于窗口时显示图片顶部"), "imageproc/align_top_when_large", false, true);
     addCheck(sec, tr("先显示低品质图片以加速渲染"), "imageproc/preview_mode", false, true);
-    addCheck(sec, tr("使用图片文件的 ICC 设置"), "imageproc/image_icc", false, true);
-    addCheck(sec, tr("使用监视器的 ICC 设置"), "imageproc/monitor_icc", false, false);
+    // ICC 色彩管理尚未实现（无任何消费方），灰显占位，等解码层接入后再开放。
+    auto *iccImage = addCheck(sec, tr("使用图片文件的 ICC 设置"), "imageproc/image_icc", false, true);
+    auto *iccMonitor = addCheck(sec, tr("使用监视器的 ICC 设置"), "imageproc/monitor_icc", false, false);
+    iccImage->setEnabled(false);
+    iccMonitor->setEnabled(false);
+    iccImage->setToolTip(tr("ICC 色彩管理尚未实现"));
+    iccMonitor->setToolTip(tr("ICC 色彩管理尚未实现"));
+    addHint(sec, tr("ICC 色彩管理尚未实现，以上两项暂不可用。"));
 
     sec = beginSection(page, tr("透明与翻页"));
     addComboRow(sec, tr("为 GIF 图片使用透明背景"), "imageproc/gif_transparent", QStringLiteral("0"),
@@ -1185,17 +1190,8 @@ void SettingsDialog::buildBookmarkPage(QWidget *page)
     QWidget *sec = beginSection(page, tr("书签设置"));
     addCheck(sec, tr("自动保存当前图片路径为书签"), "bookmark/auto_bookmark", false, false);
     addCheck(sec, tr("多窗口共享设置 / 书签"), "bookmark/share_settings", false, true);
-    addCheck(sec, tr("自动记忆当前图片在压缩包中的路径"),
-             "bookmark/remember_archive_pos", false, true);
-
-    QHBoxLayout *btnRow = addRow(sec, QString());
-    auto *btnDel = addButton(nullptr, tr("删除已记忆位置"));
-    btnRow->addWidget(btnDel);
-    btnRow->addStretch(1);
-    connect(btnDel, &QPushButton::clicked, this, []() {
-        QMessageBox::information(nullptr, tr("书签"), tr("已清除压缩包内图片的路径记忆。"));
-        sSet("bookmark/archive_pos_cleared", QStringLiteral("1"));
-    });
+    // 「自动记忆当前图片在压缩包中的路径」与「删除已记忆位置」已删：
+    // 压缩包浏览未实现，压缩包路径记忆无从产生，两项勾/点了也不会有任何事发生。
 
     sec = beginSection(page, tr("书签容量"));
     QHBoxLayout *row = addRow(sec, tr("最大书签数"));

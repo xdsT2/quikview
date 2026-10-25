@@ -45,11 +45,6 @@ bool Config::showSelectLangDialog() const
     return m_settings.value(QStringLiteral("config/show_select_lang_dialog"), true).toBool();
 }
 
-bool Config::checkUpdates() const
-{
-    return m_settings.value(QStringLiteral("config/check_updates"), false).toBool();
-}
-
 QString Config::theme() const
 {
     return m_settings.value(QStringLiteral("config/theme"), QStringLiteral("dark")).toString();
@@ -103,11 +98,6 @@ bool Config::alwaysOnTop() const
 bool Config::escExit() const
 {
     return m_settings.value(QStringLiteral("config/esc_exit"), true).toBool();
-}
-
-bool Config::checkMinorUpdates() const
-{
-    return m_settings.value(QStringLiteral("config/check_minor_updates"), false).toBool();
 }
 
 QString Config::edgeAction() const
