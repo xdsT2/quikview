@@ -26,9 +26,8 @@ Select-String -Path tools\03_gen_skin.py -Pattern 'Image\.open|skin\.data|resour
 ## 2. 复现
 
 ```powershell
-$py = 'C:\Users\XDS\AppData\Local\Programs\Python\Python312\python.exe'
-& $py tools\03_gen_skin.py
-& $py -c "import json,hashlib,os; m=json.load(open(r'skin/PROVENANCE.json',encoding='utf-8'))['files']; [print(n, 'OK' if hashlib.sha256(open(os.path.join('skin',n),'rb').read()).hexdigest()==v['sha256'] else 'MISMATCH') for n,v in m.items()]"
+python tools\03_gen_skin.py
+python -c "import json,hashlib,os; m=json.load(open(r'skin/PROVENANCE.json',encoding='utf-8'))['files']; [print(n, 'OK' if hashlib.sha256(open(os.path.join('skin',n),'rb').read()).hexdigest()==v['sha256'] else 'MISMATCH') for n,v in m.items()]"
 ```
 
 预期全部 `OK`。换一台机器、换一个 Python 小版本，输出应逐字节相同
@@ -89,7 +88,7 @@ $py = 'C:\Users\XDS\AppData\Local\Programs\Python\Python312\python.exe'
 
 | 文件 | 位置 | 禁止事项 |
 |---|---|---|
-| 原版主窗口参考截图 | AgentHome，不在仓库 | 不要复制回仓库、不要贴进 issue/README |
+| 原版主窗口参考截图 | 仅存于开发机，不在仓库 | 不要复制回仓库、不要贴进 issue/README |
 | `internal/compare_before_after.png` | 包内 `internal/` | **禁止入库、禁止分发、禁止上传**（含原版像素） |
 | `tools/probe.csv` / `usage.csv` 等探测数据 | 包内 `tools/` | 只含尺寸/哈希/引用位置，不含像素；可随包 |
 

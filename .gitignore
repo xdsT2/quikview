@@ -30,6 +30,11 @@ config.ini
 
 # 会话交接通道（监工侧↔执行侧协调文件，非项目资产）
 HANDOFF.md
+DESIGN-WORK-SUMMARY.md
+
+# 本地验收/比对脚本（依赖本机路径与原版参考截图，不入库）
+verify.sh
+tools_cmp.py
 
 # 临时调试脚本与截图
 Temp/
