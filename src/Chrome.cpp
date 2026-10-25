@@ -1914,9 +1914,9 @@ void EmptyState::paintEvent(QPaintEvent *)
         QString label;
     };
     const QVector<KbdGroup> groups = {
-        { { QStringLiteral("Ctrl"), QStringLiteral("O") }, QStringLiteral("打开图片") },
+        { { QStringLiteral("F2") }, QStringLiteral("打开图片") },
         { { QStringLiteral("F11") }, QStringLiteral("全屏查看") },
-        { { QStringLiteral("F9") }, QStringLiteral("设置") },
+        { { QStringLiteral("F5") }, QStringLiteral("设置") },
     };
     const QFont keyFont = uiFont(11);
     const QFont labelFont = uiFont(12);
