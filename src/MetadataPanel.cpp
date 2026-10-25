@@ -298,9 +298,11 @@ void clearLayout(QVBoxLayout *layout)
     }
     while (QLayoutItem *item = layout->takeAt(0)) {
         if (QWidget *widget = item->widget()) {
-            delete widget;
+            // 有父对象的 widget 不裸 delete：事件队列里可能还有引用它的
+            // 待发事件，deleteLater 交给事件循环收尾（防御悬空，2026-10-25 审计）
+            widget->deleteLater();
         }
-        delete item;
+        delete item;   // QLayoutItem 非 QObject，takeAt 后所有权归调用者，裸 delete 合法
     }
 }
 

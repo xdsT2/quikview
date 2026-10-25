@@ -171,7 +171,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_caption, &Chrome::CaptionBar::systemMenuRequested, this, [this](const QPoint &g) {
         QMenu *menu = buildSystemMenu();
         menu->exec(g);
-        delete menu;
+        menu->deleteLater();
     });
 
     m_toolbar = new Chrome::ToolBar(this);
@@ -179,33 +179,33 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_toolbar, &Chrome::ToolBar::browseMenuRequested, this, [this](const QPoint &g) {
         QMenu *menu = buildBrowseMenu();
         menu->exec(g);
-        delete menu;
+        menu->deleteLater();
     });
     connect(m_toolbar, &Chrome::ToolBar::slideshowMenuRequested, this, [this](const QPoint &g) {
         QMenu *menu = buildSlideshowMenu();
         menu->exec(g);
-        delete menu;
+        menu->deleteLater();
     });
     connect(m_toolbar, &Chrome::ToolBar::bookmarkMenuRequested, this, [this](const QPoint &g) {
         QMenu *menu = buildBookmarkMenu();
         menu->exec(g);
-        delete menu;
+        menu->deleteLater();
     });
     connect(m_toolbar, &Chrome::ToolBar::editMenuRequested, this, [this](const QPoint &g) {
         QMenu *menu = buildEditMenu();
         menu->exec(g);
-        delete menu;
+        menu->deleteLater();
     });
     connect(m_toolbar, &Chrome::ToolBar::copytoMenuRequested, this, [this](const QPoint &g) {
         QMenu *menu = buildCopytoMenu();
         menu->exec(g);
-        delete menu;
+        menu->deleteLater();
     });
     connect(m_toolbar, &Chrome::ToolBar::lockToggled, this, &MainWindow::toggleTopLock);
     connect(m_toolbar, &Chrome::ToolBar::moreMenuRequested, this, [this](const QPoint &g) {
         QMenu *menu = buildSystemMenu();
         menu->exec(g);
-        delete menu;
+        menu->deleteLater();
     });
 
     m_control = new Chrome::ControlBar(this);
@@ -1314,7 +1314,7 @@ void MainWindow::contextMenuEvent(QContextMenuEvent *event)
 {
     QMenu *menu = buildContextMenu();
     menu->exec(event->globalPos());
-    delete menu;
+    menu->deleteLater();
 }
 
 // ---------------------------------------------------------------------------

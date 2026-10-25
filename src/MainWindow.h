@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QMargins>
 #include <QElapsedTimer>
+#include <QPointer>
 
 class ImageCanvas;
 class ImageCache;
@@ -239,9 +240,12 @@ private:
     QMenu *m_recentMenu = nullptr;
 
     // —— 铬件（Honeyview 贴图复刻）——
-    Chrome::CaptionBar *m_caption = nullptr;
-    Chrome::ToolBar *m_toolbar = nullptr;
-    Chrome::ControlBar *m_control = nullptr;
+    // 三个常驻栏用 QPointer 持有（2026-10-25 悬空指针防御审计）：
+    // 若未来任何路径提前销毁 widget，指针自动置空而不是留悬空值，
+    // 现有的 `if (m_caption)` 判空检查直接生效。
+    QPointer<Chrome::CaptionBar> m_caption;
+    QPointer<Chrome::ToolBar> m_toolbar;
+    QPointer<Chrome::ControlBar> m_control;
     Chrome::Toast *m_toast = nullptr;
     Chrome::ZoomBadge *m_zoomBadge = nullptr;
     Chrome::StatusOverlay *m_statusOverlay = nullptr;
