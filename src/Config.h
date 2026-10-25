@@ -41,6 +41,7 @@ public:
     QString interpolation() const;     // "bilinear" | "bicubic" | "lanczos"（默认 "bicubic"）
     bool smoothZoom() const;           // 默认平滑缩放
     bool stretchSmall() const;         // 适合窗口时把小于窗口的图放大填满（默认 false）
+    bool hdrTonemap() const;           // HDR 色调映射（高位深→SDR，命令栏 HDR 钮，默认 true）
 
     // 鼠标
     bool wheelZoom() const;            // 滚轮缩放

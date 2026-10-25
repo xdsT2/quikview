@@ -51,6 +51,7 @@
 #include "ImageCanvas.h"
 #include "ImageEffects.h"
 #include "MetadataPanel.h"
+#include "ToneMap.h"
 #include "RawImageLoader.h"
 #include "SettingsDialog.h"
 #include "Theme.h"
@@ -208,6 +209,19 @@ MainWindow::MainWindow(QWidget *parent)
         menu->deleteLater();
     });
     connect(m_toolbar, &Chrome::ToolBar::lockToggled, this, &MainWindow::toggleTopLock);
+    // HDR 色调映射开关（activate 已翻转 isHdr，这里只持久化 + 让当前图走一遍新管线）
+    connect(m_toolbar, &Chrome::ToolBar::hdrToggled, this, [this]() {
+        m_hdrTonemap = m_toolbar->isHdr();
+        Config::instance().settings().setValue(QStringLiteral("config/hdr_tonemap"),
+                                               m_hdrTonemap);
+        m_cache->clearFull();   // 解码输出随开关变化，原图缓存全部失效
+        if (!m_currentPath.isEmpty()) {
+            loadAsync(m_currentPath);
+        }
+        m_toast->showMessage(m_hdrTonemap ? tr("HDR 已开启") : tr("HDR 已关闭"));
+    });
+    m_toolbar->setHdr(Config::instance().hdrTonemap());
+    m_hdrTonemap = Config::instance().hdrTonemap();
     connect(m_toolbar, &Chrome::ToolBar::moreMenuRequested, this, [this](const QPoint &g) {
         QMenu *menu = buildSystemMenu();
         menu->exec(g);
@@ -229,13 +243,20 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_control, &Chrome::ControlBar::next10Clicked, this, &MainWindow::onNext10);
     connect(m_control, &Chrome::ControlBar::prevFolderClicked, this, &MainWindow::onPrevFolder);
     connect(m_control, &Chrome::ControlBar::nextFolderClicked, this, &MainWindow::onNextFolder);
-    connect(m_control, &Chrome::ControlBar::zoomRequested, this, [this](int pct) {
-        m_canvas->setZoom(pct / 100.0);
+    // 翻页滑杆：拖动中不发信号，松手才跳一次图（1-based）
+    connect(m_control, &Chrome::ControlBar::pageRequested, this, [this](int index) {
+        if (!m_dir || !m_dir->isValid() || index < 1 || index > m_dir->count()) {
+            return;
+        }
+        if (index - 1 == m_dir->index()) {
+            return;
+        }
+        m_dir->setIndex(index - 1);
+        loadAsync(m_dir->current());
     });
 
-    // 画布缩放（滚轮/按钮/滑条/适配模式）统一联动：控制栏滑条 + 左下角浮标 + 浏览方式图标降级
+    // 画布缩放联动：左下角浮标 + 浏览方式图标降级（胶囊滑杆已是翻页进度，不再跟随缩放）
     connect(m_canvas, &ImageCanvas::zoomChanged, this, [this](qreal z) {
-        m_control->setZoomPercent(qRound(z * 100));
         if (m_zoomBadge && !m_currentImage.isNull()) {
             QString txt;
             if (m_canvas->isFitToWindow()) {
@@ -401,10 +422,18 @@ void MainWindow::applyChromeLayout()
                                qMin(m_browser->preferredHeight(), avail));
         m_browser->raise();
     }
-    // 图片信息：右侧内缩浮层（原型 344 宽、上下左右各留 14）
+    // 图片信息：左上覆盖层（原型 .info-overlay）。缩略图面板开合跟着横移，
+    // 不遮挡面板（面板右缘 12+160=172，浮层 196 起）；全屏时贴顶 10px。
+    // 宽度是浮层自己算好的自然宽（钳在 280..440），高度钳到可用高度，
+    // 超出部分由浮层内部滚动。覆盖层不参与 updateCanvasInsets，不挤压画布。
     if (m_metadata && m_metadata->isVisible()) {
-        m_metadata->setGeometry(x + w - UiStyle::InfoPanelW - 14, y + 14,
-                                UiStyle::InfoPanelW, h - 28);
+        const bool browserOpen = m_browser && m_browser->isVisible();
+        const int left = browserOpen ? 196 : 14;
+        const int top = full ? 10 : 70;
+        const int availH = h - top - 24;
+        const QSize hint = m_metadata->sizeHint();
+        m_metadata->setGeometry(x + left, y + top,
+                                hint.width(), qMin(hint.height(), qMax(120, availH)));
         m_metadata->raise();
     }
 
@@ -851,10 +880,19 @@ void MainWindow::createActions()
 
     actToggleMeta = new QAction(tr("显示/隐藏信息面板(&I)"), this);
     actToggleMeta->setCheckable(true);
-    connect(actToggleMeta, &QAction::toggled, m_metadata, &QWidget::setVisible);
+    // 浮层几何依赖可见性（隐藏时 applyChromeLayout 跳过它），显示后要立刻排一次
+    connect(actToggleMeta, &QAction::toggled, this, [this](bool on) {
+        m_metadata->setVisible(on);
+        if (on) {
+            applyChromeLayout();
+        }
+    });
     // 面板自带 × 关掉时，把菜单勾选态同步回未勾选，避免「关了还打勾」
     connect(m_metadata, &MetadataPanel::closed, this, [this]() {
         actToggleMeta->setChecked(false);
+    });
+    connect(m_metadata, &MetadataPanel::copied, this, [this]() {
+        m_toast->showMessage(tr("已复制图片信息参数"));
     });
 
     actDark = new QAction(tr("深色模式(&D)"), this);
@@ -1404,15 +1442,16 @@ void MainWindow::loadAsync(const QString &path)
 {
     m_currentPath = path;
     m_frames->clear();
-    m_cache->requestFull(path);
+    // 快帧目标 = 视口像素：连按时先上缩放解码的快帧顶住体感
+    m_cache->requestFull(path, m_canvas ? m_canvas->viewport()->size() : QSize());
 }
 
-void MainWindow::onFullReady(const QString &path, const QImage &image)
+void MainWindow::onFullReady(const QString &path, const QImage &image, bool preview)
 {
     if (path != m_currentPath) {
         return; // 过期结果（用户已切到别的图）
     }
-    showImage(image, path);
+    showImage(image, path, preview);
 }
 
 void MainWindow::onLoadFailed(const QString &path, const QString &error)
@@ -1421,13 +1460,13 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error)
         return;
     }
     QString rawErr;
-    QImage img = loadRawImage(path, &rawErr);
+    QImage img = loadRawImage(path, &rawErr, m_hdrTonemap);
     if (!img.isNull()) {
         showImage(img, path);
         return;
     }
     QString heifErr;
-    img = loadHeifImage(path, &heifErr);
+    img = loadHeifImage(path, &heifErr, m_hdrTonemap);
     if (!img.isNull()) {
         showImage(img, path);
         return;
@@ -1436,14 +1475,26 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error)
     m_toast->showMessage(tr("无法打开：%1").arg(lastErr.isEmpty() ? error : lastErr));
 }
 
-void MainWindow::showImage(const QImage &image, const QString &path)
+void MainWindow::showImage(const QImage &image, const QString &path, bool preview)
 {
+    // 连按中途的快帧：只换画布与标题顶住体感。源图/效果/元数据/动图等簿记
+    // 等全图到了走完整流程，避免快帧（缩放解码的小图）污染旋转/Gamma 基准。
+    if (preview) {
+        m_canvas->setPixmap(QPixmap::fromImage(image));
+        setWindowTitle(QFileInfo(path).fileName() + QStringLiteral(" - QuikView"));
+        m_caption->setTitle(QFileInfo(path).fileName());
+        return;
+    }
+    // HDR 色调映射通用口：loader 内部的高位深在解码层就映射完（到这里已是
+    // 8bit，toneMapToSdr 原样放行）；QImageReader 产出的 RGBA64（16bit PNG/
+    // TIFF 等）在这里映射。8bit 图硬规则：一个像素都不动。
+    const QImage sdr = m_hdrTonemap ? ToneMap::toneMapToSdr(image) : image;
     // 双页模式先把相邻两页拼成一张大图，后面所有几何/颜色变换都作用在整跨页上，
     // 视图层面永远只有「一张图」，不需要两套坐标。
-    QImage base = image;
+    QImage base = sdr;
     if (isSpreadMode()) {
         const QImage second = readImageSync(spreadSecondPath());
-        base = (m_viewMode == 3) ? composeSpread(image, second) : composeSpread(second, image);
+        base = (m_viewMode == 3) ? composeSpread(sdr, second) : composeSpread(second, sdr);
     }
     // m_sourceImage 保存「文件里的原始像素」，旋转/翻转/反相/Gamma 全都从它派生。
     // 这样「不旋转」才能真回到原样，而不是靠撤销栈一层层退。
@@ -1480,7 +1531,11 @@ void MainWindow::showImage(const QImage &image, const QString &path)
     }
     m_firstImage = false;
     updateCanvasLogo();
+    // 胶囊第一行 = 翻页进度（对齐原型 #pageSlider）；单张目录时控件自动禁用
+    m_control->setPage(m_dir->index() + 1, m_dir->count());
     m_metadata->showImage(path, image);
+    // 信息浮层宽度随元数据自适应，换图后重排一次几何
+    applyChromeLayout();
     m_browser->setCurrent(m_dir->index());
     setWindowTitle(QFileInfo(path).fileName() + QStringLiteral(" - QuikView"));
     m_caption->setTitle(QFileInfo(path).fileName());
@@ -1639,11 +1694,6 @@ void MainWindow::setViewMode(int mode)
     }
 }
 
-void MainWindow::syncZoom()
-{
-    m_control->setZoomPercent(qRound(m_canvas->zoom() * 100));
-}
-
 // 冒烟自动化：单命令驱动（--smoke next10 等）。命令在首图就绪后由 main() 调度。
 // 命令集随 P0 任务扩展：翻页/浏览方式/排序/文件夹跳转/幻灯片。
 void MainWindow::runSmokeCommand(const QString &cmd)
@@ -1797,7 +1847,7 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << " idx=" << m_dir->index() << '/' << m_dir->count()
                << " cap=" << (m_control ? m_control->size().width() : 0) << 'x'
                << (m_control ? m_control->size().height() : 0)
-               << " pct=" << m_control->zoomPercent()
+               << " page=" << (m_control ? m_control->page() : 0)
                << " rot=" << m_netRotation
                << " vm=" << m_viewMode
                << " zlock=" << (m_zoomLocked ? 1 : 0)
@@ -2492,17 +2542,18 @@ QImage MainWindow::readImageSync(const QString &path) const
         return QImage();
     }
     QString err;
-    QImage img = loadRawImage(path, &err);
+    QImage img = loadRawImage(path, &err, m_hdrTonemap);
     if (!img.isNull()) {
         return img;
     }
-    img = loadHeifImage(path, &err);
+    img = loadHeifImage(path, &err, m_hdrTonemap);
     if (!img.isNull()) {
         return img;
     }
     QImageReader reader(path);
     reader.setAutoTransform(true);
-    return reader.read();
+    QImage viaReader = reader.read();
+    return m_hdrTonemap ? ToneMap::toneMapToSdr(viaReader) : viaReader;
 }
 
 QString MainWindow::spreadSecondPath() const

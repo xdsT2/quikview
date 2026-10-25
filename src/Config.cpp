@@ -129,6 +129,11 @@ bool Config::stretchSmall() const
     return m_settings.value(QStringLiteral("config/stretch_small"), false).toBool();
 }
 
+bool Config::hdrTonemap() const
+{
+    return m_settings.value(QStringLiteral("config/hdr_tonemap"), true).toBool();
+}
+
 bool Config::smoothZoom() const
 {
     return m_settings.value(QStringLiteral("config/smooth_zoom"), true).toBool();

@@ -1,21 +1,24 @@
 #include "MetadataPanel.h"
 
+#include <QApplication>
 #include <QColorSpace>
+#include <QClipboard>
 #include <QDesktopServices>
 #include <QEvent>
 #include <QFileInfo>
 #include <QFontMetrics>
 #include <QFrame>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPainter>
 #include <QPainterPath>
+#include <QPointer>
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QScrollArea>
 #include <QStyle>
 #include <QStyleOption>
-#include <QTabBar>
 #include <QUrl>
 #include <QVBoxLayout>
 
@@ -79,54 +82,7 @@ private:
     }
 
     QString m_full;
-    Qt::TextElideMode m_mode = Qt::ElideMiddle;
-};
-
-// ---------------------------------------------------------------------------
-// 预览块：QSS 画底板+描边，图片按 cover 比例裁中填满（对应原型 object-fit:cover）。
-// ---------------------------------------------------------------------------
-class PreviewBox : public QWidget
-{
-public:
-    explicit PreviewBox(QWidget *parent = nullptr) : QWidget(parent) {}
-
-    void setImage(const QImage &image)
-    {
-        m_image = image;
-        update();
-    }
-
-protected:
-    void paintEvent(QPaintEvent *) override
-    {
-        QPainter painter(this);
-        QStyleOption opt;
-        opt.initFrom(this);
-        style()->drawPrimitive(QStyle::PE_Widget, &opt, &painter, this);
-
-        if (m_image.isNull()) {
-            return;
-        }
-        const QRectF box = QRectF(rect()).adjusted(1, 1, -1, -1);
-        if (box.width() < 2 || box.height() < 2) {
-            return;
-        }
-        QPainterPath clip;
-        clip.addRoundedRect(box, 6, 6);
-        painter.setClipPath(clip);
-        painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
-
-        const QSizeF src = m_image.size();
-        const qreal scale = qMax(box.width() / src.width(), box.height() / src.height());
-        const QSizeF scaled = src * scale;
-        const QRectF dst(box.center().x() - scaled.width() / 2,
-                         box.center().y() - scaled.height() / 2,
-                         scaled.width(), scaled.height());
-        painter.drawImage(dst, m_image);
-    }
-
-private:
-    QImage m_image;
+    Qt::TextElideMode m_mode = Qt::ElideRight;
 };
 
 // ---------------------------------------------------------------------------
@@ -222,88 +178,73 @@ private:
 };
 
 // ---------------------------------------------------------------------------
-// 元数据分组：11px 组标题 + 每行「85px 标签 / 值」（原型 .meta-group / .meta-row）。
+// 顶部圆钮：22px 圆形描边按钮（原型 .info-action），自绘 × 与复制图标。
 // ---------------------------------------------------------------------------
-class MetaGroup : public QWidget
+class RoundIconBtn : public QPushButton
 {
 public:
-    explicit MetaGroup(const QString &title, QWidget *parent = nullptr) : QWidget(parent)
-    {
-        setObjectName(QStringLiteral("metaGroup"));
-        m_body = new QVBoxLayout(this);
-        m_body->setContentsMargins(0, 0, 0, 16);  // 原型 .meta-group margin-bottom:16px
-        m_body->setSpacing(0);
+    enum Glyph { Close, Copy };
 
-        auto *caption = new QLabel(title, this);
-        caption->setObjectName(QStringLiteral("groupTitle"));
-        m_body->addWidget(caption);
-        m_body->addSpacing(5);
+    RoundIconBtn(Glyph glyph, const QString &tip, QWidget *parent = nullptr)
+        : QPushButton(parent), m_glyph(glyph)
+    {
+        setFixedSize(22, 22);
+        setToolTip(tip);
+        setCursor(Qt::PointingHandCursor);
+        setFocusPolicy(Qt::NoFocus);
     }
 
-    void add(const QString &key, const QString &value)
+protected:
+    void paintEvent(QPaintEvent *) override
     {
-        auto *row = new QWidget(this);
-        auto *line = new QHBoxLayout(row);
-        line->setContentsMargins(0, 6, 0, 6);
-        line->setSpacing(10);
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing, true);
 
-        auto *keyLabel = new QLabel(key, row);
-        keyLabel->setObjectName(QStringLiteral("metaKey"));
-        keyLabel->setFixedWidth(85);
-        keyLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-        keyLabel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+        const bool hot = underMouse() || isDown();
+        QColor bg(255, 255, 255, isDown() ? 46 : (hot ? 38 : 15));
+        QColor border(255, 255, 255, isDown() ? 61 : (hot ? 51 : 31));
+        p.setPen(QPen(border, 1));
+        p.setBrush(bg);
+        p.drawEllipse(rect().adjusted(0.5, 0.5, -0.5, -0.5));
 
-        auto *valueLabel = new QLabel(value, row);
-        valueLabel->setObjectName(QStringLiteral("metaValue"));
-        valueLabel->setWordWrap(true);
-        valueLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-        valueLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+        QColor ink(0xd7, 0xd9, 0xdc);
+        if (hot) {
+            ink = QColor(Qt::white);
+        }
+        QPen pen(ink, 1.6);
+        pen.setCapStyle(Qt::RoundCap);
+        pen.setJoinStyle(Qt::RoundJoin);
+        p.setPen(pen);
+        p.setBrush(Qt::NoBrush);
 
-        line->addWidget(keyLabel, 0);
-        line->addWidget(valueLabel, 1);
-        m_body->addWidget(row);
-    }
-
-    void addWidget(QWidget *widget)
-    {
-        m_body->addWidget(widget);
+        const QPointF c = rect().center();
+        if (m_glyph == Close) {
+            p.drawLine(c + QPointF(-3.2, -3.2), c + QPointF(3.2, 3.2));
+            p.drawLine(c + QPointF(3.2, -3.2), c + QPointF(-3.2, 3.2));
+        } else {
+            // 两张叠纸（原型 #i-copy）：后纸在右上，前纸在左下
+            p.drawRoundedRect(QRectF(c.x() - 5.5, c.y() - 2.0, 7.5, 8.0), 1.5, 1.5);
+            p.drawRoundedRect(QRectF(c.x() - 2.0, c.y() - 6.0, 7.5, 8.0), 1.5, 1.5);
+        }
     }
 
 private:
-    QVBoxLayout *m_body = nullptr;
+    Glyph m_glyph;
 };
 
 namespace {
 
-// 只补 panelQss() 没覆盖到的细节（滚动区/分隔线/地图链接/空提示），颜色仍取 UiStyle 令牌。
-QString extraQss()
+// GPS 十进制度 → 「N 30°36'19.03"」样式（对照原型 GPS 信息行的度分秒格式）
+QString formatDms(double deg, QChar positive, QChar negative)
 {
-    return QStringLiteral(
-               "QScrollArea, QScrollArea > QWidget { background: transparent; border: 0; }"
-               "QScrollArea > QWidget > QWidget { background: transparent; }"
-               "QFrame#panelDivider { background: %1; border: 0; }"
-               "QLabel#groupTitle { font-size: 11px; color: #858b93; }"
-               "QLabel#emptyHint { font-size: 11px; color: %2; }"
-               "QPushButton#mapLink { background: transparent; border: 0; padding: 0;"
-               " text-align: left; font-size: 11px; color: %3; }"
-               "QPushButton#mapLink:hover { color: #72caf1; }")
-        .arg(QString::fromLatin1(UiStyle::Line), QString::fromLatin1(UiStyle::Muted),
-             QString::fromLatin1(UiStyle::Accent));
-}
-
-void clearLayout(QVBoxLayout *layout)
-{
-    if (!layout) {
-        return;
-    }
-    while (QLayoutItem *item = layout->takeAt(0)) {
-        if (QWidget *widget = item->widget()) {
-            // 有父对象的 widget 不裸 delete：事件队列里可能还有引用它的
-            // 待发事件，deleteLater 交给事件循环收尾（防御悬空，2026-10-25 审计）
-            widget->deleteLater();
-        }
-        delete item;   // QLayoutItem 非 QObject，takeAt 后所有权归调用者，裸 delete 合法
-    }
+    const QChar hem = deg >= 0 ? positive : negative;
+    qreal a = qAbs(deg);
+    const int d = int(a);
+    a = (a - d) * 60.0;
+    const int m = int(a);
+    const qreal s = (a - m) * 60.0;
+    return QStringLiteral("%1 %2°%3'%4\"")
+        .arg(hem).arg(d).arg(m).arg(s, 0, 'f', 2);
 }
 
 } // namespace
@@ -313,6 +254,7 @@ void clearLayout(QVBoxLayout *layout)
 MetadataPanel::MetadataPanel(QWidget *parent) : QWidget(parent)
 {
     buildUi();
+    clear();
 }
 
 void MetadataPanel::buildUi()
@@ -320,152 +262,159 @@ void MetadataPanel::buildUi()
     setObjectName(QStringLiteral("infoPanel"));
     // 普通 QWidget 子类要显式开这个属性，样式表的背景/圆角才会生效。
     setAttribute(Qt::WA_StyledBackground, true);
-    setStyleSheet(UiStyle::panelQss() + extraQss());
+    setStyleSheet(UiStyle::panelQss());
 
     auto *root = new QVBoxLayout(this);
-    root->setContentsMargins(0, 0, 0, 0);
-    root->setSpacing(0);
+    root->setContentsMargins(10, 6, 10, 9);   // 原型 .info-overlay padding
+    root->setSpacing(6);
 
-    // —— 头部：44px，标题 + 关闭 ——
-    auto *head = new QWidget(this);
-    head->setObjectName(QStringLiteral("infoHead"));
-    head->setFixedHeight(44);
-    auto *headLayout = new QHBoxLayout(head);
-    headLayout->setContentsMargins(16, 0, 12, 0);
-    headLayout->setSpacing(0);
-
-    auto *title = new QLabel(tr("图片信息"), head);
-    title->setObjectName(QStringLiteral("infoTitle"));
-    QFont titleFont = UiStyle::font(13);
-    titleFont.setWeight(QFont::Medium);  // 原型 .info-head strong:500
-    title->setFont(titleFont);
-    headLayout->addWidget(title);
-    headLayout->addStretch(1);
-
-    auto *closeBtn = new QPushButton(QStringLiteral("×"), head);
-    closeBtn->setObjectName(QStringLiteral("iconAction"));
-    closeBtn->setFixedSize(30, 30);
-    closeBtn->setToolTip(tr("关闭"));
-    closeBtn->setCursor(Qt::PointingHandCursor);
+    // —— 顶部圆钮行：关闭 / 复制参数（无标题文字，原型 .info-actions）——
+    auto *actions = new QWidget(this);
+    actions->setObjectName(QStringLiteral("infoActions"));
+    auto *actionsLayout = new QHBoxLayout(actions);
+    actionsLayout->setContentsMargins(0, 0, 0, 0);
+    actionsLayout->setSpacing(6);
+    auto *closeBtn = new RoundIconBtn(RoundIconBtn::Close, tr("关闭 (Tab)"), actions);
     connect(closeBtn, &QPushButton::clicked, this, [this]() {
         hide();
         emit closed();
     });
-    headLayout->addWidget(closeBtn);
-    root->addWidget(head);
+    actionsLayout->addWidget(closeBtn);
+    auto *copyBtn = new RoundIconBtn(RoundIconBtn::Copy, tr("复制参数"), actions);
+    connect(copyBtn, &QPushButton::clicked, this, [this]() {
+        QApplication::clipboard()->setText(m_copyLines.join(QLatin1Char('\n')));
+        emit copied();
+    });
+    actionsLayout->addWidget(copyBtn);
+    actionsLayout->addStretch(1);
+    root->addWidget(actions);
 
-    // —— 滚动区 ——
+    // —— 滚动区：内容超出可用高度时整块内部滚动，不撑出窗口 ——
     m_scroll = new QScrollArea(this);
     m_scroll->setWidgetResizable(true);
     m_scroll->setFrameShape(QFrame::NoFrame);
     m_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-
-    auto *content = new QWidget(m_scroll);
-    content->setObjectName(QStringLiteral("infoContent"));
-    auto *contentLayout = new QVBoxLayout(content);
-    contentLayout->setContentsMargins(16, 16, 16, 16);
-    contentLayout->setSpacing(0);
-    m_scroll->setWidget(content);
     root->addWidget(m_scroll, 1);
 
-    // 预览 142px
-    m_preview = new PreviewBox(content);
-    m_preview->setObjectName(QStringLiteral("previewBox"));
-    m_preview->setFixedHeight(142);
-    contentLayout->addWidget(m_preview);
-    contentLayout->addSpacing(14);
+    m_body = new QWidget(m_scroll);
+    m_bodyLayout = new QVBoxLayout(m_body);
+    m_bodyLayout->setContentsMargins(0, 0, 0, 0);
+    m_bodyLayout->setSpacing(8);
+    m_scroll->setWidget(m_body);
 
-    // 文件名 / 完整路径
-    m_fileName = new ElidedLabel(Qt::ElideRight, content);
-    m_fileName->setObjectName(QStringLiteral("fileName"));
-    QFont nameFont = UiStyle::font(14);  // 与 QSS 一致，避免首帧按 12px 算高而切掉下伸部
-    nameFont.setWeight(QFont::Medium);   // 原型 .file-name:500
-    m_fileName->setFont(nameFont);
-    contentLayout->addWidget(m_fileName);
-    contentLayout->addSpacing(5);
+    rebuildGrid();
 
-    m_filePath = new ElidedLabel(Qt::ElideMiddle, content);
-    m_filePath->setObjectName(QStringLiteral("filePath"));
-    m_filePath->setFont(UiStyle::font(11));
-    contentLayout->addWidget(m_filePath);
-    contentLayout->addSpacing(16);
+    // GPS 入口：原型没有，功能保留（青色文字链接）
+    m_mapBtn = new QPushButton(tr("在地图中查看"), m_body);
+    m_mapBtn->setObjectName(QStringLiteral("mapLink"));
+    m_mapBtn->setCursor(Qt::PointingHandCursor);
+    m_mapBtn->setFlat(true);
+    connect(m_mapBtn, &QPushButton::clicked, this, [this]() {
+        if (!m_mapUrl.isEmpty()) {
+            QDesktopServices::openUrl(QUrl(m_mapUrl));
+        }
+    });
+    m_bodyLayout->addWidget(m_mapBtn, 0, Qt::AlignLeft);
+    m_mapBtn->hide();
 
-    // 三个页签（QTabBar 只用做选择器，样式来自 appQss 的 QTabBar::tab）
-    m_tabs = new QTabBar(content);
-    m_tabs->setExpanding(false);
-    m_tabs->setDrawBase(false);
-    m_tabs->setUsesScrollButtons(false);
-    m_tabs->setFocusPolicy(Qt::NoFocus);
-    m_tabs->setFixedHeight(33);
-    m_tabs->addTab(tr("基本信息"));
-    m_tabs->addTab(tr("EXIF"));
-    m_tabs->addTab(tr("直方图"));
-    contentLayout->addWidget(m_tabs);
+    // —— 底部可折叠直方图（默认收起，去页签后的唯一图形化信息）——
+    m_histToggle = new QPushButton(m_body);
+    m_histToggle->setObjectName(QStringLiteral("histToggle"));
+    m_histToggle->setCursor(Qt::PointingHandCursor);
+    m_histToggle->setFlat(true);
+    m_histToggle->setFocusPolicy(Qt::NoFocus);
+    m_histToggle->setText(tr("▸ 直方图"));
+    connect(m_histToggle, &QPushButton::clicked, this, [this]() {
+        const bool show = m_histBody->isHidden();
+        m_histBody->setVisible(show);
+        m_histToggle->setText(show ? tr("▾ 直方图") : tr("▸ 直方图"));
+    });
+    m_bodyLayout->addWidget(m_histToggle, 0, Qt::AlignLeft);
 
-    auto *divider = new QFrame(content);
-    divider->setObjectName(QStringLiteral("panelDivider"));
-    divider->setFixedHeight(1);
-    contentLayout->addWidget(divider);
-    contentLayout->addSpacing(14);
+    m_histBody = new QWidget(m_body);
+    auto *histLayout = new QVBoxLayout(m_histBody);
+    histLayout->setContentsMargins(0, 0, 0, 0);
+    m_histogram = new HistogramView(m_histBody);
+    histLayout->addWidget(m_histogram);
+    m_histBody->hide();
+    m_bodyLayout->addWidget(m_histBody);
 
-    // 基本信息页
-    m_basicPage = new QWidget(content);
-    m_basicLayout = new QVBoxLayout(m_basicPage);
-    m_basicLayout->setContentsMargins(0, 0, 0, 0);
-    m_basicLayout->setSpacing(0);
-    contentLayout->addWidget(m_basicPage);
-
-    // EXIF 页
-    m_exifPage = new QWidget(content);
-    m_exifLayout = new QVBoxLayout(m_exifPage);
-    m_exifLayout->setContentsMargins(0, 0, 0, 0);
-    m_exifLayout->setSpacing(0);
-    contentLayout->addWidget(m_exifPage);
-
-    // 直方图页
-    m_histPage = new QWidget(content);
-    m_histLayout = new QVBoxLayout(m_histPage);
-    m_histLayout->setContentsMargins(0, 0, 0, 0);
-    m_histLayout->setSpacing(0);
-    auto *histGroup = new MetaGroup(tr("直方图"), m_histPage);
-    m_histogram = new HistogramView(histGroup);
-    histGroup->addWidget(m_histogram);
-    m_histLayout->addWidget(histGroup);
-    contentLayout->addWidget(m_histPage);
-
-    contentLayout->addStretch(1);
-
-    connect(m_tabs, &QTabBar::currentChanged, this, &MetadataPanel::selectTab);
-    selectTab(0);
-
-    clear();
+    m_bodyLayout->addStretch(1);
 }
 
-void MetadataPanel::selectTab(int index)
+// 键值 grid 每次换图整个重建：QGridLayout 移除 item 后行数/行高不会缩回去，
+// 复用会踩到上一张图留下的空行与 7px 行高。
+void MetadataPanel::rebuildGrid()
 {
-    if (!m_basicPage) {
-        return;
+    if (m_gridHolder) {
+        m_gridHolder->deleteLater();
+        m_gridHolder = nullptr;
+        m_grid = nullptr;
     }
-    m_basicPage->setVisible(index == 0);
-    m_exifPage->setVisible(index == 1);
-    m_histPage->setVisible(index == 2);
+    m_gridHolder = new QWidget(m_body);
+    m_grid = new QGridLayout(m_gridHolder);
+    m_grid->setContentsMargins(0, 0, 0, 0);
+    m_grid->setHorizontalSpacing(2);   // 原型 .info-rows column-gap:2px
+    m_grid->setVerticalSpacing(1);     // 原型 row-gap:1px
+    m_grid->setColumnStretch(0, 0);
+    m_grid->setColumnStretch(1, 1);
+    m_bodyLayout->insertWidget(0, m_gridHolder);
 }
 
 void MetadataPanel::clear()
 {
-    if (!m_preview) {
+    m_copyLines.clear();
+    m_maxKeyW = 0;
+    m_maxValW = 0;
+    m_mapUrl.clear();
+    if (m_mapBtn) {
+        m_mapBtn->hide();
+    }
+    m_noExifHint = nullptr;
+    if (m_histogram) {
+        m_histogram->clearBins();
+    }
+    rebuildGrid();
+}
+
+void MetadataPanel::addGroup(const QList<Row> &rows)
+{
+    if (rows.isEmpty()) {
         return;
     }
-    m_preview->setImage(QImage());
-    m_fileName->setFullText(QString());
-    m_filePath->setFullText(QString());
-    m_mapUrl.clear();
-    m_mapBtn = nullptr;
-    m_histogramBasic = nullptr;  // 随基本信息页一起被删掉
-    clearLayout(m_basicLayout);
-    clearLayout(m_exifLayout);
-    m_histogram->clearBins();
+    int row = m_grid->rowCount();
+    for (const Row &r : rows) {
+        auto *key = new QLabel(r.key, m_gridHolder);
+        key->setObjectName(QStringLiteral("infoKey"));
+        key->setFont(UiStyle::font(12));
+
+        auto *value = new ElidedLabel(Qt::ElideRight, m_gridHolder);
+        value->setObjectName(QStringLiteral("infoVal"));
+        value->setFont(UiStyle::font(12));
+        value->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        value->setFullText(r.value);
+
+        // 自然宽度用各 label 自己的字体度量累计，与最终渲染一致
+        m_maxKeyW = qMax(m_maxKeyW, key->fontMetrics().horizontalAdvance(r.key));
+        m_maxValW = qMax(m_maxValW, value->fontMetrics().horizontalAdvance(r.value));
+
+        m_grid->addWidget(key, row, 0, Qt::AlignLeft | Qt::AlignVCenter);
+        m_grid->addWidget(value, row, 1);
+        m_copyLines.append(r.key + QStringLiteral(": ") + r.value);
+        ++row;
+    }
+}
+
+void MetadataPanel::addGroupGap()
+{
+    // 原型 .info-gap：组间 7px 空隙；复制文本里对应一个空行（空组也输出空行）
+    const int row = qMax(0, m_grid->rowCount());
+    m_grid->setRowMinimumHeight(row, 7);
+    m_grid->setRowStretch(row, 0);
+    if (!m_copyLines.isEmpty() && !m_copyLines.last().isEmpty()) {
+        m_copyLines.append(QString());
+    }
 }
 
 void MetadataPanel::showImage(const QString &path, const QImage &image)
@@ -473,91 +422,59 @@ void MetadataPanel::showImage(const QString &path, const QImage &image)
     clear();
 
     const QFileInfo info(path);
-    m_preview->setImage(image);
-    m_fileName->setFullText(info.fileName());
-    m_filePath->setFullText(info.absoluteFilePath());
 
-    // EXIF 先解析：GPS 结果决定基本信息页要不要加「在地图中查看」。
-    loadExif(path);
-    fillBasicPage(path, image);
-    renderHistogram(image);
-}
-
-void MetadataPanel::fillBasicPage(const QString &path, const QImage &image)
-{
-    const QFileInfo info(path);
-
-    auto *fileGroup = new MetaGroup(tr("文件"), m_basicPage);
+    // —— 组 1：文件（对照原型首组：文件名 / 图片大小 / 修改日期 / 图片信息）——
+    QList<MetadataPanel::Row> fileRows;
+    fileRows.append({ tr("文件名"), info.fileName() });
     const qint64 bytes = info.size();
     if (bytes >= 1024 * 1024) {
-        fileGroup->add(tr("文件大小"), tr("%1 MB").arg(QString::number(bytes / 1048576.0, 'f', 1)));
+        fileRows.append({ tr("图片大小"), tr("%1 MB").arg(QString::number(bytes / 1048576.0, 'f', 1)) });
     } else if (bytes >= 1024) {
-        fileGroup->add(tr("文件大小"), tr("%1 KB").arg(QString::number(bytes / 1024.0, 'f', 0)));
+        fileRows.append({ tr("图片大小"), tr("%1 KB").arg(QString::number(bytes / 1024.0, 'f', 0)) });
     } else {
-        fileGroup->add(tr("文件大小"), tr("%1 B").arg(bytes));
+        fileRows.append({ tr("图片大小"), tr("%1 B").arg(bytes) });
     }
-    fileGroup->add(tr("修改时间"), info.lastModified().toString(QStringLiteral("yyyy-MM-dd HH:mm")));
-    fileGroup->add(tr("格式"), info.suffix().toUpper());
-    m_basicLayout->addWidget(fileGroup);
+    fileRows.append({ tr("修改日期"),
+                      info.lastModified().toString(QStringLiteral("yyyy/MM/dd HH:mm:ss")) });
 
-    // GPS 入口：原型没有，功能保留（青色文字链接）
-    if (!m_mapUrl.isEmpty()) {
-        m_mapBtn = new QPushButton(tr("在地图中查看"), m_basicPage);
-        m_mapBtn->setObjectName(QStringLiteral("mapLink"));
-        m_mapBtn->setCursor(Qt::PointingHandCursor);
-        m_mapBtn->setFlat(true);
-        connect(m_mapBtn, &QPushButton::clicked, this, [this]() {
-            if (!m_mapUrl.isEmpty()) {
-                QDesktopServices::openUrl(QUrl(m_mapUrl));
-            }
-        });
-        m_basicLayout->addWidget(m_mapBtn, 0, Qt::AlignLeft);
-        m_basicLayout->addSpacing(12);
-    }
-
-    auto *imageGroup = new MetaGroup(tr("图像"), m_basicPage);
-    imageGroup->add(tr("尺寸"), image.isNull()
-                                    ? tr("未知")
-                                    : tr("%1 × %2 像素").arg(image.width()).arg(image.height()));
-
-    QString colorSpaceText;
     const QColorSpace space = image.colorSpace();
+    QString colorSpaceText;
     if (space.isValid()) {
         colorSpaceText = space.description();
+        // QColorSpace 的全名带规范号（"sRGB IEC61966-2.1"），按原型只留色域短名
+        if (int cut = colorSpaceText.indexOf(QLatin1Char(' ')); cut > 0) {
+            colorSpaceText.truncate(cut);
+        }
         if (colorSpaceText.isEmpty()) {
             colorSpaceText = tr("未知");
         }
     } else {
         colorSpaceText = QStringLiteral("sRGB");  // 无 ICC 时按 sRGB 解释
     }
-    imageGroup->add(tr("色彩空间"), colorSpaceText);
+    QString imageInfo = image.isNull()
+        ? tr("未知")
+        : tr("%1 × %2 (%3, %4)").arg(image.width()).arg(image.height())
+              .arg(info.suffix().toUpper(), colorSpaceText);
+    fileRows.append({ tr("图片信息"), imageInfo });
 
     // RGB32 只是内部对齐，真实色深仍是 24 位（多出来的字节是填充）
     int depth = image.depth();
     if (depth == 32 && !image.hasAlphaChannel()) {
         depth = 24;
     }
-    imageGroup->add(tr("位深"), tr("%1 bit").arg(depth));
-    m_basicLayout->addWidget(imageGroup);
+    fileRows.append({ tr("位深"), tr("%1 bit").arg(depth) });
+    addGroup(fileRows);
 
-    // 原型在基本信息页底部也放了一份直方图（与「直方图」页签同一份数据）
-    auto *histGroup = new MetaGroup(tr("直方图"), m_basicPage);
-    m_histogramBasic = new HistogramView(histGroup);
-    histGroup->addWidget(m_histogramBasic);
-    m_basicLayout->addWidget(histGroup);
-}
-
-void MetadataPanel::loadExif(const QString &path)
-{
+    // —— 组 2 起：EXIF（去页签后按原型形态铺成键值行，组间 7px 空隙）——
+    addGroupGap();
     const ExifParser::Result exif = ExifParser::parse(path);
-
     if (exif.hasGps) {
         // 对照 Honeyview：Google Maps 模板
         m_mapUrl = QStringLiteral("https://maps.google.com/maps?q=%1,%2&z=15")
                        .arg(QString::number(exif.lat, 'f', 6), QString::number(exif.lng, 'f', 6));
     }
 
-    // 按用途归类，但字段一个都不丢：没归到任何组的都进「其他」。
+    // 按用途归类（组标题不再显示，空隙即分组）；没归到任何组的进「其他」。
     const QList<QPair<QString, QStringList>> groups = {
         {tr("相机"),
          {QStringLiteral("相机制造商"), QStringLiteral("相机型号"), QStringLiteral("镜头"),
@@ -565,53 +482,92 @@ void MetadataPanel::loadExif(const QString &path)
         {tr("拍摄参数"),
          {QStringLiteral("拍摄时间"), QStringLiteral("ISO"), QStringLiteral("曝光时间"),
           QStringLiteral("光圈"), QStringLiteral("焦距"), QStringLiteral("曝光补偿")}},
-        {tr("尺寸"),
-         {QStringLiteral("宽度"), QStringLiteral("高度")}},
-        {tr("位置"),
-         {QStringLiteral("GPS 纬度"), QStringLiteral("GPS 经度"), QStringLiteral("海拔")}},
     };
 
     QMap<QString, QString> rest = exif.tags;
+    bool exifRows = false;
     for (const auto &group : groups) {
-        QStringList present;
+        QList<MetadataPanel::Row> rows;
         for (const QString &key : group.second) {
             if (rest.contains(key)) {
-                present.append(key);
+                rows.append({ key, rest.take(key) });
             }
         }
-        if (present.isEmpty()) {
-            continue;
+        if (!rows.isEmpty()) {
+            if (exifRows) {
+                addGroupGap();
+            }
+            addGroup(rows);
+            exifRows = true;
         }
-        auto *box = new MetaGroup(group.first, m_exifPage);
-        for (const QString &key : present) {
-            box->add(key, rest.take(key));
+    }
+
+    // 位置：原型把 GPS 折成一行「GPS 信息」（度分秒），地图链接保留。
+    // ExifParser 会同时往 tags 里塞「GPS 纬度/经度」十进制行，与 DMS 行重复，去掉。
+    if (exif.hasGps) {
+        if (exifRows) {
+            addGroupGap();
         }
-        m_exifLayout->addWidget(box);
+        QList<MetadataPanel::Row> gps;
+        gps.append({ tr("GPS 信息"),
+                     formatDms(exif.lat, 'N', 'S') + QStringLiteral(", ")
+                         + formatDms(exif.lng, 'E', 'W') });
+        addGroup(gps);
+        exifRows = true;
+        rest.remove(QStringLiteral("GPS 纬度"));
+        rest.remove(QStringLiteral("GPS 经度"));
     }
 
     if (!rest.isEmpty()) {
-        auto *box = new MetaGroup(tr("其他"), m_exifPage);
-        for (auto it = rest.constBegin(); it != rest.constEnd(); ++it) {
-            box->add(it.key(), it.value());
+        if (exifRows) {
+            addGroupGap();
         }
-        m_exifLayout->addWidget(box);
+        QList<MetadataPanel::Row> other;
+        for (auto it = rest.constBegin(); it != rest.constEnd(); ++it) {
+            other.append({ it.key(), it.value() });
+        }
+        addGroup(other);
+        exifRows = true;
     }
 
-    if (exif.tags.isEmpty()) {
-        auto *empty = new QLabel(tr("这张图片没有 EXIF 信息"), m_exifPage);
+    if (!exifRows) {
+        auto *empty = new QLabel(tr("这张图片没有 EXIF 信息"), m_gridHolder);
         empty->setObjectName(QStringLiteral("emptyHint"));
         empty->setWordWrap(true);
-        m_exifLayout->addWidget(empty);
+        m_grid->addWidget(empty, qMax(0, m_grid->rowCount()), 0, 1, 2, Qt::AlignLeft);
+        m_noExifHint = empty;
+        m_copyLines.append(tr("这张图片没有 EXIF 信息"));
     }
+    if (!m_mapUrl.isEmpty()) {
+        m_mapBtn->show();
+    }
+
+    // —— 直方图（同一份数据，折叠块）——
+    renderHistogram(image);
+
+    finishLayout();
+}
+
+void MetadataPanel::finishLayout()
+{
+    // 宽度自适应：键列取最宽键、值列取最长未省略值，钳到 [280, 440]（原型上限 440）。
+    if (m_noExifHint) {
+        m_maxKeyW = qMax(m_maxKeyW, m_noExifHint->fontMetrics().horizontalAdvance(
+                                            m_noExifHint->text()));
+    }
+    const int natural = m_maxKeyW + 2 + m_maxValW;   // 两列 + 列间距
+    m_contentWidth = qBound(280, natural, 440);
+    setFixedWidth(m_contentWidth);
+    if (m_gridHolder) {
+        m_gridHolder->setFixedWidth(m_contentWidth - 20);
+    }
+    updateGeometry();
 }
 
 void MetadataPanel::renderHistogram(const QImage &image)
 {
     if (image.isNull() || image.width() * image.height() > 24 * 1000 * 1000) {
         m_histogram->clearBins();
-        if (m_histogramBasic) {
-            m_histogramBasic->clearBins();
-        }
         return;
     }
 
@@ -625,7 +581,4 @@ void MetadataPanel::renderHistogram(const QImage &image)
         }
     }
     m_histogram->setBins(bins);
-    if (m_histogramBasic) {
-        m_histogramBasic->setBins(bins);
-    }
 }

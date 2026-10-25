@@ -154,12 +154,16 @@ public:
     void setShowModeIcon(int index);   // 兼容旧调用，视觉暂不展示模式小图
     void setLocked(bool locked);
     bool isLocked() const { return m_locked; }
+    // HDR 色调映射开关（原型 .command.hdr-toggle：44px 文字钮，开时 accent 选中态）
+    void setHdr(bool on);
+    bool isHdr() const { return m_hdr; }
 
 signals:
     void openClicked();
     void browseMenuRequested(const QPoint &globalPos);
     void slideshowMenuRequested(const QPoint &globalPos);
     void bookmarkMenuRequested(const QPoint &globalPos);
+    void hdrToggled();
     void editMenuRequested(const QPoint &globalPos);
     void copytoMenuRequested(const QPoint &globalPos);
     void lockToggled();
@@ -195,6 +199,7 @@ private:
     int m_press = -1;
     int m_showModeIcon = 0;
     bool m_locked = false;
+    bool m_hdr = false;
     ButtonFeedback *m_feedback = nullptr;
     TooltipHint *m_tip = nullptr;
     int m_focus = -1;            // 键盘焦点所在按钮
@@ -207,8 +212,11 @@ class ControlBar : public QWidget
     Q_OBJECT
 public:
     explicit ControlBar(QWidget *parent = nullptr);
-    void setZoomPercent(int percent);   // 画布缩放百分比（100 = 实际大小）
-    int zoomPercent() const { return m_percent; }   // 供冒烟报告核对滑条与画布是否同步
+    // 第一行 = 翻页进度（对齐原型 #pageSlider）：current 1-based；total<=0 整行
+    // 不绘制，total<2 滑杆禁用（提示「只有一张图片」）。缩放百分比只由左下
+    // ZoomBadge 呈现，胶囊里不再出现百分比。
+    void setPage(int current, int total);
+    int page() const { return m_page; }   // 冒烟报告核对滑杆与当前图是否同步
     void setLocked(bool locked);
     bool isLocked() const { return m_locked; }
 
@@ -227,7 +235,7 @@ signals:
     void next10Clicked();       // 右键点 ›
     void prevFolderClicked();   // 中键点 ‹
     void nextFolderClicked();   // 中键点 ›
-    void zoomRequested(int percent);
+    void pageRequested(int index);   // 1-based；只在松开滑杆 / 键盘步进时发
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -244,7 +252,7 @@ protected:
 private:
     enum class Action {
         None, Open, List, Fit, RotateLeft, RotateRight,
-        Prev, Next, Lock, ZoomOut, ZoomIn, ZoomValue, Slider
+        Prev, Next, Lock, ZoomOut, ZoomIn, PageValue, PageSlider
     };
     struct Item {
         Action action = Action::None;
@@ -255,15 +263,19 @@ private:
     int hitIndex(const QPoint &pos) const;
     void activate(Action action);
     void moveFocus(int step);
-    void applySliderValueFromX(int x);
-    int currentSliderPercent() const;
+    void applyPageFromX(int x);        // 拖动中只更新视觉，不发 pageRequested
+    int sliderPageFromX(int x) const;
     QString tipText(Action action) const;
+    bool sliderEnabled() const { return m_pageCount >= 2; }
+    int clampedPage(int page) const;
 
     int m_hover = -1;
     int m_press = -1;
     bool m_dragging = false;
     bool m_locked = false;
-    int m_percent = 68;
+    int m_page = 1;              // 1-based 当前页
+    int m_pageCount = 0;         // 0 = 未打开（整行不画）；1 = 单张（滑杆禁用）
+    int m_pressPage = 1;         // 按下滑杆时的页码，松开时比较决定是否发信号
     ButtonFeedback *m_feedback = nullptr;
     TooltipHint *m_tip = nullptr;
     int m_focus = -1;

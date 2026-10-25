@@ -108,7 +108,7 @@ private slots:
     void animationTick();
     void showAnimFrame(const QImage &img);
     // 异步加载
-    void onFullReady(const QString &path, const QImage &image);
+    void onFullReady(const QString &path, const QImage &image, bool preview);
     void onLoadFailed(const QString &path, const QString &error);
     // 幻灯片
     void onSlideshowTick();
@@ -127,7 +127,7 @@ private:
 
     void applyRuntimeSettings();
     void loadAsync(const QString &path);
-    void showImage(const QImage &image, const QString &path);
+    void showImage(const QImage &image, const QString &path, bool preview = false);
     void setSlideshow(bool on);
     void applyCrop();
     void refreshLibraryMenus();
@@ -156,7 +156,6 @@ private:
     void refreshSpread();                    // 按当前索引重新拼接跨页
     void updateCanvasLogo();
     void updateInfoOverlay();
-    void syncZoom();
     void setTopChromeVisible(bool visible, bool animate = true);
     void setDockVisible(bool visible, bool animate = true);
     void toggleTopLock();
@@ -291,6 +290,7 @@ private:
     bool m_negative = false;   // 反相
     qreal m_gamma = 1.0;       // Gamma 补偿（1.0 = 不变）
     bool m_zoomLocked = false; // 锁定缩放：翻页后不做适配，沿用同一比例
+    bool m_hdrTonemap = false; // HDR 色调映射（命令栏 HDR 钮 / config/hdr_tonemap，默认 true）
     int m_interpMode = 1;      // 0 bilinear / 1 bicubic / 2 lanczos
     bool m_slideshow = false;
     bool m_slideshowRandom = false;
