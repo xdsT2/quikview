@@ -40,3 +40,6 @@ tools_cmp.py
 Temp/
 Temp_*.py
 shot*.png
+
+# 本地打包输出
+dist/
