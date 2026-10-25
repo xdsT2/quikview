@@ -9,11 +9,27 @@
 
 > **不想自己编译？** 到 [Releases](https://github.com/xdsT2/quikview/releases) 下 `quikview-*-win64.zip`，解压双击即用，不需要装 Qt。
 
-![QuikView 主窗口：左侧缩略图浏览器、底部控制胶囊](docs/img/main-window.png)
+![QuikView 主窗口：顶部栏与底部控制胶囊浮在照片上](docs/screenshots/01-main.webp)
 
 > 想先知道**实现到什么程度、哪些还没做、怎么自测**？看 [STATUS-2026-10-25.md](STATUS-2026-10-25.md)。
 
 本项目**从零重写**，不包含任何第三方专有代码或二进制。其功能范围与架构理解，来自对 Honeyview（Bandisoft 已停更的免费看图器）官方安装包的逆向分析——但这是两个独立的工程：QuikView 是原创实现。
+
+## 界面一览
+
+截图全部由 QuikView 自己渲染（不是系统抓屏），点开任意一张看细节。
+
+| 浏览与查看 | 效果与配置 |
+|:--:|:--:|
+| [![缩略图浏览](docs/screenshots/02-thumbnails.webp)](docs/SCREENSHOTS.md) | [![图片信息](docs/screenshots/03-info.webp)](docs/SCREENSHOTS.md) |
+| **缩略图浏览**<br>左侧竖排，异步生成，不卡界面 | **图片信息**<br>EXIF / GPS / 直方图，`Tab` 呼出 |
+| [![双页阅览](docs/screenshots/04-spread.webp)](docs/SCREENSHOTS.md) | [![图像效果](docs/screenshots/06-effects.webp)](docs/SCREENSHOTS.md) |
+| **双页阅览**<br>画册、漫画并排看 | **图像效果**<br>反色 / Gamma / 旋转 / 插值 |
+| [![右键菜单](docs/screenshots/07-context-menu.webp)](docs/SCREENSHOTS.md) | [![设置](docs/screenshots/09-settings.webp)](docs/SCREENSHOTS.md) |
+| **右键菜单**<br>按功能分组，标快捷键 | **设置**<br>九类选项，就地生效 |
+
+**[全部 10 张截图（含说明）→](docs/SCREENSHOTS.md)**
+
 
 ## 功能
 

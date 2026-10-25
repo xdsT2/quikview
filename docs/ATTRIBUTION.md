@@ -99,3 +99,12 @@ python tools\03_gen_skin.py --check   # 全量校验，不写盘
   建议直接换用开源图标集（MIT / CC0 / Apache-2.0），并在此表登记来源。
 - **控制栏按钮无悬停/按下帧**：`ControlBar::paintEvent()` 目前只贴整图。
   接入状态帧时，把 `pill_zoom.png` 改成 4 帧横排即可（需同步改 `paintEvent`）。
+
+## 6. README 截图里的示例照片
+
+`docs/screenshots/` 下的截图使用了几张风光照片作为画面内容，来源为
+[Unsplash](https://unsplash.com/license)（Unsplash License，可免费商用、无需署名）。
+它们**只出现在截图位图中**，不随程序分发，仓库其它位置也没有原图。
+EXIF 字段（相机 / 镜头 / 光圈 / ISO / GPS）是为演示界面而写入的示意值。
+
+README 里的界面截图由程序自身 `--screenshot` 渲染，不含任何第三方界面像素。

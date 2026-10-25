@@ -9,7 +9,7 @@ A fast, clean image viewer for Windows. C++ / Qt6, MIT licensed.
 
 > **Don't want to build it yourself?** Grab `quikview-*-win64.zip` from [Releases](https://github.com/xdsT2/quikview/releases) — unzip and run, no Qt installation needed.
 
-![QuikView main window: thumbnail browser on the left, control capsule at the bottom](docs/img/main-window.png)
+![QuikView main window: top strip and bottom control capsule floating over the photo](docs/screenshots/01-main.webp)
 
 > Most documentation is currently written in Chinese. This page mirrors `README.md`;
 > for the implementation status (what works, what is missing, how to test it yourself)
@@ -19,6 +19,22 @@ This is a from-scratch rewrite and contains no third-party proprietary code or b
 Its feature scope and architectural understanding came from reverse-engineering the installer of
 Honeyview (a discontinued free viewer by Bandisoft) — but the two are separate works:
 QuikView is an original implementation.
+
+## Screenshots
+
+Every screenshot is rendered by QuikView itself (not captured from the screen). Click one to see it
+full size.
+
+| Browsing & viewing | Effects & configuration |
+|:--:|:--:|
+| [![Thumbnail browser](docs/screenshots/02-thumbnails.webp)](docs/SCREENSHOTS.md) | [![Image info](docs/screenshots/03-info.webp)](docs/SCREENSHOTS.md) |
+| **Thumbnail browser**<br>Vertical rail, decoded async, never blocks | **Image info**<br>EXIF / GPS / histogram on `Tab` |
+| [![Double-page spread](docs/screenshots/04-spread.webp)](docs/SCREENSHOTS.md) | [![Image effects](docs/screenshots/06-effects.webp)](docs/SCREENSHOTS.md) |
+| **Double-page spread**<br>Photo books and comics side by side | **Image effects**<br>Invert / gamma / rotate / resampling |
+| [![Context menu](docs/screenshots/07-context-menu.webp)](docs/SCREENSHOTS.md) | [![Settings](docs/screenshots/09-settings.webp)](docs/SCREENSHOTS.md) |
+| **Context menu**<br>Grouped, with shortcuts | **Settings**<br>Nine categories, applied in place |
+
+**[All 10 screenshots (with captions) →](docs/SCREENSHOTS.md)**
 
 ## Features
 
