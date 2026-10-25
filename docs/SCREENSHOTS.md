@@ -2,7 +2,7 @@
 
 [← 返回 README](../README.md)
 
-以下截图全部由 **QuikView v0.3.0 自身渲染**（`--screenshot` 走 Qt 内部绘制，不是系统抓屏），
+以下截图全部由 **QuikView 自身渲染**（`--screenshot` 走 Qt 内部绘制，不是系统抓屏），
 所以不受显示器 DPI 缩放影响，和你在屏幕上看到的一致。
 
 Every screenshot below is rendered by QuikView itself (`--screenshot`, Qt's own painting),
@@ -34,11 +34,14 @@ hundreds of files will not block the UI.
 
 ## 3. 图片信息 · Image info
 
-`Tab` 呼出右侧信息面板：文件基本信息、EXIF（相机 / 镜头 / 光圈 / 快门 / ISO / GPS）、直方图，
-三个页签一屏看完。EXIF 是自研解析器，不依赖任何 GPL 库。
+`Tab` 呼出左上角信息卡片：文件名、体积、修改时间、位深、相机制造商 / 型号 / 软件、拍摄时间、
+GPS（可一键在地图上查看），直方图折叠在底部。卡片浮在画面上，不挤压图片。EXIF 是自研解析器，
+不依赖任何 GPL 库。
 
-`Tab` opens the right-hand info panel: file facts, EXIF (camera / lens / aperture / shutter / ISO /
-GPS) and a histogram, in three tabs. The EXIF parser is our own — no GPL dependency.
+`Tab` brings up the info card at the top-left: file name, size, modified time, bit depth, camera
+make / model / software, capture time, GPS (with a "show on map" link), and a collapsible
+histogram. The card floats over the image instead of squeezing it. The EXIF parser is our own —
+no GPL dependency.
 
 ![图片信息](screenshots/03-info.webp)
 
@@ -100,10 +103,10 @@ Originals are kept by default.
 
 ## 9. 设置 · Settings
 
-左侧分类，右侧就地生效的选项：窗口行为、浏览、图像处理、格式关联、键盘、鼠标、书签、右键菜单、语言。
+左侧十个分类，右侧就地生效的选项：一般、浏览、图像处理、格式关联、键盘、鼠标、书签、上下文菜单、杂项、语言。
 
-Categories on the left, options on the right: window behaviour, browsing, image processing, file
-associations, keyboard, mouse, bookmarks, context menu, language.
+Ten categories on the left, options on the right: general, browsing, image processing, file
+associations, keyboard, mouse, bookmarks, context menu, misc, language.
 
 ![设置](screenshots/09-settings.webp)
 
