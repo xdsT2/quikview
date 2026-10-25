@@ -26,6 +26,8 @@ void FrameNavigator::open(const QString &path)
         m_reader = reader;
         m_count = count;
         m_index = 0;
+        // P0 自动播放只对 GIF 生效（多页 TIFF 保持手动；APNG/动 WebP 原生多帧读不出）
+        m_animatable = (suffix == QLatin1String("gif"));
     } else {
         delete reader;
     }
@@ -37,6 +39,8 @@ void FrameNavigator::clear()
     m_reader = nullptr;
     m_index = 0;
     m_count = 0;
+    m_lastDelay = 0;
+    m_animatable = false;
 }
 
 QImage FrameNavigator::frameAt(int index)
@@ -47,6 +51,9 @@ QImage FrameNavigator::frameAt(int index)
     // 先尝试在现有 reader 上跳转：TIFF 支持随机访问，GIF 支持向前跳。
     // 注意 GIF 的 jumpToImage() 返回 false 但向前跳仍生效，故不检查返回值。
     m_reader->jumpToImage(index);
+    // 帧延迟必须在 read() 之前取：nextImageDelay() 返回的正是即将读出的这一帧
+    // 的显示时长（毫秒）。动图推进按它来，不写死。
+    m_lastDelay = qMax(0, m_reader->nextImageDelay());
     QImage img = m_reader->read();
     if (!img.isNull()) {
         m_index = index;
@@ -58,6 +65,7 @@ QImage FrameNavigator::frameAt(int index)
     m_reader = new QImageReader(path);
     m_reader->setAutoTransform(true);
     m_reader->jumpToImage(index);
+    m_lastDelay = qMax(0, m_reader->nextImageDelay());
     img = m_reader->read();
     if (!img.isNull()) {
         m_index = index;

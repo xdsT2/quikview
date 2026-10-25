@@ -3,6 +3,7 @@
 #include <QImage>
 #include <QMainWindow>
 #include <QMargins>
+#include <QElapsedTimer>
 
 class ImageCanvas;
 class ImageCache;
@@ -100,6 +101,11 @@ private slots:
     // 帧
     void onNextFrame();
     void onPrevFrame();
+    // 动图自动播放（P0：GIF）
+    void startAnimation();
+    void stopAnimation();
+    void animationTick();
+    void showAnimFrame(const QImage &img);
     // 异步加载
     void onFullReady(const QString &path, const QImage &image);
     void onLoadFailed(const QString &path, const QString &error);
@@ -223,6 +229,13 @@ private:
     ThumbnailBrowser *m_browser = nullptr;
     FrameNavigator *m_frames = nullptr;
     QTimer *m_slideshowTimer = nullptr;
+    // —— 动图自动播放（P0：GIF）——
+    // 绝对时间点校正：nextDeadline 是“下一帧应出现的绝对时刻”（m_animClock 起点），
+    // 每帧 += 当前帧延迟；解码慢导致的落后不再累加，防止长动图越播越慢。
+    QTimer *m_animTimer = nullptr;
+    QElapsedTimer m_animClock;
+    qint64 m_animNextDeadline = 0;
+    bool m_animPlaying = false;
     QMenu *m_favMenu = nullptr;
     QMenu *m_recentMenu = nullptr;
 

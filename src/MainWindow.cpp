@@ -136,6 +136,12 @@ MainWindow::MainWindow(QWidget *parent)
     m_dir->setEdgeAction(Config::instance().edgeAction());
     m_frames = new FrameNavigator;
 
+    // 动图自动播放（P0：GIF）。singleShot 单发推进，每次 tick 按
+    // 「下一帧绝对时间点」重设间隔，实现累计误差校正。
+    m_animTimer = new QTimer(this);
+    m_animTimer->setSingleShot(true);
+    connect(m_animTimer, &QTimer::timeout, this, &MainWindow::animationTick);
+
     m_metadata = new MetadataPanel(this);
     m_metadata->hide();                     // 浮动面板，菜单开关
 
@@ -330,6 +336,9 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    // 硬规则：关窗必须停定时器 + 释放 reader（FrameNavigator 析构内 clear），
+    // 否则退出后解码循环还在跑，CPU 不归零。
+    stopAnimation();
     delete m_frames;
 }
 
@@ -1454,6 +1463,13 @@ void MainWindow::showImage(const QImage &image, const QString &path)
     setWindowTitle(QFileInfo(path).fileName() + QStringLiteral(" - QuikView"));
     m_caption->setTitle(QFileInfo(path).fileName());
     m_frames->open(path);
+    // 动图打开即自动播放（P0：仅 GIF）；换到静态图 / 多页 TIFF / 双页模式则停。
+    // 这里不弹 toast（自动行为不打扰），空格切换时才提示。
+    if (m_frames->hasFrames() && m_frames->animatable() && !isSpreadMode()) {
+        startAnimation();
+    } else {
+        stopAnimation();
+    }
 }
 
 void MainWindow::updateCanvasLogo()
@@ -1515,6 +1531,12 @@ void MainWindow::updateInfoOverlay()
     }
     if (!suffix.isEmpty()) {
         parts << suffix;
+    }
+    // 多帧文件：信息行追加当前帧 / 总帧。图片序号（1/6）在 setCounter，
+    // 帧号（12/48）只进这里，两个计数不能混。
+    if (m_frames && m_frames->hasFrames()) {
+        parts << tr("第 %1/%2 帧").arg(m_frames->frameIndex() + 1)
+                                   .arg(m_frames->frameCount());
     }
     m_statusOverlay->setImageInfo(parts.join(QStringLiteral("  •  ")));
 
@@ -1972,24 +1994,93 @@ void MainWindow::onSlideshowTick()
 
 void MainWindow::onNextFrame()
 {
+    stopAnimation();    // 手动翻帧后暂停自动播放，不自动恢复（需求硬规则）
     const QImage img = m_frames->nextFrame();
     if (img.isNull()) {
         return;
     }
-    m_currentImage = img;
-    m_canvas->setPixmap(QPixmap::fromImage(img));
-    updateStatus(m_currentPath);
+    showAnimFrame(img);
+    updateInfoOverlay();
 }
 
 void MainWindow::onPrevFrame()
 {
+    stopAnimation();
     const QImage img = m_frames->prevFrame();
     if (img.isNull()) {
         return;
     }
+    showAnimFrame(img);
+    updateInfoOverlay();
+}
+
+// ---------------------------------------------------------------------------
+// 动图自动播放（P0：GIF）
+// ---------------------------------------------------------------------------
+
+// 动画帧上屏。不能走 ImageCanvas::setPixmap——那会 fitToWindow() 重置缩放，
+// 用户播放中一缩放就被打回适合窗口。改用 PreservingView + 视口中心锚点：
+// GIF 各帧同尺寸，缩放比例、平移位置、浏览方式在帧切换后原样保留。
+void MainWindow::showAnimFrame(const QImage &img)
+{
+    const qreal z = m_canvas->zoom();
+    const QRectF sr = m_canvas->sceneRect();
+    const QPointF center = m_canvas->mapToScene(m_canvas->viewport()->rect().center());
+    QPointF anchor(0.5, 0.5);
+    if (sr.width() > 1.0 && sr.height() > 1.0) {
+        anchor = QPointF(center.x() / sr.width(), center.y() / sr.height());
+    }
     m_currentImage = img;
-    m_canvas->setPixmap(QPixmap::fromImage(img));
-    updateStatus(m_currentPath);
+    m_canvas->setPixmapPreservingView(QPixmap::fromImage(img), anchor, z, false, false);
+}
+
+void MainWindow::startAnimation()
+{
+    if (m_animPlaying || !m_frames || !m_frames->hasFrames() || !m_frames->animatable()) {
+        return;
+    }
+    m_animPlaying = true;
+    m_animClock.start();
+    m_animNextDeadline = 0;
+    m_animTimer->start(1);
+}
+
+void MainWindow::stopAnimation()
+{
+    m_animPlaying = false;
+    if (m_animTimer) {
+        m_animTimer->stop();
+    }
+}
+
+// 单发定时器 tick：推一帧、按文件自带延迟重设下一次间隔。
+// 硬规则：帧延迟读 QImageReader::nextImageDelay()（FrameNavigator 已在
+// read() 前记录）；累计误差用绝对时间点校正，绝不允许每帧 sleep 固定值。
+void MainWindow::animationTick()
+{
+    if (!m_animPlaying || !m_frames || !m_frames->hasFrames()) {
+        return;
+    }
+    const QImage img = m_frames->nextFrame();
+    if (img.isNull()) {
+        // 解码失败就停，不许空转烧 CPU
+        stopAnimation();
+        return;
+    }
+    showAnimFrame(img);
+    updateInfoOverlay();
+    int delay = m_frames->lastDelay();
+    if (delay <= 10) {
+        delay = 100;    // 0/超短延迟按 GIF 惯例当 100ms，防 busy-loop
+    }
+    m_animNextDeadline += delay;
+    const qint64 now = m_animClock.elapsed();
+    if (m_animNextDeadline < now) {
+        // 落后已超过一个周期（解码/绘制太慢）：放弃追帧重新对齐，
+        // 避免「连发补偿」变成全速空转。
+        m_animNextDeadline = now + delay;
+    }
+    m_animTimer->start(int(qMax<qint64>(1, m_animNextDeadline - now)));
 }
 
 // ---------------------------------------------------------------------------
@@ -2764,7 +2855,20 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
         return;
     case Qt::Key_Right:
     case Qt::Key_PageDown:
+        onNext();
+        return;
     case Qt::Key_Space:
+        // 空格：多帧动图 = 播放/暂停；静态图保持原行为（下一张）
+        if (m_frames && m_frames->hasFrames() && m_frames->animatable()) {
+            if (m_animPlaying) {
+                stopAnimation();
+                m_toast->showMessage(tr("已暂停 · 空格继续"));
+            } else {
+                startAnimation();
+                m_toast->showMessage(tr("GIF 播放中 · 空格暂停"));
+            }
+            return;
+        }
         onNext();
         return;
     case Qt::Key_Return:
