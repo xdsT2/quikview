@@ -388,7 +388,10 @@ void MetadataPanel::addGroup(const QList<Row> &rows)
     }
     int row = m_grid->rowCount();
     for (const Row &r : rows) {
-        auto *key = new QLabel(r.key, m_gridHolder);
+        // 键显示文本带冒号（对照原型 .info-key「相机制造商:」）：键值列间只有
+        // 2px column-gap，无冒号时 5 字键与值视觉贴死（「相机制造商Hasselblad」）。
+        const QString keyText = r.key + QStringLiteral(":");
+        auto *key = new QLabel(keyText, m_gridHolder);
         key->setObjectName(QStringLiteral("infoKey"));
         key->setFont(UiStyle::font(12));
 
@@ -400,8 +403,8 @@ void MetadataPanel::addGroup(const QList<Row> &rows)
         value->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
         value->setFullText(r.value);
 
-        // 自然宽度用各 label 自己的字体度量累计，与最终渲染一致
-        m_maxKeyW = qMax(m_maxKeyW, key->fontMetrics().horizontalAdvance(r.key));
+        // 自然宽度用各 label 自己的字体度量累计，与最终渲染一致（键含冒号）
+        m_maxKeyW = qMax(m_maxKeyW, key->fontMetrics().horizontalAdvance(keyText));
         m_maxValW = qMax(m_maxValW, value->fontMetrics().horizontalAdvance(r.value));
 
         m_grid->addWidget(key, row, 0, Qt::AlignLeft | Qt::AlignVCenter);
