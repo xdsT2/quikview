@@ -241,6 +241,10 @@ QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; border: 
 QLabel#infoKey { font-size: 12px; color: #9ba0a5; }
 QLabel#infoVal { font-size: 12px; color: #e9eaec; }
 QLabel#emptyHint { font-size: 12px; color: #92979e; }
+/* 浮层左上角的关闭/复制圆钮：paintEvent 自绘圆形，QSS 只负责抵消全局
+   QPushButton 的 min-height/padding（否则 22x22 被撑成 22x32 纵椭圆） */
+QPushButton#infoRoundBtn { min-height: 0; max-height: 22px; min-width: 22px;
+    max-width: 22px; padding: 0; background: transparent; border: 0; }
 QPushButton#mapLink { background: transparent; border: 0; padding: 0;
     text-align: left; font-size: 12px; color: #55c0f0; }
 QPushButton#mapLink:hover { color: #72caf1; }

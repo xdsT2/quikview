@@ -188,6 +188,7 @@ public:
     RoundIconBtn(Glyph glyph, const QString &tip, QWidget *parent = nullptr)
         : QPushButton(parent), m_glyph(glyph)
     {
+        setObjectName(QStringLiteral("infoRoundBtn"));   // QSS 尺寸归零，几何由 setFixedSize 定
         setFixedSize(22, 22);
         setToolTip(tip);
         setCursor(Qt::PointingHandCursor);
@@ -341,6 +342,8 @@ void MetadataPanel::buildUi()
     m_bodyLayout->addWidget(m_histBody);
 
     m_bodyLayout->addStretch(1);
+
+
 }
 
 // 键值 grid 每次换图整个重建：QGridLayout 移除 item 后行数/行高不会缩回去，
@@ -535,7 +538,9 @@ void MetadataPanel::showImage(const QString &path, const QImage &image)
     if (!exifRows) {
         auto *empty = new QLabel(tr("这张图片没有 EXIF 信息"), m_gridHolder);
         empty->setObjectName(QStringLiteral("emptyHint"));
-        empty->setWordWrap(true);
+        // 不开 wordWrap：面板展开动画期间宽度会从窄变宽，折行后的两行文本
+        // 塞不进行高 16px 的格子，表现为叠印乱码。固定单行（约 132px），
+        // 跨键值两列后任何状态下都放得下。
         m_grid->addWidget(empty, qMax(0, m_grid->rowCount()), 0, 1, 2, Qt::AlignLeft);
         m_noExifHint = empty;
         m_copyLines.append(tr("这张图片没有 EXIF 信息"));
