@@ -236,6 +236,9 @@ signals:
     void prevFolderClicked();   // 中键点 ‹
     void nextFolderClicked();   // 中键点 ›
     void pageRequested(int index);   // 1-based；只在松开滑杆 / 键盘步进时发
+    // 拖动中跟手预览（1-based，节流 ≥60ms）：让经过的每一张都出一帧；
+    // 松手仍只发一次 pageRequested，显式跳转路径不变。
+    void pagePreviewRequested(int index);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -272,6 +275,7 @@ private:
     int m_hover = -1;
     int m_press = -1;
     bool m_dragging = false;
+    QElapsedTimer m_previewClock;   // 拖动预览节流（≥60ms 一次）
     bool m_locked = false;
     int m_page = 1;              // 1-based 当前页
     int m_pageCount = 0;         // 0 = 未打开（整行不画）；1 = 单张（滑杆禁用）

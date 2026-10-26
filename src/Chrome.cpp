@@ -1371,8 +1371,9 @@ QString ControlBar::tipText(Action action) const
     return QString();
 }
 
-// 拖动过程中只更新滑杆视觉与页码文本，绝不发 pageRequested——
-// 否则 24 张目录一路拖过去就是 24 次全尺寸解码；真正跳图在松手时发一次。
+// 拖动中：滑杆视觉与页码跟手更新，并按 ≥60ms 节流发 pagePreviewRequested
+// （跟手预览，让拖动经过的每张都出一帧）。真正跳图仍在松手时发一次 pageRequested，
+// 避免 24 张目录一路拖过去就是 24 次全尺寸解码。
 void ControlBar::applyPageFromX(int x)
 {
     const int page = sliderPageFromX(x);
@@ -1381,6 +1382,10 @@ void ControlBar::applyPageFromX(int x)
     }
     m_page = page;
     update();
+    if (m_dragging && (!m_previewClock.isValid() || m_previewClock.elapsed() >= 60)) {
+        m_previewClock.restart();
+        emit pagePreviewRequested(m_page);
+    }
 }
 
 void ControlBar::paintEvent(QPaintEvent *)
@@ -1585,6 +1590,7 @@ void ControlBar::mousePressEvent(QMouseEvent *e)
         if (action == Action::PageSlider && sliderEnabled()) {
             m_dragging = true;
             m_pressPage = m_page;
+            m_previewClock.invalidate();   // 本次拖动的第一次换页立即预览
             applyPageFromX(e->pos().x());
             return;
         }

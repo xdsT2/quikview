@@ -255,6 +255,19 @@ MainWindow::MainWindow(QWidget *parent)
         m_dir->setIndex(index - 1);
         jumpTo(m_dir->current());
     });
+    // 拖动中跟手预览：经过的每一张都出一帧（Chrome 侧已按 ≥60ms 节流）。
+    // 不碰 m_dir 索引、不写元数据，松手仍由上面的 pageRequested 走一次全图跳转。
+    connect(m_control, &Chrome::ControlBar::pagePreviewRequested, this, [this](int index) {
+        if (!m_dir || !m_dir->isValid() || index < 1 || index > m_dir->count()) {
+            return;
+        }
+        if (m_preloadTimer) {
+            m_preloadTimer->stop();   // 拖动中不预读，让出解码给跟手预览
+        }
+        m_cache->requestDragPreview(m_dir->files().at(index - 1),
+                                    m_canvas ? m_canvas->viewport()->size() : QSize());
+    });
+    connect(m_cache, &ImageCache::dragPreviewReady, this, &MainWindow::onDragPreviewReady);
 
     // 画布两侧箭头带点击翻页（对齐原版 40px 侧边带）：首尾行为由
     // onPrev/onNext 复用 config/edge_action，不另写一套
@@ -1629,6 +1642,20 @@ void MainWindow::onFullReady(const QString &path, const QImage &image, bool prev
     // FIFO 单飞保证 emit 顺序 == 请求顺序，这里不再做过期丢弃：
     // 连按/长按时每张都按序上屏（快帧先到先显示，全图到了替换）。
     showImage(image, path, preview);
+}
+
+// 拖动滑杆的跟手预览：只换画布、标题、缩放基准，让「经过的每一张」都有一帧；
+// 索引 / 元数据 / 帧序列 / 页面滑块状态都不动 —— 松手后 pageRequested 会走
+// 一次正规 jumpTo + 全尺寸解码，落点最终一定是清晰的。
+void MainWindow::onDragPreviewReady(const QString &path, const QImage &image)
+{
+    if (image.isNull()) {
+        return;
+    }
+    if (m_frames->animatable()) {
+        stopAnimation();   // 旧 GIF 的 tick 会把画布刷回上一帧，拖动期间先停
+    }
+    showImage(image, path, true);
 }
 
 void MainWindow::onLoadFailed(const QString &path, const QString &error)

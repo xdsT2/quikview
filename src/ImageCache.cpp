@@ -11,6 +11,7 @@ ImageCache::ImageCache(QObject *parent)
 {
     m_fullCache.setMaxCost(256 * 1024 * 1024);   // 原图缓存上限 256MB（按字节成本淘汰）
     m_thumbCache.setMaxCost(64 * 1024 * 1024);   // 缩略图缓存上限 ~64MB
+    m_dragCache.setMaxCost(64 * 1024 * 1024);    // 拖动预览（缩放到视口）上限 64MB：24 张目录回拖也要命中
 }
 
 QImage ImageCache::cachedFull(const QString &path) const
@@ -27,6 +28,13 @@ void ImageCache::requestFull(const QString &path, const QSize &previewSize)
         m_preloadPromote = true;
         return;
     }
+    if (path == m_dragInFlight) {
+        // 拖动预览正在解这一页：解完按「快帧」上屏，全图仍照常排进 FIFO
+        m_dragPromote = true;
+    }
+    // 有真实请求介入：拖动预览不再抢屏（旧落点的在飞结果只进缓存）
+    m_dragMuted = true;
+    m_dragPending.clear();
     if (m_fullInFlight.contains(path)) {
         return;   // 正在解
     }
@@ -124,6 +132,80 @@ bool ImageCache::isIdle() const
         && m_preloadPath.isEmpty();
 }
 
+// 拖动滑杆的跟手预览：把「当前落点」记成最新意图，实际解码交给 startDragDecode()
+// 串行做（同一时刻至多 1 个）。落点变来变去时，旧结果只进缓存不上屏。
+void ImageCache::requestDragPreview(const QString &path, const QSize &size)
+{
+    if (path.isEmpty()) {
+        return;
+    }
+    m_dragMuted = false;   // 又回到拖动：重新允许上屏
+    m_dragSize = size;
+    // 全图缓存优先（拖动方向已经走过的那张站住就用它，0ms），其次拖动预览缓存
+    if (m_fullCache.contains(path)) {
+        m_dragPending.clear();
+        emit dragPreviewReady(path, *m_fullCache.object(path));
+        return;
+    }
+    if (m_dragCache.contains(path)) {
+        m_dragPending.clear();
+        emit dragPreviewReady(path, *m_dragCache.object(path));
+        return;
+    }
+    m_dragPending = path;
+    startDragDecode();
+}
+
+void ImageCache::startDragDecode()
+{
+    if (m_dragPending.isEmpty() || !m_dragInFlight.isEmpty()) {
+        return;   // 单飞：在飞的那个解完再看最新落点
+    }
+    const QString path = m_dragPending;
+    const QSize size = m_dragSize;
+    m_dragPending.clear();
+    m_dragInFlight = path;
+    QtConcurrent::run([this, path, size]() {
+        QImage img;
+        QImageReader reader(path);
+        reader.setAutoTransform(true);
+        const QSize src = reader.size();
+        if (size.isValid() && src.isValid() && src.width() > 0 && src.height() > 0) {
+            QSize scaled = src;
+            scaled.scale(size, Qt::KeepAspectRatio);
+            if (scaled.width() > 0 && scaled.height() > 0) {
+                reader.setScaledSize(scaled);
+            }
+        }
+        if (reader.canRead()) {
+            img = reader.read();
+        }
+        QMetaObject::invokeMethod(this, [this, path, img]() {
+            if (m_dragInFlight != path) {
+                return;   // clearFull() 已作废这轮
+            }
+            m_dragInFlight.clear();
+            const bool promote = m_dragPromote;
+            // 拖动中解完的每一张都按序发出（解码串行，顺序天然与拖动方向一致）——
+            // 若按「落点已变就丢」处理，60ms 节流 + 70ms 解码会永远丢，又只剩最后一张。
+            // 只有真实请求介入（松手跳转/连按）后 m_dragMuted 才置真，那时才只入缓存。
+            const bool muted = m_dragMuted;
+            m_dragPromote = false;
+            if (!img.isNull()) {
+                m_dragCache.insert(path, new QImage(img),
+                                   static_cast<int>(qMin<qint64>(img.sizeInBytes(), qint64(INT_MAX))));
+                if (promote && !m_fullCache.contains(path)) {
+                    // 落点被真要：这张缩放图正好当快帧顶住，全图随后覆盖
+                    emit fullReady(path, img, true);
+                } else if (!promote && !muted) {
+                    emit dragPreviewReady(path, img);
+                }
+            }
+            startDragDecode();   // 落点又变了就接着解最新那张
+        }, Qt::QueuedConnection);
+    });
+}
+
 void ImageCache::startNext()
 {
     while (!m_queue.isEmpty() && m_fullInFlight.isEmpty()) {
@@ -209,6 +291,9 @@ void ImageCache::cancelPending()
     // 旧页面的邻居预读在新位置已经没意义：待预读清掉；在飞那个只进缓存不上屏
     m_preloadQueue.clear();
     m_preloadPromote = false;
+    // 拖动预览的旧落点同理：在飞结果只入缓存，别把松手后的新页面盖回去
+    m_dragPending.clear();
+    m_dragMuted = true;
     // 在飞的那个拦不住了（QtConcurrent 不可取消），结果到达时只进缓存不上屏
     m_dropInFlightResult = !m_fullInFlight.isEmpty();
 }
@@ -278,5 +363,10 @@ void ImageCache::clearFull()
     m_preloadQueue.clear();
     m_preloadPath.clear();
     m_preloadPromote = false;
+    m_dragCache.clear();
+    m_dragInFlight.clear();
+    m_dragPending.clear();
+    m_dragPromote = false;
+    m_dragMuted = false;
     m_dropInFlightResult = false;
 }

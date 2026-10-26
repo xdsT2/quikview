@@ -36,9 +36,14 @@ public:
     // 路径直接忽略。真正的「前后各一张」调度在 MainWindow（300ms 无输入才调）。
     void preload(const QString &path);
     bool isIdle() const;    // 待解队列、在飞全图、预读缓冲都空 —— 可以开始预读
+    // 拖动滑杆的跟手预览：缩放解码（previewSize 级），结果只进拖动预览缓存。
+    // 与 FIFO 队列 / 预读三路互不干扰；同一时刻至多 1 个在飞，位置再变就
+    // 丢掉旧结果改解最新位置（latest-wins 只在本通道成立）。
+    void requestDragPreview(const QString &path, const QSize &size);
 
 signals:
     void fullReady(const QString &path, const QImage &image, bool preview);
+    void dragPreviewReady(const QString &path, const QImage &image);
     void thumbnailReady(const QString &path, const QImage &image);
     void loadFailed(const QString &path, const QString &error);
 
@@ -47,6 +52,7 @@ private:
     void finishFullDecode(const QString &path, const QImage &img);
     void startNext();
     void startNextPreload();
+    void startDragDecode();
     void insertFull(const QString &path, const QImage &img);
 
     QCache<QString, QImage> m_fullCache;
@@ -60,4 +66,11 @@ private:
     QList<QString> m_preloadQueue;
     QString m_preloadPath;
     bool m_preloadPromote = false;  // 预读期间该路径被真的要过：解完直接上屏
+    // 拖动预览：独立小缓存（缩放图不能混进 m_fullCache，否则落点会停成模糊帧）
+    QCache<QString, QImage> m_dragCache;
+    QString m_dragInFlight;     // 正在解的拖动预览（至多 1 个）
+    QString m_dragPending;      // 最新落点；解完若已被更新就只入缓存不上屏
+    QSize m_dragSize;
+    bool m_dragPromote = false; // 在飞预览的页被真要（连按/跳转）：解完按快帧上屏
+    bool m_dragMuted = false;   // 有真实请求介入：在飞预览解完只入缓存不上屏
 };
