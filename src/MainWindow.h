@@ -44,7 +44,7 @@ public:
 
     void openFile(const QString &path);
     void openSettings() { onSettings(); }   // 调试/自动化：直接打开设置对话框
-    void setViewMode(int mode);             // 调试/自动化 + 菜单共用：0原始/1适合窗口/2适合宽度
+    void setZoomMode(int mode);             // 调试/自动化 + 菜单共用：0原始/1适合窗口/2适合宽度
     void runSmokeCommand(const QString &cmd); // 调试/自动化：--smoke 单命令驱动（P0 冒烟）
 
 protected:
@@ -160,8 +160,11 @@ private:
     void toggleZoomLock();                   // 锁定缩放（Ctrl+K）：翻页沿用同一比例
     void onPageSelect();                     // 选择图片（Enter）：按序号跳转
     void onEditBookmarks();                  // 编辑书签（F3）：书签管理对话框
-    bool isSpreadMode() const;               // 智能双页阅览（viewMode 3/4）
-    void setSpreadMode(int mode);            // 3 = 左→右，4 = 左←右
+    bool isSpreadMode() const;               // 智能双页阅览（m_spreadMode 3/4 且非 0）
+    void setSpreadMode(int mode);            // 0 = 关，3 = 左→右，4 = 左←右
+    void applyCurrentZoom();                 // 只用 m_zoomMode 适配画布（单图/拼图共用）
+    void syncViewModeActions();              // 勾选态与内部状态对齐（硬规则：三者同步）
+    void updateShowModeIcon();               // 工具栏图标：双页开取 spread，关取 zoom
     QString spreadSecondPath() const;        // 跨页的右/左手那张
     QImage readImageSync(const QString &path) const;   // 同步解码（双页拼图用）
     void refreshSpread();                    // 按当前索引重新拼接跨页
@@ -293,7 +296,9 @@ private:
     QMargins m_canvasInsets{-1, -1, -1, -1};   // 当前画布可视区边距（-1 = 未应用）
 
     bool m_fullscreen = false;
-    int m_viewMode = 1;      // 0=原始 1=适合窗口 2=适合宽度
+    // 浏览方式 = 两个正交维度：「缩放」与「双页」。别再加第三个复合枚举。
+    int m_zoomMode = 1;      // 0=原始 1=适合窗口 2=适合宽度
+    int m_spreadMode = 0;    // 0=关 3=双页左→右 4=双页左←右
     bool m_firstImage = true;
 
     QString m_currentPath;
@@ -307,9 +312,9 @@ private:
     bool m_negative = false;   // 反相
     qreal m_gamma = 1.0;       // Gamma 补偿（1.0 = 不变）
     bool m_zoomLocked = false; // 锁定缩放：翻页后不做适配，沿用同一比例
-    // 开锁前的浏览方式（0=原始 1=适合窗口 2=适合宽度 3/4=双页），-1 表示未记录。
-    // 锁定分支不再改写 m_viewMode，解锁时用它还原，避免「解锁后翻页全变 100%」。
-    int m_viewModeBeforeLock = -1;
+    // 开锁前的缩放方式（0=原始 1=适合窗口 2=适合宽度），-1 表示未记录。
+    // 锁定只影响缩放这一维，双页模式不参与记忆。
+    int m_zoomModeBeforeLock = -1;
     bool m_hdrTonemap = false; // HDR 色调映射（命令栏 HDR 钮 / config/hdr_tonemap，默认 false）
     int m_interpMode = 1;      // 0 bilinear / 1 bicubic / 2 lanczos
     bool m_slideshow = false;

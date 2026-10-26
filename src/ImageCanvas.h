@@ -21,8 +21,8 @@ class ImageCanvas : public QGraphicsView
 public:
     explicit ImageCanvas(QWidget *parent = nullptr);
 
-    // fitAfter=false 时不做适配，只装图（调用方随后自行 fit/setViewMode），
-    // 用于消除「setPixmap 内部 fit 一次 + setViewMode 又 fit 一次」的双重计算。
+    // fitAfter=false 时不做适配，只装图（调用方随后自行 fit/setZoomMode），
+    // 用于消除「setPixmap 内部 fit 一次 + setZoomMode 又 fit 一次」的双重计算。
     void setPixmap(const QPixmap &pixmap, bool fitAfter = true);
     // 旋转/翻转等原地替换：保持当前缩放与视口中心（anchorNorm 为新图中要占据
     // 视口中心的归一化坐标），避免转完后图像跳位或被重新适配。

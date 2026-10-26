@@ -152,11 +152,11 @@ int main(int argc, char *argv[])
         const QString vm = parser.value(viewModeOpt);
         // openFile 异步加载，showImage 会按当前浏览方式重放，这里先设好状态即可
         if (vm == QLatin1String("actual")) {
-            window.setViewMode(0);
+            window.setZoomMode(0);
         } else if (vm == QLatin1String("width")) {
-            window.setViewMode(2);
+            window.setZoomMode(2);
         } else if (vm == QLatin1String("fit")) {
-            window.setViewMode(1);
+            window.setZoomMode(1);
         }
     }
 

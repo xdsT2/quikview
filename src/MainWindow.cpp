@@ -296,9 +296,9 @@ MainWindow::MainWindow(QWidget *parent)
             }
             m_zoomBadge->showText(txt);
         }
-        // 这里绝不能把「非 fit」推断成 m_viewMode=0：滚轮手动放大同样走
-        // zoomChanged，误改后翻页 setViewMode(0) 就变成 100% 显示。
-        // 浏览方式只在显式 setViewMode()（菜单/快捷键/冒烟命令）里变，滚轮只是
+        // 这里绝不能把「非 fit」推断成 m_zoomMode=0：滚轮手动放大同样走
+        // zoomChanged，误改后翻页 setZoomMode(0) 就变成 100% 显示。
+        // 缩放方式只在显式 setZoomMode()（菜单/快捷键/冒烟命令）里变，滚轮只是
         // 临时缩放——翻页后恢复当前浏览方式（Honeyview 基准：放大看细节，
         // 翻下一张回到适应窗口）。
         updateCanvasInsets();
@@ -910,24 +910,35 @@ void MainWindow::createActions()
     // Honeyview：F4 = 关闭
     mkFn(tr("关闭"), QKeySequence(QStringLiteral("F4")), [this]() { close(); });
 
-    // 视图（浏览方式单选：原始 0 / 适合窗口 9 / 适合宽度 8，对照原版快捷键）
-    auto *viewModeGroup = new QActionGroup(this);
-    viewModeGroup->setExclusive(true);
+    // 视图：缩放三兄弟一个互斥组；双页两项是**另一个**独立勾选组（可勾选、可同时勾选）。
+    // 两维正交：缩放决定「怎么适配」，双页决定「显示几页」，菜单/画面/内部状态三者同步。
+    auto *zoomModeGroup = new QActionGroup(this);
+    zoomModeGroup->setExclusive(true);
     actActualSize = mk(tr("原始大小 (100%)"), QKeySequence(QStringLiteral("0")), &MainWindow::onActualSize);
     actFit = mk(tr("适合窗口"), QKeySequence(QStringLiteral("9")), &MainWindow::onFit);
     actFitWidth = mk(tr("适合宽度"), QKeySequence(QStringLiteral("8")), &MainWindow::onFitWidth);
-    actTwoL2R = new QAction(tr("智能双页阅览 (左→右)"), this);
-    actTwoL2R->setShortcut(QKeySequence(QStringLiteral("7")));
-    connect(actTwoL2R, &QAction::triggered, this, [this]() { setViewMode(3); });
-    actTwoR2L = new QAction(tr("智能双页阅览 (左←右)"), this);
-    actTwoR2L->setShortcut(QKeySequence(QStringLiteral("6")));
-    connect(actTwoR2L, &QAction::triggered, this, [this]() { setViewMode(4); });
-    for (auto *a : { actActualSize, actFit, actFitWidth, actTwoL2R, actTwoR2L }) {
+    for (auto *a : { actActualSize, actFit, actFitWidth }) {
         a->setCheckable(true);
-        viewModeGroup->addAction(a);
-        addAction(a);   // 不挂窗口快捷键不参与分发（此前 7/6 是死的）
+        zoomModeGroup->addAction(a);
+        addAction(a);   // 不挂窗口快捷键不参与分发
     }
     actFit->setChecked(true);
+    // 双页：不进 zoomModeGroup。点未勾项=换方向，点已勾项=取消双页（缩放不变）；
+    // 快捷键 7/6 走同一条 QAction::triggered，同语义。
+    actTwoL2R = new QAction(tr("智能双页阅览 (左→右)"), this);
+    actTwoL2R->setShortcut(QKeySequence(QStringLiteral("7")));
+    connect(actTwoL2R, &QAction::triggered, this, [this]() {
+        setSpreadMode(m_spreadMode == 3 ? 0 : 3);
+    });
+    actTwoR2L = new QAction(tr("智能双页阅览 (左←右)"), this);
+    actTwoR2L->setShortcut(QKeySequence(QStringLiteral("6")));
+    connect(actTwoR2L, &QAction::triggered, this, [this]() {
+        setSpreadMode(m_spreadMode == 4 ? 0 : 4);
+    });
+    for (auto *a : { actTwoL2R, actTwoR2L }) {
+        a->setCheckable(true);
+        addAction(a);   // 不挂窗口快捷键不参与分发（此前 7/6 是死的）
+    }
     actZoomIn = mk(tr("放大(&+)"), QKeySequence::ZoomIn, &MainWindow::onZoomIn);
     actZoomOut = mk(tr("缩小(&-)"), QKeySequence::ZoomOut, &MainWindow::onZoomOut);
     // 无修饰的 + / - 作为第二快捷键（对照原版 MENUSTR_ZOOM_IN/OUT），菜单显示仍取第一个
@@ -1418,16 +1429,12 @@ QMenu *MainWindow::buildContextMenu()
     UiStyle::polishMenu(sort);
     menu->addSeparator();
 
-    // —— 浏览方式（原型取 showmode 前 5 项）——
+    // —— 浏览方式（原型取 showmode 前 5 项）：缩放三选 + 双页两勾，勾选态各自独立 ——
     QMenu *show = menu->addMenu(tr("浏览方式"));
-    actActualSize->setChecked(m_viewMode == 0);
-    actFit->setChecked(m_viewMode == 1);
-    actFitWidth->setChecked(m_viewMode == 2);
+    syncViewModeActions();
     show->addAction(actActualSize);
     show->addAction(actFit);
     show->addAction(actFitWidth);
-    actTwoL2R->setChecked(m_viewMode == 3);
-    actTwoR2L->setChecked(m_viewMode == 4);
     show->addAction(actTwoL2R);
     show->addAction(actTwoR2L);
     UiStyle::polishMenu(show);
@@ -1438,7 +1445,7 @@ QMenu *MainWindow::buildContextMenu()
     addMenuItem(zoom, tr("缩小"), QStringLiteral("−"), [this]() { onZoomOut(); });
     actZoomLock->setChecked(m_zoomLocked);
     zoom->addAction(actZoomLock);       // Ctrl+K
-    addMenuItem(zoom, tr("100%"), QString(), [this]() { setViewMode(0); });
+    addMenuItem(zoom, tr("100%"), QString(), [this]() { setZoomMode(0); });
     addMenuItem(zoom, tr("放大 (1%)"), QStringLiteral("Ctrl++"), [this]() {
         if (!m_currentImage.isNull()) {
             m_canvas->setZoom(m_canvas->zoom() + 0.01);
@@ -1698,7 +1705,7 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     QImage base = sdr;
     if (isSpreadMode()) {
         const QImage second = readImageSync(spreadSecondPath());
-        base = (m_viewMode == 3) ? composeSpread(sdr, second) : composeSpread(second, sdr);
+        base = (m_spreadMode == 3) ? composeSpread(sdr, second) : composeSpread(second, sdr);
     }
     // m_sourceImage 保存「文件里的原始像素」，旋转/翻转/反相/Gamma 全都从它派生。
     // 这样「不旋转」才能真回到原样，而不是靠撤销栈一层层退。
@@ -1715,25 +1722,26 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
         actEffectNone->setChecked(true);
     }
     const qreal prevZoom = m_canvas->zoom();
-    // fitAfter=false：这里只装图，适配交给下面的 setViewMode / fitToWindow
-    // 做一次——否则 setPixmap 内部先 fit 一次、setViewMode 又 fit 一次，
+    // fitAfter=false：这里只装图，适配交给下面的 applyCurrentZoom
+    // 做一次——否则 setPixmap 内部先 fit 一次、再适配一次，
     // Lanczos 模式下等于每次翻页多做一次全图重采样。
     m_canvas->setPixmap(QPixmap::fromImage(base), /*fitAfter=*/false);
-    // 首图按设置默认（fit/actual）；之后翻页保持用户当前浏览方式。
+    // 首图按设置默认（fit/actual）；之后翻页保持用户当前缩放方式。
     // 锁定缩放时两者都不走：直接沿用上一张的比例，换图不跳比例。
     if (m_zoomLocked && !m_firstImage && prevZoom > 0.0) {
         m_canvas->setPixmapPreservingView(QPixmap::fromImage(base), QPointF(0.5, 0.5),
                                           prevZoom, false, false);
-        // 这里不能写 m_viewMode：锁定只是「沿用比例」，不是把浏览方式改成原始尺寸。
+        // 这里不能写 m_zoomMode：锁定只是「沿用比例」，不是把浏览方式改成原始尺寸。
         // 写了会把用户锁定前的模式永久污染成 0，解锁后翻页全部变 100%。
     } else if (m_firstImage && Config::instance().defaultZoom() == QLatin1String("actual")) {
-        setViewMode(0);
-    } else if (isSpreadMode()) {
-        // 双页：每次换页都按新的跨页重新适配
-        m_canvas->fitToWindow();
+        setZoomMode(0);
     } else {
-        setViewMode(m_viewMode);
+        // 单图与双页拼图走同一条适配：只看 m_zoomMode（0 原始 / 1 窗口 / 2 宽度）
+        applyCurrentZoom();
     }
+    // 每次装图后把勾选态/图标对齐（首图、默认 actual、双页拼图都覆盖到）
+    syncViewModeActions();
+    updateShowModeIcon();
     m_firstImage = false;
     updateCanvasLogo();
     // 胶囊第一行 = 翻页进度（对齐原型 #pageSlider）；单张目录时控件自动禁用
@@ -1857,45 +1865,66 @@ void MainWindow::onActivateImage(int index)
 // 浏览 / 视图
 // ---------------------------------------------------------------------------
 
-void MainWindow::onFit()        { setViewMode(1); }
-void MainWindow::onFitWidth()  { setViewMode(2); }
-void MainWindow::onActualSize() { setViewMode(0); }
+void MainWindow::onFit()        { setZoomMode(1); }
+void MainWindow::onFitWidth()  { setZoomMode(2); }
+void MainWindow::onActualSize() { setZoomMode(0); }
 void MainWindow::onZoomIn()    { m_canvas->zoomIn(); }
 void MainWindow::onZoomOut()   { m_canvas->zoomOut(); }
 
-// 浏览方式统一入口：0=原始 1=适合窗口 2=适合宽度。
-// 同步画布几何、动作勾选态与工具栏模式图标（static_showmode_0..2）
-void MainWindow::setViewMode(int mode)
+// 缩放维度统一入口：0=原始 1=适合窗口 2=适合宽度。只改缩放，不动双页。
+void MainWindow::setZoomMode(int mode)
 {
-    m_viewMode = mode;
-    switch (mode) {
+    m_zoomMode = mode;
+    applyCurrentZoom();
+    syncViewModeActions();
+    updateShowModeIcon();
+}
+
+// 只用 m_zoomMode 适配画布。单图与双页拼图共用这一条 ——
+// 以前双页分支硬编码 fitToWindow()，就是「双页 + 原始大小」被吃掉的根因。
+void MainWindow::applyCurrentZoom()
+{
+    if (!m_canvas) {
+        return;
+    }
+    switch (m_zoomMode) {
     case 0:
         m_canvas->zoomActual();
         break;
     case 2:
         m_canvas->fitToWidth();
         break;
-    case 3:
-    case 4:
-        // 智能双页阅览：重新拼跨页 + 适配（勾选态与 toast 都在 setSpreadMode 里）
-        setSpreadMode(mode);
-        return;
     case 1:
     default:
         m_canvas->fitToWindow();
         break;
     }
+}
+
+// 硬规则：菜单勾选、画面、内部状态三者同步。任何改状态的地方都调它。
+void MainWindow::syncViewModeActions()
+{
     if (actActualSize) {
-        actActualSize->setChecked(mode == 0);
+        actActualSize->setChecked(m_zoomMode == 0);
     }
     if (actFit) {
-        actFit->setChecked(mode == 1);
+        actFit->setChecked(m_zoomMode == 1);
     }
     if (actFitWidth) {
-        actFitWidth->setChecked(mode == 2);
+        actFitWidth->setChecked(m_zoomMode == 2);
     }
+    if (actTwoL2R) {
+        actTwoL2R->setChecked(m_spreadMode == 3);
+    }
+    if (actTwoR2L) {
+        actTwoR2L->setChecked(m_spreadMode == 4);
+    }
+}
+
+void MainWindow::updateShowModeIcon()
+{
     if (m_toolbar) {
-        m_toolbar->setShowModeIcon(mode);
+        m_toolbar->setShowModeIcon(m_spreadMode != 0 ? m_spreadMode : m_zoomMode);
     }
 }
 
@@ -1912,9 +1941,9 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     else if (c == QLatin1String("last"))       onLast();
     else if (c == QLatin1String("nextfolder")) onNextFolder();
     else if (c == QLatin1String("prevfolder")) onPrevFolder();
-    else if (c == QLatin1String("fit"))        setViewMode(1);
-    else if (c == QLatin1String("fitwidth"))   setViewMode(2);
-    else if (c == QLatin1String("actual"))     setViewMode(0);
+    else if (c == QLatin1String("fit"))        setZoomMode(1);
+    else if (c == QLatin1String("fitwidth"))   setZoomMode(2);
+    else if (c == QLatin1String("actual"))     setZoomMode(0);
     else if (c == QLatin1String("zoomin"))     onZoomIn();
     else if (c == QLatin1String("zoomout"))    onZoomOut();
     else if (c == QLatin1String("rotateleft")) onRotateLeft();
@@ -1961,8 +1990,14 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         onStretchSmall(c == QLatin1String("stretchon"));
     }
     else if (c.startsWith(QLatin1String("interp:"))) { setInterpolationMode(c.mid(7)); }
-    else if (c == QLatin1String("spread:l2r")) { setViewMode(3); }
-    else if (c == QLatin1String("spread:r2l")) { setViewMode(4); }
+    // 双页维度：l2r/r2l = 直接设定方向（不 toggle，冒烟要确定性）；
+    // off = 关双页（缩放保留）；toggle / toggle:r2l = 走菜单勾选项同一条 QAction::triggered，
+    // 等价于按 7 / 6（验证「点已勾项=取消」的语义）。
+    else if (c == QLatin1String("spread:l2r")) { setSpreadMode(3); }
+    else if (c == QLatin1String("spread:r2l")) { setSpreadMode(4); }
+    else if (c == QLatin1String("spread:off")) { setSpreadMode(0); }
+    else if (c == QLatin1String("spread:toggle")) { actTwoL2R->trigger(); }
+    else if (c == QLatin1String("spread:toggle:r2l")) { actTwoR2L->trigger(); }
     else if (c == QLatin1String("zoomlock")) { toggleZoomLock(); }
     else if (c.startsWith(QLatin1String("page:"))) {
         const int n = c.mid(5).toInt();
@@ -2040,6 +2075,17 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         QMenu *menu = buildContextMenu();
         menu->popup(mapToGlobal(QPoint(width() / 2 - 120, height() / 3)));
     }
+    // 验收探针：直接弹出「浏览方式」子菜单 —— 勾选态（缩放✔ + 双页✔ 同亮）只能靠
+    // --screenshot-ui 截子菜单本身来判定。按 actTwoL2R 定位，不依赖菜单文案/语言。
+    else if (c == QLatin1String("viewmenu")) {
+        QMenu *menu = buildContextMenu();
+        for (QAction *a : menu->actions()) {
+            if (a->menu() && a->menu()->actions().contains(actTwoL2R)) {
+                a->menu()->popup(mapToGlobal(QPoint(width() / 2 - 120, height() / 3)));
+                break;
+            }
+        }
+    }
     // 调试/验收：把缩放与边距的**真实数值**追加到日志（截图只能看个大概）
     // 验收探针：信息面板各层高度 dump（配合有/无 EXIF 图对比定位高度 bug）
     else if (c == QLatin1String("metadump")) {
@@ -2052,7 +2098,7 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         if (f.open(QIODevice::Append | QIODevice::Text)) {
             QTextStream ts(&f);
             const QPointF ctr = m_canvas->viewCenterNormalized();
-            ts << "mode=" << m_viewMode
+            ts << "mode=" << m_zoomMode
                << " zoom=" << QString::number(m_canvas->zoom(), 'f', 4)
                << " center=" << QString::number(ctr.x(), 'f', 4) << '/' << QString::number(ctr.y(), 'f', 4)
                << " fitWin=" << (m_canvas->isFitToWindow() ? 1 : 0)
@@ -2067,7 +2113,9 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << (m_control ? m_control->size().height() : 0)
                << " page=" << (m_control ? m_control->page() : 0)
                << " rot=" << m_netRotation
-               << " vm=" << m_viewMode
+               << " vm=" << (isSpreadMode() ? m_spreadMode : m_zoomMode)
+               << " spread=" << m_spreadMode
+               << " icon=" << (m_toolbar ? m_toolbar->showModeIcon() : -1)
                << " zlock=" << (m_zoomLocked ? 1 : 0)
                << " neg=" << (m_negative ? 1 : 0)
                << " gam=" << QString::number(m_gamma, 'f', 2)
@@ -2678,14 +2726,16 @@ void MainWindow::toggleZoomLock()
 {
     m_zoomLocked = !m_zoomLocked;
     if (m_zoomLocked) {
-        // 开锁瞬间记住当前浏览方式，锁定期间不再被改写。
-        if (m_viewModeBeforeLock < 0) {
-            m_viewModeBeforeLock = m_viewMode;
+        // 开锁瞬间记住当前缩放方式，锁定期间不再被改写（双页维度不参与）。
+        if (m_zoomModeBeforeLock < 0) {
+            m_zoomModeBeforeLock = m_zoomMode;
         }
     } else {
         // 解锁还原：没有记录（例如启动时配置就是锁定态）则回到「适合窗口」。
-        m_viewMode = (m_viewModeBeforeLock >= 0) ? m_viewModeBeforeLock : 1;
-        m_viewModeBeforeLock = -1;
+        m_zoomMode = (m_zoomModeBeforeLock >= 0) ? m_zoomModeBeforeLock : 1;
+        m_zoomModeBeforeLock = -1;
+        syncViewModeActions();
+        updateShowModeIcon();
     }
     Config::instance().settings().setValue(QStringLiteral("config/zoom_fix"), m_zoomLocked);
     if (m_toast) {
@@ -2826,7 +2876,7 @@ void MainWindow::onEditBookmarks()
 
 bool MainWindow::isSpreadMode() const
 {
-    return m_viewMode == 3 || m_viewMode == 4;
+    return m_spreadMode == 3 || m_spreadMode == 4;
 }
 
 // 同步解码：双页拼图需要立刻拿到另一页，异步缓存那条链路来不及。
@@ -2874,8 +2924,8 @@ void MainWindow::refreshSpread()
     }
     const QImage second = readImageSync(spreadSecondPath());
     // 左←右（漫画式）：第一页在右边、第二页在左边
-    m_sourceImage = (m_viewMode == 3) ? composeSpread(first, second)
-                                      : composeSpread(second, first);
+    m_sourceImage = (m_spreadMode == 3) ? composeSpread(first, second)
+                                        : composeSpread(second, first);
     m_netRotation = 0;
     m_flipH = false;
     m_flipV = false;
@@ -2885,33 +2935,46 @@ void MainWindow::refreshSpread()
         actEffectNone->setChecked(true);
     }
     applyAdjustments(QPointF(0.5, 0.5));
-    m_canvas->fitToWindow();
+    applyCurrentZoom();   // 拼图完成后按 m_zoomMode 适配（0/1/2 都由这一条决定）
     updateInfoOverlay();
 }
 
+// 双页维度统一入口：mode 0=关 3=左→右 4=左←右。缩放维度原样保留。
 void MainWindow::setSpreadMode(int mode)
 {
-    m_viewMode = mode;
-    refreshSpread();
-    if (actTwoL2R) {
-        actTwoL2R->setChecked(mode == 3);
+    if (mode != 0 && mode != 3 && mode != 4) {
+        mode = 0;
     }
-    if (actTwoR2L) {
-        actTwoR2L->setChecked(mode == 4);
+    if (mode == m_spreadMode) {
+        syncViewModeActions();
+        updateShowModeIcon();
+        return;
     }
-    if (actActualSize) {
-        actActualSize->setChecked(false);
+    const int old = m_spreadMode;
+    m_spreadMode = mode;
+    if (mode != 0) {
+        // 开双页：重新拼跨页，然后按当前缩放方式适配（不再硬编码适合窗口）
+        if (!m_currentPath.isEmpty()) {
+            refreshSpread();
+        }
+        if (m_toast) {
+            m_toast->showMessage(mode == 3 ? tr("智能双页阅览（左→右）")
+                                           : tr("智能双页阅览（左←右）"));
+        }
+    } else if (old != 0 && !m_currentPath.isEmpty()) {
+        // 关双页：画面必须还原成单图（以前只改状态，画面留着拼图 → 状态/画面互相矛盾）。
+        // 走 showImage 走一次完整流程：重置旋转/效果、按 m_zoomMode 适配、元数据与标题一致。
+        const QImage single = readImageSync(m_currentPath);
+        if (!single.isNull()) {
+            showImage(single, m_currentPath);
+        } else {
+            applyCurrentZoom();
+        }
+    } else {
+        applyCurrentZoom();
     }
-    if (actFit) {
-        actFit->setChecked(false);
-    }
-    if (actFitWidth) {
-        actFitWidth->setChecked(false);
-    }
-    if (m_toast) {
-        m_toast->showMessage(mode == 3 ? tr("智能双页阅览（左→右）")
-                                       : tr("智能双页阅览（左←右）"));
-    }
+    syncViewModeActions();
+    updateShowModeIcon();
 }
 
 void MainWindow::onCrop()

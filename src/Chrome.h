@@ -152,6 +152,7 @@ class ToolBar : public QWidget
 public:
     explicit ToolBar(QWidget *parent = nullptr);
     void setShowModeIcon(int index);   // 兼容旧调用，视觉暂不展示模式小图
+    int showModeIcon() const { return m_showModeIcon; }   // 验收探针：确认传进来的是 3/4（双页）还是 0/1/2（缩放）
     void setLocked(bool locked);
     bool isLocked() const { return m_locked; }
     // HDR 色调映射开关（原型 .command.hdr-toggle：44px 文字钮，开时 accent 选中态）
