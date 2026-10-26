@@ -132,6 +132,8 @@ private:
 
     void applyRuntimeSettings();
     void loadAsync(const QString &path);
+    // 空闲预读：翻页停手 300ms 且解码队列空了，向当前页前后各预读 1 张
+    void preloadNeighbors();
     // 显式跳转：先清空解码队列再加载（区别于顺序翻页的逐张播放）
     void jumpTo(const QString &path);
     void showImage(const QImage &image, const QString &path, bool preview = false);
@@ -239,6 +241,8 @@ private:
     ThumbnailBrowser *m_browser = nullptr;
     FrameNavigator *m_frames = nullptr;
     QTimer *m_slideshowTimer = nullptr;
+    // 翻页停手 300ms 后触发空闲预读（前后各一张，只进缓存不上屏）
+    QTimer *m_preloadTimer = nullptr;
     // —— 动图自动播放（P0：GIF）——
     // 绝对时间点校正：nextDeadline 是“下一帧应出现的绝对时刻”（m_animClock 起点），
     // 每帧 += 当前帧延迟；解码慢导致的落后不再累加，防止长动图越播越慢。

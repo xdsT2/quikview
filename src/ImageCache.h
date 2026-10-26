@@ -15,6 +15,9 @@ class QImage;
 // 而不是「只出首尾两张」。emit 顺序 == requestFull 调用顺序（缓存命中也排队
 // 保证次序）。队列上限 8，超出丢最旧的未开始项，最终停在最新那张。
 // 显式跳转（打开/换目录/滑块/缩略图/书签）先 cancelPending() 清队。
+// 空闲预读：队列空下来后按 MainWindow 的 300ms 空闲计时器调 preload()，向当前页
+// 前后各预读 1 张，只填缓存不上屏；预读中的那页若被真的要到（requestFull），
+// 升级为「解完即上屏」，不会出现「先跳过去又回跳」。
 // 支持按比例解码的格式（JPEG/PNG 等）在全图之前先按视口像素出一张快帧
 // 先上屏，全图到了再替换（fullReady 的 preview 参数区分）。
 class ImageCache : public QObject
@@ -29,6 +32,10 @@ public:
     void clear();
     void clearFull();   // 只清原图缓存（缩略图不受 HDR 开关影响）
     void cancelPending();   // 显式跳转：清空待解队列，在飞结果静默入缓存不上屏
+    // 空闲预读：只往原图缓存里填，不发信号不上屏；解码队列/在飞/已预读过的
+    // 路径直接忽略。真正的「前后各一张」调度在 MainWindow（300ms 无输入才调）。
+    void preload(const QString &path);
+    bool isIdle() const;    // 待解队列、在飞全图、预读缓冲都空 —— 可以开始预读
 
 signals:
     void fullReady(const QString &path, const QImage &image, bool preview);
@@ -39,6 +46,8 @@ private:
     void startFullDecode(const QString &path, const QSize &previewSize);
     void finishFullDecode(const QString &path, const QImage &img);
     void startNext();
+    void startNextPreload();
+    void insertFull(const QString &path, const QImage &img);
 
     QCache<QString, QImage> m_fullCache;
     QCache<QString, QImage> m_thumbCache;
@@ -47,4 +56,8 @@ private:
     QList<QString> m_queue;     // 待解码队列（FIFO，去重，上限 8）
     bool m_dropInFlightResult = false;  // cancelPending 后在飞结果只进缓存不上屏
     QSize m_previewSize;        // 快帧目标尺寸（视口像素）
+    // 预读：同一时刻也只跑 1 个（与全图解码共用「单飞」），排到的路径放这里。
+    QList<QString> m_preloadQueue;
+    QString m_preloadPath;
+    bool m_preloadPromote = false;  // 预读期间该路径被真的要过：解完直接上屏
 };

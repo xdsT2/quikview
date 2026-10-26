@@ -21,6 +21,12 @@ QImage ImageCache::cachedFull(const QString &path) const
 void ImageCache::requestFull(const QString &path, const QSize &previewSize)
 {
     m_previewSize = previewSize;
+    if (path == m_preloadPath) {
+        // 预读正在解这一页：升级为「要上屏」，解完直接按序发出，不另起任务
+        // （否则同一页两个解码，先到的可能是后一页，画面会回跳）
+        m_preloadPromote = true;
+        return;
+    }
     if (m_fullInFlight.contains(path)) {
         return;   // 正在解
     }
@@ -50,9 +56,72 @@ void ImageCache::requestFull(const QString &path, const QSize &previewSize)
             break;   // 理论到不了：在飞至多 1 个 < 队列上限
         }
     }
-    if (m_fullInFlight.isEmpty()) {
+    // 预读在飞时先排着：等它结束再按序放行，保证「预读→真要」不越序
+    if (m_fullInFlight.isEmpty() && m_preloadPath.isEmpty()) {
         startNext();
     }
+}
+
+void ImageCache::insertFull(const QString &path, const QImage &img)
+{
+    // 缓存成本按字节计，QCache 才会真的按容量 LRU 淘汰
+    // （此前 insert 不传成本=每条记 1，512MB 上限形同虚设）
+    m_fullCache.insert(path, new QImage(img),
+                       static_cast<int>(qMin<qint64>(img.sizeInBytes(), qint64(INT_MAX))));
+}
+
+void ImageCache::preload(const QString &path)
+{
+    if (path.isEmpty() || m_fullCache.contains(path) || m_queue.contains(path)
+        || m_fullInFlight.contains(path) || path == m_preloadPath
+        || m_preloadQueue.contains(path)) {
+        return;
+    }
+    m_preloadQueue.append(path);
+    startNextPreload();
+}
+
+void ImageCache::startNextPreload()
+{
+    if (!m_preloadPath.isEmpty() || m_preloadQueue.isEmpty()) {
+        return;
+    }
+    if (!m_queue.isEmpty() || !m_fullInFlight.isEmpty()) {
+        return;   // 用户请求优先，预读等空闲
+    }
+    const QString path = m_preloadQueue.takeFirst();
+    m_preloadPath = path;
+    QtConcurrent::run([this, path]() {
+        QImageReader reader(path);
+        reader.setAutoTransform(true);
+        const QImage img = reader.read();
+        QMetaObject::invokeMethod(this, [this, path, img]() {
+            if (m_preloadPath != path) {
+                return;   // clearFull() 已作废这轮预读
+            }
+            m_preloadPath.clear();
+            const bool promote = m_preloadPromote;
+            m_preloadPromote = false;
+            if (!img.isNull()) {
+                insertFull(path, img);
+                if (promote) {
+                    emit fullReady(path, img, false);
+                }
+            }
+            // 用户排队的解码优先，其次下一张预读
+            if (!m_queue.isEmpty()) {
+                startNext();
+            } else {
+                startNextPreload();
+            }
+        }, Qt::QueuedConnection);
+    });
+}
+
+bool ImageCache::isIdle() const
+{
+    return m_queue.isEmpty() && m_fullInFlight.isEmpty() && m_preloadQueue.isEmpty()
+        && m_preloadPath.isEmpty();
 }
 
 void ImageCache::startNext()
@@ -121,21 +190,25 @@ void ImageCache::finishFullDecode(const QString &path, const QImage &img)
     if (img.isNull()) {
         emit loadFailed(path, QStringLiteral("无法解码"));
     } else {
-        // 缓存成本按字节计，QCache 才会真的按容量 LRU 淘汰
-        // （此前 insert 不传成本=每条记 1，512MB 上限形同虚设）
-        m_fullCache.insert(path, new QImage(img),
-                           static_cast<int>(qMin<qint64>(img.sizeInBytes(), qint64(INT_MAX))));
+        insertFull(path, img);
         if (!drop) {
             // FIFO：按入队顺序无条件上屏（显式跳转的在飞旧结果除外）
             emit fullReady(path, img, false);
         }
     }
-    startNext();
+    if (!m_queue.isEmpty()) {
+        startNext();
+    } else {
+        startNextPreload();   // 用户队列空了，接着填空闲预读
+    }
 }
 
 void ImageCache::cancelPending()
 {
     m_queue.clear();
+    // 旧页面的邻居预读在新位置已经没意义：待预读清掉；在飞那个只进缓存不上屏
+    m_preloadQueue.clear();
+    m_preloadPromote = false;
     // 在飞的那个拦不住了（QtConcurrent 不可取消），结果到达时只进缓存不上屏
     m_dropInFlightResult = !m_fullInFlight.isEmpty();
 }
@@ -202,5 +275,8 @@ void ImageCache::clearFull()
     m_fullInFlight.clear();
     m_fullCache.clear();
     m_queue.clear();
+    m_preloadQueue.clear();
+    m_preloadPath.clear();
+    m_preloadPromote = false;
     m_dropInFlightResult = false;
 }

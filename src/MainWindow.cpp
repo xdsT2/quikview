@@ -363,6 +363,12 @@ MainWindow::MainWindow(QWidget *parent)
     m_chromeTimer->setInterval(60);
     connect(m_chromeTimer, &QTimer::timeout, this, &MainWindow::updateChromeProximity);
 
+    // 空闲预读：单次 300ms，每次翻页（loadAsync）重启；到点时队列还没清空就再等一轮
+    m_preloadTimer = new QTimer(this);
+    m_preloadTimer->setSingleShot(true);
+    m_preloadTimer->setInterval(300);
+    connect(m_preloadTimer, &QTimer::timeout, this, &MainWindow::preloadNeighbors);
+
     createActions();
     applyRuntimeSettings();
     applyChromeLayout();
@@ -1592,6 +1598,30 @@ void MainWindow::loadAsync(const QString &path)
     m_frames->clear();
     // 快帧目标 = 视口像素：连按时先上缩放解码的快帧顶住体感
     m_cache->requestFull(path, m_canvas ? m_canvas->viewport()->size() : QSize());
+    if (m_preloadTimer) {
+        m_preloadTimer->start();   // 又有输入：空闲预读重新计时
+    }
+}
+
+// 空闲预读：向当前页前后各预读 1 张（双页阅览按跨页 = 2 张），只填缓存不上屏。
+// 队列没消化完就再等 300ms —— 预读永远给用户请求让路。
+void MainWindow::preloadNeighbors()
+{
+    if (!m_dir->isValid() || !m_cache->isIdle()) {
+        if (m_dir->isValid() && m_preloadTimer) {
+            m_preloadTimer->start();
+        }
+        return;
+    }
+    const int step = isSpreadMode() ? 2 : 1;
+    const QStringList files = m_dir->files();
+    const int i = m_dir->index();
+    if (i - step >= 0) {
+        m_cache->preload(files.at(i - step));
+    }
+    if (i + step < files.size()) {
+        m_cache->preload(files.at(i + step));
+    }
 }
 
 void MainWindow::onFullReady(const QString &path, const QImage &image, bool preview)
