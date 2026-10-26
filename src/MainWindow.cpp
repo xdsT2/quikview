@@ -4,6 +4,7 @@
 #include <QActionGroup>
 #include <QApplication>
 #include <QClipboard>
+#include <QColor>
 #include <QContextMenuEvent>
 #include <QCursor>
 #include <QDesktopServices>
@@ -1503,6 +1504,20 @@ void MainWindow::applyRuntimeSettings()
     m_canvas->setWheelZoomEnabled(cfg.wheelZoom());
     m_canvas->setMiddlePanEnabled(cfg.middlePan());
 
+    // 画布外观（背景色 / 视口边框色 / 侧边箭头）：设置页存的是 #RRGGBB 颜色名，
+    // 读不到或解析失败时退回默认值——否则 QColor 无效会让画布画成黑块或干脆不描边。
+    QSettings &viewQs = Config::instance().settings();
+    const QColor bkgnd(viewQs.value(QStringLiteral("config/view/bkgnd_color"),
+                                    QStringLiteral("#202020")).toString());
+    const QColor border(viewQs.value(QStringLiteral("config/view/border_color"),
+                                     QStringLiteral("#000000")).toString());
+    m_canvas->setBackgroundColor(bkgnd.isValid() ? bkgnd : QColor(QStringLiteral("#202020")));
+    m_canvas->setBorderColor(border.isValid() ? border : QColor(QStringLiteral("#000000")));
+    // 设置页的「不显示侧边箭头」是反选（inverted），存的就是 show_side_arrow 本身：
+    // true=显示（默认）。关掉只影响视觉，两侧点击仍翻页。
+    m_canvas->setSideArrowsEnabled(viewQs.value(QStringLiteral("config/view/show_side_arrow"),
+                                                true).toBool());
+
     // 缩略图预览尺寸按 20:53 交办固定 128×128（面板 160 宽），
     // 设置里的「缩略图大小」项暂时不再影响面板，等确认后再决定是否从设置页移除。
 
@@ -2576,6 +2591,10 @@ void MainWindow::setInterpolationMode(const QString &mode)
         m_canvas->setInterpolationMode(m);
     }
     Config::instance().settings().setValue(QStringLiteral("config/interpolation"), mode);
+    // 双向桥：设置页「插值算法」下拉绑的是 config/imageproc/interpolate（"0"/"1"/"2"），
+    // 菜单切插值后必须同步写回，否则设置页回显的还是旧档位（bicubic→1、lanczos→2）。
+    Config::instance().settings().setValue(QStringLiteral("config/imageproc/interpolate"),
+                                           QString::number(m));
     if (actInterpFast) {
         actInterpFast->setChecked(m == 0);
     }

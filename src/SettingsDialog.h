@@ -94,6 +94,17 @@ private:
     QPushButton *addButton(QWidget *parent, const QString &text);
     QPushButton *addMiniButton(QWidget *parent, const QString &text);
 
+    // —— 诚实化：零消费项统一灰显 ——
+    // 配置 key 仍留在绑定表里（保存照常写入，向后兼容），但视觉与交互必须是
+    // 明确的不可用态，避免「能勾、能存、界面正常、实际无效」的假开关。
+    void markUnavailable(QWidget *w);
+    QCheckBox *addCheckUnavailable(QWidget *section, const QString &text, const char *key,
+                                   bool inverted, bool def);
+    QComboBox *addComboRowUnavailable(QWidget *section, const QString &label, const char *key,
+                                      const QString &def,
+                                      const QList<QPair<QString, QString>> &options,
+                                      int comboWidth = 160);
+
     void loadFromConfig();
     void takeSnapshot();
     void restoreSnapshot();

@@ -267,8 +267,7 @@ ImageCanvas::ImageCanvas(QWidget *parent)
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setFrameShape(QFrame::NoFrame);
-    setBackgroundBrush(QColor(QStringLiteral("#161719")));
-    setStyleSheet(QStringLiteral("QGraphicsView{background:#161719;border:0;}"));
+    setBackgroundColor(QColor(QStringLiteral("#161719")));
 
     m_logo = new QLabel(viewport());
     m_logo->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -299,6 +298,67 @@ void ImageCanvas::setLogoVisible(bool on)
     if (m_logo) {
         m_logo->setVisible(on);
     }
+}
+
+// 画布底色：brush + stylesheet 必须一起改。置了 stylesheet 的 QGraphicsView 用
+// 样式里的 background 画视口，backgroundBrush 会被盖掉——只改 brush 底色不变，
+// 只改 stylesheet 又会让 palette 与 brush 不同步（其它按 brush 取色的地方会错）。
+void ImageCanvas::setBackgroundColor(const QColor &color)
+{
+    if (!color.isValid() || color == m_backgroundColor) {
+        return;
+    }
+    m_backgroundColor = color;
+    setBackgroundBrush(color);
+    setStyleSheet(QStringLiteral("QGraphicsView{background:%1;border:0;}")
+                      .arg(color.name()));
+    viewport()->update();
+}
+
+void ImageCanvas::setBorderColor(const QColor &color)
+{
+    if (m_borderColor == color) {
+        return;
+    }
+    m_borderColor = color;
+    viewport()->update();   // 边框只在 paintEvent 里现画，重绘即生效
+}
+
+// 侧边箭头开关：只关「视觉」，不关命中——edgeTurnDelta 走箭头矩形，矩形仍由
+// placeEdgeArrows 摆在原位，所以两侧点击照旧翻页（光标也仍是手型，否则开关一关
+// 用户就再也找不到翻页热区了）。显示箭头的唯一路径是 updateEdgeHover()，
+// 因此那里判一次即可覆盖 resize/scroll/show/crop 等全部刷新时机。
+void ImageCanvas::setSideArrowsEnabled(bool on)
+{
+    if (m_sideArrowsEnabled == on) {
+        return;
+    }
+    m_sideArrowsEnabled = on;
+    if (!m_arrowPrev || !m_arrowNext) {
+        return;
+    }
+    if (!on) {
+        // 关：可能正淡入/显示着，立即收掉（淡出动画由 SideArrow 自己收尾）
+        m_arrowPrev->setShown(false);
+        m_arrowNext->setShown(false);
+        return;
+    }
+    refreshEdgeHover();   // 开：按当前真实光标位置补一次，光标停在带内就立刻显示
+}
+
+void ImageCanvas::paintEvent(QPaintEvent *event)
+{
+    QGraphicsView::paintEvent(event);
+    // 边框画在视口 1px 内沿：位置只和视口尺寸有关（与 scene 的缩放/平移无关），
+    // 所以每次重绘现算，不缓存任何几何。m_borderColor 无效时等于「不画边框」。
+    if (!m_borderColor.isValid()) {
+        return;
+    }
+    QPainter p(viewport());
+    p.setRenderHint(QPainter::Antialiasing, false);
+    p.setPen(QPen(m_borderColor, 1));
+    p.setBrush(Qt::NoBrush);
+    p.drawRect(viewport()->rect().adjusted(0, 0, -1, -1));
 }
 
 void ImageCanvas::setPixmap(const QPixmap &pixmap, bool fitAfter)
@@ -727,12 +787,18 @@ int ImageCanvas::edgeTurnDelta(const QPoint &pos) const
 
 // 悬停反馈：光标落在箭头矩形内 → 箭头淡入 + 手掌光标；离开 → 淡出。
 // 显隐判定只看箭头自身矩形（与点击同一口径），不再有更宽的悬停带。
+// 这里是**唯一的显箭头入口**（其余时机都是 setShown(false)），所以侧边箭头
+// 总开关只需在这里与一下，就能同时挡住 resize/scroll/show/换图等所有刷新路径。
 void ImageCanvas::updateEdgeHover(const QPoint &pos)
 {
+    if (!m_arrowPrev || !m_arrowNext) {
+        return;
+    }
     const int delta = edgeTurnDelta(pos);
-    m_arrowPrev->setShown(delta < 0);
-    m_arrowNext->setShown(delta > 0);
+    m_arrowPrev->setShown(m_sideArrowsEnabled && delta < 0);
+    m_arrowNext->setShown(m_sideArrowsEnabled && delta > 0);
     if (!m_cropMode) {
+        // 关掉箭头也保留手型：命中带还在（点击仍翻页），没有光标提示就成暗坑了
         viewport()->setCursor(delta != 0 ? Qt::PointingHandCursor : Qt::ArrowCursor);
     }
 }
@@ -766,6 +832,8 @@ void ImageCanvas::placeEdgeArrows()
     if (!m_arrowPrev) {
         return;
     }
+    // 不判 m_sideArrowsEnabled：箭头矩形同时是点击命中带（edgeTurnDelta 读它），
+    // 哪怕箭头被开关藏起来，也必须每帧摆回原位，否则关掉箭头就连点击也一起丢了。
     const QRect vp = viewport()->rect();
     const QSize sz = m_arrowPrev->size();
     m_arrowPrev->move(6, (vp.height() - sz.height()) / 2);

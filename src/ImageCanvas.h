@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QColor>
 #include <QElapsedTimer>
 #include <QGraphicsView>
 #include <QMargins>
@@ -42,6 +43,18 @@ public:
     void setWheelZoomEnabled(bool on) { m_wheelZoom = on; }
     void setMiddlePanEnabled(bool on) { m_middlePan = on; }
     void setContentMargins(const QMargins &margins);
+
+    // 画布外观（设置页「背景颜色 / 边框颜色 / 不显示侧边箭头」）。
+    // setBackgroundColor 必须同时改 backgroundBrush 与 stylesheet：QGraphicsView
+    // 的 stylesheet 优先级高于 brush，只改一处画布底色不会变。
+    void setBackgroundColor(const QColor &color);
+    // 视口 1px 内沿描边；color 无效（默认）时不画，保持原来的无边框观感。
+    void setBorderColor(const QColor &color);
+    // false：两支 SideArrow 一律不显示，但 edgeTurnDelta 的命中矩形保留，
+    // 悬停两侧仍出鼠标手型、点击两侧仍翻页——只是没有箭头这个视觉提示。
+    void setSideArrowsEnabled(bool on);
+    bool sideArrowsEnabled() const { return m_sideArrowsEnabled; }
+
     void fitToWindow();
     void fitToWidth();                    // 浏览模式 2：按图宽缩放，垂直可滚
     void zoomIn();
@@ -84,6 +97,8 @@ signals:
     void middleClickRequested();
 
 protected:
+    // 视口 1px 内沿边框：基类画完图像后直接描一圈，与 scene 缩放/平移无关
+    void paintEvent(QPaintEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
     // 画布不消费导航键：QGraphicsView/QAbstractScrollArea 默认会把方向键吃掉做滚动，
     // 事件就传不到 MainWindow::keyPressEvent。这里统一 ignore() 冒泡。
@@ -132,6 +147,9 @@ private:
     bool m_middlePan = true;
     bool m_stretchSmall = false;
     bool m_resizeBurst = false;  // 窗口边界拖动进行中（resizeEvent 置位，收尾定时器复位）
+    bool m_sideArrowsEnabled = true;   // 侧边箭头开关（关=不显示但仍可点）
+    QColor m_backgroundColor;    // 画布底色（brush 与 stylesheet 同步维护）
+    QColor m_borderColor;        // 视口内沿描边色，无效值=不画
     int m_interp = InterpBicubic;
     QPixmap m_sourcePixmap;      // 未经 Lanczos 预处理的原图，缩放变化时按它重算
     QSize m_samplingSize;        // 上次 Lanczos 重采样的目标像素尺寸（相同就跳过重算）

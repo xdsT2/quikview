@@ -419,6 +419,18 @@ QComboBox#flatCombo::down-arrow { width: 0; height: 0; }
 QLabel#valueText { color: #d5d7da; font-size: 11px; }
 QPlainTextEdit#credits { background: #1e2023; border: 1px solid rgba(255,255,255,0.085);
     border-radius: 6px; color: #b9bec5; font-size: 11px; padding: 6px; }
+
+/* 置灰（尚未实现）项的统一不可用态：文字压暗、底座与边框退到背景层，
+   与可交互项一眼可分。UiStyle::dialogQss() 只给了 indicator:disabled，
+   没有文字色，直接 setEnabled(false) 时文字仍与正常项同亮度、看不出差别，
+   所以这里补一套。明暗两套主题下设置页底色都由 paintEvent 固定为 #232427，
+   灰字 #6f747a 对比度约 3.2:1，可读且明确「不可点」。 */
+QCheckBox:disabled { color: #6f747a; }
+QLabel:disabled { color: #6f747a; }
+QComboBox:disabled { color: #6f747a; background: #26282b; border-color: #3a3c40; }
+QSpinBox:disabled { color: #6f747a; background: #26282b; border-color: #3a3c40; }
+QLineEdit:disabled { color: #6f747a; background: #26282b; border-color: #3a3c40; }
+QPushButton:disabled { color: #6f747a; border-color: #3a3c40; background: #292b2f; }
 )");
 }
 
@@ -515,8 +527,8 @@ SettingsDialog::SettingsDialog(QWidget *parent)
 
     // —— 页面（每页一个 QScrollArea，内容 widget 存 m_pages）——
     buildGeneralPage(addPage(tr("一般"), tr("窗口行为、通知与到达首尾时的操作。")));
-    buildViewPage(addPage(tr("浏览"), tr("控制主窗口、控制栏、文件名和信息的显示方式。")));
-    buildImageProcPage(addPage(tr("图像处理"), tr("设置缓存、透明背景、插值算法与翻页效果。")));
+    buildViewPage(addPage(tr("浏览"), tr("背景颜色、边框颜色与侧边箭头等浏览显示设置。")));
+    buildImageProcPage(addPage(tr("图像处理"), tr("插值算法与透明/翻页设置；多数项尚未实现，已置灰。")));
     buildAssocPage(addPage(tr("格式关联"), tr("选择由 QuikView 打开的图片格式。")));
     buildKeyboardPage(addPage(tr("键盘"), tr("自定义浏览、编辑与窗口操作快捷键。")));
     buildMousePage(addPage(tr("鼠标"), tr("设置鼠标按键、滚轮与双击行为。")));
@@ -770,6 +782,47 @@ QPushButton *SettingsDialog::addMiniButton(QWidget *parent, const QString &text)
 }
 
 // ===========================================================================
+// 诚实化：零消费项灰显
+// ===========================================================================
+
+namespace {
+
+// 单一文案：所有"尚未实现"项共用一句。文案散落在十几处，将来改动/翻译必走样。
+QString unavailableTip()
+{
+    return QObject::tr("该选项暂未实现，将在后续版本提供。");
+}
+
+} // namespace
+
+void SettingsDialog::markUnavailable(QWidget *w)
+{
+    if (!w)
+        return;
+    w->setEnabled(false);           // 不可交互：点击 / Tab / 键盘都不响应
+    w->setCursor(Qt::ArrowCursor);  // 收掉手型，别"看起来能点"
+    w->setToolTip(unavailableTip());
+}
+
+QCheckBox *SettingsDialog::addCheckUnavailable(QWidget *section, const QString &text,
+                                               const char *key, bool inverted, bool def)
+{
+    QCheckBox *cb = addCheck(section, text, key, inverted, def);
+    markUnavailable(cb);
+    return cb;
+}
+
+QComboBox *SettingsDialog::addComboRowUnavailable(QWidget *section, const QString &label,
+                                                  const char *key, const QString &def,
+                                                  const QList<QPair<QString, QString>> &options,
+                                                  int comboWidth)
+{
+    QComboBox *combo = addComboRow(section, label, key, def, options, comboWidth);
+    markUnavailable(combo->parentWidget());   // 整行（行标签 + 下拉）一起灰
+    return combo;
+}
+
+// ===========================================================================
 // 1. 一般
 // ===========================================================================
 
@@ -798,20 +851,28 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
 
 void SettingsDialog::buildViewPage(QWidget *page)
 {
+    // 本页除「不显示侧边箭头」外，其余键除本文件外全仓零消费（
+    // grep -rn '"view/' src/ | grep -v SettingsDialog 无命中），按 ICC 模式灰显。
+    // 值仍写回 config（向后兼容历史配置），但视觉上必须是不可用态。
     QWidget *sec = beginSection(page, tr("浏览设置"));
-    addCheck(sec, tr("显示主窗口"), "view/show_main_window", false, true);
-    addCheck(sec, tr("顶端菜单隐藏时显示文件名 (Shift+TAB)"), "view/overlay_filename", false, false);
-    addCheck(sec, tr("保存缩放状态"), "view/save_zoom_state", false, false);
-    addCheck(sec, tr("不显示菜单栏"), "view/show_menu_bar", true, true);
-    addCheck(sec, tr("不显示控制栏"), "view/show_control_bar", true, true);
+    addCheckUnavailable(sec, tr("显示主窗口"), "view/show_main_window", false, true);
+    addCheckUnavailable(sec, tr("顶端菜单隐藏时显示文件名 (Shift+TAB)"),
+                        "view/overlay_filename", false, false);
+    addCheckUnavailable(sec, tr("保存缩放状态"), "view/save_zoom_state", false, false);
+    addCheckUnavailable(sec, tr("不显示菜单栏"), "view/show_menu_bar", true, true);
+    addCheckUnavailable(sec, tr("不显示控制栏"), "view/show_control_bar", true, true);
+    // 唯一真开关：本轮接通的 ImageCanvas::setSideArrowsEnabled()。
     addCheck(sec, tr("不显示侧边箭头"), "view/show_side_arrow", true, true);
-    addCheck(sec, tr("不显示动画信息控制"), "view/show_anim_control", true, true);
-    addCheck(sec, tr("不显示缩放信息控制"), "view/show_zoom_control", true, true);
-    addCheck(sec, tr("不显示鼠标悬浮工具提示"), "view/show_tooltip", true, true);
-    addCheck(sec, tr("用小字体显示 EXIF / 文件信息"), "view/exif_small_font", false, false);
+    addCheckUnavailable(sec, tr("不显示动画信息控制"), "view/show_anim_control", true, true);
+    addCheckUnavailable(sec, tr("不显示缩放信息控制"), "view/show_zoom_control", true, true);
+    addCheckUnavailable(sec, tr("不显示鼠标悬浮工具提示"), "view/show_tooltip", true, true);
+    addCheckUnavailable(sec, tr("用小字体显示 EXIF / 文件信息"),
+                        "view/exif_small_font", false, false);
+    addHint(sec, unavailableTip());
 
     sec = beginSection(page, tr("背景"));
-    addCheck(sec, tr("更改默认背景图片"), "view/bkgnd_image", false, false);
+    // 背景图片（铺图）未实现：画布只画纯色，路径与两个按钮一并灰显。
+    addCheckUnavailable(sec, tr("更改默认背景图片"), "view/bkgnd_image", false, false);
 
     QHBoxLayout *pathRow = addRow(sec, QString());
     m_bkgndPath = new QLineEdit;
@@ -833,7 +894,11 @@ void SettingsDialog::buildViewPage(QWidget *page)
         if (!d.isEmpty())
             QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(d).absolutePath()));
     });
+    markUnavailable(pathRow->parentWidget());   // 整行：输入框 + 浏览… + 打开文件夹
+    addHint(sec, unavailableTip());
 
+    // 颜色两项是真开关：ImageCanvas::setBackgroundColor()/setBorderColor()，
+    // 保存后 MainWindow::applyRuntimeSettings() 立即重刷当前画布。
     auto *bgBtn = new ColorPickButton("view/bkgnd_color", QStringLiteral("#202020"));
     m_bkgndColorBtn = bgBtn;
     QHBoxLayout *bgRow = addRow(sec, tr("背景颜色"));
@@ -854,9 +919,12 @@ void SettingsDialog::buildViewPage(QWidget *page)
 void SettingsDialog::buildImageProcPage(QWidget *page)
 {
     QWidget *sec = beginSection(page, tr("图像处理"));
-    addCheck(sec, tr("根据 EXIF 信息自动旋转图片"), "imageproc/exif_rotation", false, true);
-    addCheck(sec, tr("使用强锐化滤镜"), "imageproc/strong_sharpen", false, false);
-    addCheck(sec, tr("缓存下一张图片"), "imageproc/cache_image", false, true);
+    // 「根据 EXIF 信息自动旋转图片」勾选框已移除：功能恒开且无开关消费方——
+    // 解码链路无条件 setAutoTransform(true)（FrameNavigator / ImageCache /
+    // MainWindow 各处），留个勾选框只会让人以为能关。实现处见
+    // FrameNavigator.cpp 的同名注释。
+    addCheckUnavailable(sec, tr("使用强锐化滤镜"), "imageproc/strong_sharpen", false, false);
+    addCheckUnavailable(sec, tr("缓存下一张图片"), "imageproc/cache_image", false, true);
 
     QHBoxLayout *cacheRow = addRow(sec, tr("缓存大小"));
     m_cacheSize = new QSpinBox;
@@ -870,9 +938,15 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     mb->setObjectName(QStringLiteral("hint"));
     cacheRow->addWidget(mb);
     cacheRow->addStretch(1);
+    // 缓存上限目前是 ImageCache 里的硬编码字节数，读不到 imageproc/cache_size_mb，
+    // 所以「缓存下一张图片」与「缓存大小」一起灰显（接配置是下一步的事）。
+    markUnavailable(cacheRow->parentWidget());
 
-    addCheck(sec, tr("图片大于窗口时显示图片顶部"), "imageproc/align_top_when_large", false, true);
-    addCheck(sec, tr("先显示低品质图片以加速渲染"), "imageproc/preview_mode", false, true);
+    addCheckUnavailable(sec, tr("图片大于窗口时显示图片顶部"),
+                        "imageproc/align_top_when_large", false, true);
+    addCheckUnavailable(sec, tr("先显示低品质图片以加速渲染"), "imageproc/preview_mode", false, true);
+    addHint(sec, unavailableTip());
+
     // ICC 色彩管理尚未实现（无任何消费方），灰显占位，等解码层接入后再开放。
     auto *iccImage = addCheck(sec, tr("使用图片文件的 ICC 设置"), "imageproc/image_icc", false, true);
     auto *iccMonitor = addCheck(sec, tr("使用监视器的 ICC 设置"), "imageproc/monitor_icc", false, false);
@@ -883,18 +957,23 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     addHint(sec, tr("ICC 色彩管理尚未实现，以上两项暂不可用。"));
 
     sec = beginSection(page, tr("透明与翻页"));
-    addComboRow(sec, tr("为 GIF 图片使用透明背景"), "imageproc/gif_transparent", QStringLiteral("0"),
-                { { "0", tr("默认GIF调色板") }, { "1", tr("白色背景") },
-                  { "2", tr("黑色背景") }, { "3", tr("自定义颜色") } }, 160);
-    addComboRow(sec, tr("为32位图片使用透明背景"), "imageproc/img32_transparent", QStringLiteral("0"),
-                { { "0", tr("网格背景") }, { "1", tr("白色背景") },
-                  { "2", tr("黑色背景") }, { "3", tr("深色网格") } }, 160);
+    addComboRowUnavailable(sec, tr("为 GIF 图片使用透明背景"), "imageproc/gif_transparent",
+                           QStringLiteral("0"),
+                           { { "0", tr("默认GIF调色板") }, { "1", tr("白色背景") },
+                             { "2", tr("黑色背景") }, { "3", tr("自定义颜色") } }, 160);
+    addComboRowUnavailable(sec, tr("为32位图片使用透明背景"), "imageproc/img32_transparent",
+                           QStringLiteral("0"),
+                           { { "0", tr("网格背景") }, { "1", tr("白色背景") },
+                             { "2", tr("黑色背景") }, { "3", tr("深色网格") } }, 160);
+    // 标签按实测语义改名：Canvas 的 InterpBilinear 走 FastTransformation（最近邻），
+    // 中间档是 GPU 平滑（双线性量级），第三档才是真 Lanczos3 重采样。
     addComboRow(sec, tr("插值算法（裁剪或减淡）"), "imageproc/interpolate", QStringLiteral("0"),
-                { { "0", tr("Bilinear 插值 (快)") }, { "1", tr("Bicubic 插值") },
-                  { "2", tr("Lanczos 插值") } }, 160);
-    addComboRow(sec, tr("翻页效果"), "imageproc/pageturn_fx", QStringLiteral("0"),
-                { { "0", tr("无") }, { "1", tr("淡入淡出") },
-                  { "2", tr("Alpha 滑动") }, { "3", tr("滑动") } }, 160);
+                { { "0", tr("最近邻 (快)") }, { "1", tr("平滑 (双线性)") },
+                  { "2", tr("Lanczos (锐利)") } }, 160);
+    addComboRowUnavailable(sec, tr("翻页效果"), "imageproc/pageturn_fx", QStringLiteral("0"),
+                           { { "0", tr("无") }, { "1", tr("淡入淡出") },
+                             { "2", tr("Alpha 滑动") }, { "3", tr("滑动") } }, 160);
+    addHint(sec, unavailableTip());
 }
 
 // ===========================================================================
@@ -1450,9 +1529,13 @@ void SettingsDialog::onAccepted()
         sSet("language", m_language->currentData().toString());
 
     // —— 兼容桥：运行逻辑沿用的旧 key 由新设置项推导 ——
+    // 三档必须一一对应，之前只写了 fast/smooth 两支，选 Lanczos("2") 被吞成
+    // smooth，Lanczos 永远选不中。Config::interpolation() 会把 fast→bilinear、
+    // smooth→bicubic 翻译成画布认识的模式，lanczos 原样透传。
     const QString interp = sGet("imageproc/interpolate", QStringLiteral("0"));
     sSet("interpolation", interp == QStringLiteral("0") ? QStringLiteral("fast")
-                                                        : QStringLiteral("smooth"));
+                          : interp == QStringLiteral("1") ? QStringLiteral("smooth")
+                                                          : QStringLiteral("lanczos"));
     bSet("wheel_zoom", sGet("mouse/wheel_up", QStringLiteral("zoom_in")) == QStringLiteral("zoom_in")
                        && sGet("mouse/wheel_down", QStringLiteral("zoom_out")) == QStringLiteral("zoom_out"));
     bSet("middle_pan", sGet("mouse/btn_middle", QStringLiteral("pan")) == QStringLiteral("pan"));

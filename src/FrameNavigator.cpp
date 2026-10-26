@@ -24,6 +24,10 @@ void FrameNavigator::open(const QString &path)
     auto *reader = new QImageReader(path);
     const int count = reader->imageCount();
     if (count > 1) {
+        // 按 EXIF Orientation 自动旋转是**恒开**功能：没有开关，也不读配置。
+        // 设置页「根据 EXIF 信息自动旋转图片」勾选框因此已移除——勾上关不了、
+        // 取消照样转，是假开关。要恢复可配，得让本文件、ImageCache、MainWindow
+        // 三处解码点统一读同一个 key，光加回勾选框没有意义。
         reader->setAutoTransform(true);
         m_reader = reader;
         m_count = count;
