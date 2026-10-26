@@ -27,6 +27,9 @@ public:
     void showImage(const QString &path, const QImage &image);
     void clear();
 
+    // 验收探针：把面板各层 sizeHint/实际高度写到文件（smoke 命令 metadump）
+    void dumpHeights(const QString &path, const QString &tag = QString()) const;
+
 signals:
     void closed();
     void copied();   // 复制参数成功（MainWindow 负责 toast 反馈）

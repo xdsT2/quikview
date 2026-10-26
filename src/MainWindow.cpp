@@ -440,6 +440,16 @@ void MainWindow::applyChromeLayout()
         const int top = full ? 10 : 70;
         const int availH = h - top - 24;
         const QSize hint = m_metadata->sizeHint();
+        // 临时验收探针：GUI Tab 流程下面板几何实参（定位高度被裁）
+        {
+            QFile f(QStringLiteral("Temp/meta-dump.txt"));
+            if (f.open(QIODevice::Append | QIODevice::Text)) {
+                QTextStream ts(&f);
+                ts << "GEOM win=" << width() << 'x' << height() << " h=" << h
+                   << " availH=" << availH << " hint=" << hint.height()
+                   << " final=" << qMin(hint.height(), qMax(120, availH)) << "\n";
+            }
+        }
         m_metadata->setGeometry(x + left, y + top,
                                 hint.width(), qMin(hint.height(), qMax(120, availH)));
         m_metadata->raise();
@@ -947,9 +957,13 @@ void MainWindow::createActions()
     addAction(actToggleMeta);
     // 浮层几何依赖可见性（隐藏时 applyChromeLayout 跳过它），显示后要立刻排一次
     connect(actToggleMeta, &QAction::toggled, this, [this](bool on) {
+        if (on) {
+            m_metadata->dumpHeights(QStringLiteral("Temp/meta-dump.txt"), QStringLiteral("TABPRE"));
+        }
         m_metadata->setVisible(on);
         if (on) {
             applyChromeLayout();
+            m_metadata->dumpHeights(QStringLiteral("Temp/meta-dump.txt"), QStringLiteral("TABPOST"));
         }
     });
     // 面板自带 × 关掉时，把菜单勾选态同步回未勾选，避免「关了还打勾」
@@ -1936,6 +1950,13 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         dlg->setAttribute(Qt::WA_DeleteOnClose);
         dlg->show();
     }
+    // 验收探针：模拟 Tab 开关信息面板（走 actToggleMeta toggled 同一链路），
+    // 用于对比「smoke info 直开」与「Tab 切换」两条路径下面板几何差异
+    else if (c == QLatin1String("tabtoggle")) {
+        if (actToggleMeta) {
+            actToggleMeta->setChecked(!actToggleMeta->isChecked());
+        }
+    }
     else if (c == QLatin1String("info")) {
         if (m_metadata) {
             m_metadata->show();
@@ -1948,6 +1969,12 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         menu->popup(mapToGlobal(QPoint(width() / 2 - 120, height() / 3)));
     }
     // 调试/验收：把缩放与边距的**真实数值**追加到日志（截图只能看个大概）
+    // 验收探针：信息面板各层高度 dump（配合有/无 EXIF 图对比定位高度 bug）
+    else if (c == QLatin1String("metadump")) {
+        if (m_metadata) {
+            m_metadata->dumpHeights(QStringLiteral("Temp/meta-dump.txt"));
+        }
+    }
     else if (c == QLatin1String("report")) {
         QFile f(QStringLiteral("Temp/zoom-report.txt"));
         if (f.open(QIODevice::Append | QIODevice::Text)) {

@@ -6,6 +6,8 @@
 #include <QDesktopServices>
 #include <QEvent>
 #include <QFileInfo>
+#include <QFile>
+#include <QTextStream>
 #include <QFontMetrics>
 #include <QFrame>
 #include <QGridLayout>
@@ -83,6 +85,32 @@ private:
 
     QString m_full;
     Qt::TextElideMode m_mode = Qt::ElideRight;
+};
+
+// ---------------------------------------------------------------------------
+// 键值滚动区：QScrollArea 的 sizeHint() 在 widget 尚未 show 过时只按未激活的
+// viewport 算（实测返回 38px），不反映 widgetResizable 内容的自然高度——面板
+// 「首次 Tab 打开前已换好图」时（启动→对话框开图→Tab），applyChromeLayout 按
+// 103px 给面板定几何，内容全部被底边裁掉（report/探针实证）。这里 override：
+// sizeHint 高度取 max(默认, 内容自然高)，首次显示即正确，超高仍由
+// applyChromeLayout 钳到可用高度后内部滚动。
+// ---------------------------------------------------------------------------
+class BodyScroll : public QScrollArea
+{
+public:
+    explicit BodyScroll(QWidget *parent = nullptr) : QScrollArea(parent) {}
+
+    QSize sizeHint() const override
+    {
+        QSize s = QScrollArea::sizeHint();
+        if (widget()) {
+            const int wh = widget()->sizeHint().height();
+            if (wh > s.height()) {
+                s.setHeight(wh);
+            }
+        }
+        return s;
+    }
 };
 
 // ---------------------------------------------------------------------------
@@ -291,7 +319,7 @@ void MetadataPanel::buildUi()
     root->addWidget(actions);
 
     // —— 滚动区：内容超出可用高度时整块内部滚动，不撑出窗口 ——
-    m_scroll = new QScrollArea(this);
+    m_scroll = new BodyScroll(this);
     m_scroll->setWidgetResizable(true);
     m_scroll->setFrameShape(QFrame::NoFrame);
     m_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -556,6 +584,7 @@ void MetadataPanel::showImage(const QString &path, const QImage &image)
     renderHistogram(image);
 
     finishLayout();
+    dumpHeights(QStringLiteral("Temp/meta-dump.txt"), QStringLiteral("SHOWIMG"));
 }
 
 void MetadataPanel::finishLayout()
@@ -571,7 +600,31 @@ void MetadataPanel::finishLayout()
     if (m_gridHolder) {
         m_gridHolder->setFixedWidth(m_contentWidth - 20);
     }
+    if (m_scroll) {
+        // BodyScroll::sizeHint 是按当前内容动态算的，QVBoxLayout 会缓存它
+        // 首次取到的旧值（空内容 38px）——换图后必须显式失效缓存，否则
+        // applyChromeLayout 拿到的面板 sizeHint 停留在「首图前」的高度。
+        m_scroll->updateGeometry();
+    }
     updateGeometry();
+}
+
+void MetadataPanel::dumpHeights(const QString &path, const QString &tag) const
+{
+    QFile f(path);
+    if (!f.open(QIODevice::Append | QIODevice::Text)) {
+        return;
+    }
+    QTextStream ts(&f);
+    ts << (tag.isEmpty() ? QStringLiteral("DUMP") : tag) << " hint=" << sizeHint().height() << " actual=" << height()
+       << " minHint=" << minimumSizeHint().height()
+       << " scrollHint=" << (m_scroll ? m_scroll->sizeHint().height() : -1)
+       << " bodyHint=" << (m_body ? m_body->sizeHint().height() : -1)
+       << " bodyActual=" << (m_body ? m_body->height() : -1)
+       << " gridHolderHint=" << (m_gridHolder ? m_gridHolder->sizeHint().height() : -1)
+       << " rows=" << (m_grid ? m_grid->rowCount() : -1)
+       << " rootHint=" << (layout() ? layout()->sizeHint().height() : -1)
+       << "\n";
 }
 
 void MetadataPanel::renderHistogram(const QImage &image)
