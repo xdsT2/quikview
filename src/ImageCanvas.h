@@ -61,6 +61,10 @@ public:
 
     // 裁剪模式：进入后左键拖拽画选区，selectionRect() 返回图像像素坐标
     void setCropMode(bool on);
+
+    // 按**当前真实光标位置**重算侧边箭头显隐/光标形状。换图、Resize、缩略图
+    // 开合、全屏进出、裁剪切换、show/enter 时鼠标不动也要刷新，统一走这里。
+    void refreshEdgeHover();
     bool cropMode() const { return m_cropMode; }
     QRect selectionRect() const;
     void clearSelection();
@@ -89,7 +93,10 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
     void leaveEvent(QEvent *event) override;
+    void enterEvent(QEnterEvent *event) override;
+    void showEvent(QShowEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
+    void scrollContentsBy(int dx, int dy) override;
 
 private:
     // 把场景点重新对回指定的视口点（用于边距/缩放变化后还原缩放锚点）

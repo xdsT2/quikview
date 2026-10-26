@@ -4,6 +4,8 @@
 #include <QGraphicsPixmapItem>
 #include <QGraphicsRectItem>
 #include <QGraphicsScene>
+#include <QCursor>
+#include <QFile>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QMouseEvent>
@@ -11,6 +13,7 @@
 #include <QPixmap>
 #include <QPropertyAnimation>
 #include <QScrollBar>
+#include <QTextStream>
 #include <QWheelEvent>
 
 #include <cmath>
@@ -319,6 +322,7 @@ void ImageCanvas::setPixmap(const QPixmap &pixmap, bool fitAfter)
     if (m_logo) {
         m_logo->hide();
     }
+    refreshEdgeHover();   // 空态→有图等切换后，按当前光标位置重算箭头
 }
 
 void ImageCanvas::setPixmapPreservingView(const QPixmap &pixmap, const QPointF &anchorNorm,
@@ -335,10 +339,12 @@ void ImageCanvas::setPixmapPreservingView(const QPixmap &pixmap, const QPointF &
     scene()->setSceneRect(m_item->boundingRect());   // 同 setPixmap：防止沿用旧矩形
     if (!hadItem || fitWindow) {
         fitToWindow();
+        refreshEdgeHover();   // 空态→有图：按当前光标位置重算箭头
         return;
     }
     if (fitWidth) {
         fitToWidth();
+        refreshEdgeHover();
         return;
     }
     const qreal z = zoom > 0.0 ? zoom : 1.0;
@@ -350,6 +356,7 @@ void ImageCanvas::setPixmapPreservingView(const QPixmap &pixmap, const QPointF &
     centerOn(r.left() + qBound(0.0, anchorNorm.x(), 1.0) * r.width(),
              r.top() + qBound(0.0, anchorNorm.y(), 1.0) * r.height());
     emit zoomChanged(m_zoom);
+    refreshEdgeHover();
 }
 
 QPointF ImageCanvas::viewCenterNormalized() const
@@ -383,6 +390,7 @@ void ImageCanvas::setContentMargins(const QMargins &margins)
     const QPointF keep = m_item ? mapToScene(viewport()->rect().center()) : QPointF();
     setViewportMargins(margins.left(), margins.top(), margins.right(), margins.bottom());
     placeEdgeArrows();   // 左带/箭头随视口右移，不压在缩略图面板上
+    refreshEdgeHover();  // 视口几何变了，按真实光标位置重算显隐
     if (m_fitToWindow) {
         fitToWindow();
     } else if (m_fitWidth) {
@@ -695,39 +703,62 @@ void ImageCanvas::scrollVerticallyBy(qreal fraction)
 }
 
 // ---------------------------------------------------------------------------
-// 侧边翻页箭头带（原版实测：左右各约 40px 的带，不是按图片半边分）：
-//   左带 x ∈ [6, 40)，右带 x ∈ (w-40, w-6)，最外 6px 留给窗口边缘。
-//   视口坐标，与图片缩放无关；缩略图面板展开时 setViewportMargins 已把
-//   视口右移，左带天然落在面板右侧。无图 / 裁剪模式不响应。
+// 侧边翻页箭头（原版：悬停才出现的 Chevron，点击即翻页）：
+//   命中口径与显示口径统一为同一个 SideArrow 48x88 矩形——箭头在哪，
+//   点击就在哪。视口坐标，与图片缩放无关；缩略图面板展开时
+//   setViewportMargins 已把视口右移，左箭头天然落在面板右侧。
+//   无图 / 裁剪模式不响应。旧的「40px 点击带 / 120px 悬停带」两套口径已废止。
 // ---------------------------------------------------------------------------
 int ImageCanvas::edgeTurnDelta(const QPoint &pos) const
 {
     if (!m_item || m_sourcePixmap.isNull() || m_cropMode) {
         return 0;
     }
-    constexpr int kEdge = 40;
-    constexpr int kGuard = 6;
-    const int w = viewport()->width();
-    if (pos.x() >= kGuard && pos.x() < kEdge) {
+    // 注意不能拿 isVisible() 当命中条件：显隐本身就由「光标在不在矩形内」
+    // 推出来，拿结果当条件会自锁（箭头永远点不亮）。矩形即口径，二者恒一致。
+    if (m_arrowPrev && m_arrowPrev->geometry().contains(pos)) {
         return -1;
     }
-    if (pos.x() > w - kEdge && pos.x() < w - kGuard) {
+    if (m_arrowNext && m_arrowNext->geometry().contains(pos)) {
         return +1;
     }
     return 0;
 }
 
-// 悬停反馈：带内手掌光标；指针距视口左/右缘 120px 内淡入对应箭头（原型
-// nearLeft/nearRight 口径），离开淡出。
+// 悬停反馈：光标落在箭头矩形内 → 箭头淡入 + 手掌光标；离开 → 淡出。
+// 显隐判定只看箭头自身矩形（与点击同一口径），不再有更宽的悬停带。
 void ImageCanvas::updateEdgeHover(const QPoint &pos)
 {
     const int delta = edgeTurnDelta(pos);
-    viewport()->setCursor(delta != 0 ? Qt::PointingHandCursor : Qt::ArrowCursor);
-    const int w = viewport()->width();
-    m_arrowPrev->setShown(delta != 0 || (m_item && !m_sourcePixmap.isNull() && !m_cropMode
-                                         && pos.x() >= 0 && pos.x() < 120));
-    m_arrowNext->setShown(delta != 0 || (m_item && !m_sourcePixmap.isNull() && !m_cropMode
-                                         && pos.x() > w - 120 && pos.x() <= w));
+    m_arrowPrev->setShown(delta < 0);
+    m_arrowNext->setShown(delta > 0);
+    if (!m_cropMode) {
+        viewport()->setCursor(delta != 0 ? Qt::PointingHandCursor : Qt::ArrowCursor);
+    }
+}
+
+// 按**真实光标**当前位置重算悬停态。供换图 / Resize / 缩略图开合 / 全屏进出 /
+// 裁剪切换 / show / enter 等「画面变了但鼠标没动」的时机调用。
+void ImageCanvas::refreshEdgeHover()
+{
+    if (!m_arrowPrev || !m_arrowNext) {
+        return;
+    }
+    if (m_cropMode) {
+        m_arrowPrev->setShown(false);
+        m_arrowNext->setShown(false);
+        viewport()->unsetCursor();   // 让 setCropMode 设置的十字光标透出来
+        return;
+    }
+    const QPoint vp = viewport()->mapFromGlobal(QCursor::pos());
+    if (!viewport()->rect().contains(vp)) {
+        // 光标已不在画布上（窗口变化后常见）：箭头必须收掉，不能挂在原地
+        m_arrowPrev->setShown(false);
+        m_arrowNext->setShown(false);
+        viewport()->unsetCursor();
+        return;
+    }
+    updateEdgeHover(vp);
 }
 
 void ImageCanvas::placeEdgeArrows()
@@ -791,9 +822,10 @@ void ImageCanvas::mouseMoveEvent(QMouseEvent *event)
         event->accept();
         return;
     }
-    // 悬停（无按键）：箭头带光标 + 箭头显隐（viewport 开了 mouse tracking）
+    // 悬停（无按键）：箭头光标 + 箭头显隐（viewport 开了 mouse tracking）。
+    // 统一走真实光标口径，鼠标不动时的其它刷新也走同一条路。
     if (event->buttons() == Qt::NoButton) {
-        updateEdgeHover(event->pos());
+        refreshEdgeHover();
     } else if (m_pressTracked && (event->buttons() & Qt::LeftButton)
                && (event->pos() - m_pressPos).manhattanLength() >= 3) {
         // 位移到 3px 即判定为拖拽平移，松手不再翻页（原逻辑不受影响）
@@ -840,6 +872,17 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent *event)
     QGraphicsView::mouseReleaseEvent(event);
 }
 
+void ImageCanvas::scrollContentsBy(int dx, int dy)
+{
+    QGraphicsView::scrollContentsBy(dx, dy);
+    // 关键：QAbstractScrollArea 滚动是 viewport()->scroll() 实现的，会把视口的
+    // **子控件整体平移**——箭头正是 viewport 子控件，翻页/缩放/平移一次就被
+    // 拖偏一次（实测翻一页 +45px，点击落空）。滚动后立刻归位。
+    if ((dx != 0 || dy != 0) && m_arrowPrev) {
+        placeEdgeArrows();
+    }
+}
+
 void ImageCanvas::leaveEvent(QEvent *event)
 {
     // 指针离开画布：光标还原、箭头淡出（否则停在带内会一直挂着）
@@ -849,6 +892,18 @@ void ImageCanvas::leaveEvent(QEvent *event)
         viewport()->unsetCursor();
     }
     QGraphicsView::leaveEvent(event);
+}
+
+void ImageCanvas::enterEvent(QEnterEvent *event)
+{
+    QGraphicsView::enterEvent(event);
+    refreshEdgeHover();   // 进画布时若光标已停在箭头上，立即显箭头
+}
+
+void ImageCanvas::showEvent(QShowEvent *event)
+{
+    QGraphicsView::showEvent(event);
+    refreshEdgeHover();
 }
 
 void ImageCanvas::resizeEvent(QResizeEvent *event)
@@ -871,4 +926,5 @@ void ImageCanvas::resizeEvent(QResizeEvent *event)
                      (viewport()->height() - m_logo->height()) / 2);
     }
     placeEdgeArrows();
+    refreshEdgeHover();   // 窗口/视口变化后，箭头矩形随动，按真实光标重算
 }

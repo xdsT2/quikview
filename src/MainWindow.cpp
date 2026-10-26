@@ -495,6 +495,8 @@ void MainWindow::toggleBrowserPanel()
         m_browser->raise();
     }
     updateCanvasInsets();
+    applyChromeLayout();            // 面板开合改变浮层避让位置（14/196），浮层开着时必须重排
+    m_canvas->refreshEdgeHover();   // 视口被面板挤压/释放，按真实光标重算箭头
 }
 
 void MainWindow::setTopChromeVisible(bool visible, bool animate)
@@ -818,10 +820,16 @@ void MainWindow::toggleFullscreen()
 void MainWindow::changeEvent(QEvent *event)
 {
     QMainWindow::changeEvent(event);
+    if (event->type() == QEvent::WindowStateChange) {
+        // 全屏进出：视口几何即将变化，按真实光标重算箭头显隐
+        if (m_canvas) {
+            m_canvas->refreshEdgeHover();
+        }
 #ifdef Q_OS_WIN
-    if (event->type() == QEvent::WindowStateChange && !isFullScreen())
-        applyNativeFrameStyles();
+        if (!isFullScreen())
+            applyNativeFrameStyles();
 #endif
+    }
 }
 #endif
 
@@ -2816,6 +2824,7 @@ void MainWindow::onCrop()
 {
     m_cropMode = !m_cropMode;
     m_canvas->setCropMode(m_cropMode);
+    m_canvas->refreshEdgeHover();   // 裁剪进出：箭头收起/恢复按真实光标重算
     if (m_cropMode) {
         m_toast->showMessage(tr("拖拽框选裁剪区域，回车确认，Esc 取消"));
     } else {

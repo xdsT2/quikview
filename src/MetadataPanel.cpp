@@ -392,7 +392,9 @@ void MetadataPanel::addGroup(const QList<Row> &rows)
         auto *value = new ElidedLabel(Qt::ElideRight, m_gridHolder);
         value->setObjectName(QStringLiteral("infoVal"));
         value->setFont(UiStyle::font(12));
-        value->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        // 键/值两列全部左对齐（值列曾用 AlignRight，长值被推到面板右缘硬切）；
+        // 超长由 ElidedLabel 省略，Tooltip 保留全文，复制走 m_copyLines 全文。
+        value->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
         value->setFullText(r.value);
 
         // 自然宽度用各 label 自己的字体度量累计，与最终渲染一致
