@@ -756,6 +756,11 @@ void ImageCanvas::mousePressEvent(QMouseEvent *event)
     if (m_middlePan && event->button() == Qt::MiddleButton) {
         m_panning = true;
         m_lastPan = event->pos();
+        // 中键也可能只是「点一下」：按下先记账，松手时再按位移/时长判定单击。
+        // 裁剪模式与未打开图片不参与（保持原行为，中键只做平移）。
+        m_midPressPos = event->pos();
+        m_midPressClock.restart();
+        m_midPressTracked = m_item != nullptr && !m_cropMode;
         setCursor(Qt::ClosedHandCursor);
         event->accept();
         return;
@@ -807,7 +812,16 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent *event)
     if (event->button() == Qt::MiddleButton && m_panning) {
         m_panning = false;
         unsetCursor();
+        // 单击判定与左键箭头带同一套阈值：<3px、<300ms。拖动超过 3px 仍只是平移。
+        const bool isClick = m_midPressTracked
+                             && m_midPressClock.isValid()
+                             && m_midPressClock.elapsed() < 300
+                             && (event->pos() - m_midPressPos).manhattanLength() < 3;
+        m_midPressTracked = false;
         event->accept();
+        if (isClick) {
+            emit middleClickRequested();
+        }
         return;
     }
     // 箭头带内的「点击」翻页：左键 + 位移 <3px + 按压 <300ms。先让基类把

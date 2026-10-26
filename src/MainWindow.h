@@ -120,6 +120,7 @@ private slots:
 private:
     // 动作系统：所有 QAction 只创建一次，右键菜单 / 工具栏下拉菜单共用
     void applyNativeFrameStyles();   // Win11：补回 DWM 帧（描边/阴影/圆角）
+    void toggleFullscreen();         // 全屏/还原唯一入口：标题栏 · F11 · 中键 · smoke
     void createActions();
     QMenu *buildContextMenu();
     QMenu *buildBrowseMenu();

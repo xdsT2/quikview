@@ -75,6 +75,9 @@ signals:
     // -1 = 上一张 / +1 = 下一张。首尾行为由 MainWindow 走 onPrev/onNext
     // 复用 config/edge_action，不在这里另写一套。
     void edgeTurnRequested(int delta);
+    // 中键「点击」（位移 <3px、按压 <300ms，与左侧箭头带同一套阈值）：
+    // 请求切换全屏/还原。按住拖动仍是平移，不走这个信号。
+    void middleClickRequested();
 
 protected:
     void wheelEvent(QWheelEvent *event) override;
@@ -134,6 +137,11 @@ private:
     QElapsedTimer m_pressClock;
     QPoint m_pressPos;
     bool m_pressTracked = false;
+    // 中键按下记账：与左键那套分开，互不干扰。松手时「位移 <3px 且 <300ms」
+    // 判定为单击（切全屏），否则算拖动平移。m_item 为空 / 裁剪模式不记。
+    QElapsedTimer m_midPressClock;
+    QPoint m_midPressPos;
+    bool m_midPressTracked = false;
     class SideArrow;
     SideArrow *m_arrowPrev = nullptr;   // 悬停带内 160ms 淡入，纯视觉不接鼠标
     SideArrow *m_arrowNext = nullptr;

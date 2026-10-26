@@ -169,9 +169,7 @@ MainWindow::MainWindow(QWidget *parent)
     // —— 铬件 ——
     m_caption = new Chrome::CaptionBar(this);
     m_caption->setTitle(tr("未打开图片"));
-    connect(m_caption, &Chrome::CaptionBar::fullscreenClicked, this, [this]() {
-        isFullScreen() ? showNormal() : showFullScreen();
-    });
+    connect(m_caption, &Chrome::CaptionBar::fullscreenClicked, this, &MainWindow::toggleFullscreen);
     connect(m_caption, &Chrome::CaptionBar::minimizeClicked, this, &QWidget::showMinimized);
     connect(m_caption, &Chrome::CaptionBar::maximizeClicked, this, [this]() {
         isMaximized() ? showNormal() : showMaximized();
@@ -266,6 +264,10 @@ MainWindow::MainWindow(QWidget *parent)
             onNext();
         }
     });
+
+    // 中键单击（位移 <3px 且 <300ms）= 全屏/还原；按住拖动仍由画布平移处理
+    connect(m_canvas, &ImageCanvas::middleClickRequested,
+            this, &MainWindow::toggleFullscreen);
 
     // 画布缩放联动：左下角浮标 + 浏览方式图标降级（胶囊滑杆已是翻页进度，不再跟随缩放）
     connect(m_canvas, &ImageCanvas::zoomChanged, this, [this](qreal z) {
@@ -796,6 +798,18 @@ void MainWindow::applyNativeFrameStyles()
     SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE |
                  SWP_FRAMECHANGED);
+}
+
+// 全屏/还原的唯一入口：标题栏按钮、F11、中键单击、--smoke fullscreen 共用。
+// 不要在画布里直接调 showFullScreen：Qt 会按窗口 flags 重写原生样式，
+// 退出时要靠 changeEvent 再把 DWM 帧补回来（见 applyNativeFrameStyles）。
+void MainWindow::toggleFullscreen()
+{
+    if (isFullScreen()) {
+        showNormal();
+    } else {
+        showFullScreen();
+    }
 }
 
 // Qt 的 showFullScreen/showNormal 会整体重写原生样式（FramelessWindowHint
@@ -1881,7 +1895,7 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         Config::instance().settings().setValue(QStringLiteral("config/edge_action"), edge);
         m_dir->setEdgeAction(edge);
     }
-    else if (c == QLatin1String("fullscreen")) isFullScreen() ? showNormal() : showFullScreen();
+    else if (c == QLatin1String("fullscreen")) toggleFullscreen();
     // wheel:slider|bar:up|down[:ctrl] —— 合成一次滚轮事件，验证「滑杆上滚翻页 / 其余位置缩放 / Ctrl 保留缩放」。
     // 外部注入滚轮要过 DPI 与消息循环，结果不可复现；这里直接把事件送到胶囊，判定只依赖胶囊自身逻辑。
     else if (c.startsWith(QLatin1String("wheel:"))) {
@@ -3113,7 +3127,7 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
         }
         break;
     case Qt::Key_F11:
-        isFullScreen() ? showNormal() : showFullScreen();
+        toggleFullscreen();
         break;
     default:
         break;
