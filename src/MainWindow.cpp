@@ -280,7 +280,10 @@ MainWindow::MainWindow(QWidget *parent)
             }
             m_zoomBadge->showText(txt);
         }
-        if (!m_canvas->isFitToWindow() && !m_canvas->isFitToWidth() && m_viewMode != 0) {
+        // 锁定缩放期间画布必然不是 fit（沿用上一张比例），但那是「锁定」不是
+        // 「用户切到原始尺寸」：这里不改 m_viewMode，否则解锁后浏览方式被污染成 100%。
+        if (!m_zoomLocked && !m_canvas->isFitToWindow() && !m_canvas->isFitToWidth()
+            && m_viewMode != 0) {
             m_viewMode = 0;
             if (actActualSize) {
                 actActualSize->setChecked(true);
@@ -1448,7 +1451,23 @@ void MainWindow::applyRuntimeSettings()
 {
     const Config &cfg = Config::instance();
 
-    setWindowFlag(Qt::WindowStaysOnTopHint, cfg.alwaysOnTop());
+    // 置顶标志只在**值真的变化**时才下发：setWindowFlag() 会重建原生窗口，
+    // 保存设置时值没变却无条件调用，窗口会消失再出现（用户以为程序重启）。
+    // 值变化时属于必要重建，顺手记下几何/可见/最大化状态，重建后还原。
+    const bool wantTop = cfg.alwaysOnTop();
+    const bool isTop = windowFlags().testFlag(Qt::WindowStaysOnTopHint);
+    if (wantTop != isTop) {
+        const QRect geo = geometry();
+        const bool wasVisible = isVisible();
+        const bool wasMaximized = isMaximized();
+        setWindowFlag(Qt::WindowStaysOnTopHint, wantTop);
+        if (wasMaximized) {
+            showMaximized();
+        } else if (wasVisible) {
+            show();
+            setGeometry(geo);
+        }
+    }
 
     setInterpolationMode(cfg.interpolation());
     m_canvas->setStretchSmall(cfg.stretchSmall());
@@ -1606,7 +1625,8 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     if (m_zoomLocked && !m_firstImage && prevZoom > 0.0) {
         m_canvas->setPixmapPreservingView(QPixmap::fromImage(base), QPointF(0.5, 0.5),
                                           prevZoom, false, false);
-        m_viewMode = 0;
+        // 这里不能写 m_viewMode：锁定只是「沿用比例」，不是把浏览方式改成原始尺寸。
+        // 写了会把用户锁定前的模式永久污染成 0，解锁后翻页全部变 100%。
     } else if (m_firstImage && Config::instance().defaultZoom() == QLatin1String("actual")) {
         setViewMode(0);
     } else if (isSpreadMode()) {
@@ -2541,6 +2561,16 @@ void MainWindow::resetEffect()
 void MainWindow::toggleZoomLock()
 {
     m_zoomLocked = !m_zoomLocked;
+    if (m_zoomLocked) {
+        // 开锁瞬间记住当前浏览方式，锁定期间不再被改写。
+        if (m_viewModeBeforeLock < 0) {
+            m_viewModeBeforeLock = m_viewMode;
+        }
+    } else {
+        // 解锁还原：没有记录（例如启动时配置就是锁定态）则回到「适合窗口」。
+        m_viewMode = (m_viewModeBeforeLock >= 0) ? m_viewModeBeforeLock : 1;
+        m_viewModeBeforeLock = -1;
+    }
     Config::instance().settings().setValue(QStringLiteral("config/zoom_fix"), m_zoomLocked);
     if (m_toast) {
         m_toast->showMessage(m_zoomLocked ? tr("锁定缩放：开") : tr("锁定缩放：关"));

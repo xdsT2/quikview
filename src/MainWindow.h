@@ -300,7 +300,10 @@ private:
     bool m_negative = false;   // 反相
     qreal m_gamma = 1.0;       // Gamma 补偿（1.0 = 不变）
     bool m_zoomLocked = false; // 锁定缩放：翻页后不做适配，沿用同一比例
-    bool m_hdrTonemap = false; // HDR 色调映射（命令栏 HDR 钮 / config/hdr_tonemap，默认 true）
+    // 开锁前的浏览方式（0=原始 1=适合窗口 2=适合宽度 3/4=双页），-1 表示未记录。
+    // 锁定分支不再改写 m_viewMode，解锁时用它还原，避免「解锁后翻页全变 100%」。
+    int m_viewModeBeforeLock = -1;
+    bool m_hdrTonemap = false; // HDR 色调映射（命令栏 HDR 钮 / config/hdr_tonemap，默认 false）
     int m_interpMode = 1;      // 0 bilinear / 1 bicubic / 2 lanczos
     bool m_slideshow = false;
     bool m_slideshowRandom = false;

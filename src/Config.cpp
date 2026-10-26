@@ -131,7 +131,9 @@ bool Config::stretchSmall() const
 
 bool Config::hdrTonemap() const
 {
-    return m_settings.value(QStringLiteral("config/hdr_tonemap"), true).toBool();
+    // 出厂默认关闭：SDR 屏上默认开色调映射会改变画质，只有 HDR 屏/明确的用户才需要。
+    // 只影响没有写过该键的用户，已有配置里的值优先。
+    return m_settings.value(QStringLiteral("config/hdr_tonemap"), false).toBool();
 }
 
 bool Config::smoothZoom() const
