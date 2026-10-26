@@ -526,15 +526,15 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     root->addWidget(body, 1);
 
     // —— 页面（每页一个 QScrollArea，内容 widget 存 m_pages）——
-    buildGeneralPage(addPage(tr("一般"), tr("窗口行为、通知与到达首尾时的操作。")));
+    buildGeneralPage(addPage(tr("一般"), tr("窗口行为、通知与到达首尾时的操作；三项尚未实现，已置灰。")));
     buildViewPage(addPage(tr("浏览"), tr("背景颜色、边框颜色与侧边箭头等浏览显示设置。")));
     buildImageProcPage(addPage(tr("图像处理"), tr("插值算法与透明/翻页设置；多数项尚未实现，已置灰。")));
-    buildAssocPage(addPage(tr("格式关联"), tr("选择由 QuikView 打开的图片格式。")));
-    buildKeyboardPage(addPage(tr("键盘"), tr("自定义浏览、编辑与窗口操作快捷键。")));
-    buildMousePage(addPage(tr("鼠标"), tr("设置鼠标按键、滚轮与双击行为。")));
-    buildBookmarkPage(addPage(tr("书签"), tr("管理书签保存与共享。")));
-    buildContextMenuPage(addPage(tr("上下文菜单"), tr("设置资源管理器中的 QuikView 功能入口。")));
-    buildEtcPage(addPage(tr("杂项"), tr("图片文件夹、外部编辑器与 RAW 文件行为。")));
+    buildAssocPage(addPage(tr("格式关联"), tr("通过系统入口设置默认打开方式；逐格式勾选尚未接入。")));
+    buildKeyboardPage(addPage(tr("键盘"), tr("快捷键当前为固定绑定，自定义尚未接入（整表置灰）。")));
+    buildMousePage(addPage(tr("鼠标"), tr("左/右/X/Y 键映射固定；中键与滚轮的平移/缩放开关可用。")));
+    buildBookmarkPage(addPage(tr("书签"), tr("保存 / 共享 / 容量设置尚未实现，已置灰。")));
+    buildContextMenuPage(addPage(tr("上下文菜单"), tr("资源管理器壳菜单项由系统管理；本页设置尚未实现，已置灰。")));
+    buildEtcPage(addPage(tr("杂项"), tr("图片文件夹与外部编辑器可用；RAW 等行为尚未实现，已置灰。")));
     buildLangPage(addPage(tr("语言"), tr("选择界面语言并管理语言文件。")));
 
     // 页面内容不足一屏时，多余空间落在末尾弹簧上（否则各 section 会被均匀拉开）
@@ -829,13 +829,17 @@ QComboBox *SettingsDialog::addComboRowUnavailable(QWidget *section, const QStrin
 void SettingsDialog::buildGeneralPage(QWidget *page)
 {
     QWidget *sec = beginSection(page, tr("一般设定"));
-    addCheck(sec, tr("捕捉窗口"), "capture_window", false, true);
+    // 三项在本文件之外零消费：Config::captureWindow() / allowMultipleInstances() /
+    // notifyCorner() 只有定义、全仓没有调用点（toast 恒为顶部居中的横条），
+    // 勾了不改变任何行为，按清账口径灰显；key 仍照常写盘，向后兼容。
+    addCheckUnavailable(sec, tr("捕捉窗口"), "capture_window", false, true);
     addCheck(sec, tr("不保存浏览过的文件夹路径"), "remember_browsed_folders", true, true);
-    addCheck(sec, tr("不允许多个实例"), "allow_multiple_instances", true, false);
+    addCheckUnavailable(sec, tr("不允许多个实例"), "allow_multiple_instances", true, false);
     addCheck(sec, tr("删除文件时确认"), "delete_confirm", false, true);
-    addCheck(sec, tr("在边角显示通知信息，而非中心"), "notify_corner", false, true);
+    addCheckUnavailable(sec, tr("在边角显示通知信息，而非中心"), "notify_corner", false, true);
     addCheck(sec, tr("总在最前 (Ctrl+A)"), "always_on_top", false, false);
     addCheck(sec, tr("按 ESC 退出"), "esc_exit", false, true);
+    addHint(sec, unavailableTip());
     // 「检查更新 / 检查小版本更新」已删：无联网能力（不依赖 Qt6Network），
     // Config::checkUpdates()/checkMinorUpdates() 除定义外零调用点，勾了也不会有任何事发生。
 
@@ -1043,6 +1047,9 @@ void SettingsDialog::buildAssocPage(QWidget *page)
         hl->addStretch(1);
         auto *btnAll = addMiniButton(head, tr("全选"));
         auto *btnNone = addMiniButton(head, tr("取消"));
+        // 勾选框本身零消费，全选/取消也就没有意义，一起灰掉
+        markUnavailable(btnAll);
+        markUnavailable(btnNone);
         hl->addWidget(btnAll);
         hl->addWidget(btnNone);
         gl->addWidget(head);
@@ -1065,6 +1072,10 @@ void SettingsDialog::buildAssocPage(QWidget *page)
             connect(cb, &QCheckBox::toggled, cb, [key](bool on) {
                 bSet(key.constData(), on);
             });
+            // assoc/ext_<ext> 全仓零消费：真正的关联动作走上面的系统入口
+            // （ShellExecuteW / IApplicationAssociationRegistrationUI），
+            // 这些勾选框只是把值写进 config，没有任何代码读它。
+            markUnavailable(cb);
             cg->addWidget(cb, i / 4, i % 4);
             boxes.append(cb);
             m_assocChecks.append(cb);
@@ -1082,6 +1093,9 @@ void SettingsDialog::buildAssocPage(QWidget *page)
 
         grid->addWidget(group, g / 2, g % 2);
     }
+
+    addHint(sec, tr("逐格式勾选尚未接入：格式关联请走上面的「格式关联 / 经典方法」"
+                    "系统入口，下面的勾选框不会生效。"));
 }
 
 // ===========================================================================
@@ -1096,7 +1110,8 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
 
     // 快捷键自定义尚未接通：整表灰掉并注明，避免「能改但不生效」的假象。
     // 勾选/热键/下拉仍保留为占位，等 QAction 统一注册表做完再开放。
-    auto *hint = new QLabel(tr("暂不支持自定义：本轮快捷键为固定绑定，此处仅作展示。"), page);
+    auto *hint = new QLabel(tr("快捷键自定义尚未接入：当前键位固定在代码里（见下表），"
+                               "改动不会生效。"), page);
     hint->setObjectName(QStringLiteral("pageHint"));
     hint->setStyleSheet(QStringLiteral("QLabel#pageHint{color:#9aa0a6;font-size:11px;}"));
     hint->setWordWrap(true);
@@ -1104,8 +1119,7 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
 
     auto *table = new QFrame(page);
     table->setObjectName(QStringLiteral("keyTable"));
-    table->setEnabled(false);            // 灰显占位，不接受编辑
-    table->setToolTip(tr("暂不支持自定义快捷键"));
+    markUnavailable(table);              // 灰显占位，不接受编辑
     auto *tl = new QVBoxLayout(table);
     tl->setContentsMargins(0, 0, 0, 0);
     tl->setSpacing(0);
@@ -1207,8 +1221,9 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
 void SettingsDialog::buildMousePage(QWidget *page)
 {
     QWidget *sec = beginSection(page, tr("鼠标设定"));
-    addCheck(sec, tr("双击最大化 / 还原"), "mouse/dblclick_maximize", false, true);
-    addCheck(sec, tr("单击屏幕两侧时翻页"), "mouse/click_side_pageturn", false, false);
+    // 两项全仓零消费（无 doubleClick 处理、侧边点击翻页恒开），灰显。
+    addCheckUnavailable(sec, tr("双击最大化 / 还原"), "mouse/dblclick_maximize", false, true);
+    addCheckUnavailable(sec, tr("单击屏幕两侧时翻页"), "mouse/click_side_pageturn", false, false);
 
     sec = beginSection(page, tr("自定义操作"));
 
@@ -1222,15 +1237,19 @@ void SettingsDialog::buildMousePage(QWidget *page)
     if (auto *v = qobject_cast<QVBoxLayout *>(sec->layout()))
         v->addWidget(host);
 
-    struct BtnDef { const char *key; const char *label; const char *def; };
+    // configurable：该行是否真有消费点。中键与滚轮的「平移/缩放」经
+    // onAccepted 桥接写回 config/middle_pan、config/wheel_zoom 生效；
+    // 左右/X/Y 键的映射写死在 Chrome/ImageCanvas 里（左键拖动平移、中键单击
+    // 切全屏、滚轮缩放），改这张表不生效，按零消费灰显。
+    struct BtnDef { const char *key; const char *label; const char *def; bool configurable; };
     static const BtnDef btns[] = {
-        { "mouse/btn_left",   QT_TR_NOOP("鼠标左键"),  "none" },
-        { "mouse/btn_middle", QT_TR_NOOP("鼠标中键"),  "pan" },
-        { "mouse/btn_right",  QT_TR_NOOP("鼠标右键"),  "none" },
-        { "mouse/btn_x",      QT_TR_NOOP("X 键"),       "none" },
-        { "mouse/btn_y",      QT_TR_NOOP("Y 键"),       "none" },
-        { "mouse/wheel_up",   QT_TR_NOOP("滚轮向上"),  "zoom_in" },
-        { "mouse/wheel_down", QT_TR_NOOP("滚轮向下"),  "zoom_out" },
+        { "mouse/btn_left",   QT_TR_NOOP("鼠标左键"),  "none",     false },
+        { "mouse/btn_middle", QT_TR_NOOP("鼠标中键"),  "pan",      true  },
+        { "mouse/btn_right",  QT_TR_NOOP("鼠标右键"),  "none",     false },
+        { "mouse/btn_x",      QT_TR_NOOP("X 键"),      "none",     false },
+        { "mouse/btn_y",      QT_TR_NOOP("Y 键"),      "none",     false },
+        { "mouse/wheel_up",   QT_TR_NOOP("滚轮向上"),  "zoom_in",  true  },
+        { "mouse/wheel_down", QT_TR_NOOP("滚轮向下"),  "zoom_out", true  },
     };
 
     const auto opts = actionOptions();
@@ -1255,9 +1274,15 @@ void SettingsDialog::buildMousePage(QWidget *page)
         combo->setMaximumWidth(170);
         rl->addWidget(combo, 1);
 
+        if (!b.configurable)
+            markUnavailable(combo->parentWidget());   // 整行（行标签 + 下拉）一起灰
+
         m_mouseRows.append({ combo, QString::fromUtf8(b.key), QString::fromUtf8(b.def) });
         grid->addWidget(row, i % 4, i / 4);
     }
+
+    addHint(sec, tr("左/右/X/Y 键的映射固定在代码里（左键拖动平移、中键单击切全屏、"
+                    "滚轮缩放）；中键与滚轮的「平移 / 缩放」开合会写回配置生效。"));
 }
 
 // ===========================================================================
@@ -1267,8 +1292,10 @@ void SettingsDialog::buildMousePage(QWidget *page)
 void SettingsDialog::buildBookmarkPage(QWidget *page)
 {
     QWidget *sec = beginSection(page, tr("书签设置"));
-    addCheck(sec, tr("自动保存当前图片路径为书签"), "bookmark/auto_bookmark", false, false);
-    addCheck(sec, tr("多窗口共享设置 / 书签"), "bookmark/share_settings", false, true);
+    // bookmark/* 三项全仓零消费：书签只存在内存/界面里，没有「自动保存路径」、
+    // 没有多窗口共享、没有数量上限逻辑，勾了不改变任何行为。
+    addCheckUnavailable(sec, tr("自动保存当前图片路径为书签"), "bookmark/auto_bookmark", false, false);
+    addCheckUnavailable(sec, tr("多窗口共享设置 / 书签"), "bookmark/share_settings", false, true);
     // 「自动记忆当前图片在压缩包中的路径」与「删除已记忆位置」已删：
     // 压缩包浏览未实现，压缩包路径记忆无从产生，两项勾/点了也不会有任何事发生。
 
@@ -1282,6 +1309,9 @@ void SettingsDialog::buildBookmarkPage(QWidget *page)
     m_maxBookmarks->setFixedWidth(110);
     row->addWidget(m_maxBookmarks);
     row->addStretch(1);
+    // bookmark/max_bookmarks 零消费：没有任何按上限淘汰的逻辑，选多少都一样。
+    markUnavailable(row->parentWidget());
+    addHint(sec, unavailableTip());
 }
 
 // ===========================================================================
@@ -1291,24 +1321,26 @@ void SettingsDialog::buildBookmarkPage(QWidget *page)
 void SettingsDialog::buildContextMenuPage(QWidget *page)
 {
     QWidget *sec = beginSection(page, tr("上下文菜单设定"));
-    addCheck(sec, tr("在资源管理器中使用上下文菜单"), "ctxmenu/use_shell_menu", false, true);
-    addCheck(sec, tr("用QuikView转换图片"), "ctxmenu/transform_dlg", false, true);
-    addCheck(sec, tr("用QuikView浏览图片"), "ctxmenu/browse_image", false, true);
-    addCheck(sec, tr("上下文菜单预览"), "ctxmenu/preview_image", false, false);
-    // 该项依赖预览功能，原版置灰
-    QCheckBox *infoChk = addCheck(sec, tr("显示图片信息"), "ctxmenu/show_image_info",
-                                  false, true);
-    infoChk->setEnabled(false);
-    addCheck(sec, tr("显示软件图标"), "ctxmenu/show_icon", false, true);
+    // ctxmenu/* 九项全仓零消费：资源管理器壳菜单项由安装器/注册表提供，
+    // 应用内没有任何代码读写这些键（本页右上「说明」也写了它们不是应用内右键菜单）。
+    addCheckUnavailable(sec, tr("在资源管理器中使用上下文菜单"), "ctxmenu/use_shell_menu", false, true);
+    addCheckUnavailable(sec, tr("用QuikView转换图片"), "ctxmenu/transform_dlg", false, true);
+    addCheckUnavailable(sec, tr("用QuikView浏览图片"), "ctxmenu/browse_image", false, true);
+    addCheckUnavailable(sec, tr("上下文菜单预览"), "ctxmenu/preview_image", false, false);
+    addCheckUnavailable(sec, tr("显示图片信息"), "ctxmenu/show_image_info", false, true);
+    addCheckUnavailable(sec, tr("显示软件图标"), "ctxmenu/show_icon", false, true);
+    addHint(sec, unavailableTip());
 
     sec = beginSection(page, tr("Thumbnail preview in Explorer"));
-    addCheck(sec, tr("WebP"), "ctxmenu/thumb_webp", false, true);
-    addCheck(sec, tr("PSD"), "ctxmenu/thumb_psd", false, false);
-    addCheck(sec, tr("PSB"), "ctxmenu/thumb_psb", false, false);
+    addCheckUnavailable(sec, tr("WebP"), "ctxmenu/thumb_webp", false, true);
+    addCheckUnavailable(sec, tr("PSD"), "ctxmenu/thumb_psd", false, false);
+    addCheckUnavailable(sec, tr("PSB"), "ctxmenu/thumb_psb", false, false);
+    addHint(sec, unavailableTip());
 
     sec = beginSection(page, tr("说明"));
     addHint(sec, tr("这些选项对应系统资源管理器中的 QuikView 菜单，"
-                    "不是应用内图片右键菜单的功能开关。"));
+                    "不是应用内图片右键菜单的功能开关；"
+                    "壳菜单项当前由系统/安装器管理，应用内不读写这些键。"));
 }
 
 // ===========================================================================
@@ -1364,13 +1396,16 @@ void SettingsDialog::buildEtcPage(QWidget *page)
     });
 
     sec = beginSection(page, tr("其他"));
-    addCheck(sec, tr("翻页时播放音效"), "etc/pageturn_wav", false, false);
-    addCheck(sec, tr("不打开 RAW 图片文件"), "etc/no_raw_load", false, false);
-    addCheck(sec, tr("打开 JPEG 文件时，不打开同名 RAW 文件"), "etc/skip_raw_when_jpg", false, true);
-    addCheck(sec, tr("打开 RAW 图片文件时，显示已有缩略图"), "etc/raw_thumbnail", false, true);
-    addCheck(sec, tr("根据图片大小调节窗口大小"), "etc/fit_window_to_image", false, true);
-    addCheck(sec, tr("运行 QuikView 时禁用 Windows 屏幕保护程序"), "etc/disable_screensaver",
-             false, false);
+    // etc/* 这六项全仓零消费（Config 里连 accessor 都没有，只有 etc/photo_folder_*、
+    // etc/image_editor 是真在用）——勾了不改变任何行为，整组灰显。
+    addCheckUnavailable(sec, tr("翻页时播放音效"), "etc/pageturn_wav", false, false);
+    addCheckUnavailable(sec, tr("不打开 RAW 图片文件"), "etc/no_raw_load", false, false);
+    addCheckUnavailable(sec, tr("打开 JPEG 文件时，不打开同名 RAW 文件"), "etc/skip_raw_when_jpg", false, true);
+    addCheckUnavailable(sec, tr("打开 RAW 图片文件时，显示已有缩略图"), "etc/raw_thumbnail", false, true);
+    addCheckUnavailable(sec, tr("根据图片大小调节窗口大小"), "etc/fit_window_to_image", false, true);
+    addCheckUnavailable(sec, tr("运行 QuikView 时禁用 Windows 屏幕保护程序"), "etc/disable_screensaver",
+                        false, false);
+    addHint(sec, unavailableTip());
 }
 
 // ===========================================================================
