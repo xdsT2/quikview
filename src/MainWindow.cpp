@@ -282,20 +282,11 @@ MainWindow::MainWindow(QWidget *parent)
             }
             m_zoomBadge->showText(txt);
         }
-        // 锁定缩放期间画布必然不是 fit（沿用上一张比例），但那是「锁定」不是
-        // 「用户切到原始尺寸」：这里不改 m_viewMode，否则解锁后浏览方式被污染成 100%。
-        if (!m_zoomLocked && !m_canvas->isFitToWindow() && !m_canvas->isFitToWidth()
-            && m_viewMode != 0) {
-            m_viewMode = 0;
-            if (actActualSize) {
-                actActualSize->setChecked(true);
-            }
-            if (m_toolbar) {
-                m_toolbar->setShowModeIcon(0);
-            }
-        }
-        // 缩放模式变了就重算内容边距：进入手动缩放时上下安全区归零，
-        // 回到「适合窗口」时再让出来。
+        // 这里绝不能把「非 fit」推断成 m_viewMode=0：滚轮手动放大同样走
+        // zoomChanged，误改后翻页 setViewMode(0) 就变成 100% 显示。
+        // 浏览方式只在显式 setViewMode()（菜单/快捷键/冒烟命令）里变，滚轮只是
+        // 临时缩放——翻页后恢复当前浏览方式（Honeyview 基准：放大看细节，
+        // 翻下一张回到适应窗口）。
         updateCanvasInsets();
     });
 
