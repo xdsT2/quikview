@@ -7,7 +7,11 @@
 #include <QColor>
 #include <QContextMenuEvent>
 #include <QCursor>
+#include <QDateTime>
 #include <QDesktopServices>
+#include <QDragEnterEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
@@ -27,6 +31,7 @@
 #include <QMessageBox>
 #include <QMimeData>
 #include <QPainter>
+#include <QPixmap>
 #include <QPrintDialog>
 #include <QPrinter>
 #include <QProcess>
@@ -113,6 +118,7 @@ MainWindow::MainWindow(QWidget *parent)
     resize(1080, 815);
     setMinimumSize(720, 500);
     setAcceptDrops(true);
+    qApp->installEventFilter(this);
     setMouseTracking(true);
 
 #ifdef Q_OS_WIN
@@ -3301,17 +3307,173 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
     QMainWindow::keyPressEvent(event);
 }
 
+// ---------------------------------------------------------------------------
+// 外部拖放（Explorer / 微信 / QQ / 截图工具）
+//
+// 两条硬约束：
+// 1) enter / move 阶段只枚举 formats，绝不读数据内容。微信、QQ 这类源在松手前
+//    不给数据（延迟渲染），此时读内容要么落空、要么把 UI 卡在对方的 GetData 上。
+// 2) 口径是「宁多收勿错杀」：enter 多收的代价只是光标变一下，误杀的代价是
+//    用户拖不进来而且没有任何提示。真正的筛选放在 drop。
+// ---------------------------------------------------------------------------
+namespace {
+
+bool dropMimeLooksUsable(const QMimeData *mime)
+{
+    if (!mime) {
+        return false;
+    }
+    if (mime->hasUrls() || mime->hasImage()) {
+        return true;
+    }
+    const QStringList formats = mime->formats();
+    for (const QString &format : formats) {
+        if (format == QLatin1String("text/uri-list")
+            || format == QLatin1String("text/plain")) {
+            return true;
+        }
+    }
+    // 其余格式也收下：Qt 对 CF_HDROP / 私有剪贴板格式的包装名各不相同，
+    // 逐个点名会漏；这里只要枚举出格式就当作潜在可拖放对象。
+    return !formats.isEmpty();
+}
+
+void acceptDropAsCopy(QDropEvent *event)
+{
+    event->setDropAction(Qt::CopyAction);
+    event->accept();
+}
+
+// 多选拖入时 urls() 里可能先出现 http 链接 / 已删除的路径，
+// first() 直接用会静默失败，这里取第一个真实存在的本地文件。
+QString firstExistingLocalFile(const QMimeData *mime)
+{
+    if (!mime) {
+        return {};
+    }
+    const QList<QUrl> urls = mime->urls();
+    for (const QUrl &url : urls) {
+        if (!url.isLocalFile()) {
+            continue;
+        }
+        const QString path = url.toLocalFile();
+        if (!path.isEmpty() && QFileInfo::exists(path)) {
+            return path;
+        }
+    }
+    return {};
+}
+
+// 纯位图拖放没有文件名，落盘到 %TEMP%\QuikView\drop-<时间戳>.png 再走 openFile，
+// 这样标题栏、目录索引、后续翻页都按普通文件处理，不额外开一条显示通道。
+QString saveDroppedImage(const QImage &image)
+{
+    if (image.isNull()) {
+        return {};
+    }
+    const QString dir = QDir::tempPath() + QStringLiteral("/QuikView");
+    if (!QDir().mkpath(dir)) {
+        return {};
+    }
+    const QString name = QStringLiteral("drop-")
+        + QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss-zzz"))
+        + QStringLiteral(".png");
+    const QString path = dir + QLatin1Char('/') + name;
+    return image.save(path, "PNG") ? path : QString();
+}
+
+// 兜底：某些源只给纯文本，但内容是 file:// 的 uri-list。
+QString firstLocalFileInText(const QString &text)
+{
+    if (text.isEmpty()) {
+        return {};
+    }
+    const QStringList lines = text.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+    for (QString line : lines) {
+        line = line.trimmed();
+        if (line.startsWith(QLatin1String("file://"), Qt::CaseInsensitive)) {
+            const QString path = QUrl(line).toLocalFile();
+            if (!path.isEmpty() && QFileInfo::exists(path)) {
+                return path;
+            }
+        }
+    }
+    return {};
+}
+
+} // namespace
+
+// 画布是 QGraphicsView，落在光标下的是它的 viewport（一个普通 QWidget，
+// 且 QGraphicsView 给 viewport 开了 acceptDrops）——Qt 把拖放事件交给
+// viewport 后就不再往 MainWindow 传，主窗口的 dragEnterEvent / dropEvent
+// 根本收不到。这就是「有时拿不到」的另一半原因：落点在画布上必丢。
+// 这里把发给子控件的拖放事件统一转给主窗口处理，保证整窗都能落图。
+bool MainWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    const QEvent::Type type = event->type();
+    if (type == QEvent::DragEnter || type == QEvent::DragMove || type == QEvent::Drop) {
+        QWidget *child = qobject_cast<QWidget *>(watched);
+        if (child && child != this && isAncestorOf(child)) {
+            switch (type) {
+            case QEvent::DragEnter:
+                dragEnterEvent(static_cast<QDragEnterEvent *>(event));
+                break;
+            case QEvent::DragMove:
+                dragMoveEvent(static_cast<QDragMoveEvent *>(event));
+                break;
+            default:
+                dropEvent(static_cast<QDropEvent *>(event));
+                break;
+            }
+            // 已经按主窗口口径处理过，别再让 viewport 自己吞一遍。
+            return true;
+        }
+    }
+    return QMainWindow::eventFilter(watched, event);
+}
+
 void MainWindow::dragEnterEvent(QDragEnterEvent *event)
 {
-    if (event->mimeData()->hasUrls()) {
-        event->acceptProposedAction();
+    if (dropMimeLooksUsable(event->mimeData())) {
+        acceptDropAsCopy(event);
+    }
+}
+
+void MainWindow::dragMoveEvent(QDragMoveEvent *event)
+{
+    // 鼠标在窗口内移动时持续确认可放置，否则部分源会在中途把光标改成禁止。
+    if (dropMimeLooksUsable(event->mimeData())) {
+        acceptDropAsCopy(event);
     }
 }
 
 void MainWindow::dropEvent(QDropEvent *event)
 {
-    const QList<QUrl> urls = event->mimeData()->urls();
-    if (!urls.isEmpty()) {
-        openFile(urls.first().toLocalFile());
+    const QMimeData *mime = event->mimeData();
+    if (!mime) {
+        return;
     }
+
+    // 1) 真实文件（含多选）：取第一个存在的本地文件
+    QString path = firstExistingLocalFile(mime);
+    if (path.isEmpty() && mime->hasImage()) {
+        // 2) 纯位图（截图工具 / 网页 / 部分聊天软件）：没有 URL，只有 CF_DIB
+        const QVariant data = mime->imageData();
+        QImage image = data.value<QImage>();
+        if (image.isNull()) {
+            image = data.value<QPixmap>().toImage();
+        }
+        path = saveDroppedImage(image);
+    }
+    if (path.isEmpty()) {
+        // 3) 兜底：纯文本里带 file:// 路径
+        path = firstLocalFileInText(mime->text());
+    }
+    if (path.isEmpty()) {
+        // 4) 认不出来就静默忽略：不弹错、不崩溃，也别把无效内容顶上去
+        return;
+    }
+
+    acceptDropAsCopy(event);
+    openFile(path);
 }
