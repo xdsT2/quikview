@@ -1209,15 +1209,11 @@ QMenu *MainWindow::buildSlideshowMenu()
                                  10, 15, 20, 25, 30, 60, 90 };
     for (int s : seconds) {
         const QString shortcut = s <= 9 ? QStringLiteral("Ctrl+%1").arg(s) : QString();
+        // 与 Ctrl+1..9 共用同一份实现：未放映时选秒数 = 立即开始放映；
+        // 放映中选秒数 = 只换节奏，不打断。（以前这里只写配置，
+        // 未放映时点菜单什么都不发生，工具栏就成了唯一入口且永远开不了。）
         QAction *a = addCheckableItem(menu, tr("%1 秒").arg(s), shortcut, currentSec == s,
-                                      [this, s]() {
-            Config::instance().settings().setValue(QStringLiteral("config/slideshow_interval_ms"),
-                                                   s * 1000);
-            m_slideshowTimer->setInterval(s * 1000);
-            if (m_slideshow) {
-                m_slideshowTimer->start();
-            }
-        });
+                                      [this, s]() { onSlideshowInterval(s); });
         intervalGroup->addAction(a);
     }
 
