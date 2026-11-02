@@ -30,6 +30,8 @@ config.ini
 
 # 会话交接通道（监工侧↔执行侧协调文件，非项目资产）
 HANDOFF.md
+PUSH-QUEUE.md
+已交办/
 DESIGN-WORK-SUMMARY.md
 
 # 本地验收/比对脚本（依赖本机路径与原版参考截图，不入库）
