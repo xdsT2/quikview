@@ -40,7 +40,7 @@
 
 **结论**：真源其实只有 CMake 一处，代码侧全部是派生、没有第二份硬编码。所以这项工作不是「替换字符串」，而是**把 nsi 的两个硬编码改成构建参数**，顺便把 CMake 的值从 `0.3.0` 升到 `0.4.0`。
 
-### 1.2 方案（待执行，未落地）
+### 1.2 方案（✅ 已落地，`40aa1a0` / `68c723a` / `36d079c` / `1e4edd8`）
 
 1. `CMakeLists.txt`：`project(quikview VERSION 0.4.0 ...)`；
 2. `packaging/quikview.nsi`：
@@ -66,8 +66,8 @@
 
 | # | 任务 | 状态 | 判据 | 证据（办结填） |
 |---|---|---|---|---|
-| 1 | 版本号单一来源 | 🔄 盘点完成，待改 | 1.3 五项全绿 | 盘点表见 §1.1 |
-| 2 | 重建 dist + 安装包 | ⬜ 待办 | 装完 exe + 3 条快捷方式有图标；删掉安装目录 ico 后窗口图标仍正常；产物时间戳晚于最新提交 | — |
+| 1 | 版本号单一来源 | ✅ 已办结（`40aa1a0` / `68c723a` / `36d079c`） | 1.3 五项全绿 | 唯一真源 `CMakeLists.txt:2` = 0.4.0；nsi 三参数改 `!error` 守卫（漏传 rc=1）；0.4.1 探针验证「改一处 → zip 名/setup 名/exe VersionInfo/`--version`/DisplayVersion 五处跟随」。详见 `交接-版本单一来源-20261103.md` |
+| 2 | 重建 dist + 安装包 | ✅ 已办结（`1e4edd8`） | 装完 exe + 3 条快捷方式有图标；删掉安装目录 ico 后窗口图标仍正常；产物时间戳晚于最新提交 | 新链路 `tools/package-installer.sh` 一条命令出 `dist/quikview-0.4.0-win64.zip`（55,351,534 B，SHA256 `a7141d38…9319d`）与 `dist/QuikView-0.4.0-setup.exe`（38,225,812 B，SHA256 `be5c7f20…4a8`），mtime 01:32:41 / 01:33:31 晚于代码提交 `1e4edd8`（01:31:49）；ExtractIconW 四个目标全非 0；向导截图 `docs/screenshots/installer-0.4.0-welcome.png` |
 | 3 | 文件关联 | ⬜ 待办（**有前置决策**） | 双击 JPG/PNG 启动；中文/空格路径正确；不抢默认；见 §3.1 | — |
 | 4 | 冒烟配置隔离 | ⬜ 待办（质量保障） | 跑 `--smoke` 前后用户 `config.ini` 哈希不变 | — |
 | 5 | ZIP 与菜单文案决策 | ⬜ **待用户拍板** | 二选一：实现 ZIP/CBZ 直读，或把 4 处「文件夹/压缩包」改成「文件夹」 | — |
@@ -152,3 +152,4 @@
 | 11-03 00:55 | 建立本文，完成第 1 项盘点 | `CMakeLists.txt:2,76`、`quikview.nsi`、`main.cpp:26,143`、`MainWindow.cpp:3251` |
 | 11-03 00:55 | 发现无单实例机制，第 3 项加前置决策 | 全仓无 `QLocalServer`/`QSharedMemory`/`QLockFile` |
 | 11-03 00:55 | 发现便携模式配置随安装目录被删的隐患 | `packaging/quikview.nsi` 的 `RMDir /r "$INSTDIR"` |
+| 11-03 01:40 | 第 11 期办结：版本单一来源 + exe VERSIONINFO + 安装包打包链；产物重建 | `交接-版本单一来源-20261103.md` |
