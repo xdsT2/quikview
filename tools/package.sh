@@ -37,7 +37,7 @@ command -v objdump >/dev/null || { echo "需要 objdump" >&2; exit 1; }
 QT_BIN="$(cd "$(dirname "$(command -v windeployqt)")" && pwd)"
 [ -f "$BUILD_DIR/quikview.exe" ] || { echo "先构建：cmake --build $BUILD_DIR" >&2; exit 1; }
 
-echo "[1/5] staging"
+echo "[1/6] staging"
 rm -rf "$OUT_DIR/$STAGE_NAME"
 mkdir -p "$STAGE"
 cp "$BUILD_DIR/quikview.exe" "$STAGE/"
@@ -45,7 +45,7 @@ cp "$BUILD_DIR/quikview.exe" "$STAGE/"
 # 这里放一份是给 NSIS 编译期用的），缺了 package-installer.sh 会中止
 cp "$REPO_ROOT/resources/quikview.ico" "$STAGE/"
 
-echo "[2/5] windeployqt（Qt 运行时 + 插件）"
+echo "[2/6] windeployqt（Qt 运行时 + 插件）"
 windeployqt --release --no-translations --no-opengl-sw \
     --no-system-d3d-compiler --no-system-dxc-compiler --no-quick-import \
     --dir "$STAGE" "$STAGE/quikview.exe" >/dev/null
@@ -56,7 +56,7 @@ if [ -d "$QT_BIN/../share/qt6/plugins/imageformats" ]; then
     cp -f "$QT_BIN/../share/qt6/plugins/imageformats/"*.dll "$STAGE/imageformats/"
 fi
 
-echo "[3/5] 补齐非 Qt 依赖（objdump 闭包）"
+echo "[3/6] 补齐非 Qt 依赖（objdump 闭包）"
 declare -A SEEN=()
 QUEUE=()
 while IFS= read -r -d '' f; do QUEUE+=("$f"); done \
@@ -106,7 +106,7 @@ if [ ${#MISSING[@]} -gt 0 ]; then
     printf '    ! %s\n' "${MISSING[@]}" >&2
 fi
 
-echo "[4/5] 剔除不支持的格式插件"
+echo "[4/6] 剔除不支持的格式插件"
 for name in qjp2.dll libjasper.dll; do
     find "$STAGE" -name "$name" -type f -print0 | while IFS= read -r -d '' hit; do
         rm -f "$hit"
@@ -143,7 +143,14 @@ if [ -n "${SAMPLE:-}" ] && [ -f "$SAMPLE" ]; then
     rm -f "$OUT_DIR/_smoke.png"
 fi
 
-echo "[5/5] 压包"
+# 安装清单：卸载时只删这里列出的文件，config.ini 与用户自己放进安装目录的
+# 图片不在清单里 → 卸载后原样保留。路径用反斜杠，NSIS 那边直接拼 $INSTDIR。
+echo "[5/6] 生成安装清单 quikview-manifest.txt"
+( cd "$STAGE" && find . -type f ! -name 'quikview-manifest.txt' -printf '%P\n' \
+    | sed 's|/|\\|g' | LC_ALL=C sort > quikview-manifest.txt )
+echo "  清单 $(wc -l < "$STAGE/quikview-manifest.txt") 项"
+
+echo "[6/6] 压包"
 ZIP="$OUT_DIR/$STAGE_NAME.zip"
 rm -f "$ZIP"
 cd "$OUT_DIR"
