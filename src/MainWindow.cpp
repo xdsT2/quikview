@@ -968,8 +968,8 @@ void MainWindow::createActions()
     actFirst = mk(tr("首张图片"), QKeySequence(QStringLiteral("Home")), &MainWindow::onFirst);
     actLast = mk(tr("末尾图片"), QKeySequence(QStringLiteral("End")), &MainWindow::onLast);
     // 同级文件夹跳转（对照原版 MENUSTR_PAGEMOVE_NEXT_PATH/PREV_PATH：] [）
-    actPrevFolder = mk(tr("上一个 文件夹/压缩包"), QKeySequence(QStringLiteral("[")), &MainWindow::onPrevFolder);
-    actNextFolder = mk(tr("下一个 文件夹/压缩包"), QKeySequence(QStringLiteral("]")), &MainWindow::onNextFolder);
+    actPrevFolder = mk(tr("上一个文件夹"), QKeySequence(QStringLiteral("[")), &MainWindow::onPrevFolder);
+    actNextFolder = mk(tr("下一个文件夹"), QKeySequence(QStringLiteral("]")), &MainWindow::onNextFolder);
     actNextFrame = mk(tr("下一帧"), QKeySequence(QStringLiteral("Ctrl+Right")), &MainWindow::onNextFrame);
     actPrevFrame = mk(tr("上一帧"), QKeySequence(QStringLiteral("Ctrl+Left")), &MainWindow::onPrevFrame);
 
@@ -1390,8 +1390,8 @@ QMenu *MainWindow::buildContextMenu()
                 [this]() { onJumpRandom(true); });
     addMenuItem(nav, tr("向前随机转到某张图片"), QStringLiteral("Ctrl+Alt+PageUp"),
                 [this]() { onJumpRandom(false); });
-    addMenuItem(nav, tr("下一个 文件夹/压缩包"), QStringLiteral("]"), [this]() { onNextFolder(); });
-    addMenuItem(nav, tr("上一个 文件夹/压缩包"), QStringLiteral("["), [this]() { onPrevFolder(); });
+    addMenuItem(nav, tr("下一个文件夹"), QStringLiteral("]"), [this]() { onNextFolder(); });
+    addMenuItem(nav, tr("上一个文件夹"), QStringLiteral("["), [this]() { onPrevFolder(); });
     UiStyle::polishMenu(nav);
 
     // —— 插值算法（3 项，勾选态跟随真实设置）——
@@ -2085,6 +2085,33 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             if (a->menu() && a->menu()->actions().contains(actTwoL2R)) {
                 a->menu()->popup(mapToGlobal(QPoint(width() / 2 - 120, height() / 3)));
                 break;
+            }
+        }
+    }
+    // 验收探针：把右键菜单的「浏览导航」子菜单**自身**渲染成 png（第 12 期文案验收用）。
+    // 用法 navmenu:<out.png>；按 ] 快捷键定位该子菜单，不依赖菜单文案/语言。
+    // 弹窗在后台窗口里会被系统收回，--screenshot-ui 抓不到，所以直接 grab 控件。
+    else if (c.startsWith(QLatin1String("navmenu"))) {
+        QString out = QStringLiteral("Temp/navmenu.png");
+        const int sep = c.indexOf(QLatin1Char(':'));
+        if (sep > 0) {
+            out = c.mid(sep + 1);
+        }
+        QMenu *menu = buildContextMenu();
+        for (QAction *a : menu->actions()) {
+            if (!a->menu()) {
+                continue;
+            }
+            for (QAction *sub : a->menu()->actions()) {
+                // 这两项是 addMenuItem 生成的纯展示项（快捷键只是文本），只能按文案定位
+                if (sub->text().contains(QStringLiteral("文件夹"))) {
+                    QMenu *nav = a->menu();
+                    nav->popup(mapToGlobal(QPoint(width() / 2 - 120, height() / 3)));
+                    QTimer::singleShot(400, nav, [nav, out]() {
+                        nav->grab().save(out);
+                    });
+                    return;
+                }
             }
         }
     }
