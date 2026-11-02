@@ -41,6 +41,9 @@ echo "[1/5] staging"
 rm -rf "$OUT_DIR/$STAGE_NAME"
 mkdir -p "$STAGE"
 cp "$BUILD_DIR/quikview.exe" "$STAGE/"
+# 安装向导的 MUI_ICON / MUI_UNICON 直接引用 ${SRC}\quikview.ico（exe 内已内嵌一份，
+# 这里放一份是给 NSIS 编译期用的），缺了 package-installer.sh 会中止
+cp "$REPO_ROOT/resources/quikview.ico" "$STAGE/"
 
 echo "[2/5] windeployqt（Qt 运行时 + 插件）"
 windeployqt --release --no-translations --no-opengl-sw \
