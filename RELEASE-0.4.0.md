@@ -68,7 +68,7 @@
 |---|---|---|---|---|
 | 1 | 版本号单一来源 | ✅ 已办结（`40aa1a0` / `68c723a` / `36d079c`） | 1.3 五项全绿 | 唯一真源 `CMakeLists.txt:2` = 0.4.0；nsi 三参数改 `!error` 守卫（漏传 rc=1）；0.4.1 探针验证「改一处 → zip 名/setup 名/exe VersionInfo/`--version`/DisplayVersion 五处跟随」。详见 `交接-版本单一来源-20261103.md` |
 | 2 | 重建 dist + 安装包 | ✅ 已办结（`1e4edd8`） | 装完 exe + 3 条快捷方式有图标；删掉安装目录 ico 后窗口图标仍正常；产物时间戳晚于最新提交 | 新链路 `tools/package-installer.sh` 一条命令出 `dist/quikview-0.4.0-win64.zip`（55,351,534 B，SHA256 `a7141d38…9319d`）与 `dist/QuikView-0.4.0-setup.exe`（38,225,812 B，SHA256 `be5c7f20…4a8`），mtime 01:32:41 / 01:33:31 晚于代码提交 `1e4edd8`（01:31:49）；ExtractIconW 四个目标全非 0；向导截图 `docs/screenshots/installer-0.4.0-welcome.png` |
-| 3 | 文件关联 | ⬜ 待办（**有前置决策**） | 双击 JPG/PNG 启动；中文/空格路径正确；不抢默认；见 §3.1 | — |
+| 3 | 文件关联 | ✅ 已办结（`27c4136` / `48e05d9` / `c2cc450`） | 双击 JPG/PNG 启动；中文/空格/`()`/`&` 路径正确；不抢默认；见 §3.1 | 11 种格式注册 ProgID + OpenWithProgids + Capabilities + RegisteredApplications（64 位视图），安装前后用户默认值不变；单实例 PID 前后一致（41884）、进程数恒 1；卸载后 ProgID / OpenWithProgids / RegisteredApplications / Capabilities 四条全清；设置页假开关清零（audit 107 键 PASS）。详见 `交接-文件关联-20261103.md` |
 | 4 | 冒烟配置隔离 | ⬜ 待办（质量保障） | 跑 `--smoke` 前后用户 `config.ini` 哈希不变 | — |
 | 5 | ZIP 与菜单文案决策 | ✅ 已办结（用户拍板不做 ZIP，`e09b295`） | 二选一：实现 ZIP/CBZ 直读，或把 4 处「文件夹/压缩包」改成「文件夹」 | 4 处改「上一个文件夹/下一个文件夹」，`navmenu` 探针截图 `docs/screenshots/menu-folder-0.4.0.png`；全仓 `grep 压缩包` 只剩 `SettingsDialog.cpp:875/1325/1326` 三条注释 |
 | 6 | 卸载健壮性 | ✅ 已办结（`21a85ab`） | 运行中卸载有处理；快捷方式清干净；配置与收藏保留；不删用户图片 | 占用时提示并 `Abort`（截图 `docs/screenshots/uninstall-running-0.4.0.png`，80 文件一个没删）；`config.ini` + `test.jpg` 卸载后仍在、程序文件清空、空目录被删；lnk / 两处注册项全清。详见 `交接-卸载健壮性-20261103.md` |
@@ -83,7 +83,8 @@
 
 ### 3.1 文件关联：只验证注册表不够，而且我们缺单实例
 
-**新发现**：全仓搜不到 `QLocalServer` / `QSharedMemory` / `QLockFile` —— **没有任何单实例机制**。含义：
+**新发现**：全仓搜不到 `QLocalServer` / `QSharedMemory` / `QLockFile` —— **没有任何单实例机制**。
+（11-03 已按用户拍板采用 B 方案落地，见第 13 期与 `交接-文件关联-20261103.md`。）含义：
 
 - 双击一张图 → 新起一个进程、新开一个窗口；
 - 已开着 QuikView 时再双击 → 再开一个，**不会**「把路径交给已有窗口」；
@@ -154,3 +155,4 @@
 | 11-03 00:55 | 发现便携模式配置随安装目录被删的隐患 | `packaging/quikview.nsi` 的 `RMDir /r "$INSTDIR"` |
 | 11-03 01:40 | 第 11 期办结：版本单一来源 + exe VERSIONINFO + 安装包打包链；产物重建 | `交接-版本单一来源-20261103.md` |
 | 11-03 01:56 | 第 12 期办结：文案去「压缩包」+ 卸载占用检测/清单删除；产物重建 | `交接-卸载健壮性-20261103.md` |
+| 11-03 02:12 | 第 13 期办结：单实例 + 文件关联注册 + 设置页假开关清零；产物重建 | `交接-文件关联-20261103.md` |
