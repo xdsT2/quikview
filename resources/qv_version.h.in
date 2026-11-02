@@ -1,0 +1,8 @@
+/* 由 CMake configure_file 生成，勿手改、勿入库。
+ * 版本唯一真源是 CMakeLists.txt 的 project(VERSION ...)。
+ * windres 的 VERSIONINFO 只吃纯数字，所以拆成四段宏 + 一个字符串宏。 */
+#define QV_VER_MAJOR @PROJECT_VERSION_MAJOR@
+#define QV_VER_MINOR @PROJECT_VERSION_MINOR@
+#define QV_VER_PATCH @PROJECT_VERSION_PATCH@
+#define QV_VER_BUILD 0
+#define QV_VERSION_STR "@PROJECT_VERSION@"

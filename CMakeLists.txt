@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(quikview VERSION 0.3.0 LANGUAGES CXX)
+project(quikview VERSION 0.4.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -75,6 +75,13 @@ target_include_directories(quikview PRIVATE src)
 # 别再各写各的字面量。
 target_compile_definitions(quikview PRIVATE QUIKVIEW_VERSION="${PROJECT_VERSION}")
 
+# 数字版本（四段纯数字）只给安装包与 PE 版本资源用：VIProductVersion / FILEVERSION
+# 不接受 "0.4.0" 这种三段式，也不接受 -rc1 后缀。project(VERSION) 永远纯数字，
+# 预发布后缀只允许出现在 git tag 与展示名里。
+set(QUIKVIEW_VERSION_RC
+    "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}.0")
+message(STATUS "QuikView version ${PROJECT_VERSION} (installed as ${QUIKVIEW_VERSION_RC})")
+
 # 翻译：.ts → .qm，嵌入资源 :/i18n
 qt_add_translations(quikview
     TS_FILES translations/quikview_en_US.ts translations/quikview_ko_KR.ts translations/quikview_ja_JP.ts translations/quikview_fr_FR.ts translations/quikview_de_DE.ts translations/quikview_es_ES.ts translations/quikview_ru_RU.ts translations/quikview_zh_TW.ts
@@ -105,8 +112,11 @@ if(WIN32)
     )
     # 把图标编进 PE：ExtractIconW / 资源管理器 / 快捷方式默认图标都靠它
     target_sources(quikview PRIVATE resources/app.rc)
+    # app.rc 的 VERSIONINFO 读这里生成的版本头；同样由 project(VERSION) 派生
+    configure_file(resources/qv_version.h.in "${CMAKE_CURRENT_BINARY_DIR}/qv_version.h" @ONLY)
     set_source_files_properties(resources/app.rc PROPERTIES
-        COMPILE_OPTIONS "--include-dir=${CMAKE_CURRENT_SOURCE_DIR}/resources"
+        COMPILE_OPTIONS "--include-dir=${CMAKE_CURRENT_SOURCE_DIR}/resources;--include-dir=${CMAKE_CURRENT_BINARY_DIR}"
+        OBJECT_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/qv_version.h"
     )
     # WM_NCCALCSIZE 最大化修正用到 GetDpiForWindow / GetSystemMetricsForDpi（Win10 1607+）
     target_compile_definitions(quikview PRIVATE _WIN32_WINNT=0x0A00 WINVER=0x0A00)
