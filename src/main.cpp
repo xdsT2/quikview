@@ -26,18 +26,22 @@ int main(int argc, char *argv[])
     // Honeyview 铬件：默认 UI 字体（微软雅黑 9pt）
     QApplication::setFont(QFont(QStringLiteral("Microsoft YaHei UI"), 9));
 
-    // 应用图标：EXE 在 build/，资源在上一级 resources/
+    // 应用图标：先找磁盘上的 ico（方便换肤/调试），落空则用 RCC 内嵌的 :/quikview.ico。
+    // 安装目录里只有 exe + DLL、没有外部 .ico 时，全靠内嵌这一层；
+    // 窗口图标不再依赖 resources/ 是否被打包进去。
     {
         const QString base = QCoreApplication::applicationDirPath();
-        QString iconPath = base + QStringLiteral("/../resources/quikview.ico");
-        if (!QFileInfo::exists(iconPath)) {
-            iconPath = base + QStringLiteral("/resources/quikview.ico");
-        }
-        if (!QFileInfo::exists(iconPath)) {
-            iconPath = base + QStringLiteral("/quikview.ico");
-        }
-        if (QFileInfo::exists(iconPath)) {
-            app.setWindowIcon(QIcon(iconPath));
+        const QStringList candidates = {
+            base + QStringLiteral("/../resources/quikview.ico"),
+            base + QStringLiteral("/resources/quikview.ico"),
+            base + QStringLiteral("/quikview.ico"),
+            QStringLiteral(":/quikview.ico"),
+        };
+        for (const QString &iconPath : candidates) {
+            if (QFileInfo::exists(iconPath)) {
+                app.setWindowIcon(QIcon(iconPath));
+                break;
+            }
         }
     }
 

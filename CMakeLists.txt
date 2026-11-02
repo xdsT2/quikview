@@ -9,6 +9,11 @@ set(CMAKE_AUTOUIC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent PrintSupport LinguistTools)
 
+# 图标资源脚本（win32）：exe 里必须有 RT_GROUP_ICON，否则安装后快捷方式/任务栏全白板
+if(WIN32)
+    enable_language(RC)
+endif()
+
 # M1：RAW 解码用 libraw（pkg-config，MSYS2 自带）
 # HEIC/AVIF 解码用 libheif（pkg-config，MSYS2 自带）
 # EXIF：自研极简解析器（ExifParser），零依赖、MIT-clean（不用 GPL 的 libexiv2）
@@ -94,6 +99,11 @@ endif()
 if(WIN32)
     set_target_properties(quikview PROPERTIES
         WIN32_EXECUTABLE TRUE
+    )
+    # 把图标编进 PE：ExtractIconW / 资源管理器 / 快捷方式默认图标都靠它
+    target_sources(quikview PRIVATE resources/app.rc)
+    set_source_files_properties(resources/app.rc PROPERTIES
+        COMPILE_OPTIONS "--include-dir=${CMAKE_CURRENT_SOURCE_DIR}/resources"
     )
     # WM_NCCALCSIZE 最大化修正用到 GetDpiForWindow / GetSystemMetricsForDpi（Win10 1607+）
     target_compile_definitions(quikview PRIVATE _WIN32_WINNT=0x0A00 WINVER=0x0A00)

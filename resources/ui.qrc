@@ -6,5 +6,8 @@
         <file>ui/check-light.png</file>
         <file>ui/chevron-down.png</file>
         <file>ui/chevron-right.png</file>
+        <!-- 应用图标：路径 :/quikview.ico。main.cpp 图标链的最后一层兜底，
+             保证安装目录里没有外部 .ico 时窗口/任务栏仍有图标。 -->
+        <file>quikview.ico</file>
     </qresource>
 </RCC>

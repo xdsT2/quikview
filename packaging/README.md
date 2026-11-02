@@ -7,7 +7,7 @@
 ```bash
 # 1. 编译 + 部署 payload（windeployqt 只带 Qt 自身依赖）
 cmake --build build
-mkdir staging && cp build/quikview.exe build/quikview.ico staging/
+mkdir staging && cp build/quikview.exe staging/ && cp resources/quikview.ico staging/
 windeployqt --release --compiler-runtime --no-system-d3d-compiler --no-opengl-sw staging/quikview.exe
 
 # 2. 补齐 mingw 运行库闭包（windeployqt 不会带 libheif/libraw/icu 等）
@@ -16,7 +16,8 @@ for f in staging/*.exe staging/*.dll; do
   objdump -p "$f" | grep -i "DLL Name" | awk '{print $3}'
 done   # 把列出的 mingw DLL 从 <mingw64>/bin 拷入 staging, 递归到无新增
 
-# 3. 编译安装包（注意: 脚本必须带 UTF-8 BOM）
+# 3. 编译安装包（脚本必须带 BOM：当前 quikview.nsi 是 UTF-16LE，
+#    改完别用无 BOM 的 UTF-8 另存，makensis 会报「Bad text encoding」）
 makensis /DSRC="staging" /DOUTFILE="QuikView-setup.exe" packaging/quikview.nsi
 ```
 

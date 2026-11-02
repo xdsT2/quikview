@@ -43,3 +43,4 @@ shot*.png
 
 # 本地打包输出
 dist/
+staging/

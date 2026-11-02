@@ -1,0 +1,11 @@
+// QuikView Windows resource script -- only job: embed the app icon into the PE.
+//
+// Why embedded: Explorer / taskbar pin / file associations / shortcut default
+// icons all read RT_GROUP_ICON from the exe. Before this file existed the repo
+// had no .rc at all, so ExtractIconW returned 0 and every shortcut was blank.
+//
+// windres resolves the ICON path relative to its working directory, which is not
+// necessarily resources/, so CMakeLists passes --include-dir=<src>/resources.
+// (Keep this file ASCII-only: windres is picky about encodings.)
+
+IDI_ICON1 ICON "quikview.ico"
