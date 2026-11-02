@@ -1,11 +1,15 @@
 #include <QApplication>
 #include <QCommandLineParser>
+#include <QCryptographicHash>
 #include <QDebug>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QFont>
 #include <QIcon>
+#include <QLocalServer>
+#include <QLocalSocket>
+#include <QStandardPaths>
 
 #include <QTimer>
 #include <QTranslator>
@@ -14,9 +18,28 @@
 #include "Theme.h"
 #include "UpdateChecker.h"
 
+#ifdef Q_OS_WIN
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 #ifndef QUIKVIEW_VERSION
 #define QUIKVIEW_VERSION "0.0.0"
 #endif
+
+namespace {
+
+// 单实例键：QuikView-<RuntimeLocation 哈希>。
+// 只带固定名字会让多用户/多会话互相顶掉，所以把当前用户的运行时目录路径也算进去。
+QString singleInstanceKey()
+{
+    const QString scope = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation);
+    const QByteArray digest =
+        QCryptographicHash::hash(scope.toUtf8(), QCryptographicHash::Sha1).toHex().left(16);
+    return QStringLiteral("QuikView-") + QString::fromLatin1(digest);
+}
+
+} // namespace
 
 int main(int argc, char *argv[])
 {
@@ -149,8 +172,68 @@ int main(int argc, char *argv[])
         return failed == 0 ? 0 : 1;
     }
 
+    // —— 单实例 ——
+    // 文件关联后，用户双击第二张图如果新开一个进程，任务栏就会堆窗口，也不像原版习惯。
+    // 这里用 QLocalServer 命名管道：第二个实例把文件路径发给首实例后自己退出。
+    // 带调试参数的调用（--smoke / --screenshot / --settings …）不参与转发，
+    // 否则自动化会「跑到已有窗口里」，截图和冒烟全部失真。
+    const bool debugRun = parser.isSet(settingsOpt) || parser.isSet(viewModeOpt)
+                          || parser.isSet(smokeOpt) || parser.isSet(shotOpt)
+                          || parser.isSet(shotUiOpt) || parser.isSet(shotDelayOpt)
+                          || parser.isSet(checkUpdateOpt);
+    QString serverKey;
+    if (!debugRun) {
+        serverKey = singleInstanceKey();
+        QLocalSocket probe;
+        probe.connectToServer(serverKey);
+        if (probe.waitForConnected(300)) {
+            const QStringList args = parser.positionalArguments();
+            if (!args.isEmpty()) {
+                probe.write(args.first().toUtf8());
+            }
+            probe.write("\n");
+            probe.flush();
+            probe.waitForBytesWritten(1000);
+            probe.disconnectFromServer();
+            return 0;
+        }
+    }
+
     MainWindow window;
     window.show();
+
+    // 首实例挂监听：收到路径就切图并把自己拉到前台
+    static QLocalServer ipcServer;
+    if (!serverKey.isEmpty()) {
+        QLocalServer::removeServer(serverKey);   // 上个会话崩溃留下的孤儿套接字
+        if (!ipcServer.listen(serverKey)) {
+            qWarning() << "[single-instance] listen failed:" << ipcServer.errorString();
+        } else {
+            QObject::connect(&ipcServer, &QLocalServer::newConnection, &window, [&window]() {
+                while (QLocalSocket *sock = ipcServer.nextPendingConnection()) {
+                    QObject::connect(sock, &QLocalSocket::readyRead, &window, [sock, &window]() {
+                        const QString path = QString::fromUtf8(sock->readAll()).trimmed();
+                        if (!path.isEmpty()) {
+                            window.openFile(path);
+                        }
+                        if (window.isMinimized()) {
+                            window.showNormal();
+                        }
+                        window.show();
+                        window.raise();
+                        window.activateWindow();
+#ifdef Q_OS_WIN
+                        // Qt 的 activateWindow 在后台进程里常被前台锁挡掉，补一次 Win32 调用
+                        SetForegroundWindow(reinterpret_cast<HWND>(window.winId()));
+#endif
+                        sock->disconnectFromServer();
+                    });
+                    QObject::connect(sock, &QLocalSocket::disconnected,
+                                     sock, &QLocalSocket::deleteLater);
+                }
+            });
+        }
+    }
 
     // 检查更新：结果提示条由 UpdateNotifier 统一负责（手动/自动共用）。
     new UpdateNotifier(&window, &window);
