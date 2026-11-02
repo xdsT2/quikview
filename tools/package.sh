@@ -24,8 +24,10 @@ OUT_DIR="${2:-$REPO_ROOT/dist}"
 case "$BUILD_DIR" in /*|[A-Za-z]:*) ;; *) BUILD_DIR="$PWD/$BUILD_DIR" ;; esac
 case "$OUT_DIR"   in /*|[A-Za-z]:*) ;; *) OUT_DIR="$PWD/$OUT_DIR"     ;; esac
 
-VERSION="$(sed -n 's/^project(quikview VERSION \([0-9.]*\).*/\1/p' "$REPO_ROOT/CMakeLists.txt" | head -1)"
-[ -n "$VERSION" ] || { echo "读不到 CMakeLists 里的版本号" >&2; exit 1; }
+# 版本号：与 package-installer.sh 共用 tools/lib/version.sh，禁止各自再写 sed
+# shellcheck source=lib/version.sh
+source "$REPO_ROOT/tools/lib/version.sh"
+VERSION="$(qv_read_version "$REPO_ROOT")" || exit 1
 
 STAGE_NAME="quikview-${VERSION}-win64"
 STAGE="$OUT_DIR/$STAGE_NAME"
