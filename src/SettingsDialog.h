@@ -119,7 +119,6 @@ private:
     QLabel *m_pageDesc = nullptr;
     QPushButton *m_btnReset = nullptr;
     QPushButton *m_btnOk = nullptr;
-    QList<QCheckBox *> m_assocChecks;      // 格式关联页扩展名勾选（直接读写 config/assoc/ext_*）
 
     // 标题栏拖拽
     bool m_dragging = false;

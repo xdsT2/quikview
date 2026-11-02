@@ -530,7 +530,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     buildGeneralPage(addPage(tr("一般"), tr("窗口行为、检查更新与到达首尾时的操作；尚未实现的项已置灰。")));
     buildViewPage(addPage(tr("浏览"), tr("背景颜色、边框颜色与侧边箭头等浏览显示设置。")));
     buildImageProcPage(addPage(tr("图像处理"), tr("插值算法与透明/翻页设置；多数项尚未实现，已置灰。")));
-    buildAssocPage(addPage(tr("格式关联"), tr("通过系统入口设置默认打开方式；逐格式勾选尚未接入。")));
+    buildAssocPage(addPage(tr("格式关联"), tr("通过系统入口设置默认打开方式（Windows 10+ 不允许程序静默改默认）。")));
     buildKeyboardPage(addPage(tr("键盘"), tr("快捷键当前为固定绑定，自定义尚未接入（整表置灰）。")));
     buildMousePage(addPage(tr("鼠标"), tr("左/右/X/Y 键映射固定；中键与滚轮的平移/缩放开关可用。")));
     buildBookmarkPage(addPage(tr("书签"), tr("保存 / 共享 / 容量设置尚未实现，已置灰。")));
@@ -1042,86 +1042,28 @@ void SettingsDialog::buildAssocPage(QWidget *page)
         }
     });
 
-    // 2x2 组网格
-    auto *gridHost = new QWidget(sec);
-    auto *grid = new QGridLayout(gridHost);
-    grid->setContentsMargins(0, 6, 0, 0);
-    grid->setHorizontalSpacing(10);
-    grid->setVerticalSpacing(10);
-    if (auto *v = qobject_cast<QVBoxLayout *>(sec->layout()))
-        v->addWidget(gridHost);
-
-    // 格式清单唯一来源：DirectoryLoader::imageGroups()。
-    // 这里不再手写第三份——旧代码单独维护过一份，列了 jxl / zip / rar / 7z
-    // 这些 QuikView 根本打不开的格式，用户勾选关联后双击直接失败。
-    const QList<DirectoryLoader::Group> formatGroups = DirectoryLoader::imageGroups();
-
-    for (int g = 0; g < formatGroups.size(); ++g) {
-        auto *group = new QFrame(gridHost);
-        group->setObjectName(QStringLiteral("formatGroup"));
-        auto *gl = new QVBoxLayout(group);
-        gl->setContentsMargins(11, 10, 11, 11);
-        gl->setSpacing(7);
-
-        auto *head = new QWidget(group);
-        auto *hl = new QHBoxLayout(head);
-        hl->setContentsMargins(0, 0, 0, 0);
-        hl->setSpacing(5);
-        auto *name = new QLabel(formatGroups.at(g).label, head);
-        name->setObjectName(QStringLiteral("sectionTitle"));
-        hl->addWidget(name);
-        hl->addStretch(1);
-        auto *btnAll = addMiniButton(head, tr("全选"));
-        auto *btnNone = addMiniButton(head, tr("取消"));
-        // 勾选框本身零消费，全选/取消也就没有意义，一起灰掉
-        markUnavailable(btnAll);
-        markUnavailable(btnNone);
-        hl->addWidget(btnAll);
-        hl->addWidget(btnNone);
-        gl->addWidget(head);
-
-        auto *checksHost = new QWidget(group);
-        auto *cg = new QGridLayout(checksHost);
-        cg->setContentsMargins(0, 0, 0, 0);
-        cg->setHorizontalSpacing(5);
-        cg->setVerticalSpacing(0);
-        QList<QCheckBox *> boxes;
-        const QStringList exts = formatGroups.at(g).exts;
-        for (int i = 0; i < exts.size(); ++i) {
-            const QString ext = exts.at(i);
-            auto *cb = new QCheckBox(ext, checksHost);
-            cb->setCursor(Qt::PointingHandCursor);
-            cb->setMinimumHeight(22);
-            cb->setStyleSheet(QStringLiteral("QCheckBox{font-size:11px;}"));
-            const QByteArray key = (QStringLiteral("assoc/ext_") + ext).toLatin1();
-            cb->setChecked(bGet(key.constData(), true));
-            connect(cb, &QCheckBox::toggled, cb, [key](bool on) {
-                bSet(key.constData(), on);
-            });
-            // assoc/ext_<ext> 全仓零消费：真正的关联动作走上面的系统入口
-            // （ShellExecuteW / IApplicationAssociationRegistrationUI），
-            // 这些勾选框只是把值写进 config，没有任何代码读它。
-            markUnavailable(cb);
-            cg->addWidget(cb, i / 4, i % 4);
-            boxes.append(cb);
-            m_assocChecks.append(cb);
+    // 逐格式勾选组已删除（第 13 期）：
+    // Windows 10/11 不允许程序静默改默认关联（UserChoice 带哈希，写完无效），
+    // 而原先这一组勾选框只是把 assoc/ext_* 写进 config，没有任何消费点 ——
+    // 就是「勾了也没事发生」的假开关。留一句只读清单，把格式范围讲清楚，
+    // 真正的关联动作只有上面两个系统入口。
+    {
+        const QList<DirectoryLoader::Group> groups = DirectoryLoader::imageGroups();
+        QStringList parts;
+        for (const DirectoryLoader::Group &g : groups) {
+            parts << QStringLiteral("%1（%2）").arg(g.label, g.exts.join(QStringLiteral(" / ")));
         }
-        gl->addWidget(checksHost);
-
-        connect(btnAll, &QPushButton::clicked, group, [boxes]() {
-            for (QCheckBox *cb : boxes)
-                cb->setChecked(true);
-        });
-        connect(btnNone, &QPushButton::clicked, group, [boxes]() {
-            for (QCheckBox *cb : boxes)
-                cb->setChecked(false);
-        });
-
-        grid->addWidget(group, g / 2, g % 2);
+        auto *fmt = new QLabel(parts.join(QStringLiteral("、")), sec);
+        fmt->setWordWrap(true);
+        fmt->setObjectName(QStringLiteral("hintText"));
+        fmt->setContentsMargins(0, 6, 0, 0);
+        if (auto *v = qobject_cast<QVBoxLayout *>(sec->layout()))
+            v->addWidget(fmt);
     }
 
-    addHint(sec, tr("逐格式勾选尚未接入：格式关联请走上面的「格式关联 / 经典方法」"
-                    "系统入口，下面的勾选框不会生效。"));
+    addHint(sec, tr("安装程序已把 QuikView 登记为上述格式的候选打开方式；"
+                    "Windows 10 起不允许程序静默抢占默认关联，"
+                    "要改默认请在系统「默认应用」里选择 QuikView。"));
 }
 
 // ===========================================================================
@@ -1615,11 +1557,6 @@ void SettingsDialog::onReset()
     loadFromConfig();
 
     // 直接读写 config 的控件也要跟着回到默认值
-    for (QCheckBox *cb : m_assocChecks) {
-        const QByteArray key = (QStringLiteral("assoc/ext_")
-                                + cb->text()).toLatin1();
-        cb->setChecked(bGet(key.constData(), true));
-    }
     if (auto *bg = static_cast<ColorPickButton *>(m_bkgndColorBtn))
         bg->refresh();
     if (auto *bd = static_cast<ColorPickButton *>(m_borderColorBtn))
