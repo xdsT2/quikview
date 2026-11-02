@@ -247,10 +247,10 @@ void UpdateChecker::onReplyFinished()
                                 : reply->readAll();
     reply->deleteLater();
 
-    // 仓库还没发布过 Release 时 GitHub 返回 404：这不是网络故障，
-    // 对用户就是「没有更新」。
+    // GitHub 的 /releases/latest 只返回正式版：仓库只有 Pre-release（或从未发版）
+    // 时返回 404。对用户就是「没有可用的新正式版」，不是网络故障。
     if (status == 404) {
-        qDebug() << "[update] HTTP 404 (no release published) -> up to date";
+        qDebug() << "[update] HTTP 404 (no stable release) -> up to date";
         emit upToDate(manual);
         emit finished(manual);
         return;
