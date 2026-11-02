@@ -1,6 +1,8 @@
 #include <QApplication>
 #include <QCommandLineParser>
+#include <QDebug>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QFont>
 #include <QIcon>
@@ -10,6 +12,7 @@
 #include "Config.h"
 #include "MainWindow.h"
 #include "Theme.h"
+#include "UpdateChecker.h"
 
 #ifndef QUIKVIEW_VERSION
 #define QUIKVIEW_VERSION "0.0.0"
@@ -94,11 +97,78 @@ int main(int argc, char *argv[])
                                  QStringLiteral("Grab the active top-level window (menu/dialog) to <out.png>"),
                                  QStringLiteral("out"));
     parser.addOption(shotUiOpt);
+    // 调试：--check-update 启动 1.2s 后做一次手动检查（验证 toast / 代理链路）
+    QCommandLineOption checkUpdateOpt(QStringLiteral("check-update"),
+                                      QStringLiteral("Run a manual update check on start"));
+    parser.addOption(checkUpdateOpt);
+    // 调试：--update-selftest <out.txt> 版本比较自测，结果写文件后退出
+    // （WIN32 子系统没有 stdout，所以落到文件里）
+    QCommandLineOption updateSelftestOpt(QStringLiteral("update-selftest"),
+                                         QStringLiteral("Write version-comparison self-test to <out.txt>"),
+                                         QStringLiteral("out"));
+    parser.addOption(updateSelftestOpt);
     parser.addPositionalArgument(QStringLiteral("file"), QStringLiteral("Image file to open"));
     parser.process(app);
 
+    // 版本比较自测：只依赖纯逻辑，不创建窗口。
+    if (parser.isSet(updateSelftestOpt)) {
+        struct Case {
+            const char *a;
+            const char *b;
+            int want;
+        };
+        const Case cases[] = {
+            { "0.4.0", "0.4.1", -1 },
+            { "0.4.0", "0.5.0", -1 },
+            { "0.4.0-dev", "0.4.0", -1 },
+            { "0.10.0", "0.9.9", 1 },
+            { "v0.4.1", "0.4.0", 1 },
+            { "0.4.0", "0.4.0", 0 },
+        };
+        QStringList lines;
+        int failed = 0;
+        for (const Case &c : cases) {
+            const int got = UpdateChecker::compareVersions(QString::fromLatin1(c.a),
+                                                           QString::fromLatin1(c.b));
+            const bool ok = (got == c.want);
+            if (!ok)
+                ++failed;
+            lines << QStringLiteral("%1 %2 vs %3 -> %4 (want %5)")
+                         .arg(ok ? QStringLiteral("PASS") : QStringLiteral("FAIL"))
+                         .arg(QString::fromLatin1(c.a))
+                         .arg(QString::fromLatin1(c.b))
+                         .arg(got)
+                         .arg(c.want);
+        }
+        lines << QStringLiteral("current = %1").arg(QStringLiteral(QUIKVIEW_VERSION));
+        lines << QStringLiteral("RESULT: %1").arg(failed == 0 ? QStringLiteral("PASS")
+                                                              : QStringLiteral("FAIL"));
+        QFile out(parser.value(updateSelftestOpt));
+        if (out.open(QIODevice::WriteOnly | QIODevice::Text))
+            out.write(lines.join(QLatin1Char('\n')).toUtf8() + '\n');
+        return failed == 0 ? 0 : 1;
+    }
+
     MainWindow window;
     window.show();
+
+    // 检查更新：结果提示条由 UpdateNotifier 统一负责（手动/自动共用）。
+    new UpdateNotifier(&window, &window);
+
+    // 自动检查默认关；勾上「启动时检查更新」后延迟 5s 再发，绝不阻塞启动路径。
+    if (Config::instance().checkUpdatesOnStartup()) {
+        QTimer::singleShot(5000, &window, []() {
+            qDebug() << "[update] startup auto check (delayed 5s)";
+            UpdateChecker::instance().check(UpdateChecker::Mode::Automatic);
+        });
+    }
+
+    if (parser.isSet(checkUpdateOpt)) {
+        QTimer::singleShot(1200, &window, []() {
+            qDebug() << "[update] manual check from --check-update";
+            UpdateChecker::instance().check(UpdateChecker::Mode::Manual);
+        });
+    }
 
     const QStringList files = parser.positionalArguments();
     if (!files.isEmpty()) {

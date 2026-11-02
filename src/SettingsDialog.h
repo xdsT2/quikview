@@ -157,4 +157,5 @@ private:
     QLineEdit *m_photoFolder2 = nullptr;
     QLineEdit *m_editorPath = nullptr;    // 杂项页
     QComboBox *m_language = nullptr;      // 语言页
+    QPushButton *m_checkUpdateBtn = nullptr;  // 一般页：手动检查更新
 };

@@ -38,6 +38,7 @@
 #include <shobjidl.h>
 
 #include "Config.h"
+#include "UpdateChecker.h"
 #include "UiStyle.h"
 
 namespace {
@@ -526,7 +527,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     root->addWidget(body, 1);
 
     // —— 页面（每页一个 QScrollArea，内容 widget 存 m_pages）——
-    buildGeneralPage(addPage(tr("一般"), tr("窗口行为、通知与到达首尾时的操作；三项尚未实现，已置灰。")));
+    buildGeneralPage(addPage(tr("一般"), tr("窗口行为、检查更新与到达首尾时的操作；尚未实现的项已置灰。")));
     buildViewPage(addPage(tr("浏览"), tr("背景颜色、边框颜色与侧边箭头等浏览显示设置。")));
     buildImageProcPage(addPage(tr("图像处理"), tr("插值算法与透明/翻页设置；多数项尚未实现，已置灰。")));
     buildAssocPage(addPage(tr("格式关联"), tr("通过系统入口设置默认打开方式；逐格式勾选尚未接入。")));
@@ -840,8 +841,33 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
     addCheck(sec, tr("总在最前 (Ctrl+A)"), "always_on_top", false, false);
     addCheck(sec, tr("按 ESC 退出"), "esc_exit", false, true);
     addHint(sec, unavailableTip());
-    // 「检查更新 / 检查小版本更新」已删：无联网能力（不依赖 Qt6Network），
-    // Config::checkUpdates()/checkMinorUpdates() 除定义外零调用点，勾了也不会有任何事发生。
+    // 「检查更新 / 检查小版本更新」旧开关见下方「检查更新」组：
+    // 现在有真实的联网实现（UpdateChecker），不再是零消费假开关。
+
+    // —— 检查更新 ——
+    // 手动检查不受频控；自动检查默认关（不擅自联网），勾上后启动 5s 静默查一次。
+    sec = beginSection(page, tr("检查更新"));
+    QHBoxLayout *updateRow = addRow(sec, tr("手动检查"));
+    m_checkUpdateBtn = addButton(updateRow->parentWidget(), tr("检查更新"));
+    updateRow->addWidget(m_checkUpdateBtn);
+    updateRow->addStretch(1);
+    addCheck(sec, tr("启动时检查更新"), "check_updates", false, false);
+    addHint(sec, tr("自动检查每 24 小时最多一次；手动检查不受限制。"));
+    connect(m_checkUpdateBtn, &QPushButton::clicked, this, [this]() {
+        m_checkUpdateBtn->setEnabled(false);
+        m_checkUpdateBtn->setText(tr("检查中…"));
+        if (!UpdateChecker::instance().check(UpdateChecker::Mode::Manual)) {
+            // 已有请求在飞（比如刚触发的自动检查）→ 立即恢复，不排队、不重试。
+            m_checkUpdateBtn->setEnabled(true);
+            m_checkUpdateBtn->setText(tr("检查更新"));
+        }
+    });
+    connect(&UpdateChecker::instance(), &UpdateChecker::finished, this,
+            [this](bool manual) {
+                if (manual)
+                    m_checkUpdateBtn->setEnabled(true);
+                m_checkUpdateBtn->setText(tr("检查更新"));
+            });
 
     sec = beginSection(page, tr("到达首尾图片时"));
     const auto opts = lastFileOptions();

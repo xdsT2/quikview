@@ -166,6 +166,23 @@ bool Config::contextCopy() const
     return m_settings.value(QStringLiteral("config/context_copy"), true).toBool();
 }
 
+bool Config::checkUpdatesOnStartup() const
+{
+    // 默认关：未经用户明确同意不联网。设置页「启动时检查更新」勾上才为 true。
+    return m_settings.value(QStringLiteral("config/check_updates"), false).toBool();
+}
+
+qint64 Config::lastUpdateCheck() const
+{
+    // 每次检查（手动/自动）发起时都会写这个时间戳；自动检查按它做 ≥24h 频控。
+    return m_settings.value(QStringLiteral("etc/last_update_check"), 0).toLongLong();
+}
+
+void Config::setLastUpdateCheck(qint64 secsSinceEpoch)
+{
+    m_settings.setValue(QStringLiteral("etc/last_update_check"), secsSinceEpoch);
+}
+
 QStringList Config::favorites() const
 {
     return m_settings.value(QStringLiteral("favorites")).toStringList();

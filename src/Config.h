@@ -60,6 +60,11 @@ public:
     void toggleFavorite(const QString &path);
     void addRecentFile(const QString &path);
 
+    // 检查更新
+    bool checkUpdatesOnStartup() const;      // 启动时自动检查（默认关：不擅自联网）
+    qint64 lastUpdateCheck() const;          // 上次检查时间（epoch 秒，0 = 从未）
+    void setLastUpdateCheck(qint64 secsSinceEpoch);
+
     // 遥测：恒 false（M0 直接禁死；未来若做，走 opt-in 并保留本开关）
     bool telemetryEnabled() const { return false; }
 

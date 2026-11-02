@@ -7,7 +7,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent PrintSupport LinguistTools)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent PrintSupport Network LinguistTools)
 
 # 图标资源脚本（win32）：exe 里必须有 RT_GROUP_ICON，否则安装后快捷方式/任务栏全白板
 if(WIN32)
@@ -63,6 +63,8 @@ add_executable(quikview WIN32
     src/UiStyle.h
     src/MainWindow.cpp
     src/MainWindow.h
+    src/UpdateChecker.cpp
+    src/UpdateChecker.h
     resources/ui.qrc
 )
 
@@ -82,6 +84,7 @@ target_link_libraries(quikview PRIVATE
     Qt6::Widgets
     Qt6::Concurrent
     Qt6::PrintSupport
+    Qt6::Network
     dwmapi
 )
 
