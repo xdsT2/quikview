@@ -600,14 +600,14 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     root->addWidget(body, 1);
 
     // —— 页面（每页一个 QScrollArea，内容 widget 存 m_pages）——
-    buildGeneralPage(addPage(tr("一般"), tr("窗口行为、检查更新与到达首尾时的操作；尚未实现的项已置灰。")));
+    buildGeneralPage(addPage(tr("一般"), tr("窗口行为、检查更新与到达首尾时的操作。")));
     buildViewPage(addPage(tr("浏览"), tr("缩放状态、侧边箭头与悬浮提示等浏览显示设置；画布底色已固定。")));
     buildAppearancePage(addPage(tr("外观"), tr("主题与材质。跟随系统时由 Windows 的深浅色设置决定。")));
     buildImageProcPage(addPage(tr("图像处理"), tr("透明背景、插值算法、翻页效果与 ICC 色彩管理；监视器 ICC 受 Qt6 限制暂不可用。")));
     buildAssocPage(addPage(tr("格式关联"), tr("通过系统入口设置默认打开方式（Windows 10+ 不允许程序静默改默认）。")));
     buildKeyboardPage(addPage(tr("键盘"), tr("14 个动作可自定义键位：改热键 / 改绑动作 / 禁用，保存后立即生效。")));
     buildMousePage(addPage(tr("鼠标"), tr("左/右/X/Y 与滚轮的按键映射可自定义；中键平移、双击最大化可用。")));
-    buildBookmarkPage(addPage(tr("书签"), tr("自动保存与最大数量可用；多窗口共享尚未实现，已置灰。")));
+    buildBookmarkPage(addPage(tr("书签"), tr("自动保存开关与书签数量上限。")));
     buildContextMenuPage(addPage(tr("上下文菜单"), tr("右键菜单与资源管理器缩略图随安装包注册、卸载时移除；本页仅作状态说明。")));
     buildEtcPage(addPage(tr("杂项"), tr("图片文件夹、外部编辑器与 RAW 打开策略。")));
     buildLangPage(addPage(tr("语言"), tr("选择界面语言并管理语言文件。")));
@@ -904,11 +904,8 @@ QComboBox *SettingsDialog::addComboRowUnavailable(QWidget *section, const QStrin
 void SettingsDialog::buildGeneralPage(QWidget *page)
 {
     QWidget *sec = beginSection(page, tr("一般设定"));
-    // 捕捉窗口仍为零消费，灰显；通知位置已在 MainWindow/Toast 接线：
-    // 开（默认）=右下角并抬高避开胶囊，关=顶部居中。
-    addCheckUnavailable(sec, tr("捕捉窗口"), "capture_window", false, true);
-    // 本段唯一的灰项就是「捕捉窗口」，提示紧跟在它后面，避免用户以为整段都没做。
-    addHint(sec, unavailableTip());
+    // 「捕捉窗口」原为灰显假开关（勾着 + 禁用 + 零消费点），2026-11-04 按视觉基线
+    // P0 删除：Config::captureWindow() 一并下线，本段已无灰显项。
     addCheck(sec, tr("不保存浏览过的文件夹路径"), "remember_browsed_folders", true, true);
     addCheck(sec, tr("不允许多个实例"), "allow_multiple_instances", true, false);
     addCheck(sec, tr("删除文件时确认"), "delete_confirm", false, true);
@@ -963,9 +960,8 @@ void SettingsDialog::buildViewPage(QWidget *page)
     addCheck(sec, tr("顶端菜单隐藏时显示文件名 (Shift+TAB)"),
              "view/overlay_filename", false, false);
     addCheck(sec, tr("保存缩放状态"), "view/save_zoom_state", false, false);
-    addCheckUnavailable(sec, tr("不显示菜单栏"), "view/show_menu_bar", true, true);
-    addCheckUnavailable(sec, tr("不显示控制栏"), "view/show_control_bar", true, true);
-    addHint(sec, unavailableTip());
+    // 「不显示菜单栏 / 控制栏」两项同样零消费，2026-11-04 按视觉基线 P0 删除；
+    // 本页已无灰显项，unavailableTip 提示一并去掉。
     // 侧边箭头是真开关：ImageCanvas::setSideArrowsEnabled()。
     addCheck(sec, tr("不显示侧边箭头"), "view/show_side_arrow", true, true);
     addCheck(sec, tr("不显示动画信息控制"), "view/show_anim_control", true, true);
@@ -1378,9 +1374,9 @@ void SettingsDialog::buildMousePage(QWidget *page)
 void SettingsDialog::buildBookmarkPage(QWidget *page)
 {
     QWidget *sec = beginSection(page, tr("书签设置"));
-    // 自动书签与最大书签数已接通；「多窗口共享」在单实例下语义消失，保持灰显。
+    // 自动书签与最大书签数已接通；「多窗口共享」在单实例语义下无实现，
+    // 2026-11-04 按视觉基线 P0 删除（原为勾着 + 禁用 + 零写回）。
     addCheck(sec, tr("自动保存当前图片路径为书签"), "bookmark/auto_bookmark", false, false);
-    addCheckUnavailable(sec, tr("多窗口共享设置 / 书签"), "bookmark/share_settings", false, true);
     // 「自动记忆当前图片在压缩包中的路径」与「删除已记忆位置」已删：
     // 压缩包浏览未实现，压缩包路径记忆无从产生，两项勾/点了也不会有任何事发生。
 

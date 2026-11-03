@@ -32,7 +32,6 @@ public:
     void setSavedViewState(const QString &path, const QString &state);
 
     // 一般
-    bool captureWindow() const;        // 捕捉窗口
     bool rememberBrowsedFolders() const;  // 记住浏览过的文件夹（默认 true）
     bool allowMultipleInstances() const;  // 允许多个实例（默认 false）
     bool deleteConfirm() const;        // 删除文件时确认（默认 true）

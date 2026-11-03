@@ -106,11 +106,6 @@ void Config::setSavedViewState(const QString &path, const QString &state)
     m_settings.setValue(zoomStateKey(path), state);
 }
 
-bool Config::captureWindow() const
-{
-    return m_settings.value(QStringLiteral("config/capture_window"), true).toBool();
-}
-
 bool Config::rememberBrowsedFolders() const
 {
     return m_settings.value(QStringLiteral("config/remember_browsed_folders"), true).toBool();

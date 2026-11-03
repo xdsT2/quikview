@@ -603,6 +603,8 @@ void MetadataPanel::dumpHeights(const QString &path, const QString &tag) const
        << " gridHolderHint=" << (m_gridHolder ? m_gridHolder->sizeHint().height() : -1)
        << " rows=" << (m_grid ? m_grid->rowCount() : -1)
        << " rootHint=" << (layout() ? layout()->sizeHint().height() : -1)
+       << " histVis=" << (m_histBody ? m_histBody->isVisibleTo(this) : -1)
+       << " histH=" << (m_histBody ? m_histBody->sizeHint().height() : -1)
        << "\n";
 }
 
