@@ -885,8 +885,8 @@ void SettingsDialog::buildViewPage(QWidget *page)
     QWidget *sec = beginSection(page, tr("浏览设置"));
     // 「显示主窗口」原为灰显假开关：语义待确认（启动时显示？托盘模式？），
     // 无法给出可验收的行为，按交办单要求删除该项，理由写进交接文档。
-    addCheckUnavailable(sec, tr("顶端菜单隐藏时显示文件名 (Shift+TAB)"),
-                        "view/overlay_filename", false, false);
+    addCheck(sec, tr("顶端菜单隐藏时显示文件名 (Shift+TAB)"),
+             "view/overlay_filename", false, false);
     addCheck(sec, tr("保存缩放状态"), "view/save_zoom_state", false, false);
     addCheckUnavailable(sec, tr("不显示菜单栏"), "view/show_menu_bar", true, true);
     addCheckUnavailable(sec, tr("不显示控制栏"), "view/show_control_bar", true, true);

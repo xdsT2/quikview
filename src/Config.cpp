@@ -182,6 +182,13 @@ QString Config::backgroundImagePath() const
     return m_settings.value(QStringLiteral("config/view/bkgnd_image_path")).toString();
 }
 
+bool Config::overlayFilename() const
+{
+    // 「顶端菜单隐藏时显示文件名 (Shift+TAB)」：MainWindow::keyPressEvent 在
+    // Shift+TAB 且胶囊已隐藏时调用 showNameOverlay()，浮层 3s 后淡出。
+    return m_settings.value(QStringLiteral("config/view/overlay_filename"), false).toBool();
+}
+
 QString Config::interpolation() const
 {
     const QString v = m_settings.value(QStringLiteral("config/interpolation"),

@@ -48,6 +48,7 @@ public:
     QString thumbnailSize() const;     // "small" | "medium" | "large"（默认 "medium"）
     bool backgroundImage() const;      // 更改默认背景图片（默认 false）
     QString backgroundImagePath() const;  // 背景图片路径（空 = 纯色）
+    bool overlayFilename() const;      // Shift+TAB 在画布顶部显示文件名（默认 false）
 
     // 图像处理
     QString interpolation() const;     // "bilinear" | "bicubic" | "lanczos"（默认 "bicubic"）

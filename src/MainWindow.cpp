@@ -842,6 +842,7 @@ void MainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
     applyChromeLayout();
+    placeNameOverlay();   // 浮层按视口顶部居中，窗口尺寸一变就重新摆
 }
 
 void MainWindow::paintEvent(QPaintEvent *event)
@@ -2320,6 +2321,11 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             actToggleMeta->setChecked(!actToggleMeta->isChecked());
         }
     }
+    else if (c == QLatin1String("tabname")) {
+        // 冒烟：合成 Shift+TAB（与真实按键同一条 keyPressEvent 链路）
+        QKeyEvent ev(QEvent::KeyPress, Qt::Key_Backtab, Qt::ShiftModifier);
+        QApplication::sendEvent(this, &ev);
+    }
     else if (c == QLatin1String("info")) {
         if (m_metadata) {
             m_metadata->show();
@@ -3609,6 +3615,62 @@ void MainWindow::onAbout()
 // 键盘 / 拖放
 // ---------------------------------------------------------------------------
 
+// 「顶端菜单隐藏时显示文件名 (Shift+TAB)」：胶囊（控制栏）隐藏时才响应，
+// 画布顶部居中显示「文件名 + 序号」，3s 后淡出（键 view/overlay_filename）。
+void MainWindow::showNameOverlay()
+{
+    if (!m_canvas || !Config::instance().overlayFilename()) {
+        return;
+    }
+    if (!m_nameOverlay) {
+        m_nameOverlay = new QLabel(m_canvas->viewport());
+        m_nameOverlay->setAttribute(Qt::WA_TransparentForMouseEvents);
+        m_nameOverlay->setAlignment(Qt::AlignCenter);
+        m_nameOverlay->setStyleSheet(QStringLiteral(
+            "background: rgba(0,0,0,0.62); color: #e8eaec; border-radius: 6px;"
+            "padding: 6px 14px; font-size: 13px;"));
+        m_nameOverlayFx = new QGraphicsOpacityEffect(m_nameOverlay);
+        m_nameOverlayFx->setOpacity(0.0);
+        m_nameOverlay->setGraphicsEffect(m_nameOverlayFx);
+        m_nameOverlayFade = new QPropertyAnimation(m_nameOverlayFx, "opacity", this);
+        m_nameOverlayTimer = new QTimer(this);
+        m_nameOverlayTimer->setSingleShot(true);
+        m_nameOverlayTimer->setInterval(3000);   // 交办单验收：3s 消失
+        connect(m_nameOverlayTimer, &QTimer::timeout, this, [this]() {
+            m_nameOverlayFade->stop();
+            m_nameOverlayFade->setDuration(280);
+            m_nameOverlayFade->setStartValue(m_nameOverlayFx->opacity());
+            m_nameOverlayFade->setEndValue(0.0);
+            m_nameOverlayFade->start();
+        });
+    }
+    const QString name = m_currentPath.isEmpty()
+                             ? tr("(无图片)") : QFileInfo(m_currentPath).fileName();
+    QString text = name;
+    if (m_dir && m_dir->isValid() && m_dir->count() > 0) {
+        text += QStringLiteral("   %1 / %2").arg(m_dir->index() + 1).arg(m_dir->count());
+    }
+    m_nameOverlay->setText(text);
+    placeNameOverlay();
+    m_nameOverlay->show();
+    m_nameOverlay->raise();
+    m_nameOverlayFade->stop();
+    m_nameOverlayFx->setOpacity(1.0);
+    m_nameOverlayTimer->start();
+}
+
+void MainWindow::placeNameOverlay()
+{
+    if (!m_nameOverlay || !m_canvas) {
+        return;
+    }
+    const QRect vp = m_canvas->viewport()->rect();
+    m_nameOverlay->adjustSize();
+    const int w = qMin(m_nameOverlay->width(), vp.width() - 32);
+    const int h = m_nameOverlay->height();
+    m_nameOverlay->setGeometry(vp.x() + (vp.width() - w) / 2, vp.y() + 16, w, h);
+}
+
 void MainWindow::keyPressEvent(QKeyEvent *event)
 {
     switch (event->key()) {
@@ -3621,6 +3683,14 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
         event->accept();
         return;
     }
+    case Qt::Key_Backtab:
+        // Shift+TAB（Qt 归一成 Backtab）：胶囊隐藏时显示文件名浮层；
+        // 胶囊可见时按无效，直接吞掉，避免落到焦点导航。
+        if (!m_dockVisible) {
+            showNameOverlay();
+        }
+        event->accept();
+        return;
     case Qt::Key_Space:
         // 空格：多帧动图 = 播放/暂停；静态图保持原行为（下一张）
         if (m_frames && m_frames->hasFrames() && m_frames->animatable()) {

@@ -148,6 +148,9 @@ private:
     // 显式跳转：先清空解码队列再加载（区别于顺序翻页的逐张播放）
     void jumpTo(const QString &path);
     void showImage(const QImage &image, const QString &path, bool preview = false);
+    // 「顶端菜单隐藏时显示文件名 (Shift+TAB)」：画布顶部居中浮层，3s 后淡出。
+    void showNameOverlay();
+    void placeNameOverlay();
     // 按当前图片像素尺寸 + 铬件高度 resize 窗口，clamp 到可用屏幕 80%。
     // 只对 m_fitWindowPending 标记的「启动打开 / 文件→打开」生效一次，
     // 翻页/拖放/换目录都不触发（避免每翻一页窗口跟着跳）。
@@ -279,6 +282,11 @@ private:
     QPointer<Chrome::ToolBar> m_toolbar;
     QPointer<Chrome::ControlBar> m_control;
     Chrome::Toast *m_toast = nullptr;
+    // Shift+TAB 文件名浮层（惰性创建，挂在画布 viewport 顶部居中）
+    QLabel *m_nameOverlay = nullptr;
+    QGraphicsOpacityEffect *m_nameOverlayFx = nullptr;
+    QPropertyAnimation *m_nameOverlayFade = nullptr;
+    QTimer *m_nameOverlayTimer = nullptr;
     Chrome::ZoomBadge *m_zoomBadge = nullptr;
     Chrome::StatusOverlay *m_statusOverlay = nullptr;
     Chrome::EmptyState *m_emptyState = nullptr;
