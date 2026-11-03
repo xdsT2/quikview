@@ -1,6 +1,7 @@
 #include "Config.h"
 
 #include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFileInfo>
 #include <QStandardPaths>
@@ -63,6 +64,37 @@ bool Config::slideshowRandom() const
 QString Config::defaultZoom() const
 {
     return m_settings.value(QStringLiteral("config/default_zoom"), QStringLiteral("fit")).toString();
+}
+
+bool Config::saveZoomState() const
+{
+    return m_settings.value(QStringLiteral("config/view/save_zoom_state"), false).toBool();
+}
+
+// 路径 → QSettings 键名：INI 键里的 '/' 会分组、中文/空格要转义，
+// 直接拿路径当键名会写散；用 MD5 十六进制最省事且与平台无关。
+namespace {
+QString zoomStateKey(const QString &path)
+{
+    const QByteArray md5 = QCryptographicHash::hash(path.toUtf8(), QCryptographicHash::Md5);
+    return QStringLiteral("config/zoom/") + QString::fromLatin1(md5.toHex());
+}
+} // namespace
+
+QString Config::savedViewState(const QString &path) const
+{
+    if (path.isEmpty()) {
+        return QString();
+    }
+    return m_settings.value(zoomStateKey(path)).toString();
+}
+
+void Config::setSavedViewState(const QString &path, const QString &state)
+{
+    if (path.isEmpty()) {
+        return;
+    }
+    m_settings.setValue(zoomStateKey(path), state);
 }
 
 bool Config::captureWindow() const

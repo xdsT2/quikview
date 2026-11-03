@@ -321,6 +321,8 @@ private:
     bool m_negative = false;   // 反相
     qreal m_gamma = 1.0;       // Gamma 补偿（1.0 = 不变）
     bool m_zoomLocked = false; // 锁定缩放：翻页后不做适配，沿用同一比例
+    // 装图/适配期间屏蔽「保存缩放状态」写盘（见 zoomChanged 连接处）
+    bool m_zoomSaveGuard = false;
     // 开锁前的缩放方式（0=原始 1=适合窗口 2=适合宽度），-1 表示未记录。
     // 锁定只影响缩放这一维，双页模式不参与记忆。
     int m_zoomModeBeforeLock = -1;

@@ -23,6 +23,12 @@ public:
     int slideshowIntervalMs() const;  // 默认 3000
     bool slideshowRandom() const;     // 幻灯片随机播放（默认 false）
     QString defaultZoom() const;      // "fit" | "actual"
+    bool saveZoomState() const;       // 打开图片时恢复上次缩放（默认 false）
+
+    // 按路径记忆的视图状态（键 config/zoom/<pathHash>，仅 save_zoom_state 开启时读写）。
+    // 值："fit" / "width" / 纯数字缩放比；空串 = 该路径没有记录。
+    QString savedViewState(const QString &path) const;
+    void setSavedViewState(const QString &path, const QString &state);
 
     // 一般
     bool captureWindow() const;        // 捕捉窗口

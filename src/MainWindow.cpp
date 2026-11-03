@@ -382,6 +382,15 @@ MainWindow::MainWindow(QWidget *parent)
             }
             m_zoomBadge->showText(txt);
         }
+        // 保存缩放状态（键 "config/view/save_zoom_state"）：把当前缩放按路径记下来，
+        // 下次打开同一张图时恢复。装图/适配/拖动预览期间的 zoomChanged 是「程序自己
+        // 算出来的」，必须屏蔽，否则一打开就把用户上次的 300% 覆盖成 fit。
+        if (!m_zoomSaveGuard && Config::instance().saveZoomState() && !m_currentPath.isEmpty()) {
+            const QString st = m_canvas->isFitToWindow()  ? QStringLiteral("fit")
+                             : m_canvas->isFitToWidth()   ? QStringLiteral("width")
+                                                         : QString::number(z, 'f', 4);
+            Config::instance().setSavedViewState(m_currentPath, st);
+        }
         // 这里绝不能把「非 fit」推断成 m_zoomMode=0：滚轮手动放大同样走
         // zoomChanged，误改后翻页 setZoomMode(0) 就变成 100% 显示。
         // 缩放方式只在显式 setZoomMode()（菜单/快捷键/冒烟命令）里变，滚轮只是
@@ -1793,12 +1802,16 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error)
 
 void MainWindow::showImage(const QImage &image, const QString &path, bool preview)
 {
+    // 装图期间所有 zoomChanged 都是程序算的（fit / 恢复缩放 / 预览换图），
+    // 统一屏蔽「保存缩放状态」写盘，避免把用户上次的缩放覆盖掉。
+    m_zoomSaveGuard = true;
     // 连按中途的快帧：只换画布与标题顶住体感。源图/效果/元数据/动图等簿记
     // 等全图到了走完整流程，避免快帧（缩放解码的小图）污染旋转/Gamma 基准。
     if (preview) {
         m_canvas->setPixmap(QPixmap::fromImage(image));
         setWindowTitle(QFileInfo(path).fileName() + QStringLiteral(" - QuikView"));
         m_caption->setTitle(QFileInfo(path).fileName());
+        m_zoomSaveGuard = false;
         return;
     }
     // HDR 色调映射通用口：loader 内部的高位深在解码层就映射完（到这里已是
@@ -1831,13 +1844,26 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     // 做一次——否则 setPixmap 内部先 fit 一次、再适配一次，
     // Lanczos 模式下等于每次翻页多做一次全图重采样。
     m_canvas->setPixmap(QPixmap::fromImage(base), /*fitAfter=*/false);
-    // 首图按设置默认（fit/actual）；之后翻页保持用户当前缩放方式。
-    // 锁定缩放时两者都不走：直接沿用上一张的比例，换图不跳比例。
+    // 保存缩放状态（键 "config/view/save_zoom_state"）：开关开着且该路径有记录时，
+    // 按记录恢复（fit / width / 具体比例）；没有记录才回落到 default_zoom。
+    // 锁定缩放优先级更高——它的语义就是「翻页一律沿用上一张比例」。
+    QString savedState;
+    if (Config::instance().saveZoomState() && !m_zoomLocked) {
+        savedState = Config::instance().savedViewState(path);
+    }
     if (m_zoomLocked && !m_firstImage && prevZoom > 0.0) {
         m_canvas->setPixmapPreservingView(QPixmap::fromImage(base), QPointF(0.5, 0.5),
                                           prevZoom, false, false);
         // 这里不能写 m_zoomMode：锁定只是「沿用比例」，不是把浏览方式改成原始尺寸。
         // 写了会把用户锁定前的模式永久污染成 0，解锁后翻页全部变 100%。
+    } else if (savedState == QLatin1String("width")) {
+        m_canvas->fitToWidth();
+    } else if (savedState == QLatin1String("fit")) {
+        m_canvas->fitToWindow();
+    } else if (!savedState.isEmpty() && savedState.toDouble() > 0.0) {
+        // 恢复用户上次的具体比例（如 300%）；走 setZoom 而不是 setZoomMode，
+        // 不污染 m_zoomMode——「缩放状态」只记这一张图，浏览方式仍是全局的。
+        m_canvas->setZoom(savedState.toDouble());
     } else if (m_firstImage && Config::instance().defaultZoom() == QLatin1String("actual")) {
         setZoomMode(0);
     } else {
@@ -1868,6 +1894,8 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     // 按图调窗：仅「启动带文件 / 文件→打开」路径触发一次（fitWindowToImage 内部
     // 自清理 m_fitWindowPending 并受设置「根据图片大小调节窗口大小」控制）
     fitWindowToImage();
+    // 装图全链路（含按图调窗引发的 resize→fit）结束，恢复写盘
+    m_zoomSaveGuard = false;
 }
 
 // 按当前图片像素尺寸调窗（键 "config/etc/fit_window_to_image"）：

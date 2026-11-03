@@ -887,7 +887,7 @@ void SettingsDialog::buildViewPage(QWidget *page)
     addCheckUnavailable(sec, tr("显示主窗口"), "view/show_main_window", false, true);
     addCheckUnavailable(sec, tr("顶端菜单隐藏时显示文件名 (Shift+TAB)"),
                         "view/overlay_filename", false, false);
-    addCheckUnavailable(sec, tr("保存缩放状态"), "view/save_zoom_state", false, false);
+    addCheck(sec, tr("保存缩放状态"), "view/save_zoom_state", false, false);
     addCheckUnavailable(sec, tr("不显示菜单栏"), "view/show_menu_bar", true, true);
     addCheckUnavailable(sec, tr("不显示控制栏"), "view/show_control_bar", true, true);
     // 唯一真开关：本轮接通的 ImageCanvas::setSideArrowsEnabled()。
