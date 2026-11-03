@@ -880,9 +880,8 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
 
 void SettingsDialog::buildViewPage(QWidget *page)
 {
-    // 本页除「不显示侧边箭头」外，其余键除本文件外全仓零消费（
-    // grep -rn '"view/' src/ | grep -v SettingsDialog 无命中），按 ICC 模式灰显。
-    // 值仍写回 config（向后兼容历史配置），但视觉上必须是不可用态。
+    // 已接通：保存缩放状态、侧边箭头、动画帧信息、悬浮提示（B 批）。
+    // 其余仍灰显的键在仓储侧无消费点，保持不可用态。
     QWidget *sec = beginSection(page, tr("浏览设置"));
     addCheckUnavailable(sec, tr("显示主窗口"), "view/show_main_window", false, true);
     addCheckUnavailable(sec, tr("顶端菜单隐藏时显示文件名 (Shift+TAB)"),
@@ -892,7 +891,7 @@ void SettingsDialog::buildViewPage(QWidget *page)
     addCheckUnavailable(sec, tr("不显示控制栏"), "view/show_control_bar", true, true);
     // 唯一真开关：本轮接通的 ImageCanvas::setSideArrowsEnabled()。
     addCheck(sec, tr("不显示侧边箭头"), "view/show_side_arrow", true, true);
-    addCheckUnavailable(sec, tr("不显示动画信息控制"), "view/show_anim_control", true, true);
+    addCheck(sec, tr("不显示动画信息控制"), "view/show_anim_control", true, true);
     addCheckUnavailable(sec, tr("不显示缩放信息控制"), "view/show_zoom_control", true, true);
     addCheck(sec, tr("不显示鼠标悬浮工具提示"), "view/show_tooltip", true, true);
     addCheckUnavailable(sec, tr("用小字体显示 EXIF / 文件信息"),

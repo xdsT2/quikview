@@ -1999,7 +1999,10 @@ void MainWindow::updateInfoOverlay()
     }
     // 多帧文件：信息行追加当前帧 / 总帧。图片序号（1/6）在 setCounter，
     // 帧号（12/48）只进这里，两个计数不能混。
-    if (m_frames && m_frames->hasFrames()) {
+    // 「不显示动画信息控制」只作用于自动播放格式（GIF/MNG）：多页 TIFF 是
+    // 逐帧翻阅，帧号不属于动画控制，开关关闭时仍然保留。
+    if (m_frames && m_frames->hasFrames()
+        && (!m_frames->animatable() || Config::instance().showAnimControl())) {
         // MNG 顺序模式不预扫描总帧数，frameCount()=0 表示未知，只显示当前帧号
         const int total = m_frames->frameCount();
         parts << (total > 1

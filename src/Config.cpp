@@ -129,6 +129,13 @@ bool Config::showTooltip() const
     return m_settings.value(QStringLiteral("config/view/show_tooltip"), true).toBool();
 }
 
+bool Config::showAnimControl() const
+{
+    // 设置页「不显示动画信息控制」是反选（inverted），key 存正向语义：
+    // true = 显示动图帧信息（默认）。消费点在 MainWindow::updateInfoOverlay。
+    return m_settings.value(QStringLiteral("config/view/show_anim_control"), true).toBool();
+}
+
 bool Config::alwaysOnTop() const
 {
     return m_settings.value(QStringLiteral("config/always_on_top"), false).toBool();
