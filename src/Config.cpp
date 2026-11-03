@@ -170,6 +170,18 @@ QString Config::thumbnailSize() const
     return m_settings.value(QStringLiteral("config/thumbnail_size"), QStringLiteral("medium")).toString();
 }
 
+bool Config::backgroundImage() const
+{
+    // 「更改默认背景图片」：消费点 MainWindow::applyRuntimeSettings →
+    // ImageCanvas::setBackgroundImage。
+    return m_settings.value(QStringLiteral("config/view/bkgnd_image"), false).toBool();
+}
+
+QString Config::backgroundImagePath() const
+{
+    return m_settings.value(QStringLiteral("config/view/bkgnd_image_path")).toString();
+}
+
 QString Config::interpolation() const
 {
     const QString v = m_settings.value(QStringLiteral("config/interpolation"),

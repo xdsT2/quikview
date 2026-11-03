@@ -899,8 +899,8 @@ void SettingsDialog::buildViewPage(QWidget *page)
     addHint(sec, unavailableTip());
 
     sec = beginSection(page, tr("背景"));
-    // 背景图片（铺图）未实现：画布只画纯色，路径与两个按钮一并灰显。
-    addCheckUnavailable(sec, tr("更改默认背景图片"), "view/bkgnd_image", false, false);
+    // 背景图已接通：开关 + 路径 + 浏览/打开文件夹全部可用；路径空等价纯色。
+    addCheck(sec, tr("更改默认背景图片"), "view/bkgnd_image", false, false);
 
     QHBoxLayout *pathRow = addRow(sec, QString());
     m_bkgndPath = new QLineEdit;
@@ -922,7 +922,7 @@ void SettingsDialog::buildViewPage(QWidget *page)
         if (!d.isEmpty())
             QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(d).absolutePath()));
     });
-    markUnavailable(pathRow->parentWidget());   // 整行：输入框 + 浏览… + 打开文件夹
+    // 输入框 + 浏览… + 打开文件夹 已随背景图功能一起启用。
     addHint(sec, unavailableTip());
 
     // 颜色两项是真开关：ImageCanvas::setBackgroundColor()/setBorderColor()，

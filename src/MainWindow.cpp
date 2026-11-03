@@ -1659,6 +1659,11 @@ void MainWindow::applyRuntimeSettings()
                                      QStringLiteral("#000000")).toString());
     m_canvas->setBackgroundColor(bkgnd.isValid() ? bkgnd : QColor(QStringLiteral("#202020")));
     m_canvas->setBorderColor(border.isValid() ? border : QColor(QStringLiteral("#000000")));
+    // 背景图（键 "config/view/bkgnd_image" + bkgnd_image_path）：开关关/路径空 →
+    // 空图，drawBackground 回到纯色。换主题色不影响背景图（两者叠加）。
+    m_canvas->setBackgroundImage(cfg.backgroundImage() && !cfg.backgroundImagePath().isEmpty()
+                                     ? QImage(cfg.backgroundImagePath())
+                                     : QImage());
     // 设置页的「不显示侧边箭头」是反选（inverted），存的就是 show_side_arrow 本身：
     // true=显示（默认）。关掉只影响视觉，两侧点击仍翻页。
     m_canvas->setSideArrowsEnabled(viewQs.value(QStringLiteral("config/view/show_side_arrow"),

@@ -55,6 +55,9 @@ public:
     // setBackgroundColor 必须同时改 backgroundBrush 与 stylesheet：QGraphicsView
     // 的 stylesheet 优先级高于 brush，只改一处画布底色不会变。
     void setBackgroundColor(const QColor &color);
+    // 「更改默认背景图片」：空图恢复纯色。图片按可见场景区拉伸铺满，画在
+    // 图像下方、纯色之上；不进入 QGraphicsScene，不参与缩放/旋转。
+    void setBackgroundImage(const QImage &image);
     // 视口 1px 内沿描边；color 无效（默认）时不画，保持原来的无边框观感。
     void setBorderColor(const QColor &color);
     // false：两支 SideArrow 一律不显示，但 edgeTurnDelta 的命中矩形保留，
@@ -109,6 +112,8 @@ signals:
 protected:
     // 视口 1px 内沿边框：基类画完图像后直接描一圈，与 scene 缩放/平移无关
     void paintEvent(QPaintEvent *event) override;
+    // 背景图（设置页「更改默认背景图片」）画在纯色之上、图像之下
+    void drawBackground(QPainter *painter, const QRectF &rect) override;
     void wheelEvent(QWheelEvent *event) override;
     // 画布不消费导航键：QGraphicsView/QAbstractScrollArea 默认会把方向键吃掉做滚动，
     // 事件就传不到 MainWindow::keyPressEvent。这里统一 ignore() 冒泡。
@@ -146,6 +151,7 @@ private:
     void placeEdgeArrows();
 
     QGraphicsPixmapItem *m_item = nullptr;
+    QImage m_backgroundImage;   // 空 = 只用纯色背景
     QGraphicsRectItem *m_rubber = nullptr;
     QLabel *m_logo = nullptr;
     QPoint m_lastPan;

@@ -321,6 +321,26 @@ void ImageCanvas::setBackgroundColor(const QColor &color)
     viewport()->update();
 }
 
+void ImageCanvas::setBackgroundImage(const QImage &image)
+{
+    // QImage 隐式共享，路径没变时赋值几乎零成本；这里不比较内容。
+    if (m_backgroundImage.cacheKey() == image.cacheKey()) {
+        return;
+    }
+    m_backgroundImage = image;
+    viewport()->update();
+}
+
+void ImageCanvas::drawBackground(QPainter *painter, const QRectF &rect)
+{
+    QGraphicsView::drawBackground(painter, rect);   // 先铺纯色
+    if (m_backgroundImage.isNull()) {
+        return;
+    }
+    // rect 是当前可见场景区：按它拉伸等于「铺满视口」，且滚动/缩放时不露边。
+    painter->drawImage(rect, m_backgroundImage);
+}
+
 void ImageCanvas::setBorderColor(const QColor &color)
 {
     if (m_borderColor == color) {
