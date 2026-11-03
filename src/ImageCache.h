@@ -40,6 +40,9 @@ public:
     // 与 FIFO 队列 / 预读三路互不干扰；同一时刻至多 1 个在飞，位置再变就
     // 丢掉旧结果改解最新位置（latest-wins 只在本通道成立）。
     void requestDragPreview(const QString &path, const QSize &size);
+    // 原图缓存上限（MB）：设置页「缓存大小」在保存时调进来，立即改 m_fullCache
+    // 的淘汰水位，不用重启；构造时也读配置设初值（见 ImageCache.cpp）。
+    void setFullCacheLimit(int mb);
 
 signals:
     void fullReady(const QString &path, const QImage &image, bool preview);

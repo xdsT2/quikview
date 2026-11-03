@@ -967,9 +967,8 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     mb->setObjectName(QStringLiteral("hint"));
     cacheRow->addWidget(mb);
     cacheRow->addStretch(1);
-    // 缓存上限目前是 ImageCache 里的硬编码字节数，读不到 imageproc/cache_size_mb，
-    // 所以「缓存下一张图片」与「缓存大小」一起灰显（接配置是下一步的事）。
-    markUnavailable(cacheRow->parentWidget());
+    // 缓存上限已接配置：保存时 applyRuntimeSettings 调 ImageCache::setFullCacheLimit
+    // 即时生效（构造时也读同一键设初值），无需重启。
 
     addCheckUnavailable(sec, tr("图片大于窗口时显示图片顶部"),
                         "imageproc/align_top_when_large", false, true);

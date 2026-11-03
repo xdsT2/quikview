@@ -6,12 +6,19 @@
 #include <QImageReader>
 #include <QtConcurrent/QtConcurrent>
 
+#include "Config.h"
+
 ImageCache::ImageCache(QObject *parent)
     : QObject(parent)
 {
-    m_fullCache.setMaxCost(256 * 1024 * 1024);   // 原图缓存上限 256MB（按字节成本淘汰）
+    setFullCacheLimit(Config::instance().cacheSizeMb());   // 原图缓存上限（MB，读配置）
     m_thumbCache.setMaxCost(64 * 1024 * 1024);   // 缩略图缓存上限 ~64MB
     m_dragCache.setMaxCost(64 * 1024 * 1024);    // 拖动预览（缩放到视口）上限 64MB：24 张目录回拖也要命中
+}
+
+void ImageCache::setFullCacheLimit(int mb)
+{
+    m_fullCache.setMaxCost(qint64(mb) * 1024 * 1024);
 }
 
 QImage ImageCache::cachedFull(const QString &path) const

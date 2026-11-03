@@ -1531,6 +1531,8 @@ void MainWindow::applyRuntimeSettings()
                        .value(QStringLiteral("config/zoom_fix"), false).toBool();
     m_canvas->setWheelZoomEnabled(cfg.wheelZoom());
     m_canvas->setMiddlePanEnabled(cfg.middlePan());
+    // 原图缓存上限随设置即时生效：保存设置不用重启（键 "config/imageproc/cache_size_mb"）
+    m_cache->setFullCacheLimit(cfg.cacheSizeMb());
 
     // 画布外观（背景色 / 视口边框色 / 侧边箭头）：设置页存的是 #RRGGBB 颜色名，
     // 读不到或解析失败时退回默认值——否则 QColor 无效会让画布画成黑块或干脆不描边。
