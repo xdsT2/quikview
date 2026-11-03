@@ -569,16 +569,6 @@ void MainWindow::applyChromeLayout()
         const int top = full ? 10 : 70;
         const int availH = h - top - 24;
         const QSize hint = m_metadata->sizeHint();
-        // 临时验收探针：GUI Tab 流程下面板几何实参（定位高度被裁）
-        {
-            QFile f(QStringLiteral("Temp/meta-dump.txt"));
-            if (f.open(QIODevice::Append | QIODevice::Text)) {
-                QTextStream ts(&f);
-                ts << "GEOM win=" << width() << 'x' << height() << " h=" << h
-                   << " availH=" << availH << " hint=" << hint.height()
-                   << " final=" << qMin(hint.height(), qMax(120, availH)) << "\n";
-            }
-        }
         m_metadata->setGeometry(x + left, y + top,
                                 hint.width(), qMin(hint.height(), qMax(120, availH)));
         m_metadata->raise();
@@ -1104,13 +1094,9 @@ void MainWindow::createActions()
     addAction(actToggleMeta);
     // 浮层几何依赖可见性（隐藏时 applyChromeLayout 跳过它），显示后要立刻排一次
     connect(actToggleMeta, &QAction::toggled, this, [this](bool on) {
-        if (on) {
-            m_metadata->dumpHeights(QStringLiteral("Temp/meta-dump.txt"), QStringLiteral("TABPRE"));
-        }
         m_metadata->setVisible(on);
         if (on) {
             applyChromeLayout();
-            m_metadata->dumpHeights(QStringLiteral("Temp/meta-dump.txt"), QStringLiteral("TABPOST"));
         }
     });
     // 面板自带 × 关掉时，把菜单勾选态同步回未勾选，避免「关了还打勾」
@@ -1119,6 +1105,10 @@ void MainWindow::createActions()
     });
     connect(m_metadata, &MetadataPanel::copied, this, [this]() {
         m_toast->showMessage(tr("已复制图片信息参数"));
+    });
+    // 直方图折叠/展开改了内容高度：浮层高度=内容自然高，须重排几何（2026-11-04）
+    connect(m_metadata, &MetadataPanel::heightChanged, this, [this]() {
+        applyChromeLayout();
     });
 
     actDark = new QAction(tr("深色模式(&D)"), this);
@@ -3879,6 +3869,7 @@ void MainWindow::onSettings()
     dlg.exec();
     // 设置页可能改了主题（三档）；按当前取值重新解析应用（system 时随系统）。
     Theme::applySetting(*qApp, Config::instance().theme());
+    syncThemeActions();   // 菜单勾选态跟着新主题走
     m_slideshowTimer->setInterval(Config::instance().slideshowIntervalMs());
     applyRuntimeSettings();
     applyShortcutConfig();   // 键盘自定义：保存立即生效；取消时配置已回滚，重装回旧值

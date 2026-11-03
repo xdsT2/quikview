@@ -18,7 +18,6 @@
 #include <QPointer>
 #include <QPushButton>
 #include <QResizeEvent>
-#include <QScrollArea>
 #include <QStyle>
 #include <QStyleOption>
 #include <QUrl>
@@ -28,89 +27,56 @@
 #include "UiStyle.h"
 
 // ---------------------------------------------------------------------------
-// 单行省略文字：QLabel 不会自己截断，这里留全文、按宽度重新算省略串。
+// 可换行值标签：值列不省略（工单 1.3），长文件名/长 GPS 允许 WrapAnywhere 折成
+// 多行读全；Tooltip 保留全文。宽度由网格按浮层宽分配，不产生横向滚动。
 // ---------------------------------------------------------------------------
-class ElidedLabel : public QLabel
+class WrappingLabel : public QLabel
 {
 public:
-    explicit ElidedLabel(Qt::TextElideMode mode = Qt::ElideMiddle, QWidget *parent = nullptr)
-        : QLabel(parent), m_mode(mode) {}
+    explicit WrappingLabel(QWidget *parent = nullptr) : QLabel(parent)
+    {
+        setWordWrap(true);
+        // 水平 Ignored：列宽交给 QGridLayout 按浮层宽分配；高度按折行后的
+        // heightForWidth 走，避免「占两行的值被压成一行」。
+        setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+        setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    }
 
     void setFullText(const QString &text)
     {
         m_full = text;
         setToolTip(text);
-        setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
-        updateElide();
+        // QLabel 的 wordWrap 只在词边界断行，连续长词（超长文件名 aaaa…、无空格
+        // URL）会一行到底溢出被裁。在每个字符间插零宽空格（宽度为 0，不改变
+        // 显示与度量），折行即等价 WrapAnywhere：过长就回车切断，下一行继续。
+        QString display;
+        display.reserve(text.size() * 2);
+        for (int i = 0; i < text.size(); ++i) {
+            if (i > 0) {
+                display += QChar(0x200B);
+            }
+            display += text[i];
+        }
+        QLabel::setText(display);
     }
 
     // QLabel 的默认高度刚好切掉下划线这类贴底笔画，这里多留 4px。
+    // 未布局时 width()==0：heightForWidth(0) 会把每个字符都当成一行（实测 23 行
+    // 键值撑出 3060px），所以 0 宽按浮层上限宽估，真实换行交给布局的 hfw。
     QSize sizeHint() const override
     {
         QSize hint = QLabel::sizeHint();
-        hint.setHeight(qMax(hint.height(), fontMetrics().height() + 4));
+        const int w = width() > 0 ? width() : 300;
+        hint.setHeight(qMax(fontMetrics().height() + 4, heightForWidth(w) + 4));
         return hint;
     }
 
     QSize minimumSizeHint() const override { return QSize(0, sizeHint().height()); }
 
-protected:
-    void resizeEvent(QResizeEvent *event) override
-    {
-        QLabel::resizeEvent(event);
-        updateElide();
-    }
-
-    void changeEvent(QEvent *event) override
-    {
-        QLabel::changeEvent(event);
-        if (event->type() == QEvent::FontChange) {
-            updateElide();
-        }
-    }
+    int naturalHeight(int w) const { return heightForWidth(qMax(1, w)) + 4; }
 
 private:
-    void updateElide()
-    {
-        if (m_full.isEmpty()) {
-            return;
-        }
-        const int avail = qMax(0, width() - 2);
-        const QString shown = avail > 0 ? fontMetrics().elidedText(m_full, m_mode, avail)
-                                        : m_full;
-        if (shown != text()) {
-            QLabel::setText(shown);
-        }
-    }
-
     QString m_full;
-    Qt::TextElideMode m_mode = Qt::ElideRight;
-};
-
-// ---------------------------------------------------------------------------
-// 键值滚动区：QScrollArea 的 sizeHint() 在 widget 尚未 show 过时只按未激活的
-// viewport 算（实测返回 38px），不反映 widgetResizable 内容的自然高度——面板
-// 「首次 Tab 打开前已换好图」时（启动→对话框开图→Tab），applyChromeLayout 按
-// 103px 给面板定几何，内容全部被底边裁掉（report/探针实证）。这里 override：
-// sizeHint 高度取 max(默认, 内容自然高)，首次显示即正确，超高仍由
-// applyChromeLayout 钳到可用高度后内部滚动。
-// ---------------------------------------------------------------------------
-class BodyScroll : public QScrollArea
-{
-public:
-    explicit BodyScroll(QWidget *parent = nullptr) : QScrollArea(parent) {}
-
-    QSize sizeHint() const override
-    {
-        QSize s = QScrollArea::sizeHint();
-        if (widget()) {
-            const int wh = widget()->sizeHint().height();
-            if (wh > s.height()) {
-                s.setHeight(wh);
-            }
-        }
-        return s;
-    }
 };
 
 // ---------------------------------------------------------------------------
@@ -318,19 +284,20 @@ void MetadataPanel::buildUi()
     actionsLayout->addStretch(1);
     root->addWidget(actions);
 
-    // —— 滚动区：内容超出可用高度时整块内部滚动，不撑出窗口 ——
-    m_scroll = new BodyScroll(this);
-    m_scroll->setWidgetResizable(true);
-    m_scroll->setFrameShape(QFrame::NoFrame);
-    m_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    // —— 内容区（2026-11-04 修订：不滚动）——
+    // 用户定稿：默认全部显示，不要鼠标往下翻；内容比画面高就让画面截断底边，
+    // 无所谓。所以这里直接放普通容器，不再套 QScrollArea。
+    m_scroll = new QWidget(this);   // 字段名沿用 m_scroll，类型改普通容器
+    auto *scrollLay = new QVBoxLayout(m_scroll);
+    scrollLay->setContentsMargins(0, 0, 0, 0);
+    scrollLay->setSpacing(0);
     root->addWidget(m_scroll, 1);
 
     m_body = new QWidget(m_scroll);
     m_bodyLayout = new QVBoxLayout(m_body);
     m_bodyLayout->setContentsMargins(0, 0, 0, 0);
     m_bodyLayout->setSpacing(8);
-    m_scroll->setWidget(m_body);
+    scrollLay->addWidget(m_body, 0, Qt::AlignTop);   // 内容少时顶对齐收紧，不拉伸
 
     rebuildGrid();
 
@@ -358,6 +325,9 @@ void MetadataPanel::buildUi()
         const bool show = m_histBody->isHidden();
         m_histBody->setVisible(show);
         m_histToggle->setText(show ? tr("▾ 直方图") : tr("▸ 直方图"));
+        // 高度随内容收紧/长高：折叠改了 sizeHint，通知 MainWindow 重排浮层几何
+        updateGeometry();
+        emit heightChanged();
     });
     m_bodyLayout->addWidget(m_histToggle, 0, Qt::AlignLeft);
 
@@ -369,7 +339,8 @@ void MetadataPanel::buildUi()
     m_histBody->show();
     m_bodyLayout->addWidget(m_histBody);
 
-    m_bodyLayout->addStretch(1);
+    // 不加 addStretch：面板高度=内容自然高（2026-11-04 定稿），多余的 stretch
+    // 只会在「面板被外部几何拉高」时把内容推开，形成无意义的空白。
 
 
 }
@@ -402,7 +373,6 @@ void MetadataPanel::clear()
     if (m_mapBtn) {
         m_mapBtn->hide();
     }
-    m_noExifHint = nullptr;
     if (m_histogram) {
         m_histogram->clearBins();
     }
@@ -411,30 +381,41 @@ void MetadataPanel::clear()
 
 void MetadataPanel::addGroup(const QList<Row> &rows)
 {
-    if (rows.isEmpty()) {
+    // 工单 1.2：没有的数据不占位——空串 / 仅 '-' / 「未知」整行不生成；
+    // 组内过滤后没有任何行就整组跳过（连组间距一起省掉）。
+    QList<Row> live;
+    for (const Row &r : rows) {
+        const QString v = r.value.trimmed();
+        if (v.isEmpty() || v == QLatin1String("-") || v == tr("未知")
+            || v.compare(QLatin1String("unknown"), Qt::CaseInsensitive) == 0) {
+            continue;
+        }
+        live.append(r);
+    }
+    if (live.isEmpty()) {
         return;
     }
+
     int row = m_grid->rowCount();
     const int rowPx = m_smallFont ? 10 : 12;   // 「用小字体显示 EXIF / 文件信息」
-    for (const Row &r : rows) {
-        // 键显示文本带冒号（对照原型 .info-key「相机制造商:」）：键值列间只有
-        // 2px column-gap，无冒号时 5 字键与值视觉贴死（「相机制造商Hasselblad」）。
+    for (const Row &r : live) {
+        // 键显示文本带冒号（对照原型 .info-key「相机制造商:」）：键值两列左对齐
         const QString keyText = r.key + QStringLiteral(":");
         auto *key = new QLabel(keyText, m_gridHolder);
         key->setObjectName(QStringLiteral("infoKey"));
         key->setFont(UiStyle::font(rowPx));
 
-        auto *value = new ElidedLabel(Qt::ElideRight, m_gridHolder);
+        // 值列不省略：超长值换行读全（1.3），Tooltip 保留全文，复制走 m_copyLines 全文
+        auto *value = new WrappingLabel(m_gridHolder);
         value->setObjectName(QStringLiteral("infoVal"));
         value->setFont(UiStyle::font(rowPx));
-        // 键/值两列全部左对齐（值列曾用 AlignRight，长值被推到面板右缘硬切）；
-        // 超长由 ElidedLabel 省略，Tooltip 保留全文，复制走 m_copyLines 全文。
-        value->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
         value->setFullText(r.value);
 
-        // 自然宽度用各 label 自己的字体度量累计，与最终渲染一致（键含冒号）
+        // 自然宽度用各 label 自己的字体度量累计；值列只累计单行宽（不逼浮层到上限），
+        // 超出上限的值在浮层内换行而不是把卡片撑到 440。
         m_maxKeyW = qMax(m_maxKeyW, key->fontMetrics().horizontalAdvance(keyText));
-        m_maxValW = qMax(m_maxValW, value->fontMetrics().horizontalAdvance(r.value));
+        const int singleLine = value->fontMetrics().horizontalAdvance(r.value);
+        m_maxValW = qMax(m_maxValW, qMin(singleLine, 300));
 
         m_grid->addWidget(key, row, 0, Qt::AlignLeft | Qt::AlignVCenter);
         m_grid->addWidget(value, row, 1);
@@ -569,17 +550,9 @@ void MetadataPanel::showImage(const QString &path, const QImage &image)
         exifRows = true;
     }
 
-    if (!exifRows) {
-        auto *empty = new QLabel(tr("这张图片没有 EXIF 信息"), m_gridHolder);
-        empty->setObjectName(QStringLiteral("emptyHint"));
-        empty->setFont(UiStyle::font(m_smallFont ? 10 : 12));
-        // 不开 wordWrap：面板展开动画期间宽度会从窄变宽，折行后的两行文本
-        // 塞不进行高 16px 的格子，表现为叠印乱码。固定单行（约 132px），
-        // 跨键值两列后任何状态下都放得下。
-        m_grid->addWidget(empty, qMax(0, m_grid->rowCount()), 0, 1, 2, Qt::AlignLeft);
-        m_noExifHint = empty;
-        m_copyLines.append(tr("这张图片没有 EXIF 信息"));
-    }
+    // 工单 1.2：没有 EXIF 就什么都不显示——不生成「这张图片没有 EXIF 信息」
+    // 占位行，也不排一排 '-'；面板只剩文件基础信息 + 直方图，高度自然收紧。
+
     if (!m_mapUrl.isEmpty()) {
         m_mapBtn->show();
     }
@@ -605,22 +578,13 @@ void MetadataPanel::setSmallFont(bool small)
 
 void MetadataPanel::finishLayout()
 {
-    // 宽度自适应：键列取最宽键、值列取最长未省略值，钳到 [280, 440]（原型上限 440）。
-    if (m_noExifHint) {
-        m_maxKeyW = qMax(m_maxKeyW, m_noExifHint->fontMetrics().horizontalAdvance(
-                                            m_noExifHint->text()));
-    }
+    // 宽度自适应：键列取最宽键、值列取最长单行值（超长值在浮层内换行，不撑宽），
+    // 钳到 [280, 440]（原型上限 440）。
     const int natural = m_maxKeyW + 2 + m_maxValW;   // 两列 + 列间距
     m_contentWidth = qBound(280, natural, 440);
     setFixedWidth(m_contentWidth);
     if (m_gridHolder) {
         m_gridHolder->setFixedWidth(m_contentWidth - 20);
-    }
-    if (m_scroll) {
-        // BodyScroll::sizeHint 是按当前内容动态算的，QVBoxLayout 会缓存它
-        // 首次取到的旧值（空内容 38px）——换图后必须显式失效缓存，否则
-        // applyChromeLayout 拿到的面板 sizeHint 停留在「首图前」的高度。
-        m_scroll->updateGeometry();
     }
     updateGeometry();
 }

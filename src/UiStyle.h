@@ -232,15 +232,18 @@ QPushButton#closeBtn:hover { background: #c42b1c; color: #ffffff; }
 }
 
 // 图片信息浮层（左上覆盖层，对齐原型 .info-overlay）
+// 2026-11-03 深夜修订：定稿「深色半透明底 + 内容自适应 + 有值才显示 + 长值完整换行」。
+// 22:05 那版「完全透明无边框」在白图/黑图上文字不可读，已废止——底板必须回来。
 inline QString panelQss()
 {
     return QStringLiteral(R"(
-/* 浮层只提供键值/直方图内容：外层不画卡片底、描边与圆角，直接浮在图片上。 */
-QWidget#infoPanel { background: transparent; border: 0; border-radius: 0; }
+/* 深色半透明底板：白图/黑图/复杂纹理上都可读；1px 低对比细边勾出边界，
+   8px 圆角对齐原型 .info-overlay；不加投影（叠加在图片上会显脏）。 */
+QWidget#infoPanel { background: rgba(28,29,31,0.88);
+    border: 1px solid rgba(255,255,255,0.10); border-radius: 8px; }
 QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; border: 0; }
 QLabel#infoKey { font-size: 12px; color: #9ba0a5; }
 QLabel#infoVal { font-size: 12px; color: #e9eaec; }
-QLabel#emptyHint { font-size: 12px; color: #92979e; }
 /* 浮层左上角的关闭/复制圆钮：paintEvent 自绘圆形，QSS 只负责抵消全局
    QPushButton 的 min-height/padding（否则 22x22 被撑成 22x32 纵椭圆） */
 QPushButton#infoRoundBtn { min-height: 0; max-height: 22px; min-width: 22px;
