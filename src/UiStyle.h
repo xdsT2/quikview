@@ -235,8 +235,8 @@ QPushButton#closeBtn:hover { background: #c42b1c; color: #ffffff; }
 inline QString panelQss()
 {
     return QStringLiteral(R"(
-QWidget#infoPanel { background: rgba(28,29,31,0.92); border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 8px; }
+/* 浮层只提供键值/直方图内容：外层不画卡片底、描边与圆角，直接浮在图片上。 */
+QWidget#infoPanel { background: transparent; border: 0; border-radius: 0; }
 QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; border: 0; }
 QLabel#infoKey { font-size: 12px; color: #9ba0a5; }
 QLabel#infoVal { font-size: 12px; color: #e9eaec; }
