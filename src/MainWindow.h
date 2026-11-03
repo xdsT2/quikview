@@ -315,6 +315,8 @@ private:
     bool m_firstImage = true;
 
     QString m_currentPath;
+    QString m_lastShownPath;   // 上一次完整上屏的路径，用于判断是否触发翻页过渡
+    QString m_dragPreviewPath; // 最近一次滑块跟手预览的路径（它的全图落地不算翻页）
     QImage m_sourceImage;      // 文件原始像素，不做任何旋转/翻转/效果（「不旋转」的基准）
     QImage m_currentImage;
     QImage m_originalImage;

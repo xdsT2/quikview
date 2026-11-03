@@ -14,6 +14,7 @@
 #include <QPropertyAnimation>
 #include <QScrollBar>
 #include <QTextStream>
+#include <QVariantAnimation>
 #include <QWheelEvent>
 
 #include <cmath>
@@ -372,19 +373,77 @@ void ImageCanvas::setSideArrowsEnabled(bool on)
     refreshEdgeHover();   // 开：按当前真实光标位置补一次，光标停在带内就立刻显示
 }
 
+void ImageCanvas::setPixmapAnimated(const QPixmap &pixmap, int mode, bool fitAfter)
+{
+    if (mode <= 0 || m_item == nullptr || m_item->pixmap().isNull()) {
+        setPixmap(pixmap, fitAfter);
+        return;
+    }
+    m_transPixmap = m_item->pixmap();
+    m_transSceneRect = scene()->sceneRect();
+    m_transMode = mode;
+    setPixmap(pixmap, fitAfter);
+    m_transProgress = 0.0;
+    if (!m_transAnim) {
+        m_transAnim = new QVariantAnimation(this);
+        connect(m_transAnim, &QVariantAnimation::valueChanged, this,
+                [this](const QVariant &v) {
+            m_transProgress = v.toReal();
+            viewport()->update();
+        });
+        connect(m_transAnim, &QVariantAnimation::finished, this, [this]() {
+            m_transProgress = 1.0;
+            m_transPixmap = QPixmap();
+            viewport()->update();
+        });
+    }
+    m_transAnim->stop();
+    m_transAnim->setStartValue(0.0);
+    m_transAnim->setEndValue(1.0);
+    m_transAnim->setDuration(140);   // 硬约束：≤150ms，避免翻页排队积压
+    m_transAnim->start();
+}
+
 void ImageCanvas::paintEvent(QPaintEvent *event)
 {
     QGraphicsView::paintEvent(event);
     // 边框画在视口 1px 内沿：位置只和视口尺寸有关（与 scene 的缩放/平移无关），
     // 所以每次重绘现算，不缓存任何几何。m_borderColor 无效时等于「不画边框」。
-    if (!m_borderColor.isValid()) {
+    if (m_borderColor.isValid()) {
+        QPainter p(viewport());
+        p.setRenderHint(QPainter::Antialiasing, false);
+        p.setPen(QPen(m_borderColor, 1));
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(viewport()->rect().adjusted(0, 0, -1, -1));
+    }
+    // 翻页过渡在 drawForeground 里画（见该函数），这里只管视口内沿边框。
+}
+
+void ImageCanvas::drawForeground(QPainter *painter, const QRectF &rect)
+{
+    QGraphicsView::drawForeground(painter, rect);
+    if (m_transProgress >= 1.0 || m_transPixmap.isNull() || m_transSceneRect.isEmpty()) {
         return;
     }
-    QPainter p(viewport());
-    p.setRenderHint(QPainter::Antialiasing, false);
-    p.setPen(QPen(m_borderColor, 1));
-    p.setBrush(Qt::NoBrush);
-    p.drawRect(viewport()->rect().adjusted(0, 0, -1, -1));
+    painter->save();
+    painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
+    if (m_transMode == 1) {
+        // 淡入淡出：旧图按进度变透明，露出下面的新图
+        painter->setOpacity(1.0 - m_transProgress);
+        painter->drawPixmap(m_transSceneRect, m_transPixmap, m_transPixmap.rect());
+    } else if (m_transMode == 2) {
+        // Alpha 滑动：旧图向左让出 12% 宽度并同步淡出
+        painter->setOpacity(1.0 - m_transProgress);
+        painter->drawPixmap(m_transSceneRect.translated(-m_transSceneRect.width() * 0.12
+                                                       * m_transProgress, 0),
+                            m_transPixmap, m_transPixmap.rect());
+    } else {
+        // 滑动：旧图整幅横移出画，新图从右侧露出
+        painter->drawPixmap(m_transSceneRect.translated(-m_transSceneRect.width()
+                                                        * m_transProgress, 0),
+                            m_transPixmap, m_transPixmap.rect());
+    }
+    painter->restore();
 }
 
 void ImageCanvas::setPixmap(const QPixmap &pixmap, bool fitAfter)

@@ -1811,6 +1811,7 @@ void MainWindow::onDragPreviewReady(const QString &path, const QImage &image)
     if (m_frames->animatable()) {
         stopAnimation();   // 旧 GIF 的 tick 会把画布刷回上一帧，拖动期间先停
     }
+    m_dragPreviewPath = path;   // 滑块跟手预览：不让它的全图落地再触发翻页过渡
     showImage(image, path, true);
 }
 
@@ -1912,7 +1913,21 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     // fitAfter=false：这里只装图，适配交给下面的 applyCurrentZoom
     // 做一次——否则 setPixmap 内部先 fit 一次、再适配一次，
     // Lanczos 模式下等于每次翻页多做一次全图重采样。
-    m_canvas->setPixmap(QPixmap::fromImage(display), /*fitAfter=*/false);
+    // 翻页效果（键 "config/imageproc/pageturn_fx"）：只在上屏一张「不同路径」的
+    // 整图时触发；首图、原地重绘（旋转/效果）、滑块跟手预览都不算换页。
+    const int pageFx = Config::instance().pageTurnFx();
+    // 滑块跟手预览（onDragPreviewReady）不推动画；它落地成全图时也不再算一次翻页，
+    // 否则拖动结束时还会补一次过渡。其余整图换页（含快帧预览后的全图）照常触发。
+    const bool fromDragPreview = (path == m_dragPreviewPath);
+    m_dragPreviewPath.clear();
+    const bool pageTurn = !fromDragPreview && !m_lastShownPath.isEmpty()
+                          && m_lastShownPath != path;
+    m_lastShownPath = path;
+    if (pageTurn && pageFx > 0 && !m_zoomLocked) {
+        m_canvas->setPixmapAnimated(QPixmap::fromImage(display), pageFx, /*fitAfter=*/false);
+    } else {
+        m_canvas->setPixmap(QPixmap::fromImage(display), /*fitAfter=*/false);
+    }
     // 保存缩放状态（键 "config/view/save_zoom_state"）：开关开着且该路径有记录时，
     // 按记录恢复（fit / width / 具体比例）；没有记录才回落到 default_zoom。
     // 锁定缩放优先级更高——它的语义就是「翻页一律沿用上一张比例」。

@@ -9,6 +9,7 @@
 class QGraphicsPixmapItem;
 class QGraphicsRectItem;
 class QLabel;
+class QVariantAnimation;
 class QWheelEvent;
 class QMouseEvent;
 class QKeyEvent;
@@ -24,6 +25,10 @@ public:
     // fitAfter=false 时不做适配，只装图（调用方随后自行 fit/setZoomMode），
     // 用于消除「setPixmap 内部 fit 一次 + setZoomMode 又 fit 一次」的双重计算。
     void setPixmap(const QPixmap &pixmap, bool fitAfter = true);
+    // 「翻页效果」：从当前 pixmap 过渡到新 pixmap。mode 0 无 / 1 淡入淡出 /
+    // 2 Alpha 滑动 / 3 滑动；时长固定 140ms。只在翻页路径调用，滑块跟手预览
+    // 与平滑缩放不经过这里。
+    void setPixmapAnimated(const QPixmap &pixmap, int mode, bool fitAfter = false);
     // 旋转/翻转等原地替换：保持当前缩放与视口中心（anchorNorm 为新图中要占据
     // 视口中心的归一化坐标），避免转完后图像跳位或被重新适配。
     void setPixmapPreservingView(const QPixmap &pixmap, const QPointF &anchorNorm,
@@ -114,6 +119,9 @@ protected:
     void paintEvent(QPaintEvent *event) override;
     // 背景图（设置页「更改默认背景图片」）画在纯色之上、图像之下
     void drawBackground(QPainter *painter, const QRectF &rect) override;
+    // 翻页过渡画在场景最上层而不是 paintEvent 里另起 QPainter：后者与
+    // QWidget::grab 的渲染画笔画到同一 viewport 会冲突（截图抓不到过渡）。
+    void drawForeground(QPainter *painter, const QRectF &rect) override;
     void wheelEvent(QWheelEvent *event) override;
     // 画布不消费导航键：QGraphicsView/QAbstractScrollArea 默认会把方向键吃掉做滚动，
     // 事件就传不到 MainWindow::keyPressEvent。这里统一 ignore() 冒泡。
@@ -152,6 +160,12 @@ private:
 
     QGraphicsPixmapItem *m_item = nullptr;
     QImage m_backgroundImage;   // 空 = 只用纯色背景
+    // 翻页过渡：m_transPixmap 是上一张的屏幕位图，进度 0→1 画在视图最上层
+    QPixmap m_transPixmap;
+    QRectF m_transSceneRect;
+    qreal m_transProgress = 1.0;
+    int m_transMode = 0;
+    QVariantAnimation *m_transAnim = nullptr;
     QGraphicsRectItem *m_rubber = nullptr;
     QLabel *m_logo = nullptr;
     QPoint m_lastPan;

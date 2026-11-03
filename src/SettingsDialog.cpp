@@ -997,9 +997,9 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     addComboRow(sec, tr("插值算法（裁剪或减淡）"), "imageproc/interpolate", QStringLiteral("0"),
                 { { "0", tr("最近邻 (快)") }, { "1", tr("平滑 (双线性)") },
                   { "2", tr("Lanczos (锐利)") } }, 160);
-    addComboRowUnavailable(sec, tr("翻页效果"), "imageproc/pageturn_fx", QStringLiteral("0"),
-                           { { "0", tr("无") }, { "1", tr("淡入淡出") },
-                             { "2", tr("Alpha 滑动") }, { "3", tr("滑动") } }, 160);
+    addComboRow(sec, tr("翻页效果"), "imageproc/pageturn_fx", QStringLiteral("0"),
+                { { "0", tr("无") }, { "1", tr("淡入淡出") },
+                  { "2", tr("Alpha 滑动") }, { "3", tr("滑动") } }, 160);
     addHint(sec, unavailableTip());
 }
 

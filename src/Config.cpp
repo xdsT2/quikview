@@ -229,6 +229,13 @@ int Config::img32Transparent() const
     return qBound(0, m_settings.value(QStringLiteral("config/imageproc/img32_transparent"), 0).toInt(), 3);
 }
 
+int Config::pageTurnFx() const
+{
+    // 「翻页效果」：MainWindow::showImage 在整图路径判断是否换页后调用
+    // ImageCanvas::setPixmapAnimated；拖动滑块跟手预览（preview=true）不经过。
+    return qBound(0, m_settings.value(QStringLiteral("config/imageproc/pageturn_fx"), 0).toInt(), 3);
+}
+
 bool Config::cacheNextImage() const
 {
     return m_settings.value(QStringLiteral("config/imageproc/cache_image"), true).toBool();
