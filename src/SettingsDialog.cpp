@@ -974,14 +974,12 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     addCheckUnavailable(sec, tr("先显示低品质图片以加速渲染"), "imageproc/preview_mode", false, true);
     addHint(sec, unavailableTip());
 
-    // ICC 色彩管理尚未实现（无任何消费方），灰显占位，等解码层接入后再开放。
-    auto *iccImage = addCheck(sec, tr("使用图片文件的 ICC 设置"), "imageproc/image_icc", false, true);
+    // 图片内嵌 ICC 已接通（C1）；监视器 ICC 需要系统 WCS 显示器配置，仍灰显（C2）。
+    addCheck(sec, tr("使用图片文件的 ICC 设置"), "imageproc/image_icc", false, true);
     auto *iccMonitor = addCheck(sec, tr("使用监视器的 ICC 设置"), "imageproc/monitor_icc", false, false);
-    iccImage->setEnabled(false);
     iccMonitor->setEnabled(false);
-    iccImage->setToolTip(tr("ICC 色彩管理尚未实现"));
-    iccMonitor->setToolTip(tr("ICC 色彩管理尚未实现"));
-    addHint(sec, tr("ICC 色彩管理尚未实现，以上两项暂不可用。"));
+    iccMonitor->setToolTip(tr("监视器 ICC 需要系统显示器配置，暂不可用"));
+    addHint(sec, tr("使用监视器的 ICC 设置需要系统显示器配置，暂不可用。"));
 
     sec = beginSection(page, tr("透明与翻页"));
     addComboRowUnavailable(sec, tr("为 GIF 图片使用透明背景"), "imageproc/gif_transparent",

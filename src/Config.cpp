@@ -196,6 +196,13 @@ bool Config::hdrTonemap() const
     return m_settings.value(QStringLiteral("config/hdr_tonemap"), false).toBool();
 }
 
+bool Config::imageIcc() const
+{
+    // 「使用图片文件的 ICC 设置」：MainWindow::showImage 在显示链入口把带
+    // 非 sRGB 内嵌 ICC 的图转到 sRGB；无 ICC / 已是 sRGB 的图直通。
+    return m_settings.value(QStringLiteral("config/imageproc/image_icc"), true).toBool();
+}
+
 bool Config::cacheNextImage() const
 {
     return m_settings.value(QStringLiteral("config/imageproc/cache_image"), true).toBool();

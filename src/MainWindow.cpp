@@ -5,6 +5,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QColor>
+#include <QColorSpace>
 #include <QContextMenuEvent>
 #include <QCursor>
 #include <QDateTime>
@@ -1855,12 +1856,26 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     // HDR 色调映射通用口：loader 内部的高位深在解码层就映射完（到这里已是
     // 8bit，toneMapToSdr 原样放行）；QImageReader 产出的 RGBA64（16bit PNG/
     // TIFF 等）在这里映射。8bit 图硬规则：一个像素都不动。
-    const QImage sdr = m_hdrTonemap ? ToneMap::toneMapToSdr(image) : image;
+    // 「使用图片文件的 ICC 设置」（键 "config/imageproc/image_icc"）：带内嵌
+    // 非 sRGB ICC 的图（Display P3 / AdobeRGB）先转到 sRGB；无 ICC 或已是 sRGB
+    // 的图原样直通，普通截图的像素不受影响。
+    const bool icc = Config::instance().imageIcc();
+    auto toSrgb = [icc](QImage img) {
+        if (!icc) {
+            return img;
+        }
+        const QColorSpace cs = img.colorSpace();
+        if (cs.isValid() && cs != QColorSpace::SRgb) {
+            img.convertToColorSpace(QColorSpace::SRgb);
+        }
+        return img;
+    };
+    const QImage sdr = toSrgb(m_hdrTonemap ? ToneMap::toneMapToSdr(image) : image);
     // 双页模式先把相邻两页拼成一张大图，后面所有几何/颜色变换都作用在整跨页上，
     // 视图层面永远只有「一张图」，不需要两套坐标。
     QImage base = sdr;
     if (isSpreadMode()) {
-        const QImage second = readImageSync(spreadSecondPath());
+        const QImage second = toSrgb(readImageSync(spreadSecondPath()));
         base = (m_spreadMode == 3) ? composeSpread(sdr, second) : composeSpread(second, sdr);
     }
     // m_sourceImage 保存「文件里的原始像素」，旋转/翻转/反相/Gamma 全都从它派生。
