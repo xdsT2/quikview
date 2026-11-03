@@ -14,6 +14,7 @@
 #include <QPropertyAnimation>
 #include <QScrollBar>
 #include <QTextStream>
+#include <QTimer>
 #include <QVariantAnimation>
 #include <QWheelEvent>
 
@@ -311,7 +312,14 @@ ImageCanvas::ImageCanvas(QWidget *parent)
 {
     setScene(new QGraphicsScene(this));
     setDragMode(QGraphicsView::ScrollHandDrag);
-    setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
+    // 锚点必须 NoAnchor：本项目所有缩放锚点由 applyZoomAt/keepScenePointAt
+    // 自实现（以鼠标/视口中心为锚推滚动条），不消费 Qt 的 transformation
+    // anchor。而 AnchorUnderMouse 会在 ScrollHandDrag 滚动后按鼠标位置重映射
+    // 视图——实测（分帧截图+400ms 滚动条探针）：滚动条 value 每步 +44 被
+    // anchor 校正吃掉，图片显示小于视口（zoom<fit，双向行程充足）时内容
+    // 纹丝不动；显示大于视口时表现为部分抵消/过冲（拖 -220 位移 -176/-261）。
+    // NoAnchor 后四档缩放拖动全部 1:1 跟手（返工单判据 7）。
+    setTransformationAnchor(QGraphicsView::NoAnchor);
     setResizeAnchor(QGraphicsView::AnchorViewCenter);
     setRenderHints(QPainter::SmoothPixmapTransform | QPainter::Antialiasing);
     // 原版无可见滚动条（平移走左键拖动/滚轮缩放）
@@ -338,7 +346,8 @@ ImageCanvas::ImageCanvas(QWidget *parent)
     // 交互收尾：拖窗口边界 / 连续缩放停止 150ms 后补做一次重采样（只补当前 m_zoom）
     m_sampleFlush.setSingleShot(true);
     m_sampleFlush.setInterval(150);
-    connect(&m_sampleFlush, &QTimer::timeout, this, [this]() {
+
+   connect(&m_sampleFlush, &QTimer::timeout, this, [this]() {
         m_resizeBurst = false;
         doRefreshSampling();
     });
@@ -572,10 +581,13 @@ void ImageCanvas::clear()
     }
 }
 
-// 画布自由拖动：sceneRect = 图片矩形四周各加 2 倍视口 padding。
+// 画布自由拖动：sceneRect = 图片矩形四周加「2 倍视口（物理像素）」padding。
 // 借鉴 core-ui「不约束平移」的规则（MIT，仅规则不抄码）：滚动行程恒 > 0，
 // fit 态也能拖，且能拖出大半个屏幕的空白。m_item 固定 (0,0) 起，
 // pad 只体现在 sceneRect 上——所有以图片矩形为基准的锚点/归一化逻辑不变。
+// padding 必须与 zoom 无关：场景单位里除以当前 zoom，pad×zoom 恒等于
+// 2 倍视口物理像素——否则 zoom 越小行程越缩（zoom×sceneRect−viewport），
+// ~0.1× 时行程归零完全拖不动（返工单实测）。z 取 m11 并 clamp 防御。
 void ImageCanvas::updateSceneRect()
 {
     if (!m_item) {
@@ -583,8 +595,9 @@ void ImageCanvas::updateSceneRect()
         return;
     }
     const QRectF img = m_item->boundingRect();
-    const qreal px = viewport()->width() * 2.0;
-    const qreal py = viewport()->height() * 2.0;
+    const qreal z = qBound(0.05, transform().m11(), 1.0);
+    const qreal px = viewport()->width() * 2.0 / z;
+    const qreal py = viewport()->height() * 2.0 / z;
     scene()->setSceneRect(img.adjusted(-px, -py, px, py));
 }
 
@@ -765,6 +778,7 @@ void ImageCanvas::fitToWindowGeom()
     m_fitToWindow = true;
     m_fitWidth = false;
     m_zoom = s;
+    updateSceneRect();   // fit 的 zoom 变了，padding 场景换算同步重算
     centerOn(m_item);
     // 「图片大于窗口时显示图片顶部」：适合窗口按定义图片不会超出视口，这里只是
     // 防御（窗口尺寸变化竞态），真正可观测的消费点在 fitToWidth / zoomActual。
@@ -802,6 +816,7 @@ void ImageCanvas::fitToWidthGeom()
     m_zoom = z;
     m_fitToWindow = false;
     m_fitWidth = true;
+    updateSceneRect();   // fit-width 的 zoom 变了，padding 场景换算同步重算
     if (ih * z <= viewport()->height()) {
         centerOn(m_item);
     } else if (m_alignTopWhenLarge) {
@@ -896,6 +911,10 @@ void ImageCanvas::applyZoomAt(qreal zoom, const QPoint &anchorViewportPt)
     // 先发信号：主窗口会在这里同步把上下安全区归零（并 centerOn 保持中心），
     // 之后再按锚点做一次像素级对齐，避免「进入手动缩放」那一下跳图。
     emit zoomChanged(m_zoom);
+    // zoom 变了，可拖 padding 的场景换算跟着变——必须在 keepScenePointAt
+    // 之前重算 sceneRect，否则对齐/拖动用的还是旧 zoom 的滚动行程
+    // （insets 收完 viewport 已定型，这里算出的 padding 是最终值）。
+    updateSceneRect();
     keepScenePointAt(anchorScene, viewport()->mapFrom(this, anchorWindowPt));
     refreshSampling();
 }

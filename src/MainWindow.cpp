@@ -40,6 +40,7 @@
 #include <QPushButton>
 #include <QRandomGenerator>
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QSet>
 #include <QScreen>
 #include <cmath>
@@ -2607,6 +2608,11 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << " fitW=" << (m_canvas->isFitToWidth() ? 1 : 0)
                << " canvas=" << m_canvas->width() << 'x' << m_canvas->height()
                << " viewport=" << m_canvas->viewport()->width() << 'x' << m_canvas->viewport()->height()
+               // 可拖行程实测：拖动验收/自由拖动返工用（range=单侧×2）
+               << " scrH=" << m_canvas->horizontalScrollBar()->value() << '/'
+               << m_canvas->horizontalScrollBar()->maximum()
+               << " scrV=" << m_canvas->verticalScrollBar()->value() << '/'
+               << m_canvas->verticalScrollBar()->maximum()
                << " margins=" << m_canvasInsets.left() << ',' << m_canvasInsets.top() << ','
                << m_canvasInsets.right() << ',' << m_canvasInsets.bottom()
                << " win=" << width() << 'x' << height()
