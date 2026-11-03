@@ -64,6 +64,7 @@ public:
 
     // 杂项
     bool disableScreensaver() const;   // 运行期间禁用屏幕保护（默认 false）
+    bool noRawLoad() const;            // 不打开 RAW 图片文件（默认 false）
     bool fitWindowToImage() const;     // 打开图片时按图片尺寸调节窗口（默认 true）
     bool pageturnWav() const;          // 翻页时播放音效（默认 false）
 

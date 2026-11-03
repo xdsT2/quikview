@@ -242,6 +242,13 @@ bool Config::disableScreensaver() const
     return m_settings.value(QStringLiteral("config/etc/disable_screensaver"), false).toBool();
 }
 
+bool Config::noRawLoad() const
+{
+    // 「不打开 RAW 图片文件」：true 时 MainWindow::onLoadFailed 跳过 libraw 兜底，
+    // 直接给出「已在设置中禁用 RAW 解码」提示。
+    return m_settings.value(QStringLiteral("config/etc/no_raw_load"), false).toBool();
+}
+
 bool Config::fitWindowToImage() const
 {
     return m_settings.value(QStringLiteral("config/etc/fit_window_to_image"), true).toBool();

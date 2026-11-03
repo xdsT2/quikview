@@ -533,9 +533,9 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     buildAssocPage(addPage(tr("格式关联"), tr("通过系统入口设置默认打开方式（Windows 10+ 不允许程序静默改默认）。")));
     buildKeyboardPage(addPage(tr("键盘"), tr("快捷键当前为固定绑定，自定义尚未接入（整表置灰）。")));
     buildMousePage(addPage(tr("鼠标"), tr("左/右/X/Y 键映射固定；中键与滚轮的平移/缩放开关可用。")));
-    buildBookmarkPage(addPage(tr("书签"), tr("保存 / 共享 / 容量设置尚未实现，已置灰。")));
+    buildBookmarkPage(addPage(tr("书签"), tr("自动保存与最大数量可用；多窗口共享尚未实现，已置灰。")));
     buildContextMenuPage(addPage(tr("上下文菜单"), tr("资源管理器壳菜单项由系统管理；本页设置尚未实现，已置灰。")));
-    buildEtcPage(addPage(tr("杂项"), tr("图片文件夹与外部编辑器可用；RAW 等行为尚未实现，已置灰。")));
+    buildEtcPage(addPage(tr("杂项"), tr("图片文件夹与外部编辑器可用；RAW 同名过滤与缩略图尚未实现，已置灰。")));
     buildLangPage(addPage(tr("语言"), tr("选择界面语言并管理语言文件。")));
 
     // 页面内容不足一屏时，多余空间落在末尾弹簧上（否则各 section 会被均匀拉开）
@@ -1361,10 +1361,10 @@ void SettingsDialog::buildEtcPage(QWidget *page)
     });
 
     sec = beginSection(page, tr("其他"));
-    // 本批已接线三项（翻页音效 / 按图调窗 / 禁用屏保，见 MainWindow 对应消费点）；
-    // etc/no_raw_load、skip_raw_when_jpg、raw_thumbnail 仍全仓零消费，灰显。
+    // 本批已接线：翻页音效 / 按图调窗 / 禁用屏保 / 不打开 RAW。
+    // etc/skip_raw_when_jpg、raw_thumbnail 仍全仓零消费，灰显。
     addCheck(sec, tr("翻页时播放音效"), "etc/pageturn_wav", false, false);
-    addCheckUnavailable(sec, tr("不打开 RAW 图片文件"), "etc/no_raw_load", false, false);
+    addCheck(sec, tr("不打开 RAW 图片文件"), "etc/no_raw_load", false, false);
     addCheckUnavailable(sec, tr("打开 JPEG 文件时，不打开同名 RAW 文件"), "etc/skip_raw_when_jpg", false, true);
     addCheckUnavailable(sec, tr("打开 RAW 图片文件时，显示已有缩略图"), "etc/raw_thumbnail", false, true);
     addCheck(sec, tr("根据图片大小调节窗口大小"), "etc/fit_window_to_image", false, true);

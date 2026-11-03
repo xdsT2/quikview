@@ -1814,13 +1814,19 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error)
         return;
     }
     QString rawErr;
-    QImage img = loadRawImage(path, &rawErr, m_hdrTonemap);
-    if (!img.isNull()) {
-        showImage(img, path);
-        return;
+    // 「不打开 RAW 图片文件」（键 "config/etc/no_raw_load"）：跳过 libraw 兜底，
+    // 明确告知是设置拦下的，而不是伪装成「解码失败」。
+    if (Config::instance().noRawLoad()) {
+        rawErr = tr("已在设置中禁用 RAW 解码");
+    } else {
+        QImage rawImg = loadRawImage(path, &rawErr, m_hdrTonemap);
+        if (!rawImg.isNull()) {
+            showImage(rawImg, path);
+            return;
+        }
     }
     QString heifErr;
-    img = loadHeifImage(path, &heifErr, m_hdrTonemap);
+    QImage img = loadHeifImage(path, &heifErr, m_hdrTonemap);
     if (!img.isNull()) {
         showImage(img, path);
         return;
