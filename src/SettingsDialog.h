@@ -26,8 +26,8 @@ class QVBoxLayout;
 class QWidget;
 
 // 设置对话框：QuikView 深色三栏布局（视觉真源 Temp/quikview-secondary-prototype.html）。
-// 顶部 43px 标题栏 + 左侧 204px 导航（10 个 navItem）+ 1px 竖分隔 + 内容区 + 62px footer。
-// 10 页：一般 / 浏览 / 图像处理 / 格式关联 / 键盘 / 鼠标 / 书签 / 上下文菜单 / 杂项 / 语言。
+// 顶部 43px 标题栏 + 左侧 204px 导航（11 个 navItem）+ 1px 竖分隔 + 内容区 + 62px footer。
+// 11 页：一般 / 浏览 / 外观 / 图像处理 / 格式关联 / 键盘 / 鼠标 / 书签 / 上下文菜单 / 杂项 / 语言。
 // 打开时快照 config 组：保存设置 → 写回 Config；× / ESC → 回滚快照；恢复默认 → 确认后清空。
 // 控件全部使用标准 Qt 控件，配色/字号由 UiStyle::dialogQss() 提供。
 class SettingsDialog : public QDialog
@@ -75,9 +75,10 @@ private:
     QWidget *addPage(const QString &title, const QString &desc);
     void selectPage(int index);
 
-    // —— 十个页面 ——
+    // —— 十一个页面 ——
     void buildGeneralPage(QWidget *page);
     void buildViewPage(QWidget *page);
+    void buildAppearancePage(QWidget *page);
     void buildImageProcPage(QWidget *page);
     void buildAssocPage(QWidget *page);
     void buildKeyboardPage(QWidget *page);
@@ -116,6 +117,7 @@ private:
     void loadFromConfig();
     void takeSnapshot();
     void restoreSnapshot();
+    void saveAppearance();   // 外观页（第 18 期）：theme 三态 + ui/blur_material 落盘
 
     // —— 键盘自定义（批次 D1）冲突检测 ——
     // 保存前调用：同一键位只归一个启用的绑定、键位不得与固定动作相撞、
@@ -149,6 +151,11 @@ private:
 
     // —— 专项控件 ——
     QSpinBox *m_cacheSize = nullptr;      // 图像处理：缓存大小 MB
+    // 外观页（第 18 期）：主题三档专用控件——不进绑定表，saveAppearance() 手工落盘，
+    // 因为 config/theme 是三态字符串（dark/light/system），不是布尔/枚举绑定能表达的。
+    QCheckBox *m_followSystem = nullptr;  // 「跟随系统」勾选（→ theme=system）
+    QCheckBox *m_darkToggle = nullptr;    // 「深色模式」（跟随系统时禁用）
+    QCheckBox *m_blurMaterial = nullptr;  // 「磨砂材质」ui/blur_material（④ 接线生效）
     // 浏览页「背景」段（m_bkgndPath / m_bkgndColorBtn / m_borderColorBtn）已随
     // 第 18 期下线删除。
     struct KeyRow {                       // 键盘页一行（QString 值拷贝：

@@ -45,8 +45,11 @@
 
 #include "Config.h"
 #include "MainWindow.h"
+#include "Theme.h"
 #include "UpdateChecker.h"
 #include "UiStyle.h"
+
+#include <QOperatingSystemVersion>
 
 namespace {
 
@@ -599,6 +602,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     // —— 页面（每页一个 QScrollArea，内容 widget 存 m_pages）——
     buildGeneralPage(addPage(tr("一般"), tr("窗口行为、检查更新与到达首尾时的操作；尚未实现的项已置灰。")));
     buildViewPage(addPage(tr("浏览"), tr("缩放状态、侧边箭头与悬浮提示等浏览显示设置；画布底色已固定。")));
+    buildAppearancePage(addPage(tr("外观"), tr("主题与材质。跟随系统时由 Windows 的深浅色设置决定。")));
     buildImageProcPage(addPage(tr("图像处理"), tr("透明背景、插值算法、翻页效果与 ICC 色彩管理；监视器 ICC 受 Qt6 限制暂不可用。")));
     buildAssocPage(addPage(tr("格式关联"), tr("通过系统入口设置默认打开方式（Windows 10+ 不允许程序静默改默认）。")));
     buildKeyboardPage(addPage(tr("键盘"), tr("14 个动作可自定义键位：改热键 / 改绑动作 / 禁用，保存后立即生效。")));
@@ -972,6 +976,71 @@ void SettingsDialog::buildViewPage(QWidget *page)
 
     // 「背景」段（背景图 + 路径 + 背景色 + 边框色）已按用户 2026-11-03 决定整段
     // 移除（第 18 期）：画布外观固定，见 MainWindow::applyRuntimeSettings 的注释。
+}
+
+// ===========================================================================
+// 2.5 外观（第 18 期：主题三档 + 磨砂材质）
+// ===========================================================================
+
+void SettingsDialog::buildAppearancePage(QWidget *page)
+{
+    // —— 主题 ——
+    // 三档：跟随系统 / 深色 / 浅色。落盘形态沿用 main.cpp 第 18 期前的取值约定：
+    // theme=dark | light | system，默认 dark。UI 上以「跟随系统」为主开关，
+    // 关闭后才能手选深浅——避免三选一 radio 里 system 与 dark/light 语义重叠。
+    QWidget *sec = beginSection(page, tr("主题"));
+    m_followSystem = addCheckRaw(sec, tr("跟随系统"));
+    m_darkToggle = addCheckRaw(sec, tr("深色模式"));
+
+    const bool follow = sGet("theme", QStringLiteral("dark")) == QStringLiteral("system");
+    const bool dark = Theme::resolveMode(sGet("theme", QStringLiteral("dark")))
+                      == Theme::Mode::Dark;
+    m_followSystem->setChecked(follow);
+    m_darkToggle->setChecked(dark);
+    // 跟随系统时深浅由 Windows 决定，手选开关必须灰掉，否则两者写同一键互相打架。
+    m_darkToggle->setEnabled(!follow);
+    if (follow)
+        m_darkToggle->setToolTip(tr("跟随系统开启时由系统决定"));
+
+    connect(m_followSystem, &QCheckBox::toggled, this, [this](bool on) {
+        m_darkToggle->setEnabled(!on);
+        if (on) {
+            m_darkToggle->setToolTip(tr("跟随系统开启时由系统决定"));
+            // 开启跟随的一刻把勾选态亮成系统当前解析值，让用户知道现在是什么模式。
+            const QSignalBlocker b(m_darkToggle);
+            m_darkToggle->setChecked(Theme::resolveMode(QStringLiteral("system"))
+                                     == Theme::Mode::Dark);
+        } else {
+            m_darkToggle->setToolTip(QString());
+        }
+    });
+    addHint(sec, tr("跟随系统关闭后，可用下面的开关手动选择深色或浅色。"));
+
+    // —— 材质 ——
+    // 磨砂只做右键菜单与信息浮层（第 18 期④），独立键 ui/blur_material，
+    // 默认关、不参与「恢复默认」清空（在 config 组外）。Win10 上 DWM 不支持
+    // SystemBackdrop，勾了也只会是半透明纯色——直接灰掉，别给人坏的期待。
+    sec = beginSection(page, tr("材质"));
+    m_blurMaterial = addCheckRaw(sec, tr("磨砂材质（右键菜单与信息浮层）"));
+    m_blurMaterial->setChecked(bGet("ui/blur_material", false));
+#if defined(Q_OS_WIN)
+    if (QOperatingSystemVersion::current() < QOperatingSystemVersion::Windows11)
+        m_blurMaterial->setEnabled(false);   // 不写回、不落盘，保留用户已有取值
+#endif
+    addHint(sec, tr("仅影响右键菜单与信息浮层。Windows 11 效果最佳，Windows 10 降级为半透明。"));
+}
+
+void SettingsDialog::saveAppearance()
+{
+    // 外观页唯一落盘点：主题三选一 + 材质独立键。跟随时只写 system，
+    // 显式选择才写 dark/light；disabled 的材质钮绝不回写（no writeback）。
+    if (m_followSystem && m_darkToggle)
+        sSet("theme", m_followSystem->isChecked()
+                          ? QStringLiteral("system")
+                          : (m_darkToggle->isChecked() ? QStringLiteral("dark")
+                                                       : QStringLiteral("light")));
+    if (m_blurMaterial && m_blurMaterial->isEnabled())
+        bSet("ui/blur_material", m_blurMaterial->isChecked());
 }
 
 // ===========================================================================
@@ -1631,6 +1700,9 @@ void SettingsDialog::onAccepted()
     bSet("wheel_zoom", sGet("mouse/wheel_up", QStringLiteral("zoom_in")) == QStringLiteral("zoom_in")
                        && sGet("mouse/wheel_down", QStringLiteral("zoom_out")) == QStringLiteral("zoom_out"));
     bSet("middle_pan", sGet("mouse/btn_middle", QStringLiteral("pan")) == QStringLiteral("pan"));
+
+    // 外观页（第 18 期）：三态主题与磨砂键在这里统一落盘。
+    saveAppearance();
 }
 
 void SettingsDialog::onReset()
