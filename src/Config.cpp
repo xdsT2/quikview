@@ -255,6 +255,13 @@ bool Config::skipRawWhenJpg() const
     return m_settings.value(QStringLiteral("config/etc/skip_raw_when_jpg"), true).toBool();
 }
 
+bool Config::rawThumbnail() const
+{
+    // 「打开 RAW 图片文件时，显示已有缩略图」：消费点 ImageCache::startFullDecode
+    // 的后台解码线程（先 libraw unpack_thumb 上屏，再解全图）。
+    return m_settings.value(QStringLiteral("config/etc/raw_thumbnail"), true).toBool();
+}
+
 bool Config::fitWindowToImage() const
 {
     return m_settings.value(QStringLiteral("config/etc/fit_window_to_image"), true).toBool();

@@ -7,6 +7,7 @@
 #include <QtConcurrent/QtConcurrent>
 
 #include "Config.h"
+#include "RawImageLoader.h"
 
 ImageCache::ImageCache(QObject *parent)
     : QObject(parent)
@@ -231,6 +232,16 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize)
 {
     m_fullInFlight.insert(path);
     QtConcurrent::run([this, path, previewSize]() {
+        const bool rawFile = isRawFilePath(path);
+        // RAW 内嵌缩略图优先上屏（键 "config/etc/raw_thumbnail"，默认开）：
+        // libraw unpack_thumb 通常几十毫秒，先顶住首屏，全尺寸随后在同一后台
+        // 线程继续解。「不打开 RAW」时连缩略图也不出，交给 onLoadFailed 提示。
+        if (rawFile && Config::instance().rawThumbnail() && !Config::instance().noRawLoad()) {
+            const QImage thumb = loadRawThumbnail(path);
+            if (!thumb.isNull()) {
+                emit fullReady(path, thumb, true);
+            }
+        }
         // 快帧先上屏：JPEG 走 DCT 缩放（12MP 约 10-20ms）、PNG 等同样支持
         // 按比例解码，先按视口像素出一张顶住连按体感，全图随后替换。
         // HEIC/RAW 的 QImageReader 读不出 size()，自然跳过快帧，仍走各自 Loader。
@@ -260,7 +271,13 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize)
         }
         QImageReader reader(path);
         reader.setAutoTransform(true);
-        const QImage img = reader.read();
+        QImage img = reader.read();
+        // QImageReader 不认 RAW：全尺寸解码也留在本后台线程，避免回主线程
+        // 同步解把窗口卡住（「不打开 RAW」时跳过，交给 onLoadFailed 提示）。
+        if (img.isNull() && rawFile && !Config::instance().noRawLoad()) {
+            QString rawErr;
+            img = loadRawImage(path, &rawErr, Config::instance().hdrTonemap());
+        }
         QMetaObject::invokeMethod(this, [this, path, img]() {
             finishFullDecode(path, img);
         }, Qt::QueuedConnection);

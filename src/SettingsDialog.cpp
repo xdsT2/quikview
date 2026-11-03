@@ -1361,12 +1361,11 @@ void SettingsDialog::buildEtcPage(QWidget *page)
     });
 
     sec = beginSection(page, tr("其他"));
-    // 本批已接线：翻页音效 / 按图调窗 / 禁用屏保 / 不打开 RAW / JPEG 同名过滤。
-    // etc/raw_thumbnail 仍全仓零消费，灰显。
+    // 本批已接线：翻页音效 / 按图调窗 / 禁用屏保 / 不打开 RAW / JPEG 同名过滤 / RAW 缩略图。
     addCheck(sec, tr("翻页时播放音效"), "etc/pageturn_wav", false, false);
     addCheck(sec, tr("不打开 RAW 图片文件"), "etc/no_raw_load", false, false);
     addCheck(sec, tr("打开 JPEG 文件时，不打开同名 RAW 文件"), "etc/skip_raw_when_jpg", false, true);
-    addCheckUnavailable(sec, tr("打开 RAW 图片文件时，显示已有缩略图"), "etc/raw_thumbnail", false, true);
+    addCheck(sec, tr("打开 RAW 图片文件时，显示已有缩略图"), "etc/raw_thumbnail", false, true);
     addCheck(sec, tr("根据图片大小调节窗口大小"), "etc/fit_window_to_image", false, true);
     addCheck(sec, tr("运行 QuikView 时禁用 Windows 屏幕保护程序"), "etc/disable_screensaver",
              false, false);

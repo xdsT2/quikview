@@ -1816,8 +1816,11 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error)
     QString rawErr;
     // 「不打开 RAW 图片文件」（键 "config/etc/no_raw_load"）：跳过 libraw 兜底，
     // 明确告知是设置拦下的，而不是伪装成「解码失败」。
-    if (Config::instance().noRawLoad()) {
-        rawErr = tr("已在设置中禁用 RAW 解码");
+    // 其余 RAW 的全尺寸解码已由 ImageCache 的后台线程做过（B12），这里不再重复解。
+    const bool rawFile = isRawFilePath(path);
+    if (rawFile) {
+        rawErr = Config::instance().noRawLoad() ? tr("已在设置中禁用 RAW 解码")
+                                                : tr("RAW 解码失败");
     } else {
         QImage rawImg = loadRawImage(path, &rawErr, m_hdrTonemap);
         if (!rawImg.isNull()) {

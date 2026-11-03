@@ -6,10 +6,42 @@
 
 #include <QByteArray>
 #include <QFileInfo>
+#include <QStringList>
 
 #include <cmath>
 
 namespace {
+
+// 内嵌预览（BITMAP 型）转 QImage：8bit 直接拷贝，16bit 按 >>8 落 8bit。
+// 预览是 libraw 已经处理好的图，不再走 ToneMap（那是全图 HDR 路径的事）。
+QImage thumbBitmapToQImage(const libraw_processed_image_t *t)
+{
+    const int w = t->width;
+    const int h = t->height;
+    const int colors = t->colors;
+    if (w <= 0 || h <= 0 || (colors != 3 && colors != 4)) {
+        return QImage();
+    }
+    if (t->bits == 8) {
+        QImage::Format fmt = (colors == 4) ? QImage::Format_RGB32 : QImage::Format_RGB888;
+        return QImage(t->data, w, h, w * colors, fmt).copy();
+    }
+    if (t->bits == 16) {
+        QImage img(w, h, QImage::Format_RGB888);
+        const ushort *src = reinterpret_cast<const ushort *>(t->data);
+        for (int y = 0; y < h; ++y) {
+            uchar *line = img.scanLine(y);
+            const ushort *row = src + static_cast<size_t>(y) * w * colors;
+            for (int x = 0; x < w; ++x) {
+                line[x * 3 + 0] = static_cast<uchar>(row[x * colors + 0] >> 8);
+                line[x * 3 + 1] = static_cast<uchar>(row[x * colors + 1] >> 8);
+                line[x * 3 + 2] = static_cast<uchar>(row[x * colors + 2] >> 8);
+            }
+        }
+        return img;
+    }
+    return QImage();
+}
 
 // HDR 开启时的 16bit→8bit：按 rec709 抽亮度、99.5% 分位白点 + ACES 曲线查表，
 // 替代默认的 >>8 线性截断（高光保留细节，防止整体发灰）。
@@ -105,6 +137,44 @@ QImage loadRawImage(const QString &path, QString *errorOut, bool toneMapSdr)
     }
 
     LibRaw::dcraw_clear_mem(proc);
+    raw.recycle();
+    return img;
+}
+
+bool isRawFilePath(const QString &path)
+{
+    static const QStringList kRawExts = {
+        QStringLiteral("dng"), QStringLiteral("nef"), QStringLiteral("cr2"),
+        QStringLiteral("arw"), QStringLiteral("rw2"), QStringLiteral("orf"),
+        QStringLiteral("raf"), QStringLiteral("pef"), QStringLiteral("raw")
+    };
+    return kRawExts.contains(QFileInfo(path).suffix().toLower());
+}
+
+QImage loadRawThumbnail(const QString &path)
+{
+    const QByteArray local = QFileInfo(path).absoluteFilePath().toLocal8Bit();
+
+    LibRaw raw;
+    if (raw.open_file(local.constData()) != LIBRAW_SUCCESS) {
+        return QImage();
+    }
+    QImage img;
+    // unpack_thumb 只解内嵌预览，不跑 dcraw_process；没有预览的机背/小机 RAW
+    // 会失败，调用方回落全尺寸解码。
+    if (raw.unpack_thumb() == LIBRAW_SUCCESS) {
+        int err = 0;
+        libraw_processed_image_t *thumb = raw.dcraw_make_mem_thumb(&err);
+        if (thumb != nullptr && err == LIBRAW_SUCCESS) {
+            if (thumb->type == LIBRAW_IMAGE_JPEG) {
+                img.loadFromData(reinterpret_cast<const uchar *>(thumb->data),
+                                 static_cast<int>(thumb->data_size), "JPG");
+            } else if (thumb->type == LIBRAW_IMAGE_BITMAP) {
+                img = thumbBitmapToQImage(thumb);
+            }
+            LibRaw::dcraw_clear_mem(thumb);
+        }
+    }
     raw.recycle();
     return img;
 }
