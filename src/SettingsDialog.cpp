@@ -95,89 +95,6 @@ void iSet(const char *key, int v)
 }
 
 // ---------------------------------------------------------------------------
-// 颜色选择按钮：[16×16 色块] 选择…  #RRGGBB
-// 整块就是一个按钮，点开取色器，选完立即写 config 并同步色块/色值。
-// （取消设置时由 restoreSnapshot 统一回滚）
-// 自绘内容：底色/描边/悬停/按下仍由 QSS 的 QPushButton 规则负责，这里只画
-// 色块与两段文字，避免把色块做成独立子控件后抢走点击与焦点。
-// ---------------------------------------------------------------------------
-class ColorPickButton : public QPushButton
-{
-public:
-    ColorPickButton(const char *key, const QString &def, QWidget *parent = nullptr)
-        : QPushButton(parent), m_key(key), m_def(def)
-    {
-        setObjectName(QStringLiteral("colorPickBtn"));
-        setCursor(Qt::PointingHandCursor);
-        setFixedSize(170, 30);
-        setFocusPolicy(Qt::StrongFocus);
-        refresh();
-        connect(this, &QPushButton::clicked, this, [this]() {
-            const QColor c = QColorDialog::getColor(QColor(sGet(m_key, m_def)), this,
-                                                    tr("选择颜色"));
-            if (c.isValid()) {
-                sSet(m_key, c.name());
-                refresh();
-            }
-        });
-    }
-
-    void refresh()
-    {
-        m_color = QColor(sGet(m_key, m_def));
-        if (!m_color.isValid()) {
-            m_color = QColor(m_def);
-        }
-        setAccessibleName(tr("选择颜色，当前 %1").arg(m_color.name().toUpper()));
-        update();
-    }
-
-protected:
-    void paintEvent(QPaintEvent *) override
-    {
-        QStylePainter p(this);
-        QStyleOptionButton opt;
-        initStyleOption(&opt);
-        opt.text.clear();   // 文字自己画，避免默认 label 与色块重叠
-        p.drawControl(QStyle::CE_PushButton, opt);
-
-        p.setRenderHint(QPainter::Antialiasing, true);
-
-        // 16×16 真实色块：3px 圆角 + 1px 浅色细边（纯黑也靠描边可辨）
-        constexpr int kPad = 10;
-        constexpr int kSwatch = 16;
-        const QRectF swatch(kPad, (height() - kSwatch) / 2.0, kSwatch, kSwatch);
-        p.setPen(QPen(QColor(255, 255, 255, 150), 1));
-        p.setBrush(m_color);
-        p.drawRoundedRect(swatch.adjusted(0.5, 0.5, -0.5, -0.5), 3, 3);
-
-        // 「选择…」紧跟在色块右侧，间距 8px
-        const QString chooseText = tr("选择…");
-        p.setFont(font());
-        p.setPen(QColor(UiStyle::Body));
-        const int chooseX = kPad + kSwatch + 8;
-        const int chooseW = fontMetrics().horizontalAdvance(chooseText);
-        p.drawText(QRect(chooseX, 0, chooseW, height()),
-                   Qt::AlignVCenter | Qt::AlignLeft, chooseText);
-
-        // 色值右对齐；等宽数字保证切换颜色时宽度不跳版
-        QFont valueFont = font();
-        valueFont.setFamilies({ QStringLiteral("Consolas"), QStringLiteral("Cascadia Mono"),
-                                QStringLiteral("Courier New") });
-        valueFont.setStyleHint(QFont::Monospace);
-        p.setFont(valueFont);
-        p.setPen(QColor(UiStyle::Text));
-        p.drawText(QRect(kPad, 0, width() - 2 * kPad, height()),
-                   Qt::AlignVCenter | Qt::AlignRight, m_color.name().toUpper());
-    }
-
-private:
-    const char *m_key;
-    QString m_def;
-    QColor m_color;
-};
-
-// ---------------------------------------------------------------------------
 // 蓝色链接文字：匿名命名空间内不能用 Q_OBJECT，点击回调走 std::function。
 // ---------------------------------------------------------------------------
 class LinkLabel : public QWidget
@@ -470,9 +387,7 @@ QLabel#keyHeadCell { color: #9ca2aa; font-size: 11px; }
 
 QPushButton#miniBtn { min-height: 18px; max-height: 22px; padding: 0 9px; font-size: 10px;
     border-radius: 5px; }
-/* 颜色按钮：内容由 ColorPickButton::paintEvent 自绘，这里只补焦点态 */
-QPushButton#colorPickBtn { padding: 0 10px; text-align: left; }
-QPushButton#colorPickBtn:focus { border-color: #55c0f0; }
+/* 颜色按钮（ColorPickButton）已随第 18 期「背景段下线」删除，QSS 一并清掉 */
 QComboBox#flatCombo { background: transparent; border: 0; color: #d5d7da; font-size: 11px;
     min-height: 20px; padding: 0 4px 0 6px; }
 QComboBox#flatCombo:hover { color: #ffffff; }

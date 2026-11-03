@@ -325,7 +325,12 @@ void MetadataPanel::buildUi()
         const bool show = m_histBody->isHidden();
         m_histBody->setVisible(show);
         m_histToggle->setText(show ? tr("▾ 直方图") : tr("▸ 直方图"));
-        // 高度随内容收紧/长高：折叠改了 sizeHint，通知 MainWindow 重排浮层几何
+        // 高度随内容收紧/长高：折叠改了内容，布局缓存必须整体失效——只调
+        // updateGeometry() 会让外层仍拿到旧的 totalSizeHint（实测 574 不降）。
+        // QLayout::invalidate() 从该布局向上逐层失效到顶层，sizeHint 链路才算重算。
+        if (layout()) {
+            layout()->invalidate();
+        }
         updateGeometry();
         emit heightChanged();
     });
