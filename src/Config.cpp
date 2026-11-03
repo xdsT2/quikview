@@ -122,6 +122,13 @@ bool Config::notifyCorner() const
     return m_settings.value(QStringLiteral("config/notify_corner"), true).toBool();
 }
 
+bool Config::showTooltip() const
+{
+    // 设置页「不显示鼠标悬浮工具提示」是反选（inverted），key 存正向语义：
+    // true = 显示提示（默认）。消费点在 TooltipHint::hover 与主窗口 ToolTip 事件过滤。
+    return m_settings.value(QStringLiteral("config/view/show_tooltip"), true).toBool();
+}
+
 bool Config::alwaysOnTop() const
 {
     return m_settings.value(QStringLiteral("config/always_on_top"), false).toBool();

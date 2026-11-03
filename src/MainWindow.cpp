@@ -43,6 +43,7 @@
 #include <QResizeEvent>
 #include <QTextStream>
 #include <QTimer>
+#include <QToolTip>
 #include <QTransform>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -3604,6 +3605,12 @@ QString firstLocalFileInText(const QString &text)
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
     const QEvent::Type type = event->type();
+    // 「不显示鼠标悬浮工具提示」：原生 QToolTip（setToolTip 的控件）由这里统一拦。
+    // 铬件自绘的 400ms 悬停提示在 TooltipHint::hover 里读同一个键，两处一个口径。
+    if (type == QEvent::ToolTip && !Config::instance().showTooltip()) {
+        QToolTip::hideText();
+        return true;
+    }
     if (type == QEvent::DragEnter || type == QEvent::DragMove || type == QEvent::Drop) {
         QWidget *child = qobject_cast<QWidget *>(watched);
         if (child && child != this && isAncestorOf(child)) {

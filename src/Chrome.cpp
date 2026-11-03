@@ -1,4 +1,5 @@
 #include "Chrome.h"
+#include "Config.h"
 #include "UiStyle.h"
 
 #include <QApplication>
@@ -552,6 +553,12 @@ TooltipHint::TooltipHint(QWidget *host)
 
 void TooltipHint::hover(const QString &text, const QPoint &anchorGlobal)
 {
+    // 「不显示鼠标悬浮工具提示」总开关（键 config/view/show_tooltip，默认显示）：
+    // 关闭时既不排队也不留旧提示，切换后下一次悬停立即生效，无需重启。
+    if (!Config::instance().showTooltip()) {
+        hideNow();
+        return;
+    }
     if (text.isEmpty()) {
         hideNow();
         return;
