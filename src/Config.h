@@ -50,6 +50,13 @@ public:
     QString backgroundImagePath() const;  // 背景图片路径（空 = 纯色）
     bool overlayFilename() const;      // Shift+TAB 在画布顶部显示文件名（默认 false）
 
+    // 鼠标按键映射（键 config/mouse/btn_*）：值取 SettingsDialog 动作表，
+    // "none" = 保留内置行为（左键平移/右键菜单/X、Y 无操作）。
+    QString mouseLeftAction() const;
+    QString mouseRightAction() const;
+    QString mouseXAction() const;
+    QString mouseYAction() const;
+
     // 图像处理
     QString interpolation() const;     // "bilinear" | "bicubic" | "lanczos"（默认 "bicubic"）
     bool smoothZoom() const;           // 默认平滑缩放

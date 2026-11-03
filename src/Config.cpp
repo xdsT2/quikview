@@ -189,6 +189,34 @@ bool Config::overlayFilename() const
     return m_settings.value(QStringLiteral("config/view/overlay_filename"), false).toBool();
 }
 
+QString Config::mouseLeftAction() const
+{
+    // 左键映射（C9）。none 保留内置行为：拖动平移 + 边缘单击翻页 + 双击最大化。
+    return m_settings.value(QStringLiteral("config/mouse/btn_left"),
+                            QStringLiteral("none")).toString();
+}
+
+QString Config::mouseRightAction() const
+{
+    // 右键映射（C10）。none 保留内置行为（弹出上下文菜单）。
+    return m_settings.value(QStringLiteral("config/mouse/btn_right"),
+                            QStringLiteral("none")).toString();
+}
+
+QString Config::mouseXAction() const
+{
+    // X 键（XButton1，浏览器后退键）映射（C11）；默认无操作。
+    return m_settings.value(QStringLiteral("config/mouse/btn_x"),
+                            QStringLiteral("none")).toString();
+}
+
+QString Config::mouseYAction() const
+{
+    // Y 键（XButton2，浏览器前进键）映射（C12）；默认无操作。
+    return m_settings.value(QStringLiteral("config/mouse/btn_y"),
+                            QStringLiteral("none")).toString();
+}
+
 QString Config::interpolation() const
 {
     const QString v = m_settings.value(QStringLiteral("config/interpolation"),

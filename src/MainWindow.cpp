@@ -371,6 +371,10 @@ MainWindow::MainWindow(QWidget *parent)
         }
     });
 
+    // 鼠标按键映射（C9~C12）：画布只负责判定，动作统一在这里派发。
+    connect(m_canvas, &ImageCanvas::mouseActionRequested,
+            this, &MainWindow::onMouseAction);
+
     // 画布缩放联动：左下角浮标 + 浏览方式图标降级（胶囊滑杆已是翻页进度，不再跟随缩放）
     connect(m_canvas, &ImageCanvas::zoomChanged, this, [this](qreal z) {
         if (m_zoomBadge && !m_currentImage.isNull() && Config::instance().showZoomControl()) {
@@ -1590,6 +1594,12 @@ QMenu *MainWindow::buildContextMenu()
 
 void MainWindow::contextMenuEvent(QContextMenuEvent *event)
 {
+    // 右键已被映射成别的动作时，画布按下已经派发过，这里不再弹菜单；
+    // 映射成 context_menu 或 none 时照旧弹菜单。
+    const QString rightAct = Config::instance().mouseRightAction();
+    if (rightAct != QLatin1String("none") && rightAct != QLatin1String("context_menu")) {
+        return;
+    }
     QMenu *menu = buildContextMenu();
     menu->exec(event->globalPos());
     menu->deleteLater();
@@ -2325,6 +2335,26 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         // 冒烟：合成 Shift+TAB（与真实按键同一条 keyPressEvent 链路）
         QKeyEvent ev(QEvent::KeyPress, Qt::Key_Backtab, Qt::ShiftModifier);
         QApplication::sendEvent(this, &ev);
+    }
+    else if (c.startsWith(QLatin1String("clickb:"))) {
+        // 冒烟：向画布投递真实鼠标按下/松开（走 ImageCanvas 的映射判定），
+        // 用法 clickb:left|right|x|y:<x>:<y>（画布视口坐标）
+        const QStringList parts = c.split(QLatin1Char(':'));
+        const QString which = parts.value(1);
+        const Qt::MouseButton btn = (which == QLatin1String("left")) ? Qt::LeftButton
+                                   : (which == QLatin1String("right")) ? Qt::RightButton
+                                   : (which == QLatin1String("x")) ? Qt::XButton1
+                                                                   : Qt::XButton2;
+        const QPoint pos(parts.value(2).toInt(), parts.value(3).toInt());
+        if (m_canvas) {
+            QMouseEvent pr(QEvent::MouseButtonPress, pos,
+                           m_canvas->viewport()->mapToGlobal(pos), btn, btn, Qt::NoModifier);
+            QMouseEvent rl(QEvent::MouseButtonRelease, pos,
+                           m_canvas->viewport()->mapToGlobal(pos), btn, Qt::NoButton,
+                           Qt::NoModifier);
+            QApplication::sendEvent(m_canvas->viewport(), &pr);
+            QApplication::sendEvent(m_canvas->viewport(), &rl);
+        }
     }
     else if (c == QLatin1String("info")) {
         if (m_metadata) {
@@ -3571,6 +3601,48 @@ void MainWindow::onToggleFavorite()
         m_toast->showMessage(tr("已收藏（书签已满 %1 个，最早的书签已移除）").arg(cap));
     } else {
         m_toast->showMessage(tr("已收藏"));
+    }
+}
+
+// 鼠标按键映射（C9~C12）：动作名 → 已有槽。none/pan 不在这里出现（画布已过滤）。
+void MainWindow::onMouseAction(const QString &action)
+{
+    if (action == QLatin1String("next")) {
+        onNext();
+    } else if (action == QLatin1String("prev")) {
+        onPrev();
+    } else if (action == QLatin1String("next_frame")) {
+        onNextFrame();
+    } else if (action == QLatin1String("prev_frame")) {
+        onPrevFrame();
+    } else if (action == QLatin1String("zoom_in")) {
+        onZoomIn();
+    } else if (action == QLatin1String("zoom_out")) {
+        onZoomOut();
+    } else if (action == QLatin1String("actual_size")) {
+        setZoomMode(0);
+    } else if (action == QLatin1String("fit")) {
+        setZoomMode(1);
+    } else if (action == QLatin1String("slideshow")) {
+        if (actSlideshow) actSlideshow->trigger();
+    } else if (action == QLatin1String("fullscreen")) {
+        toggleFullscreen();
+    } else if (action == QLatin1String("close")) {
+        close();
+    } else if (action == QLatin1String("context_menu")) {
+        QMenu *menu = buildContextMenu();
+        menu->popup(QCursor::pos());
+        connect(menu, &QMenu::aboutToHide, menu, &QObject::deleteLater);
+    } else if (action == QLatin1String("open")) {
+        onOpen();
+    } else if (action == QLatin1String("openfolder")) {
+        onOpenFolder();
+    } else if (action == QLatin1String("crop")) {
+        onCrop();
+    } else if (action == QLatin1String("favorite")) {
+        onToggleFavorite();
+    } else if (action == QLatin1String("del")) {
+        onDeleteFile();
     }
 }
 

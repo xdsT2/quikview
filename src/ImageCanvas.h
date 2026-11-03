@@ -4,6 +4,7 @@
 #include <QElapsedTimer>
 #include <QGraphicsView>
 #include <QMargins>
+#include <QString>
 #include <QTimer>
 
 class QGraphicsPixmapItem;
@@ -113,6 +114,10 @@ signals:
     // 左键双击（开启双击最大化时）：请求窗口最大化/还原。边缘双击会先取消
     // 220ms 内挂起的单击翻页（见 mouseReleaseEvent / mouseDoubleClickEvent）。
     void doubleClickRequested();
+    // 鼠标按键映射（C9~C12）：右键 / XButton1 / XButton2 在按下时派发，
+    // 左键在松手且判定为「点击」时派发（拖动平移不受影响）。
+    // action 取 SettingsDialog 的动作表（next / prev / zoom_in / ...）。
+    void mouseActionRequested(const QString &action);
 
 protected:
     // 视口 1px 内沿边框：基类画完图像后直接描一圈，与 scene 缩放/平移无关

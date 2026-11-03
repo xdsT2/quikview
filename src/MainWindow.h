@@ -72,6 +72,8 @@ private slots:
     void onBatchConvert();
     void onSettings();
     void onToggleFavorite();
+    // 鼠标按键映射（C9~C12）：把配置里的动作名派发到已有槽
+    void onMouseAction(const QString &action);
     void onDeleteFile();
     void onCopyToFolder();
     void onOpenWithEditor();

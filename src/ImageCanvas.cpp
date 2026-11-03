@@ -973,6 +973,21 @@ void ImageCanvas::mousePressEvent(QMouseEvent *event)
         event->accept();
         return;
     }
+    // 鼠标按键映射（C10~C12）：右键 / X / Y 按下即派发。none 保留内置行为
+    // （右键仍弹上下文菜单，X/Y 无操作）；映射成动作时吞掉按下，避免拖动/菜单。
+    if (event->button() == Qt::RightButton || event->button() == Qt::XButton1
+        || event->button() == Qt::XButton2) {
+        const QString act = (event->button() == Qt::RightButton)
+                                ? Config::instance().mouseRightAction()
+                                : (event->button() == Qt::XButton1)
+                                      ? Config::instance().mouseXAction()
+                                      : Config::instance().mouseYAction();
+        if (act != QLatin1String("none") && !act.isEmpty()) {
+            emit mouseActionRequested(act);
+            event->accept();
+            return;
+        }
+    }
     // 左键按下先记账：松手时才判断「点击」还是「拖拽平移」（见 mouseReleaseEvent）
     if (event->button() == Qt::LeftButton) {
         m_pressTracked = m_item != nullptr && !m_sourcePixmap.isNull() && !m_cropMode;
@@ -1040,6 +1055,15 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent *event)
         const bool isClick = m_pressClock.isValid() && m_pressClock.elapsed() < 300
                              && (event->pos() - m_pressPos).manhattanLength() < 3;
         const int delta = isClick ? edgeTurnDelta(event->pos()) : 0;
+        // 左键映射（C9）：非 none/pan 的动作在「点击」时派发（拖动平移不受影响）；
+        // 边缘带照旧翻页，保证「两侧单击翻页」回归不被映射破坏。
+        const QString leftAct = Config::instance().mouseLeftAction();
+        if (isClick && delta == 0 && leftAct != QLatin1String("none")
+            && leftAct != QLatin1String("pan")) {
+            QGraphicsView::mouseReleaseEvent(event);
+            emit mouseActionRequested(leftAct);
+            return;
+        }
         QGraphicsView::mouseReleaseEvent(event);
         // 两侧单击翻页受设置控制（键 "config/mouse/click_side_pageturn"）：
         // 关闭时箭头照常显示，点击不再翻页。

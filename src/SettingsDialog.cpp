@@ -1207,15 +1207,15 @@ void SettingsDialog::buildMousePage(QWidget *page)
 
     // configurable：该行是否真有消费点。中键与滚轮的「平移/缩放」经
     // onAccepted 桥接写回 config/middle_pan、config/wheel_zoom 生效；
-    // 左右/X/Y 键的映射写死在 Chrome/ImageCanvas 里（左键拖动平移、中键单击
-    // 切全屏、滚轮缩放），改这张表不生效，按零消费灰显。
+    // 左右/X/Y 键由 ImageCanvas 判定点击后发 mouseActionRequested → 
+    // MainWindow::onMouseAction 派发，none 保留内置行为（右键菜单等）。
     struct BtnDef { const char *key; const char *label; const char *def; bool configurable; };
     static const BtnDef btns[] = {
-        { "mouse/btn_left",   QT_TR_NOOP("鼠标左键"),  "none",     false },
+        { "mouse/btn_left",   QT_TR_NOOP("鼠标左键"),  "none",     true  },
         { "mouse/btn_middle", QT_TR_NOOP("鼠标中键"),  "pan",      true  },
-        { "mouse/btn_right",  QT_TR_NOOP("鼠标右键"),  "none",     false },
-        { "mouse/btn_x",      QT_TR_NOOP("X 键"),      "none",     false },
-        { "mouse/btn_y",      QT_TR_NOOP("Y 键"),      "none",     false },
+        { "mouse/btn_right",  QT_TR_NOOP("鼠标右键"),  "none",     true  },
+        { "mouse/btn_x",      QT_TR_NOOP("X 键"),      "none",     true  },
+        { "mouse/btn_y",      QT_TR_NOOP("Y 键"),      "none",     true  },
         { "mouse/wheel_up",   QT_TR_NOOP("滚轮向上"),  "zoom_in",  true  },
         { "mouse/wheel_down", QT_TR_NOOP("滚轮向下"),  "zoom_out", true  },
     };
@@ -1249,8 +1249,8 @@ void SettingsDialog::buildMousePage(QWidget *page)
         grid->addWidget(row, i % 4, i / 4);
     }
 
-    addHint(sec, tr("左/右/X/Y 键的映射固定在代码里（左键拖动平移、中键单击切全屏、"
-                    "滚轮缩放）；中键与滚轮的「平移 / 缩放」开合会写回配置生效。"));
+    addHint(sec, tr("左/右/X/Y 键可映射成动作；「无」保留内置行为（左键拖动平移与"
+                    "边缘单击翻页、右键上下文菜单、中键切全屏、滚轮缩放）。"));
 }
 
 // ===========================================================================
