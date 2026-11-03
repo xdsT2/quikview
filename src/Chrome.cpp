@@ -2027,13 +2027,29 @@ Toast::Toast(QWidget *parent)
 void Toast::showMessage(const QString &text)
 {
     m_text = text;
-    if (parentWidget()) {
-        setGeometry(0, y(), parentWidget()->width(), 56);
-    }
+    reposition();
     show();
     raise();
     m_timer->start(2000);
     update();
+}
+
+void Toast::setCorner(bool corner)
+{
+    m_corner = corner;
+    reposition();
+}
+
+void Toast::reposition()
+{
+    QWidget *pw = parentWidget();
+    if (!pw) {
+        return;
+    }
+    // 右下角时抬到控制胶囊上沿之上（胶囊高 72 + 下缘 19），两种位置都不遮胶囊；
+    // 顶部居中沿用旧几何（顶栏 28+34 之下 76）。
+    const int y = m_corner ? (pw->height() - 91 - 56) : 76;
+    setGeometry(1, y, pw->width() - 2, 56);
 }
 
 void Toast::paintEvent(QPaintEvent *)
@@ -2047,7 +2063,9 @@ void Toast::paintEvent(QPaintEvent *)
     const QFontMetrics fm = p.fontMetrics();
     const int w = qMin(parentWidget() ? parentWidget()->width() - 40 : 360,
                        fm.horizontalAdvance(m_text) + 32);
-    const QRectF r((width() - w) / 2.0, 0, w, 30);
+    // 右下角贴右缘 20px；顶部居中保持原位
+    const qreal x = m_corner ? (width() - w - 20.0) : ((width() - w) / 2.0);
+    const QRectF r(x, 0, w, 30);
     p.setPen(QPen(QColor(QStringLiteral("#555555")), 1));
     p.setBrush(QColor(QStringLiteral("#383838")));
     p.drawRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), 7, 7);

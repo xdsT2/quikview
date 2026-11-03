@@ -338,6 +338,10 @@ class Toast : public QWidget
 public:
     explicit Toast(QWidget *parent = nullptr);
     void showMessage(const QString &text);
+    // 通知位置（键 config/notify_corner，默认 true）：true=右下角，false=顶部居中。
+    void setCorner(bool corner);
+    // 父窗口尺寸变化时重算几何（applyChromeLayout 调用）。
+    void reposition();
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -345,6 +349,7 @@ protected:
 private:
     QString m_text;
     QTimer *m_timer = nullptr;
+    bool m_corner = true;
 };
 
 // ==================== 左下角缩放浮标 ====================

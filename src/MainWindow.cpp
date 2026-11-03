@@ -534,7 +534,9 @@ void MainWindow::applyChromeLayout()
         m_control->raise();
     }
     if (m_toast) {
-        m_toast->setGeometry(x, y + 76, w, 56);
+        // 通知位置由 config/notify_corner 决定：开=右下角（抬高避开胶囊），关=顶部居中
+        m_toast->setCorner(Config::instance().notifyCorner());
+        m_toast->reposition();
         m_toast->raise();
     }
     if (m_zoomBadge) {
@@ -1671,6 +1673,7 @@ void MainWindow::applyRuntimeSettings()
     if (actSortDesc) {
         actSortDesc->setChecked(cfg.sortDescending());
     }
+    applyChromeLayout();   // 通知位置等铬件几何按当前配置立即重排（改设置不用重启）
 
 #ifdef Q_OS_WIN
     // setWindowFlag() 会让 Qt 按 flags 重建原生样式，把 WS_THICKFRAME|WS_CAPTION

@@ -830,13 +830,13 @@ QComboBox *SettingsDialog::addComboRowUnavailable(QWidget *section, const QStrin
 void SettingsDialog::buildGeneralPage(QWidget *page)
 {
     QWidget *sec = beginSection(page, tr("一般设定"));
-    // 捕捉窗口 / 通知位置仍为零消费，灰显；「不允许有多个实例」已接线：
-    // main.cpp 启动时读 config/allow_multiple_instances 决定是否监听单实例通道。
+    // 捕捉窗口仍为零消费，灰显；通知位置已在 MainWindow/Toast 接线：
+    // 开（默认）=右下角并抬高避开胶囊，关=顶部居中。
     addCheckUnavailable(sec, tr("捕捉窗口"), "capture_window", false, true);
     addCheck(sec, tr("不保存浏览过的文件夹路径"), "remember_browsed_folders", true, true);
     addCheck(sec, tr("不允许多个实例"), "allow_multiple_instances", true, false);
     addCheck(sec, tr("删除文件时确认"), "delete_confirm", false, true);
-    addCheckUnavailable(sec, tr("在边角显示通知信息，而非中心"), "notify_corner", false, true);
+    addCheck(sec, tr("在边角显示通知信息，而非中心"), "notify_corner", false, true);
     addCheck(sec, tr("总在最前 (Ctrl+A)"), "always_on_top", false, false);
     addCheck(sec, tr("按 ESC 退出"), "esc_exit", false, true);
     addHint(sec, unavailableTip());
