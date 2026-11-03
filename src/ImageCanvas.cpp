@@ -23,6 +23,10 @@
 
 namespace {
 
+// 双击最大化开启时，边缘单击翻页的等待窗口：220ms 内收到第二击 = 双击，
+// 取消翻页只做最大化；超时 = 单击，兑现翻页。
+constexpr int kEdgeClickDblWaitMs = 220;
+
 // 分离式 Lanczos3 重采样：先水平后垂直，两个方向各 3-lobe 窗口。
 // 只用于「缩小显示」——原版把 Lanczos 标成「慢，高品质」，正是因为它比
 // GPU 的双线性/双三次慢一个量级，换来的是缩略时更少的振铃/摩尔纹。
@@ -936,12 +940,39 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent *event)
         QGraphicsView::mouseReleaseEvent(event);
         // 两侧单击翻页受设置控制（键 "config/mouse/click_side_pageturn"）：
         // 关闭时箭头照常显示，点击不再翻页。
-        if (delta != 0 && Config::instance().sideClickPageturn()) {
-            emit edgeTurnRequested(delta);
+        if (delta == 0 || !Config::instance().sideClickPageturn()) {
+            return;
         }
+        if (!m_dblClickMaximize) {
+            // 双击最大化关闭：边缘单击零延迟直接翻页
+            emit edgeTurnRequested(delta);
+            return;
+        }
+        // 双击最大化开启：边缘单击延迟 220ms 等第二击；220ms 内收到双击就取消
+        // 翻页只做最大化（见 mouseDoubleClickEvent），超时后按单击兑现翻页。
+        m_pendingEdgeTurn = delta;
+        QTimer::singleShot(kEdgeClickDblWaitMs, this, [this]() {
+            if (m_pendingEdgeTurn != 0) {
+                const int d = m_pendingEdgeTurn;
+                m_pendingEdgeTurn = 0;
+                emit edgeTurnRequested(d);
+            }
+        });
         return;
     }
     QGraphicsView::mouseReleaseEvent(event);
+}
+
+void ImageCanvas::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton && m_dblClickMaximize) {
+        // 边缘单击的 220ms 等待窗口内收到第二击：取消挂起的翻页，只做最大化
+        m_pendingEdgeTurn = 0;
+        emit doubleClickRequested();
+        event->accept();
+        return;
+    }
+    QGraphicsView::mouseDoubleClickEvent(event);
 }
 
 void ImageCanvas::scrollContentsBy(int dx, int dy)

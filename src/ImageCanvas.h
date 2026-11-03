@@ -42,6 +42,9 @@ public:
     bool stretchSmall() const { return m_stretchSmall; }
     void setWheelZoomEnabled(bool on) { m_wheelZoom = on; }
     void setMiddlePanEnabled(bool on) { m_middlePan = on; }
+    // 双击最大化/还原开关（设置页「双击最大化 / 还原」）：开启时边缘单击翻页
+    // 延迟 220ms 等第二击，收到双击就取消翻页只做最大化；关闭时边缘单击零延迟。
+    void setDoubleClickMaximizeEnabled(bool on) { m_dblClickMaximize = on; }
     void setContentMargins(const QMargins &margins);
 
     // 画布外观（设置页「背景颜色 / 边框颜色 / 不显示侧边箭头」）。
@@ -95,6 +98,9 @@ signals:
     // 中键「点击」（位移 <3px、按压 <300ms，与左侧箭头带同一套阈值）：
     // 请求切换全屏/还原。按住拖动仍是平移，不走这个信号。
     void middleClickRequested();
+    // 左键双击（开启双击最大化时）：请求窗口最大化/还原。边缘双击会先取消
+    // 220ms 内挂起的单击翻页（见 mouseReleaseEvent / mouseDoubleClickEvent）。
+    void doubleClickRequested();
 
 protected:
     // 视口 1px 内沿边框：基类画完图像后直接描一圈，与 scene 缩放/平移无关
@@ -107,6 +113,7 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
     void leaveEvent(QEvent *event) override;
     void enterEvent(QEnterEvent *event) override;
     void showEvent(QShowEvent *event) override;
@@ -167,6 +174,10 @@ private:
     QElapsedTimer m_midPressClock;
     QPoint m_midPressPos;
     bool m_midPressTracked = false;
+    bool m_dblClickMaximize = false;    // 双击最大化开关（applyRuntimeSettings 下发）
+    // 双击最大化开启时，边缘单击先挂起的翻页方向；收到双击/超时执行后清零。
+    // 非 0 表示有一笔「等第二击」的翻页在途（220ms 后兑现或取消）。
+    int m_pendingEdgeTurn = 0;
     class SideArrow;
     SideArrow *m_arrowPrev = nullptr;   // 悬停带内 160ms 淡入，纯视觉不接鼠标
     SideArrow *m_arrowNext = nullptr;

@@ -289,6 +289,16 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_canvas, &ImageCanvas::middleClickRequested,
             this, &MainWindow::toggleFullscreen);
 
+    // 左键双击（设置「双击最大化 / 还原」开启时）= 窗口最大化/还原。
+    // 画布已处理与边缘单击翻页的冲突：220ms 内收到双击会先取消翻页。
+    connect(m_canvas, &ImageCanvas::doubleClickRequested, this, [this]() {
+        if (isMaximized()) {
+            showNormal();
+        } else {
+            showMaximized();
+        }
+    });
+
     // 画布缩放联动：左下角浮标 + 浏览方式图标降级（胶囊滑杆已是翻页进度，不再跟随缩放）
     connect(m_canvas, &ImageCanvas::zoomChanged, this, [this](qreal z) {
         if (m_zoomBadge && !m_currentImage.isNull()) {
@@ -1531,6 +1541,9 @@ void MainWindow::applyRuntimeSettings()
                        .value(QStringLiteral("config/zoom_fix"), false).toBool();
     m_canvas->setWheelZoomEnabled(cfg.wheelZoom());
     m_canvas->setMiddlePanEnabled(cfg.middlePan());
+    // 双击最大化/还原开关（键 "config/mouse/dblclick_maximize"）：开启时画布
+    // 会把边缘单击翻页延迟 220ms 等第二击，避免「双击」先翻页又最大化。
+    m_canvas->setDoubleClickMaximizeEnabled(cfg.dblclickMaximize());
     // 原图缓存上限随设置即时生效：保存设置不用重启（键 "config/imageproc/cache_size_mb"）
     m_cache->setFullCacheLimit(cfg.cacheSizeMb());
 

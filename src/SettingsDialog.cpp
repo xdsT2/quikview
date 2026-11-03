@@ -1187,9 +1187,10 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
 void SettingsDialog::buildMousePage(QWidget *page)
 {
     QWidget *sec = beginSection(page, tr("鼠标设定"));
-    // 双击最大化/还原：暂未接线，灰显（下一项接入）；两侧单击翻页：已接线，
-    // 且老配置默认值做过一次性迁移（main.cpp 的 etc/migrated_side_click）。
-    addCheckUnavailable(sec, tr("双击最大化 / 还原"), "mouse/dblclick_maximize", false, true);
+    // 两项均已接线：双击最大化/还原走 ImageCanvas::doubleClickRequested →
+    // MainWindow 切换窗口；两侧单击翻页走 edgeTurnRequested，且老配置默认值
+    // 做过一次性迁移（main.cpp 的 etc/migrated_side_click）。
+    addCheck(sec, tr("双击最大化 / 还原"), "mouse/dblclick_maximize", false, true);
     addCheck(sec, tr("单击屏幕两侧时翻页"), "mouse/click_side_pageturn", false, false);
 
     sec = beginSection(page, tr("自定义操作"));
