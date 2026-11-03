@@ -2243,6 +2243,11 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             applyChromeLayout();
         }
     }
+    // 验收探针：收藏/取消收藏当前图（等价按 B），配合 next 连打可验收
+    // 「最大书签数」上限淘汰（B4）。
+    else if (c == QLatin1String("fav")) {
+        onToggleFavorite();
+    }
     else if (c == QLatin1String("ctxmenu")) {
         QMenu *menu = buildContextMenu();
         menu->popup(mapToGlobal(QPoint(width() / 2 - 120, height() / 3)));
@@ -3407,11 +3412,22 @@ void MainWindow::onToggleFavorite()
     if (m_currentPath.isEmpty()) {
         return;
     }
-    const QStringList favs = Config::instance().favorites();
-    const bool wasFav = favs.contains(m_currentPath);
+    const int before = Config::instance().favorites().size();
+    const bool wasFav = Config::instance().favorites().contains(m_currentPath);
     Config::instance().toggleFavorite(m_currentPath);
     refreshLibraryMenus();
-    m_toast->showMessage(wasFav ? tr("已取消收藏") : tr("已收藏"));
+    if (wasFav) {
+        m_toast->showMessage(tr("已取消收藏"));
+        return;
+    }
+    // 上限淘汰提示（键 config/bookmark/max_bookmarks，Config::maxBookmarks）：
+    // 加入前已到上限 → 这一次必然挤掉最早的那条，如实告知而不是只说「已收藏」。
+    const int cap = Config::instance().maxBookmarks();
+    if (before >= cap) {
+        m_toast->showMessage(tr("已收藏（书签已满 %1 个，最早的书签已移除）").arg(cap));
+    } else {
+        m_toast->showMessage(tr("已收藏"));
+    }
 }
 
 void MainWindow::refreshLibraryMenus()

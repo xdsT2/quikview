@@ -273,6 +273,12 @@ QStringList Config::recentFiles() const
     return m_settings.value(QStringLiteral("recent_files")).toStringList();
 }
 
+int Config::maxBookmarks() const
+{
+    // 设置页档位 10/20/30/50/100；clamp 一次防手改配置越界。
+    return qBound(10, m_settings.value(QStringLiteral("config/bookmark/max_bookmarks"), 50).toInt(), 100);
+}
+
 void Config::toggleFavorite(const QString &path)
 {
     QStringList favs = favorites();
@@ -280,6 +286,12 @@ void Config::toggleFavorite(const QString &path)
         favs.removeAll(path);
     } else {
         favs.prepend(path);
+        // 最大书签数（键 config/bookmark/max_bookmarks）：超限从尾部淘汰 ——
+        // favs 是新→旧序，尾部就是最早的书签，与「最近文件」同一淘汰方向。
+        const int cap = maxBookmarks();
+        while (favs.size() > cap) {
+            favs.removeLast();
+        }
     }
     m_settings.setValue(QStringLiteral("favorites"), favs);
 }

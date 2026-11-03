@@ -75,6 +75,7 @@ public:
     QStringList favorites() const;
     QStringList recentFiles() const;
     void toggleFavorite(const QString &path);
+    int maxBookmarks() const;         // 最大书签数（默认 50，clamp 10..100）
     void addRecentFile(const QString &path);
 
     // 检查更新

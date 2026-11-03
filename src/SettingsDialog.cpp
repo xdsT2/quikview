@@ -1277,9 +1277,8 @@ void SettingsDialog::buildBookmarkPage(QWidget *page)
     m_maxBookmarks->setFixedWidth(110);
     row->addWidget(m_maxBookmarks);
     row->addStretch(1);
-    // bookmark/max_bookmarks 零消费：没有任何按上限淘汰的逻辑，选多少都一样。
-    markUnavailable(row->parentWidget());
-    addHint(sec, unavailableTip());
+    // 已接配置：Config::toggleFavorite 超限时从尾部淘汰最早的书签
+    // （键 config/bookmark/max_bookmarks，默认 50，clamp 10..100）。
 }
 
 // ===========================================================================
@@ -1462,8 +1461,8 @@ void SettingsDialog::loadFromConfig()
         r.combo->setCurrentIndex(idx >= 0 ? idx : 0);
     }
     if (m_maxBookmarks) {
-        const int idx = m_maxBookmarks->findData(iGet("bookmark/max_bookmarks", 30));
-        m_maxBookmarks->setCurrentIndex(idx >= 0 ? idx : 2);
+        const int idx = m_maxBookmarks->findData(iGet("bookmark/max_bookmarks", 50));
+        m_maxBookmarks->setCurrentIndex(idx >= 0 ? idx : 3);
     }
     if (m_photoFolder1)
         m_photoFolder1->setText(sGet("etc/photo_folder_1"));
