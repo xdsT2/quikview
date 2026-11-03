@@ -3,6 +3,7 @@
 #include "DirectoryLoader.h"
 
 #include <QAbstractButton>
+#include <QApplication>
 #include <QCheckBox>
 #include <QColorDialog>
 #include <QComboBox>
@@ -15,6 +16,7 @@
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QKeyEvent>
+#include <QKeySequenceEdit>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -25,11 +27,14 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QSet>
 #include <QShowEvent>
 #include <QSpinBox>
 #include <QStackedWidget>
+#include <QStyle>
 #include <QStyleOptionButton>
 #include <QStylePainter>
+#include <QTimer>
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -38,6 +43,7 @@
 #include <shobjidl.h>
 
 #include "Config.h"
+#include "MainWindow.h"
 #include "UpdateChecker.h"
 #include "UiStyle.h"
 
@@ -421,6 +427,17 @@ QLabel#valueText { color: #d5d7da; font-size: 11px; }
 QPlainTextEdit#credits { background: #1e2023; border: 1px solid rgba(255,255,255,0.085);
     border-radius: 6px; color: #b9bec5; font-size: 11px; padding: 6px; }
 
+/* 键盘页热键编辑器（批次 D1）：QKeySequenceEdit 自绘边框，与 QLineEdit 同一
+   底座/描边/焦点色，避免「能用但长得不像这套 UI」的原生外观。 */
+QKeySequenceEdit { background: #2d2f34; color: #e0e2e4; border: 1px solid #4b4e54;
+    border-radius: 5px; font-size: 11px; padding: 0 6px; min-height: 24px; }
+QKeySequenceEdit:hover { border-color: #686d75; }
+QKeySequenceEdit:focus { border-color: #55c0f0; }
+QKeySequenceEdit:disabled { color: #6b7078; border-color: #3a3c40; background: #26282b; }
+
+/* 键盘页冲突行（保存被拒时整行高亮，动态属性 conflict） */
+QWidget[conflict="true"] { background: rgba(196, 43, 28, 0.20); border-radius: 4px; }
+
 /* 置灰（尚未实现）项的统一不可用态：文字压暗、底座与边框退到背景层，
    与可交互项一眼可分。UiStyle::dialogQss() 只给了 indicator:disabled，
    没有文字色，直接 setEnabled(false) 时文字仍与正常项同亮度、看不出差别，
@@ -531,7 +548,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     buildViewPage(addPage(tr("浏览"), tr("背景颜色、边框颜色与侧边箭头等浏览显示设置。")));
     buildImageProcPage(addPage(tr("图像处理"), tr("插值算法与透明/翻页设置；多数项尚未实现，已置灰。")));
     buildAssocPage(addPage(tr("格式关联"), tr("通过系统入口设置默认打开方式（Windows 10+ 不允许程序静默改默认）。")));
-    buildKeyboardPage(addPage(tr("键盘"), tr("快捷键当前为固定绑定，自定义尚未接入（整表置灰）。")));
+    buildKeyboardPage(addPage(tr("键盘"), tr("14 个动作可自定义键位：改热键 / 改绑动作 / 禁用，保存后立即生效。")));
     buildMousePage(addPage(tr("鼠标"), tr("左/右/X/Y 键映射固定；中键与滚轮的平移/缩放开关可用。")));
     buildBookmarkPage(addPage(tr("书签"), tr("自动保存与最大数量可用；多窗口共享尚未实现，已置灰。")));
     buildContextMenuPage(addPage(tr("上下文菜单"), tr("资源管理器壳菜单项由系统管理；本页设置尚未实现，已置灰。")));
@@ -1076,10 +1093,11 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     if (!pageLay)
         return;
 
-    // 快捷键自定义尚未接通：整表灰掉并注明，避免「能改但不生效」的假象。
-    // 勾选/热键/下拉仍保留为占位，等 QAction 统一注册表做完再开放。
-    auto *hint = new QLabel(tr("快捷键自定义尚未接入：当前键位固定在代码里（见下表），"
-                               "改动不会生效。"), page);
+    // 14 行全部可配置（config/keyboard/<action>_{enabled,_key,_action}），
+    // MainWindow::applyShortcutConfig 在保存后立即给 QAction 重装键位。
+    auto *hint = new QLabel(tr("双击「热键」栏录入新键位（Esc 清空），保存后立即生效；"
+                               "「操作」列可把该键位改绑到其他动作。"
+                               "两个启用的动作占用同一键位时保存会被拒绝。"), page);
     hint->setObjectName(QStringLiteral("pageHint"));
     hint->setStyleSheet(QStringLiteral("QLabel#pageHint{color:#9aa0a6;font-size:11px;}"));
     hint->setWordWrap(true);
@@ -1087,7 +1105,6 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
 
     auto *table = new QFrame(page);
     table->setObjectName(QStringLiteral("keyTable"));
-    markUnavailable(table);              // 灰显占位，不接受编辑
     auto *tl = new QVBoxLayout(table);
     tl->setContentsMargins(0, 0, 0, 0);
     tl->setSpacing(0);
@@ -1112,25 +1129,34 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     hl->addWidget(makeHeadCell(tr("操作"), 0), 1);
     tl->addWidget(head);
 
+    // 默认键位 = MainWindow 出厂硬编码值（PortableText；幻灯片/裁剪出厂无单键，
+    // 放映由 Ctrl+1..9/Ctrl+0 承担、裁剪走菜单）。改动须同步
+    // MainWindow::applyShortcutConfig 的槽位表。
     struct KeyDef { const char *action; const char *hotkey; const char *label; };
     static const KeyDef defs[] = {
-        { "open",        "Ctrl+O",      QT_TR_NOOP("打开") },
-        { "openfolder",  "",            QT_TR_NOOP("打开文件夹") },
-        { "next",        "\u2192",      QT_TR_NOOP("翻下一张") },
-        { "prev",        "\u2190",      QT_TR_NOOP("翻上一张") },
-        { "next_frame",  "Ctrl+\u2192", QT_TR_NOOP("下一帧") },
-        { "prev_frame",  "Ctrl+\u2190", QT_TR_NOOP("上一帧") },
-        { "zoom_in",     "+",           QT_TR_NOOP("放大") },
-        { "zoom_out",    "-",           QT_TR_NOOP("缩小") },
-        { "actual_size", "1",           QT_TR_NOOP("实际大小") },
-        { "fit",         "0",           QT_TR_NOOP("适配窗口") },
-        { "slideshow",   "Space",       QT_TR_NOOP("幻灯片") },
-        { "crop",        "X",           QT_TR_NOOP("裁剪") },
-        { "favorite",    "F2",          QT_TR_NOOP("收藏") },
-        { "del",         "Del",         QT_TR_NOOP("删除") },
+        { "open",        "Ctrl+O",     QT_TR_NOOP("打开") },
+        { "openfolder",  "F",          QT_TR_NOOP("打开文件夹") },
+        { "next",        "Right",      QT_TR_NOOP("翻下一张") },
+        { "prev",        "Left",       QT_TR_NOOP("翻上一张") },
+        { "next_frame",  "Ctrl+Right", QT_TR_NOOP("下一帧") },
+        { "prev_frame",  "Ctrl+Left",  QT_TR_NOOP("上一帧") },
+        { "zoom_in",     "Ctrl++",     QT_TR_NOOP("放大") },
+        { "zoom_out",    "Ctrl+-",     QT_TR_NOOP("缩小") },
+        { "actual_size", "0",          QT_TR_NOOP("实际大小") },
+        { "fit",         "9",          QT_TR_NOOP("适配窗口") },
+        { "slideshow",   "",           QT_TR_NOOP("幻灯片") },
+        { "crop",        "",           QT_TR_NOOP("裁剪") },
+        { "favorite",    "B",          QT_TR_NOOP("收藏") },
+        { "del",         "Del",        QT_TR_NOOP("删除") },
     };
 
-    const auto opts = actionOptions();
+    // 「操作」列只列这 14 个动作：本期键盘自定义只覆盖本表内的动作（交办单
+    // 范围控制），固定动作（打印/设置/退出等）的键位由冲突检测保护，改绑属二期。
+    QList<QPair<QString, QString>> keyActions;
+    for (const KeyDef &d : defs)
+        keyActions.append({ QString::fromUtf8(d.action), tr(d.label) });
+
+    const auto opts = keyActions;
     for (int i = 0; i < int(sizeof(defs) / sizeof(defs[0])); ++i) {
         if (i > 0) {
             auto *line = new QFrame(table);
@@ -1142,6 +1168,7 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
         const KeyDef &def = defs[i];
         auto *row = new QWidget(table);
         row->setFixedHeight(32);
+        row->setAttribute(Qt::WA_StyledBackground, true);   // 冲突行高亮走 QSS 背景色
         auto *rl = new QHBoxLayout(row);
         rl->setContentsMargins(0, 0, 0, 0);
         rl->setSpacing(0);
@@ -1159,10 +1186,9 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
         editHost->setFixedWidth(122);
         auto *el = new QHBoxLayout(editHost);
         el->setContentsMargins(8, 3, 8, 3);
-        auto *edit = new QLineEdit(editHost);
+        auto *edit = new QKeySequenceEdit(editHost);
         edit->setFixedHeight(26);
-        edit->setPlaceholderText(tr("未设置"));
-        edit->setStyleSheet(QStringLiteral("QLineEdit{font-size:11px;padding:0 6px;}"));
+        edit->setStyleSheet(QStringLiteral("QKeySequenceEdit{font-size:11px;padding:0 6px;}"));
         el->addWidget(edit);
         rl->addWidget(editHost);
 
@@ -1174,7 +1200,14 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
         combo->setFixedHeight(26);
         rl->addWidget(combo, 1);
 
-        m_keyRows.append({ chk, edit, combo, QString::fromUtf8(def.action),
+        // 任一字段改动即撤掉上次保存被拒的冲突高亮（重新保存时再检测）
+        connect(chk, &QCheckBox::toggled, this, [this]() { clearKeyConflicts(); });
+        connect(edit, &QKeySequenceEdit::keySequenceChanged, this,
+                [this]() { clearKeyConflicts(); });
+        connect(combo, &QComboBox::currentIndexChanged, this,
+                [this]() { clearKeyConflicts(); });
+
+        m_keyRows.append({ chk, edit, combo, row, QString::fromUtf8(def.action),
                            QString::fromUtf8(def.hotkey) });
         tl->addWidget(row);
     }
@@ -1450,8 +1483,9 @@ void SettingsDialog::loadFromConfig()
         m_bkgndPath->setText(sGet("view/bkgnd_image_path"));
     for (const KeyRow &r : m_keyRows) {
         r.cb->setChecked(bGet(QStringLiteral("keyboard/%1_enabled").arg(r.action).toLatin1().constData(), true));
-        r.edit->setText(sGet(QStringLiteral("keyboard/%1_key").arg(r.action).toLatin1().constData(),
-                             r.defHotkey));
+        const QString key = sGet(QStringLiteral("keyboard/%1_key").arg(r.action).toLatin1().constData(),
+                                 r.defHotkey);
+        r.edit->setKeySequence(QKeySequence::fromString(key, QKeySequence::PortableText));
         const int idx = r.combo->findData(
             sGet(QStringLiteral("keyboard/%1_action").arg(r.action).toLatin1().constData(), r.action));
         r.combo->setCurrentIndex(idx >= 0 ? idx : 0);
@@ -1498,6 +1532,15 @@ void SettingsDialog::restoreSnapshot()
 
 void SettingsDialog::onAccepted()
 {
+    // —— 键盘冲突检测先于一切写盘：同一键位被两个启用的动作占用（或撞上
+    // 固定动作、同一动作被重复指派）→ 高亮冲突行、提示占用者、整次保存拒绝 ——
+    clearKeyConflicts();
+    const QString conflictMsg = keyboardConflicts();
+    if (!conflictMsg.isEmpty()) {
+        QMessageBox::warning(this, tr("设置"), conflictMsg);
+        return;
+    }
+
     for (const ChkBind &b : m_chkBinds) {
         const bool v = b.cb->isChecked();
         bSet(b.key, b.inverted ? !v : v);
@@ -1512,8 +1555,10 @@ void SettingsDialog::onAccepted()
     for (const KeyRow &r : m_keyRows) {
         bSet(QStringLiteral("keyboard/%1_enabled").arg(r.action).toLatin1().constData(),
              r.cb->isChecked());
+        // _key 存 PortableText（"Ctrl+P"、"Right"…），MainWindow 按
+        // QKeySequence::fromString(…, PortableText) 读回。
         sSet(QStringLiteral("keyboard/%1_key").arg(r.action).toLatin1().constData(),
-             r.edit->text());
+             r.edit->keySequence().toString(QKeySequence::PortableText));
         sSet(QStringLiteral("keyboard/%1_action").arg(r.action).toLatin1().constData(),
              r.combo->currentData().toString());
     }
@@ -1560,6 +1605,194 @@ void SettingsDialog::onReset()
         bg->refresh();
     if (auto *bd = static_cast<ColorPickButton *>(m_borderColorBtn))
         bd->refresh();
+}
+
+// ===========================================================================
+// 键盘自定义（批次 D1）：冲突检测 + 验收探针
+// ===========================================================================
+
+// 高亮以整行为单位（QSS QWidget[conflict="true"]，行 widget 已开 WA_StyledBackground）
+void SettingsDialog::setKeyRowConflict(int index, bool on)
+{
+    if (index < 0 || index >= m_keyRows.size())
+        return;
+    QWidget *row = m_keyRows[index].row;
+    if (row->property("conflict").toBool() == on)
+        return;
+    row->setProperty("conflict", on);
+    row->style()->unpolish(row);
+    row->style()->polish(row);
+    row->update();
+}
+
+void SettingsDialog::clearKeyConflicts()
+{
+    for (int i = 0; i < m_keyRows.size(); ++i)
+        setKeyRowConflict(i, false);
+}
+
+// 键盘页冲突检测（保存前调用）。生效语义与 MainWindow::applyShortcutConfig
+// 一一对应，判定基准是「保存后每个动作实际会装什么键」：
+//   出厂态行（启用 + 绑自身 + 键为空或等于出厂主键）= 基线，自身不参与冲突，
+//   其动作按出厂完整键位表生效；其余为自定义行（将顶掉出厂键位）。
+// 三类冲突（只由自定义行触发）：
+//   1) 同一动作被多个启用行指派（出厂行各绑自己，出现多条必有人改绑）；
+//   2) 两个自定义行键位相同；
+//   3) 自定义行键位撞上「仍处于出厂态的其他动作」的任何键（含 PageUp/Backspace
+//      等副键）或固定动作（打印 Ctrl+P 等 14 个之外的动作）的任何键。
+// 有冲突：高亮全部冲突行并返回第一条提示文案；无冲突返回空串。
+QString SettingsDialog::keyboardConflicts()
+{
+    struct RowState {
+        bool enabled = false;
+        QString target;
+        QKeySequence key;
+        bool factory = false;
+    };
+    QList<RowState> st;
+    for (const KeyRow &r : m_keyRows) {
+        RowState s;
+        s.enabled = r.cb->isChecked();
+        s.target = r.combo->currentData().toString();
+        s.key = r.edit->keySequence();
+        const QKeySequence defSeq =
+            QKeySequence::fromString(r.defHotkey, QKeySequence::PortableText);
+        s.factory = s.enabled && s.target == r.action
+                    && (s.key.isEmpty() || s.key == defSeq);
+        st.append(s);
+    }
+
+    // 动作 id → 显示名（各行「操作」下拉共享同一份选项表）
+    QHash<QString, QString> labelOf;
+    if (!m_keyRows.isEmpty()) {
+        const QComboBox *c = m_keyRows.first().combo;
+        for (int i = 0; i < c->count(); ++i)
+            labelOf.insert(c->itemData(i).toString(), c->itemText(i));
+    }
+    auto label = [&labelOf](const QString &id) { return labelOf.value(id, id); };
+    auto rowIndexOfAction = [this](const QString &action) -> int {
+        for (int i = 0; i < m_keyRows.size(); ++i) {
+            if (m_keyRows[i].action == action)
+                return i;
+        }
+        return -1;
+    };
+
+    // 占用表（显示名 → 键位列表）：仍处于出厂态的可配置动作（含副键）+ 固定动作
+    QList<QPair<QString, QList<QKeySequence>>> occupied;
+    QList<QString> occupiedIds;   // 与 occupied 平行；空串 = 固定动作
+    if (MainWindow *mw = qobject_cast<MainWindow *>(parent())) {
+        const auto factory = mw->factoryShortcutLists();
+        for (auto it = factory.constBegin(); it != factory.constEnd(); ++it) {
+            // 只有当该动作自己的行处于出厂态时，它的出厂键位才仍然在岗
+            const int own = rowIndexOfAction(it.key());
+            if (own >= 0 && st[own].factory) {
+                occupied.append({ label(it.key()), it.value() });
+                occupiedIds.append(it.key());
+            }
+        }
+        QHash<QString, QList<QKeySequence>> merged;
+        const auto fixedEntries = mw->fixedShortcutActions();
+        for (const auto &f : fixedEntries)
+            merged[f.first].append(f.second);
+        for (auto it = merged.constBegin(); it != merged.constEnd(); ++it) {
+            occupied.append({ it.key(), it.value() });
+            occupiedIds.append(QString());
+        }
+    }
+
+    QSet<int> bad;
+    QString msg;
+    auto markBad = [&bad, &msg](QList<int> rows, const QString &m) {
+        for (int r : rows)
+            bad.insert(r);
+        if (msg.isEmpty())
+            msg = m;
+    };
+    auto keyText = [](const QKeySequence &s) {
+        return s.toString(QKeySequence::NativeText);
+    };
+
+    // 1) 同一动作被多个启用行指派
+    QHash<QString, QList<int>> byTarget;
+    for (int i = 0; i < st.size(); ++i) {
+        if (st[i].enabled)
+            byTarget[st[i].target].append(i);
+    }
+    for (auto it = byTarget.constBegin(); it != byTarget.constEnd(); ++it) {
+        if (it.value().size() > 1)
+            markBad(it.value(), tr("动作『%1』被多个键位行同时绑定").arg(label(it.key())));
+    }
+    // 2) 两个自定义行键位相同
+    for (int i = 0; i < st.size(); ++i) {
+        if (st[i].factory || st[i].key.isEmpty())
+            continue;
+        for (int j = i + 1; j < st.size(); ++j) {
+            if (st[j].factory || st[j].key.isEmpty())
+                continue;
+            if (st[i].key == st[j].key)
+                markBad({ i, j }, tr("%1 已被『%2』占用")
+                                      .arg(keyText(st[i].key), label(st[j].target)));
+        }
+    }
+    // 3) 自定义行 vs 出厂/固定键位（目标动作自己的出厂表不参与：改绑后原表即让位）
+    for (int i = 0; i < st.size(); ++i) {
+        if (st[i].factory || st[i].key.isEmpty())
+            continue;
+        for (int k = 0; k < occupied.size(); ++k) {
+            if (!occupiedIds[k].isEmpty() && occupiedIds[k] == st[i].target)
+                continue;
+            if (occupied[k].second.contains(st[i].key))
+                markBad({ i }, tr("%1 已被『%2』占用")
+                                   .arg(keyText(st[i].key), occupied[k].first));
+        }
+    }
+
+    for (int i = 0; i < st.size(); ++i)
+        setKeyRowConflict(i, bad.contains(i));
+    return msg;
+}
+
+// —— 验收探针（--smoke keyconflict）——
+void SettingsDialog::probeKeyConflict()
+{
+    // 切到键盘页（导航第 5 项），让冲突行高亮进截图
+    selectPage(4);
+    // 把「删除」行热键改成 Ctrl+P（固定动作「打印」的主键），走真实保存链路：
+    // 应弹「Ctrl+P 已被『打印』占用」、冲突行高亮、config 不落盘。
+    for (const KeyRow &r : m_keyRows) {
+        if (r.action == QLatin1String("del")) {
+            r.edit->setKeySequence(QKeySequence(QStringLiteral("Ctrl+P")));
+            break;
+        }
+    }
+    // 冲突提示框是 exec 阻塞的：先定时在嵌套循环里截提示框证据再关掉它
+    QTimer::singleShot(600, this, [this]() {
+        if (auto *mb = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+            mb->grab().save(QStringLiteral("Temp/keys-conflict-msg.png"));
+            mb->close();   // exec 随之返回，保存已被阻止
+        }
+    });
+    onAccepted();
+    grab().save(QStringLiteral("Temp/keys-conflict-row.png"));   // 冲突行高亮态
+    close();
+}
+
+// —— 验收探针（--smoke keyreset）——
+void SettingsDialog::probeResetDefaults()
+{
+    // footer「恢复默认」→「是否要初始化设置？」自动答「是」→ 回默认值；
+    // 再按真实「确定」链路写盘并 accept（accept 不走快照回滚）。
+    QTimer::singleShot(400, this, [this]() {
+        if (auto *mb = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+            if (auto *yes = mb->button(QMessageBox::Yes))
+                yes->click();
+        }
+    });
+    if (m_btnReset)
+        m_btnReset->click();
+    onAccepted();
+    accept();
 }
 
 // ===========================================================================

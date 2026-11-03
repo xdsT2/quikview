@@ -217,6 +217,21 @@ QString Config::mouseYAction() const
                             QStringLiteral("none")).toString();
 }
 
+bool Config::actionEnabled(const QString &action, bool def) const
+{
+    return m_settings.value(QStringLiteral("config/keyboard/%1_enabled").arg(action), def).toBool();
+}
+
+QString Config::actionKey(const QString &action, const QString &def) const
+{
+    return m_settings.value(QStringLiteral("config/keyboard/%1_key").arg(action), def).toString();
+}
+
+QString Config::actionBinding(const QString &action, const QString &def) const
+{
+    return m_settings.value(QStringLiteral("config/keyboard/%1_action").arg(action), def).toString();
+}
+
 bool Config::strongSharpen() const
 {
     // 「使用强锐化滤镜」（C13）：消费点 ImageCanvas::doRefreshSampling，

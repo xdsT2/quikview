@@ -57,6 +57,15 @@ public:
     QString mouseXAction() const;
     QString mouseYAction() const;
 
+    // 键盘快捷键自定义（批次 D1）：14 个可配置动作各占三键
+    // config/keyboard/<action>_enabled / _key / _action。_key 存 QKeySequence
+    // 的 PortableText（"Ctrl+P"、"Right"…），空串 = 未自定义（用出厂键位）；
+    // _action 是该键位槽绑定到的动作 id（默认 = 槽位自身）。动作清单与下发
+    // 语义见 MainWindow::applyShortcutConfig，设置页见键盘页。
+    bool actionEnabled(const QString &action, bool def = true) const;
+    QString actionKey(const QString &action, const QString &def = QString()) const;
+    QString actionBinding(const QString &action, const QString &def = QString()) const;
+
     // 「使用强锐化滤镜」：lanczosResample 缩图后叠加一层固定强度 3×3
     // unsharp mask（ImageCanvas::doRefreshSampling）。默认关。
     bool strongSharpen() const;

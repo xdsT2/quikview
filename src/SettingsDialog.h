@@ -14,6 +14,7 @@ class QComboBox;
 class QEvent;
 class QHBoxLayout;
 class QKeyEvent;
+class QKeySequenceEdit;
 class QLabel;
 class QLineEdit;
 class QMouseEvent;
@@ -34,6 +35,13 @@ class SettingsDialog : public QDialog
     Q_OBJECT
 public:
     explicit SettingsDialog(QWidget *parent = nullptr);
+
+    // —— 键盘自定义验收探针（--smoke keyconflict / keyreset，非交互路径）——
+    // probeKeyConflict：把「删除」行热键改成 Ctrl+P（撞固定动作「打印」）走真实
+    // 保存链路，应弹占用提示、冲突行高亮、config 不落盘（两份证据截图落 Temp/）。
+    // probeResetDefaults：点 footer「恢复默认」并自动确认，走 onReset 同一条链路。
+    void probeKeyConflict();
+    void probeResetDefaults();
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -109,6 +117,13 @@ private:
     void takeSnapshot();
     void restoreSnapshot();
 
+    // —— 键盘自定义（批次 D1）冲突检测 ——
+    // 保存前调用：同一键位只归一个启用的绑定、键位不得与固定动作相撞、
+    // 同一动作不得被两个启用槽位指派。有冲突：高亮冲突行并返回第一条提示。
+    QString keyboardConflicts();
+    void clearKeyConflicts();
+    void setKeyRowConflict(int index, bool on);   // 整行高亮（QSS 动态属性）
+
     QList<QWidget *> m_pages;              // 各页内容 widget（QScrollArea 的 widget）
     QList<QAbstractButton *> m_tabs;       // 左侧 navItem
     QStringList m_pageTitles;
@@ -139,10 +154,11 @@ private:
     QWidget *m_borderColorBtn = nullptr;  // 浏览：边框颜色
     struct KeyRow {                       // 键盘页一行（QString 值拷贝：
         QCheckBox *cb;                    // 数据源是构建函数的栈数组，const char*
-        QLineEdit *edit;                  // 悬空会导致热键列显示乱码）
+        QKeySequenceEdit *edit;           // 悬空会导致热键列显示乱码）
         QComboBox *combo;
+        QWidget *row;                     // 冲突高亮以整行为单位（动态属性 conflict）
         QString action;
-        QString defHotkey;
+        QString defHotkey;                // 出厂键位（PortableText，与 MainWindow 一致）
     };
     QList<KeyRow> m_keyRows;
     struct MouseRow {                     // 鼠标页按键动作行（同样避免悬空指针）

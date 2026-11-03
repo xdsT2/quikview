@@ -39,6 +39,8 @@
 #include <QPropertyAnimation>
 #include <QPushButton>
 #include <QRandomGenerator>
+#include <QScrollArea>
+#include <QSet>
 #include <QScreen>
 #include <cmath>
 #include <QResizeEvent>
@@ -966,8 +968,9 @@ void MainWindow::changeEvent(QEvent *event)
 
 void MainWindow::createActions()
 {
+    // id 非空时登记进 m_actions：键盘自定义（config/keyboard/*）按 id 下发键位
     auto mk = [this](const QString &text, const QKeySequence &seq,
-                     void (MainWindow::*slot)()) {
+                     void (MainWindow::*slot)(), const QString &id = QString()) {
         auto *a = new QAction(text, this);
         if (!seq.isEmpty()) {
             a->setShortcut(seq);
@@ -976,6 +979,9 @@ void MainWindow::createActions()
         // QAction 的快捷键只有在「挂到窗口」后才参与 QShortcutMap 分发。
         // 此前所有动作都只 new 没 addAction，Ctrl+O 之类一直靠菜单/冒烟直调才生效。
         addAction(a);
+        if (!id.isEmpty()) {
+            m_actions.insert(id, a);
+        }
         return a;
     };
     // 同 mk，但槽是 lambda（按键对齐 Honeyview 时大量一次性动作没有独立槽）
@@ -991,9 +997,10 @@ void MainWindow::createActions()
     };
 
     // 文件（快捷键对照 Honeyview 语言表 MENUSTR_*，下同）
-    actOpen = mk(tr("打开(&O)..."), QKeySequence::Open, &MainWindow::onOpen);
+    // —— 传 id 的 14 个动作 = 键盘页可配置动作（批次 D1），键位由 config/keyboard/* 下发
+    actOpen = mk(tr("打开(&O)..."), QKeySequence::Open, &MainWindow::onOpen, QStringLiteral("open"));
     actOpen->setShortcuts({ QKeySequence::Open, QKeySequence(QStringLiteral("F2")) });
-    actOpenFolder = mk(tr("打开文件夹..."), QKeySequence(QStringLiteral("F")), &MainWindow::onOpenFolder);
+    actOpenFolder = mk(tr("打开文件夹..."), QKeySequence(QStringLiteral("F")), &MainWindow::onOpenFolder, QStringLiteral("openfolder"));
     actSaveAs = mk(tr("另存为…(&S)"), QKeySequence::SaveAs, &MainWindow::onSaveAs);
     actPrint = mk(tr("打印"), QKeySequence::Print, &MainWindow::onPrint);          // Ctrl+P
     actBatchConvert = mk(tr("批量转换(&B)"), QKeySequence(QStringLiteral("Ctrl+T")), &MainWindow::onBatchConvert);
@@ -1001,8 +1008,8 @@ void MainWindow::createActions()
     actSettings = mk(tr("设置(&C)"), QKeySequence(QStringLiteral("F5")), &MainWindow::onSettings);
     actSettings->setShortcuts({ QKeySequence(QStringLiteral("F5")), QKeySequence(QStringLiteral("F9")) });
     // 书签菜单：添加书签 B（原型），勾选/取消勾选由 onToggleFavorite 承担
-    actFavorite = mk(tr("添加书签"), QKeySequence(QStringLiteral("B")), &MainWindow::onToggleFavorite);
-    actDelete = mk(tr("删除"), QKeySequence::Delete, &MainWindow::onDeleteFile);   // Del
+    actFavorite = mk(tr("添加书签"), QKeySequence(QStringLiteral("B")), &MainWindow::onToggleFavorite, QStringLiteral("favorite"));
+    actDelete = mk(tr("删除"), QKeySequence::Delete, &MainWindow::onDeleteFile, QStringLiteral("del"));   // Del
     actCopyToFolder = mk(tr("复制到 图片文件夹"), QKeySequence(QStringLiteral("Ins")), &MainWindow::onCopyToFolder);
     actOpenWithEditor = mk(tr("用图像编辑器打开"), QKeySequence(QStringLiteral("Ctrl+E")), &MainWindow::onOpenWithEditor);
     actCopyToClipboard = mk(tr("复制到剪贴板"), QKeySequence::Copy, &MainWindow::onCopyToClipboard);
@@ -1020,8 +1027,8 @@ void MainWindow::createActions()
     // 两维正交：缩放决定「怎么适配」，双页决定「显示几页」，菜单/画面/内部状态三者同步。
     auto *zoomModeGroup = new QActionGroup(this);
     zoomModeGroup->setExclusive(true);
-    actActualSize = mk(tr("原始大小 (100%)"), QKeySequence(QStringLiteral("0")), &MainWindow::onActualSize);
-    actFit = mk(tr("适合窗口"), QKeySequence(QStringLiteral("9")), &MainWindow::onFit);
+    actActualSize = mk(tr("原始大小 (100%)"), QKeySequence(QStringLiteral("0")), &MainWindow::onActualSize, QStringLiteral("actual_size"));
+    actFit = mk(tr("适合窗口"), QKeySequence(QStringLiteral("9")), &MainWindow::onFit, QStringLiteral("fit"));
     actFitWidth = mk(tr("适合宽度"), QKeySequence(QStringLiteral("8")), &MainWindow::onFitWidth);
     for (auto *a : { actActualSize, actFit, actFitWidth }) {
         a->setCheckable(true);
@@ -1045,16 +1052,16 @@ void MainWindow::createActions()
         a->setCheckable(true);
         addAction(a);   // 不挂窗口快捷键不参与分发（此前 7/6 是死的）
     }
-    actZoomIn = mk(tr("放大(&+)"), QKeySequence::ZoomIn, &MainWindow::onZoomIn);
-    actZoomOut = mk(tr("缩小(&-)"), QKeySequence::ZoomOut, &MainWindow::onZoomOut);
+    actZoomIn = mk(tr("放大(&+)"), QKeySequence::ZoomIn, &MainWindow::onZoomIn, QStringLiteral("zoom_in"));
+    actZoomOut = mk(tr("缩小(&-)"), QKeySequence::ZoomOut, &MainWindow::onZoomOut, QStringLiteral("zoom_out"));
     // 无修饰的 + / - 作为第二快捷键（对照原版 MENUSTR_ZOOM_IN/OUT），菜单显示仍取第一个
     actZoomIn->setShortcuts({ QKeySequence::ZoomIn, QKeySequence(QStringLiteral("+")) });
     actZoomOut->setShortcuts({ QKeySequence::ZoomOut, QKeySequence(QStringLiteral("-")) });
     // ←/→ 由 QAction 承担：主菜单右侧会自动显示箭头，避免和 keyPressEvent 两处处理。
     // PageUp/PageDown 作为副快捷键保留（原先就是翻页），显示仍取第一个 ←/→。
     // Backspace = 上一张（原版空格/退格翻页语义，空格在 keyPressEvent 已有）。
-    actPrev = mk(tr("上一张图片"), QKeySequence(Qt::Key_Left), &MainWindow::onPrev);
-    actNext = mk(tr("下一张图片"), QKeySequence(Qt::Key_Right), &MainWindow::onNext);
+    actPrev = mk(tr("上一张图片"), QKeySequence(Qt::Key_Left), &MainWindow::onPrev, QStringLiteral("prev"));
+    actNext = mk(tr("下一张图片"), QKeySequence(Qt::Key_Right), &MainWindow::onNext, QStringLiteral("next"));
     actPrev->setShortcuts({ QKeySequence(Qt::Key_Left), QKeySequence(Qt::Key_PageUp),
                             QKeySequence(Qt::Key_Backspace) });
     actNext->setShortcuts({ QKeySequence(Qt::Key_Right), QKeySequence(Qt::Key_PageDown) });
@@ -1070,14 +1077,15 @@ void MainWindow::createActions()
     // 同级文件夹跳转（对照原版 MENUSTR_PAGEMOVE_NEXT_PATH/PREV_PATH：] [）
     actPrevFolder = mk(tr("上一个文件夹"), QKeySequence(QStringLiteral("[")), &MainWindow::onPrevFolder);
     actNextFolder = mk(tr("下一个文件夹"), QKeySequence(QStringLiteral("]")), &MainWindow::onNextFolder);
-    actNextFrame = mk(tr("下一帧"), QKeySequence(QStringLiteral("Ctrl+Right")), &MainWindow::onNextFrame);
-    actPrevFrame = mk(tr("上一帧"), QKeySequence(QStringLiteral("Ctrl+Left")), &MainWindow::onPrevFrame);
+    actNextFrame = mk(tr("下一帧"), QKeySequence(QStringLiteral("Ctrl+Right")), &MainWindow::onNextFrame, QStringLiteral("next_frame"));
+    actPrevFrame = mk(tr("上一帧"), QKeySequence(QStringLiteral("Ctrl+Left")), &MainWindow::onPrevFrame, QStringLiteral("prev_frame"));
 
     actSlideshow = new QAction(tr("幻灯片放映(&S)"), this);
     actSlideshow->setCheckable(true);
     // 放映本体无直接键（原版同）：Ctrl+0 停止 / Ctrl+1..9 以 N 秒开始放映，
     // 见下面的 slideshow interval 动作组。
     addAction(actSlideshow);
+    m_actions.insert(QStringLiteral("slideshow"), actSlideshow);   // 键盘页可配置（出厂无键）
     connect(actSlideshow, &QAction::toggled, this, &MainWindow::setSlideshow);
     // Ctrl+0 = 停止放映；Ctrl+1..9 = 以 N 秒间隔开始（对照原版 MENUSTR_SLIDESHOW_*）
     mk(tr("停止放映"), QKeySequence(QStringLiteral("Ctrl+0")), &MainWindow::onSlideshowStop);
@@ -1130,7 +1138,7 @@ void MainWindow::createActions()
     actFlipH = mk(tr("水平翻转"), QKeySequence(QStringLiteral("Ctrl+M")), &MainWindow::onFlipH);
     actFlipV = mk(tr("垂直翻转"), QKeySequence(QStringLiteral("Ctrl+F")), &MainWindow::onFlipV);
     // 原版 X = 退出程序（已绑 actQuit）；裁剪走菜单/转换对话框，不占单键
-    actCrop = mk(tr("裁剪(&C)"), {}, &MainWindow::onCrop);
+    actCrop = mk(tr("裁剪(&C)"), {}, &MainWindow::onCrop, QStringLiteral("crop"));   // 键盘页可配置（出厂无键）
     actResize = mk(tr("调整大小(&R)"), {}, &MainWindow::onResize);
     // 反色 Ctrl+I / Gamma 补偿 Ctrl+G（MENUSTR_IMAGE_PROCESSING_NEGATIVE/GAMMA）
     actNegative = mk(tr("反色"), QKeySequence(QStringLiteral("Ctrl+I")), &MainWindow::onNegative);
@@ -1238,6 +1246,158 @@ void MainWindow::createActions()
     actSortDesc = new QAction(tr("降序"), this);
     actSortDesc->setCheckable(true);
     connect(actSortDesc, &QAction::toggled, this, &MainWindow::onSortDescending);
+
+    // 键盘快捷键自定义：启动即按 config/keyboard/* 下发（无配置 = 出厂键位，行为不变）
+    applyShortcutConfig();
+}
+
+// ---------------------------------------------------------------------------
+// 键盘快捷键自定义（批次 D1）：14 个可配置动作的键位下发。
+// 槽位语义（与设置页键盘页一一对应）：每一行是一个「键位槽」，
+// config/keyboard/<槽位>_enabled / _key / _action，槽位默认名 = 动作 id。
+//   槽位禁用 → 默认动作失去键位（setShortcuts({})）；
+//   未自定义（无 _key 或配回出厂主键，且绑定自身）→ 恢复出厂完整键位表
+//   （PageUp/Backspace/* 等副键保留，与改动前行为逐键一致）；
+//   自定义 → 目标动作 setShortcuts({自定义键})，顶掉原键位（含副键）。
+// 调用点：createActions 末尾（启动）、onSettings 返回（保存/取消都重装，
+// 取消时配置已被快照回滚，重装回旧值）。冲突在设置页保存时拦截。
+
+namespace {
+struct SlotDef {
+    const char *slot;
+    QList<QKeySequence> defaults;   // 出厂键位（主键在前，含副键）
+};
+
+// 出厂槽位表。改动任何一个动作的出厂键位须同步设置页键盘页的 defs 表。
+// 注意：变量名不能用 slots——它是 Qt 的空宏。
+const QList<SlotDef> &shortcutSlotDefs()
+{
+    static const QList<SlotDef> defs = {
+        { "open",        { QKeySequence::Open, QKeySequence(QStringLiteral("F2")) } },
+        { "openfolder",  { QKeySequence(QStringLiteral("F")) } },
+        { "next",        { QKeySequence(Qt::Key_Right), QKeySequence(Qt::Key_PageDown) } },
+        { "prev",        { QKeySequence(Qt::Key_Left), QKeySequence(Qt::Key_PageUp),
+                           QKeySequence(Qt::Key_Backspace) } },
+        { "next_frame",  { QKeySequence(QStringLiteral("Ctrl+Right")) } },
+        { "prev_frame",  { QKeySequence(QStringLiteral("Ctrl+Left")) } },
+        { "zoom_in",     { QKeySequence::ZoomIn, QKeySequence(QStringLiteral("+")) } },
+        { "zoom_out",    { QKeySequence::ZoomOut, QKeySequence(QStringLiteral("-")) } },
+        { "actual_size", { QKeySequence(QStringLiteral("0")), QKeySequence(QStringLiteral("*")) } },
+        { "fit",         { QKeySequence(QStringLiteral("9")) } },
+        { "slideshow",   {} },
+        { "crop",        {} },
+        { "favorite",    { QKeySequence(QStringLiteral("B")) } },
+        { "del",         { QKeySequence::Delete } },
+    };
+    return defs;
+}
+} // namespace
+
+void MainWindow::applyShortcutConfig()
+{
+    const Config &cfg = Config::instance();
+
+    // 先全部清空再逐槽重装：槽位被挪用/禁用时，原动作不留旧键
+    for (const SlotDef &d : shortcutSlotDefs()) {
+        if (QAction *a = m_actions.value(QString::fromLatin1(d.slot))) {
+            a->setShortcuts({});
+        }
+    }
+    for (const SlotDef &d : shortcutSlotDefs()) {
+        const QString slot = QString::fromLatin1(d.slot);
+        if (!cfg.actionEnabled(slot, true)) {
+            continue;   // 槽位禁用：动作保持无键
+        }
+        const QString target = cfg.actionBinding(slot, slot);
+        QAction *dst = m_actions.value(target);
+        if (!dst) {
+            continue;
+        }
+        const QString stored = cfg.actionKey(slot);
+        const QKeySequence seq = QKeySequence::fromString(stored, QKeySequence::PortableText);
+        if (target == slot && (stored.isEmpty() || seq == d.defaults.value(0))) {
+            // 未自定义 / 配回出厂主键：恢复完整出厂表（副键保留，行为与旧版一致）
+            if (!d.defaults.isEmpty()) {
+                dst->setShortcuts(d.defaults);
+            }
+            continue;
+        }
+        if (!seq.isEmpty()) {
+            dst->setShortcuts({ seq });
+        }
+    }
+}
+
+// 14 个可配置动作的出厂键位全表（设置页冲突检测用）。
+QHash<QString, QList<QKeySequence>> MainWindow::factoryShortcutLists() const
+{
+    QHash<QString, QList<QKeySequence>> out;
+    for (const SlotDef &d : shortcutSlotDefs())
+        out.insert(QString::fromLatin1(d.slot), d.defaults);
+    return out;
+}
+
+// 键盘页冲突检测数据源：除 14 个可配置动作外，其余动作（打印 Ctrl+P、设置 F5、
+// 退出 X…）的键位是固定的，新键位撞上即冲突。每个快捷键一条（副键也算）。
+QList<QPair<QString, QKeySequence>> MainWindow::fixedShortcutActions() const
+{
+    const QSet<QAction *> configurable = {
+        m_actions.value(QStringLiteral("open")),
+        m_actions.value(QStringLiteral("openfolder")),
+        m_actions.value(QStringLiteral("next")),
+        m_actions.value(QStringLiteral("prev")),
+        m_actions.value(QStringLiteral("next_frame")),
+        m_actions.value(QStringLiteral("prev_frame")),
+        m_actions.value(QStringLiteral("zoom_in")),
+        m_actions.value(QStringLiteral("zoom_out")),
+        m_actions.value(QStringLiteral("actual_size")),
+        m_actions.value(QStringLiteral("fit")),
+        m_actions.value(QStringLiteral("slideshow")),
+        m_actions.value(QStringLiteral("crop")),
+        m_actions.value(QStringLiteral("favorite")),
+        m_actions.value(QStringLiteral("del")),
+    };
+    QList<QPair<QString, QKeySequence>> out;
+    const auto all = findChildren<QAction *>();
+    for (QAction *a : all) {
+        if (configurable.contains(a)) {
+            continue;
+        }
+        QString label = a->text();
+        const int tab = label.indexOf(QLatin1Char('\t'));
+        if (tab >= 0) {
+            label.truncate(tab);
+        }
+        label.remove(QLatin1Char('&'));
+        const auto seqs = a->shortcuts();
+        for (const QKeySequence &s : seqs) {
+            out.append({ label, s });
+        }
+    }
+    return out;
+}
+
+// 冒烟取证（--smoke report 的 keys= 字段）：14 个可配置动作的当前键位。
+QString MainWindow::shortcutsReport() const
+{
+    static const char *const ids[] = {
+        "open", "openfolder", "next", "prev", "next_frame", "prev_frame", "zoom_in",
+        "zoom_out", "actual_size", "fit", "slideshow", "crop", "favorite", "del",
+    };
+    QStringList parts;
+    for (const char *id : ids) {
+        QStringList seqs;
+        if (QAction *a = m_actions.value(QString::fromLatin1(id))) {
+            const auto list = a->shortcuts();
+            for (const QKeySequence &s : list) {
+                seqs << s.toString(QKeySequence::PortableText);
+            }
+        }
+        parts << QStringLiteral("%1=%2").arg(QString::fromLatin1(id),
+                                             seqs.isEmpty() ? QStringLiteral("-")
+                                                            : seqs.join(QLatin1Char('|')));
+    }
+    return parts.join(QLatin1Char(';'));
 }
 
 // ---------------------------------------------------------------------------
@@ -2319,6 +2479,24 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         dlg->setAttribute(Qt::WA_DeleteOnClose);
         dlg->show();
     }
+    // —— 键盘自定义验收探针（批次 D1，截图 + config 取证用）——
+    else if (c == QLatin1String("keyconflict")) {
+        // 把「删除」行热键改成 Ctrl+P（撞固定动作「打印」）走真实保存链路：
+        // 应弹占用提示、冲突行高亮、config 不落盘。证据截图落 Temp/keys-conflict-*.png。
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        QTimer::singleShot(400, dlg, [dlg]() { dlg->probeKeyConflict(); });
+    }
+    else if (c == QLatin1String("keyreset")) {
+        // footer「恢复默认」全链路（确认框自动答「是」）→ 14 项回出厂键位；
+        // 之后 report 的 keys= 字段应回到出厂值。
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        connect(dlg, &QObject::destroyed, this, [this]() { applyShortcutConfig(); });
+        QTimer::singleShot(400, dlg, [dlg]() { dlg->probeResetDefaults(); });
+    }
     else if (c == QLatin1String("convert")) {
         auto *dlg = new BatchConvertDialog(m_dir->files(), this);
         dlg->setAttribute(Qt::WA_DeleteOnClose);
@@ -2452,6 +2630,7 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << " dockop=" << (m_dockOpacity ? QString::number(m_dockOpacity->opacity(), 'f', 2) : QStringLiteral("na"))
                << " top=" << static_cast<int>(m_topPhase)
                << " dpr=" << devicePixelRatioF()
+               << " keys=" << shortcutsReport()
                << "\n";
         }
     }
@@ -3672,6 +3851,7 @@ void MainWindow::onSettings()
     Theme::apply(*qApp, dark ? Theme::Mode::Dark : Theme::Mode::Light);
     m_slideshowTimer->setInterval(Config::instance().slideshowIntervalMs());
     applyRuntimeSettings();
+    applyShortcutConfig();   // 键盘自定义：保存立即生效；取消时配置已回滚，重装回旧值
 }
 
 void MainWindow::onAbout()

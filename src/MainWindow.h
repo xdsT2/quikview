@@ -1,9 +1,13 @@
 #pragma once
 
+#include <QHash>
 #include <QImage>
+#include <QKeySequence>
+#include <QList>
 #include <QMainWindow>
 #include <QMargins>
 #include <QElapsedTimer>
+#include <QPair>
 #include <QPointer>
 
 class ImageCanvas;
@@ -49,6 +53,13 @@ public:
     void openSettings() { onSettings(); }   // 调试/自动化：直接打开设置对话框
     void setZoomMode(int mode);             // 调试/自动化 + 菜单共用：0原始/1适合窗口/2适合宽度
     void runSmokeCommand(const QString &cmd); // 调试/自动化：--smoke 单命令驱动（P0 冒烟）
+
+    // 键盘页冲突检测数据源：14 个可配置动作之外、持有键位的动作清单
+    // （每个快捷键一条，含副键；显示名已剥 & 助记符与 '\t' 后缀）。
+    QList<QPair<QString, QKeySequence>> fixedShortcutActions() const;
+    // 14 个可配置动作的出厂键位全表（id → 键位列表，含副键）。设置页冲突检测用：
+    // 自定义键位不得撞上「仍处于出厂态」的其他动作的任何键。
+    QHash<QString, QList<QKeySequence>> factoryShortcutLists() const;
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;
@@ -144,6 +155,11 @@ private:
     QMenu *buildSystemMenu();
 
     void applyRuntimeSettings();
+    // 键盘快捷键自定义（批次 D1）：按 config/keyboard/* 给 14 个可配置动作
+    // 重装键位。启动（createActions 末尾）与设置页保存返回后各走一次。
+    void applyShortcutConfig();
+    // 冒烟取证：14 个可配置动作的当前键位（PortableText，无键记 '-'）。
+    QString shortcutsReport() const;
     void loadAsync(const QString &path);
     // 空闲预读：翻页停手 300ms 且解码队列空了，向当前页前后各预读 1 张
     void preloadNeighbors();
@@ -246,6 +262,9 @@ private:
     QAction *actEffectNone = nullptr;
     QAction *actEffectSoften = nullptr;
     QAction *actEffectSharpen = nullptr;
+    // 键盘页可配置动作注册表（动作 id → QAction）。14 个 id 见
+    // applyShortcutConfig 的槽位表；键位下发与冲突检测都按 id 走这里。
+    QHash<QString, QAction *> m_actions;
     QAction *actInterpFast = nullptr;
     QAction *actInterpSmooth = nullptr;
     QAction *actInterpLanczos = nullptr;
