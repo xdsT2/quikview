@@ -974,12 +974,14 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     addCheckUnavailable(sec, tr("先显示低品质图片以加速渲染"), "imageproc/preview_mode", false, true);
     addHint(sec, unavailableTip());
 
-    // 图片内嵌 ICC 已接通（C1）；监视器 ICC 需要系统 WCS 显示器配置，仍灰显（C2）。
+    // 图片内嵌 ICC 已接通（C1）；监视器 ICC 判定为暂不可行（C2）：Win32 可用
+    // GetICMProfile / WcsGetDefaultColorProfile 取到 profile，但 Qt6 的 raster
+    // 后端没有显示器色彩管理，转换后的像素仍按 sRGB 上屏，等于错误映射。
     addCheck(sec, tr("使用图片文件的 ICC 设置"), "imageproc/image_icc", false, true);
     auto *iccMonitor = addCheck(sec, tr("使用监视器的 ICC 设置"), "imageproc/monitor_icc", false, false);
     iccMonitor->setEnabled(false);
-    iccMonitor->setToolTip(tr("监视器 ICC 需要系统显示器配置，暂不可用"));
-    addHint(sec, tr("使用监视器的 ICC 设置需要系统显示器配置，暂不可用。"));
+    iccMonitor->setToolTip(tr("Qt6 光栅后端不支持显示器色彩管理，暂不可用"));
+    addHint(sec, tr("使用监视器的 ICC 设置需要显示器级色彩管理，Qt6 光栅后端不支持，暂不可用。"));
 
     sec = beginSection(page, tr("透明与翻页"));
     addComboRowUnavailable(sec, tr("为 GIF 图片使用透明背景"), "imageproc/gif_transparent",
