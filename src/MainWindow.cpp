@@ -1717,9 +1717,19 @@ void MainWindow::openFile(const QString &path)
     }
     m_browser->setFiles(m_dir->files(), m_dir->index());
     m_currentPath = m_dir->current();
+    // 自动保存当前图片路径为书签（键 "config/bookmark/auto_bookmark"）：
+    // 只在「打开」路径触发（翻页走 loadAsync，不经过这里），已收藏则不重复写。
+    const bool autoFav = Config::instance().autoBookmark()
+                         && !m_currentPath.isEmpty()
+                         && !Config::instance().favorites().contains(m_currentPath);
+    if (autoFav) {
+        Config::instance().toggleFavorite(m_currentPath);
+    }
     if (Config::instance().rememberBrowsedFolders()) {
         Config::instance().addRecentFile(m_currentPath);
         refreshLibraryMenus();
+    } else if (autoFav) {
+        refreshLibraryMenus();   // 未记忆文件夹时书签菜单也要刷新
     }
     jumpTo(m_currentPath);
 }

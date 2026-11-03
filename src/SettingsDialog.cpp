@@ -1259,9 +1259,8 @@ void SettingsDialog::buildMousePage(QWidget *page)
 void SettingsDialog::buildBookmarkPage(QWidget *page)
 {
     QWidget *sec = beginSection(page, tr("书签设置"));
-    // bookmark/* 三项全仓零消费：书签只存在内存/界面里，没有「自动保存路径」、
-    // 没有多窗口共享、没有数量上限逻辑，勾了不改变任何行为。
-    addCheckUnavailable(sec, tr("自动保存当前图片路径为书签"), "bookmark/auto_bookmark", false, false);
+    // 自动书签与最大书签数已接通；「多窗口共享」在单实例下语义消失，保持灰显。
+    addCheck(sec, tr("自动保存当前图片路径为书签"), "bookmark/auto_bookmark", false, false);
     addCheckUnavailable(sec, tr("多窗口共享设置 / 书签"), "bookmark/share_settings", false, true);
     // 「自动记忆当前图片在压缩包中的路径」与「删除已记忆位置」已删：
     // 压缩包浏览未实现，压缩包路径记忆无从产生，两项勾/点了也不会有任何事发生。

@@ -79,6 +79,7 @@ public:
     QStringList recentFiles() const;
     void toggleFavorite(const QString &path);
     int maxBookmarks() const;         // 最大书签数（默认 50，clamp 10..100）
+    bool autoBookmark() const;        // 打开图片时自动加入书签（默认 false）
     void addRecentFile(const QString &path);
 
     // 检查更新

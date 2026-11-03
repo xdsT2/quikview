@@ -300,6 +300,13 @@ int Config::maxBookmarks() const
     return qBound(10, m_settings.value(QStringLiteral("config/bookmark/max_bookmarks"), 50).toInt(), 100);
 }
 
+bool Config::autoBookmark() const
+{
+    // 设置页「自动保存当前图片路径为书签」：只在 MainWindow::openFile 路径消费，
+    // 翻页不触发，避免切图时刷满书签。
+    return m_settings.value(QStringLiteral("config/bookmark/auto_bookmark"), false).toBool();
+}
+
 void Config::toggleFavorite(const QString &path)
 {
     QStringList favs = favorites();
