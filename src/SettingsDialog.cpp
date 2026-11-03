@@ -12,6 +12,7 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFontMetrics>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -91,8 +92,11 @@ void iSet(const char *key, int v)
 }
 
 // ---------------------------------------------------------------------------
-// 颜色选择按钮：原型「选择…  #202020」。点开取色器，选完立即写 config 并刷新文案。
+// 颜色选择按钮：[16×16 色块] 选择…  #RRGGBB
+// 整块就是一个按钮，点开取色器，选完立即写 config 并同步色块/色值。
 // （取消设置时由 restoreSnapshot 统一回滚）
+// 自绘内容：底色/描边/悬停/按下仍由 QSS 的 QPushButton 规则负责，这里只画
+// 色块与两段文字，避免把色块做成独立子控件后抢走点击与焦点。
 // ---------------------------------------------------------------------------
 class ColorPickButton : public QPushButton
 {
@@ -100,9 +104,10 @@ public:
     ColorPickButton(const char *key, const QString &def, QWidget *parent = nullptr)
         : QPushButton(parent), m_key(key), m_def(def)
     {
+        setObjectName(QStringLiteral("colorPickBtn"));
         setCursor(Qt::PointingHandCursor);
-        setFixedHeight(kComboH);
-        setMinimumWidth(150);
+        setFixedSize(170, 30);
+        setFocusPolicy(Qt::StrongFocus);
         refresh();
         connect(this, &QPushButton::clicked, this, [this]() {
             const QColor c = QColorDialog::getColor(QColor(sGet(m_key, m_def)), this,
@@ -116,12 +121,57 @@ public:
 
     void refresh()
     {
-        setText(tr("选择…   %1").arg(QColor(sGet(m_key, m_def)).name().toUpper()));
+        m_color = QColor(sGet(m_key, m_def));
+        if (!m_color.isValid()) {
+            m_color = QColor(m_def);
+        }
+        setAccessibleName(tr("选择颜色，当前 %1").arg(m_color.name().toUpper()));
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QStylePainter p(this);
+        QStyleOptionButton opt;
+        initStyleOption(&opt);
+        opt.text.clear();   // 文字自己画，避免默认 label 与色块重叠
+        p.drawControl(QStyle::CE_PushButton, opt);
+
+        p.setRenderHint(QPainter::Antialiasing, true);
+
+        // 16×16 真实色块：3px 圆角 + 1px 浅色细边（纯黑也靠描边可辨）
+        constexpr int kPad = 10;
+        constexpr int kSwatch = 16;
+        const QRectF swatch(kPad, (height() - kSwatch) / 2.0, kSwatch, kSwatch);
+        p.setPen(QPen(QColor(255, 255, 255, 150), 1));
+        p.setBrush(m_color);
+        p.drawRoundedRect(swatch.adjusted(0.5, 0.5, -0.5, -0.5), 3, 3);
+
+        // 「选择…」紧跟在色块右侧，间距 8px
+        const QString chooseText = tr("选择…");
+        p.setFont(font());
+        p.setPen(QColor(UiStyle::Body));
+        const int chooseX = kPad + kSwatch + 8;
+        const int chooseW = fontMetrics().horizontalAdvance(chooseText);
+        p.drawText(QRect(chooseX, 0, chooseW, height()),
+                   Qt::AlignVCenter | Qt::AlignLeft, chooseText);
+
+        // 色值右对齐；等宽数字保证切换颜色时宽度不跳版
+        QFont valueFont = font();
+        valueFont.setFamilies({ QStringLiteral("Consolas"), QStringLiteral("Cascadia Mono"),
+                                QStringLiteral("Courier New") });
+        valueFont.setStyleHint(QFont::Monospace);
+        p.setFont(valueFont);
+        p.setPen(QColor(UiStyle::Text));
+        p.drawText(QRect(kPad, 0, width() - 2 * kPad, height()),
+                   Qt::AlignVCenter | Qt::AlignRight, m_color.name().toUpper());
     }
 
 private:
     const char *m_key;
     QString m_def;
+    QColor m_color;
 };
 
 // ---------------------------------------------------------------------------
@@ -417,6 +467,9 @@ QLabel#keyHeadCell { color: #9ca2aa; font-size: 11px; }
 
 QPushButton#miniBtn { min-height: 18px; max-height: 22px; padding: 0 9px; font-size: 10px;
     border-radius: 5px; }
+/* 颜色按钮：内容由 ColorPickButton::paintEvent 自绘，这里只补焦点态 */
+QPushButton#colorPickBtn { padding: 0 10px; text-align: left; }
+QPushButton#colorPickBtn:focus { border-color: #55c0f0; }
 QComboBox#flatCombo { background: transparent; border: 0; color: #d5d7da; font-size: 11px;
     min-height: 20px; padding: 0 4px 0 6px; }
 QComboBox#flatCombo:hover { color: #ffffff; }
@@ -1319,27 +1372,63 @@ void SettingsDialog::buildBookmarkPage(QWidget *page)
 
 void SettingsDialog::buildContextMenuPage(QWidget *page)
 {
+    // 壳扩展随安装包落盘：64 位 quikthumb.dll 与 exe 同目录（packaging/quikview.nsi）。
+    // 本页只做只读状态说明，不再放会写 config 的勾选框——ctxmenu/* 全仓零消费，
+    // 真正生效的是安装器注册的 Shell 扩展。
+    const bool shellReady = QFileInfo::exists(
+        QCoreApplication::applicationDirPath() + QStringLiteral("/quikthumb.dll"));
+    const QString shellState = shellReady ? tr("已随安装包注册 ✓")
+                                          : tr("未检测到壳扩展");
+
+    auto addStatusRow = [](QWidget *section, const QString &label,
+                           const QString &state, const char *color) {
+        auto *row = new QWidget(section);
+        row->setMinimumHeight(30);
+        auto *h = new QHBoxLayout(row);
+        h->setContentsMargins(0, 0, 0, 0);
+        h->setSpacing(12);
+
+        auto *name = new QLabel(label, row);
+        name->setObjectName(QStringLiteral("rowLabel"));
+        name->setFixedWidth(230);
+        h->addWidget(name);
+
+        auto *value = new QLabel(state, row);
+        value->setWordWrap(true);
+        value->setStyleSheet(QStringLiteral("color:%1;font-size:11px;")
+                                 .arg(QLatin1String(color)));
+        h->addWidget(value, 1);
+
+        if (auto *v = qobject_cast<QVBoxLayout *>(section->layout())) {
+            v->addSpacing(5);
+            v->addWidget(row);
+        }
+    };
+    const char *kOk = "#7fc47f";       // 已注册
+    const char *kWarn = "#d6a04a";     // 缺文件
+    const char *kMuted = "#92979e";    // 本版未提供 / 暂不支持
+
     QWidget *sec = beginSection(page, tr("上下文菜单设定"));
-    // ctxmenu/* 九项全仓零消费：资源管理器壳菜单项由安装器/注册表提供，
-    // 应用内没有任何代码读写这些键（本页右上「说明」也写了它们不是应用内右键菜单）。
-    addCheckUnavailable(sec, tr("在资源管理器中使用上下文菜单"), "ctxmenu/use_shell_menu", false, true);
-    addCheckUnavailable(sec, tr("用QuikView转换图片"), "ctxmenu/transform_dlg", false, true);
-    addCheckUnavailable(sec, tr("用QuikView浏览图片"), "ctxmenu/browse_image", false, true);
-    addCheckUnavailable(sec, tr("上下文菜单预览"), "ctxmenu/preview_image", false, false);
-    addCheckUnavailable(sec, tr("显示图片信息"), "ctxmenu/show_image_info", false, true);
-    addCheckUnavailable(sec, tr("显示软件图标"), "ctxmenu/show_icon", false, true);
-    addHint(sec, unavailableTip());
+    // 本版壳扩展真实提供两个菜单项（浏览 / 转换），其余三项是规划项，不能谎报已注册。
+    addStatusRow(sec, tr("在资源管理器中使用上下文菜单"), shellState,
+                 shellReady ? kOk : kWarn);
+    addStatusRow(sec, tr("用QuikView转换图片"), shellState, shellReady ? kOk : kWarn);
+    addStatusRow(sec, tr("用QuikView浏览图片"), shellState, shellReady ? kOk : kWarn);
+    addStatusRow(sec, tr("上下文菜单预览"), tr("本版未提供"), kMuted);
+    addStatusRow(sec, tr("显示图片信息"), tr("本版未提供"), kMuted);
+    addStatusRow(sec, tr("显示软件图标"), tr("本版未提供"), kMuted);
+    if (!shellReady)
+        addHint(sec, tr("未检测到壳扩展，重新运行安装包可修复。"));
 
     sec = beginSection(page, tr("Thumbnail preview in Explorer"));
-    addCheckUnavailable(sec, tr("WebP"), "ctxmenu/thumb_webp", false, true);
-    addCheckUnavailable(sec, tr("PSD"), "ctxmenu/thumb_psd", false, false);
-    addCheckUnavailable(sec, tr("PSB"), "ctxmenu/thumb_psb", false, false);
-    addHint(sec, unavailableTip());
+    addStatusRow(sec, tr("WebP"), shellState, shellReady ? kOk : kWarn);
+    addStatusRow(sec, tr("PSD"), tr("暂不支持（本版仅 WebP）"), kMuted);
+    addStatusRow(sec, tr("PSB"), tr("暂不支持（本版仅 WebP）"), kMuted);
 
     sec = beginSection(page, tr("说明"));
-    addHint(sec, tr("这些选项对应系统资源管理器中的 QuikView 菜单，"
+    addHint(sec, tr("这些入口由 QuikView 壳扩展在资源管理器中提供，"
                     "不是应用内图片右键菜单的功能开关；"
-                    "壳菜单项当前由系统/安装器管理，应用内不读写这些键。"));
+                    "安装/卸载安装包时自动注册/移除。"));
 }
 
 // ===========================================================================
