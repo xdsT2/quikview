@@ -38,6 +38,7 @@ public:
     bool notifyCorner() const;         // 在边角显示通知信息
     bool showTooltip() const;          // 悬浮工具提示总开关（默认显示）
     bool showAnimControl() const;      // 动图帧信息（第 x/y 帧）是否显示（默认显示）
+    bool showZoomControl() const;      // 缩放百分比浮标是否显示（默认显示）
     bool alwaysOnTop() const;          // 总在最前
     bool escExit() const;              // 按 ESC 退出
     QString edgeAction() const;        // "first" | "stop" | "ask"（默认 "stop"）

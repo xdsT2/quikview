@@ -889,10 +889,10 @@ void SettingsDialog::buildViewPage(QWidget *page)
     addCheck(sec, tr("保存缩放状态"), "view/save_zoom_state", false, false);
     addCheckUnavailable(sec, tr("不显示菜单栏"), "view/show_menu_bar", true, true);
     addCheckUnavailable(sec, tr("不显示控制栏"), "view/show_control_bar", true, true);
-    // 唯一真开关：本轮接通的 ImageCanvas::setSideArrowsEnabled()。
+    // 侧边箭头是真开关：ImageCanvas::setSideArrowsEnabled()。
     addCheck(sec, tr("不显示侧边箭头"), "view/show_side_arrow", true, true);
     addCheck(sec, tr("不显示动画信息控制"), "view/show_anim_control", true, true);
-    addCheckUnavailable(sec, tr("不显示缩放信息控制"), "view/show_zoom_control", true, true);
+    addCheck(sec, tr("不显示缩放信息控制"), "view/show_zoom_control", true, true);
     addCheck(sec, tr("不显示鼠标悬浮工具提示"), "view/show_tooltip", true, true);
     addCheckUnavailable(sec, tr("用小字体显示 EXIF / 文件信息"),
                         "view/exif_small_font", false, false);

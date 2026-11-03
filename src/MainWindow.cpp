@@ -372,7 +372,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // 画布缩放联动：左下角浮标 + 浏览方式图标降级（胶囊滑杆已是翻页进度，不再跟随缩放）
     connect(m_canvas, &ImageCanvas::zoomChanged, this, [this](qreal z) {
-        if (m_zoomBadge && !m_currentImage.isNull()) {
+        if (m_zoomBadge && !m_currentImage.isNull() && Config::instance().showZoomControl()) {
             QString txt;
             if (m_canvas->isFitToWindow()) {
                 txt = tr("适合窗口");
@@ -1627,6 +1627,11 @@ void MainWindow::applyRuntimeSettings()
     m_canvas->setMiddlePanEnabled(cfg.middlePan());
     // 图片大于窗口时显示图片顶部（键 "config/imageproc/align_top_when_large"）
     m_canvas->setAlignTopWhenLarge(cfg.alignTopWhenLarge());
+    // 缩放百分比浮标（键 "config/view/show_zoom_control"）：关掉时把已经在淡出
+    // 队列里的浮标立即收掉，之后 zoomChanged 不再触发显示。
+    if (m_zoomBadge && !cfg.showZoomControl()) {
+        m_zoomBadge->hide();
+    }
     // 双击最大化/还原开关（键 "config/mouse/dblclick_maximize"）：开启时画布
     // 会把边缘单击翻页延迟 220ms 等第二击，避免「双击」先翻页又最大化。
     m_canvas->setDoubleClickMaximizeEnabled(cfg.dblclickMaximize());

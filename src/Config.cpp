@@ -136,6 +136,13 @@ bool Config::showAnimControl() const
     return m_settings.value(QStringLiteral("config/view/show_anim_control"), true).toBool();
 }
 
+bool Config::showZoomControl() const
+{
+    // 设置页「不显示缩放信息控制」是反选（inverted），key 存正向语义：
+    // true = 显示左下角缩放浮标（默认）。消费点在 MainWindow 的 zoomChanged。
+    return m_settings.value(QStringLiteral("config/view/show_zoom_control"), true).toBool();
+}
+
 bool Config::alwaysOnTop() const
 {
     return m_settings.value(QStringLiteral("config/always_on_top"), false).toBool();
