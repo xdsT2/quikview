@@ -1105,9 +1105,11 @@ void MainWindow::createActions()
     connect(m_metadata, &MetadataPanel::copied, this, [this]() {
         m_toast->showMessage(tr("已复制图片信息参数"));
     });
-    // 直方图折叠/展开改了内容高度：浮层高度=内容自然高，须重排几何（2026-11-04）
+    // 直方图折叠/展开改了内容高度：浮层高度=内容自然高，须重排几何（2026-11-04）。
+    // 布局激活是异步的（T0 时 hint 仍旧值 525，T100 才降到 427），延迟一拍以上
+    // 再排：60ms 对齐浮层其它重排节奏，用户肉眼无感。
     connect(m_metadata, &MetadataPanel::heightChanged, this, [this]() {
-        applyChromeLayout();
+        QTimer::singleShot(60, this, [this]() { applyChromeLayout(); });
     });
 
     actDark = new QAction(tr("深色模式(&D)"), this);
