@@ -249,6 +249,12 @@ bool Config::noRawLoad() const
     return m_settings.value(QStringLiteral("config/etc/no_raw_load"), false).toBool();
 }
 
+bool Config::skipRawWhenJpg() const
+{
+    // 「打开 JPEG 时不同时打开同名 RAW」：消费点 DirectoryLoader::open 的扫描过滤。
+    return m_settings.value(QStringLiteral("config/etc/skip_raw_when_jpg"), true).toBool();
+}
+
 bool Config::fitWindowToImage() const
 {
     return m_settings.value(QStringLiteral("config/etc/fit_window_to_image"), true).toBool();

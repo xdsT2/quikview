@@ -1,9 +1,12 @@
 #include "DirectoryLoader.h"
 
+#include "Config.h"
+
 #include <QCollator>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
+#include <QSet>
 
 #include <algorithm>
 
@@ -137,13 +140,45 @@ bool DirectoryLoader::open(const QString &filePath)
         return asc ? (r < 0) : (r > 0);
     });
 
+    const QString canonical = QFileInfo(filePath).absoluteFilePath();
+
+    // 「打开 JPEG 时不同时打开同名 RAW」（键 "config/etc/skip_raw_when_jpg"）：
+    // a.jpg + a.nef 同目录时只留 JPEG。仅在当前打开的是 JPEG 时过滤；直接打开
+    // .nef 时保留全量列表，否则用户双击 RAW 会被自己的过滤规则挡在门外。
+    if (Config::instance().skipRawWhenJpg()) {
+        const QString curSuffix = QFileInfo(canonical).suffix().toLower();
+        const bool curIsJpg = (curSuffix == QLatin1String("jpg")
+                               || curSuffix == QLatin1String("jpeg")
+                               || curSuffix == QLatin1String("jfif"));
+        if (curIsJpg) {
+            QSet<QString> jpgStems;
+            for (const QFileInfo &fi : infos) {
+                const QString s = fi.suffix().toLower();
+                if (s == QLatin1String("jpg") || s == QLatin1String("jpeg")
+                    || s == QLatin1String("jfif")) {
+                    jpgStems.insert(fi.completeBaseName().toLower());
+                }
+            }
+            static const QStringList kRawExts = {
+                QStringLiteral("dng"), QStringLiteral("nef"), QStringLiteral("cr2"),
+                QStringLiteral("arw"), QStringLiteral("rw2"), QStringLiteral("orf"),
+                QStringLiteral("raf"), QStringLiteral("pef"), QStringLiteral("raw")
+            };
+            infos.erase(std::remove_if(infos.begin(), infos.end(),
+                                       [&jpgStems](const QFileInfo &fi) {
+                const QString s = fi.suffix().toLower();
+                return kRawExts.contains(s)
+                       && jpgStems.contains(fi.completeBaseName().toLower());
+            }), infos.end());
+        }
+    }
+
     m_files.clear();
     m_files.reserve(infos.size());
     for (const QFileInfo &info : infos) {
         m_files << info.absoluteFilePath();
     }
 
-    const QString canonical = QFileInfo(filePath).absoluteFilePath();
     m_index = m_files.indexOf(canonical);
     return m_index >= 0;
 }
