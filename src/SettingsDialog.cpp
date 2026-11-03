@@ -1635,10 +1635,11 @@ void SettingsDialog::clearKeyConflicts()
 // 一一对应，判定基准是「保存后每个动作实际会装什么键」：
 //   出厂态行（启用 + 绑自身 + 键为空或等于出厂主键）= 基线，自身不参与冲突，
 //   其动作按出厂完整键位表生效；其余为自定义行（将顶掉出厂键位）。
-// 三类冲突（只由自定义行触发）：
-//   1) 同一动作被多个启用行指派（出厂行各绑自己，出现多条必有人改绑）；
-//   2) 两个自定义行键位相同；
-//   3) 自定义行键位撞上「仍处于出厂态的其他动作」的任何键（含 PageUp/Backspace
+// 多个启用行指向同一动作是合法用法（第 15 期：open 行可改绑 openfolder，
+// 两个槽位的键聚合到同一动作）；同一动作内部重复的键只算一次，不报冲突。
+// 两类冲突（只由自定义行触发，且目标动作不同）：
+//   1) 两个自定义行键位相同；
+//   2) 自定义行键位撞上「仍处于出厂态的其他动作」的任何键（含 PageUp/Backspace
 //      等副键）或固定动作（打印 Ctrl+P 等 14 个之外的动作）的任何键。
 // 有冲突：高亮全部冲突行并返回第一条提示文案；无冲突返回空串。
 QString SettingsDialog::keyboardConflicts()
@@ -1713,29 +1714,21 @@ QString SettingsDialog::keyboardConflicts()
         return s.toString(QKeySequence::NativeText);
     };
 
-    // 1) 同一动作被多个启用行指派
-    QHash<QString, QList<int>> byTarget;
-    for (int i = 0; i < st.size(); ++i) {
-        if (st[i].enabled)
-            byTarget[st[i].target].append(i);
-    }
-    for (auto it = byTarget.constBegin(); it != byTarget.constEnd(); ++it) {
-        if (it.value().size() > 1)
-            markBad(it.value(), tr("动作『%1』被多个键位行同时绑定").arg(label(it.key())));
-    }
-    // 2) 两个自定义行键位相同
+    // 1) 两个自定义行键位相同（同目标动作内部重复由 MainWindow 聚合去重，不算冲突）
     for (int i = 0; i < st.size(); ++i) {
         if (st[i].factory || st[i].key.isEmpty())
             continue;
         for (int j = i + 1; j < st.size(); ++j) {
             if (st[j].factory || st[j].key.isEmpty())
                 continue;
+            if (st[i].target == st[j].target)
+                continue;
             if (st[i].key == st[j].key)
                 markBad({ i, j }, tr("%1 已被『%2』占用")
                                       .arg(keyText(st[i].key), label(st[j].target)));
         }
     }
-    // 3) 自定义行 vs 出厂/固定键位（目标动作自己的出厂表不参与：改绑后原表即让位）
+    // 2) 自定义行 vs 出厂/固定键位（目标动作自己的出厂表不参与：改绑后原表即让位）
     for (int i = 0; i < st.size(); ++i) {
         if (st[i].factory || st[i].key.isEmpty())
             continue;

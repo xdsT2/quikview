@@ -1256,10 +1256,12 @@ void MainWindow::createActions()
 // 键盘快捷键自定义（批次 D1）：14 个可配置动作的键位下发。
 // 槽位语义（与设置页键盘页一一对应）：每一行是一个「键位槽」，
 // config/keyboard/<槽位>_enabled / _key / _action，槽位默认名 = 动作 id。
-//   槽位禁用 → 默认动作失去键位（setShortcuts({})）；
-//   未自定义（无 _key 或配回出厂主键，且绑定自身）→ 恢复出厂完整键位表
+//   槽位禁用 → 该槽位不贡献键位；
+//   未自定义（无 _key 或配回出厂主键，且绑定自身）→ 贡献出厂完整键位表
 //   （PageUp/Backspace/* 等副键保留，与改动前行为逐键一致）；
-//   自定义 → 目标动作 setShortcuts({自定义键})，顶掉原键位（含副键）。
+//   自定义 → 向目标动作贡献该键位（顶掉目标动作的原键位，含副键）。
+// 多个槽位可以指向同一目标动作，键位按目标动作聚合后一次安装（第 15 期修复：
+// 逐槽 setShortcuts 会被后遍历的槽位覆盖，导致改绑后两个键都失效）。
 // 调用点：createActions 末尾（启动）、onSettings 返回（保存/取消都重装，
 // 取消时配置已被快照回滚，重装回旧值）。冲突在设置页保存时拦截。
 
@@ -1298,34 +1300,45 @@ void MainWindow::applyShortcutConfig()
 {
     const Config &cfg = Config::instance();
 
-    // 先全部清空再逐槽重装：槽位被挪用/禁用时，原动作不留旧键
+    // 先全部清空再统一安装：槽位被挪用/禁用时，原动作不留旧键
     for (const SlotDef &d : shortcutSlotDefs()) {
         if (QAction *a = m_actions.value(QString::fromLatin1(d.slot))) {
             a->setShortcuts({});
         }
     }
+
+    // 按「目标动作」聚合，而不是逐槽位 setShortcuts：多个槽位可以指向同一个
+    // 动作（如「打开」改绑到「打开文件夹」），而 setShortcuts 是替换语义，
+    // 逐槽安装会让后遍历的槽位把先前写入的键覆盖掉（第 15 期 P0 bug）。
+    // 同一动作收到重复键只装一次，避免 Qt 的 ambiguous shortcut 警告。
+    QHash<QString, QList<QKeySequence>> perAction;
     for (const SlotDef &d : shortcutSlotDefs()) {
         const QString slot = QString::fromLatin1(d.slot);
         if (!cfg.actionEnabled(slot, true)) {
             continue;   // 槽位禁用：动作保持无键
         }
         const QString target = cfg.actionBinding(slot, slot);
-        QAction *dst = m_actions.value(target);
-        if (!dst) {
+        if (!m_actions.contains(target)) {
             continue;
         }
         const QString stored = cfg.actionKey(slot);
         const QKeySequence seq = QKeySequence::fromString(stored, QKeySequence::PortableText);
+        QList<QKeySequence> &keys = perAction[target];
         if (target == slot && (stored.isEmpty() || seq == d.defaults.value(0))) {
             // 未自定义 / 配回出厂主键：恢复完整出厂表（副键保留，行为与旧版一致）
-            if (!d.defaults.isEmpty()) {
-                dst->setShortcuts(d.defaults);
+            for (const QKeySequence &k : d.defaults) {
+                if (!keys.contains(k))
+                    keys.append(k);
             }
             continue;
         }
-        if (!seq.isEmpty()) {
-            dst->setShortcuts({ seq });
+        if (!seq.isEmpty() && !keys.contains(seq)) {
+            keys.append(seq);
         }
+    }
+    for (auto it = perAction.constBegin(); it != perAction.constEnd(); ++it) {
+        if (QAction *dst = m_actions.value(it.key()))
+            dst->setShortcuts(it.value());
     }
 }
 
