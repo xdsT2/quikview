@@ -1366,7 +1366,7 @@ void SettingsDialog::buildEtcPage(QWidget *page)
     sec = beginSection(page, tr("其他"));
     // 本批已接线三项（翻页音效 / 按图调窗 / 禁用屏保，见 MainWindow 对应消费点）；
     // etc/no_raw_load、skip_raw_when_jpg、raw_thumbnail 仍全仓零消费，灰显。
-    addCheckUnavailable(sec, tr("翻页时播放音效"), "etc/pageturn_wav", false, false);
+    addCheck(sec, tr("翻页时播放音效"), "etc/pageturn_wav", false, false);
     addCheckUnavailable(sec, tr("不打开 RAW 图片文件"), "etc/no_raw_load", false, false);
     addCheckUnavailable(sec, tr("打开 JPEG 文件时，不打开同名 RAW 文件"), "etc/skip_raw_when_jpg", false, true);
     addCheckUnavailable(sec, tr("打开 RAW 图片文件时，显示已有缩略图"), "etc/raw_thumbnail", false, true);

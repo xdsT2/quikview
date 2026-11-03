@@ -39,6 +39,7 @@
 #include <QPushButton>
 #include <QRandomGenerator>
 #include <QScreen>
+#include <cmath>
 #include <QResizeEvent>
 #include <QTextStream>
 #include <QTimer>
@@ -117,6 +118,62 @@ void applyScreensaverPrevention(bool on)
     SetThreadExecutionState(on ? (ES_CONTINUOUS | ES_DISPLAY_REQUIRED) : ES_CONTINUOUS);
 #else
     Q_UNUSED(on);
+#endif
+}
+
+// 翻页音效（设置「翻页时播放音效」，键 "config/etc/pageturn_wav"）：
+// 首次使用时在内存里合成一段 40ms 衰减正弦 WAV（8kHz / 16bit / 单声道，
+// 含 RIFF 头），之后每次经 winmm PlaySoundW 以 SND_MEMORY 异步播放。
+// 不落仓库、不产生任何音频素材文件；非 Windows 平台为空操作。
+void playPageturnTone()
+{
+    if (!Config::instance().pageturnWav()) {
+        return;
+    }
+#ifdef Q_OS_WIN
+    // 静态持有字节流：SND_MEMORY 异步播放期间内存必须保持有效
+    static const QByteArray kPageturnWav = []() {
+        constexpr int kSampleRate = 8000;
+        const int n = kSampleRate * 40 / 1000;
+        QByteArray wav;
+        auto put16 = [&wav](quint16 v) {
+            wav.append(char(v & 0xFF));
+            wav.append(char((v >> 8) & 0xFF));
+        };
+        auto put32 = [&wav, &put16](quint32 v) {
+            put16(quint16(v & 0xFFFF));
+            put16(quint16((v >> 16) & 0xFFFF));
+        };
+        const quint32 dataBytes = quint32(n) * 2;
+        wav.append("RIFF", 4);
+        put32(36 + dataBytes);
+        wav.append("WAVE", 4);
+        wav.append("fmt ", 4);
+        put32(16);
+        put16(1);                              // PCM
+        put16(1);                              // 单声道
+        put32(quint32(kSampleRate));
+        put32(quint32(kSampleRate) * 2);       // 字节率 = 采样率 × 块对齐
+        put16(2);                              // 块对齐
+        put16(16);                             // 位深
+        wav.append("data", 4);
+        put32(dataBytes);
+        for (int i = 0; i < n; ++i) {
+            const double t = double(i) / kSampleRate;
+            const double env = std::exp(-34.0 * t);
+            const qint16 s = qint16(0.55 * env
+                                    * std::sin(2.0 * 3.14159265358979323846 * 2200.0 * t)
+                                    * 32767.0);
+            wav.append(char(s & 0xFF));
+            wav.append(char((s >> 8) & 0xFF));
+        }
+        return wav;
+    }();
+    // SND_MEMORY：首参是 WAV 字节流内存指针；SND_NODEFAULT：失败不回落系统提示音
+    PlaySoundW(reinterpret_cast<LPCWSTR>(kPageturnWav.constData()),
+               nullptr, SND_MEMORY | SND_ASYNC | SND_NODEFAULT);
+#else
+    // 非 Windows 无 winmm，空操作
 #endif
 }
 
@@ -2261,6 +2318,7 @@ void MainWindow::onPrev()
         return;
     }
     loadAsync(p);
+    playPageturnTone();
     if (before - step < 0 && m_dir->count() > 1 && m_toast) {
         m_toast->showMessage(tr("已回到最后一张图片"));
     }
@@ -2279,6 +2337,7 @@ void MainWindow::onNext()
         return;
     }
     loadAsync(p);
+    playPageturnTone();
     if (before + step >= m_dir->count() && m_dir->count() > 1 && m_toast) {
         m_toast->showMessage(tr("已回到第一张图片"));
     }
