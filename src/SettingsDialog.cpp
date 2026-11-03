@@ -546,13 +546,13 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     // —— 页面（每页一个 QScrollArea，内容 widget 存 m_pages）——
     buildGeneralPage(addPage(tr("一般"), tr("窗口行为、检查更新与到达首尾时的操作；尚未实现的项已置灰。")));
     buildViewPage(addPage(tr("浏览"), tr("背景颜色、边框颜色与侧边箭头等浏览显示设置。")));
-    buildImageProcPage(addPage(tr("图像处理"), tr("插值算法与透明/翻页设置；多数项尚未实现，已置灰。")));
+    buildImageProcPage(addPage(tr("图像处理"), tr("透明背景、插值算法、翻页效果与 ICC 色彩管理；监视器 ICC 受 Qt6 限制暂不可用。")));
     buildAssocPage(addPage(tr("格式关联"), tr("通过系统入口设置默认打开方式（Windows 10+ 不允许程序静默改默认）。")));
     buildKeyboardPage(addPage(tr("键盘"), tr("14 个动作可自定义键位：改热键 / 改绑动作 / 禁用，保存后立即生效。")));
-    buildMousePage(addPage(tr("鼠标"), tr("左/右/X/Y 键映射固定；中键与滚轮的平移/缩放开关可用。")));
+    buildMousePage(addPage(tr("鼠标"), tr("左/右/X/Y 与滚轮的按键映射可自定义；中键平移、双击最大化可用。")));
     buildBookmarkPage(addPage(tr("书签"), tr("自动保存与最大数量可用；多窗口共享尚未实现，已置灰。")));
-    buildContextMenuPage(addPage(tr("上下文菜单"), tr("资源管理器壳菜单项由系统管理；本页设置尚未实现，已置灰。")));
-    buildEtcPage(addPage(tr("杂项"), tr("图片文件夹与外部编辑器可用；RAW 同名过滤与缩略图尚未实现，已置灰。")));
+    buildContextMenuPage(addPage(tr("上下文菜单"), tr("右键菜单与资源管理器缩略图随安装包注册、卸载时移除；本页仅作状态说明。")));
+    buildEtcPage(addPage(tr("杂项"), tr("图片文件夹、外部编辑器与 RAW 打开策略。")));
     buildLangPage(addPage(tr("语言"), tr("选择界面语言并管理语言文件。")));
 
     // 页面内容不足一屏时，多余空间落在末尾弹簧上（否则各 section 会被均匀拉开）
@@ -850,13 +850,14 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
     // 捕捉窗口仍为零消费，灰显；通知位置已在 MainWindow/Toast 接线：
     // 开（默认）=右下角并抬高避开胶囊，关=顶部居中。
     addCheckUnavailable(sec, tr("捕捉窗口"), "capture_window", false, true);
+    // 本段唯一的灰项就是「捕捉窗口」，提示紧跟在它后面，避免用户以为整段都没做。
+    addHint(sec, unavailableTip());
     addCheck(sec, tr("不保存浏览过的文件夹路径"), "remember_browsed_folders", true, true);
     addCheck(sec, tr("不允许多个实例"), "allow_multiple_instances", true, false);
     addCheck(sec, tr("删除文件时确认"), "delete_confirm", false, true);
     addCheck(sec, tr("在边角显示通知信息，而非中心"), "notify_corner", false, true);
     addCheck(sec, tr("总在最前 (Ctrl+A)"), "always_on_top", false, false);
     addCheck(sec, tr("按 ESC 退出"), "esc_exit", false, true);
-    addHint(sec, unavailableTip());
     // 「检查更新 / 检查小版本更新」旧开关见下方「检查更新」组：
     // 现在有真实的联网实现（UpdateChecker），不再是零消费假开关。
 
@@ -907,6 +908,7 @@ void SettingsDialog::buildViewPage(QWidget *page)
     addCheck(sec, tr("保存缩放状态"), "view/save_zoom_state", false, false);
     addCheckUnavailable(sec, tr("不显示菜单栏"), "view/show_menu_bar", true, true);
     addCheckUnavailable(sec, tr("不显示控制栏"), "view/show_control_bar", true, true);
+    addHint(sec, unavailableTip());
     // 侧边箭头是真开关：ImageCanvas::setSideArrowsEnabled()。
     addCheck(sec, tr("不显示侧边箭头"), "view/show_side_arrow", true, true);
     addCheck(sec, tr("不显示动画信息控制"), "view/show_anim_control", true, true);
@@ -914,7 +916,6 @@ void SettingsDialog::buildViewPage(QWidget *page)
     addCheck(sec, tr("不显示鼠标悬浮工具提示"), "view/show_tooltip", true, true);
     addCheck(sec, tr("用小字体显示 EXIF / 文件信息"),
              "view/exif_small_font", false, false);
-    addHint(sec, unavailableTip());
 
     sec = beginSection(page, tr("背景"));
     // 背景图已接通：开关 + 路径 + 浏览/打开文件夹全部可用；路径空等价纯色。
@@ -941,7 +942,6 @@ void SettingsDialog::buildViewPage(QWidget *page)
             QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(d).absolutePath()));
     });
     // 输入框 + 浏览… + 打开文件夹 已随背景图功能一起启用。
-    addHint(sec, unavailableTip());
 
     // 颜色两项是真开关：ImageCanvas::setBackgroundColor()/setBorderColor()，
     // 保存后 MainWindow::applyRuntimeSettings() 立即重刷当前画布。
@@ -992,7 +992,6 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
              "imageproc/align_top_when_large", false, true);
     // 快帧预览（C14）：ImageCache::startFullDecode 里的 DCT 缩放先出帧一级。
     addCheck(sec, tr("先显示低品质图片以加速渲染"), "imageproc/preview_mode", false, true);
-    addHint(sec, unavailableTip());
 
     // 图片内嵌 ICC 已接通（C1）；监视器 ICC 判定为暂不可行（C2）：Win32 可用
     // GetICMProfile / WcsGetDefaultColorProfile 取到 profile，但 Qt6 的 raster
@@ -1020,7 +1019,6 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     addComboRow(sec, tr("翻页效果"), "imageproc/pageturn_fx", QStringLiteral("0"),
                 { { "0", tr("无") }, { "1", tr("淡入淡出") },
                   { "2", tr("Alpha 滑动") }, { "3", tr("滑动") } }, 160);
-    addHint(sec, unavailableTip());
 }
 
 // ===========================================================================
@@ -1405,7 +1403,6 @@ void SettingsDialog::buildEtcPage(QWidget *page)
     addCheck(sec, tr("根据图片大小调节窗口大小"), "etc/fit_window_to_image", false, true);
     addCheck(sec, tr("运行 QuikView 时禁用 Windows 屏幕保护程序"), "etc/disable_screensaver",
              false, false);
-    addHint(sec, unavailableTip());
 }
 
 // ===========================================================================
