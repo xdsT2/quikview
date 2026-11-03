@@ -181,8 +181,12 @@ int main(int argc, char *argv[])
                           || parser.isSet(smokeOpt) || parser.isSet(shotOpt)
                           || parser.isSet(shotUiOpt) || parser.isSet(shotDelayOpt)
                           || parser.isSet(checkUpdateOpt);
+    // 单实例开关（设置页「不允许有多个实例」，inverted：config/allow_multiple_instances）。
+    // 勾选 = 单实例（默认，键为 false）；取消 = 允许多开。关闭时 serverKey 留空，
+    // 下方 `if (!serverKey.isEmpty())` 分支天然不监听、不转发。调试参数继续绕过单实例。
+    const bool singleInstance = !Config::instance().allowMultipleInstances();
     QString serverKey;
-    if (!debugRun) {
+    if (!debugRun && singleInstance) {
         serverKey = singleInstanceKey();
         QLocalSocket probe;
         probe.connectToServer(serverKey);

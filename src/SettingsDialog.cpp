@@ -830,12 +830,11 @@ QComboBox *SettingsDialog::addComboRowUnavailable(QWidget *section, const QStrin
 void SettingsDialog::buildGeneralPage(QWidget *page)
 {
     QWidget *sec = beginSection(page, tr("一般设定"));
-    // 三项在本文件之外零消费：Config::captureWindow() / allowMultipleInstances() /
-    // notifyCorner() 只有定义、全仓没有调用点（toast 恒为顶部居中的横条），
-    // 勾了不改变任何行为，按清账口径灰显；key 仍照常写盘，向后兼容。
+    // 捕捉窗口 / 通知位置仍为零消费，灰显；「不允许有多个实例」已接线：
+    // main.cpp 启动时读 config/allow_multiple_instances 决定是否监听单实例通道。
     addCheckUnavailable(sec, tr("捕捉窗口"), "capture_window", false, true);
     addCheck(sec, tr("不保存浏览过的文件夹路径"), "remember_browsed_folders", true, true);
-    addCheckUnavailable(sec, tr("不允许多个实例"), "allow_multiple_instances", true, false);
+    addCheck(sec, tr("不允许多个实例"), "allow_multiple_instances", true, false);
     addCheck(sec, tr("删除文件时确认"), "delete_confirm", false, true);
     addCheckUnavailable(sec, tr("在边角显示通知信息，而非中心"), "notify_corner", false, true);
     addCheck(sec, tr("总在最前 (Ctrl+A)"), "always_on_top", false, false);
