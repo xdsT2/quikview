@@ -27,6 +27,10 @@ public:
     void showImage(const QString &path, const QImage &image);
     void clear();
 
+    // 「用小字体显示 EXIF / 文件信息」：键值行 12px ↔ 10px。切换后按最近一次
+    // showImage 的入参重建 grid，宽度与折行随之更新。
+    void setSmallFont(bool small);
+
     // 验收探针：把面板各层 sizeHint/实际高度写到文件（smoke 命令 metadump）
     void dumpHeights(const QString &path, const QString &tag = QString()) const;
 
@@ -64,4 +68,7 @@ private:
     int m_contentWidth = 320;    // 两列 grid 的自然宽度（钳到 [280, 440]）
     int m_maxKeyW = 0;           // 自然宽度的两列度量（各 label 自己的字体）
     int m_maxValW = 0;
+    bool m_smallFont = false;    // 键值行字号档位（false=12px，true=10px）
+    QString m_lastPath;          // 最近一次 showImage 的入参（字号切换时重建用）
+    QImage m_lastImage;
 };

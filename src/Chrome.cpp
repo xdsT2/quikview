@@ -1832,11 +1832,17 @@ void StatusOverlay::clear()
     update();
 }
 
+void StatusOverlay::setSmallFont(bool small)
+{
+    m_smallFont = small;
+    update();
+}
+
 void StatusOverlay::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
-    p.setFont(uiFont(11));
+    p.setFont(uiFont(m_smallFont ? 10 : 11));
     const int baselineTop = height() - 25;
     p.setPen(QColor(QStringLiteral("#797d82")));
     p.drawText(QRect(16, baselineTop, width() / 2, 16),

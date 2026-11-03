@@ -894,8 +894,8 @@ void SettingsDialog::buildViewPage(QWidget *page)
     addCheck(sec, tr("不显示动画信息控制"), "view/show_anim_control", true, true);
     addCheck(sec, tr("不显示缩放信息控制"), "view/show_zoom_control", true, true);
     addCheck(sec, tr("不显示鼠标悬浮工具提示"), "view/show_tooltip", true, true);
-    addCheckUnavailable(sec, tr("用小字体显示 EXIF / 文件信息"),
-                        "view/exif_small_font", false, false);
+    addCheck(sec, tr("用小字体显示 EXIF / 文件信息"),
+             "view/exif_small_font", false, false);
     addHint(sec, unavailableTip());
 
     sec = beginSection(page, tr("背景"));

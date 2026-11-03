@@ -297,6 +297,8 @@ public:
     void setImageInfo(const QString &text);
     void setCounter(const QString &text);
     void clear();
+    // 「用小字体显示 EXIF / 文件信息」：底部信息行 11px ↔ 10px。
+    void setSmallFont(bool small);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -304,6 +306,7 @@ protected:
 private:
     QString m_info;
     QString m_counter;
+    bool m_smallFont = false;
 };
 
 // ============================ 空状态 ============================

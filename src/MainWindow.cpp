@@ -1632,6 +1632,14 @@ void MainWindow::applyRuntimeSettings()
     if (m_zoomBadge && !cfg.showZoomControl()) {
         m_zoomBadge->hide();
     }
+    // EXIF / 文件信息小字体（键 "config/view/exif_small_font"）：信息面板键值行
+    // 12px ↔ 10px，底部状态行 11px ↔ 10px；切换后立即按最近一张图重建。
+    if (m_metadata) {
+        m_metadata->setSmallFont(cfg.exifSmallFont());
+    }
+    if (m_statusOverlay) {
+        m_statusOverlay->setSmallFont(cfg.exifSmallFont());
+    }
     // 双击最大化/还原开关（键 "config/mouse/dblclick_maximize"）：开启时画布
     // 会把边缘单击翻页延迟 220ms 等第二击，避免「双击」先翻页又最大化。
     m_canvas->setDoubleClickMaximizeEnabled(cfg.dblclickMaximize());

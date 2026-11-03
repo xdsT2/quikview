@@ -415,17 +415,18 @@ void MetadataPanel::addGroup(const QList<Row> &rows)
         return;
     }
     int row = m_grid->rowCount();
+    const int rowPx = m_smallFont ? 10 : 12;   // 「用小字体显示 EXIF / 文件信息」
     for (const Row &r : rows) {
         // 键显示文本带冒号（对照原型 .info-key「相机制造商:」）：键值列间只有
         // 2px column-gap，无冒号时 5 字键与值视觉贴死（「相机制造商Hasselblad」）。
         const QString keyText = r.key + QStringLiteral(":");
         auto *key = new QLabel(keyText, m_gridHolder);
         key->setObjectName(QStringLiteral("infoKey"));
-        key->setFont(UiStyle::font(12));
+        key->setFont(UiStyle::font(rowPx));
 
         auto *value = new ElidedLabel(Qt::ElideRight, m_gridHolder);
         value->setObjectName(QStringLiteral("infoVal"));
-        value->setFont(UiStyle::font(12));
+        value->setFont(UiStyle::font(rowPx));
         // 键/值两列全部左对齐（值列曾用 AlignRight，长值被推到面板右缘硬切）；
         // 超长由 ElidedLabel 省略，Tooltip 保留全文，复制走 m_copyLines 全文。
         value->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
@@ -455,6 +456,8 @@ void MetadataPanel::addGroupGap()
 
 void MetadataPanel::showImage(const QString &path, const QImage &image)
 {
+    m_lastPath = path;
+    m_lastImage = image;
     clear();
 
     const QFileInfo info(path);
@@ -569,6 +572,7 @@ void MetadataPanel::showImage(const QString &path, const QImage &image)
     if (!exifRows) {
         auto *empty = new QLabel(tr("这张图片没有 EXIF 信息"), m_gridHolder);
         empty->setObjectName(QStringLiteral("emptyHint"));
+        empty->setFont(UiStyle::font(m_smallFont ? 10 : 12));
         // 不开 wordWrap：面板展开动画期间宽度会从窄变宽，折行后的两行文本
         // 塞不进行高 16px 的格子，表现为叠印乱码。固定单行（约 132px），
         // 跨键值两列后任何状态下都放得下。
@@ -585,6 +589,18 @@ void MetadataPanel::showImage(const QString &path, const QImage &image)
 
     finishLayout();
     dumpHeights(QStringLiteral("Temp/meta-dump.txt"), QStringLiteral("SHOWIMG"));
+}
+
+void MetadataPanel::setSmallFont(bool small)
+{
+    if (m_smallFont == small) {
+        return;
+    }
+    m_smallFont = small;
+    // 已有内容按最近一次的入参重建：字号变了，键列/值列的自然宽度也要重算。
+    if (!m_lastPath.isEmpty()) {
+        showImage(m_lastPath, m_lastImage);
+    }
 }
 
 void MetadataPanel::finishLayout()
