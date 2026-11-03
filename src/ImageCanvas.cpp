@@ -160,6 +160,50 @@ QImage lanczosResample(const QImage &src, const QSize &dst)
     return out;
 }
 
+// 强锐化滤镜（C13）：固定强度 3×3 unsharp mask，接在 lanczosResample 之后。
+// 高斯核 [1 2 1;2 4 2;1 2 1]/16 做模糊底，out = src + (src - blur) * 4/5。
+// 高斯底比盒形底振铃小（交办单要求「无白边振铃」）；边缘像素原样复制。
+QImage applyStrongSharpen(const QImage &src)
+{
+    if (src.isNull() || src.width() < 3 || src.height() < 3) {
+        return src;
+    }
+    const QImage in = src.convertToFormat(QImage::Format_ARGB32);
+    const int w = in.width();
+    const int h = in.height();
+    QImage out(w, h, QImage::Format_ARGB32);
+    for (int y = 0; y < h; ++y) {
+        const QRgb *up = reinterpret_cast<const QRgb *>(in.constScanLine(qMax(0, y - 1)));
+        const QRgb *mid = reinterpret_cast<const QRgb *>(in.constScanLine(y));
+        const QRgb *dn = reinterpret_cast<const QRgb *>(in.constScanLine(qMin(h - 1, y + 1)));
+        QRgb *orow = reinterpret_cast<QRgb *>(out.scanLine(y));
+        for (int x = 0; x < w; ++x) {
+            if (x == 0 || x == w - 1 || y == 0 || y == h - 1) {
+                orow[x] = mid[x];
+                continue;
+            }
+            const int xl = x - 1;
+            const int xr = x + 1;
+            // 3×3 高斯模糊：角 1、边 2、中心 4，核和 16
+            const int blurR = (qRed(up[xl]) + qRed(up[xr]) + qRed(dn[xl]) + qRed(dn[xr])
+                               + 2 * (qRed(up[x]) + qRed(mid[xl]) + qRed(mid[xr]) + qRed(dn[x]))
+                               + 4 * qRed(mid[x])) / 16;
+            const int blurG = (qGreen(up[xl]) + qGreen(up[xr]) + qGreen(dn[xl]) + qGreen(dn[xr])
+                               + 2 * (qGreen(up[x]) + qGreen(mid[xl]) + qGreen(mid[xr]) + qGreen(dn[x]))
+                               + 4 * qGreen(mid[x])) / 16;
+            const int blurB = (qBlue(up[xl]) + qBlue(up[xr]) + qBlue(dn[xl]) + qBlue(dn[xr])
+                               + 2 * (qBlue(up[x]) + qBlue(mid[xl]) + qBlue(mid[xr]) + qBlue(dn[x]))
+                               + 4 * qBlue(mid[x])) / 16;
+            // 固定强度 0.8：out = src + (src - blur) * 4/5，逐通道截断
+            const int sr = qBound(0, qRed(mid[x]) + (qRed(mid[x]) - blurR) * 4 / 5, 255);
+            const int sg = qBound(0, qGreen(mid[x]) + (qGreen(mid[x]) - blurG) * 4 / 5, 255);
+            const int sb = qBound(0, qBlue(mid[x]) + (qBlue(mid[x]) - blurB) * 4 / 5, 255);
+            orow[x] = qRgba(sr, sg, sb, qAlpha(mid[x]));
+        }
+    }
+    return out;
+}
+
 // 空态标识：同心圆环 + 右下短斜线，与 resources/quikview.ico 同一视觉语汇。
 // 自有几何图形（不使用任何第三方 logo 的构形）。
 QPixmap makePlaceholderMark(int S, const QColor &color)
@@ -632,7 +676,11 @@ void ImageCanvas::doRefreshSampling()
         m_samplingSize = QSize(tw, th);
         return;
     }
-    const QImage small = lanczosResample(m_sourcePixmap.toImage(), QSize(tw, th));
+    QImage small = lanczosResample(m_sourcePixmap.toImage(), QSize(tw, th));
+    // 强锐化滤镜（C13）：仅 lanczos 缩小插值路径叠加，固定强度 unsharp mask
+    if (Config::instance().strongSharpen()) {
+        small = applyStrongSharpen(small);
+    }
     QPixmap pm = QPixmap::fromImage(small);
     pm.setDevicePixelRatio(static_cast<qreal>(tw) / isz.width());
     m_item->setPixmap(pm);

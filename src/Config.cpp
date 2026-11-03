@@ -217,6 +217,13 @@ QString Config::mouseYAction() const
                             QStringLiteral("none")).toString();
 }
 
+bool Config::strongSharpen() const
+{
+    // 「使用强锐化滤镜」（C13）：消费点 ImageCanvas::doRefreshSampling，
+    // lanczos 缩图后叠加固定强度 3×3 unsharp mask。
+    return m_settings.value(QStringLiteral("config/imageproc/strong_sharpen"), false).toBool();
+}
+
 QString Config::interpolation() const
 {
     const QString v = m_settings.value(QStringLiteral("config/interpolation"),

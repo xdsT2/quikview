@@ -57,6 +57,10 @@ public:
     QString mouseXAction() const;
     QString mouseYAction() const;
 
+    // 「使用强锐化滤镜」：lanczosResample 缩图后叠加一层固定强度 3×3
+    // unsharp mask（ImageCanvas::doRefreshSampling）。默认关。
+    bool strongSharpen() const;
+
     // 图像处理
     QString interpolation() const;     // "bilinear" | "bicubic" | "lanczos"（默认 "bicubic"）
     bool smoothZoom() const;           // 默认平滑缩放

@@ -952,7 +952,8 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     // 解码链路无条件 setAutoTransform(true)（FrameNavigator / ImageCache /
     // MainWindow 各处），留个勾选框只会让人以为能关。实现处见
     // FrameNavigator.cpp 的同名注释。
-    addCheckUnavailable(sec, tr("使用强锐化滤镜"), "imageproc/strong_sharpen", false, false);
+    // 强锐化（C13）：lanczos 缩图路径叠加固定强度 unsharp mask，见 ImageCanvas。
+    addCheck(sec, tr("使用强锐化滤镜"), "imageproc/strong_sharpen", false, false);
     addCheck(sec, tr("缓存下一张图片"), "imageproc/cache_image", false, true);
 
     QHBoxLayout *cacheRow = addRow(sec, tr("缓存大小"));
