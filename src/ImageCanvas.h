@@ -155,6 +155,9 @@ private:
     // 与 fitToWindow()/fitToWidth() 共用；resizeEvent 拖动期只调这里不算采样。
     void fitToWindowGeom();
     void fitToWidthGeom();
+    // 场景矩形收口：图片矩形四周各加 2 倍视口 padding，fit 态也有滚动行程
+    // → 打开即可拖、可拖出边界。m_item 始终保持 (0,0) 起，pad 只在 sceneRect。
+    void updateSceneRect();
     // 「图片大于窗口时显示图片顶部」：高于视口时滚到顶（fit / 100% 适配路径共用）
     void applyAlignTopIfLarge();
     // 侧边翻页箭头带：命中判定 + 悬停光标/箭头显隐。pos 为视口坐标，

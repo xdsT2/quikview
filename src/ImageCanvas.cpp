@@ -502,9 +502,9 @@ void ImageCanvas::setPixmap(const QPixmap &pixmap, bool fitAfter)
     m_rubber = nullptr;
     m_zoom = 1.0;
     resetTransform();
-    // QGraphicsScene 的 sceneRect 只涨不缩：换图后必须显式重置成新图尺寸，
-    // 否则小于视口的图会按旧矩形的中心对齐，表现为「图偏在左边」。
-    scene()->setSceneRect(m_item->boundingRect());
+    // QGraphicsScene 的 sceneRect 只涨不缩：换图后必须显式重置。
+    // 加 2 倍视口 padding 后 fit 态也有滚动行程 → 打开即可拖、可拖出边界。
+    updateSceneRect();
     if (fitAfter) {
         fitToWindow();
     }
@@ -525,7 +525,7 @@ void ImageCanvas::setPixmapPreservingView(const QPixmap &pixmap, const QPointF &
     m_rubber = nullptr;
     m_samplingSize = QSize();   // 换图后旧的目标尺寸命中必是假命中（源都换了）
     resetTransform();
-    scene()->setSceneRect(m_item->boundingRect());   // 同 setPixmap：防止沿用旧矩形
+    updateSceneRect();   // 同 setPixmap：防止沿用旧矩形（含可拖 padding）
     if (!hadItem || fitWindow) {
         fitToWindow();
         refreshEdgeHover();   // 空态→有图：按当前光标位置重算箭头
@@ -570,6 +570,22 @@ void ImageCanvas::clear()
     if (m_logo) {
         m_logo->show();
     }
+}
+
+// 画布自由拖动：sceneRect = 图片矩形四周各加 2 倍视口 padding。
+// 借鉴 core-ui「不约束平移」的规则（MIT，仅规则不抄码）：滚动行程恒 > 0，
+// fit 态也能拖，且能拖出大半个屏幕的空白。m_item 固定 (0,0) 起，
+// pad 只体现在 sceneRect 上——所有以图片矩形为基准的锚点/归一化逻辑不变。
+void ImageCanvas::updateSceneRect()
+{
+    if (!m_item) {
+        scene()->setSceneRect(QRectF());
+        return;
+    }
+    const QRectF img = m_item->boundingRect();
+    const qreal px = viewport()->width() * 2.0;
+    const qreal py = viewport()->height() * 2.0;
+    scene()->setSceneRect(img.adjusted(-px, -py, px, py));
 }
 
 void ImageCanvas::setContentMargins(const QMargins &margins)
@@ -693,7 +709,13 @@ void ImageCanvas::setCropMode(bool on)
     m_cropMode = on;
     clearSelection();
     setDragMode(on ? QGraphicsView::NoDrag : QGraphicsView::ScrollHandDrag);
-    setCursor(on ? Qt::CrossCursor : Qt::ArrowCursor);
+    // 非裁剪态交给 Qt 管理光标：ScrollHandDrag 拖动中给闭合手，松手恢复；
+    // 原来的 ArrowCursor 会把抓手光标盖掉（可拖时张开手、按住握拳）
+    if (on) {
+        setCursor(Qt::CrossCursor);
+    } else {
+        unsetCursor();
+    }
 }
 
 QRect ImageCanvas::selectionRect() const
@@ -783,9 +805,11 @@ void ImageCanvas::fitToWidthGeom()
     if (ih * z <= viewport()->height()) {
         centerOn(m_item);
     } else if (m_alignTopWhenLarge) {
-        // 图片高于视口：显示图片顶部（原版默认行为）
-        horizontalScrollBar()->setValue(0);
-        verticalScrollBar()->setValue(0);
+        // 图片高于视口：显示图片顶部（原版默认行为）。
+        // padding 后滚动条 0 不是图片顶，改为图片顶边对齐视口顶边
+        // （横向宽度已贴合，中心对齐即左对齐，不引入横向行程差异）
+        const QRectF img = m_item->sceneBoundingRect();
+        centerOn(img.center().x(), img.top() + viewport()->height() / (2.0 * z));
     } else {
         // 设置「图片大于窗口时显示图片顶部」关闭 → 垂直居中（横向仍贴左，
         // 宽度已贴合视口，横向滚动条无行程）
@@ -821,7 +845,10 @@ void ImageCanvas::applyAlignTopIfLarge()
     }
     const QSizeF isz = m_item->pixmap().deviceIndependentSize();
     if (isz.height() * transform().m11() > viewport()->height()) {
-        verticalScrollBar()->setValue(0);
+        // padding 后滚动条 0 不是图片顶：把图片顶边对齐到视口顶边
+        // （场景点 = 图片顶 + 半个视口的高度 / 缩放，centerOn 送它到视口中心）
+        const QRectF img = m_item->sceneBoundingRect();
+        centerOn(img.center().x(), img.top() + viewport()->height() / (2.0 * transform().m11()));
     }
 }
 
@@ -830,16 +857,17 @@ void ImageCanvas::setZoom(qreal zoom)
     applyZoomAt(zoom, viewport()->rect().center());
 }
 
-// 缩放锚点还原：图片比视口小时 Qt 自己居中（滚动条无行程），此时不需要对齐；
-// 超出视口时按「场景点当前落在哪」与「它应该落在哪」的像素差推滚动条。
+// 缩放锚点还原：视图无滚动行程时 Qt 自己居中（此时不需要对齐）；
+// 有行程（含自由拖动 padding 给小图带来的行程）就按「场景点当前落在哪」
+// 与「它应该落在哪」的像素差推滚动条。
 void ImageCanvas::keepScenePointAt(const QPointF &scenePt, const QPoint &viewportPt)
 {
     if (!m_item) {
         return;
     }
-    const qreal z = transform().m11();
-    const QRectF r = m_item->sceneBoundingRect();
-    if (r.width() * z <= viewport()->width() && r.height() * z <= viewport()->height()) {
+    const QScrollBar *hb = horizontalScrollBar();
+    const QScrollBar *vb = verticalScrollBar();
+    if (hb->maximum() <= hb->minimum() && vb->maximum() <= vb->minimum()) {
         return;
     }
     const QPointF now = mapFromScene(scenePt);
@@ -1194,6 +1222,9 @@ void ImageCanvas::resizeEvent(QResizeEvent *event)
         m_samplingSize = QSize();
     }
     m_sampleFlush.start();
+    // 自由拖动 padding 以视口尺寸为基准，视口变了 padding 跟着重算
+    // （在 fit 几何之前调用：fit 的 centerOn/顶部对齐都依赖新 sceneRect）
+    updateSceneRect();
     if (m_fitToWindow) {
         fitToWindowGeom();    // 拖动期只做几何，不触发 refreshSampling
     } else if (m_fitWidth) {
