@@ -561,16 +561,15 @@ void MainWindow::applyChromeLayout()
     }
     // 图片信息：左上覆盖层（原型 .info-overlay）。缩略图面板开合跟着横移，
     // 不遮挡面板（面板右缘 12+160=172，浮层 196 起）；全屏时贴顶 10px。
-    // 宽度是浮层自己算好的自然宽（钳在 280..440），高度钳到可用高度，
-    // 超出部分由浮层内部滚动。覆盖层不参与 updateCanvasInsets，不挤压画布。
+    // 宽度是浮层自己算好的自然宽（钳在 280..440）。2026-11-04 定稿：高度就是
+    // 内容自然高，不钳可用高度、不内部滚动——内容比画面高就让画面截断底边
+    // （用户口头修订覆盖工单 1.3 的滚动条款）。
     if (m_metadata && m_metadata->isVisible()) {
         const bool browserOpen = m_browser && m_browser->isVisible();
         const int left = browserOpen ? 196 : 14;
         const int top = full ? 10 : 70;
-        const int availH = h - top - 24;
         const QSize hint = m_metadata->sizeHint();
-        m_metadata->setGeometry(x + left, y + top,
-                                hint.width(), qMin(hint.height(), qMax(120, availH)));
+        m_metadata->setGeometry(x + left, y + top, hint.width(), hint.height());
         m_metadata->raise();
     }
 
@@ -2480,6 +2479,38 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         dlg->setAttribute(Qt::WA_DeleteOnClose);
         dlg->show();
     }
+    // 视觉回归探针：打开设置并切到指定页（settingspage:<序号>，0=一般）。
+    // 不新增 SettingsDialog 接口——导航项就是带 objectName 的 QPushButton，点它等价于用户点击。
+    // 「关于」按钮也挂 navItem，按文案排除后再取第 N 个，顺序与页面注册顺序一致。
+    else if (c.startsWith(QLatin1String("settingspage:"))) {
+        const QString key = c.mid(13).trimmed();
+        // 允许 ASCII 别名（appearance = 外观），避免命令行中文编码在不同 shell 下失真
+        const QString want = (key == QLatin1String("appearance"))
+                                 ? QString::fromUtf8("\xE5\xA4\x96\xE8\xA7\x82")
+                                 : key;
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        QTimer::singleShot(400, dlg, [dlg, want]() {
+            QList<QPushButton *> navs;
+            const auto btns = dlg->findChildren<QPushButton *>(QStringLiteral("navItem"));
+            for (QPushButton *b : btns) {
+                if (!b->text().contains(QStringLiteral("关于"))) {
+                    navs.append(b);
+                }
+            }
+            for (QPushButton *b : navs) {
+                if (!want.isEmpty() && b->text().contains(want)) {
+                    b->click();
+                    return;
+                }
+            }
+            const int index = want.toInt();
+            if (index >= 0 && index < navs.size()) {
+                navs.at(index)->click();
+            }
+        });
+    }
     // —— 键盘自定义验收探针（批次 D1，截图 + config 取证用）——
     else if (c == QLatin1String("keyconflict")) {
         // 把「删除」行热键改成 Ctrl+P（撞固定动作「打印」）走真实保存链路：
@@ -2540,6 +2571,20 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             m_metadata->show();
             m_metadata->raise();
             applyChromeLayout();
+        }
+    }
+    // 验收探针：切换信息浮层可见性（等价 Tab），验证折叠态跨翻图/重开保持
+    else if (c == QLatin1String("infotoggle")) {
+        if (m_metadata) {
+            m_metadata->setVisible(!m_metadata->isVisible());
+            applyChromeLayout();
+        }
+    }
+    // 验收探针：折叠/展开直方图（等价点「▾ 直方图」标题），配合 next 验证
+    // 折叠态不被翻图重置、卡片高度跟着收紧
+    else if (c == QLatin1String("histtoggle")) {
+        if (m_metadata && m_metadata->m_histToggle) {
+            m_metadata->m_histToggle->click();
         }
     }
     // 验收探针：收藏/取消收藏当前图（等价按 B），配合 next 连打可验收
@@ -3868,6 +3913,8 @@ void MainWindow::onSettings()
     SettingsDialog dlg(this);
     dlg.exec();
     // 设置页可能改了主题（三档）；按当前取值重新解析应用（system 时随系统）。
+    // 磨砂开关要先落进 UiStyle，否则 appQss() 里菜单底还是旧的不透明度。
+    UiStyle::setBlurMaterial(Config::instance().blurMaterial());
     Theme::applySetting(*qApp, Config::instance().theme());
     syncThemeActions();   // 菜单勾选态跟着新主题走
     m_slideshowTimer->setInterval(Config::instance().slideshowIntervalMs());

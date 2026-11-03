@@ -15,7 +15,26 @@
 #include <QMenu>
 #include <QString>
 
+#if defined(Q_OS_WIN)
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
+#  include <windows.h>
+#  include <dwmapi.h>
+#endif
+
 namespace UiStyle {
+
+// 磨砂材质开关（config/ui/blur_material）。只影响右键菜单与信息浮层：
+// 开 → 菜单半透明 + 尝试 DWM Acrylic；关 → 纯色不透明。
+// 由 MainWindow::applyRuntimeSettings 在启动/保存设置后写入，appQss() 与
+// polishMenu() 都读这里，避免各处重复拷配置。
+inline bool &blurMaterial()
+{
+    static bool on = false;
+    return on;
+}
+inline void setBlurMaterial(bool on) { blurMaterial() = on; }
 
 // QMenu 圆角要干净，必须让窗口本身透明且无边框（否则四角露出黑底）。
 inline void polishMenu(QMenu *menu)
@@ -26,6 +45,18 @@ inline void polishMenu(QMenu *menu)
     menu->setAttribute(Qt::WA_TranslucentBackground, true);
     menu->setWindowFlag(Qt::FramelessWindowHint, true);
     menu->setWindowFlag(Qt::NoDropShadowWindowHint, true);
+#if defined(Q_OS_WIN)
+    if (blurMaterial()) {
+        // 真正的亚克力必须由 DWM 合成，QSS 只能给半透明底。窗口句柄在首次
+        // winId() 时创建；失败（Win10 / 旧版 Win11）就退回纯半透明，不报错。
+        HWND hwnd = reinterpret_cast<HWND>(menu->winId());
+        if (hwnd) {
+            const DWORD kBackdropAttr = 38;   // DWMWA_SYSTEMBACKDROP_TYPE
+            int type = 3;                     // DWMSBT_TRANSIENTWINDOW (Acrylic)
+            DwmSetWindowAttribute(hwnd, kBackdropAttr, &type, sizeof(type));
+        }
+    }
+#endif
 }
 
 // —— 原型 :root 色板 ——
@@ -83,7 +114,7 @@ inline QFont font(int px = 12)
 // 应用级：菜单、提示、滚动条、对话框底座。由 Theme::apply(Dark) 安装。
 inline QString appQss()
 {
-    return QStringLiteral(R"(
+    QString qss = QStringLiteral(R"(
 QDialog { background: #232427; color: #f2f2f2; }
 QWidget { color: #f2f2f2; }
 
@@ -186,6 +217,13 @@ QTabBar::tab { background: transparent; color: #92979e; padding: 7px 13px;
 QTabBar::tab:selected { color: #55c0f0; border-bottom-color: #55c0f0; }
 QTabBar::tab:hover { color: #ffffff; }
 )");
+    // 磨砂材质开：菜单给半透明底，剩下的交给 DWM 合成（polishMenu 里设 Acrylic）；
+    // 关：保持纯色，避免「半透明但没模糊」的糊字。
+    if (blurMaterial()) {
+        qss.replace(QStringLiteral("QMenu { background: #27292d;"),
+                    QStringLiteral("QMenu { background: rgba(39,41,45,0.82);"));
+    }
+    return qss;
 }
 
 // 对话框内部（设置 / 图片转换共用）

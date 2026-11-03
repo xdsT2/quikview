@@ -561,7 +561,6 @@ void MetadataPanel::showImage(const QString &path, const QImage &image)
     renderHistogram(image);
 
     finishLayout();
-    dumpHeights(QStringLiteral("Temp/meta-dump.txt"), QStringLiteral("SHOWIMG"));
 }
 
 void MetadataPanel::setSmallFont(bool small)

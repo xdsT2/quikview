@@ -83,6 +83,7 @@ int main(int argc, char *argv[])
     // 主题：三档 dark/light/system；system 按 Windows 深浅色解析。
     // 首次解析前先装好系统深浅色监听，避免启动瞬间错过切换事件。
     Theme::installSystemWatcher(app);
+    UiStyle::setBlurMaterial(Config::instance().blurMaterial());   // 磨砂开关先于 QSS 安装
     Theme::applySetting(app, Config::instance().theme());
 
     // 一次性迁移：老版本「单击屏幕两侧翻页」是灰显项，但保存设置时 addCheckUnavailable

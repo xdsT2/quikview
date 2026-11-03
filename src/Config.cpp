@@ -53,6 +53,13 @@ QString Config::theme() const
     return m_settings.value(QStringLiteral("config/theme"), QStringLiteral("dark")).toString();
 }
 
+bool Config::blurMaterial() const
+{
+    // 第 18 期④：磨砂材质。默认关——只在右键菜单与信息浮层上尝试 DWM Acrylic，
+    // 不支持的机器退回 QSS 半透明（polishMenu 会静默失败，不报错）。
+    return m_settings.value(QStringLiteral("config/ui/blur_material"), false).toBool();
+}
+
 int Config::slideshowIntervalMs() const
 {
     return m_settings.value(QStringLiteral("config/slideshow_interval_ms"), 3000).toInt();

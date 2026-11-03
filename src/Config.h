@@ -19,7 +19,8 @@ public:
 
     QString language() const;
     bool showSelectLangDialog() const;
-    QString theme() const;   // "dark" | "light"
+    QString theme() const;   // "dark" | "light" | "system"
+    bool blurMaterial() const;   // 磨砂材质（右键菜单与信息浮层，默认关）
     int slideshowIntervalMs() const;  // 默认 3000
     bool slideshowRandom() const;     // 幻灯片随机播放（默认 false）
     QString defaultZoom() const;      // "fit" | "actual"
