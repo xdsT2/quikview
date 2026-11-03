@@ -347,13 +347,13 @@ void MetadataPanel::buildUi()
     m_bodyLayout->addWidget(m_mapBtn, 0, Qt::AlignLeft);
     m_mapBtn->hide();
 
-    // —— 底部可折叠直方图（默认收起，去页签后的唯一图形化信息）——
+    // —— 底部可折叠直方图（默认展开，去页签后的唯一图形化信息）——
     m_histToggle = new QPushButton(m_body);
     m_histToggle->setObjectName(QStringLiteral("histToggle"));
     m_histToggle->setCursor(Qt::PointingHandCursor);
     m_histToggle->setFlat(true);
     m_histToggle->setFocusPolicy(Qt::NoFocus);
-    m_histToggle->setText(tr("▸ 直方图"));
+    m_histToggle->setText(tr("▾ 直方图"));
     connect(m_histToggle, &QPushButton::clicked, this, [this]() {
         const bool show = m_histBody->isHidden();
         m_histBody->setVisible(show);
@@ -366,7 +366,7 @@ void MetadataPanel::buildUi()
     histLayout->setContentsMargins(0, 0, 0, 0);
     m_histogram = new HistogramView(m_histBody);
     histLayout->addWidget(m_histogram);
-    m_histBody->hide();
+    m_histBody->show();
     m_bodyLayout->addWidget(m_histBody);
 
     m_bodyLayout->addStretch(1);
