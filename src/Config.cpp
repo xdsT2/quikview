@@ -180,6 +180,11 @@ bool Config::cacheNextImage() const
     return m_settings.value(QStringLiteral("config/imageproc/cache_image"), true).toBool();
 }
 
+bool Config::alignTopWhenLarge() const
+{
+    return m_settings.value(QStringLiteral("config/imageproc/align_top_when_large"), true).toBool();
+}
+
 int Config::cacheSizeMb() const
 {
     // 原图缓存上限，单位 MB；设置页范围比这宽，这里再夹一次防止手改配置越界。

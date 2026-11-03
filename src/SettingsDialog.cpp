@@ -970,8 +970,8 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     // 缓存上限已接配置：保存时 applyRuntimeSettings 调 ImageCache::setFullCacheLimit
     // 即时生效（构造时也读同一键设初值），无需重启。
 
-    addCheckUnavailable(sec, tr("图片大于窗口时显示图片顶部"),
-                        "imageproc/align_top_when_large", false, true);
+    addCheck(sec, tr("图片大于窗口时显示图片顶部"),
+             "imageproc/align_top_when_large", false, true);
     addCheckUnavailable(sec, tr("先显示低品质图片以加速渲染"), "imageproc/preview_mode", false, true);
     addHint(sec, unavailableTip());
 

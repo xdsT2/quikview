@@ -51,6 +51,7 @@ public:
     bool hdrTonemap() const;           // HDR 色调映射（高位深→SDR，命令栏 HDR 钮，默认 true）
     bool cacheNextImage() const;       // 缓存下一张图片（翻页前预读，默认 true）
     int cacheSizeMb() const;           // 原图缓存上限 MB（默认 300，clamp 64..4096）
+    bool alignTopWhenLarge() const;    // 图片大于窗口时显示图片顶部（默认开）
 
     // 鼠标
     bool wheelZoom() const;            // 滚轮缩放

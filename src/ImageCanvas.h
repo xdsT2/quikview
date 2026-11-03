@@ -41,6 +41,10 @@ public:
     void setStretchSmall(bool on);
     bool stretchSmall() const { return m_stretchSmall; }
     void setWheelZoomEnabled(bool on) { m_wheelZoom = on; }
+    // 「图片大于窗口时显示图片顶部」（键 imageproc/align_top_when_large，默认开）：
+    // 适合宽度 / 原始大小两种模式下图片高度超出视口时，开=滚到顶，关=垂直居中。
+    // 适合窗口模式图片恒不超出视口，该开关在那条路径上无可观测差异。
+    void setAlignTopWhenLarge(bool on) { m_alignTopWhenLarge = on; }
     void setMiddlePanEnabled(bool on) { m_middlePan = on; }
     // 双击最大化/还原开关（设置页「双击最大化 / 还原」）：开启时边缘单击翻页
     // 延迟 220ms 等第二击，收到双击就取消翻页只做最大化；关闭时边缘单击零延迟。
@@ -133,6 +137,8 @@ private:
     // 与 fitToWindow()/fitToWidth() 共用；resizeEvent 拖动期只调这里不算采样。
     void fitToWindowGeom();
     void fitToWidthGeom();
+    // 「图片大于窗口时显示图片顶部」：高于视口时滚到顶（fit / 100% 适配路径共用）
+    void applyAlignTopIfLarge();
     // 侧边翻页箭头带：命中判定 + 悬停光标/箭头显隐。pos 为视口坐标，
     // 与图片缩放无关；左带被缩略图面板压缩时随视口边距自动右移。
     int edgeTurnDelta(const QPoint &pos) const;
@@ -153,6 +159,7 @@ private:
     bool m_wheelZoom = true;
     bool m_middlePan = true;
     bool m_stretchSmall = false;
+    bool m_alignTopWhenLarge = true;   // 图片大于窗口时显示图片顶部（默认开）
     bool m_resizeBurst = false;  // 窗口边界拖动进行中（resizeEvent 置位，收尾定时器复位）
     bool m_sideArrowsEnabled = true;   // 侧边箭头开关（关=不显示但仍可点）
     QColor m_backgroundColor;    // 画布底色（brush 与 stylesheet 同步维护）

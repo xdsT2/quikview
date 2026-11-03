@@ -617,6 +617,9 @@ void ImageCanvas::fitToWindowGeom()
     m_fitWidth = false;
     m_zoom = s;
     centerOn(m_item);
+    // 「图片大于窗口时显示图片顶部」：适合窗口按定义图片不会超出视口，这里只是
+    // 防御（窗口尺寸变化竞态），真正可观测的消费点在 fitToWidth / zoomActual。
+    applyAlignTopIfLarge();
     emit zoomChanged(m_zoom);
 }
 
@@ -652,9 +655,14 @@ void ImageCanvas::fitToWidthGeom()
     m_fitWidth = true;
     if (ih * z <= viewport()->height()) {
         centerOn(m_item);
-    } else {
+    } else if (m_alignTopWhenLarge) {
+        // 图片高于视口：显示图片顶部（原版默认行为）
         horizontalScrollBar()->setValue(0);
         verticalScrollBar()->setValue(0);
+    } else {
+        // 设置「图片大于窗口时显示图片顶部」关闭 → 垂直居中（横向仍贴左，
+        // 宽度已贴合视口，横向滚动条无行程）
+        centerOn(m_item);
     }
     emit zoomChanged(m_zoom);
 }
@@ -672,6 +680,22 @@ void ImageCanvas::zoomOut()
 void ImageCanvas::zoomActual()
 {
     applyZoomAt(1.0, viewport()->rect().center());
+    // 100% 显示且图片高于视口：按设置显示顶部（关=保持居中，即 applyZoomAt 的锚点结果）
+    applyAlignTopIfLarge();
+}
+
+// 「图片大于窗口时显示图片顶部」（键 imageproc/align_top_when_large，默认开）：
+// 图片显示尺寸高于视口时滚到顶，否则什么都不做（低于视口 Qt 自己居中）。
+// 只在适配/模式切换路径调用；滚轮缩放走锚点对齐，不受此开关影响。
+void ImageCanvas::applyAlignTopIfLarge()
+{
+    if (!m_alignTopWhenLarge || !m_item) {
+        return;
+    }
+    const QSizeF isz = m_item->pixmap().deviceIndependentSize();
+    if (isz.height() * transform().m11() > viewport()->height()) {
+        verticalScrollBar()->setValue(0);
+    }
 }
 
 void ImageCanvas::setZoom(qreal zoom)

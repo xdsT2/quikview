@@ -1623,6 +1623,8 @@ void MainWindow::applyRuntimeSettings()
                        .value(QStringLiteral("config/zoom_fix"), false).toBool();
     m_canvas->setWheelZoomEnabled(cfg.wheelZoom());
     m_canvas->setMiddlePanEnabled(cfg.middlePan());
+    // 图片大于窗口时显示图片顶部（键 "config/imageproc/align_top_when_large"）
+    m_canvas->setAlignTopWhenLarge(cfg.alignTopWhenLarge());
     // 双击最大化/还原开关（键 "config/mouse/dblclick_maximize"）：开启时画布
     // 会把边缘单击翻页延迟 220ms 等第二击，避免「双击」先翻页又最大化。
     m_canvas->setDoubleClickMaximizeEnabled(cfg.dblclickMaximize());
