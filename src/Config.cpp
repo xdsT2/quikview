@@ -210,6 +210,13 @@ int Config::gifTransparent() const
     return qBound(0, m_settings.value(QStringLiteral("config/imageproc/gif_transparent"), 0).toInt(), 3);
 }
 
+int Config::img32Transparent() const
+{
+    // 「为32位图片使用透明背景」：0 网格 / 1 白 / 2 黑 / 3 深色网格。
+    // 消费点 MainWindow::applyImage32Backdrop（非 GIF 的带 alpha 图）。
+    return qBound(0, m_settings.value(QStringLiteral("config/imageproc/img32_transparent"), 0).toInt(), 3);
+}
+
 bool Config::cacheNextImage() const
 {
     return m_settings.value(QStringLiteral("config/imageproc/cache_image"), true).toBool();

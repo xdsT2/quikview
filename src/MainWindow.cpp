@@ -1890,7 +1890,13 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     // m_sourceImage 保留带 alpha 的原始像素，旋转/翻转仍从原始派生。
     const bool gifPath = QFileInfo(path).suffix().compare(QLatin1String("gif"),
                                                          Qt::CaseInsensitive) == 0;
-    const QImage display = gifPath ? applyGifBackdrop(base) : base;
+    QImage display = base;
+    if (gifPath) {
+        display = applyGifBackdrop(base);
+    } else if (base.hasAlphaChannel()) {
+        // 32 位 PNG/WebP/TIFF 等：按 img32_transparent 铺底（默认网格）。
+        display = applyImage32Backdrop(base);
+    }
     m_currentImage = display;
     m_originalImage = display;
     m_effect = 0;
@@ -2714,6 +2720,35 @@ QImage MainWindow::applyGifBackdrop(const QImage &img) const
     QImage out(img.size(), QImage::Format_ARGB32_Premultiplied);
     out.fill(bg);
     QPainter p(&out);
+    p.drawImage(0, 0, img);
+    p.end();
+    return out;
+}
+
+QImage MainWindow::applyImage32Backdrop(const QImage &img) const
+{
+    if (!img.hasAlphaChannel()) {
+        return img;
+    }
+    const int mode = Config::instance().img32Transparent();
+    QImage out(img.size(), QImage::Format_ARGB32_Premultiplied);
+    QPainter p(&out);
+    if (mode == 1 || mode == 2) {
+        out.fill(mode == 1 ? QColor(Qt::white) : QColor(Qt::black));
+    } else {
+        // 0 浅色网格 / 3 深色网格：16px 平铺块，图像坐标系固定 8px 方格。
+        // 贴图在图像空间铺，缩放时随图整体放大缩小，不会每帧重算导致抖动。
+        const QColor a = (mode == 0) ? QColor(0xF0, 0xF0, 0xF0) : QColor(0x30, 0x30, 0x30);
+        const QColor b = (mode == 0) ? QColor(0xC8, 0xC8, 0xC8) : QColor(0x24, 0x24, 0x24);
+        QImage tile(16, 16, QImage::Format_RGB32);
+        tile.fill(a);
+        {
+            QPainter tp(&tile);
+            tp.fillRect(QRect(0, 0, 8, 8), b);
+            tp.fillRect(QRect(8, 8, 8, 8), b);
+        }
+        p.fillRect(out.rect(), QBrush(tile));
+    }
     p.drawImage(0, 0, img);
     p.end();
     return out;

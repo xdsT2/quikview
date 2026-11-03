@@ -988,10 +988,10 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
                 QStringLiteral("0"),
                 { { "0", tr("默认GIF调色板") }, { "1", tr("白色背景") },
                   { "2", tr("黑色背景") }, { "3", tr("自定义颜色") } }, 160);
-    addComboRowUnavailable(sec, tr("为32位图片使用透明背景"), "imageproc/img32_transparent",
-                           QStringLiteral("0"),
-                           { { "0", tr("网格背景") }, { "1", tr("白色背景") },
-                             { "2", tr("黑色背景") }, { "3", tr("深色网格") } }, 160);
+    addComboRow(sec, tr("为32位图片使用透明背景"), "imageproc/img32_transparent",
+                QStringLiteral("0"),
+                { { "0", tr("网格背景") }, { "1", tr("白色背景") },
+                  { "2", tr("黑色背景") }, { "3", tr("深色网格") } }, 160);
     // 标签按实测语义改名：Canvas 的 InterpBilinear 走 FastTransformation（最近邻），
     // 中间档是 GPU 平滑（双线性量级），第三档才是真 Lanczos3 重采样。
     addComboRow(sec, tr("插值算法（裁剪或减淡）"), "imageproc/interpolate", QStringLiteral("0"),
