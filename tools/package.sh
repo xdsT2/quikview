@@ -44,6 +44,12 @@ cp "$BUILD_DIR/quikview.exe" "$STAGE/"
 # 安装向导的 MUI_ICON / MUI_UNICON 直接引用 ${SRC}\quikview.ico（exe 内已内嵌一份，
 # 这里放一份是给 NSIS 编译期用的），缺了 package-installer.sh 会中止
 cp "$REPO_ROOT/resources/quikview.ico" "$STAGE/"
+# 壳扩展 DLL（shell-ext/ 独立工程产物）：随包分发；安装器按 SEC_SHELL 节注册，
+# zip 用户可用 shell-ext/scripts/*.ps1 手动注册。属于产品组件，缺了直接中止。
+[ -f "$REPO_ROOT/build-shell64/quikthumb.dll" ] || { echo "缺 build-shell64/quikthumb.dll：先构建 64 位壳扩展（见 shell-ext/README.md）" >&2; exit 1; }
+[ -f "$REPO_ROOT/build-shell32/quikthumb.dll" ] || { echo "缺 build-shell32/quikthumb.dll：先构建 32 位壳扩展（见 shell-ext/README.md）" >&2; exit 1; }
+cp "$REPO_ROOT/build-shell64/quikthumb.dll" "$STAGE/"
+cp "$REPO_ROOT/build-shell32/quikthumb.dll" "$STAGE/quikthumb32.dll"
 
 echo "[2/6] windeployqt（Qt 运行时 + 插件）"
 windeployqt --release --no-translations --no-opengl-sw \
