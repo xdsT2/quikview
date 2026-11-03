@@ -1370,7 +1370,7 @@ void SettingsDialog::buildEtcPage(QWidget *page)
     addCheckUnavailable(sec, tr("不打开 RAW 图片文件"), "etc/no_raw_load", false, false);
     addCheckUnavailable(sec, tr("打开 JPEG 文件时，不打开同名 RAW 文件"), "etc/skip_raw_when_jpg", false, true);
     addCheckUnavailable(sec, tr("打开 RAW 图片文件时，显示已有缩略图"), "etc/raw_thumbnail", false, true);
-    addCheckUnavailable(sec, tr("根据图片大小调节窗口大小"), "etc/fit_window_to_image", false, true);
+    addCheck(sec, tr("根据图片大小调节窗口大小"), "etc/fit_window_to_image", false, true);
     addCheck(sec, tr("运行 QuikView 时禁用 Windows 屏幕保护程序"), "etc/disable_screensaver",
              false, false);
     addHint(sec, unavailableTip());

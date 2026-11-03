@@ -43,6 +43,9 @@ public:
     ~MainWindow() override;
 
     void openFile(const QString &path);
+    // 打开文件并按图片尺寸调窗（仅「启动带文件 / 文件→打开」两条路径用；
+    // 见 fitWindowToImage()，受设置「根据图片大小调节窗口大小」控制）
+    void openFileFitting(const QString &path);
     void openSettings() { onSettings(); }   // 调试/自动化：直接打开设置对话框
     void setZoomMode(int mode);             // 调试/自动化 + 菜单共用：0原始/1适合窗口/2适合宽度
     void runSmokeCommand(const QString &cmd); // 调试/自动化：--smoke 单命令驱动（P0 冒烟）
@@ -141,6 +144,10 @@ private:
     // 显式跳转：先清空解码队列再加载（区别于顺序翻页的逐张播放）
     void jumpTo(const QString &path);
     void showImage(const QImage &image, const QString &path, bool preview = false);
+    // 按当前图片像素尺寸 + 铬件高度 resize 窗口，clamp 到可用屏幕 80%。
+    // 只对 m_fitWindowPending 标记的「启动打开 / 文件→打开」生效一次，
+    // 翻页/拖放/换目录都不触发（避免每翻一页窗口跟着跳）。
+    void fitWindowToImage();
     void setSlideshow(bool on);
     void applyCrop();
     void refreshLibraryMenus();
@@ -322,4 +329,7 @@ private:
     bool m_slideshow = false;
     bool m_slideshowRandom = false;
     bool m_cropMode = false;
+    // 下一次全图就绪后做一次「按图调窗」（openFileFitting / 文件→打开 置位，
+    // 见 fitWindowToImage()；翻页等其它打开路径不动它）
+    bool m_fitWindowPending = false;
 };

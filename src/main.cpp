@@ -230,7 +230,8 @@ int main(int argc, char *argv[])
                     QObject::connect(sock, &QLocalSocket::readyRead, &window, [sock, &window]() {
                         const QString path = QString::fromUtf8(sock->readAll()).trimmed();
                         if (!path.isEmpty()) {
-                            window.openFile(path);
+                            // 第二实例转发文件 = 显式打开图片，同样按图调窗
+                            window.openFileFitting(path);
                         }
                         if (window.isMinimized()) {
                             window.showNormal();
@@ -271,7 +272,8 @@ int main(int argc, char *argv[])
 
     const QStringList files = parser.positionalArguments();
     if (!files.isEmpty()) {
-        window.openFile(files.first());
+        // 命令行带文件启动：按图调窗（设置「根据图片大小调节窗口大小」）
+        window.openFileFitting(files.first());
     }
 
     int settleDelay = 2500;   // 无 smoke 命令时的默认截图等待（首图异步加载）

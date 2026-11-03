@@ -38,6 +38,7 @@
 #include <QPropertyAnimation>
 #include <QPushButton>
 #include <QRandomGenerator>
+#include <QScreen>
 #include <QResizeEvent>
 #include <QTextStream>
 #include <QTimer>
@@ -1638,6 +1639,14 @@ void MainWindow::openFile(const QString &path)
     jumpTo(m_currentPath);
 }
 
+// 打开文件并按图调窗：仅「启动带文件 / 文件→打开」两条路径使用。
+// 内部复用 openFile（目录/记忆/跳转逻辑不重写），只额外置位调窗标记。
+void MainWindow::openFileFitting(const QString &path)
+{
+    m_fitWindowPending = true;
+    openFile(path);
+}
+
 // 显式跳转（打开/换目录/滑块/缩略图/书签/首尾/随机/排序）：清空播放队列，
 // 避免跳转后先把旧队列播完才理新位置。顺序翻页（onNext/onPrev/±10/幻灯片）不走这里。
 void MainWindow::jumpTo(const QString &path)
@@ -1799,6 +1808,42 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     } else {
         stopAnimation();
     }
+    // 按图调窗：仅「启动带文件 / 文件→打开」路径触发一次（fitWindowToImage 内部
+    // 自清理 m_fitWindowPending 并受设置「根据图片大小调节窗口大小」控制）
+    fitWindowToImage();
+}
+
+// 按当前图片像素尺寸调窗（键 "config/etc/fit_window_to_image"）：
+// 目标尺寸 = 图片 + 顶部铬件/底部胶囊等固定开销，clamp 到可用屏幕 80% 后居中。
+// 只在 m_fitWindowPending 置位（openFileFitting / 文件→打开）时执行一次；
+// 翻页/拖放/换目录等其它打开路径不置位，窗口不跟着每张图跳。
+void MainWindow::fitWindowToImage()
+{
+    if (!m_fitWindowPending || m_currentImage.isNull()) {
+        return;
+    }
+    m_fitWindowPending = false;
+    if (!Config::instance().fitWindowToImage()) {
+        return;
+    }
+    QScreen *screen = QGuiApplication::screenAt(QCursor::pos());
+    if (!screen) {
+        screen = QGuiApplication::primaryScreen();
+    }
+    if (!screen) {
+        return;
+    }
+    const QRect avail = screen->availableGeometry();
+    const QSize img = m_currentImage.size();
+    // 固定开销估算：顶部铬件（kTopChromeH）+ 底部胶囊 72 + 视口留白 16；
+    // 窗口自带最小尺寸兜底，不会缩到不可用。
+    const int kOverheadH = kTopChromeH + 72 + 16;
+    const int maxW = qRound(avail.width() * 0.8);
+    const int maxH = qRound(avail.height() * 0.8);
+    const int w = qBound(200, img.width(), maxW);
+    const int h = qBound(160, img.height() + kOverheadH, maxH);
+    resize(w, h);
+    move(avail.x() + (avail.width() - w) / 2, avail.y() + (avail.height() - h) / 2);
 }
 
 void MainWindow::updateCanvasLogo()
@@ -3094,7 +3139,8 @@ void MainWindow::onOpen()
     const QString path = QFileDialog::getOpenFileName(
         this, tr("打开图片"), QString(), DirectoryLoader::imageFilter());
     if (!path.isEmpty()) {
-        openFile(path);
+        // 文件→打开：按图片尺寸调窗（受设置「根据图片大小调节窗口大小」控制）
+        openFileFitting(path);
     }
 }
 
