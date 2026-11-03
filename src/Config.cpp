@@ -224,6 +224,13 @@ bool Config::strongSharpen() const
     return m_settings.value(QStringLiteral("config/imageproc/strong_sharpen"), false).toBool();
 }
 
+bool Config::previewMode() const
+{
+    // 「先显示低品质图片以加速渲染」（C14）：消费点 ImageCache::startFullDecode
+    // 的快帧预览块——关闭时跳过低品质先出帧，直接等全图一次上屏。
+    return m_settings.value(QStringLiteral("config/imageproc/preview_mode"), true).toBool();
+}
+
 QString Config::interpolation() const
 {
     const QString v = m_settings.value(QStringLiteral("config/interpolation"),

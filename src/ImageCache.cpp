@@ -245,7 +245,8 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize)
         // 快帧先上屏：JPEG 走 DCT 缩放（12MP 约 10-20ms）、PNG 等同样支持
         // 按比例解码，先按视口像素出一张顶住连按体感，全图随后替换。
         // HEIC/RAW 的 QImageReader 读不出 size()，自然跳过快帧，仍走各自 Loader。
-        if (previewSize.isValid()) {
+        // 「先显示低品质图片以加速渲染」（C14）关闭时跳过这一级，等全图一次上屏。
+        if (previewSize.isValid() && Config::instance().previewMode()) {
             QImageReader fast(path);
             fast.setAutoTransform(true);
             QSize src = fast.size();

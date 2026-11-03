@@ -973,7 +973,8 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
 
     addCheck(sec, tr("图片大于窗口时显示图片顶部"),
              "imageproc/align_top_when_large", false, true);
-    addCheckUnavailable(sec, tr("先显示低品质图片以加速渲染"), "imageproc/preview_mode", false, true);
+    // 快帧预览（C14）：ImageCache::startFullDecode 里的 DCT 缩放先出帧一级。
+    addCheck(sec, tr("先显示低品质图片以加速渲染"), "imageproc/preview_mode", false, true);
     addHint(sec, unavailableTip());
 
     // 图片内嵌 ICC 已接通（C1）；监视器 ICC 判定为暂不可行（C2）：Win32 可用

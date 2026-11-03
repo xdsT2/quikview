@@ -60,6 +60,9 @@ public:
     // 「使用强锐化滤镜」：lanczosResample 缩图后叠加一层固定强度 3×3
     // unsharp mask（ImageCanvas::doRefreshSampling）。默认关。
     bool strongSharpen() const;
+    // 「先显示低品质图片以加速渲染」：ImageCache::startFullDecode 的快帧
+    // 预览（DCT 缩放解码先上屏，全图随后替换）。默认开。
+    bool previewMode() const;
 
     // 图像处理
     QString interpolation() const;     // "bilinear" | "bicubic" | "lanczos"（默认 "bicubic"）
