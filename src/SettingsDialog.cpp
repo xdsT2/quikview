@@ -883,7 +883,8 @@ void SettingsDialog::buildViewPage(QWidget *page)
     // 已接通：保存缩放状态、侧边箭头、动画帧信息、悬浮提示（B 批）。
     // 其余仍灰显的键在仓储侧无消费点，保持不可用态。
     QWidget *sec = beginSection(page, tr("浏览设置"));
-    addCheckUnavailable(sec, tr("显示主窗口"), "view/show_main_window", false, true);
+    // 「显示主窗口」原为灰显假开关：语义待确认（启动时显示？托盘模式？），
+    // 无法给出可验收的行为，按交办单要求删除该项，理由写进交接文档。
     addCheckUnavailable(sec, tr("顶端菜单隐藏时显示文件名 (Shift+TAB)"),
                         "view/overlay_filename", false, false);
     addCheck(sec, tr("保存缩放状态"), "view/save_zoom_state", false, false);
