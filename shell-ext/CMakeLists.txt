@@ -10,12 +10,21 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_library(quikthumb SHARED
     src/guids.cpp
     src/module.cpp
-    src/thumbnail.cpp)
+    src/thumbnail.cpp
+    src/contextmenu.cpp)
 target_include_directories(quikthumb PRIVATE src)
 target_compile_definitions(quikthumb PRIVATE
     UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX WINVER=0x0601 _WIN32_WINNT=0x0601)
 # windowscodecs：MSVC 下 WIC 的 GUID 走导入库（MinGW 由 initguid 实例化，双保险）
 target_link_libraries(quikthumb PRIVATE ole32 advapi32 gdi32 user32 uuid windowscodecs)
+
+# thumb_selftest 的 quikview.exe 替身：InvokeCommand 用例真启动一个进程并核对
+# 命令行（写标记文件）。GUI 子系统不弹窗；EXCLUDE_FROM_ALL，非交付物。
+add_executable(ctx_fake_quikview EXCLUDE_FROM_ALL
+    src/fake_quikview.cpp)
+set_target_properties(ctx_fake_quikview PROPERTIES WIN32_EXECUTABLE TRUE)
+target_compile_definitions(ctx_fake_quikview PRIVATE
+    UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX WINVER=0x0601 _WIN32_WINNT=0x0601)
 
 add_executable(thumb_selftest EXCLUDE_FROM_ALL
     src/guids.cpp
@@ -37,6 +46,7 @@ if(MINGW)
     # 目标机不保证有 MinGW 运行时
     target_link_options(quikthumb PRIVATE -static)
     target_compile_options(thumb_selftest PRIVATE -Wall -Wextra -Wno-cast-function-type)
+    target_compile_options(ctx_fake_quikview PRIVATE -Wall -Wextra)
     # 注意：selftest 不用 -static。静态 exe + 静态 DLL 会在 DLL 加载阶段崩
     # （两份静态 winpthread/libgcc 运行时在同进程冲突），DLL 交付保持 -static，
     # 测试器动态链接 MinGW 运行时（仅本机自测用，不随产品分发）。
@@ -45,6 +55,7 @@ elseif(MSVC)
     # 源码是 UTF-8（无 BOM）中文注释
     target_compile_options(quikthumb PRIVATE /utf-8 /W4)
     target_compile_options(thumb_selftest PRIVATE /utf-8 /W4)
+    target_compile_options(ctx_fake_quikview PRIVATE /utf-8 /W4)
     # 四个标准入口按无装饰名导出（regsvr32/COM 按此查找）；
     # x86 __stdcall 符号带修饰，需显式映射
     if(CMAKE_SIZEOF_VOID_P EQUAL 4)
