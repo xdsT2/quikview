@@ -203,6 +203,13 @@ bool Config::imageIcc() const
     return m_settings.value(QStringLiteral("config/imageproc/image_icc"), true).toBool();
 }
 
+int Config::gifTransparent() const
+{
+    // 「为 GIF 图片使用透明背景」：0 默认调色板（不铺底）/ 1 白 / 2 黑 / 3 自定义。
+    // 消费点 MainWindow::applyGifBackdrop（仅 GIF 路径）。
+    return qBound(0, m_settings.value(QStringLiteral("config/imageproc/gif_transparent"), 0).toInt(), 3);
+}
+
 bool Config::cacheNextImage() const
 {
     return m_settings.value(QStringLiteral("config/imageproc/cache_image"), true).toBool();

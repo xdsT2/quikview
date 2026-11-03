@@ -1886,8 +1886,13 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     m_flipV = false;
     m_negative = false;
     m_gamma = 1.0;
-    m_currentImage = base;
-    m_originalImage = base;
+    // GIF 透明底色（键 "config/imageproc/gif_transparent"）只影响上屏的那一份，
+    // m_sourceImage 保留带 alpha 的原始像素，旋转/翻转仍从原始派生。
+    const bool gifPath = QFileInfo(path).suffix().compare(QLatin1String("gif"),
+                                                         Qt::CaseInsensitive) == 0;
+    const QImage display = gifPath ? applyGifBackdrop(base) : base;
+    m_currentImage = display;
+    m_originalImage = display;
     m_effect = 0;
     if (actEffectNone) {
         actEffectNone->setChecked(true);
@@ -1896,7 +1901,7 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     // fitAfter=false：这里只装图，适配交给下面的 applyCurrentZoom
     // 做一次——否则 setPixmap 内部先 fit 一次、再适配一次，
     // Lanczos 模式下等于每次翻页多做一次全图重采样。
-    m_canvas->setPixmap(QPixmap::fromImage(base), /*fitAfter=*/false);
+    m_canvas->setPixmap(QPixmap::fromImage(display), /*fitAfter=*/false);
     // 保存缩放状态（键 "config/view/save_zoom_state"）：开关开着且该路径有记录时，
     // 按记录恢复（fit / width / 具体比例）；没有记录才回落到 default_zoom。
     // 锁定缩放优先级更高——它的语义就是「翻页一律沿用上一张比例」。
@@ -1905,7 +1910,7 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
         savedState = Config::instance().savedViewState(path);
     }
     if (m_zoomLocked && !m_firstImage && prevZoom > 0.0) {
-        m_canvas->setPixmapPreservingView(QPixmap::fromImage(base), QPointF(0.5, 0.5),
+        m_canvas->setPixmapPreservingView(QPixmap::fromImage(display), QPointF(0.5, 0.5),
                                           prevZoom, false, false);
         // 这里不能写 m_zoomMode：锁定只是「沿用比例」，不是把浏览方式改成原始尺寸。
         // 写了会把用户锁定前的模式永久污染成 0，解锁后翻页全部变 100%。
@@ -2678,6 +2683,12 @@ void MainWindow::onPrevFrame()
 // GIF 各帧同尺寸，缩放比例、平移位置、浏览方式在帧切换后原样保留。
 void MainWindow::showAnimFrame(const QImage &img)
 {
+    // GIF 透明底色（键 "config/imageproc/gif_transparent"）：帧与首帧走同一铺底，
+    // 否则底部黑区会随播放忽隐忽现。
+    const bool gifPath = !m_currentPath.isEmpty()
+                         && QFileInfo(m_currentPath).suffix().compare(QLatin1String("gif"),
+                                                                     Qt::CaseInsensitive) == 0;
+    const QImage display = gifPath ? applyGifBackdrop(img) : img;
     const qreal z = m_canvas->zoom();
     const QRectF sr = m_canvas->sceneRect();
     const QPointF center = m_canvas->mapToScene(m_canvas->viewport()->rect().center());
@@ -2685,8 +2696,27 @@ void MainWindow::showAnimFrame(const QImage &img)
     if (sr.width() > 1.0 && sr.height() > 1.0) {
         anchor = QPointF(center.x() / sr.width(), center.y() / sr.height());
     }
-    m_currentImage = img;
-    m_canvas->setPixmapPreservingView(QPixmap::fromImage(img), anchor, z, false, false);
+    m_currentImage = display;
+    m_canvas->setPixmapPreservingView(QPixmap::fromImage(display), anchor, z, false, false);
+}
+
+// "0" 默认调色板 = 不铺底，透明区透出画布底色；"3" 的自定义色暂无取色器，
+// 先固定中灰 #808080（与 1/2 一样可观测），后续接取色器时只需改这里。
+QImage MainWindow::applyGifBackdrop(const QImage &img) const
+{
+    const int mode = Config::instance().gifTransparent();
+    if (mode <= 0 || !img.hasAlphaChannel()) {
+        return img;
+    }
+    const QColor bg = (mode == 1) ? QColor(Qt::white)
+                     : (mode == 2) ? QColor(Qt::black)
+                                   : QColor(128, 128, 128);
+    QImage out(img.size(), QImage::Format_ARGB32_Premultiplied);
+    out.fill(bg);
+    QPainter p(&out);
+    p.drawImage(0, 0, img);
+    p.end();
+    return out;
 }
 
 void MainWindow::startAnimation()

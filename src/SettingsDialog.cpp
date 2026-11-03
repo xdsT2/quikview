@@ -984,10 +984,10 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     addHint(sec, tr("使用监视器的 ICC 设置需要显示器级色彩管理，Qt6 光栅后端不支持，暂不可用。"));
 
     sec = beginSection(page, tr("透明与翻页"));
-    addComboRowUnavailable(sec, tr("为 GIF 图片使用透明背景"), "imageproc/gif_transparent",
-                           QStringLiteral("0"),
-                           { { "0", tr("默认GIF调色板") }, { "1", tr("白色背景") },
-                             { "2", tr("黑色背景") }, { "3", tr("自定义颜色") } }, 160);
+    addComboRow(sec, tr("为 GIF 图片使用透明背景"), "imageproc/gif_transparent",
+                QStringLiteral("0"),
+                { { "0", tr("默认GIF调色板") }, { "1", tr("白色背景") },
+                  { "2", tr("黑色背景") }, { "3", tr("自定义颜色") } }, 160);
     addComboRowUnavailable(sec, tr("为32位图片使用透明背景"), "imageproc/img32_transparent",
                            QStringLiteral("0"),
                            { { "0", tr("网格背景") }, { "1", tr("白色背景") },

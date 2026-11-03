@@ -116,6 +116,8 @@ private slots:
     void stopAnimation();
     void animationTick();
     void showAnimFrame(const QImage &img);
+    // GIF 透明区域底色：0 不铺底 / 1 白 / 2 黑 / 3 固定自定义色（#808080）
+    QImage applyGifBackdrop(const QImage &img) const;
     // 异步加载
     void onFullReady(const QString &path, const QImage &image, bool preview);
     // 拖动滑杆跟手预览（只换画布与标题，索引/元数据等松手后由 jumpTo 走全图）
