@@ -1448,7 +1448,7 @@ void SettingsDialog::buildContextMenuPage(QWidget *page)
     if (!shellReady)
         addHint(sec, tr("未检测到壳扩展，重新运行安装包可修复。"));
 
-    sec = beginSection(page, tr("Thumbnail preview in Explorer"));
+    sec = beginSection(page, tr("资源管理器缩略图"));
     addStatusRow(sec, tr("WebP"), shellState, shellReady ? kOk : kWarn);
     addStatusRow(sec, tr("PSD"), tr("暂不支持（本版仅 WebP）"), kMuted);
     addStatusRow(sec, tr("PSB"), tr("暂不支持（本版仅 WebP）"), kMuted);
@@ -1540,11 +1540,11 @@ void SettingsDialog::buildLangPage(QWidget *page)
     row->addWidget(m_language);
     row->addStretch(1);
 
-    auto *link1 = new LinkLabel(tr("[下载更多语言…]"), []() {
+    auto *link1 = new LinkLabel(tr("下载更多语言…"), []() {
         QMessageBox::information(nullptr, QObject::tr("语言"),
                                  QObject::tr("更多语言包请访问 QuikView 项目主页下载。"));
     }, sec);
-    auto *link2 = new LinkLabel(tr("[打开语言文件夹…]"), []() {
+    auto *link2 = new LinkLabel(tr("打开语言文件夹…"), []() {
         const QString dir = QCoreApplication::applicationDirPath()
                             + QStringLiteral("/translations");
         QDir().mkpath(dir);
