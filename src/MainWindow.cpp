@@ -1629,6 +1629,11 @@ void MainWindow::loadAsync(const QString &path)
 // 队列没消化完就再等 300ms —— 预读永远给用户请求让路。
 void MainWindow::preloadNeighbors()
 {
+    // 空闲预读受「缓存下一张图片」开关控制（键 "config/imageproc/cache_image"）：
+    // 关闭时整段预读直接短路，翻页只解码当前图。
+    if (!Config::instance().cacheNextImage()) {
+        return;
+    }
     if (!m_dir->isValid() || !m_cache->isIdle()) {
         if (m_dir->isValid() && m_preloadTimer) {
             m_preloadTimer->start();

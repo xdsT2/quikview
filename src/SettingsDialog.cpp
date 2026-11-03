@@ -953,7 +953,7 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     // MainWindow 各处），留个勾选框只会让人以为能关。实现处见
     // FrameNavigator.cpp 的同名注释。
     addCheckUnavailable(sec, tr("使用强锐化滤镜"), "imageproc/strong_sharpen", false, false);
-    addCheckUnavailable(sec, tr("缓存下一张图片"), "imageproc/cache_image", false, true);
+    addCheck(sec, tr("缓存下一张图片"), "imageproc/cache_image", false, true);
 
     QHBoxLayout *cacheRow = addRow(sec, tr("缓存大小"));
     m_cacheSize = new QSpinBox;

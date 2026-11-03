@@ -136,6 +136,17 @@ bool Config::hdrTonemap() const
     return m_settings.value(QStringLiteral("config/hdr_tonemap"), false).toBool();
 }
 
+bool Config::cacheNextImage() const
+{
+    return m_settings.value(QStringLiteral("config/imageproc/cache_image"), true).toBool();
+}
+
+int Config::cacheSizeMb() const
+{
+    // 原图缓存上限，单位 MB；设置页范围比这宽，这里再夹一次防止手改配置越界。
+    return qBound(64, m_settings.value(QStringLiteral("config/imageproc/cache_size_mb"), 300).toInt(), 4096);
+}
+
 bool Config::smoothZoom() const
 {
     return m_settings.value(QStringLiteral("config/smooth_zoom"), true).toBool();
@@ -149,6 +160,31 @@ bool Config::wheelZoom() const
 bool Config::middlePan() const
 {
     return m_settings.value(QStringLiteral("config/middle_pan"), true).toBool();
+}
+
+bool Config::sideClickPageturn() const
+{
+    return m_settings.value(QStringLiteral("config/mouse/click_side_pageturn"), true).toBool();
+}
+
+bool Config::dblclickMaximize() const
+{
+    return m_settings.value(QStringLiteral("config/mouse/dblclick_maximize"), true).toBool();
+}
+
+bool Config::disableScreensaver() const
+{
+    return m_settings.value(QStringLiteral("config/etc/disable_screensaver"), false).toBool();
+}
+
+bool Config::fitWindowToImage() const
+{
+    return m_settings.value(QStringLiteral("config/etc/fit_window_to_image"), true).toBool();
+}
+
+bool Config::pageturnWav() const
+{
+    return m_settings.value(QStringLiteral("config/etc/pageturn_wav"), false).toBool();
 }
 
 int Config::sortMode() const

@@ -42,10 +42,19 @@ public:
     bool smoothZoom() const;           // 默认平滑缩放
     bool stretchSmall() const;         // 适合窗口时把小于窗口的图放大填满（默认 false）
     bool hdrTonemap() const;           // HDR 色调映射（高位深→SDR，命令栏 HDR 钮，默认 true）
+    bool cacheNextImage() const;       // 缓存下一张图片（翻页前预读，默认 true）
+    int cacheSizeMb() const;           // 原图缓存上限 MB（默认 300，clamp 64..4096）
 
     // 鼠标
     bool wheelZoom() const;            // 滚轮缩放
     bool middlePan() const;            // 中键拖拽平移
+    bool sideClickPageturn() const;    // 单击屏幕两侧翻页（默认 true）
+    bool dblclickMaximize() const;     // 双击最大化 / 还原（默认 true）
+
+    // 杂项
+    bool disableScreensaver() const;   // 运行期间禁用屏幕保护（默认 false）
+    bool fitWindowToImage() const;     // 打开图片时按图片尺寸调节窗口（默认 true）
+    bool pageturnWav() const;          // 翻页时播放音效（默认 false）
 
     // 排序（浏览菜单）：键 0名称/1修改时间/2大小/3类型 + 降序开关（默认升序）
     int sortMode() const;
