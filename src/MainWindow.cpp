@@ -107,6 +107,18 @@ QImage composeSpread(const QImage &left, const QImage &right)
     return out;
 }
 
+// 屏幕保护禁用（设置页「运行 QuikView 时禁用屏幕保护程序」）：开 = 持续申请
+// ES_DISPLAY_REQUIRED（显示器常亮），关/程序退出 = 还原 ES_CONTINUOUS。
+// ES_* 请求绑定在调用线程（GUI 线程），进程退出时系统自动清除，这里仍显式还原。
+void applyScreensaverPrevention(bool on)
+{
+#ifdef Q_OS_WIN
+    SetThreadExecutionState(on ? (ES_CONTINUOUS | ES_DISPLAY_REQUIRED) : ES_CONTINUOUS);
+#else
+    Q_UNUSED(on);
+#endif
+}
+
 } // namespace
 
 MainWindow::MainWindow(QWidget *parent)
@@ -411,6 +423,8 @@ MainWindow::~MainWindow()
     // 否则退出后解码循环还在跑，CPU 不归零。
     stopAnimation();
     delete m_frames;
+    // 若曾禁用屏幕保护，退出时还原（进程退出本会自动清除，这里显式做一遍）
+    applyScreensaverPrevention(false);
 }
 
 // ---------------------------------------------------------------------------
@@ -1546,6 +1560,9 @@ void MainWindow::applyRuntimeSettings()
     m_canvas->setDoubleClickMaximizeEnabled(cfg.dblclickMaximize());
     // 原图缓存上限随设置即时生效：保存设置不用重启（键 "config/imageproc/cache_size_mb"）
     m_cache->setFullCacheLimit(cfg.cacheSizeMb());
+    // 运行期间禁用屏幕保护（键 "config/etc/disable_screensaver"）：开关保存后立即生效，
+    // 程序退出时在析构里还原。
+    applyScreensaverPrevention(cfg.disableScreensaver());
 
     // 画布外观（背景色 / 视口边框色 / 侧边箭头）：设置页存的是 #RRGGBB 颜色名，
     // 读不到或解析失败时退回默认值——否则 QColor 无效会让画布画成黑块或干脆不描边。
