@@ -82,6 +82,8 @@ private slots:
     void onPrint();
     void onBatchConvert();
     void onSettings();
+    // 「深色模式」勾选态跟随实际生效的主题（跟随系统时显示系统解析出的实际模式）。
+    void syncThemeActions();
     void onToggleFavorite();
     // 鼠标按键映射（C9~C12）：把配置里的动作名派发到已有槽
     void onMouseAction(const QString &action);

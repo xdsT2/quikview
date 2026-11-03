@@ -48,6 +48,8 @@ bool Config::showSelectLangDialog() const
 
 QString Config::theme() const
 {
+    // 第 18 期起三档："dark" | "light" | "system"（跟随 Windows 深浅色）。
+    // 旧值只有 dark/light，天然兼容；未知值由 Theme::resolveMode 按深色处理。
     return m_settings.value(QStringLiteral("config/theme"), QStringLiteral("dark")).toString();
 }
 

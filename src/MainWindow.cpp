@@ -43,6 +43,7 @@
 #include <QScrollBar>
 #include <QSet>
 #include <QScreen>
+#include <QStyleHints>
 #include <cmath>
 #include <QResizeEvent>
 #include <QTextStream>
@@ -1122,12 +1123,16 @@ void MainWindow::createActions()
 
     actDark = new QAction(tr("深色模式(&D)"), this);
     actDark->setCheckable(true);
-    actDark->setChecked(Config::instance().theme() != QLatin1String("light"));
     connect(actDark, &QAction::toggled, this, [](bool on) {
+        // 菜单点击=显式选择深/浅，退出「跟随系统」。
         Config::instance().settings().setValue(QStringLiteral("config/theme"),
                                                 on ? QStringLiteral("dark") : QStringLiteral("light"));
-        Theme::apply(*qApp, on ? Theme::Mode::Dark : Theme::Mode::Light);
+        Theme::applySetting(*qApp, on ? QStringLiteral("dark") : QStringLiteral("light"));
     });
+    syncThemeActions();
+    // 跟随系统时，Windows 深浅色切换也要把菜单勾选态带到实际模式上。
+    connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged,
+            this, &MainWindow::syncThemeActions);
 
     // 编辑（旋转快捷键对照原版 MENUSTR_ROTATION_*：Alt+Left/Right）
     actRotateLeft = mk(tr("逆时针旋转 90°"), QKeySequence(QStringLiteral("Alt+Left")), &MainWindow::onRotateLeft);
@@ -3854,12 +3859,26 @@ void MainWindow::refreshLibraryMenus()
     fill(m_favMenu, Config::instance().favorites());
 }
 
+void MainWindow::syncThemeActions()
+{
+    // 勾选态=实际生效的模式：跟随系统时随系统深浅色走，菜单里显示的是真相。
+    // 程序化 setChecked 必须挡信号：否则启动/系统切换时 toggled 会把本次勾选
+    // 当成用户点击，反向写库并把「跟随系统」覆盖成显式 dark/light（实测翻车）。
+    if (!actDark)
+        return;
+    const bool dark = Theme::resolveMode(Config::instance().theme()) == Theme::Mode::Dark;
+    if (actDark->isChecked() == dark)
+        return;
+    const QSignalBlocker b(actDark);
+    actDark->setChecked(dark);
+}
+
 void MainWindow::onSettings()
 {
     SettingsDialog dlg(this);
     dlg.exec();
-    const bool dark = (Config::instance().theme() != QLatin1String("light"));
-    Theme::apply(*qApp, dark ? Theme::Mode::Dark : Theme::Mode::Light);
+    // 设置页可能改了主题（三档）；按当前取值重新解析应用（system 时随系统）。
+    Theme::applySetting(*qApp, Config::instance().theme());
     m_slideshowTimer->setInterval(Config::instance().slideshowIntervalMs());
     applyRuntimeSettings();
     applyShortcutConfig();   // 键盘自定义：保存立即生效；取消时配置已回滚，重装回旧值
