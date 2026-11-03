@@ -149,9 +149,8 @@ private:
 
     // —— 专项控件 ——
     QSpinBox *m_cacheSize = nullptr;      // 图像处理：缓存大小 MB
-    QLineEdit *m_bkgndPath = nullptr;     // 浏览：背景图片路径
-    QWidget *m_bkgndColorBtn = nullptr;   // 浏览：背景颜色
-    QWidget *m_borderColorBtn = nullptr;  // 浏览：边框颜色
+    // 浏览页「背景」段（m_bkgndPath / m_bkgndColorBtn / m_borderColorBtn）已随
+    // 第 18 期下线删除。
     struct KeyRow {                       // 键盘页一行（QString 值拷贝：
         QCheckBox *cb;                    // 数据源是构建函数的栈数组，const char*
         QKeySequenceEdit *edit;           // 悬空会导致热键列显示乱码）

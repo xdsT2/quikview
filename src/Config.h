@@ -46,8 +46,8 @@ public:
 
     // 浏览
     QString thumbnailSize() const;     // "small" | "medium" | "large"（默认 "medium"）
-    bool backgroundImage() const;      // 更改默认背景图片（默认 false）
-    QString backgroundImagePath() const;  // 背景图片路径（空 = 纯色）
+    // 背景/边框颜色与背景图访问器已随第 18 期「背景」段下线删除；
+    // 四个键 view/bkgnd_* 、view/border_color 不再读写（存量 ini 留着无害）。
     bool overlayFilename() const;      // Shift+TAB 在画布顶部显示文件名（默认 false）
 
     // 鼠标按键映射（键 config/mouse/btn_*）：值取 SettingsDialog 动作表，

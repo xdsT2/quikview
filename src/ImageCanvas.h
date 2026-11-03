@@ -60,11 +60,13 @@ public:
     // 画布外观（设置页「背景颜色 / 边框颜色 / 不显示侧边箭头」）。
     // setBackgroundColor 必须同时改 backgroundBrush 与 stylesheet：QGraphicsView
     // 的 stylesheet 优先级高于 brush，只改一处画布底色不会变。
+    // —— 第 18 期起暂无 UI 入口（下线），能力保留 ——
     void setBackgroundColor(const QColor &color);
-    // 「更改默认背景图片」：空图恢复纯色。图片按可见场景区拉伸铺满，画在
-    // 图像下方、纯色之上；不进入 QGraphicsScene，不参与缩放/旋转。
+    // 空图恢复纯色。图片按可见场景区拉伸铺满，画在图像下方、纯色之上；
+    // 不进入 QGraphicsScene，不参与缩放/旋转。暂无 UI 入口（第 18 期下线），能力保留。
     void setBackgroundImage(const QImage &image);
     // 视口 1px 内沿描边；color 无效（默认）时不画，保持原来的无边框观感。
+    // 暂无 UI 入口（第 18 期下线），能力保留。
     void setBorderColor(const QColor &color);
     // false：两支 SideArrow 一律不显示，但 edgeTurnDelta 的命中矩形保留，
     // 悬停两侧仍出鼠标手型、点击两侧仍翻页——只是没有箭头这个视觉提示。

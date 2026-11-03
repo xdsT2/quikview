@@ -598,7 +598,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
 
     // —— 页面（每页一个 QScrollArea，内容 widget 存 m_pages）——
     buildGeneralPage(addPage(tr("一般"), tr("窗口行为、检查更新与到达首尾时的操作；尚未实现的项已置灰。")));
-    buildViewPage(addPage(tr("浏览"), tr("背景颜色、边框颜色与侧边箭头等浏览显示设置。")));
+    buildViewPage(addPage(tr("浏览"), tr("缩放状态、侧边箭头与悬浮提示等浏览显示设置；画布底色已固定。")));
     buildImageProcPage(addPage(tr("图像处理"), tr("透明背景、插值算法、翻页效果与 ICC 色彩管理；监视器 ICC 受 Qt6 限制暂不可用。")));
     buildAssocPage(addPage(tr("格式关联"), tr("通过系统入口设置默认打开方式（Windows 10+ 不允许程序静默改默认）。")));
     buildKeyboardPage(addPage(tr("键盘"), tr("14 个动作可自定义键位：改热键 / 改绑动作 / 禁用，保存后立即生效。")));
@@ -970,45 +970,8 @@ void SettingsDialog::buildViewPage(QWidget *page)
     addCheck(sec, tr("用小字体显示 EXIF / 文件信息"),
              "view/exif_small_font", false, false);
 
-    sec = beginSection(page, tr("背景"));
-    // 背景图已接通：开关 + 路径 + 浏览/打开文件夹全部可用；路径空等价纯色。
-    addCheck(sec, tr("更改默认背景图片"), "view/bkgnd_image", false, false);
-
-    QHBoxLayout *pathRow = addRow(sec, QString());
-    m_bkgndPath = new QLineEdit;
-    m_bkgndPath->setPlaceholderText(tr("未设置背景图片"));
-    m_bkgndPath->setFixedHeight(kInputH);
-    pathRow->addWidget(m_bkgndPath, 1);
-    auto *btnBrowse = addButton(nullptr, tr("浏览…"));
-    auto *btnOpenFolder = addButton(nullptr, tr("打开文件夹"));
-    pathRow->addWidget(btnBrowse);
-    pathRow->addWidget(btnOpenFolder);
-    connect(btnBrowse, &QPushButton::clicked, this, [this]() {
-        const QString f = QFileDialog::getOpenFileName(
-            this, tr("选择图片"), m_bkgndPath->text(), DirectoryLoader::imageFilter());
-        if (!f.isEmpty())
-            m_bkgndPath->setText(f);
-    });
-    connect(btnOpenFolder, &QPushButton::clicked, this, [this]() {
-        const QString d = m_bkgndPath->text().trimmed();
-        if (!d.isEmpty())
-            QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(d).absolutePath()));
-    });
-    // 输入框 + 浏览… + 打开文件夹 已随背景图功能一起启用。
-
-    // 颜色两项是真开关：ImageCanvas::setBackgroundColor()/setBorderColor()，
-    // 保存后 MainWindow::applyRuntimeSettings() 立即重刷当前画布。
-    auto *bgBtn = new ColorPickButton("view/bkgnd_color", QStringLiteral("#202020"));
-    m_bkgndColorBtn = bgBtn;
-    QHBoxLayout *bgRow = addRow(sec, tr("背景颜色"));
-    bgRow->addWidget(bgBtn);
-    bgRow->addStretch(1);
-
-    auto *bdBtn = new ColorPickButton("view/border_color", QStringLiteral("#000000"));
-    m_borderColorBtn = bdBtn;
-    QHBoxLayout *bdRow = addRow(sec, tr("边框颜色"));
-    bdRow->addWidget(bdBtn);
-    bdRow->addStretch(1);
+    // 「背景」段（背景图 + 路径 + 背景色 + 边框色）已按用户 2026-11-03 决定整段
+    // 移除（第 18 期）：画布外观固定，见 MainWindow::applyRuntimeSettings 的注释。
 }
 
 // ===========================================================================
@@ -1565,8 +1528,6 @@ void SettingsDialog::loadFromConfig()
     }
     if (m_cacheSize)
         m_cacheSize->setValue(iGet("imageproc/cache_size_mb", 300));
-    if (m_bkgndPath)
-        m_bkgndPath->setText(sGet("view/bkgnd_image_path"));
     for (const KeyRow &r : m_keyRows) {
         r.cb->setChecked(bGet(QStringLiteral("keyboard/%1_enabled").arg(r.action).toLatin1().constData(), true));
         const QString key = sGet(QStringLiteral("keyboard/%1_key").arg(r.action).toLatin1().constData(),
@@ -1636,8 +1597,6 @@ void SettingsDialog::onAccepted()
 
     if (m_cacheSize)
         iSet("imageproc/cache_size_mb", m_cacheSize->value());
-    if (m_bkgndPath)
-        sSet("view/bkgnd_image_path", m_bkgndPath->text());
     for (const KeyRow &r : m_keyRows) {
         bSet(QStringLiteral("keyboard/%1_enabled").arg(r.action).toLatin1().constData(),
              r.cb->isChecked());
@@ -1686,11 +1645,8 @@ void SettingsDialog::onReset()
     s.endGroup();
     loadFromConfig();
 
-    // 直接读写 config 的控件也要跟着回到默认值
-    if (auto *bg = static_cast<ColorPickButton *>(m_bkgndColorBtn))
-        bg->refresh();
-    if (auto *bd = static_cast<ColorPickButton *>(m_borderColorBtn))
-        bd->refresh();
+    // 「背景」段的两个颜色钮已随第 18 期下线；其余直接读写 config 的控件
+    // 均为绑定表/专项控件，loadFromConfig() 已覆盖。
 }
 
 // ===========================================================================
