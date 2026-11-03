@@ -19,6 +19,8 @@
 #include <cmath>
 #include <vector>
 
+#include "Config.h"
+
 namespace {
 
 // 分离式 Lanczos3 重采样：先水平后垂直，两个方向各 3-lobe 窗口。
@@ -932,7 +934,9 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent *event)
                              && (event->pos() - m_pressPos).manhattanLength() < 3;
         const int delta = isClick ? edgeTurnDelta(event->pos()) : 0;
         QGraphicsView::mouseReleaseEvent(event);
-        if (delta != 0) {
+        // 两侧单击翻页受设置控制（键 "config/mouse/click_side_pageturn"）：
+        // 关闭时箭头照常显示，点击不再翻页。
+        if (delta != 0 && Config::instance().sideClickPageturn()) {
             emit edgeTurnRequested(delta);
         }
         return;

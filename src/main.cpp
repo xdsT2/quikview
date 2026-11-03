@@ -84,6 +84,18 @@ int main(int argc, char *argv[])
     const bool dark = (Config::instance().theme() != QLatin1String("light"));
     Theme::apply(app, dark ? Theme::Mode::Dark : Theme::Mode::Light);
 
+    // 一次性迁移：老版本「单击屏幕两侧翻页」是灰显项，但保存设置时 addCheckUnavailable
+    // 也会把 mouse/click_side_pageturn 写盘（默认 false），存量配置里很可能是 false。
+    // 本次接线默认 true，规则：etc/migrated_side_click 标记不存在时忽略旧值、强制按
+    // true 处理并写入标记（顺带把键归一为 true），标记存在后才以配置为准。
+    {
+        QSettings &s = Config::instance().settings();
+        if (!s.contains(QStringLiteral("etc/migrated_side_click"))) {
+            s.setValue(QStringLiteral("etc/migrated_side_click"), true);
+            s.setValue(QStringLiteral("config/mouse/click_side_pageturn"), true);
+        }
+    }
+
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("QuikView - a fast, clean image viewer"));
     parser.addHelpOption();
