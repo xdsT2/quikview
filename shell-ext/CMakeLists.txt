@@ -11,7 +11,8 @@ add_library(quikthumb SHARED
     src/guids.cpp
     src/module.cpp
     src/thumbnail.cpp
-    src/contextmenu.cpp)
+    src/contextmenu.cpp
+    quikview.rc)
 target_include_directories(quikthumb PRIVATE src)
 target_compile_definitions(quikthumb PRIVATE
     UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX WINVER=0x0601 _WIN32_WINNT=0x0601)

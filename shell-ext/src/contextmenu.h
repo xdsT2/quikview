@@ -1,8 +1,12 @@
-// QuikView 上下文菜单壳扩展公共声明（交办单 D2 阶段 1：IContextMenu）。
-// 纯 Win32 裸 COM：IShellExtInit / IContextMenu / CMINVOKECOMMANDINFO(EX)
-// 直接用 shobjidl.h 的系统声明（quikthumb.h 的流接口已改名 QvInitializeWithStream，
-// 不会再与 shobjidl→propsys.h 的同名类冲突）。无 Qt、无 ATL/WTL。
-// 模块锁/实例句柄/支持扩展名等共享声明见 quikthumb.h。
+// QuikView 上下文菜单壳扩展公共声明（P-19 / 批次 B）。
+// 纯 Win32 裸 COM：IShellExtInit / IContextMenu2（IContextMenu 子接口，
+// 多一个 HandleMenuMsg 用于自绘菜单项）。无 Qt、无 ATL/WTL。
+//
+// 菜单三项：
+//   0 浏览（带 QuikView 图标 MIIM_BITMAP）
+//   1 转换（带图标）
+//   2 缩略图预览（MFT_OWNERDRAW，≤256px；WIC 解码超 50ms 预算则不出此项）
+//   单选图时浏览项右侧用 \t 右对齐「宽×高 · 文件大小」。
 #pragma once
 #include <windows.h>
 #include <objidl.h>
@@ -10,17 +14,11 @@
 
 #include "guids.h"
 
-// ---- 上下文菜单处理器（方法实现在 contextmenu.cpp）----
-//
-// 菜单两项：「用 QuikView 浏览」= quikview.exe <path>；
-//          「用 QuikView 转换」= quikview.exe --batch <path>。
-// 多选策略：只处理第一个选中文件（交办单允许二选一，见 README）。
-// 过滤：第一个选中文件扩展名不在支持列表内时不注入菜单项。
 class QuikContextMenu : public IShellExtInit,
-                        public IContextMenu {
+                        public IContextMenu2 {
 public:
-    QuikContextMenu();    // 引用计数 1，占用一个模块锁
-    virtual ~QuikContextMenu();   // 虚：Release 归零时 delete this
+    QuikContextMenu();
+    virtual ~QuikContextMenu();
 
     // IUnknown
     STDMETHODIMP QueryInterface(REFIID riid, void** ppv) override;
@@ -37,14 +35,22 @@ public:
     STDMETHODIMP GetCommandString(UINT_PTR idCmd, UINT uType,
                                   UINT* pwReserved, CHAR* pszName,
                                   UINT cchMax) override;
+    // IContextMenu2（自绘项的 measure/draw 回调）
+    STDMETHODIMP HandleMenuMsg(UINT uMsg, WPARAM wParam, LPARAM lParam) override;
 
 private:
-    // 解析 quikview.exe 全路径：DLL 同目录 → 注册表 InstallDir/InstallPath。
     bool FindQuikViewExe(wchar_t* exePath, DWORD cch) const;
-    // CreateProcessW 启动 quikview.exe（batch = true 加 --batch）。
     HRESULT Launch(bool batch) const;
+    void ReleaseBitmaps();
 
     ULONG m_ref;
-    wchar_t m_file[MAX_PATH];   // 只保留第一个选中文件（多选策略）
+    wchar_t m_file[MAX_PATH];
     bool m_hasFile;
+
+    // 批次 B 产物（QueryContextMenu 时构造，析构释放）
+    HBITMAP m_iconBmp;      // 菜单项小图标（32×32）
+    HBITMAP m_thumbBmp;     // 自绘缩略图（≤256px 边），失败为 nullptr
+    int m_thumbW;
+    int m_thumbH;
+    wchar_t m_infoText[128];  // 右对齐「宽×高 · 大小」
 };

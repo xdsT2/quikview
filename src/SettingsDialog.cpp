@@ -1529,9 +1529,9 @@ void SettingsDialog::buildContextMenuPage(QWidget *page)
                  shellReady ? kOk : kWarn);
     addStatusRow(sec, tr("用QuikView转换图片"), shellState, shellReady ? kOk : kWarn);
     addStatusRow(sec, tr("用QuikView浏览图片"), shellState, shellReady ? kOk : kWarn);
-    addStatusRow(sec, tr("上下文菜单预览"), tr("本版未提供"), kMuted);
-    addStatusRow(sec, tr("显示图片信息"), tr("本版未提供"), kMuted);
-    addStatusRow(sec, tr("显示软件图标"), tr("本版未提供"), kMuted);
+    addStatusRow(sec, tr("上下文菜单预览"), tr("已实现自绘缩略图（≤256px），待资源管理器验收"), kMuted);
+    addStatusRow(sec, tr("显示图片信息"), tr("已支持（宽×高 · 文件大小）"), kOk);
+    addStatusRow(sec, tr("显示软件图标"), tr("已支持（壳扩展内嵌资源图标）"), kOk);
     if (!shellReady)
         addHint(sec, tr("未检测到壳扩展，重新运行安装包可修复。"));
 

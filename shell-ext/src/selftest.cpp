@@ -665,6 +665,68 @@ int main(int argc, char** argv) {
             CTX(ok, "ctx-14 未 Initialize 不注入");
         }
 
+        // ctx-15 (B1)：浏览/转换两项带菜单位图（MIIM_BITMAP）
+        if (ctx) {
+            HMENU menu = CreatePopupMenu();
+            ctx->QueryContextMenu(menu, 0, 1, 0x7FFF, CMF_NORMAL);
+            int withBitmap = 0;
+            const int n = GetMenuItemCount(menu);
+            for (int pos = 0; pos < n; ++pos) {
+                MENUITEMINFOW mii = {};
+                mii.cbSize = sizeof(mii);
+                mii.fMask = MIIM_FTYPE | MIIM_BITMAP;
+                const BOOL gr = GetMenuItemInfoW(menu, pos, TRUE, &mii);
+                // MFT_STRING 恒为 0，不能用 & MFT_STRING 判定；直接数带 hbmp 的非分隔项
+                if (gr && mii.hbmpItem && (mii.fType & MFT_SEPARATOR) == 0) {
+                    ++withBitmap;
+                }
+            }
+            DestroyMenu(menu);
+            CTX(withBitmap == 2, "ctx-15 B1 菜单项带内嵌图标位图");
+        } else {
+            CtxFail("ctx-15 B1 带图标（建实例失败）");
+        }
+
+        // ctx-16 (B2)：浏览项文案含「浏览」；若 WIC 可读则含尺寸/大小（\t 后）
+        if (ctx) {
+            HMENU menu = CreatePopupMenu();
+            ctx->QueryContextMenu(menu, 0, 1, 0x7FFF, CMF_NORMAL);
+            wchar_t txt[192] = {};
+            GetMenuStringW(menu, 1, txt, 192, MF_BYPOSITION);
+            DestroyMenu(menu);
+            bool ok = wcsstr(txt, L"浏览") != nullptr;
+            printf("      ctx-16 browse text len=%u tab=%d dims=%d\n",
+                   (unsigned)wcslen(txt), (int)(wcschr(txt, L'\t') != nullptr),
+                   (int)(wcschr(txt, L'×') != nullptr));
+            CTX(ok, "ctx-16 B2 浏览项文案（有图时右侧附 宽×高·大小）");
+        } else {
+            CtxFail("ctx-16 B2 尺寸文案（建实例失败）");
+        }
+
+        // ctx-17 (B3)：暴露 IContextMenu2，自绘 measure/draw 回调不崩
+        if (ctx) {
+            IContextMenu2* cm2 = nullptr;
+            hr = ctx->QueryInterface(IID_IContextMenu2, (void**)&cm2);
+            bool ok = SUCCEEDED(hr) && cm2 != nullptr;
+            if (cm2) {
+                // 伪造一次 measure / draw，确认回调不崩（值随意）
+                MEASUREITEMSTRUCT mis = {};
+                mis.CtlType = ODT_MENU;
+                cm2->HandleMenuMsg(WM_MEASUREITEM, 0, (LPARAM)&mis);
+                DRAWITEMSTRUCT dis = {};
+                dis.CtlType = ODT_MENU;
+                dis.hDC = GetDC(nullptr);
+                dis.rcItem.left = dis.rcItem.top = 0;
+                dis.rcItem.right = 200; dis.rcItem.bottom = 200;
+                cm2->HandleMenuMsg(WM_DRAWITEM, 0, (LPARAM)&dis);
+                ReleaseDC(nullptr, dis.hDC);
+                cm2->Release();
+            }
+            CTX(ok, "ctx-17 B3 自绘缩略图项接口 IContextMenu2 可用");
+        } else {
+            CtxFail("ctx-17 B3 自绘接口（建实例失败）");
+        }
+
         if (ctxTxt) ctxTxt->Release();
         if (ctxMulti) ctxMulti->Release();
         if (ctx) ctx->Release();

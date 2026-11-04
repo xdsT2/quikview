@@ -1,0 +1,5 @@
+// QuikView 壳扩展资源：把主程序图标编进 DLL，右键菜单项直接用（不运行时加载 exe）。
+// 路径相对本 .rc 所在目录（shell-ext/），指向仓库根 resources/quikview.ico。
+#include <windows.h>
+#define IDI_QVICON 101
+IDI_QVICON ICON "../resources/quikview.ico"
