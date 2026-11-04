@@ -494,11 +494,8 @@ QLabel#pageHint { color: @HintText@; font-size: 11px; }
 QPushButton#miniBtn { min-height: 18px; max-height: 22px; padding: 0 9px; font-size: 10px;
     border-radius: 5px; }
 /* 颜色按钮（ColorPickButton）已随第 18 期「背景段下线」删除，QSS 一并清掉 */
-QComboBox#flatCombo { background: transparent; border: 0; color: @Body@; font-size: 12px;
-    min-height: 20px; padding: 0 20px 0 6px; }
-QComboBox#flatCombo:hover { color: @PureWhite@; }
-QComboBox#flatCombo::drop-down { width: 18px; border: 0; }
-QComboBox#flatCombo::down-arrow { image: url(:/ui/chevron-down.png); width: 12px; height: 12px; }
+/* 键盘页「操作」列：只读动作名（原 flatCombo 可改绑，2026-11-04 锁死为标签） */
+QLabel#keyAction { color: @Body@; font-size: 12px; }
 
 QLabel#valueText { color: @Body@; font-size: 11px; }
 
@@ -625,7 +622,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     buildAppearancePage(addPage(tr("外观"), tr("主题与材质。跟随系统时由 Windows 的深浅色设置决定。")));
     buildImageProcPage(addPage(tr("图像处理"), tr("透明背景、插值算法、翻页效果与 ICC 色彩管理；监视器 ICC 受 Qt6 限制暂不可用。")));
     buildAssocPage(addPage(tr("格式关联"), tr("通过系统入口设置默认打开方式（Windows 10+ 不允许程序静默改默认）。")));
-    buildKeyboardPage(addPage(tr("键盘"), tr("14 个动作可自定义键位：改热键 / 改绑动作 / 禁用，保存后立即生效。")));
+    buildKeyboardPage(addPage(tr("键盘"), tr("14 个动作可自定义热键与启用状态；「操作」列固定不可改，保存后立即生效。")));
     buildMousePage(addPage(tr("鼠标"), tr("左/右/X/Y 与滚轮的按键映射可自定义；中键平移、双击最大化可用。")));
     buildBookmarkPage(addPage(tr("书签"), tr("自动保存开关与书签数量上限。")));
     buildContextMenuPage(addPage(tr("上下文菜单"), tr("右键菜单与资源管理器缩略图随安装包注册、卸载时移除；本页仅作状态说明。")));
@@ -1197,7 +1194,7 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     // 14 行全部可配置（config/keyboard/<action>_{enabled,_key,_action}），
     // MainWindow::applyShortcutConfig 在保存后立即给 QAction 重装键位。
     auto *hint = new QLabel(tr("双击「热键」栏录入新键位（Esc 清空），保存后立即生效；"
-                               "「操作」列可把该键位改绑到其他动作。"
+                               "取消勾选可停用该动作。"
                                "两个启用的动作占用同一键位时保存会被拒绝。"), page);
     hint->setObjectName(QStringLiteral("pageHint"));
     hint->setWordWrap(true);
@@ -1257,13 +1254,7 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
         { "del",         "Del",        QT_TR_NOOP("删除") },
     };
 
-    // 「操作」列只列这 14 个动作：本期键盘自定义只覆盖本表内的动作（交办单
-    // 范围控制），固定动作（打印/设置/退出等）的键位由冲突检测保护，改绑属二期。
-    QList<QPair<QString, QString>> keyActions;
-    for (const KeyDef &d : defs)
-        keyActions.append({ QString::fromUtf8(d.action), tr(d.label) });
-
-    const auto opts = keyActions;
+    // 「操作」列只读：动作由行本身决定，用户只能改勾选与热键（2026-11-04 拍板）。
     for (int i = 0; i < int(sizeof(defs) / sizeof(defs[0])); ++i) {
         if (i > 0) {
             auto *line = new QFrame(table);
@@ -1299,25 +1290,21 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
         el->addWidget(edit);
         rl->addWidget(editHost);
 
-        auto *combo = new QComboBox(row);
-        combo->setObjectName(QStringLiteral("flatCombo"));
-        for (const auto &opt : opts)
-            combo->addItem(opt.second, opt.first);
-        combo->setCursor(Qt::PointingHandCursor);
-        combo->setFixedHeight(26);
-        rl->addWidget(combo, 1);
-        // 「操作」列右缘与行区滚动条留 6px，避免下拉箭头贴着滚动条（P-17 / D3）
+        // 「操作」列只读：动作由行本身决定，不给下拉、不给编辑（用户 2026-11-04 拍板）
+        auto *actionLab = new QLabel(tr(def.label), row);
+        actionLab->setObjectName(QStringLiteral("keyAction"));
+        actionLab->setContentsMargins(8, 0, 8, 0);
+        rl->addWidget(actionLab, 1);
+        // 「操作」列右缘与行区滚动条留 6px，避免文字/箭头贴着滚动条（P-17 / D3）
         rl->addSpacing(6);
 
         // 任一字段改动即撤掉上次保存被拒的冲突高亮（重新保存时再检测）
         connect(chk, &QCheckBox::toggled, this, [this]() { clearKeyConflicts(); });
         connect(edit, &QKeySequenceEdit::keySequenceChanged, this,
                 [this]() { clearKeyConflicts(); });
-        connect(combo, &QComboBox::currentIndexChanged, this,
-                [this]() { clearKeyConflicts(); });
 
-        m_keyRows.append({ chk, edit, combo, row, QString::fromUtf8(def.action),
-                           QString::fromUtf8(def.hotkey) });
+        m_keyRows.append({ chk, edit, actionLab, row, QString::fromUtf8(def.action),
+                           QString::fromUtf8(def.hotkey), tr(def.label) });
         rl0->addWidget(row);
     }
 
@@ -1634,9 +1621,8 @@ void SettingsDialog::loadFromConfig()
         const QString key = sGet(QStringLiteral("keyboard/%1_key").arg(r.action).toLatin1().constData(),
                                  r.defHotkey);
         r.edit->setKeySequence(QKeySequence::fromString(key, QKeySequence::PortableText));
-        const int idx = r.combo->findData(
-            sGet(QStringLiteral("keyboard/%1_action").arg(r.action).toLatin1().constData(), r.action));
-        r.combo->setCurrentIndex(idx >= 0 ? idx : 0);
+        // 「操作」列只读：不再回读 keyboard/<action>_action（历史上被改绑过的配置
+        // 会在下次保存时按固定动作覆写回去）。
     }
     for (const MouseRow &r : m_mouseRows) {
         const int idx = r.combo->findData(sGet(r.key.toLatin1().constData(), r.def));
@@ -1705,8 +1691,9 @@ void SettingsDialog::onAccepted()
         // QKeySequence::fromString(…, PortableText) 读回。
         sSet(QStringLiteral("keyboard/%1_key").arg(r.action).toLatin1().constData(),
              r.edit->keySequence().toString(QKeySequence::PortableText));
+        // 动作固定，仍写回同名字段：把历史改绑留下的旧值清掉。
         sSet(QStringLiteral("keyboard/%1_action").arg(r.action).toLatin1().constData(),
-             r.combo->currentData().toString());
+             r.action);
     }
     for (const MouseRow &r : m_mouseRows)
         sSet(r.key.toLatin1().constData(), r.combo->currentData().toString());
@@ -1800,7 +1787,7 @@ QString SettingsDialog::keyboardConflicts()
     for (const KeyRow &r : m_keyRows) {
         RowState s;
         s.enabled = r.cb->isChecked();
-        s.target = r.combo->currentData().toString();
+        s.target = r.action;   // 动作只读，目标恒等于行自身动作
         s.key = r.edit->keySequence();
         const QKeySequence defSeq =
             QKeySequence::fromString(r.defHotkey, QKeySequence::PortableText);
@@ -1809,12 +1796,10 @@ QString SettingsDialog::keyboardConflicts()
         st.append(s);
     }
 
-    // 动作 id → 显示名（各行「操作」下拉共享同一份选项表）
+    // 动作 id → 显示名（「操作」列已改只读标签，直接从行里取）
     QHash<QString, QString> labelOf;
-    if (!m_keyRows.isEmpty()) {
-        const QComboBox *c = m_keyRows.first().combo;
-        for (int i = 0; i < c->count(); ++i)
-            labelOf.insert(c->itemData(i).toString(), c->itemText(i));
+    for (const KeyRow &r : m_keyRows) {
+        labelOf.insert(r.action, r.label);
     }
     auto label = [&labelOf](const QString &id) { return labelOf.value(id, id); };
     auto rowIndexOfAction = [this](const QString &action) -> int {

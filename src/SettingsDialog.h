@@ -161,10 +161,11 @@ private:
     struct KeyRow {                       // 键盘页一行（QString 值拷贝：
         QCheckBox *cb;                    // 数据源是构建函数的栈数组，const char*
         QKeySequenceEdit *edit;           // 悬空会导致热键列显示乱码）
-        QComboBox *combo;
-        QWidget *row;                     // 冲突高亮以整行为单位（动态属性 conflict）
+        QLabel *actionLab;                // 「操作」列只读展示（2026-11-04 用户拍板：
+        QWidget *row;                     // 动作不允许改，只有勾选与热键可改）
         QString action;
         QString defHotkey;                // 出厂键位（PortableText，与 MainWindow 一致）
+        QString label;                    // 动作显示名（冲突提示用）
     };
     QList<KeyRow> m_keyRows;
     struct MouseRow {                     // 鼠标页按键动作行（同样避免悬空指针）
