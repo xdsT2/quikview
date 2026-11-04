@@ -15,6 +15,7 @@ volatile LONG g_cLock = 0;   // 模块锁：存活对象数 + LockServer
 // 注册脚本与 regsvr32 都写这些常量，改动必须同步 shell-ext/scripts/*.ps1
 const wchar_t* const kSupportedExts[] = {
     L".png", L".jpg", L".jpeg", L".bmp", L".gif", L".webp", L".tif", L".tiff",
+    L".psd", L".psb",
 };
 const wchar_t kClsidString[] = L"{D8A1C4E2-7B35-4F69-92A4-5C6D7E8F1A2B}";
 const wchar_t kFriendlyName[] = L"QuikView Thumbnail Provider";

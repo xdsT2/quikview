@@ -1537,8 +1537,8 @@ void SettingsDialog::buildContextMenuPage(QWidget *page)
 
     sec = beginSection(page, tr("资源管理器缩略图"));
     addStatusRow(sec, tr("WebP"), shellState, shellReady ? kOk : kWarn);
-    addStatusRow(sec, tr("PSD"), tr("暂不支持（本版仅 WebP）"), kMuted);
-    addStatusRow(sec, tr("PSB"), tr("暂不支持（本版仅 WebP）"), kMuted);
+    addStatusRow(sec, tr("PSD"), tr("部分支持（内嵌 JPEG 缩略图，无内嵌回退默认图标）"), kWarn);
+    addStatusRow(sec, tr("PSB"), tr("部分支持（内嵌 JPEG 缩略图，无内嵌回退默认图标）"), kWarn);
 
     sec = beginSection(page, tr("说明"));
     addHint(sec, tr("这些入口由 QuikView 壳扩展在资源管理器中提供，"
