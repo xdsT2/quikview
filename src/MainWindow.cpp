@@ -2563,7 +2563,10 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                 ts << "hint=" << fmt(hint) << " head=" << fmt(head)
                    << " table=" << fmt(table) << "\n";
                 ts << "rowsArea=" << fmt(rowsArea)
-                   << " maxH=" << (rowsArea ? rowsArea->maximumHeight() : -1) << "\n";
+                   << " maxH=" << (rowsArea ? rowsArea->maximumHeight() : -1)
+                   << " sizeHintH=" << (rowsArea ? rowsArea->sizeHint().height() : -1)
+                   << " minH=" << (rowsArea ? rowsArea->minimumHeight() : -1)
+                   << "\n";
                 if (rowsArea) {
                     ts << "rowsAreaViewport=" << fmt(rowsArea->viewport())
                        << " vbarVisible=" << (rowsArea->verticalScrollBar()->isVisible() ? 1 : 0)
@@ -2613,6 +2616,47 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                 }
                 ts << "\n";
                 f.close();
+
+                // 第二次 dump：缩小窗口到 600 高，测整行吸附 + 滚到底留白
+                dlg->resize(dlg->width(), 600);
+                QTimer::singleShot(800, dlg, [dlg]() {
+                    auto *ra = dlg->findChild<QScrollArea *>(QStringLiteral("keyRowsArea"));
+                    auto *rb = dlg->findChild<QWidget *>(QStringLiteral("keyRowsBox"));
+                    // 先滚到底
+                    if (ra) ra->verticalScrollBar()->setValue(ra->verticalScrollBar()->maximum());
+                    QTimer::singleShot(300, dlg, [dlg, ra, rb]() {
+                        QFile f2(QStringLiteral("Temp/keyboard-layout-20261105/geom.txt"));
+                        if (!f2.open(QIODevice::Append | QIODevice::Text)) return;
+                        QTextStream ts2(&f2);
+                        ts2 << "=== after resize to 600h (scrolled to bottom) ===\n";
+                        ts2 << "dlgClient=" << dlg->width() << 'x' << dlg->height() << "\n";
+                        ts2 << "rowsAreaH=" << (ra ? ra->height() : -1)
+                            << " maxH=" << (ra ? ra->maximumHeight() : -1)
+                            << " sizeHintH=" << (ra ? ra->sizeHint().height() : -1) << "\n";
+                        if (ra) {
+                            ts2 << "viewportH=" << ra->viewport()->height()
+                                << " vbarVisible=" << (ra->verticalScrollBar()->isVisible() ? 1 : 0)
+                                << " vbarMax=" << ra->verticalScrollBar()->maximum() << "\n";
+                        }
+                        if (rb && rb->layout() && ra) {
+                            const int n = rb->layout()->count();
+                            int lastRowBottom = -1;
+                            for (int i = n - 1; i >= 0; --i) {
+                                if (auto *iw = rb->layout()->itemAt(i)->widget()) {
+                                    if (iw->height() > 4) { lastRowBottom = iw->geometry().y() + iw->height(); break; }
+                                }
+                            }
+                            // 滚到底后，可视底 = viewportH + vbarValue，但末行在 box 坐标系
+                            // 实际留白 = viewportH - (lastRowBottom - vbarValue)
+                            const int vbarVal = ra->verticalScrollBar()->value();
+                            const int gap = ra->viewport()->height() - (lastRowBottom - vbarVal);
+                            ts2 << "lastRowBottomInBox=" << lastRowBottom
+                                << " vbarVal=" << vbarVal
+                                << " gapAtBottom=" << gap << "\n";
+                        }
+                        ts2 << "\n";
+                    });
+                });
             });
         });
     }

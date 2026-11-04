@@ -153,6 +153,18 @@ protected:
         apply();
     }
 
+    // 高度直接由内容 sizeHint 决定：QScrollArea 默认 sizeHint 是固定值（360），
+    // 与 AdjustToContents 无关——stretch=0 时布局按 sizeHint 给高度，所以必须自己重写。
+    // NoFrame 时 frameWidth()=0，高度 = 内容 sizeHint 高度。宽度沿用父类（跟随外层表格）。
+    QSize sizeHint() const override
+    {
+        if (widget()) {
+            const int h = widget()->sizeHint().height() + 2 * frameWidth();
+            return QSize(QScrollArea::sizeHint().width(), h);
+        }
+        return QScrollArea::sizeHint();
+    }
+
 private:
     void apply()
     {
