@@ -25,7 +25,6 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPaintEvent>
-#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSet>
@@ -422,11 +421,11 @@ QLabel#pageHint { color: @HintText@; font-size: 11px; }
 QPushButton#miniBtn { min-height: 18px; max-height: 22px; padding: 0 9px; font-size: 10px;
     border-radius: 5px; }
 /* 颜色按钮（ColorPickButton）已随第 18 期「背景段下线」删除，QSS 一并清掉 */
-QComboBox#flatCombo { background: transparent; border: 0; color: @Body@; font-size: 11px;
-    min-height: 20px; padding: 0 4px 0 6px; }
+QComboBox#flatCombo { background: transparent; border: 0; color: @Body@; font-size: 12px;
+    min-height: 20px; padding: 0 20px 0 6px; }
 QComboBox#flatCombo:hover { color: @PureWhite@; }
-QComboBox#flatCombo::drop-down { width: 0; border: 0; }
-QComboBox#flatCombo::down-arrow { width: 0; height: 0; }
+QComboBox#flatCombo::drop-down { width: 18px; border: 0; }
+QComboBox#flatCombo::down-arrow { image: url(:/ui/chevron-down.png); width: 12px; height: 12px; }
 
 QLabel#valueText { color: @Body@; font-size: 11px; }
 
@@ -1057,11 +1056,12 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
 void SettingsDialog::buildAssocPage(QWidget *page)
 {
     QWidget *sec = beginSection(page, tr("格式关联"));
-    addHint(sec, tr("选择需要由 QuikView 打开的文件格式；系统关联方式可在下方设置。"));
+    addHint(sec, tr("两个入口都用于修改系统默认打开方式：前者打开 Windows「默认应用」，"
+                    "后者打开旧式文件关联面板。"));
 
     QHBoxLayout *btnRow = addRow(sec, QString());
-    auto *btnAssoc = addButton(nullptr, tr("格式关联"));
-    auto *btnClassic = addButton(nullptr, tr("经典方法"));
+    auto *btnAssoc = addButton(nullptr, tr("设为默认打开方式…"));
+    auto *btnClassic = addButton(nullptr, tr("打开系统默认应用"));
     btnRow->addWidget(btnAssoc);
     btnRow->addWidget(btnClassic);
     btnRow->addStretch(1);
@@ -1503,25 +1503,8 @@ void SettingsDialog::buildLangPage(QWidget *page)
         v->addWidget(link2);
     }
 
-    sec = beginSection(page, tr("翻译"));
-    auto *credits = new QPlainTextEdit(sec);
-    credits->setObjectName(QStringLiteral("credits"));
-    credits->setReadOnly(true);
-    credits->setFixedHeight(196);
-    credits->setPlainText(QStringLiteral(
-        "QuikView translations\n"
-        "--------------------------------------------------\n"
-        "中文(简体) (zh_CN) ........................ QuikView\n"
-        "中文(繁體) (zh_TW) ........................ QuikView\n"
-        "English (en_US) ........................... QuikView\n"
-        "한국어 (ko_KR) ............................. QuikView\n"
-        "日本語 (ja_JP) ............................. QuikView\n"
-        "Français (fr_FR) .......................... QuikView\n"
-        "Deutsch (de_DE) ........................... QuikView\n"
-        "Español (es_ES) ........................... QuikView\n"
-        "Русский (ru_RU) ........................... QuikView\n"));
-    if (auto *v = qobject_cast<QVBoxLayout *>(sec->layout()))
-        v->addWidget(credits);
+    // 「翻译」区原是硬编码的等宽文本清单，与上方语言下拉重复且像调试输出；
+    // 2026-11-04 按视觉基线 H2 直接删除（已安装语言以下拉为准）。
 }
 
 // ===========================================================================

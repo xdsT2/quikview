@@ -166,11 +166,11 @@ QToolTip { background: #2a2c30; color: #e6e8ea; border: 1px solid rgba(255,255,2
            border-radius: 6px; padding: 6px 8px; }
 
 QScrollBar:vertical { background: transparent; width: 10px; margin: 2px; }
-QScrollBar::handle:vertical { background: rgba(255,255,255,0.16); border-radius: 4px; min-height: 28px; }
-QScrollBar::handle:vertical:hover { background: rgba(255,255,255,0.26); }
+QScrollBar::handle:vertical { background: rgba(255,255,255,0.34); border-radius: 4px; min-height: 28px; }
+QScrollBar::handle:vertical:hover { background: rgba(255,255,255,0.46); }
 QScrollBar:horizontal { background: transparent; height: 10px; margin: 2px; }
-QScrollBar::handle:horizontal { background: rgba(255,255,255,0.16); border-radius: 4px; min-width: 28px; }
-QScrollBar::handle:horizontal:hover { background: rgba(255,255,255,0.26); }
+QScrollBar::handle:horizontal { background: rgba(255,255,255,0.34); border-radius: 4px; min-width: 28px; }
+QScrollBar::handle:horizontal:hover { background: rgba(255,255,255,0.46); }
 QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }
 QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
 
