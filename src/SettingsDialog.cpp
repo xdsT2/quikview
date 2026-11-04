@@ -589,7 +589,8 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     footer->setObjectName(QStringLiteral("dlgFooter"));
     footer->setFixedHeight(kFooterH);
     auto *fl = new QHBoxLayout(footer);
-    fl->setContentsMargins(18, 0, 18, 0);
+    // 右缘与内容区右缘对齐（内容 pane 右内边距 28px；原 18px 会让保存按钮外凸 9px）。
+    fl->setContentsMargins(18, 0, 28, 0);
     fl->setSpacing(9);
     auto *note = new QLabel(tr("更改会在保存后生效"), footer);
     note->setObjectName(QStringLiteral("footerNote"));
@@ -1239,6 +1240,8 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     }
 
     pageLay->addWidget(table);
+    // 表格底部留白：滚到底时最后一行不贴着内容区底边（P2 / D3，≥12px）。
+    pageLay->addSpacing(12);
 }
 
 // ===========================================================================
@@ -1339,6 +1342,12 @@ void SettingsDialog::buildBookmarkPage(QWidget *page)
     row->addStretch(1);
     // 已接配置：Config::toggleFavorite 超限时从尾部淘汰最早的书签
     // （键 config/bookmark/max_bookmarks，默认 50，clamp 10..100）。
+
+    // P2 / E2：补一段真实说明，减少「内容只占上半屏」的空白占比。
+    sec = beginSection(page, tr("说明"));
+    addHint(sec, tr("书签记录图片的完整路径，文件移动或重命名后原条目会失效。"
+                    "自动保存只在打开图片时追加一条；数量超过上限时从最早的书签开始淘汰。"
+                    "书签数据保存在本机配置中，不随安装包或账户同步。"));
 }
 
 // ===========================================================================
@@ -1439,7 +1448,7 @@ void SettingsDialog::buildEtcPage(QWidget *page)
     makeFolderRow(tr("图片文件夹 2"), &m_photoFolder2);
 
     sec = beginSection(page, tr("图像编辑器"));
-    QHBoxLayout *row = addRow(sec, QString());
+    QHBoxLayout *row = addRow(sec, tr("程序路径"));
     m_editorPath = new QLineEdit;
     m_editorPath->setFixedHeight(kInputH);
     row->addWidget(m_editorPath, 1);
@@ -1467,6 +1476,10 @@ void SettingsDialog::buildEtcPage(QWidget *page)
     addCheck(sec, tr("根据图片大小调节窗口大小"), "etc/fit_window_to_image", false, true);
     addCheck(sec, tr("运行 QuikView 时禁用 Windows 屏幕保护程序"), "etc/disable_screensaver",
              false, false);
+
+    // P2 / G1-2：补一段 RAW / 编辑器说明，减少内容下方的大块空白。
+    addHint(sec, tr("RAW 相关选项只影响 RAW 文件的打开方式；勾选「不打开 RAW 图片文件」时，"
+                    "JPEG 旁的 RAW 也不会被自动带出。外部编辑器留空时使用系统默认程序。"));
 }
 
 // ===========================================================================
@@ -1524,7 +1537,11 @@ void SettingsDialog::loadFromConfig()
     if (m_cacheSize)
         m_cacheSize->setValue(iGet("imageproc/cache_size_mb", 300));
     for (const KeyRow &r : m_keyRows) {
-        r.cb->setChecked(bGet(QStringLiteral("keyboard/%1_enabled").arg(r.action).toLatin1().constData(), true));
+        // 出厂无单键的动作（幻灯片 / 裁剪）默认不启用，避免「勾着但热键为空」；
+        // 已有配置仍以用户落盘值为准（P2 / D4）。
+        const bool enabledByDefault = !r.defHotkey.isEmpty();
+        r.cb->setChecked(bGet(QStringLiteral("keyboard/%1_enabled").arg(r.action).toLatin1().constData(),
+                              enabledByDefault));
         const QString key = sGet(QStringLiteral("keyboard/%1_key").arg(r.action).toLatin1().constData(),
                                  r.defHotkey);
         r.edit->setKeySequence(QKeySequence::fromString(key, QKeySequence::PortableText));
