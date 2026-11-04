@@ -232,8 +232,8 @@ void setPointerCursor(QWidget *w, bool pointer)
 // ---------------------------------------------------------------------------
 
 // 交接单 §7 指定的两个状态底色；其余颜色取自 UiStyle 令牌。
-const QColor kHoverBg(0x45, 0x48, 0x4d);   // Hover  #45484d
-const QColor kPressBg(0x29, 0x2b, 0x2f);   // Pressed #292b2f
+inline QColor kHoverBg() { return QColor(QString::fromLatin1(UiStyle::pick("#45484d", "#e9ebed"))); }   // Hover
+inline QColor kPressBg() { return QColor(QString::fromLatin1(UiStyle::pick("#292b2f", "#dfe1e3"))); }   // Pressed
 
 constexpr qreal kPressScale = 0.94;        // 按下时绘制缩放
 constexpr int kHoverMs = 120;              // Hover 淡入
@@ -273,8 +273,8 @@ constexpr int kTipSlack = 16;     // 预留 Qt 显示时自带的偏移，保证
 struct ButtonPalette {
     QColor base = QColor(0, 0, 0, 0);          // 常态底（alpha=0 表示无）
     QColor baseBorder = QColor(0, 0, 0, 0);    // 常态描边
-    QColor hover = kHoverBg;                   // Hover 底
-    QColor press = kPressBg;                   // Pressed 底
+    QColor hover = kHoverBg();                   // Hover 底
+    QColor press = kPressBg();                   // Pressed 底
     QColor checkedBg = QColor(85, 192, 240, 31);    // 锁定 / 选中底
     QColor checkedBorder = QColor(85, 192, 240, 64); // 锁定 / 选中描边
     QColor ink = QColor(0xd9, 0xda, 0xdd);     // 常态前景
@@ -711,8 +711,8 @@ void CaptionBar::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
-    p.fillRect(rect(), QColor(QStringLiteral("#1d1e20")));
-    p.fillRect(QRect(0, height() - 1, width(), 1), rgba(255, 255, 255, 10));
+    p.fillRect(rect(), QColor(QString::fromLatin1(UiStyle::pick("#1d1e20", "#f7f8f9"))));
+    p.fillRect(QRect(0, height() - 1, width(), 1), (UiStyle::isLight() ? QColor(0,0,0,10) : QColor(255,255,255,10)));
 
     // 应用标识
     const QRectF logoRect(11, (height() - 16) / 2.0, 16, 16);
@@ -720,22 +720,22 @@ void CaptionBar::paintEvent(QPaintEvent *)
     p.setBrush(QColor(QStringLiteral("#0b84c6")));
     p.drawRoundedRect(logoRect, 4, 4);
     p.setFont(uiFont(10, QFont::DemiBold));
-    p.setPen(QColor(QStringLiteral("#ffffff")));
+    p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#ffffff", "#1b1b1b"))));
     p.drawText(logoRect, Qt::AlignCenter, QStringLiteral("Q"));
 
     p.setFont(uiFont(12));
-    p.setPen(QColor(QStringLiteral("#d7d7d7")));
+    p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#d7d7d7", "#2a2a2a"))));
     p.drawText(QRect(34, 0, 78, height()), Qt::AlignVCenter | Qt::AlignLeft,
                QStringLiteral("QuikView"));
 
     const int dividerX = 103;
-    p.fillRect(QRect(dividerX, 9, 1, height() - 17), rgba(255, 255, 255, 19));
+    p.fillRect(QRect(dividerX, 9, 1, height() - 17), (UiStyle::isLight() ? QColor(0,0,0,19) : QColor(255,255,255,19)));
 
     // 文件名
     const int controlsLeft = width() - 3 * 44;
     const int titleLeft = dividerX + 12;
     p.setFont(uiFont(12));
-    p.setPen(QColor(QStringLiteral("#96999d")));
+    p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#96999d", "#696c70"))));
     const QRect titleRect(titleLeft, 0, qMax(0, controlsLeft - titleLeft - 12), height());
     p.drawText(titleRect, Qt::AlignVCenter | Qt::AlignLeft,
                p.fontMetrics().elidedText(m_title, Qt::ElideMiddle, titleRect.width()));
@@ -751,15 +751,15 @@ void CaptionBar::paintEvent(QPaintEvent *)
 
         ButtonPalette pal;
         pal.radius = 0;   // Windows 窗口按钮保持直角
-        pal.ink = QColor(QStringLiteral("#c9c9c9"));
+        pal.ink = QColor(QString::fromLatin1(UiStyle::pick("#c9c9c9", "#333333")));
         if (st.danger) {
             pal.hover = UiStyle::color(UiStyle::Danger);
             pal.press = UiStyle::color(UiStyle::Danger).darker(122);
             pal.ink = (st.hover || st.pressed) ? QColor(Qt::white)
-                                               : QColor(QStringLiteral("#c9c9c9"));
+                                               : QColor(QString::fromLatin1(UiStyle::pick("#c9c9c9", "#333333")));
         } else {
-            pal.hover = QColor(QStringLiteral("#343539"));
-            pal.press = QColor(QStringLiteral("#2a2b2e"));
+            pal.hover = QColor(QString::fromLatin1(UiStyle::pick("#343539", "#e9ebed")));
+            pal.press = QColor(QString::fromLatin1(UiStyle::pick("#2a2b2e", "#dfe1e3")));
         }
 
         beginButton(p, QRectF(r), st, v, pal);
@@ -953,9 +953,9 @@ void ToolBar::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
-    p.fillRect(rect(), QColor(QStringLiteral("#232426")));
+    p.fillRect(rect(), QColor(QString::fromLatin1(UiStyle::pick("#232426", "#f3f4f6"))));
     p.fillRect(QRect(0, height() - 1, width(), 1), rgba(0, 0, 0, 82));
-    p.fillRect(QRect(0, height() - 2, width(), 1), rgba(255, 255, 255, 5));
+    p.fillRect(QRect(0, height() - 2, width(), 1), (UiStyle::isLight() ? QColor(0,0,0,5) : QColor(255,255,255,5)));
 
     const QVector<Btn> btns = buttons();
     for (int i = 0; i < btns.size(); ++i) {
@@ -975,12 +975,12 @@ void ToolBar::paintEvent(QPaintEvent *)
             pal.press = QColor(QStringLiteral("#0a5c84"));
             pal.ink = QColor(Qt::white);
         } else {
-            pal.hover = kHoverBg;
-            pal.press = kPressBg;
-            pal.baseBorder = rgba(255, 255, 255, 19);
+            pal.hover = kHoverBg();
+            pal.press = kPressBg();
+            pal.baseBorder = (UiStyle::isLight() ? QColor(0,0,0,19) : QColor(255,255,255,19));
             pal.checkedBg = UiStyle::accentSoft();
             pal.checkedBorder = rgba(85, 192, 240, 64);
-            pal.ink = QColor(QStringLiteral("#d9dadd"));
+            pal.ink = QColor(QString::fromLatin1(UiStyle::pick("#d9dadd", "#242628")));
             pal.checkedInk = UiStyle::accent();
         }
 
@@ -1028,7 +1028,7 @@ void ToolBar::paintEvent(QPaintEvent *)
             if (b.caret) {
                 drawIcon(p, Icon::ChevronDown,
                          QRectF(b.rect.right() - 18, b.rect.center().y() - 5, 10, 10),
-                         QColor(QStringLiteral("#8e9297")), 1.4);
+                         QColor(QString::fromLatin1(UiStyle::pick("#8e9297", "#71757a"))), 1.4);
             }
         }
         endButton(p);
@@ -1037,7 +1037,7 @@ void ToolBar::paintEvent(QPaintEvent *)
     // 工具组前的分隔线
     const QRect slideRect = btns.size() > 2 ? btns[2].rect : QRect();
     const int sepX = slideRect.right() + 8;
-    p.fillRect(QRect(sepX, 8, 1, height() - 17), rgba(255, 255, 255, 19));
+    p.fillRect(QRect(sepX, 8, 1, height() - 17), (UiStyle::isLight() ? QColor(0,0,0,19) : QColor(255,255,255,19)));
 }
 
 void ToolBar::activate(int index, const QPoint &globalPos)
@@ -1401,8 +1401,8 @@ void ControlBar::paintEvent(QPaintEvent *)
     p.setRenderHint(QPainter::Antialiasing, true);
 
     // 胶囊底：整条只有这一层，缩放行不再叠第二层背景
-    p.setPen(QPen(rgba(255, 255, 255, 33), 1));
-    p.setBrush(rgba(40, 42, 45, 242));
+    p.setPen(QPen((UiStyle::isLight() ? QColor(0,0,0,33) : QColor(255,255,255,33)), 1));
+    p.setBrush(UiStyle::isLight() ? QColor(250, 250, 251, 242) : rgba(40, 42, 45, 242));
     p.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), 10, 10);
 
     QVector<int> separators;
@@ -1411,7 +1411,7 @@ void ControlBar::paintEvent(QPaintEvent *)
     // 分隔线：1px 宽 / 16px 高，操作行垂直居中
     const int sepY = kDockPadTop + kZoomRowH + kRowGap + (kActionRowH - kSepH) / 2;
     for (int sx : separators) {
-        p.fillRect(QRect(sx, sepY, kSepW, kSepH), rgba(255, 255, 255, 23));
+        p.fillRect(QRect(sx, sepY, kSepW, kSepH), (UiStyle::isLight() ? QColor(0,0,0,23) : QColor(255,255,255,23)));
     }
 
     for (int i = 0; i < list.size(); ++i) {
@@ -1462,22 +1462,22 @@ void ControlBar::paintEvent(QPaintEvent *)
         st.focus = (m_keyboardFocus && m_focus == i);
 
         ButtonPalette pal;
-        pal.hover = kHoverBg;
-        pal.press = kPressBg;
-        pal.baseBorder = rgba(255, 255, 255, 19);
+        pal.hover = kHoverBg();
+        pal.press = kPressBg();
+        pal.baseBorder = (UiStyle::isLight() ? QColor(0,0,0,19) : QColor(255,255,255,19));
         pal.checkedBg = UiStyle::accentSoft();
         pal.checkedBorder = rgba(85, 192, 240, 64);
-        pal.ink = QColor(QStringLiteral("#d7d9dc"));
+        pal.ink = QColor(QString::fromLatin1(UiStyle::pick("#d7d9dc", "#26282a")));
         pal.checkedInk = UiStyle::accent();
         switch (item.action) {
         case Action::Prev:
         case Action::Next:
-            pal.ink = QColor(QStringLiteral("#f0f0f0"));
+            pal.ink = QColor(QString::fromLatin1(UiStyle::pick("#f0f0f0", "#3d3d3d")));
             break;
         case Action::ZoomOut:
         case Action::ZoomIn:
         case Action::PageValue:
-            pal.ink = QColor(QStringLiteral("#b7bbc0"));
+            pal.ink = QColor(QString::fromLatin1(UiStyle::pick("#b7bbc0", "#45494e")));
             break;
         default:
             break;
@@ -1844,10 +1844,10 @@ void StatusOverlay::paintEvent(QPaintEvent *)
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setFont(uiFont(m_smallFont ? 10 : 11));
     const int baselineTop = height() - 25;
-    p.setPen(QColor(QStringLiteral("#797d82")));
+    p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#797d82", "#868a8f"))));
     p.drawText(QRect(16, baselineTop, width() / 2, 16),
                Qt::AlignVCenter | Qt::AlignLeft, m_info);
-    p.setPen(QColor(QStringLiteral("#85898e")));
+    p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#85898e", "#7a7e83"))));
     p.drawText(QRect(width() / 2, baselineTop, width() / 2 - 17, 16),
                Qt::AlignVCenter | Qt::AlignRight, m_counter);
 }
@@ -1882,20 +1882,20 @@ void EmptyState::paintEvent(QPaintEvent *)
 
     const int top = (height() - 340) / 2;
     const QRectF iconRect(width() / 2.0 - 38, top, 76, 76);
-    p.setPen(QPen(rgba(255, 255, 255, 31), 1));
-    p.setBrush(QColor(QStringLiteral("#232323")));
+    p.setPen(QPen((UiStyle::isLight() ? QColor(0,0,0,31) : QColor(255,255,255,31)), 1));
+    p.setBrush(QColor(QString::fromLatin1(UiStyle::pick("#232323", "#f4f4f4"))));
     p.drawRoundedRect(iconRect, 18, 18);
     drawIcon(p, Icon::Picture,
              QRectF(iconRect.center().x() - 17, iconRect.center().y() - 17, 34, 34),
-             QColor(QStringLiteral("#bdbdbd")), 1.35);
+             QColor(QString::fromLatin1(UiStyle::pick("#bdbdbd", "#444444"))), 1.35);
 
     p.setFont(uiFont(22, QFont::Medium));
-    p.setPen(QColor(QStringLiteral("#f3f3f3")));
+    p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#f3f3f3", "#3a3a3a"))));
     p.drawText(QRect(0, top + 94, width(), 30), Qt::AlignCenter,
                QStringLiteral("开始查看图片"));
 
     p.setFont(uiFont(13));
-    p.setPen(QColor(QStringLiteral("#999999")));
+    p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#999999", "#666666"))));
     p.drawText(QRect(0, top + 132, width(), 22), Qt::AlignCenter,
                QStringLiteral("把图片拖到这里，或从电脑中选择一张图片"));
     p.drawText(QRect(0, top + 154, width(), 22), Qt::AlignCenter,
@@ -1916,15 +1916,15 @@ void EmptyState::paintEvent(QPaintEvent *)
     p.drawText(QRect(primary.x() + 40, primary.y(), primary.width() - 44, primary.height()),
                Qt::AlignVCenter | Qt::AlignLeft, QStringLiteral("打开图片"));
 
-    p.setPen(QPen(QColor(QStringLiteral("#4a4c50")), 1));
+    p.setPen(QPen(QColor(QString::fromLatin1(UiStyle::pick("#4a4c50", "#b5b5b5"))), 1));
     if (m_hover == 1) {
-        p.setBrush(QColor(QStringLiteral("#383a3e")));
+        p.setBrush(QColor(QString::fromLatin1(UiStyle::pick("#383a3e", "#c7c9cb"))));
     } else {
         p.setBrush(Qt::NoBrush);
     }
     p.drawRoundedRect(QRectF(secondary).adjusted(0.5, 0.5, -0.5, -0.5), 6, 6);
     p.setFont(uiFont(12));
-    p.setPen(QColor(QStringLiteral("#d9dadd")));
+    p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#d9dadd", "#242628"))));
     p.drawText(secondary, Qt::AlignCenter, QStringLiteral("选择文件夹"));
 
     // 快捷键提示
@@ -1960,16 +1960,16 @@ void EmptyState::paintEvent(QPaintEvent *)
             QFontMetrics kfm(keyFont);
             const int kw = kfm.horizontalAdvance(key) + 12;
             const QRect kr(x, sy, kw, 20);
-            p.setPen(QPen(QColor(QStringLiteral("#444444")), 1));
-            p.setBrush(QColor(QStringLiteral("#292929")));
+            p.setPen(QPen(QColor(QString::fromLatin1(UiStyle::pick("#444444", "#bbbbbb"))), 1));
+            p.setBrush(QColor(QString::fromLatin1(UiStyle::pick("#292929", "#e2e2e2"))));
             p.drawRoundedRect(QRectF(kr).adjusted(0.5, 0.5, -0.5, -0.5), 4, 4);
             p.setFont(keyFont);
-            p.setPen(QColor(QStringLiteral("#aaaaaa")));
+            p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#aaaaaa", "#555555"))));
             p.drawText(kr, Qt::AlignCenter, key);
             x += kw + 5;
         }
         p.setFont(labelFont);
-        p.setPen(QColor(QStringLiteral("#737373")));
+        p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#737373", "#8c8c8c"))));
         QFontMetrics lfm(labelFont);
         const int lw = lfm.horizontalAdvance(g.label);
         p.drawText(QRect(x, sy, lw, 20), Qt::AlignVCenter | Qt::AlignLeft, g.label);
@@ -2072,10 +2072,10 @@ void Toast::paintEvent(QPaintEvent *)
     // 右下角贴右缘 20px；顶部居中保持原位
     const qreal x = m_corner ? (width() - w - 20.0) : ((width() - w) / 2.0);
     const QRectF r(x, 0, w, 30);
-    p.setPen(QPen(QColor(QStringLiteral("#555555")), 1));
-    p.setBrush(QColor(QStringLiteral("#383838")));
+    p.setPen(QPen(QColor(QString::fromLatin1(UiStyle::pick("#555555", "#aaaaaa"))), 1));
+    p.setBrush(QColor(QString::fromLatin1(UiStyle::pick("#383838", "#c7c7c7"))));
     p.drawRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), 7, 7);
-    p.setPen(QColor(QStringLiteral("#eeeeee")));
+    p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#eeeeee", "#404040"))));
     p.drawText(r, Qt::AlignCenter, m_text);
 }
 
@@ -2124,11 +2124,11 @@ void ZoomBadge::paintEvent(QPaintEvent *)
     }
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
-    p.setPen(QPen(rgba(255, 255, 255, 26), 1));
-    p.setBrush(QColor(QStringLiteral("#282a2d")));
+    p.setPen(QPen((UiStyle::isLight() ? QColor(0,0,0,26) : QColor(255,255,255,26)), 1));
+    p.setBrush(QColor(QString::fromLatin1(UiStyle::pick("#282a2d", "#dfe1e3"))));
     p.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), 6, 6);
     p.setFont(uiFont(11));
-    p.setPen(QColor(QStringLiteral("#d7d9dc")));
+    p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#d7d9dc", "#26282a"))));
     p.drawText(rect(), Qt::AlignCenter, m_text);
 }
 

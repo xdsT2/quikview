@@ -115,7 +115,7 @@ protected:
         const QRectF box = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
         QPainterPath plate;
         plate.addRoundedRect(box, 6, 6);
-        painter.fillPath(plate, QColor(0x1e, 0x20, 0x23));
+        painter.fillPath(plate, UiStyle::color(UiStyle::pick("#1e2023", "#ffffff")));
         painter.setPen(QPen(UiStyle::line(), 1));
         painter.drawPath(plate);
 
