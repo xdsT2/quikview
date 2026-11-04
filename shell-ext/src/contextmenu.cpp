@@ -236,7 +236,7 @@ STDMETHODIMP QuikContextMenu::QueryContextMenu(HMENU hmenu, UINT indexMenu,
         if (IWICImagingFactory* fac = WicFactory()) {
             ComPtr<IWICBitmapDecoder> decoder;
             if (SUCCEEDED(fac->CreateDecoderFromFilename(
-                        m_file, nullptr, 0,
+                        m_file, nullptr, GENERIC_READ,
                         WICDecodeMetadataCacheOnDemand, &decoder))) {
                 ComPtr<IWICBitmapFrameDecode> frame;
                 if (SUCCEEDED(decoder->GetFrame(0, &frame))) {
@@ -262,7 +262,7 @@ STDMETHODIMP QuikContextMenu::QueryContextMenu(HMENU hmenu, UINT indexMenu,
             if (IWICImagingFactory* fac = WicFactory()) {
                 ComPtr<IWICBitmapDecoder> decoder;
                 if (SUCCEEDED(fac->CreateDecoderFromFilename(
-                            m_file, nullptr, 0,
+                            m_file, nullptr, GENERIC_READ,
                             WICDecodeMetadataCacheOnDemand, &decoder))) {
                     ComPtr<IWICBitmapFrameDecode> frame;
                     if (SUCCEEDED(decoder->GetFrame(0, &frame))) {

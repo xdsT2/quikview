@@ -112,10 +112,14 @@ HRESULT ExtractPsdThumbJpeg(IStream* stm, std::vector<BYTE>* jpeg) {
     if (irLen == 0 || irLen > 64u * 1024 * 1024) return E_FAIL;
 
     // 顺序扫描 image resources 条目
+    // 块结构（Adobe PSD 规范）：'8BIM'(4) + ID(2) + Pascal 名(1B 长度 + 数据，含长度
+    // 字节补偶) + data size(4) + data。固定头只有 6 字节——此前多读 2 字节还把
+    // data size 的首字节再当 name 长度用了一遍，size 被读成 0x8821xxxx 级别直接
+    // 超限 E_FAIL，任何真 PSD 都提取失败（监工 23:38 用构造 PSD 实测抓到）。
     ULONG consumed = 0;
-    while (consumed + 8 <= irLen) {
-        if (!ReadBytes(stm, buf, 8)) return E_FAIL;   // "8BIM" + ID(2) + namelen(1)+pad(1)
-        consumed += 8;
+    while (consumed + 6 <= irLen) {
+        if (!ReadBytes(stm, buf, 6)) return E_FAIL;   // "8BIM" + ID(2)
+        consumed += 6;
         if (memcmp(buf, "8BIM", 4) != 0) {
             // 不是合法资源头，放弃
             return E_FAIL;

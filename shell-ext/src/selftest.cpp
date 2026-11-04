@@ -414,50 +414,33 @@ int main(int argc, char** argv) {
         }
         CTX(hr == S_OK, "ctx-3 Initialize(CF_HDROP) == S_OK");
 
-        // ctx-4：QueryContextMenu → 分隔线 + 两项，ID 依次递增
+        // ctx-4：QueryContextMenu → 分隔线 + 「浏览」+「转换」。
+        // B3 缩略图项只在 WIC 解码成功（且 50ms 预算内）时插入，位置在分隔线
+        // 之后、浏览项之前——用宽容断言：分隔线 + 两项文字存在，位置不限。
         if (ctx) {
             HMENU menu = CreatePopupMenu();
             hr = ctx->QueryContextMenu(menu, 0, 1, 0x7FFF, CMF_NORMAL);
-            bool ok = hr == MAKE_HRESULT(SEVERITY_SUCCESS, 0, 2) &&
-                      GetMenuItemCount(menu) == 3;
-            // 分隔线按 fType 判（实测 GetMenuItemID 对 MFT_SEPARATOR 返回存储的
-            // wID=0，并非文档写的 0xFFFFFFFF）
-            if (ok) {
+            bool ok = (hr & 0xFFFF) >= 2;   // SEVERITY_SUCCESS + 注入项数 ≥2
+            bool sep = false, browse = false, convert = false;
+            wchar_t txt[128] = {};
+            const int cnt = GetMenuItemCount(menu);
+            for (UINT pos = 0; pos < (UINT)cnt; ++pos) {
                 MENUITEMINFOW mii = {};
                 mii.cbSize = sizeof(mii);
-                mii.fMask = MIIM_FTYPE;
-                ok = GetMenuItemInfoW(menu, 0, TRUE, &mii) &&
-                     mii.fType == MFT_SEPARATOR;
+                mii.fMask = MIIM_FTYPE | MIIM_STRING;
+                mii.dwTypeData = txt;
+                mii.cch = 127;
+                if (!GetMenuItemInfoW(menu, pos, TRUE, &mii)) continue;
+                if (mii.fType == MFT_SEPARATOR) sep = true;
+                if (wcsstr(txt, L"浏览")) browse = true;
+                if (wcsstr(txt, L"转换")) convert = true;
             }
-            wchar_t txt[128] = {};
-            if (ok) {
-                ok = GetMenuItemID(menu, 1) == 1 && GetMenuItemID(menu, 2) == 2;
-            }
-            if (ok) {
-                GetMenuStringW(menu, 1, txt, 128, MF_BYPOSITION);
-                ok = wcsstr(txt, L"浏览") != nullptr;
-                GetMenuStringW(menu, 2, txt, 128, MF_BYPOSITION);
-                ok = ok && wcsstr(txt, L"转换") != nullptr;
-            }
+            ok = ok && sep && browse && convert;
             if (!ok) {
-                for (UINT pos = 0; pos < (UINT)GetMenuItemCount(menu); ++pos) {
-                    wchar_t t[128] = {};
-                    MENUITEMINFOW mii = {};
-                    mii.cbSize = sizeof(mii);
-                    mii.fMask = MIIM_ID | MIIM_FTYPE | MIIM_STRING;
-                    mii.dwTypeData = t;
-                    mii.cch = 127;
-                    const BOOL qr = GetMenuItemInfoW(menu, pos, TRUE, &mii);
-                    // C locale 的 printf 渲染不了中文，只报长度与是否含关键词
-                    printf("      diag[%u]: qr=%d fType=0x%X id=%lu len=%u "
-                           "browse=%d convert=%d\n",
-                           pos, (int)qr, mii.fType, (unsigned long)mii.wID,
-                           (unsigned)wcslen(t),
-                           (int)(wcsstr(t, L"浏览") != nullptr),
-                           (int)(wcsstr(t, L"转换") != nullptr));
-                }
-                printf("      diag: hr=0x%08lX count=%d\n", (unsigned long)hr,
-                       GetMenuItemCount(menu));
+                printf("      diag: hr=0x%08lX count=%d sep=%d browse=%d "
+                       "convert=%d\n",
+                       (unsigned long)hr, cnt, (int)sep, (int)browse,
+                       (int)convert);
             }
             DestroyMenu(menu);
             CTX(ok, "ctx-4 QueryContextMenu 枚举：分隔线+「浏览」+「转换」");
@@ -691,14 +674,26 @@ int main(int argc, char** argv) {
         if (ctx) {
             HMENU menu = CreatePopupMenu();
             ctx->QueryContextMenu(menu, 0, 1, 0x7FFF, CMF_NORMAL);
+            // 缩略图项（ownerdraw）可能占位置 1，按文字找浏览项，不假设位置
             wchar_t txt[192] = {};
-            GetMenuStringW(menu, 1, txt, 192, MF_BYPOSITION);
+            const int items16 = GetMenuItemCount(menu);
+            for (UINT pos = 0; pos < (UINT)items16; ++pos) {
+                wchar_t t[192] = {};
+                GetMenuStringW(menu, pos, t, 192, MF_BYPOSITION);
+                if (wcsstr(t, L"浏览")) {
+                    lstrcpynW(txt, t, 192);
+                    break;
+                }
+            }
             DestroyMenu(menu);
-            bool ok = wcsstr(txt, L"浏览") != nullptr;
+            const bool hasText = wcsstr(txt, L"浏览") != nullptr;
+            const bool hasDims = wcsstr(txt, L"×") != nullptr &&
+                                 wcschr(txt, L'\t') != nullptr;
             printf("      ctx-16 browse text len=%u tab=%d dims=%d\n",
                    (unsigned)wcslen(txt), (int)(wcschr(txt, L'\t') != nullptr),
-                   (int)(wcschr(txt, L'×') != nullptr));
-            CTX(ok, "ctx-16 B2 浏览项文案（有图时右侧附 宽×高·大小）");
+                   (int)(wcsstr(txt, L"×") != nullptr));
+            CTX(hasText && hasDims,
+                "ctx-16 B2 浏览项文案（有图时右侧附 宽×高 · 大小）");
         } else {
             CtxFail("ctx-16 B2 尺寸文案（建实例失败）");
         }
