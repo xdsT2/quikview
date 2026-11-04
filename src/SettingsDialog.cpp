@@ -1031,7 +1031,7 @@ void SettingsDialog::buildAppearancePage(QWidget *page)
             m_darkToggle->setToolTip(QString());
         }
     });
-    addHint(sec, tr("跟随系统关闭后，可用下面的开关手动选择深色或浅色。"));
+    addHint(sec, tr("跟随系统关闭后，可用上面的开关手动选择深色或浅色。"));
 
     // —— 材质 ——
     // 磨砂只做右键菜单与信息浮层（第 18 期④），独立键 ui/blur_material，
@@ -1306,6 +1306,8 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
         combo->setCursor(Qt::PointingHandCursor);
         combo->setFixedHeight(26);
         rl->addWidget(combo, 1);
+        // 「操作」列右缘与行区滚动条留 6px，避免下拉箭头贴着滚动条（P-17 / D3）
+        rl->addSpacing(6);
 
         // 任一字段改动即撤掉上次保存被拒的冲突高亮（重新保存时再检测）
         connect(chk, &QCheckBox::toggled, this, [this]() { clearKeyConflicts(); });
