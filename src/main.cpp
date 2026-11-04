@@ -71,6 +71,24 @@ int main(int argc, char *argv[])
         }
     }
 
+    // 冒烟/截图隔离（M-07）：测试参数下把配置指向临时文件，真实 config.ini
+    // 一个字节都不动。必须在任何 Config::instance() 调用之前完成——本文件
+    // L76 取 language() 就已经建立单例，那时 parser 还没解析。
+    // 覆盖 --smoke / --screenshot / --screenshot-ui 三类会跑真实流程的模式；
+    // 用 pid 区分，避免并发冒烟互相踩临时配置。
+    {
+        const QStringList rawArgs = QCoreApplication::arguments();
+        const bool isolated = rawArgs.contains(QStringLiteral("--smoke"))
+                              || rawArgs.contains(QStringLiteral("--screenshot"))
+                              || rawArgs.contains(QStringLiteral("--screenshot-ui"));
+        if (isolated) {
+            const QString tmpPath = QDir::tempPath()
+                + QStringLiteral("/quikview-smoke-%1.ini")
+                      .arg(QCoreApplication::applicationPid());
+            qputenv("QUIKVIEW_CONFIG_PATH", tmpPath.toLocal8Bit());
+        }
+    }
+
     // 翻译（qt_add_translations 生成并嵌入到 :/i18n）
     QTranslator translator;
     const QString lang = Config::instance().language();

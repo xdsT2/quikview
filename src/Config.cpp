@@ -14,6 +14,13 @@ Config::Config(const QString &path)
 
 QString Config::defaultConfigPath()
 {
+    // 冒烟/截图隔离（M-07）：main() 检测到测试参数时用环境变量指定临时配置，
+    // 这里的优先级最高——高于便携模式，保证真实 config 不被读写。
+    const QByteArray testConfig = qgetenv("QUIKVIEW_CONFIG_PATH");
+    if (!testConfig.isEmpty()) {
+        return QString::fromLocal8Bit(testConfig);
+    }
+
     // 便携模式：程序目录下存在 config.ini 则优先使用；否则用系统配置目录。
     const QString portable = QCoreApplication::applicationDirPath() + QStringLiteral("/config.ini");
     if (QFileInfo::exists(portable)) {
