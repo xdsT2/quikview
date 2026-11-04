@@ -25,6 +25,18 @@
 
 namespace UiStyle {
 
+// —— 主题模式（2026-11-04 起支持浅色）——
+// Theme::apply 切换；色板函数与三套 QSS 按它出深/浅两套值。
+// 原则：深色值与历史常量逐字节一致（保证深色零回归），浅色值另起一套。
+enum class Scheme { Dark, Light };
+inline Scheme &activeScheme() { static Scheme s = Scheme::Dark; return s; }
+inline void setScheme(Scheme s) { activeScheme() = s; }
+inline bool isLight() { return activeScheme() == Scheme::Light; }
+inline const char *pick(const char *dark, const char *light)
+{
+    return isLight() ? light : dark;
+}
+
 // 磨砂材质开关（config/ui/blur_material）。只影响右键菜单与信息浮层：
 // 开 → 菜单半透明 + 尝试 DWM Acrylic；关 → 纯色不透明。
 // 由 MainWindow::applyRuntimeSettings 在启动/保存设置后写入，appQss() 与
@@ -110,18 +122,27 @@ inline constexpr const char *OverlayText      = "#e8eaec";  // 文件名浮层�
 inline constexpr const char *OverlayBg        = "rgba(0,0,0,0.62)";          // 文件名浮层底
 inline constexpr const char *DangerBg         = "rgba(196, 43, 28, 0.20)";   // 冲突行高亮
 
-// —— 语义色（绘制用）——
+// —— 语义色（绘制用；全部按当前主题出深/浅值）——
 inline QColor color(const char *hex) { return QColor(QString::fromLatin1(hex)); }
-inline QColor accent() { return QColor(0x55, 0xc0, 0xf0); }
-inline QColor accentSoft() { return QColor(85, 192, 240, 31); }
-inline QColor line() { return QColor(255, 255, 255, 22); }
-inline QColor lineStrong() { return QColor(255, 255, 255, 36); }
-inline QColor text() { return QColor(0xf2, 0xf2, 0xf2); }
-inline QColor body() { return QColor(0xd5, 0xd7, 0xda); }
-inline QColor muted() { return QColor(0x92, 0x97, 0x9e); }
-inline QColor dim() { return QColor(0x68, 0x6e, 0x76); }
-inline QColor field() { return QColor(0x2d, 0x2f, 0x34); }
-inline QColor panel() { return QColor(0x24, 0x25, 0x28); }
+inline QColor accent()      { return color(pick("#55c0f0", "#1689bd")); }
+inline QColor accentSoft()  { return isLight() ? QColor(22, 137, 189, 31)
+                                               : QColor(85, 192, 240, 31); }
+inline QColor line()        { return isLight() ? QColor(0, 0, 0, 22)
+                                               : QColor(255, 255, 255, 22); }
+inline QColor lineStrong()  { return isLight() ? QColor(0, 0, 0, 36)
+                                               : QColor(255, 255, 255, 36); }
+inline QColor text()        { return color(pick("#f2f2f2", "#1b1b1b")); }
+inline QColor body()        { return color(pick("#d5d7da", "#202124")); }
+inline QColor muted()       { return color(pick("#92979e", "#6b7075")); }
+inline QColor dim()         { return color(pick("#686e76", "#8a8f94")); }
+inline QColor field()       { return color(pick("#2d2f34", "#ffffff")); }
+inline QColor panel()       { return color(pick("#242528", "#ffffff")); }
+inline QColor dialogBg()    { return color(pick("#232427", "#f2f3f5")); }
+inline QColor footerBg()    { return color(pick("#222326", "#ececee")); }
+inline QColor navBg()       { return color(pick("#1e1f22", "#e9eaec")); }
+inline QColor titleBg()     { return color(pick("#25262a", "#f0f1f3")); }
+inline QColor chromeBg()    { return color(pick("#161719", "#f3f4f6")); }
+inline QColor canvasBg()    { return color(pick("#202020", "#f0f0f0")); }
 
 // —— 尺寸令牌 ——
 inline constexpr int RadiusDialog = 10;
@@ -142,8 +163,8 @@ inline QFont font(int px = 12)
     return f;
 }
 
-// 应用级：菜单、提示、滚动条、对话框底座。由 Theme::apply(Dark) 安装。
-inline QString appQss()
+// 应用级：菜单、提示、滚动条、对话框底座。由 Theme::apply 安装；按主题出两套。
+inline QString darkAppQss()
 {
     QString qss = QStringLiteral(R"(
 QDialog { background: %1; color: #f2f2f2; }
@@ -257,9 +278,130 @@ QTabBar::tab:hover { color: #ffffff; }
     return qss;
 }
 
-// 对话框内部（设置 / 图片转换共用）
+// 浅色应用级：与深色同构（选择器一一对应），只换色值与对勾图标。
+// 菜单白底 → 深色对勾 check.png；勾选框蓝底 → 白勾 check-light.png。
+inline QString lightAppQss()
+{
+    QString qss = QStringLiteral(R"(
+QDialog { background: #f2f3f5; color: #1b1b1b; }
+QWidget { color: #1b1b1b; }
+
+QMenu { background: #ffffff; color: #1b1b1b; border: 1px solid #d0d0d0;
+        border-radius: 8px; padding: 6px; }
+QMenu::item { height: 25px; padding: 0 18px 0 24px; border-radius: 5px; font-size: 12px; }
+QMenu::item:selected { background: #cde8f7; }
+QMenu::item:disabled { color: #a0a0a0; }
+QMenu::separator { height: 1px; background: rgba(0,0,0,0.085); margin: 4px 7px; }
+QMenu::icon { left: 8px; }
+QMenu::indicator { width: 14px; height: 14px; left: 6px; }
+QMenu::indicator:checked { image: url(:/ui/check.png); }
+QMenu::right-arrow { width: 12px; height: 12px; right: 8px;
+                     image: url(:/ui/chevron-right.png); }
+
+QToolTip { background: #ffffff; color: #1b1b1b; border: 1px solid rgba(0,0,0,0.14);
+           border-radius: 6px; padding: 6px 8px; }
+
+QScrollBar:vertical { background: transparent; width: 10px; margin: 2px; }
+QScrollBar::handle:vertical { background: rgba(0,0,0,0.28); border-radius: 4px; min-height: 28px; }
+QScrollBar::handle:vertical:hover { background: rgba(0,0,0,0.42); }
+QScrollBar:horizontal { background: transparent; height: 10px; margin: 2px; }
+QScrollBar::handle:horizontal { background: rgba(0,0,0,0.28); border-radius: 4px; min-width: 28px; }
+QScrollBar::handle:horizontal:hover { background: rgba(0,0,0,0.42); }
+QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }
+QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
+
+QLineEdit, QPlainTextEdit, QTextEdit { background: #ffffff; color: #1b1b1b;
+    border: 1px solid #8a8a8a; border-radius: 5px; padding: 0 8px; font-size: 12px;
+    selection-background-color: #1689bd; }
+QLineEdit { min-height: 26px; }
+QLineEdit:hover, QPlainTextEdit:hover { border-color: #6b6b6b; }
+QLineEdit:focus, QPlainTextEdit:focus { border-color: #1689bd; }
+QLineEdit:disabled { color: #a0a0a0; }
+
+QComboBox { background: #ffffff; color: #1b1b1b; border: 1px solid #8a8a8a;
+    border-radius: 5px; padding: 0 26px 0 9px; font-size: 12px; min-height: 26px; }
+QComboBox:hover { border-color: #6b6b6b; }
+QComboBox:focus { border-color: #1689bd; }
+QComboBox::drop-down { border: 0; width: 22px; }
+QComboBox::down-arrow { image: url(:/ui/chevron-down.png); width: 12px; height: 12px; }
+QComboBox QAbstractItemView { background: #ffffff; color: #1b1b1b; border: 1px solid #d0d0d0;
+    border-radius: 6px; padding: 4px; outline: 0; selection-background-color: #cde8f7;
+    selection-color: #1b1b1b; }
+
+QCheckBox { color: #202124; font-size: 12px; spacing: 9px; }
+QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #8a8a8a;
+    border-radius: 4px; background: #ffffff; }
+QCheckBox::indicator:hover { border-color: #5f5f5f; }
+QCheckBox::indicator:checked { background: #1689bd; border-color: #1689bd;
+    image: url(:/ui/check-light.png); }
+QCheckBox::indicator:checked:hover { background: #1b9bca; }
+QCheckBox::indicator:disabled { border-color: #d0d0d0; background: #f0f0f0; }
+
+QRadioButton { color: #202124; font-size: 12px; spacing: 7px; }
+QRadioButton::indicator { width: 14px; height: 14px; border-radius: 7px;
+    border: 1px solid #8a8a8a; background: #ffffff; }
+QRadioButton::indicator:checked { border: 4px solid #1689bd; background: #ffffff; }
+QRadioButton::indicator:hover { border-color: #5f5f5f; }
+
+QPushButton { background: #fbfbfb; color: #1b1b1b; border: 1px solid #8a8a8a;
+    border-radius: 6px; padding: 0 16px; min-height: 30px; font-size: 12px; }
+QPushButton:hover { background: #f0f0f0; border-color: #6b6b6b; }
+QPushButton:pressed { background: #e6e6e6; }
+QPushButton:disabled { color: #a0a0a0; border-color: #d0d0d0; background: #f5f5f5; }
+)");
+    // 磨砂开：白菜单半透明，DWM 合成交给 polishMenu。
+    if (blurMaterial()) {
+        qss.replace(QStringLiteral("QMenu { background: #ffffff;"),
+                    QStringLiteral("QMenu { background: rgba(255,255,255,0.82);"));
+    }
+    return qss;
+}
+
+inline QString appQss() { return isLight() ? lightAppQss() : darkAppQss(); }
+
+// 对话框内部（设置 / 图片转换共用）；按主题出深/浅两套。
 inline QString dialogQss()
 {
+    if (isLight()) {
+        return QStringLiteral(R"(
+QDialog { background: #f2f3f5; }
+QWidget#dlgTitleBar { background: #f0f1f3; border-bottom: 1px solid rgba(0,0,0,0.085); }
+QLabel#dlgTitle { font-size: 13px; color: #1b1b1b; }
+QWidget#dlgFooter { background: #ececee; border-top: 1px solid rgba(0,0,0,0.085); }
+QLabel#footerNote { color: #6b7075; font-size: 11px; }
+
+QWidget#navRail { background: #e9eaec; }
+QLabel#navCaption { color: #6b7075; font-size: 11px; letter-spacing: 1px; padding: 0 10px; }
+QPushButton#navItem { background: transparent; border: 1px solid transparent; border-radius: 6px;
+    color: #3b3f44; text-align: left; padding: 0 11px; min-height: 33px; font-size: 12px; }
+QPushButton#navItem:hover { background: #dfe1e3; color: #000000; }
+QPushButton#navItem:checked { background: rgba(22,137,189,0.12); border-color: rgba(22,137,189,0.16);
+    color: #1689bd; }
+QFrame#navDivider { background: rgba(0,0,0,0.085); border: 0; }
+
+QWidget#contentPane { background: #f7f8f9; }
+QLabel#pageTitle { font-size: 21px; color: #1b1b1b; }
+QLabel#pageDesc { font-size: 12px; color: #6b7075; }
+QLabel#sectionTitle { font-size: 12px; font-weight: 600; color: #202124; }
+QLabel#rowLabel { color: #303236; font-size: 12px; }
+QLabel#hint { color: #6b7075; font-size: 11px; }
+QFrame#hLine { background: rgba(0,0,0,0.085); border: 0; max-height: 1px; }
+QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; border: 0; }
+
+QPushButton#btnPrimary { background: #1689bd; border-color: #37a5cf; color: #ffffff; }
+QPushButton#btnPrimary:hover { background: #1b9bca; }
+QPushButton#btnSubtle { background: transparent; border-color: transparent; color: #4a4e53; }
+QPushButton#btnSubtle:hover { background: #dfe1e3; color: #000000; }
+QPushButton#cardButton { background: #ffffff; border: 1px solid #c8c8c8; border-radius: 7px;
+    color: #303236; min-height: 54px; }
+QPushButton#cardButton:hover { background: #f0f2f4; }
+QPushButton#cardButton:checked { background: rgba(22,137,189,0.12); border-color: #1689bd;
+    color: #1689bd; }
+QPushButton#closeBtn { background: transparent; border: 0; color: #4a4e53; min-width: 30px;
+    min-height: 28px; padding: 0; border-radius: 5px; font-size: 14px; }
+QPushButton#closeBtn:hover { background: #c42b1c; color: #ffffff; }
+)");
+    }
     return QStringLiteral(R"(
 QDialog { background: %1; }
 QWidget#dlgTitleBar { background: %2; border-bottom: 1px solid rgba(255,255,255,0.085); }
@@ -309,6 +451,24 @@ QPushButton#closeBtn:hover { background: #c42b1c; color: #ffffff; }
 // 22:05 那版「完全透明无边框」在白图/黑图上文字不可读，已废止——底板必须回来。
 inline QString panelQss()
 {
+    if (isLight()) {
+        return QStringLiteral(R"(
+/* 浅色浮层：白底深字，叠在图片上；1px 细边 + 8px 圆角同深色版。 */
+QWidget#infoPanel { background: rgba(245,246,247,0.92);
+    border: 1px solid rgba(0,0,0,0.12); border-radius: 8px; }
+QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; border: 0; }
+QLabel#infoKey { font-size: 12px; color: #6b7075; }
+QLabel#infoVal { font-size: 12px; color: #1b1b1b; }
+QPushButton#infoRoundBtn { min-height: 0; max-height: 22px; min-width: 22px;
+    max-width: 22px; padding: 0; background: transparent; border: 0; }
+QPushButton#mapLink { background: transparent; border: 0; padding: 0;
+    text-align: left; font-size: 12px; color: #1689bd; }
+QPushButton#mapLink:hover { color: #1b9bca; }
+QPushButton#histToggle { background: transparent; border: 0; padding: 0;
+    text-align: left; font-size: 12px; color: #6b7075; }
+QPushButton#histToggle:hover { color: #1b1b1b; }
+)");
+    }
     return QStringLiteral(R"(
 /* 深色半透明底板：白图/黑图/复杂纹理上都可读；1px 低对比细边勾出边界，
    8px 圆角对齐原型 .info-overlay；不加投影（叠加在图片上会显脏）。 */

@@ -847,7 +847,7 @@ void MainWindow::paintEvent(QPaintEvent *event)
     QMainWindow::paintEvent(event);
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
-    p.fillRect(rect(), UiStyle::color(UiStyle::ChromeBg));
+    p.fillRect(rect(), UiStyle::chromeBg());
     if (!isFullScreen()) {
         p.setPen(QPen(UiStyle::color(UiStyle::ChromeBorder), 1));
         p.setBrush(Qt::NoBrush);
@@ -1833,7 +1833,7 @@ void MainWindow::applyRuntimeSettings()
 
     // 画布外观按用户 2026-11-03 决定固定：纯色 CanvasBg、无边框、无背景图。
     // 设置入口已在第 18 期移除；ImageCanvas 的 setter 保留，恢复时只需接回 UI。
-    m_canvas->setBackgroundColor(UiStyle::color(UiStyle::CanvasBg));
+    m_canvas->setBackgroundColor(UiStyle::canvasBg());
     m_canvas->setBorderColor(QColor(Qt::transparent));
     m_canvas->setBackgroundImage(QImage());
     // 设置页的「不显示侧边箭头」是反选（inverted），存的就是 show_side_arrow 本身：

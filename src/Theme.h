@@ -38,6 +38,7 @@ inline Mode resolveMode(const QString &theme)
 
 inline void applyDark(QApplication &app)
 {
+    UiStyle::setScheme(UiStyle::Scheme::Dark);
     // 原生绘制的部件（勾选符、滚动条箭头、菜单边框）跟随调色板
     QPalette p;
     p.setColor(QPalette::Window, QColor(0x23, 0x24, 0x27));
@@ -59,6 +60,30 @@ inline void applyDark(QApplication &app)
     app.setStyleSheet(UiStyle::appQss());
 }
 
+// 浅色：2026-11-04 起为真实现。调色板 + UiStyle::appQss()（内部按 Scheme 出浅色 QSS）。
+inline void applyLight(QApplication &app)
+{
+    UiStyle::setScheme(UiStyle::Scheme::Light);
+    QPalette p;
+    p.setColor(QPalette::Window, QColor(0xf2, 0xf3, 0xf5));
+    p.setColor(QPalette::WindowText, QColor(0x1b, 0x1b, 0x1b));
+    p.setColor(QPalette::Base, QColor(0xff, 0xff, 0xff));
+    p.setColor(QPalette::AlternateBase, QColor(0xf7, 0xf8, 0xf9));
+    p.setColor(QPalette::Text, QColor(0x1b, 0x1b, 0x1b));
+    p.setColor(QPalette::Button, QColor(0xfb, 0xfb, 0xfb));
+    p.setColor(QPalette::ButtonText, QColor(0x1b, 0x1b, 0x1b));
+    p.setColor(QPalette::Highlight, QColor(0x16, 0x89, 0xbd));
+    p.setColor(QPalette::HighlightedText, QColor(0xff, 0xff, 0xff));
+    p.setColor(QPalette::ToolTipBase, QColor(0xff, 0xff, 0xff));
+    p.setColor(QPalette::ToolTipText, QColor(0x1b, 0x1b, 0x1b));
+    p.setColor(QPalette::Disabled, QPalette::Text, QColor(0xa0, 0xa0, 0xa0));
+    p.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(0xa0, 0xa0, 0xa0));
+    p.setColor(QPalette::Disabled, QPalette::WindowText, QColor(0xa0, 0xa0, 0xa0));
+    app.setPalette(p);
+
+    app.setStyleSheet(UiStyle::appQss());
+}
+
 inline void apply(QApplication &app, Mode mode)
 {
     // 换肤前收起全部弹出层（菜单、组合框下拉等）：QSS 换肤不会重绘已经弹出
@@ -75,20 +100,7 @@ inline void apply(QApplication &app, Mode mode)
     if (mode == Mode::Dark) {
         applyDark(app);
     } else {
-        app.setStyleSheet(QStringLiteral(R"(
-QMainWindow, QDialog { background: #f5f5f5; }
-QMenuBar { background: #ececec; color: #202020; }
-QMenuBar::item:selected { background: #e0e0e0; }
-QMenu { background: #ffffff; color: #202020; border: 1px solid #cccccc; }
-QMenu::item:selected { background: #cde3f7; }
-QStatusBar { background: #ececec; color: #505050; }
-QDockWidget { color: #202020; }
-QDockWidget::title { background: #ececec; padding: 4px; }
-QTreeWidget { background: #ffffff; color: #202020; border: none; }
-QTreeWidget::item:selected { background: #cde3f7; }
-QPushButton { background: #ececec; color: #202020; border: 1px solid #c4c4c4; padding: 4px 12px; }
-QPushButton:hover { background: #e0e0e0; }
-)"));
+        applyLight(app);
     }
 }
 

@@ -1,4 +1,5 @@
 #include "ImageCanvas.h"
+#include "UiStyle.h"
 
 #include <QGraphicsOpacityEffect>
 #include <QGraphicsPixmapItem>
@@ -326,7 +327,7 @@ ImageCanvas::ImageCanvas(QWidget *parent)
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setFrameShape(QFrame::NoFrame);
-    setBackgroundColor(QColor(QStringLiteral("#161719")));
+    setBackgroundColor(UiStyle::chromeBg());
 
     m_logo = new QLabel(viewport());
     m_logo->setAttribute(Qt::WA_TransparentForMouseEvents);

@@ -6,6 +6,7 @@
 #include <QVBoxLayout>
 
 #include "ImageCache.h"
+#include "UiStyle.h"
 
 namespace {
 constexpr int kPanelW = 160;      // 面板总宽
@@ -109,7 +110,7 @@ void ThumbnailBrowser::onThumbReady(const QString &path, const QImage &image)
     // 一律铺在 128×128 的深色方形底上再居中绘制：缩略图本身的宽高比不动，
     // 横图上下留白、竖图左右留白，绝不拉伸也绝不裁切。
     QPixmap box(kPreview, kPreview);
-    box.fill(QColor(QStringLiteral("#1b1d20")));
+    box.fill(UiStyle::color(UiStyle::pick("#1b1d20", "#f2f3f5")));
     {
         QPainter p(&box);
         p.setRenderHint(QPainter::SmoothPixmapTransform, true);

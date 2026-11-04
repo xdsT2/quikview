@@ -467,31 +467,33 @@ void populateLanguageCombo(QComboBox *combo)
 // 把 QSS 里的 @Token@ 占位符换成 UiStyle 常量：界面代码里不再出现裸色值。
 QString withColorTokens(QString qss)
 {
+    // 令牌值按当前主题出深/浅两套（UiStyle::pick）；浅色值 2026-11-04 首版，
+    // 以 Win11 浅色控件为基准，后续按实截图微调。
     static const struct {
         const char *key;
-        const char *value;
+        const char *(*fn)();
     } tokens[] = {
-        { "@DialogBg@", UiStyle::DialogBg },
-        { "@GroupBg@", UiStyle::GroupBg },
-        { "@Line@", UiStyle::Line },
-        { "@HeadBg@", UiStyle::HeadBg },
-        { "@HeadText@", UiStyle::HeadText },
-        { "@Body@", UiStyle::Body },
-        { "@Field@", UiStyle::Field },
-        { "@FieldText@", UiStyle::FieldText },
-        { "@Border@", UiStyle::Border },
-        { "@BorderHover@", UiStyle::BorderHover },
-        { "@Accent@", UiStyle::Accent },
-        { "@DisabledTextSoft@", UiStyle::DisabledTextSoft },
-        { "@DisabledBorder@", UiStyle::DisabledBorder },
-        { "@DisabledBg@", UiStyle::DisabledBg },
-        { "@HintText@", UiStyle::HintText },
-        { "@DisabledText@", UiStyle::DisabledText },
-        { "@PureWhite@", UiStyle::PureWhite },
-        { "@DangerBg@", UiStyle::DangerBg },
+        { "@DialogBg@",        []{ return UiStyle::pick("#232427", "#f2f3f5"); } },
+        { "@GroupBg@",         []{ return UiStyle::pick("#222427", "#ffffff"); } },
+        { "@Line@",            []{ return UiStyle::pick("rgba(255,255,255,0.085)", "rgba(0,0,0,0.085)"); } },
+        { "@HeadBg@",          []{ return UiStyle::pick("#292b2f", "#e8e9eb"); } },
+        { "@HeadText@",        []{ return UiStyle::pick("#9ca2aa", "#5f6368"); } },
+        { "@Body@",            []{ return UiStyle::pick("#d5d7da", "#202124"); } },
+        { "@Field@",           []{ return UiStyle::pick("#2d2f34", "#ffffff"); } },
+        { "@FieldText@",       []{ return UiStyle::pick("#e0e2e4", "#1b1b1b"); } },
+        { "@Border@",          []{ return UiStyle::pick("#787878", "#8a8a8a"); } },
+        { "@BorderHover@",     []{ return UiStyle::pick("#686d75", "#6b6b6b"); } },
+        { "@Accent@",          []{ return UiStyle::pick("#55c0f0", "#1689bd"); } },
+        { "@DisabledTextSoft@",[]{ return UiStyle::pick("#6b7078", "#a0a0a0"); } },
+        { "@DisabledBorder@",  []{ return UiStyle::pick("#3a3c40", "#d0d0d0"); } },
+        { "@DisabledBg@",      []{ return UiStyle::pick("#26282b", "#f0f0f0"); } },
+        { "@HintText@",        []{ return UiStyle::pick("#9aa0a6", "#6b7075"); } },
+        { "@DisabledText@",    []{ return UiStyle::pick("#6f747a", "#a0a0a0"); } },
+        { "@PureWhite@",       []{ return UiStyle::pick("#ffffff", "#101113"); } },
+        { "@DangerBg@",        []{ return UiStyle::pick("rgba(196,43,28,0.20)", "rgba(196,43,28,0.12)"); } },
     };
     for (const auto &t : tokens)
-        qss.replace(QLatin1String(t.key), QLatin1String(t.value));
+        qss.replace(QLatin1String(t.key), QLatin1String(t.fn()));
     return qss;
 }
 
@@ -1968,8 +1970,8 @@ void SettingsDialog::paintEvent(QPaintEvent *)
     const QRectF r = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
     QPainterPath path;
     path.addRoundedRect(r, UiStyle::RadiusDialog, UiStyle::RadiusDialog);
-    p.fillPath(path, UiStyle::color(UiStyle::DialogBg));
-    p.setPen(QPen(UiStyle::color(UiStyle::DialogBorder), 1));
+    p.fillPath(path, UiStyle::dialogBg());
+    p.setPen(QPen(UiStyle::color(UiStyle::pick("#4a4c51", "#c8c9cb")), 1));
     p.drawPath(path);
 }
 
