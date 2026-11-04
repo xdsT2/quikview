@@ -94,6 +94,79 @@ void iSet(const char *key, int v)
 }
 
 // ---------------------------------------------------------------------------
+// 键盘页行区：高度按整行吸附（行 32 + 分隔线 1），自己滚。
+// 起因（2026-11-04 09:44 用户截图）：表格直接放页面里时，内容区底边会把最后
+// 一行「删除」切成半行，看上去像被裁坏。改成整行数高度后，要么完整显示某一行，
+// 要么整行藏起来等滚动，不会再出现半行。
+// ---------------------------------------------------------------------------
+class KeyRowsArea : public QScrollArea
+{
+public:
+    explicit KeyRowsArea(QWidget *parent = nullptr) : QScrollArea(parent)
+    {
+        setFrameShape(QFrame::NoFrame);
+        setWidgetResizable(true);
+        setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    }
+
+    // hint / head 是行区之外、同样占据纵向空间的固定部件。
+    void snapTo(QWidget *hint, QWidget *head, int rowStep)
+    {
+        m_hint = hint;
+        m_head = head;
+        m_step = rowStep;
+        QWidget *w = parentWidget();
+        while (w && !qobject_cast<QScrollArea *>(w)) {
+            w = w->parentWidget();
+        }
+        if (auto *outer = qobject_cast<QScrollArea *>(w)) {
+            m_outer = outer;
+            outer->viewport()->installEventFilter(this);
+        }
+        apply();
+    }
+
+protected:
+    bool eventFilter(QObject *o, QEvent *e) override
+    {
+        if (m_outer && o == m_outer->viewport() && e->type() == QEvent::Resize) {
+            apply();
+        }
+        return QScrollArea::eventFilter(o, e);
+    }
+
+    void showEvent(QShowEvent *e) override
+    {
+        QScrollArea::showEvent(e);
+        apply();
+    }
+
+private:
+    void apply()
+    {
+        if (!m_hint || !m_head || !m_outer) {
+            return;
+        }
+        // 可用高 = 外层可视高 − 提示行 − 表头 − 底部 12px 留白 − 2px 边框余量
+        const int avail = m_outer->viewport()->height() - m_hint->height()
+                          - m_head->height() - 12 - 4;
+        const int k = qMax(3, avail / m_step);   // 至少留 3 行，避免极矮窗口算出 0
+        const int h = k * m_step + 1;
+        // 用 maxHeight 而不是 fixedHeight：fixedHeight 会把「页面最小高度」顶大，
+        // 反过来把对话框撑大（实测 940x720 被撑到 1175x900），形成尺寸自激。
+        if (maximumHeight() != h) {
+            setMaximumHeight(h);
+        }
+    }
+
+    QWidget *m_hint = nullptr;
+    QWidget *m_head = nullptr;
+    QScrollArea *m_outer = nullptr;
+    int m_step = 33;
+};
+
+// ---------------------------------------------------------------------------
 // 蓝色链接文字：匿名命名空间内不能用 Q_OBJECT，点击回调走 std::function。
 // ---------------------------------------------------------------------------
 class LinkLabel : public QWidget
@@ -1156,6 +1229,13 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     hl->addWidget(makeHeadCell(tr("操作"), 0), 1);
     tl->addWidget(head);
 
+    // 行区：独立滚动、高度按整行吸附（见 KeyRowsArea 注释）
+    auto *rowsArea = new KeyRowsArea(table);
+    auto *rowsBox = new QWidget;
+    auto *rl0 = new QVBoxLayout(rowsBox);
+    rl0->setContentsMargins(0, 0, 0, 0);
+    rl0->setSpacing(0);
+
     // 默认键位 = MainWindow 出厂硬编码值（PortableText；幻灯片/裁剪出厂无单键，
     // 放映由 Ctrl+1..9/Ctrl+0 承担、裁剪走菜单）。改动须同步
     // MainWindow::applyShortcutConfig 的槽位表。
@@ -1189,7 +1269,7 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
             auto *line = new QFrame(table);
             line->setObjectName(QStringLiteral("hLine"));
             line->setFixedHeight(1);
-            tl->addWidget(line);
+            rl0->addWidget(line);
         }
 
         const KeyDef &def = defs[i];
@@ -1236,12 +1316,19 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
 
         m_keyRows.append({ chk, edit, combo, row, QString::fromUtf8(def.action),
                            QString::fromUtf8(def.hotkey) });
-        tl->addWidget(row);
+        rl0->addWidget(row);
     }
+
+    rowsArea->setWidget(rowsBox);
+    tl->addWidget(rowsArea);
 
     pageLay->addWidget(table);
     // 表格底部留白：滚到底时最后一行不贴着内容区底边（P2 / D3，≥12px）。
     pageLay->addSpacing(12);
+
+    // 整行吸附：高度按外层页面可视高算出「能放下几整行」，多出来的行交给行区
+    // 自己的滚动条（行高 32 + 分隔线 1 = 33）。
+    rowsArea->snapTo(hint, head, 33);
 }
 
 // ===========================================================================
