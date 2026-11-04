@@ -2513,6 +2513,109 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             }
         });
     }
+    // —— 临时几何探针（M-05 返工取证）：打开设置→键盘页，dump 关键部件几何 ——
+    // 取证用，M-05 交付前删除。输出追加到 Temp/keyboard-layout-20261105/geom.txt，
+    // 每行带 dpr 与窗口尺寸，便于 100%/125% 两档对比。
+    else if (c == QLatin1String("keygeom")) {
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        QTimer::singleShot(1500, dlg, [dlg]() {
+            const auto btns = dlg->findChildren<QPushButton *>(QStringLiteral("navItem"));
+            for (QPushButton *b : btns) {
+                if (b->text().contains(QString::fromUtf8("\xE9\x94\xAE\xE7\x9B\x98"))) {
+                    b->click();   // 「键盘」
+                    break;
+                }
+            }
+            QTimer::singleShot(900, dlg, [dlg]() {
+                QFile f(QStringLiteral("Temp/keyboard-layout-20261105/geom.txt"));
+                if (!f.open(QIODevice::Append | QIODevice::Text)) {
+                    return;
+                }
+                QTextStream ts(&f);
+                auto fmt = [](QWidget *w) {
+                    if (!w) return QStringLiteral("null");
+                    const QRect r = w->geometry();
+                    return QStringLiteral("x=%1 y=%2 %3x%4 (bottom=%5)")
+                        .arg(r.x()).arg(r.y()).arg(r.width()).arg(r.height())
+                        .arg(r.y() + r.height());
+                };
+                auto *rowsArea = dlg->findChild<QScrollArea *>(QStringLiteral("keyRowsArea"));
+                auto *rowsBox = dlg->findChild<QWidget *>(QStringLiteral("keyRowsBox"));
+                auto *table = dlg->findChild<QWidget *>(QStringLiteral("keyTable"));
+                auto *head = dlg->findChild<QWidget *>(QStringLiteral("keyHead"));
+                auto *hint = dlg->findChild<QLabel *>(QStringLiteral("pageHint"));
+                ts << "=== dpr=" << dlg->devicePixelRatioF()
+                   << " dlgClient=" << dlg->width() << 'x' << dlg->height()
+                   << " dlgFrame=" << fmt(dlg) << "\n";
+                // 外层滚动区（内容区共用）：从 rowsArea 往上找最近的 QScrollArea
+                QWidget *w = rowsArea ? rowsArea->parentWidget() : nullptr;
+                QScrollArea *outer = nullptr;
+                while (w) {
+                    if (auto *sa = qobject_cast<QScrollArea *>(w)) {
+                        if (sa != rowsArea) { outer = sa; break; }
+                    }
+                    w = w->parentWidget();
+                }
+                ts << "outerViewport=" << (outer ? fmt(outer->viewport()) : QStringLiteral("null"))
+                   << "\n";
+                ts << "hint=" << fmt(hint) << " head=" << fmt(head)
+                   << " table=" << fmt(table) << "\n";
+                ts << "rowsArea=" << fmt(rowsArea)
+                   << " maxH=" << (rowsArea ? rowsArea->maximumHeight() : -1) << "\n";
+                if (rowsArea) {
+                    ts << "rowsAreaViewport=" << fmt(rowsArea->viewport())
+                       << " vbarVisible=" << (rowsArea->verticalScrollBar()->isVisible() ? 1 : 0)
+                       << " vbarValue=" << rowsArea->verticalScrollBar()->value()
+                       << " vbarMax=" << rowsArea->verticalScrollBar()->maximum() << "\n";
+                }
+                ts << "rowsBox=" << fmt(rowsBox)
+                   << " sizeHint=" << (rowsBox ? rowsBox->sizeHint().height() : -1) << "\n";
+                if (rowsBox && rowsBox->layout()) {
+                    if (auto *boxLay = qobject_cast<QVBoxLayout *>(rowsBox->layout())) {
+                        ts << "rowsBoxLay: count=" << boxLay->count()
+                           << " margins=" << boxLay->contentsMargins().left() << ','
+                           << boxLay->contentsMargins().top() << ','
+                           << boxLay->contentsMargins().right() << ','
+                           << boxLay->contentsMargins().bottom()
+                           << " spacing=" << boxLay->spacing() << "\n";
+                    }
+                    // 首行与末行几何：判断行组是否被推离顶部
+                    for (int i : {0, 1}) {
+                        if (auto *iw = rowsBox->layout()->itemAt(i)
+                                           ? rowsBox->layout()->itemAt(i)->widget()
+                                           : nullptr) {
+                            ts << "  first[" << i << "] " << fmt(iw) << "\n";
+                        }
+                    }
+                    // 最后两行（末行 + 末条分隔线）的几何：留白 = rowsArea 可视底 − 末行底
+                    const int n = rowsBox->layout()->count();
+                    for (int i = qMax(0, n - 2); i < n; ++i) {
+                        if (auto *iw = rowsBox->layout()->itemAt(i)->widget()) {
+                            ts << "  item[" << i << "] " << fmt(iw) << "\n";
+                        }
+                    }
+                    const int lastRowBottom = [&]() {
+                        for (int i = n - 1; i >= 0; --i) {
+                            if (auto *iw = rowsBox->layout()->itemAt(i)->widget()) {
+                                if (iw->height() > 4) {   // 分隔线高 1，行高 32
+                                    return iw->geometry().y() + iw->geometry().height();
+                                }
+                            }
+                        }
+                        return -1;
+                    }();
+                    const int visBottom = rowsArea ? rowsArea->viewport()->height() : -1;
+                    ts << "lastRowBottomInBox=" << lastRowBottom
+                       << " viewportBottom=" << visBottom
+                       << " gap=" << (visBottom - lastRowBottom) << "\n";
+                }
+                ts << "\n";
+                f.close();
+            });
+        });
+    }
     // —— 键盘自定义验收探针（批次 D1，截图 + config 取证用）——
     else if (c == QLatin1String("keyconflict")) {
         // 把「删除」行热键改成 Ctrl+P（撞固定动作「打印」）走真实保存链路：

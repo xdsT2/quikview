@@ -114,6 +114,9 @@ public:
         setWidgetResizable(true);
         setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        // sizeHint 跟随内容：行区不再吃 stretch（M-05），若仍用 QScrollArea 的默认
+        // sizeHint（与内容无关的预置值），表格只按 360 高分配、14 行被逼出滚动条。
+        setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
     }
 
     // hint / head 是行区之外、同样占据纵向空间的固定部件。
@@ -156,23 +159,28 @@ private:
         if (!m_hint || !m_head || !m_outer) {
             return;
         }
-        // 内容自然高 = 14 行 + 13 条分隔线（行 32 / 线 1）
+        // 内容自然高 = 14 行 + 13 条分隔线 + 底部 12px 安全留白（在 rowsBox margin 里）
         const int natural = widget() ? qMax(1, widget()->sizeHint().height())
                                      : m_step * 14;
-        // 可用高 = 外层可视高 − 提示行 − 表头。底部 12px 留白由页面末尾的
-        // spacing 自己承担，不从这里扣（重复扣会让 14 行差 2px 又被逼出滚动条）。
+        // 可用高 = 外层可视高 − 提示行 − 表头 − 表格上下 1px 边框。
+        // 页面 layout 在这三段之外已无其它纵向占用（margins/spacing 均 0，
+        // 表格外 spacing 已随 M-05 删除），不再重复扣减。
+        constexpr int kTableBorder = 2;
         const int avail = m_outer->viewport()->height() - m_hint->height()
-                          - m_head->height();
+                          - m_head->height() - kTableBorder;
         if (avail >= natural) {
-            // 窗口够高：彻底放开上限，行区按自然高度展开，14 行一屏全显、无滚动条。
+            // 窗口够高：行区按内容自然高展开（14 行 + 12px 留白），无滚动条。
+            // 不设 QWIDGETSIZE_MAX 让 maxHeight 生效也行，但显式放开便于 resize 收回。
             if (maximumHeight() != QWIDGETSIZE_MAX) {
                 setMaximumHeight(QWIDGETSIZE_MAX);
                 updateGeometry();
             }
         } else {
-            // 窗口被手动缩小：按整行回退，多出来的行交给行区自己滚，不露半行。
-            const int k = qBound(3, avail / m_step, 14);
-            const int h = k * m_step + 1;
+            // 空间不足：视口高取「k 整行」——k 行 + (k−1) 条线 = k*33−1。
+            // 底部 12px 留白由内容 margin 保证，滚动到底自然保留（不在视口高度里重复加，
+            // 否则会顶出半行）。k 下限 1，避免极矮窗口算出 0。
+            const int k = qBound(1, avail / m_step, 14);
+            const int h = k * m_step - 1;
             if (maximumHeight() != h) {
                 setMaximumHeight(h);
                 updateGeometry();
@@ -1280,9 +1288,14 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
 
     // 行区：独立滚动、高度按整行吸附（见 KeyRowsArea 注释）
     auto *rowsArea = new KeyRowsArea(table);
+    rowsArea->setObjectName(QStringLiteral("keyRowsArea"));
     auto *rowsBox = new QWidget;
+    rowsBox->setObjectName(QStringLiteral("keyRowsBox"));
     auto *rl0 = new QVBoxLayout(rowsBox);
-    rl0->setContentsMargins(0, 0, 0, 0);
+    // 底部 12px 安全留白属于行区内容：14 行全显时末行与表格底边之间有明确间距，
+    // 滚动到底时同样保留（M-05 返工，2026-11-05）。旧实现把留白放在表格外的
+    // pageLay->addSpacing(12)，表格内末行直接贴底——视觉上等于没有。
+    rl0->setContentsMargins(0, 0, 0, 12);
     rl0->setSpacing(0);
 
     // 默认键位 = MainWindow 出厂硬编码值（PortableText；幻灯片/裁剪出厂无单键，
@@ -1364,11 +1377,15 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     }
 
     rowsArea->setWidget(rowsBox);
-    tl->addWidget(rowsArea, 1);   // 行区吃掉表格剩余高度
+    // 行区不吃 stretch：widgetResizable 会把 rowsBox 拉到视口高，QVBoxLayout 再把
+    // 多出来的高度均摊到 27 个 item 之间（行距被打散、末行贴底）。改为行区高度=内容
+    // 自然高，表格内剩余高度交给下面的弹簧——留白稳定、行距恒为 33（M-05 根因）。
+    tl->addWidget(rowsArea, 0);
+    tl->addStretch(1);
 
     pageLay->addWidget(table, 1);   // 表格吃掉页面剩余高度，14 行一屏全显
-    // 表格底部留白：滚到底时最后一行不贴着内容区底边（P2 / D3，≥12px）。
-    pageLay->addSpacing(12);
+    // 旧的表格外 12px spacing 已删除：留白改由 rowsBox 内容底部 margin 承担
+    // （表格外留白不算数，单子 §4.1）。
 
     // 整行吸附：高度按外层页面可视高算出「能放下几整行」，多出来的行交给行区
     // 自己的滚动条（行高 32 + 分隔线 1 = 33）。
