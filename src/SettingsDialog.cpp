@@ -134,7 +134,7 @@ private:
 
 // ---------------------------------------------------------------------------
 // 导航图标：不依赖 Qt6::Svg（本机无 qsvg 插件），用 QPainter 画 16px 线性几何图形，
-// 颜色跟随按钮状态（选中=强调青 / 悬停=白 / 常态 #bfc3c8），与文字间距 9px。
+// 颜色跟随按钮状态（选中=强调青 / 悬停=白 / 常态 NavText），与文字间距 9px。
 // ---------------------------------------------------------------------------
 enum class NavGlyph { Gear, Eye, Image, Doc, Keyboard, Mouse, Bookmark, Menu, More, Globe, Info };
 
@@ -259,8 +259,9 @@ void paintNavGlyph(QPainter &p, NavGlyph glyph, const QRect &box, const QColor &
 class NavItemButton : public QPushButton
 {
 public:
-    NavItemButton(const QString &text, NavGlyph glyph, QWidget *parent = nullptr)
-        : QPushButton(text, parent), m_glyph(glyph)
+    NavItemButton(const QString &text, NavGlyph glyph, QWidget *parent = nullptr,
+                  bool muted = false)
+        : QPushButton(text, parent), m_glyph(glyph), m_muted(muted)
     {
     }
 
@@ -275,11 +276,11 @@ protected:
         QStylePainter p(this);
         p.drawControl(QStyle::CE_PushButton, opt);
 
-        QColor color(0xbf, 0xc3, 0xc8);
+        QColor color = m_muted ? UiStyle::muted() : UiStyle::color(UiStyle::NavText);
         if (isChecked())
             color = UiStyle::accent();
         else if (underMouse())
-            color = QColor(0xff, 0xff, 0xff);
+            color = UiStyle::color(UiStyle::PureWhite);
 
         const int pad = 11;
         const int glyphSize = 16;
@@ -306,6 +307,7 @@ protected:
 
 private:
     NavGlyph m_glyph;
+    bool m_muted = false;
 };
 
 // 10 个页签的图标（顺序与 addPage 调用顺序一致）
@@ -371,56 +373,87 @@ void populateLanguageCombo(QComboBox *combo)
     combo->addItem(QStringLiteral("Русский"), QStringLiteral("ru_RU"));
 }
 
-// 追加的几何/局部样式：只用 UiStyle 令牌与原型色，不引入新色板。
+// 把 QSS 里的 @Token@ 占位符换成 UiStyle 常量：界面代码里不再出现裸色值。
+QString withColorTokens(QString qss)
+{
+    static const struct {
+        const char *key;
+        const char *value;
+    } tokens[] = {
+        { "@DialogBg@", UiStyle::DialogBg },
+        { "@GroupBg@", UiStyle::GroupBg },
+        { "@Line@", UiStyle::Line },
+        { "@HeadBg@", UiStyle::HeadBg },
+        { "@HeadText@", UiStyle::HeadText },
+        { "@Body@", UiStyle::Body },
+        { "@Field@", UiStyle::Field },
+        { "@FieldText@", UiStyle::FieldText },
+        { "@Border@", UiStyle::Border },
+        { "@BorderHover@", UiStyle::BorderHover },
+        { "@Accent@", UiStyle::Accent },
+        { "@DisabledTextSoft@", UiStyle::DisabledTextSoft },
+        { "@DisabledBorder@", UiStyle::DisabledBorder },
+        { "@DisabledBg@", UiStyle::DisabledBg },
+        { "@HintText@", UiStyle::HintText },
+        { "@DisabledText@", UiStyle::DisabledText },
+        { "@PureWhite@", UiStyle::PureWhite },
+        { "@DangerBg@", UiStyle::DangerBg },
+    };
+    for (const auto &t : tokens)
+        qss.replace(QLatin1String(t.key), QLatin1String(t.value));
+    return qss;
+}
+
+// 追加的几何/局部样式：只用 UiStyle 令牌，不引入新色板。
 QString extraQss()
 {
-    return QStringLiteral(R"(
+    return withColorTokens(QStringLiteral(R"(
 QDialog { background: transparent; }
 QFrame#dlgTitleBar { border-top-left-radius: 10px; border-top-right-radius: 10px; }
 QFrame#dlgFooter { border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; }
 
-QFrame#formatGroup { background: #222427; border: 1px solid rgba(255,255,255,0.085);
+QFrame#formatGroup { background: @GroupBg@; border: 1px solid @Line@;
     border-radius: 7px; }
-QFrame#keyTable { border: 1px solid rgba(255,255,255,0.085); border-radius: 7px; }
-QWidget#keyHead { background: #292b2f; }
-QLabel#keyHeadCell { color: #9ca2aa; font-size: 11px; }
+QFrame#keyTable { border: 1px solid @Line@; border-radius: 7px; }
+QWidget#keyHead { background: @HeadBg@; }
+QLabel#keyHeadCell { color: @HeadText@; font-size: 11px; }
+QLabel#pageHint { color: @HintText@; font-size: 11px; }
 
 QPushButton#miniBtn { min-height: 18px; max-height: 22px; padding: 0 9px; font-size: 10px;
     border-radius: 5px; }
 /* 颜色按钮（ColorPickButton）已随第 18 期「背景段下线」删除，QSS 一并清掉 */
-QComboBox#flatCombo { background: transparent; border: 0; color: #d5d7da; font-size: 11px;
+QComboBox#flatCombo { background: transparent; border: 0; color: @Body@; font-size: 11px;
     min-height: 20px; padding: 0 4px 0 6px; }
-QComboBox#flatCombo:hover { color: #ffffff; }
+QComboBox#flatCombo:hover { color: @PureWhite@; }
 QComboBox#flatCombo::drop-down { width: 0; border: 0; }
 QComboBox#flatCombo::down-arrow { width: 0; height: 0; }
 
-QLabel#valueText { color: #d5d7da; font-size: 11px; }
-QPlainTextEdit#credits { background: #1e2023; border: 1px solid rgba(255,255,255,0.085);
-    border-radius: 6px; color: #b9bec5; font-size: 11px; padding: 6px; }
+QLabel#valueText { color: @Body@; font-size: 11px; }
 
 /* 键盘页热键编辑器（批次 D1）：QKeySequenceEdit 自绘边框，与 QLineEdit 同一
    底座/描边/焦点色，避免「能用但长得不像这套 UI」的原生外观。 */
-QKeySequenceEdit { background: #2d2f34; color: #e0e2e4; border: 1px solid #4b4e54;
+QKeySequenceEdit { background: @Field@; color: @FieldText@; border: 1px solid @Border@;
     border-radius: 5px; font-size: 11px; padding: 0 6px; min-height: 24px; }
-QKeySequenceEdit:hover { border-color: #686d75; }
-QKeySequenceEdit:focus { border-color: #55c0f0; }
-QKeySequenceEdit:disabled { color: #6b7078; border-color: #3a3c40; background: #26282b; }
+QKeySequenceEdit:hover { border-color: @BorderHover@; }
+QKeySequenceEdit:focus { border-color: @Accent@; }
+QKeySequenceEdit:disabled { color: @DisabledTextSoft@; border-color: @DisabledBorder@;
+    background: @DisabledBg@; }
 
 /* 键盘页冲突行（保存被拒时整行高亮，动态属性 conflict） */
-QWidget[conflict="true"] { background: rgba(196, 43, 28, 0.20); border-radius: 4px; }
+QWidget[conflict="true"] { background: @DangerBg@; border-radius: 4px; }
 
 /* 置灰（尚未实现）项的统一不可用态：文字压暗、底座与边框退到背景层，
    与可交互项一眼可分。UiStyle::dialogQss() 只给了 indicator:disabled，
    没有文字色，直接 setEnabled(false) 时文字仍与正常项同亮度、看不出差别，
-   所以这里补一套。明暗两套主题下设置页底色都由 paintEvent 固定为 #232427，
-   灰字 #6f747a 对比度约 3.2:1，可读且明确「不可点」。 */
-QCheckBox:disabled { color: #6f747a; }
-QLabel:disabled { color: #6f747a; }
-QComboBox:disabled { color: #6f747a; background: #26282b; border-color: #3a3c40; }
-QSpinBox:disabled { color: #6f747a; background: #26282b; border-color: #3a3c40; }
-QLineEdit:disabled { color: #6f747a; background: #26282b; border-color: #3a3c40; }
-QPushButton:disabled { color: #6f747a; border-color: #3a3c40; background: #292b2f; }
-)");
+   所以这里补一套。设置页底色由 paintEvent 固定为 DialogBg，DisabledText
+   对比度约 3.3:1（满足禁用态 ≥3:1），可读且明确「不可点」。 */
+QCheckBox:disabled { color: @DisabledText@; }
+QLabel:disabled { color: @DisabledText@; }
+QComboBox:disabled { color: @DisabledText@; background: @DisabledBg@; border-color: @DisabledBorder@; }
+QSpinBox:disabled { color: @DisabledText@; background: @DisabledBg@; border-color: @DisabledBorder@; }
+QLineEdit:disabled { color: @DisabledText@; background: @DisabledBg@; border-color: @DisabledBorder@; }
+QPushButton:disabled { color: @DisabledText@; border-color: @DisabledBorder@; background: @HeadBg@; }
+)"));
 }
 
 } // namespace
@@ -541,7 +574,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     m_navLayout->addSpacing(9);
     m_navLayout->addWidget(navDivider);
     m_navLayout->addSpacing(9);
-    auto *btnAbout = new NavItemButton(tr("关于 QuikView"), NavGlyph::Info, nav);
+    auto *btnAbout = new NavItemButton(tr("关于 QuikView"), NavGlyph::Info, nav, true);
     btnAbout->setObjectName(QStringLiteral("navItem"));
     btnAbout->setCursor(Qt::PointingHandCursor);
     btnAbout->setFixedHeight(36);
@@ -1093,7 +1126,6 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
                                "「操作」列可把该键位改绑到其他动作。"
                                "两个启用的动作占用同一键位时保存会被拒绝。"), page);
     hint->setObjectName(QStringLiteral("pageHint"));
-    hint->setStyleSheet(QStringLiteral("QLabel#pageHint{color:#9aa0a6;font-size:11px;}"));
     hint->setWordWrap(true);
     pageLay->addWidget(hint);
 
@@ -1347,9 +1379,9 @@ void SettingsDialog::buildContextMenuPage(QWidget *page)
             v->addWidget(row);
         }
     };
-    const char *kOk = "#7fc47f";       // 已注册
-    const char *kWarn = "#d6a04a";     // 缺文件
-    const char *kMuted = "#92979e";    // 本版未提供 / 暂不支持
+    const char *kOk = UiStyle::StatusOk;      // 已注册
+    const char *kWarn = UiStyle::StatusWarn;   // 缺文件
+    const char *kMuted = UiStyle::Muted;      // 本版未提供 / 暂不支持
 
     QWidget *sec = beginSection(page, tr("上下文菜单设定"));
     // 本版壳扩展真实提供两个菜单项（浏览 / 转换），其余三项是规划项，不能谎报已注册。
@@ -1837,8 +1869,8 @@ void SettingsDialog::paintEvent(QPaintEvent *)
     const QRectF r = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
     QPainterPath path;
     path.addRoundedRect(r, UiStyle::RadiusDialog, UiStyle::RadiusDialog);
-    p.fillPath(path, QColor(0x23, 0x24, 0x27));
-    p.setPen(QPen(QColor(0x4a, 0x4c, 0x51), 1));
+    p.fillPath(path, UiStyle::color(UiStyle::DialogBg));
+    p.setPen(QPen(UiStyle::color(UiStyle::DialogBorder), 1));
     p.drawPath(path);
 }
 

@@ -847,9 +847,9 @@ void MainWindow::paintEvent(QPaintEvent *event)
     QMainWindow::paintEvent(event);
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
-    p.fillRect(rect(), QColor(QStringLiteral("#161719")));
+    p.fillRect(rect(), UiStyle::color(UiStyle::ChromeBg));
     if (!isFullScreen()) {
-        p.setPen(QPen(QColor(QStringLiteral("#3a3c40")), 1));
+        p.setPen(QPen(UiStyle::color(UiStyle::ChromeBorder), 1));
         p.setBrush(Qt::NoBrush);
         p.drawRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5));
     }
@@ -1831,9 +1831,9 @@ void MainWindow::applyRuntimeSettings()
     // 程序退出时在析构里还原。
     applyScreensaverPrevention(cfg.disableScreensaver());
 
-    // 画布外观按用户 2026-11-03 决定固定：纯色 #202020、无边框、无背景图。
+    // 画布外观按用户 2026-11-03 决定固定：纯色 CanvasBg、无边框、无背景图。
     // 设置入口已在第 18 期移除；ImageCanvas 的 setter 保留，恢复时只需接回 UI。
-    m_canvas->setBackgroundColor(QColor(QStringLiteral("#202020")));
+    m_canvas->setBackgroundColor(UiStyle::color(UiStyle::CanvasBg));
     m_canvas->setBorderColor(QColor(Qt::transparent));
     m_canvas->setBackgroundImage(QImage());
     // 设置页的「不显示侧边箭头」是反选（inverted），存的就是 show_side_arrow 本身：
@@ -3394,7 +3394,8 @@ void MainWindow::onEditBookmarks()
     root->setSpacing(10);
 
     auto *hint = new QLabel(tr("双击一行可直接打开；书签就是收藏过的图片路径。"), &dlg);
-    hint->setStyleSheet(QStringLiteral("color:#9aa0a6;font-size:12px;"));
+    hint->setStyleSheet(QStringLiteral("color:%1;font-size:12px;")
+                            .arg(QLatin1String(UiStyle::HintText)));
     root->addWidget(hint);
 
     auto *list = new QListWidget(&dlg);
@@ -3949,8 +3950,9 @@ void MainWindow::showNameOverlay()
         m_nameOverlay->setAttribute(Qt::WA_TransparentForMouseEvents);
         m_nameOverlay->setAlignment(Qt::AlignCenter);
         m_nameOverlay->setStyleSheet(QStringLiteral(
-            "background: rgba(0,0,0,0.62); color: #e8eaec; border-radius: 6px;"
-            "padding: 6px 14px; font-size: 13px;"));
+            "background: %1; color: %2; border-radius: 6px;"
+            "padding: 6px 14px; font-size: 13px;")
+            .arg(QLatin1String(UiStyle::OverlayBg), QLatin1String(UiStyle::OverlayText)));
         m_nameOverlayFx = new QGraphicsOpacityEffect(m_nameOverlay);
         m_nameOverlayFx->setOpacity(0.0);
         m_nameOverlay->setGraphicsEffect(m_nameOverlayFx);
