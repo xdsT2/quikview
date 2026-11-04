@@ -53,10 +53,15 @@
 namespace {
 
 // ---------------------------------------------------------------------------
-// 尺寸（对齐原型 .settings：960x720 / 标题 43 / 导航 204 / footer 62 / 内容内边距 25,28）
+// 尺寸（对齐原型 .settings：宽 940 / 标题 43 / 导航 204 / footer 62 / 内容内边距 25,28）
+// 高度见下方 kDlgH 的说明：720 放不下键盘页 14 行，2026-11-04 起为 800。
 // ---------------------------------------------------------------------------
 constexpr int kDlgW = 940;
-constexpr int kDlgH = 720;
+// 2026-11-04：720 时键盘页 14 行只能塞下 11 行，右侧逼出滚动条、表格下方空一大片，
+// 用户以原型图（940x900、14 行一屏全显、无滚动条）为基准判定「不对」。
+// 14 行 = 14*(32+1)=462，加表头 31、提示行约 44、底部 12 与内容区内边距，
+// 需要约 800 逻辑高；800 刚好填满，不会像 900 那样又留出 100px 空白。
+constexpr int kDlgH = 800;
 constexpr int kDlgMinW = 900;
 constexpr int kDlgMinH = 660;
 constexpr int kTitleBarH = 43;
@@ -125,6 +130,8 @@ public:
             outer->viewport()->installEventFilter(this);
         }
         apply();
+        // showEvent 时布局还没激活，viewport 高度常是旧值；等一轮事件循环再算一次。
+        QTimer::singleShot(0, this, [this]() { apply(); });
     }
 
 protected:
@@ -148,15 +155,27 @@ private:
         if (!m_hint || !m_head || !m_outer) {
             return;
         }
-        // 可用高 = 外层可视高 − 提示行 − 表头 − 底部 12px 留白 − 2px 边框余量
+        // 内容自然高 = 14 行 + 13 条分隔线（行 32 / 线 1）
+        const int natural = widget() ? qMax(1, widget()->sizeHint().height())
+                                     : m_step * 14;
+        // 可用高 = 外层可视高 − 提示行 − 表头。底部 12px 留白由页面末尾的
+        // spacing 自己承担，不从这里扣（重复扣会让 14 行差 2px 又被逼出滚动条）。
         const int avail = m_outer->viewport()->height() - m_hint->height()
-                          - m_head->height() - 12 - 4;
-        const int k = qMax(3, avail / m_step);   // 至少留 3 行，避免极矮窗口算出 0
-        const int h = k * m_step + 1;
-        // 用 maxHeight 而不是 fixedHeight：fixedHeight 会把「页面最小高度」顶大，
-        // 反过来把对话框撑大（实测 940x720 被撑到 1175x900），形成尺寸自激。
-        if (maximumHeight() != h) {
-            setMaximumHeight(h);
+                          - m_head->height();
+        if (avail >= natural) {
+            // 窗口够高：彻底放开上限，行区按自然高度展开，14 行一屏全显、无滚动条。
+            if (maximumHeight() != QWIDGETSIZE_MAX) {
+                setMaximumHeight(QWIDGETSIZE_MAX);
+                updateGeometry();
+            }
+        } else {
+            // 窗口被手动缩小：按整行回退，多出来的行交给行区自己滚，不露半行。
+            const int k = qBound(3, avail / m_step, 14);
+            const int h = k * m_step + 1;
+            if (maximumHeight() != h) {
+                setMaximumHeight(h);
+                updateGeometry();
+            }
         }
     }
 
@@ -629,10 +648,14 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     buildEtcPage(addPage(tr("杂项"), tr("图片文件夹、外部编辑器与 RAW 打开策略。")));
     buildLangPage(addPage(tr("语言"), tr("选择界面语言并管理语言文件。")));
 
-    // 页面内容不足一屏时，多余空间落在末尾弹簧上（否则各 section 会被均匀拉开）
+    // 页面内容不足一屏时，多余空间落在末尾弹簧上（否则各 section 会被均匀拉开）。
+    // 键盘页例外：它要让表格吃掉剩余高度才能一屏放下 14 行，末尾再加弹簧
+    // 会把新高度全变成表格下方的大片空白（2026-11-04 实测）。
     for (QWidget *p : m_pages) {
-        if (auto *pv = qobject_cast<QVBoxLayout *>(p->layout()))
-            pv->addStretch(1);
+        if (auto *pv = qobject_cast<QVBoxLayout *>(p->layout())) {
+            if (!p->property("noTailStretch").toBool())
+                pv->addStretch(1);
+        }
     }
 
     // 导航底部：分隔 + 关于
@@ -1190,6 +1213,8 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     auto *pageLay = qobject_cast<QVBoxLayout *>(page->layout());
     if (!pageLay)
         return;
+    // 本页不要末尾弹簧：表格要吃掉剩余高度，14 行才能一屏全显。
+    page->setProperty("noTailStretch", true);
 
     // 14 行全部可配置（config/keyboard/<action>_{enabled,_key,_action}），
     // MainWindow::applyShortcutConfig 在保存后立即给 QAction 重装键位。
@@ -1309,9 +1334,9 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     }
 
     rowsArea->setWidget(rowsBox);
-    tl->addWidget(rowsArea);
+    tl->addWidget(rowsArea, 1);   // 行区吃掉表格剩余高度
 
-    pageLay->addWidget(table);
+    pageLay->addWidget(table, 1);   // 表格吃掉页面剩余高度，14 行一屏全显
     // 表格底部留白：滚到底时最后一行不贴着内容区底边（P2 / D3，≥12px）。
     pageLay->addSpacing(12);
 
