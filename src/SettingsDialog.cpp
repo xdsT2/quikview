@@ -22,6 +22,7 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QMouseEvent>
+#include <QPalette>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPaintEvent>
@@ -399,6 +400,30 @@ protected:
 private:
     NavGlyph m_glyph;
     bool m_muted = false;
+};
+
+// 空热键占位修正：QKeySequenceEdit 内部的 QLineEdit 在构造后才挂上，
+// 构造期 findChild 拿不到；在 Polish/Show 时再把占位文案换成中文「未设置」（Muted 色）。
+class KeySeqPlaceholderFixer : public QObject
+{
+public:
+    explicit KeySeqPlaceholderFixer(QKeySequenceEdit *edit) : QObject(edit)
+    {
+        edit->installEventFilter(this);
+    }
+protected:
+    bool eventFilter(QObject *, QEvent *ev) override
+    {
+        if (ev->type() == QEvent::Polish || ev->type() == QEvent::Show) {
+            if (auto *le = static_cast<QKeySequenceEdit *>(parent())->findChild<QLineEdit *>()) {
+                le->setPlaceholderText(QCoreApplication::translate("SettingsDialog", "未设置"));
+                QPalette pal = le->palette();
+                pal.setBrush(QPalette::PlaceholderText, UiStyle::muted());
+                le->setPalette(pal);
+            }
+        }
+        return false;
+    }
 };
 
 // 10 个页签的图标（顺序与 addPage 调用顺序一致）
@@ -1314,6 +1339,9 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
         auto *edit = new QKeySequenceEdit(editHost);
         edit->setFixedHeight(26);
         edit->setStyleSheet(QStringLiteral("QKeySequenceEdit{font-size:11px;padding:0 6px;}"));
+        // 空热键：Qt 内置占位是英文 "Press shortcut"，且 windeployqt 没带 Qt 翻译，
+        // 直接显示裸英文。Polish/Show 时把内部 QLineEdit 占位换成中文「未设置」（Muted 色）。
+        new KeySeqPlaceholderFixer(edit);
         el->addWidget(edit);
         rl->addWidget(editHost);
 
@@ -1604,8 +1632,8 @@ void SettingsDialog::buildLangPage(QWidget *page)
     row->addStretch(1);
 
     auto *link1 = new LinkLabel(tr("下载更多语言…"), []() {
-        QMessageBox::information(nullptr, QObject::tr("语言"),
-                                 QObject::tr("更多语言包请访问 QuikView 项目主页下载。"));
+        QDesktopServices::openUrl(
+            QUrl(QStringLiteral("https://github.com/xdsT2/quikview")));
     }, sec);
     auto *link2 = new LinkLabel(tr("打开语言文件夹…"), []() {
         const QString dir = QCoreApplication::applicationDirPath()
