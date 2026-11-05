@@ -131,7 +131,11 @@ public:
         }
         if (auto *outer = qobject_cast<QScrollArea *>(w)) {
             m_outer = outer;
+            m_page = outer->widget();
             outer->viewport()->installEventFilter(this);
+            outer->installEventFilter(this);
+            if (m_page)
+                m_page->installEventFilter(this);
         }
         apply();
         // showEvent 时布局还没激活，viewport 高度常是旧值；等一轮事件循环再算一次。
@@ -141,8 +145,12 @@ public:
 protected:
     bool eventFilter(QObject *o, QEvent *e) override
     {
-        if (m_outer && o == m_outer->viewport() && e->type() == QEvent::Resize) {
-            apply();
+        // 页面在 QStackedWidget 里时，隐藏页的 geometry 会先被清空、显示时才重排；
+        // 只监听 viewport 的 Resize 会读到旧高度。这里把外层滚动区、viewport、页面
+        // 本体一起监听，统一走 queued 重算，等布局激活后再取最终几何。
+        if (e->type() == QEvent::Resize || e->type() == QEvent::Show) {
+            if (m_outer && (o == m_outer || o == m_outer->viewport() || o == m_page))
+                scheduleApply();
         }
         return QScrollArea::eventFilter(o, e);
     }
@@ -150,7 +158,7 @@ protected:
     void showEvent(QShowEvent *e) override
     {
         QScrollArea::showEvent(e);
-        apply();
+        scheduleApply();
     }
 
     // 高度直接由内容 sizeHint 决定：QScrollArea 默认 sizeHint 是固定值（360），
@@ -166,6 +174,18 @@ protected:
     }
 
 private:
+    void scheduleApply()
+    {
+        // 重算放到下一轮事件循环：等页面/视口布局激活完，读到的才是最终高度。
+        if (m_applyQueued)
+            return;
+        m_applyQueued = true;
+        QTimer::singleShot(0, this, [this]() {
+            m_applyQueued = false;
+            apply();
+        });
+    }
+
     void apply()
     {
         if (!m_hint || !m_head || !m_outer) {
@@ -180,30 +200,30 @@ private:
         constexpr int kTableBorder = 2;
         const int avail = m_outer->viewport()->height() - m_hint->height()
                           - m_head->height() - kTableBorder;
-        if (avail >= natural) {
-            // 窗口够高：行区按内容自然高展开（14 行 + 12px 留白），无滚动条。
-            // 不设 QWIDGETSIZE_MAX 让 maxHeight 生效也行，但显式放开便于 resize 收回。
-            if (maximumHeight() != QWIDGETSIZE_MAX) {
-                setMaximumHeight(QWIDGETSIZE_MAX);
-                updateGeometry();
-            }
-        } else {
-            // 空间不足：视口高取「k 整行」——k 行 + (k−1) 条线 = k*33−1。
-            // 底部 12px 留白由内容 margin 保证，滚动到底自然保留（不在视口高度里重复加，
-            // 否则会顶出半行）。k 下限 1，避免极矮窗口算出 0。
+
+        // 高度两步走：
+        // 1) 窗口够高 → 就取内容自然高，表格不再吃满页面，剩余纵向空间由页面底部弹簧吸收；
+        // 2) 窗口不够高 → 封顶到「k 整行」= k*33−1（k 行 + (k−1) 条线），仅行区内部滚动，
+        //    页面不出现外层滚动条；k 下限 1，避免极矮窗口算出 0。
+        // 统一用固定高度而不是只设 maximumHeight：表格已不再是 stretch 项，
+        // 只设 max 时布局仍按 sizeHint 撑开，封顶不会真正生效。
+        int target = natural;
+        if (avail < natural) {
             const int k = qBound(1, avail / m_step, 14);
-            const int h = k * m_step - 1;
-            if (maximumHeight() != h) {
-                setMaximumHeight(h);
-                updateGeometry();
-            }
+            target = k * m_step - 1;
+        }
+        if (maximumHeight() != target) {
+            setFixedHeight(target);
+            updateGeometry();
         }
     }
 
     QWidget *m_hint = nullptr;
     QWidget *m_head = nullptr;
+    QWidget *m_page = nullptr;
     QScrollArea *m_outer = nullptr;
     int m_step = 33;
+    bool m_applyQueued = false;
 };
 
 // ---------------------------------------------------------------------------
@@ -696,12 +716,9 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     buildLangPage(addPage(tr("语言"), tr("选择界面语言并管理语言文件。")));
 
     // 页面内容不足一屏时，多余空间落在末尾弹簧上（否则各 section 会被均匀拉开）。
-    // 键盘页例外：它要让表格吃掉剩余高度才能一屏放下 14 行，末尾再加弹簧
-    // 会把新高度全变成表格下方的大片空白（2026-11-04 实测）。
     for (QWidget *p : m_pages) {
         if (auto *pv = qobject_cast<QVBoxLayout *>(p->layout())) {
-            if (!p->property("noTailStretch").toBool())
-                pv->addStretch(1);
+            pv->addStretch(1);
         }
     }
 
@@ -1260,8 +1277,8 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     auto *pageLay = qobject_cast<QVBoxLayout *>(page->layout());
     if (!pageLay)
         return;
-    // 本页不要末尾弹簧：表格要吃掉剩余高度，14 行才能一屏全显。
-    page->setProperty("noTailStretch", true);
+    // 页面有末尾弹簧（统一在 buildPages 之后补上），剩余高度落在弹簧里，
+    // 表格高度由 KeyRowsArea::apply() 按内容自然高／整行封顶决定（M-05）。
 
     // 14 行全部可配置（config/keyboard/<action>_{enabled,_key,_action}），
     // MainWindow::applyShortcutConfig 在保存后立即给 QAction 重装键位。
@@ -1391,11 +1408,11 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     rowsArea->setWidget(rowsBox);
     // 行区不吃 stretch：widgetResizable 会把 rowsBox 拉到视口高，QVBoxLayout 再把
     // 多出来的高度均摊到 27 个 item 之间（行距被打散、末行贴底）。改为行区高度=内容
-    // 自然高，表格内剩余高度交给下面的弹簧——留白稳定、行距恒为 33（M-05 根因）。
+    // 自然高，表格内不再留弹簧（多余高度交给页面底部弹簧），行距恒为 33（M-05 根因）。
     tl->addWidget(rowsArea, 0);
-    tl->addStretch(1);
+    // 表格内部不再留弹簧：表格高度 = 表头 + 行区，多余高度交给页面底部弹簧（M-05）。
 
-    pageLay->addWidget(table, 1);   // 表格吃掉页面剩余高度，14 行一屏全显
+    pageLay->addWidget(table, 0);   // 表格按内容自然高分配，不再吃满页面高度（M-05）
     // 旧的表格外 12px spacing 已删除：留白改由 rowsBox 内容底部 margin 承担
     // （表格外留白不算数，单子 §4.1）。
 
