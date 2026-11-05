@@ -1071,7 +1071,7 @@ void SettingsDialog::buildViewPage(QWidget *page)
     // 侧边箭头是真开关：ImageCanvas::setSideArrowsEnabled()。
     auto *sideArrows = addCheck(sec, tr("不显示侧边箭头"), "view/show_side_arrow", true, true);
     addCheck(sec, tr("不显示动画信息控制"), "view/show_anim_control", true, true);
-    addCheck(sec, tr("不显示缩放信息控制"), "view/show_zoom_control", true, true);
+    auto *zoomInfo = addCheck(sec, tr("不显示缩放信息控制"), "view/show_zoom_control", true, true);
     addCheck(sec, tr("不显示鼠标悬浮工具提示"), "view/show_tooltip", true, true);
     auto *smallFont = addCheck(sec, tr("用小字体显示 EXIF / 文件信息"),
                                "view/exif_small_font", false, false);
@@ -1079,7 +1079,8 @@ void SettingsDialog::buildViewPage(QWidget *page)
     // addCheck 已把它们加入 m_chkBinds，保存路径照常写同名键。
     m_liveChecks.append({ smallFont, "view/exif_small_font", false, false, false });
     m_liveChecks.append({ sideArrows, "view/show_side_arrow", true, true, false });
-    addHint(sec, tr("即时预览：切换后信息面板字号 / 侧边箭头立刻变化；"
+    m_liveChecks.append({ zoomInfo, "view/show_zoom_control", true, true, false });
+    addHint(sec, tr("即时预览：切换后信息面板字号 / 侧边箭头 / 缩放浮标立刻变化；"
                     "点「保存设置」后保留，取消 / Esc / 标题栏关闭会恢复进入设置前的值。"));
 
     // 「背景」段（背景图 + 路径 + 背景色 + 边框色）已按用户 2026-11-03 决定整段

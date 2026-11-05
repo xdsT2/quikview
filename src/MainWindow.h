@@ -55,9 +55,10 @@ public:
     void setZoomMode(int mode);             // 调试/自动化 + 菜单共用：0原始/1适合窗口/2适合宽度
     void runSmokeCommand(const QString &cmd); // 调试/自动化：--smoke 单命令驱动（P0 冒烟）
 
-    // —— SET-02 设置页即时预览 ——
-    // 设置页在会话中直接下发运行态（不等「保存设置」）。目前只接
-    // view/exif_small_font 样板项；应用失败返回 false 并写入 error。
+    // —— SET-02/03 设置页即时预览 ——
+    // 设置页在会话中直接下发运行态（不等「保存设置」）。已接：
+    // view/exif_small_font（SET-02）；always_on_top / view/show_side_arrow /
+    // view/show_zoom_control（SET-03 小批 A）。应用失败返回 false 并写入 error。
     bool applyLiveSetting(const QString &key, const QVariant &value, QString *error);
     // 打开设置时的运行态快照来源（与配置值独立，供取消回滚）。
     QVariant liveSettingValue(const QString &key) const;
@@ -190,6 +191,7 @@ private:
     void resetEffect();
     void updateStatus(const QString &path);
     void toggleAlwaysOnTop();
+    void refreshZoomBadge(qreal z);           // 缩放浮标文案：当前缩放方式/百分比
     void applyChromeLayout();
     void updateCanvasInsets();               // 缩略图栏展开时让出左侧可视区
     void toggleBrowserPanel();
@@ -366,6 +368,10 @@ private:
     bool m_negative = false;   // 反相
     qreal m_gamma = 1.0;       // Gamma 补偿（1.0 = 不变）
     bool m_zoomLocked = false; // 锁定缩放：翻页后不做适配，沿用同一比例
+    // SET-03 即时预览：「不显示缩放信息控制」的运行态覆盖值。设置页会话内
+    // 不写配置，zoomChanged 先看这里；关闭设置页后清空标志，回到配置值。
+    bool m_liveZoomControlOverride = false;
+    bool m_liveZoomControlOverrideSet = false;
     // 装图/适配期间屏蔽「保存缩放状态」写盘（见 zoomChanged 连接处）
     bool m_zoomSaveGuard = false;
     // 开锁前的缩放方式（0=原始 1=适合窗口 2=适合宽度），-1 表示未记录。

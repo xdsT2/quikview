@@ -381,16 +381,12 @@ MainWindow::MainWindow(QWidget *parent)
 
     // 画布缩放联动：左下角浮标 + 浏览方式图标降级（胶囊滑杆已是翻页进度，不再跟随缩放）
     connect(m_canvas, &ImageCanvas::zoomChanged, this, [this](qreal z) {
-        if (m_zoomBadge && !m_currentImage.isNull() && Config::instance().showZoomControl()) {
-            QString txt;
-            if (m_canvas->isFitToWindow()) {
-                txt = tr("适合窗口");
-            } else if (m_canvas->isFitToWidth()) {
-                txt = tr("适合宽度");
-            } else {
-                txt = QStringLiteral("%1%").arg(qRound(z * 100));
-            }
-            m_zoomBadge->showText(txt);
+        // SET-03 即时预览：设置页会话内以运行态覆盖值为准（不写配置）。
+        const bool showZoom = m_liveZoomControlOverrideSet
+                                  ? m_liveZoomControlOverride
+                                  : Config::instance().showZoomControl();
+        if (m_zoomBadge && !m_currentImage.isNull() && showZoom) {
+            refreshZoomBadge(z);
         }
         // 保存缩放状态（键 "config/view/save_zoom_state"）：把当前缩放按路径记下来，
         // 下次打开同一张图时恢复。装图/适配/拖动预览期间的 zoomChanged 是「程序自己
@@ -1874,6 +1870,21 @@ void MainWindow::applyRuntimeSettings()
     // 这里统一补回，幂等。
     applyNativeFrameStyles();
 #endif
+}
+
+void MainWindow::refreshZoomBadge(qreal z)
+{
+    if (!m_zoomBadge || m_currentImage.isNull())
+        return;
+    QString txt;
+    if (m_canvas->isFitToWindow()) {
+        txt = tr("适合窗口");
+    } else if (m_canvas->isFitToWidth()) {
+        txt = tr("适合宽度");
+    } else {
+        txt = QStringLiteral("%1%").arg(qRound(z * 100));
+    }
+    m_zoomBadge->showText(txt);
 }
 
 void MainWindow::toggleAlwaysOnTop()
@@ -4092,6 +4103,19 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         return true;
     }
 
+    if (key == QLatin1String("view/show_zoom_control")) {
+        // 运行态覆盖：会话内不写配置；关掉立即收浮标，打开立即按当前缩放补一次。
+        m_liveZoomControlOverride = value.toBool();
+        m_liveZoomControlOverrideSet = true;
+        if (!m_liveZoomControlOverride) {
+            if (m_zoomBadge)
+                m_zoomBadge->hide();
+        } else if (m_zoomBadge && m_canvas && !m_currentImage.isNull()) {
+            refreshZoomBadge(m_canvas->zoom());
+        }
+        return true;
+    }
+
     if (error)
         *error = tr("未知的即时设置项：%1").arg(key);
     return false;
@@ -4108,6 +4132,10 @@ QVariant MainWindow::liveSettingValue(const QString &key) const
     }
     if (key == QLatin1String("view/show_side_arrow"))
         return m_canvas ? m_canvas->sideArrowsEnabled() : true;
+    if (key == QLatin1String("view/show_zoom_control")) {
+        return m_liveZoomControlOverrideSet ? m_liveZoomControlOverride
+                                            : Config::instance().showZoomControl();
+    }
     return QVariant();
 }
 
@@ -4115,6 +4143,8 @@ void MainWindow::onSettings()
 {
     SettingsDialog dlg(this);
     dlg.exec();
+    // 预览会话结束：清掉运行态覆盖，之后一律以配置为准（保存=新值，取消=旧值）。
+    m_liveZoomControlOverrideSet = false;
     // 设置页可能改了主题（三档）；按当前取值重新解析应用（system 时随系统）。
     // 磨砂开关要先落进 UiStyle，否则 appQss() 里菜单底还是旧的不透明度。
     UiStyle::setBlurMaterial(Config::instance().blurMaterial());
