@@ -115,7 +115,9 @@ protected:
         const QRectF box = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
         QPainterPath plate;
         plate.addRoundedRect(box, 6, 6);
-        painter.fillPath(plate, UiStyle::color(UiStyle::pick("#1e2023", "#ffffff")));
+        // 浅色底板不能用纯白：白面板上等于没有边界。用略深的凹陷井 #f2f3f5，
+        // 配合 line() 描边把直方图区域勾出来。
+        painter.fillPath(plate, UiStyle::color(UiStyle::pick("#1e2023", "#f2f3f5")));
         painter.setPen(QPen(UiStyle::line(), 1));
         painter.drawPath(plate);
 
@@ -195,16 +197,21 @@ protected:
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing, true);
 
+        // 圆钮压在浮层底板上：深色底板用「白色半透明」，浅色白卡片必须反过来用
+        // 「黑色半透明」，否则白底白圈白图标 = 完全看不见（2026-11-05 实测）。
+        const bool light = UiStyle::isLight();
         const bool hot = underMouse() || isDown();
-        QColor bg(255, 255, 255, isDown() ? 46 : (hot ? 38 : 15));
-        QColor border(255, 255, 255, isDown() ? 61 : (hot ? 51 : 31));
+        QColor bg = light ? QColor(0, 0, 0, isDown() ? 26 : (hot ? 20 : 8))
+                          : QColor(255, 255, 255, isDown() ? 46 : (hot ? 38 : 15));
+        QColor border = light ? QColor(0, 0, 0, isDown() ? 55 : (hot ? 45 : 26))
+                              : QColor(255, 255, 255, isDown() ? 61 : (hot ? 51 : 31));
         p.setPen(QPen(border, 1));
         p.setBrush(bg);
         p.drawEllipse(rect().adjusted(0.5, 0.5, -0.5, -0.5));
 
-        QColor ink(0xd7, 0xd9, 0xdc);
+        QColor ink = light ? QColor(0x3a, 0x3d, 0x41) : QColor(0xd7, 0xd9, 0xdc);
         if (hot) {
-            ink = QColor(Qt::white);
+            ink = light ? QColor(0x10, 0x12, 0x14) : QColor(Qt::white);
         }
         QPen pen(ink, 1.6);
         pen.setCapStyle(Qt::RoundCap);

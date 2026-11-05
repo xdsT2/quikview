@@ -142,7 +142,13 @@ inline QColor footerBg()    { return color(pick("#222326", "#ececee")); }
 inline QColor navBg()       { return color(pick("#1e1f22", "#e9eaec")); }
 inline QColor titleBg()     { return color(pick("#25262a", "#f0f1f3")); }
 inline QColor chromeBg()    { return color(pick("#161719", "#f3f4f6")); }
-inline QColor canvasBg()    { return color(pick("#202020", "#f0f0f0")); }
+inline QColor canvasBg()  { return color(pick("#202020", "#f0f0f0")); }
+// 导航项常态文字/图标色：深色 #bfc3c8；浅色必须压到 #4a4d51（对导航底 6.9:1），
+// 直接用深色常量会在浅色下掉到 1.47:1（实测）。
+inline QColor navText()    { return color(pick("#bfc3c8", "#4a4d51")); }
+// 链接文字：浅色下 #55c0f0 对白只有 1.99:1，必须压到 #0b6f9f（5.55:1）。
+// 与浮层 mapLink 同一取值，两处别各改各的。
+inline QColor linkText()   { return color(pick("#55c0f0", "#0b6f9f")); }
 
 // —— 尺寸令牌 ——
 inline constexpr int RadiusDialog = 10;
@@ -364,35 +370,35 @@ inline QString dialogQss()
 {
     if (isLight()) {
         return QStringLiteral(R"(
-QDialog { background: #f2f3f5; }
-QWidget#dlgTitleBar { background: #f0f1f3; border-bottom: 1px solid rgba(0,0,0,0.085); }
+QDialog { background: #f4f5f7; }
+QWidget#dlgTitleBar { background: #f2f4f6; border-bottom: 1px solid rgba(0,0,0,0.085); }
 QLabel#dlgTitle { font-size: 13px; color: #1b1b1b; }
-QWidget#dlgFooter { background: #ececee; border-top: 1px solid rgba(0,0,0,0.085); }
-QLabel#footerNote { color: #6b7075; font-size: 11px; }
+QWidget#dlgFooter { background: #eceef1; border-top: 1px solid rgba(0,0,0,0.085); }
+QLabel#footerNote { color: #5c5f63; font-size: 11px; }
 
-QWidget#navRail { background: #e9eaec; }
-QLabel#navCaption { color: #6b7075; font-size: 11px; letter-spacing: 1px; padding: 0 10px; }
+QWidget#navRail { background: #e6e8eb; }
+QLabel#navCaption { color: #5c5f63; font-size: 11px; letter-spacing: 1px; padding: 0 10px; }
 QPushButton#navItem { background: transparent; border: 1px solid transparent; border-radius: 6px;
     color: #3b3f44; text-align: left; padding: 0 11px; min-height: 33px; font-size: 12px; }
-QPushButton#navItem:hover { background: #dfe1e3; color: #000000; }
+QPushButton#navItem:hover { background: #d8dade; color: #101214; }
 QPushButton#navItem:checked { background: rgba(22,137,189,0.12); border-color: rgba(22,137,189,0.16);
     color: #1689bd; }
 QFrame#navDivider { background: rgba(0,0,0,0.085); border: 0; }
 
-QWidget#contentPane { background: #f7f8f9; }
+QWidget#contentPane { background: #ffffff; }
 QLabel#pageTitle { font-size: 21px; color: #1b1b1b; }
-QLabel#pageDesc { font-size: 12px; color: #6b7075; }
-QLabel#sectionTitle { font-size: 12px; font-weight: 600; color: #202124; }
+QLabel#pageDesc { font-size: 12px; color: #5f6368; }
+QLabel#sectionTitle { font-size: 12px; font-weight: 600; color: #2b2e33; }
 QLabel#rowLabel { color: #303236; font-size: 12px; }
-QLabel#hint { color: #6b7075; font-size: 11px; }
+QLabel#hint { color: #5f6368; font-size: 11px; }
 QFrame#hLine { background: rgba(0,0,0,0.085); border: 0; max-height: 1px; }
 QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; border: 0; }
 
 QPushButton#btnPrimary { background: #1689bd; border-color: #37a5cf; color: #ffffff; }
 QPushButton#btnPrimary:hover { background: #1b9bca; }
 QPushButton#btnSubtle { background: transparent; border-color: transparent; color: #4a4e53; }
-QPushButton#btnSubtle:hover { background: #dfe1e3; color: #000000; }
-QPushButton#cardButton { background: #ffffff; border: 1px solid #c8c8c8; border-radius: 7px;
+QPushButton#btnSubtle:hover { background: #d8dade; color: #101214; }
+QPushButton#cardButton { background: #ffffff; border: 1px solid #999999; border-radius: 7px;
     color: #303236; min-height: 54px; }
 QPushButton#cardButton:hover { background: #f0f2f4; }
 QPushButton#cardButton:checked { background: rgba(22,137,189,0.12); border-color: #1689bd;
@@ -453,19 +459,21 @@ inline QString panelQss()
 {
     if (isLight()) {
         return QStringLiteral(R"(
-/* 浅色浮层：白底深字，叠在图片上；1px 细边 + 8px 圆角同深色版。 */
-QWidget#infoPanel { background: rgba(245,246,247,0.92);
-    border: 1px solid rgba(0,0,0,0.12); border-radius: 8px; }
+/* 浅色浮层：不透明纯白卡片。alpha 0.92 的白压在饱和色照片上会被染色
+   （实测压红条 (246,226,227)、压绿条 (225,247,227) = 彩色玻璃感），
+   浅色下必须完全不透明，靠 1px 描边立边界（2026-11-05）。 */
+QWidget#infoPanel { background: #ffffff;
+    border: 1px solid #dfe0e2; border-radius: 8px; }
 QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; border: 0; }
-QLabel#infoKey { font-size: 12px; color: #6b7075; }
+QLabel#infoKey { font-size: 12px; color: #5f6368; }
 QLabel#infoVal { font-size: 12px; color: #1b1b1b; }
 QPushButton#infoRoundBtn { min-height: 0; max-height: 22px; min-width: 22px;
     max-width: 22px; padding: 0; background: transparent; border: 0; }
 QPushButton#mapLink { background: transparent; border: 0; padding: 0;
-    text-align: left; font-size: 12px; color: #1689bd; }
-QPushButton#mapLink:hover { color: #1b9bca; }
+    text-align: left; font-size: 12px; color: #0b6f9f; }
+QPushButton#mapLink:hover { color: #0a608c; }
 QPushButton#histToggle { background: transparent; border: 0; padding: 0;
-    text-align: left; font-size: 12px; color: #6b7075; }
+    text-align: left; font-size: 12px; color: #5f6368; }
 QPushButton#histToggle:hover { color: #1b1b1b; }
 )");
     }

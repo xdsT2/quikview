@@ -81,7 +81,8 @@ int main(int argc, char *argv[])
         const bool isolated = rawArgs.contains(QStringLiteral("--smoke"))
                               || rawArgs.contains(QStringLiteral("--screenshot"))
                               || rawArgs.contains(QStringLiteral("--screenshot-ui"));
-        if (isolated) {
+        // 外部显式指定路径时不覆盖：浅色/深色主题截图需要预置配置内容。
+        if (isolated && qEnvironmentVariableIsEmpty("QUIKVIEW_CONFIG_PATH")) {
             const QString tmpPath = QDir::tempPath()
                 + QStringLiteral("/quikview-smoke-%1.ini")
                       .arg(QCoreApplication::applicationPid());

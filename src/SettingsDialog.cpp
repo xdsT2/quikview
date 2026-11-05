@@ -225,7 +225,7 @@ public:
     {
         QPainter p(this);
         p.setFont(font());
-        p.setPen(QColor(UiStyle::Accent));
+        p.setPen(UiStyle::linkText());   // 浅色下 Accent 对白 1.99:1，链接要用加深值
         p.drawText(rect(), Qt::AlignVCenter | Qt::AlignLeft, m_text);
         if (underMouse()) {
             const int w = fontMetrics().horizontalAdvance(m_text);
@@ -388,7 +388,7 @@ protected:
         QStylePainter p(this);
         p.drawControl(QStyle::CE_PushButton, opt);
 
-        QColor color = m_muted ? UiStyle::muted() : UiStyle::color(UiStyle::NavText);
+        QColor color = m_muted ? UiStyle::muted() : UiStyle::navText();
         if (isChecked())
             color = UiStyle::accent();
         else if (underMouse())
