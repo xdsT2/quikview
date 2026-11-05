@@ -51,9 +51,13 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void reject() override;
+    // 所有关闭保存路径（保存按钮、Enter、默认按钮）的唯一入口：
+    // 先校验再写盘，校验失败不关闭窗口（P0-1）。
+    void accept() override;
 
 private slots:
-    void onAccepted();
+    // 校验 + 写盘；键盘冲突时不写盘并返回 false。
+    bool onAccepted();
     void onReset();
 
 private:

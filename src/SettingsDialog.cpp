@@ -773,10 +773,9 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     m_btnOk->setFixedHeight(32);
     m_btnOk->setMinimumWidth(86);
     m_btnOk->setDefault(true);
-    connect(m_btnOk, &QPushButton::clicked, this, [this]() {
-        onAccepted();
-        accept();
-    });
+    // 保存按钮只走 accept()：校验与写盘都在 accept()/onAccepted() 里统一处理，
+    // 冲突时不关闭窗口（P0-1）。
+    connect(m_btnOk, &QPushButton::clicked, this, [this]() { accept(); });
     fl->addWidget(m_btnOk);
 
     root->addWidget(footer);
@@ -1765,15 +1764,16 @@ void SettingsDialog::restoreSnapshot()
     s.endGroup();
 }
 
-void SettingsDialog::onAccepted()
+bool SettingsDialog::onAccepted()
 {
     // —— 键盘冲突检测先于一切写盘：同一键位被两个启用的动作占用（或撞上
     // 固定动作、同一动作被重复指派）→ 高亮冲突行、提示占用者、整次保存拒绝 ——
     clearKeyConflicts();
     const QString conflictMsg = keyboardConflicts();
     if (!conflictMsg.isEmpty()) {
+        // 不写盘、不关闭：用户的改动留在界面上，改完可再次保存成功（P0-1）。
         QMessageBox::warning(this, tr("设置"), conflictMsg);
-        return;
+        return false;
     }
 
     for (const ChkBind &b : m_chkBinds) {
@@ -1823,6 +1823,7 @@ void SettingsDialog::onAccepted()
 
     // 外观页（第 18 期）：三态主题与磨砂键在这里统一落盘。
     saveAppearance();
+    return true;
 }
 
 void SettingsDialog::onReset()
@@ -1875,7 +1876,8 @@ void SettingsDialog::clearKeyConflicts()
 //   1) 两个自定义行键位相同；
 //   2) 自定义行键位撞上「仍处于出厂态的其他动作」的任何键（含 PageUp/Backspace
 //      等副键）或固定动作（打印 Ctrl+P 等 14 个之外的动作）的任何键。
-// 有冲突：高亮全部冲突行并返回第一条提示文案；无冲突返回空串。
+// 有冲突：高亮全部冲突行并返回提示文案（每条冲突一行，指出键位与冲突的两个动作）；
+// 无冲突返回空串。
 QString SettingsDialog::keyboardConflicts()
 {
     struct RowState {
@@ -1935,12 +1937,12 @@ QString SettingsDialog::keyboardConflicts()
     }
 
     QSet<int> bad;
-    QString msg;
-    auto markBad = [&bad, &msg](QList<int> rows, const QString &m) {
+    QStringList msgs;
+    auto markBad = [&bad, &msgs](QList<int> rows, const QString &m) {
         for (int r : rows)
             bad.insert(r);
-        if (msg.isEmpty())
-            msg = m;
+        if (!msgs.contains(m))
+            msgs.append(m);
     };
     auto keyText = [](const QKeySequence &s) {
         return s.toString(QKeySequence::NativeText);
@@ -1956,8 +1958,10 @@ QString SettingsDialog::keyboardConflicts()
             if (st[i].target == st[j].target)
                 continue;
             if (st[i].key == st[j].key)
-                markBad({ i, j }, tr("%1 已被『%2』占用")
-                                      .arg(keyText(st[i].key), label(st[j].target)));
+                markBad({ i, j },
+                        tr("按键「%1」冲突：『%2』与『%3』被绑到同一组合键。")
+                            .arg(keyText(st[i].key), label(st[i].target),
+                                 label(st[j].target)));
         }
     }
     // 2) 自定义行 vs 出厂/固定键位（目标动作自己的出厂表不参与：改绑后原表即让位）
@@ -1968,14 +1972,16 @@ QString SettingsDialog::keyboardConflicts()
             if (!occupiedIds[k].isEmpty() && occupiedIds[k] == st[i].target)
                 continue;
             if (occupied[k].second.contains(st[i].key))
-                markBad({ i }, tr("%1 已被『%2』占用")
-                                   .arg(keyText(st[i].key), occupied[k].first));
+                markBad({ i },
+                        tr("按键「%1」冲突：『%2』与『%3』被绑到同一组合键。")
+                            .arg(keyText(st[i].key), label(st[i].target),
+                                 occupied[k].first));
         }
     }
 
     for (int i = 0; i < st.size(); ++i)
         setKeyRowConflict(i, bad.contains(i));
-    return msg;
+    return msgs.join(QStringLiteral("\n"));
 }
 
 // —— 验收探针（--smoke keyconflict）——
@@ -1998,8 +2004,10 @@ void SettingsDialog::probeKeyConflict()
             mb->close();   // exec 随之返回，保存已被阻止
         }
     });
-    onAccepted();
-    grab().save(QStringLiteral("Temp/keys-conflict-row.png"));   // 冲突行高亮态
+    if (!onAccepted()) {
+        // 冲突行高亮态：窗口此时未被关闭（P0-1 之前这里已被 accept() 关掉）。
+        grab().save(QStringLiteral("Temp/keys-conflict-row.png"));
+    }
     close();
 }
 
@@ -2075,11 +2083,19 @@ void SettingsDialog::mouseReleaseEvent(QMouseEvent *event)
 void SettingsDialog::keyPressEvent(QKeyEvent *event)
 {
     if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
-        onAccepted();
-        accept();
+        accept();   // 与保存按钮同一条校验路径，冲突时不关闭窗口（P0-1）
         return;
     }
     QDialog::keyPressEvent(event); // ESC -> reject() -> 回滚
+}
+
+void SettingsDialog::accept()
+{
+    // 唯一的「保存并关闭」入口：按钮、Enter/Return、默认按钮都汇到这里。
+    // 校验（键盘冲突）或写盘未通过时不调基类，窗口保持打开。
+    if (!onAccepted())
+        return;
+    QDialog::accept();
 }
 
 void SettingsDialog::reject()
