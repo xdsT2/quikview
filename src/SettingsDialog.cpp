@@ -412,7 +412,7 @@ protected:
         if (isChecked())
             color = UiStyle::accent();
         else if (underMouse())
-            color = UiStyle::color(UiStyle::PureWhite);
+            color = UiStyle::text();
 
         const int pad = 11;
         const int glyphSize = 16;
