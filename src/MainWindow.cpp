@@ -4086,6 +4086,12 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         return true;
     }
 
+    if (key == QLatin1String("view/show_side_arrow")) {
+        if (m_canvas)
+            m_canvas->setSideArrowsEnabled(value.toBool());
+        return true;
+    }
+
     if (error)
         *error = tr("未知的即时设置项：%1").arg(key);
     return false;
@@ -4100,6 +4106,8 @@ QVariant MainWindow::liveSettingValue(const QString &key) const
             return m_statusOverlay->smallFont();
         return Config::instance().exifSmallFont();
     }
+    if (key == QLatin1String("view/show_side_arrow"))
+        return m_canvas ? m_canvas->sideArrowsEnabled() : true;
     return QVariant();
 }
 
