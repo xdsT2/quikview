@@ -1016,7 +1016,9 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
     addCheck(sec, tr("不允许多个实例"), "allow_multiple_instances", true, false);
     addCheck(sec, tr("删除文件时确认"), "delete_confirm", false, true);
     addCheck(sec, tr("在边角显示通知信息，而非中心"), "notify_corner", false, true);
-    addCheck(sec, tr("总在最前 (Ctrl+A)"), "always_on_top", false, false);
+    auto *alwaysOnTop = addCheck(sec, tr("总在最前 (Ctrl+A)"), "always_on_top", false, false);
+    // SET-03 小批 A：置顶是二态且运行态可逆（setWindowFlag 有值变化守卫）。
+    m_liveChecks.append({ alwaysOnTop, "always_on_top", false, false, false });
     addCheck(sec, tr("按 ESC 退出"), "esc_exit", false, true);
     // 「检查更新 / 检查小版本更新」旧开关见下方「检查更新」组：
     // 现在有真实的联网实现（UpdateChecker），不再是零消费假开关。

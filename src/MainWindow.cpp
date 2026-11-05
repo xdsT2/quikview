@@ -4097,6 +4097,27 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         return true;
     }
 
+    if (key == QLatin1String("always_on_top")) {
+        // SET-03：置顶标志只在值真的变化时下发（setWindowFlag 会重建原生窗口），
+        // 重建后补回边框样式，并保留几何/最大化/可见状态。
+        const bool wantTop = value.toBool();
+        const bool isTop = windowFlags().testFlag(Qt::WindowStaysOnTopHint);
+        if (wantTop != isTop) {
+            const QRect geo = geometry();
+            const bool wasVisible = isVisible();
+            const bool wasMaximized = isMaximized();
+            setWindowFlag(Qt::WindowStaysOnTopHint, wantTop);
+            if (wasMaximized) {
+                showMaximized();
+            } else if (wasVisible) {
+                show();
+                setGeometry(geo);
+            }
+            applyNativeFrameStyles();
+        }
+        return true;
+    }
+
     if (key == QLatin1String("view/show_side_arrow")) {
         if (m_canvas)
             m_canvas->setSideArrowsEnabled(value.toBool());
@@ -4130,6 +4151,8 @@ QVariant MainWindow::liveSettingValue(const QString &key) const
             return m_statusOverlay->smallFont();
         return Config::instance().exifSmallFont();
     }
+    if (key == QLatin1String("always_on_top"))
+        return windowFlags().testFlag(Qt::WindowStaysOnTopHint);
     if (key == QLatin1String("view/show_side_arrow"))
         return m_canvas ? m_canvas->sideArrowsEnabled() : true;
     if (key == QLatin1String("view/show_zoom_control")) {
