@@ -9,6 +9,7 @@
 #include <QElapsedTimer>
 #include <QPair>
 #include <QPointer>
+#include <QVariant>
 
 class ImageCanvas;
 class ImageCache;
@@ -53,6 +54,13 @@ public:
     void openSettings() { onSettings(); }   // 调试/自动化：直接打开设置对话框
     void setZoomMode(int mode);             // 调试/自动化 + 菜单共用：0原始/1适合窗口/2适合宽度
     void runSmokeCommand(const QString &cmd); // 调试/自动化：--smoke 单命令驱动（P0 冒烟）
+
+    // —— SET-02 设置页即时预览 ——
+    // 设置页在会话中直接下发运行态（不等「保存设置」）。目前只接
+    // view/exif_small_font 样板项；应用失败返回 false 并写入 error。
+    bool applyLiveSetting(const QString &key, const QVariant &value, QString *error);
+    // 打开设置时的运行态快照来源（与配置值独立，供取消回滚）。
+    QVariant liveSettingValue(const QString &key) const;
 
     // 键盘页冲突检测数据源：14 个可配置动作之外、持有键位的动作清单
     // （每个快捷键一条，含副键；显示名已剥 & 助记符与 '\t' 后缀）。

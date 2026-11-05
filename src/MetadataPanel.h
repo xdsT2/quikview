@@ -33,6 +33,8 @@ public:
     // 「用小字体显示 EXIF / 文件信息」：键值行 12px ↔ 10px。切换后按最近一次
     // showImage 的入参重建 grid，宽度与折行随之更新。
     void setSmallFont(bool small);
+    // 当前字号档位（SET-02 即时预览：设置页开窗时快照运行态用）
+    bool smallFont() const { return m_smallFont; }
 
     // 验收探针：把面板各层 sizeHint/实际高度写到文件（smoke 命令 metadump）
     void dumpHeights(const QString &path, const QString &tag = QString()) const;

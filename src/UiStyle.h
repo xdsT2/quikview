@@ -465,8 +465,11 @@ inline QString panelQss()
 QWidget#infoPanel { background: #ffffff;
     border: 1px solid #dfe0e2; border-radius: 8px; }
 QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; border: 0; }
-QLabel#infoKey { font-size: 12px; color: #5f6368; }
-QLabel#infoVal { font-size: 12px; color: #1b1b1b; }
+/* 全局 QLabel 的 12px 会覆盖 setFont()，小字体档位改用动态属性选择器
+   （MetadataPanel 重建行时写入 smallFont 属性）。 */
+QLabel#infoKey { color: #5f6368; }
+QLabel#infoVal { color: #1b1b1b; }
+QLabel#infoKey[smallFont="true"], QLabel#infoVal[smallFont="true"] { font-size: 10px; }
 QPushButton#infoRoundBtn { min-height: 0; max-height: 22px; min-width: 22px;
     max-width: 22px; padding: 0; background: transparent; border: 0; }
 QPushButton#mapLink { background: transparent; border: 0; padding: 0;
@@ -483,8 +486,9 @@ QPushButton#histToggle:hover { color: #1b1b1b; }
 QWidget#infoPanel { background: rgba(28,29,31,0.88);
     border: 1px solid rgba(255,255,255,0.10); border-radius: 8px; }
 QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; border: 0; }
-QLabel#infoKey { font-size: 12px; color: #9ba0a5; }
-QLabel#infoVal { font-size: 12px; color: #e9eaec; }
+QLabel#infoKey { color: #9ba0a5; }
+QLabel#infoVal { color: #e9eaec; }
+QLabel#infoKey[smallFont="true"], QLabel#infoVal[smallFont="true"] { font-size: 10px; }
 /* 浮层左上角的关闭/复制圆钮：paintEvent 自绘圆形，QSS 只负责抵消全局
    QPushButton 的 min-height/padding（否则 22x22 被撑成 22x32 纵椭圆） */
 QPushButton#infoRoundBtn { min-height: 0; max-height: 22px; min-width: 22px;

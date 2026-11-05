@@ -782,6 +782,8 @@ SettingsDialog::SettingsDialog(QWidget *parent)
 
     loadFromConfig();
     selectPage(0);
+    // 即时项在加载完控件后再接信号：避免开窗时的 setChecked 触发一次“预览+落盘”。
+    connectLiveChecks();
 }
 
 // ===========================================================================
@@ -1071,8 +1073,13 @@ void SettingsDialog::buildViewPage(QWidget *page)
     addCheck(sec, tr("不显示动画信息控制"), "view/show_anim_control", true, true);
     addCheck(sec, tr("不显示缩放信息控制"), "view/show_zoom_control", true, true);
     addCheck(sec, tr("不显示鼠标悬浮工具提示"), "view/show_tooltip", true, true);
-    addCheck(sec, tr("用小字体显示 EXIF / 文件信息"),
-             "view/exif_small_font", false, false);
+    auto *smallFont = addCheck(sec, tr("用小字体显示 EXIF / 文件信息"),
+                               "view/exif_small_font", false, false);
+    // SET-02 样板：唯一接即时预览的项（其余仍走保存）。addCheck 已把它加入
+    // m_chkBinds，保存路径照常写同名键；这里额外登记到即时会话。
+    m_liveChecks.append({ smallFont, "view/exif_small_font", false, false, false });
+    addHint(sec, tr("即时预览：切换后信息面板与状态行字号立刻变化；"
+                    "点「保存设置」后保留，取消 / Esc / 标题栏关闭会恢复进入设置前的值。"));
 
     // 「背景」段（背景图 + 路径 + 背景色 + 边框色）已按用户 2026-11-03 决定整段
     // 移除（第 18 期）：画布外观固定，见 MainWindow::applyRuntimeSettings 的注释。
@@ -1764,6 +1771,78 @@ void SettingsDialog::restoreSnapshot()
     s.endGroup();
 }
 
+// ---------------------------------------------------------------------------
+// SET-02 即时预览会话
+// ---------------------------------------------------------------------------
+
+void SettingsDialog::connectLiveChecks()
+{
+    MainWindow *host = qobject_cast<MainWindow *>(parentWidget());
+    for (int i = 0; i < m_liveChecks.size(); ++i) {
+        LiveCheck &item = m_liveChecks[i];
+        item.originalChecked = item.cb->isChecked();   // 进入设置时的控件态
+        item.lastValue = item.inverted ? !item.cb->isChecked() : item.cb->isChecked();
+        const QString key = QString::fromLatin1(item.key);
+        // 运行态快照：取真实对象当前值，不假设它一定等于配置值。
+        m_liveRuntime.insert(key, host ? host->liveSettingValue(key) : QVariant(item.lastValue));
+        connect(item.cb, &QCheckBox::toggled, this, [this, i](bool on) {
+            applyLiveCheck(i, on);
+        });
+    }
+    m_liveSessionActive = true;
+}
+
+void SettingsDialog::applyLiveCheck(int index, bool checked)
+{
+    if (!m_liveSessionActive || index < 0 || index >= m_liveChecks.size())
+        return;
+    LiveCheck &item = m_liveChecks[index];
+    const bool want = item.inverted ? !checked : checked;
+    if (want == item.lastValue)   // 反复切换/程序化回设：幂等，不重复下发或写盘
+        return;
+
+    const QString key = QString::fromLatin1(item.key);
+    MainWindow *host = qobject_cast<MainWindow *>(parentWidget());
+    QString error;
+    if (!host)
+        error = tr("未找到主窗口，无法下发运行态。");
+    if (!host || !host->applyLiveSetting(key, want, &error)) {
+        // 运行态没变 → 控件必须退回上一次成功值，避免 UI 与实际状态分叉；
+        // 此时配置也未写入，取消/关闭不会留下半套状态。
+        const bool previousChecked = item.inverted ? !item.lastValue : item.lastValue;
+        {
+            const QSignalBlocker b(item.cb);
+            item.cb->setChecked(previousChecked);
+        }
+        if (host)
+            host->applyLiveSetting(key, item.lastValue, nullptr);   // 兜底：运行态回到上次成功值
+        QMessageBox::warning(this, tr("设置"),
+                             tr("「%1」未能即时生效：%2\n已恢复原值，未写入配置。")
+                                 .arg(item.cb->text(), error));
+        return;
+    }
+
+    // 只预览，不在此落盘：关闭「保存设置」时才由 onAccepted() 统一写盘，
+    // 取消 / Esc / 标题栏关闭由 restoreSnapshot + 运行态快照回滚（预览式设置会话）。
+    item.lastValue = want;
+}
+
+void SettingsDialog::rollbackLiveSession()
+{
+    m_liveSessionActive = false;
+    for (LiveCheck &item : m_liveChecks) {
+        const QSignalBlocker b(item.cb);
+        item.cb->setChecked(item.originalChecked);
+        item.lastValue = item.inverted ? !item.originalChecked : item.originalChecked;
+    }
+
+    MainWindow *host = qobject_cast<MainWindow *>(parentWidget());
+    if (!host)
+        return;
+    for (auto it = m_liveRuntime.constBegin(); it != m_liveRuntime.constEnd(); ++it)
+        host->applyLiveSetting(it.key(), it.value(), nullptr);
+}
+
 bool SettingsDialog::onAccepted()
 {
     // —— 键盘冲突检测先于一切写盘：同一键位被两个启用的动作占用（或撞上
@@ -1837,6 +1916,11 @@ void SettingsDialog::onReset()
     s.remove(QStringLiteral(""));
     s.endGroup();
     loadFromConfig();
+
+    // 恢复默认同样是「预览」：即时项立即下发运行态（不落盘），取消 / Esc /
+    // 标题栏关闭时由 restoreSnapshot + rollbackLiveSession 一起回滚。
+    for (int i = 0; i < m_liveChecks.size(); ++i)
+        applyLiveCheck(i, m_liveChecks[i].cb->isChecked());
 
     // 「背景」段的两个颜色钮已随第 18 期下线；其余直接读写 config 的控件
     // 均为绑定表/专项控件，loadFromConfig() 已覆盖。
@@ -2100,6 +2184,8 @@ void SettingsDialog::accept()
 
 void SettingsDialog::reject()
 {
+    // 取消语义：配置与已即时生效的运行态一起回到进入设置前（Cancel / Esc / 标题栏 ✕）。
     restoreSnapshot();
+    rollbackLiveSession();
     QDialog::reject();
 }

@@ -4058,6 +4058,51 @@ void MainWindow::syncThemeActions()
     actDark->setChecked(dark);
 }
 
+// ---------------------------------------------------------------------------
+// SET-02 即时预览：设置页会话中的运行态下发 / 快照
+// ---------------------------------------------------------------------------
+bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QString *error)
+{
+    // 验收注入：QUIKVIEW_TEST_LIVE_FAIL=1 时第一次即时应用强制失败，用来验证
+    // 「应用失败 → 控件与运行态回退、不写盘、错误可见」。只影响进程内首次调用。
+    static bool failOnce = qEnvironmentVariableIsSet("QUIKVIEW_TEST_LIVE_FAIL");
+    if (failOnce) {
+        failOnce = false;
+        if (error)
+            *error = tr("模拟失败：信息面板拒绝本次字号切换。");
+        return false;
+    }
+
+    if (key == QLatin1String("view/exif_small_font")) {
+        const bool small = value.toBool();
+        if (m_metadata)
+            m_metadata->setSmallFont(small);
+        if (m_statusOverlay)
+            m_statusOverlay->setSmallFont(small);
+        // 字号变化会改信息面板高度：预览时必须立刻按新尺寸排浮层，否则要等到
+        // 关闭设置页才「跳」一下。重建布局是延迟激活的，紧接着再排一次校正。
+        applyChromeLayout();
+        QTimer::singleShot(0, this, [this]() { applyChromeLayout(); });
+        return true;
+    }
+
+    if (error)
+        *error = tr("未知的即时设置项：%1").arg(key);
+    return false;
+}
+
+QVariant MainWindow::liveSettingValue(const QString &key) const
+{
+    if (key == QLatin1String("view/exif_small_font")) {
+        if (m_metadata)
+            return m_metadata->smallFont();
+        if (m_statusOverlay)
+            return m_statusOverlay->smallFont();
+        return Config::instance().exifSmallFont();
+    }
+    return QVariant();
+}
+
 void MainWindow::onSettings()
 {
     SettingsDialog dlg(this);

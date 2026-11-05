@@ -28,7 +28,8 @@ class QWidget;
 // 设置对话框：QuikView 深色三栏布局（视觉真源 Temp/quikview-secondary-prototype.html）。
 // 顶部 43px 标题栏 + 左侧 204px 导航（11 个 navItem）+ 1px 竖分隔 + 内容区 + 62px footer。
 // 11 页：一般 / 浏览 / 外观 / 图像处理 / 格式关联 / 键盘 / 鼠标 / 书签 / 上下文菜单 / 杂项 / 语言。
-// 打开时快照 config 组：保存设置 → 写回 Config；× / ESC → 回滚快照；恢复默认 → 确认后清空。
+// 打开时快照 config 组 + 即时项运行态：保存设置 → 写回 Config；× / ESC → 回滚两者；
+// 恢复默认 → 确认后清空。SET-02 起「用小字体显示 EXIF / 文件信息」为即时预览样板。
 // 控件全部使用标准 Qt 控件，配色/字号由 UiStyle::dialogQss() 提供。
 class SettingsDialog : public QDialog
 {
@@ -122,6 +123,23 @@ private:
     void takeSnapshot();
     void restoreSnapshot();
     void saveAppearance();   // 外观页（第 18 期）：theme 三态 + ui/blur_material 落盘
+
+    // —— SET-02 即时预览会话（样板：view/exif_small_font）——
+    // 控件变更只下发 MainWindow 运行态（预览），不逐次落盘；保存设置时才写盘。
+    // 失败回退控件与运行态并报错；取消 / Esc / 标题栏关闭恢复配置与运行态快照。
+    struct LiveCheck {
+        QCheckBox *cb;
+        const char *key;
+        bool inverted;
+        bool originalChecked;   // 进入设置时的控件值（取消恢复）
+        bool lastValue;         // 最近一次成功下发的预览值（幂等 / 失败回退）
+    };
+    void connectLiveChecks();
+    void applyLiveCheck(int index, bool checked);
+    void rollbackLiveSession();
+    QList<LiveCheck> m_liveChecks;
+    QVariantMap m_liveRuntime;   // 进入设置时受影响运行态对象的真实值
+    bool m_liveSessionActive = false;
 
     // —— 键盘自定义（批次 D1）冲突检测 ——
     // 保存前调用：同一键位只归一个启用的绑定、键位不得与固定动作相撞、

@@ -299,6 +299,7 @@ public:
     void clear();
     // 「用小字体显示 EXIF / 文件信息」：底部信息行 11px ↔ 10px。
     void setSmallFont(bool small);
+    bool smallFont() const { return m_smallFont; }
 
 protected:
     void paintEvent(QPaintEvent *event) override;

@@ -415,11 +415,13 @@ void MetadataPanel::addGroup(const QList<Row> &rows)
         const QString keyText = r.key + QStringLiteral(":");
         auto *key = new QLabel(keyText, m_gridHolder);
         key->setObjectName(QStringLiteral("infoKey"));
+        key->setProperty("smallFont", m_smallFont);   // QSS 10px 档位（见 UiStyle.h）
         key->setFont(UiStyle::font(rowPx));
 
         // 值列不省略：超长值换行读全（1.3），Tooltip 保留全文，复制走 m_copyLines 全文
         auto *value = new WrappingLabel(m_gridHolder);
         value->setObjectName(QStringLiteral("infoVal"));
+        value->setProperty("smallFont", m_smallFont);
         value->setFont(UiStyle::font(rowPx));
         value->setFullText(r.value);
 
@@ -596,6 +598,13 @@ void MetadataPanel::finishLayout()
     setFixedWidth(m_contentWidth);
     if (m_gridHolder) {
         m_gridHolder->setFixedWidth(m_contentWidth - 20);
+    }
+    // 键值 grid 重建后行数/行高都变了，但外层 QVBoxLayout 的 totalSizeHint 还是
+    // 旧值。MainWindow::applyChromeLayout 按 sizeHint 设浮层高度：缓存不失效就会
+    // 把 12px 行塞进 10px 行算出的高度里（SET-02 取消回滚实测面板被压扁 36px）。
+    // 与直方图折叠同法，从该布局整体向上失效。
+    if (layout()) {
+        layout()->invalidate();
     }
     updateGeometry();
 }
