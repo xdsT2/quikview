@@ -12,8 +12,9 @@ A fast, clean image viewer for Windows. C++ / Qt6, MIT licensed.
 ![QuikView main window: top strip and bottom control capsule floating over the photo](docs/screenshots/01-main.webp)
 
 > Most documentation is currently written in Chinese. This page mirrors `README.md`;
-> for the implementation status (what works, what is missing, how to test it yourself)
-> see [STATUS-2026-10-25.md](STATUS-2026-10-25.md).
+> for what is implemented and what is still missing
+> see [ROADMAP.md](ROADMAP.md). Testing recipes and architecture trade-offs are in
+> [STATUS-2026-10-25.md](派单/规范/STATUS-2026-10-25.md) (a 2026-10-25 snapshot).
 
 This is a from-scratch rewrite and contains no third-party proprietary code or binaries.
 Its feature scope and architectural understanding came from reverse-engineering the installer of
@@ -68,12 +69,12 @@ full size.
 
 **Product details**
 
-- Dark and light themes, settings dialog, UI languages (Chinese / English / Korean), portable mode
+- Dark and light themes, settings dialog, 9 UI languages (Simplified/Traditional Chinese, English, Japanese, Korean, French, German, Spanish, Russian), portable mode
 - No telemetry, no promotion
 
-**Explorer integration** (`shell/`, pure Win32 COM + WIC, no Qt dependency)
+**Explorer integration** (`shell-ext/`, bare Win32 COM + WIC, no Qt dependency)
 
-- Thumbnail provider and preview pane handler
+- Thumbnail provider and context menu ("browse with QuikView" / "convert with QuikView")
 
 ## Build
 
@@ -87,12 +88,15 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/pat
 cmake --build build
 ```
 
-Shell extension (Windows only):
+Shell extension (Windows only, `shell-ext/`):
 
 ```bash
-cd shell && cmake -S . -B build -G Ninja && cmake --build build
-# run shell/register.bat as administrator to register
+cmake -S shell-ext -B build-shell64 -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+cmake --build build-shell64
+# run shell-ext/scripts/Register-QuikThumb.ps1 as administrator to register
 ```
+
+32-bit cross-build, self-test and unregistration: see [shell-ext/README.md](shell-ext/README.md).
 
 One-liner with MSYS2:
 
@@ -105,11 +109,14 @@ cmake --build build
 ## Layout
 
 ```
-src/          application sources (13 modules)
-shell/        Explorer thumbnail and preview handlers
-translations/ .ts language files
+src/          application sources (21 modules, ~17.6k lines of C++)
+shell-ext/    Explorer shell extension: thumbnail + context menu (COM)
+shell/        earlier shell extension: thumbnail + preview pane (kept for reference)
+translations/ .ts language files (9 languages)
 resources/    icons and UI artwork, all drawn for this project (see docs/ATTRIBUTION.md)
 config/       portable configuration (config.ini, not tracked)
+docs/         screenshots, asset provenance, design guidelines
+packaging/    NSIS installer script
 ```
 
 ## Assets and licensing

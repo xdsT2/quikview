@@ -11,7 +11,8 @@
 
 ![QuikView 主窗口：顶部栏与底部控制胶囊浮在照片上](docs/screenshots/01-main.webp)
 
-> 想先知道**实现到什么程度、哪些还没做、怎么自测**？看 [STATUS-2026-10-25.md](STATUS-2026-10-25.md)。
+> 想先知道**实现到什么程度、哪些还没做**？看 [ROADMAP.md](ROADMAP.md)。
+> 自测方法与架构取舍见 [STATUS-2026-10-25.md](派单/规范/STATUS-2026-10-25.md)（2026-10-25 快照）。
 
 本项目**从零重写**，不包含任何第三方专有代码或二进制。其功能范围与架构理解，来自对 Honeyview（Bandisoft 已停更的免费看图器）官方安装包的逆向分析——但这是两个独立的工程：QuikView 是原创实现。
 
@@ -57,11 +58,11 @@
 - 另存为（PNG/JPEG/BMP/WebP/TIFF）、批量格式转换、打印
 
 **产品化**
-- 深色 / 浅色主题、设置界面、多语言（中 / 英 / 韩）、便携模式
+- 深色 / 浅色主题、设置界面、9 种界面语言（简繁中文、英、日、韩、法、德、西、俄）、便携模式
 - 零遥测、零推广（对照逆向出的"坑清单"反向设计）
 
-**系统集成**（`shell/` 子项目，纯 Win32 COM+WIC，不依赖 Qt）
-- 资源管理器缩略图 + 预览窗格
+**系统集成**（`shell-ext/` 子项目，纯 Win32 COM + WIC，不依赖 Qt）
+- 资源管理器缩略图 + 右键菜单（「用 QuikView 浏览 / 转换」）
 
 ## 构建
 
@@ -74,12 +75,15 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/pat
 cmake --build build
 ```
 
-壳扩展（仅 Windows）：
+壳扩展（仅 Windows，`shell-ext/`）：
 
 ```bash
-cd shell && cmake -S . -B build -G Ninja && cmake --build build
-# 管理员注册：shell/register.bat
+cmake -S shell-ext -B build-shell64 -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+cmake --build build-shell64
+# 管理员注册：shell-ext/scripts/Register-QuikThumb.ps1
 ```
+
+32 位交叉构建、自测与卸载见 [shell-ext/README.md](shell-ext/README.md)。
 
 MSYS2 一键：
 
@@ -92,11 +96,14 @@ cmake --build build
 ## 目录结构
 
 ```
-src/          主程序源码（13 个模块）
-shell/        壳扩展（缩略图 + 预览窗格）
-translations/ 语言文件（.ts）
+src/          主程序源码（21 个模块，约 1.76 万行 C++）
+shell-ext/    资源管理器壳扩展：缩略图 + 右键菜单（COM）
+shell/        早期壳扩展实现：缩略图 + 预览窗格（保留备查）
+translations/ 语言文件（9 种语言的 .ts）
 resources/    图标与界面素材（全部原创绘制，见 docs/ATTRIBUTION.md）
 config/       便携配置（config.ini，不入库）
+docs/         截图、素材来源与设计规范
+packaging/    NSIS 安装包脚本
 ```
 
 ## 素材与许可
