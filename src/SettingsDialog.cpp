@@ -1767,10 +1767,8 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
         chkHost->setFixedWidth(52);
         auto *cl2 = new QHBoxLayout(chkHost);
         cl2->setContentsMargins(0, 0, 0, 0);
-        // SET-04 阶段B 批次2：前 10 行胶囊化（批次1 已迁打开/打开文件夹/翻下一张/翻上一张/下一帧，
-        // 本批再迁上一帧/放大/缩小/实际大小/适配窗口），其余行仍用原生勾选，等批次3 收尾。
-        QCheckBox *chk = (i < 10) ? static_cast<QCheckBox *>(new PillToggle(chkHost))
-                                  : new QCheckBox(chkHost);
+        // SET-04 阶段B 批次3：14 行全部胶囊化，原生勾选在键盘页清零。
+        QCheckBox *chk = new PillToggle(chkHost);
         chk->setCursor(Qt::PointingHandCursor);
         cl2->addWidget(chk, 0, Qt::AlignCenter);
         rl->addWidget(chkHost);
