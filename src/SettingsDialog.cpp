@@ -1660,7 +1660,7 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
 
     // 14 行全部可配置（config/keyboard/<action>_{enabled,_key,_action}），
     // MainWindow::applyShortcutConfig 在保存后立即给 QAction 重装键位。
-    auto *hint = new QLabel(tr("双击「热键」栏录入新键位（Esc 清空），保存后立即生效；"
+    auto *hint = new QLabel(tr("双击「热键」栏录入新键位（Esc 清空）；「启用」状态与热键都在点「保存设置」后生效。"
                                "取消「启用」可停用该动作。"
                                "已启用但热键显示「未设置」表示该动作暂无快捷键。"
                                "两个启用的动作占用同一键位时保存会被拒绝。"), page);
@@ -1689,7 +1689,9 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
             lab->setFixedWidth(width);
         return lab;
     };
-    hl->addWidget(makeHeadCell(tr("启用"), 42));
+    // SET-04 阶段B：勾选列换成 44×24 胶囊开关，列宽由 42 改为 52（44 + 两侧 4px 呼吸位），
+    // 行高 32 + 分隔线 1、操作列右缘 6px 均不变。
+    hl->addWidget(makeHeadCell(tr("启用"), 52));
     hl->addWidget(makeHeadCell(tr("热键"), 122));
     hl->addWidget(makeHeadCell(tr("操作"), 0), 1);
     tl->addWidget(head);
@@ -1745,10 +1747,13 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
         rl->setSpacing(0);
 
         auto *chkHost = new QWidget(row);
-        chkHost->setFixedWidth(42);
+        chkHost->setFixedWidth(52);
         auto *cl2 = new QHBoxLayout(chkHost);
         cl2->setContentsMargins(0, 0, 0, 0);
-        auto *chk = new QCheckBox(chkHost);
+        // SET-04 阶段B 批次1：先迁前 5 行（打开 / 打开文件夹 / 翻下一张 / 翻上一张 / 下一帧），
+        // 其余行仍用原生勾选，等后续批次迁完一并消除。
+        QCheckBox *chk = (i < 5) ? static_cast<QCheckBox *>(new PillToggle(chkHost))
+                                 : new QCheckBox(chkHost);
         chk->setCursor(Qt::PointingHandCursor);
         cl2->addWidget(chk, 0, Qt::AlignCenter);
         rl->addWidget(chkHost);
