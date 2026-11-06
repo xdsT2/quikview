@@ -1264,7 +1264,23 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
 
     sec = beginSection(page, tr("到达首尾图片时"));
     const auto opts = lastFileOptions();
-    addComboRow(sec, tr("到达首尾图片时执行"), "edge_action", QStringLiteral("stop"), opts, 160);
+    auto *edge = addComboRow(sec, tr("到达首尾图片时执行"), "edge_action",
+                             QStringLiteral("stop"), opts, 160);
+    // 档位诚实化：DirectoryLoader 只实现 first / stop；ask 既没有询问对话框，
+    // 在 next/prev 与 advance 两条路径上的回绕行为还不一致，按缺口灰显。
+    if (auto *model = qobject_cast<QStandardItemModel *>(edge->model())) {
+        for (int i = 0; i < edge->count(); ++i) {
+            if (edge->itemData(i).toString() == QLatin1String("ask")) {
+                if (auto *item = model->item(i)) {
+                    item->setEnabled(false);
+                    item->setToolTip(tr("「询问」档暂无实现（无确认对话框），灰显不可选"));
+                }
+            }
+        }
+    }
+    edge->setToolTip(tr("保存后生效：下次到达首尾图片时按所选行为处理。"));
+    addHint(sec, tr("「转到首个文件」在末尾继续时回绕到首个；「停止」停在当前图片。"
+                    "「询问」档当前无询问对话框实现，已灰显，不按生效计。"));
     // 「到达压缩包内首尾图片时执行」已删：压缩包浏览未实现，该场景不存在。
 }
 
@@ -2018,8 +2034,11 @@ void SettingsDialog::buildBookmarkPage(QWidget *page)
     m_maxBookmarks->setCursor(Qt::PointingHandCursor);
     m_maxBookmarks->setFixedHeight(kComboH);
     m_maxBookmarks->setFixedWidth(110);
+    m_maxBookmarks->setToolTip(tr("保存后生效：之后新增书签触发上限时，从最早的书签开始淘汰。"));
     row->addWidget(m_maxBookmarks);
     row->addStretch(1);
+    addHint(sec, tr("保存后生效：上限在下次新增书签时读取；已有书签不会在保存瞬间被裁剪。"
+                    "到达上限后按最早优先淘汰。"));
     // 已接配置：Config::toggleFavorite 超限时从尾部淘汰最早的书签
     // （键 config/bookmark/max_bookmarks，默认 50，clamp 10..100）。
 
