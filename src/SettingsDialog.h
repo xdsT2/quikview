@@ -199,8 +199,8 @@ private:
     // LiveCheck（那个结构是一键一布尔）；单独处理：切换即下发运行态、
     // 不写盘；取消 / Esc / ✕ 由 rollbackThemePreview() 按快照恢复。
     void applyThemePreview();
-    // 延迟下发：点击回调只更新状态并排队，重任务放到下一轮事件循环，
-    // 先让开关反馈出帧；serial 用于丢弃被新点击 / 回滚取代的旧请求。
+    // 延迟下发：点击回调只更新状态并排队，重任务等开关圆点过渡走完再执行，
+    // 否则全程重抛光会把过渡拦腰截断；serial 用于丢弃被新点击 / 回滚取代的旧请求。
     void applyPendingTheme(int serial);
     void flushPendingTheme();
     void rollbackThemePreview();
@@ -217,6 +217,7 @@ private:
     QString m_themePending;       // 待下发的来源值
     bool m_themePendingActive = false;
     int m_themeSerial = 0;
+    QTimer *m_themeDefer = nullptr;   // 变色下发的延迟器（按圆点过渡时长）
     // 浏览页「背景」段（m_bkgndPath / m_bkgndColorBtn / m_borderColorBtn）已随
     // 第 18 期下线删除。
     struct KeyRow {                       // 键盘页一行（QString 值拷贝：

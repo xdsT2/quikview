@@ -1371,11 +1371,18 @@ void SettingsDialog::applyThemePreview()
         return;
     }
 
-    // 真正变色：点击回调只排队，重任务挪到下一轮事件循环，先让开关反馈出帧。
+    // 真正变色：点击回调只排队，重任务等开关圆点过渡走完再执行。整页换肤是
+    // 一次全量重抛光（实测 ~230ms），排在过渡中间会把圆点动画拦腰截断。
     m_themePending = want;
     m_themePendingActive = true;
-    const int serial = ++m_themeSerial;
-    QTimer::singleShot(0, this, [this, serial]() { applyPendingTheme(serial); });
+    ++m_themeSerial;
+    if (!m_themeDefer) {
+        m_themeDefer = new QTimer(this);
+        m_themeDefer->setSingleShot(true);
+        connect(m_themeDefer, &QTimer::timeout, this,
+                [this]() { applyPendingTheme(m_themeSerial); });
+    }
+    m_themeDefer->start(PillToggle::motionDurationMs() + 30);
 }
 
 void SettingsDialog::applyPendingTheme(int serial)
@@ -1415,6 +1422,8 @@ void SettingsDialog::applyPendingTheme(int serial)
 void SettingsDialog::flushPendingTheme()
 {
     // 保存前把排队中的真实变色同步做完，避免「配置写浅色、运行态还没换」。
+    if (m_themeDefer)
+        m_themeDefer->stop();
     if (m_themePendingActive)
         applyPendingTheme(m_themeSerial);
 }
@@ -1428,6 +1437,8 @@ void SettingsDialog::rollbackThemePreview()
     ++m_themeSerial;
     m_themePendingActive = false;
     m_themePending.clear();
+    if (m_themeDefer)
+        m_themeDefer->stop();
     const QString old = m_snapshot.value(QStringLiteral("theme"), QStringLiteral("dark"))
                             .toString();
     syncThemeControls(old);
