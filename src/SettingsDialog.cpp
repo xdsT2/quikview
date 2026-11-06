@@ -1944,6 +1944,33 @@ void SettingsDialog::buildMousePage(QWidget *page)
                 }
             }
         }
+        // 中键 / 滚轮的真实桥接档位（SET-04 批次 8）：中键只写 config/middle_pan
+        // （拖拽平移 / 无），滚轮只写 config/wheel_zoom（上=放大、下=缩小；任一
+        // 为「无」即关闭滚轮缩放）。其余档位没有运行时消费点 → 灰显并提示。
+        QStringList allowed;
+        QString denyTip;
+        if (key == QLatin1String("mouse/btn_middle")) {
+            allowed << QStringLiteral("none") << QStringLiteral("pan");
+            denyTip = tr("中键暂无该动作实现；仅「无操作 / 拖拽平移」生效");
+        } else if (key == QLatin1String("mouse/wheel_up")) {
+            allowed << QStringLiteral("none") << QStringLiteral("zoom_in");
+            denyTip = tr("滚轮向上暂无该动作实现；仅「无操作 / 放大」生效（「无」会关闭滚轮缩放）");
+        } else if (key == QLatin1String("mouse/wheel_down")) {
+            allowed << QStringLiteral("none") << QStringLiteral("zoom_out");
+            denyTip = tr("滚轮向下暂无该动作实现；仅「无操作 / 缩小」生效（「无」会关闭滚轮缩放）");
+        }
+        if (!allowed.isEmpty()) {
+            for (int j = 0; j < opts.size(); ++j) {
+                if (allowed.contains(opts[j].first))
+                    continue;
+                if (auto *model = qobject_cast<QStandardItemModel *>(combo->model())) {
+                    if (auto *item = model->item(j)) {
+                        item->setEnabled(false);
+                        item->setToolTip(denyTip);
+                    }
+                }
+            }
+        }
         combo->setToolTip(tr("保存后生效：下次点击该按键时按新映射派发。"));
         combo->setCursor(Qt::PointingHandCursor);
         combo->setFixedHeight(kComboH);
@@ -1962,6 +1989,9 @@ void SettingsDialog::buildMousePage(QWidget *page)
                     "边缘单击翻页、右键上下文菜单、中键切全屏、滚轮缩放）。"
                     "「拖拽平移」档只有左键有效，右键 / X / Y 已灰显；"
                     "所有映射均为保存后生效——下次触发该按键时读取。"));
+    addHint(sec, tr("中键与滚轮：中键只支持「无操作 / 拖拽平移」；滚轮向上只支持"
+                    "「无操作 / 放大」、向下只支持「无操作 / 缩小」；其余档位已灰显"
+                    "（无运行时实现，属实现缺口，不按生效计）。三项均为保存后生效。"));
 }
 
 // ===========================================================================
