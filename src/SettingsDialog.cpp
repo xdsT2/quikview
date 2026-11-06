@@ -826,7 +826,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     // 右缘与内容区右缘对齐（内容 pane 右内边距 28px；原 18px 会让保存按钮外凸 9px）。
     fl->setContentsMargins(18, 0, 28, 0);
     fl->setSpacing(9);
-    auto *note = new QLabel(tr("标注「即时预览」的项切换即生效，其余更改在保存后生效"), footer);
+    auto *note = new QLabel(tr("更改会在保存后生效"), footer);
     note->setObjectName(QStringLiteral("footerNote"));
     fl->addWidget(note);
     fl->addStretch(1);
