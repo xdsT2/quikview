@@ -58,7 +58,8 @@ public:
     // —— SET-02/03 设置页即时预览 ——
     // 设置页在会话中直接下发运行态（不等「保存设置」）。已接：
     // view/exif_small_font（SET-02）；always_on_top / view/show_side_arrow /
-    // view/show_zoom_control（SET-03 小批 A）；theme（外观页跟进单）。
+    // view/show_zoom_control（SET-03 小批 A）；view/show_anim_control（SET-04
+    // 浏览页批次）；theme（外观页跟进单）。
     // 应用失败返回 false 并写入 error。
     bool applyLiveSetting(const QString &key, const QVariant &value, QString *error);
     // 主题切换后刷新「局部 QSS / 位置相关」的表面：画布底色 + 信息浮层 QSS。
@@ -377,6 +378,10 @@ private:
     // 不写配置，zoomChanged 先看这里；关闭设置页后清空标志，回到配置值。
     bool m_liveZoomControlOverride = false;
     bool m_liveZoomControlOverrideSet = false;
+    // SET-04 浏览页批次：「不显示动画信息控制」的运行态覆盖值。设置页会话内
+    // 不写配置，updateInfoOverlay 先看这里；关闭设置页后清空标志，回到配置值。
+    bool m_liveAnimControlOverride = false;
+    bool m_liveAnimControlOverrideSet = false;
     // 装图/适配期间屏蔽「保存缩放状态」写盘（见 zoomChanged 连接处）
     bool m_zoomSaveGuard = false;
     // 开锁前的缩放方式（0=原始 1=适合窗口 2=适合宽度），-1 表示未记录。

@@ -1250,21 +1250,33 @@ void SettingsDialog::buildViewPage(QWidget *page)
     // 无法给出可验收的行为，按交办单要求删除该项，理由写进交接文档。
     addCheck(sec, tr("顶端菜单隐藏时显示文件名 (Shift+TAB)"),
              "view/overlay_filename", false, false);
+    // SET-04 浏览页批次：模态设置页内 Shift+TAB 会被拦截，只能在关闭设置页后观察，
+    // 因此按保存生效型迁移，控件旁标注真实生效时机（不假称会话内即时预览）。
+    addHint(sec, tr("保存设置后生效：下一次隐藏顶端菜单并按 Shift+TAB 时读取。"));
     addCheck(sec, tr("保存缩放状态"), "view/save_zoom_state", false, false);
+    // 该项只在缩放变化时记录、下次开图 / 重启时恢复，当前画面不会变化。
+    addHint(sec, tr("保存设置后生效：下次打开图片或重启时按记录恢复缩放；当前画面不变。"));
     // 「不显示菜单栏 / 控制栏」两项同样零消费，2026-11-04 按视觉基线 P0 删除；
     // 本页已无灰显项，unavailableTip 提示一并去掉。
     // 侧边箭头是真开关：ImageCanvas::setSideArrowsEnabled()。
     auto *sideArrows = addCheck(sec, tr("不显示侧边箭头"), "view/show_side_arrow", true, true);
-    addCheck(sec, tr("不显示动画信息控制"), "view/show_anim_control", true, true);
+    auto *animInfo = addCheck(sec, tr("不显示动画信息控制"), "view/show_anim_control", true, true);
+    // SET-04：帧号行由 updateInfoOverlay() 直接重排，模态设置页内也能看到信息行变化。
+    addHint(sec, tr("即时预览：切换后底部信息行的「第 n/N 帧」立刻显示 / 隐藏"
+                    "（需已打开 GIF / MNG）；点「保存设置」后保留，"
+                    "取消 / Esc / 标题栏关闭会恢复进入设置前的值。"));
     auto *zoomInfo = addCheck(sec, tr("不显示缩放信息控制"), "view/show_zoom_control", true, true);
     addCheck(sec, tr("不显示鼠标悬浮工具提示"), "view/show_tooltip", true, true);
+    // 模态设置页吸收真实悬停，工具提示只能在关闭设置页后观察。
+    addHint(sec, tr("保存设置后生效：下一次鼠标悬停时读取。"));
     auto *smallFont = addCheck(sec, tr("用小字体显示 EXIF / 文件信息"),
                                "view/exif_small_font", false, false);
-    // SET-02 样板 + SET-03 小批 A（与 exif 同一页面，均为二态运行态开关）：
+    // SET-02 样板 + SET-03 小批 A + SET-04 浏览页批次（同一页面，均为二态运行态开关）：
     // addCheck 已把它们加入 m_chkBinds，保存路径照常写同名键。
     m_liveChecks.append({ smallFont, "view/exif_small_font", false, false, false });
     m_liveChecks.append({ sideArrows, "view/show_side_arrow", true, true, false });
     m_liveChecks.append({ zoomInfo, "view/show_zoom_control", true, true, false });
+    m_liveChecks.append({ animInfo, "view/show_anim_control", true, true, false });
     addHint(sec, tr("即时预览：切换后信息面板字号 / 侧边箭头 / 缩放浮标立刻变化；"
                     "点「保存设置」后保留，取消 / Esc / 标题栏关闭会恢复进入设置前的值。"));
 

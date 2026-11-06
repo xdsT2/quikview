@@ -2277,8 +2277,12 @@ void MainWindow::updateInfoOverlay()
     // 帧号（12/48）只进这里，两个计数不能混。
     // 「不显示动画信息控制」只作用于自动播放格式（GIF/MNG）：多页 TIFF 是
     // 逐帧翻阅，帧号不属于动画控制，开关关闭时仍然保留。
+    // SET-04 即时预览：设置页会话内以运行态覆盖值为准（不写配置）。
+    const bool showAnim = m_liveAnimControlOverrideSet
+                              ? m_liveAnimControlOverride
+                              : Config::instance().showAnimControl();
     if (m_frames && m_frames->hasFrames()
-        && (!m_frames->animatable() || Config::instance().showAnimControl())) {
+        && (!m_frames->animatable() || showAnim)) {
         // MNG 顺序模式不预扫描总帧数，frameCount()=0 表示未知，只显示当前帧号
         const int total = m_frames->frameCount();
         parts << (total > 1
@@ -4165,6 +4169,15 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         return true;
     }
 
+    if (key == QLatin1String("view/show_anim_control")) {
+        // SET-04 浏览页批次：运行态覆盖，会话内不写配置；帧号行由
+        // updateInfoOverlay() 立即重排，模态设置页打开时也能看到信息行变化。
+        m_liveAnimControlOverride = value.toBool();
+        m_liveAnimControlOverrideSet = true;
+        updateInfoOverlay();
+        return true;
+    }
+
     if (key == QLatin1String("theme")) {
         // 外观页即时预览：只切运行态，不写 config。appQss / 调色板由
         // Theme::applySetting 全局换；画布底色与信息浮层是各自 setStyleSheet 的
@@ -4211,6 +4224,10 @@ QVariant MainWindow::liveSettingValue(const QString &key) const
         return m_liveZoomControlOverrideSet ? m_liveZoomControlOverride
                                             : Config::instance().showZoomControl();
     }
+    if (key == QLatin1String("view/show_anim_control")) {
+        return m_liveAnimControlOverrideSet ? m_liveAnimControlOverride
+                                            : Config::instance().showAnimControl();
+    }
     return QVariant();
 }
 
@@ -4220,6 +4237,7 @@ void MainWindow::onSettings()
     dlg.exec();
     // 预览会话结束：清掉运行态覆盖，之后一律以配置为准（保存=新值，取消=旧值）。
     m_liveZoomControlOverrideSet = false;
+    m_liveAnimControlOverrideSet = false;
     // 设置页可能改了主题（三档）；按当前取值重新解析应用（system 时随系统）。
     // 磨砂开关要先落进 UiStyle，否则 appQss() 里菜单底还是旧的不透明度。
     UiStyle::setBlurMaterial(Config::instance().blurMaterial());
