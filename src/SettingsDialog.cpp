@@ -826,7 +826,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     // 右缘与内容区右缘对齐（内容 pane 右内边距 28px；原 18px 会让保存按钮外凸 9px）。
     fl->setContentsMargins(18, 0, 28, 0);
     fl->setSpacing(9);
-    auto *note = new QLabel(tr("更改会在保存后生效"), footer);
+    auto *note = new QLabel(tr("带「即时」说明的项切换即生效；其余项保存后生效"), footer);
     note->setObjectName(QStringLiteral("footerNote"));
     fl->addWidget(note);
     fl->addStretch(1);
@@ -1203,6 +1203,11 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
     // SET-03 小批 A：置顶是二态且运行态可逆（setWindowFlag 有值变化守卫）。
     m_liveChecks.append({ alwaysOnTop, "always_on_top", false, false, false });
     addCheck(sec, tr("按 ESC 退出"), "esc_exit", false, true);
+    // SET-04 批次 C：本页二态项的生效时机逐项写死。反选项必须明确哪一侧为开。
+    addHint(sec, tr("生效时机：总在最前＝即时；不保存浏览过的文件夹路径"
+                    "（勾选＝不记录最近打开，取消勾选＝记录）／删除文件时确认／"
+                    "边角通知／按 ESC 退出＝保存设置后、下次对应行为时；"
+                    "不允许多个实例／启动时检查更新＝保存设置后、重启生效。"));
     // 「检查更新 / 检查小版本更新」旧开关见下方「检查更新」组：
     // 现在有真实的联网实现（UpdateChecker），不再是零消费假开关。
 
