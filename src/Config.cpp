@@ -224,6 +224,11 @@ bool Config::actionEnabled(const QString &action, bool def) const
     return m_settings.value(QStringLiteral("config/keyboard/%1_enabled").arg(action), def).toBool();
 }
 
+bool Config::hasActionKey(const QString &action) const
+{
+    return m_settings.contains(QStringLiteral("config/keyboard/%1_key").arg(action));
+}
+
 QString Config::actionKey(const QString &action, const QString &def) const
 {
     return m_settings.value(QStringLiteral("config/keyboard/%1_key").arg(action), def).toString();

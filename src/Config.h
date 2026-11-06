@@ -59,10 +59,12 @@ public:
 
     // 键盘快捷键自定义（批次 D1）：14 个可配置动作各占三键
     // config/keyboard/<action>_enabled / _key / _action。_key 存 QKeySequence
-    // 的 PortableText（"Ctrl+P"、"Right"…），空串 = 未自定义（用出厂键位）；
-    // _action 是该键位槽绑定到的动作 id（默认 = 槽位自身）。动作清单与下发
-    // 语义见 MainWindow::applyShortcutConfig，设置页见键盘页。
+    // 的 PortableText（"Ctrl+P"、"Right"…）。键存在且为空串 = 显式未绑定
+    // （设置页显示「未设置」，运行期不装键）；键不存在 = 从未保存过，用出厂
+    // 键位。_action 是该键位槽绑定到的动作 id（默认 = 槽位自身）。动作清单与
+    // 下发语义见 MainWindow::applyShortcutConfig，设置页见键盘页。
     bool actionEnabled(const QString &action, bool def = true) const;
+    bool hasActionKey(const QString &action) const;
     QString actionKey(const QString &action, const QString &def = QString()) const;
     QString actionBinding(const QString &action, const QString &def = QString()) const;
 

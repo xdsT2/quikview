@@ -1316,11 +1316,22 @@ void MainWindow::applyShortcutConfig()
         if (!m_actions.contains(target)) {
             continue;
         }
+        // 空串只在「键曾被写入过」时表示显式未绑定；缺失键仍回退出厂表，
+        // 兼容从未保存过键盘页的旧配置。
+        const bool savedKey = cfg.hasActionKey(slot);
         const QString stored = cfg.actionKey(slot);
         const QKeySequence seq = QKeySequence::fromString(stored, QKeySequence::PortableText);
         QList<QKeySequence> &keys = perAction[target];
-        if (target == slot && (stored.isEmpty() || seq == d.defaults.value(0))) {
-            // 未自定义 / 配回出厂主键：恢复完整出厂表（副键保留，行为与旧版一致）
+        if (!savedKey) {
+            // 从未保存：恢复完整出厂表（含副键，行为与旧版一致）
+            for (const QKeySequence &k : d.defaults) {
+                if (!keys.contains(k))
+                    keys.append(k);
+            }
+            continue;
+        }
+        if (target == slot && !stored.isEmpty() && seq == d.defaults.value(0)) {
+            // 配回出厂主键：恢复完整出厂表（副键保留）
             for (const QKeySequence &k : d.defaults) {
                 if (!keys.contains(k))
                     keys.append(k);
