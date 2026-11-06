@@ -32,6 +32,7 @@
 #include <QShowEvent>
 #include <QSpinBox>
 #include <QStackedWidget>
+#include <QStandardItemModel>
 #include <QStyle>
 #include <QStyleHints>
 #include <QStyleOptionButton>
@@ -1924,6 +1925,26 @@ void SettingsDialog::buildMousePage(QWidget *page)
         auto *combo = new QComboBox(row);
         for (const auto &opt : opts)
             combo->addItem(opt.second, opt.first);
+        // 档位诚实化（SET-04 阶段 C）：右键 / X / Y 没有 "pan" 的
+        // onMouseAction 分支，拖拽平移只对左键内置拖拽有效，因此把该档灰显，
+        // 不写成「选了就生效」。其余 17 个动作都走同一个派发器。
+        const QString key = QString::fromUtf8(b.key);
+        const bool panFake = (key == QLatin1String("mouse/btn_right")
+                              || key == QLatin1String("mouse/btn_x")
+                              || key == QLatin1String("mouse/btn_y"));
+        if (panFake) {
+            for (int j = 0; j < opts.size(); ++j) {
+                if (opts[j].first == QLatin1String("pan")) {
+                    if (auto *model = qobject_cast<QStandardItemModel *>(combo->model())) {
+                        if (auto *item = model->item(j)) {
+                            item->setEnabled(false);
+                            item->setToolTip(tr("该按键没有拖拽平移实现，灰显不可选"));
+                        }
+                    }
+                }
+            }
+        }
+        combo->setToolTip(tr("保存后生效：下次点击该按键时按新映射派发。"));
         combo->setCursor(Qt::PointingHandCursor);
         combo->setFixedHeight(kComboH);
         combo->setMinimumWidth(160);
@@ -1938,7 +1959,9 @@ void SettingsDialog::buildMousePage(QWidget *page)
     }
 
     addHint(sec, tr("左/右/X/Y 键可映射成动作；「无」保留内置行为（左键拖动平移与"
-                    "边缘单击翻页、右键上下文菜单、中键切全屏、滚轮缩放）。"));
+                    "边缘单击翻页、右键上下文菜单、中键切全屏、滚轮缩放）。"
+                    "「拖拽平移」档只有左键有效，右键 / X / Y 已灰显；"
+                    "所有映射均为保存后生效——下次触发该按键时读取。"));
 }
 
 // ===========================================================================
