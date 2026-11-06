@@ -925,6 +925,63 @@ QLabel *SettingsDialog::makeToggleLabel(const QString &text, const QString &obje
     return lab;
 }
 
+namespace {
+
+// 主题来源值 → 运行态实际配色（"system" 按 Windows 当前深浅解析）。
+QString themeMode(const QString &setting)
+{
+    return Theme::resolveMode(setting) == Theme::Mode::Light ? QStringLiteral("light")
+                                                            : QStringLiteral("dark");
+}
+
+// 整行命中：标题 / 说明 / 行内空白都走同一次开关激活。轨道本身由 PillToggle
+// 自己处理，不装过滤器，避免一次点击激活两次。按下后移出再松开按取消处理；
+// 禁用行只吞事件、不激活。
+class ToggleRowHitFilter final : public QObject
+{
+public:
+    ToggleRowHitFilter(PillToggle *toggle, QWidget *row, QObject *parent)
+        : QObject(parent)
+        , m_toggle(toggle)
+        , m_row(row)
+    {
+    }
+
+protected:
+    bool eventFilter(QObject *, QEvent *event) override
+    {
+        if (event->type() == QEvent::MouseButtonPress) {
+            auto *me = static_cast<QMouseEvent *>(event);
+            if (me->button() != Qt::LeftButton)
+                return false;
+            m_pressed = m_toggle->isEnabled();
+            return true;   // 吃掉按下：标签不抢焦点，松手仍按整行判定
+        }
+        if (event->type() == QEvent::MouseButtonRelease) {
+            auto *me = static_cast<QMouseEvent *>(event);
+            if (me->button() != Qt::LeftButton)
+                return false;
+            const bool pressed = m_pressed;
+            m_pressed = false;
+            if (!pressed || !m_toggle->isEnabled())
+                return true;   // 禁用行点任何位置都无效
+            const QPoint globalPos = me->globalPosition().toPoint();
+            if (!QRect(m_row->mapToGlobal(QPoint(0, 0)), m_row->size()).contains(globalPos))
+                return true;   // 按下后移出再松开：取消激活
+            m_toggle->click();
+            return true;
+        }
+        return false;
+    }
+
+private:
+    PillToggle *m_toggle = nullptr;
+    QWidget *m_row = nullptr;
+    bool m_pressed = false;
+};
+
+} // namespace
+
 SettingsDialog::ToggleRow SettingsDialog::addToggleRow(QWidget *section, const QString &label,
                                                        const QString &desc,
                                                        const QString &accessibleName)
@@ -948,6 +1005,15 @@ SettingsDialog::ToggleRow SettingsDialog::addToggleRow(QWidget *section, const Q
     out.toggle->setAccessibleName(accessibleName);
     out.toggle->setToolTip(desc);
     h->addWidget(out.toggle, 0, Qt::AlignVCenter);
+
+    // 启用行的标题、说明和行内空白都是开关命中区；焦点仍只在轨道上。
+    out.label->setCursor(Qt::PointingHandCursor);
+    out.desc->setCursor(Qt::PointingHandCursor);
+    row->setCursor(Qt::PointingHandCursor);
+    auto *hit = new ToggleRowHitFilter(out.toggle, row, row);
+    out.label->installEventFilter(hit);
+    out.desc->installEventFilter(hit);
+    row->installEventFilter(hit);
 
     row->setMinimumHeight(44);
     if (auto *v = qobject_cast<QVBoxLayout *>(section->layout())) {
