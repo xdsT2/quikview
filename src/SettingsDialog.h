@@ -199,6 +199,10 @@ private:
     // LiveCheck（那个结构是一键一布尔）；单独处理：切换即下发运行态、
     // 不写盘；取消 / Esc / ✕ 由 rollbackThemePreview() 按快照恢复。
     void applyThemePreview();
+    // 延迟下发：点击回调只更新状态并排队，重任务放到下一轮事件循环，
+    // 先让开关反馈出帧；serial 用于丢弃被新点击 / 回滚取代的旧请求。
+    void applyPendingTheme(int serial);
+    void flushPendingTheme();
     void rollbackThemePreview();
     void syncThemeControls(const QString &theme);
     void updateThemeControlStates();
@@ -207,6 +211,12 @@ private:
     QLabel *makeToggleLabel(const QString &text, const QString &objectName);
     bool m_themeApplying = false;
     QString m_themeLast;   // 最近一次成功下发的主题（失败时回退用它）
+    // 运行态实际已应用的「来源值」与「配色」：等色切换只改来源，不重复换肤。
+    QString m_themeAppliedSetting;
+    QString m_themeAppliedMode;   // "light" / "dark"
+    QString m_themePending;       // 待下发的来源值
+    bool m_themePendingActive = false;
+    int m_themeSerial = 0;
     // 浏览页「背景」段（m_bkgndPath / m_bkgndColorBtn / m_borderColorBtn）已随
     // 第 18 期下线删除。
     struct KeyRow {                       // 键盘页一行（QString 值拷贝：

@@ -1233,6 +1233,8 @@ void SettingsDialog::buildAppearancePage(QWidget *page)
 
     const QString theme = sGet("theme", QStringLiteral("dark"));
     syncThemeControls(theme);
+    m_themeAppliedSetting = theme;
+    m_themeAppliedMode = themeMode(theme);
     updateThemeControlStates();
 
     connect(m_followSystem, &QCheckBox::toggled, this, [this](bool on) {
@@ -1252,7 +1254,8 @@ void SettingsDialog::buildAppearancePage(QWidget *page)
     // 跟随系统时，Windows 深浅色变化要同步禁用开关的展示值与设置页自身 QSS。
     connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged, this,
             [this](Qt::ColorScheme cs) {
-                if (m_themeApplying || !m_followSystem || !m_followSystem->isChecked())
+                if (m_themeApplying || m_themePendingActive || !m_followSystem
+                    || !m_followSystem->isChecked())
                     return;
                 {
                     // 用信号携带的新值，别在回调里再读 colorScheme()：
@@ -1292,6 +1295,7 @@ void SettingsDialog::saveAppearance()
 {
     // 外观页唯一落盘点：主题三选一 + 材质独立键。跟随时只写 system，
     // 显式选择才写 dark/light；disabled 的材质钮绝不回写（no writeback）。
+    flushPendingTheme();   // 排队中的真实变色先落运行态，再写配置
     if (m_followSystem && m_lightToggle)
         sSet("theme", themeFromControls());
     if (m_blurMaterial && m_blurMaterial->isEnabled())
@@ -1348,14 +1352,41 @@ void SettingsDialog::refreshDialogStyle()
 
 void SettingsDialog::applyThemePreview()
 {
-    if (m_themeApplying)
-        return;
     if (!m_followSystem || !m_lightToggle)
         return;
 
     const QString want = themeFromControls();
-    const QString prev = m_themeLast.isEmpty() ? sGet("theme", QStringLiteral("dark"))
-                                               : m_themeLast;
+    // 来源状态立即生效：跟随系统的监听条件与禁用态不依赖是否换肤。
+    Theme::currentSetting() = want;
+    updateThemeControlStates();
+
+    if (themeMode(want) == m_themeAppliedMode) {
+        // 等色：手选深色 ↔ 跟随系统(系统当前为深色) 等场景，运行态配色没变。
+        // 只同步来源状态并作废在途请求，不重装全局调色板 / 全局样式。
+        ++m_themeSerial;
+        m_themePendingActive = false;
+        m_themePending.clear();
+        m_themeLast = want;
+        m_themeAppliedSetting = want;
+        return;
+    }
+
+    // 真正变色：点击回调只排队，重任务挪到下一轮事件循环，先让开关反馈出帧。
+    m_themePending = want;
+    m_themePendingActive = true;
+    const int serial = ++m_themeSerial;
+    QTimer::singleShot(0, this, [this, serial]() { applyPendingTheme(serial); });
+}
+
+void SettingsDialog::applyPendingTheme(int serial)
+{
+    if (!m_themePendingActive || serial != m_themeSerial)
+        return;   // 已被更新的点击或回滚取代，不能覆盖最终选择
+    const QString want = m_themePending;
+    m_themePendingActive = false;
+    m_themePending.clear();
+    if (!m_followSystem || !m_lightToggle)
+        return;
     auto *host = qobject_cast<MainWindow *>(parentWidget());
     if (!host)
         return;
@@ -1364,12 +1395,15 @@ void SettingsDialog::applyThemePreview()
     QString error;
     const bool ok = host->applyLiveSetting(QStringLiteral("theme"), want, &error);
     if (ok) {
+        m_themeAppliedSetting = want;
+        m_themeAppliedMode = themeMode(want);
         m_themeLast = want;
         refreshDialogStyle();
     } else {
-        // 运行态没变（失败发生在下发入口）；把两个开关同步回上一次成功值，
-        // 避免「控件显示浅色、界面还是深色」的半截状态。
-        syncThemeControls(prev);
+        // 运行态没变（失败发生在下发入口）；回退到运行态实际值，而不是
+        // 用户最后一次点选值，避免「控件显示浅色、界面还是深色」。
+        Theme::currentSetting() = m_themeAppliedSetting;
+        syncThemeControls(m_themeAppliedSetting);
         updateThemeControlStates();
         QMessageBox::warning(this, tr("主题未应用"),
                              error.isEmpty() ? tr("本次主题切换失败，已恢复原设置。")
@@ -1378,14 +1412,28 @@ void SettingsDialog::applyThemePreview()
     m_themeApplying = false;
 }
 
+void SettingsDialog::flushPendingTheme()
+{
+    // 保存前把排队中的真实变色同步做完，避免「配置写浅色、运行态还没换」。
+    if (m_themePendingActive)
+        applyPendingTheme(m_themeSerial);
+}
+
 void SettingsDialog::rollbackThemePreview()
 {
     // 取消 / Esc / 标题栏关闭：按打开前的快照恢复运行态主题（不写盘）。
     if (!m_followSystem || !m_lightToggle)
         return;
+    // 先作废在途请求：旧请求晚到也不能覆盖回滚结果。
+    ++m_themeSerial;
+    m_themePendingActive = false;
+    m_themePending.clear();
     const QString old = m_snapshot.value(QStringLiteral("theme"), QStringLiteral("dark"))
                             .toString();
     syncThemeControls(old);
+    m_themeAppliedSetting = old;
+    m_themeAppliedMode = themeMode(old);
+    m_themeLast = old;
     if (auto *host = qobject_cast<MainWindow *>(parentWidget()))
         host->applyLiveSetting(QStringLiteral("theme"), old, nullptr);
     refreshDialogStyle();
