@@ -33,6 +33,7 @@
 #include <QSpinBox>
 #include <QStackedWidget>
 #include <QStyle>
+#include <QStyleHints>
 #include <QStyleOptionButton>
 #include <QStylePainter>
 #include <QTimer>
@@ -45,6 +46,7 @@
 
 #include "Config.h"
 #include "MainWindow.h"
+#include "PillToggle.h"
 #include "Theme.h"
 #include "UpdateChecker.h"
 #include "UiStyle.h"
@@ -604,6 +606,9 @@ QWidget[conflict="true"] { background: @DangerBg@; border-radius: 4px; }
    对比度约 3.3:1（满足禁用态 ≥3:1），可读且明确「不可点」。 */
 QCheckBox:disabled { color: @DisabledText@; }
 QLabel:disabled { color: @DisabledText@; }
+/* 主题区「浅色模式」整行灰显：rowLabel / hint 是 id 选择器，特异性高于
+   QLabel:disabled，必须显式补 id+pseudo，否则 setEnabled(false) 后文字亮度不变。 */
+QLabel#rowLabel:disabled, QLabel#hint:disabled { color: @DisabledText@; }
 QComboBox:disabled { color: @DisabledText@; background: @DisabledBg@; border-color: @DisabledBorder@; }
 QSpinBox:disabled { color: @DisabledText@; background: @DisabledBg@; border-color: @DisabledBorder@; }
 QLineEdit:disabled { color: @DisabledText@; background: @DisabledBg@; border-color: @DisabledBorder@; }
@@ -912,6 +917,46 @@ QCheckBox *SettingsDialog::addCheck(QWidget *section, const QString &text, const
     return cb;
 }
 
+QLabel *SettingsDialog::makeToggleLabel(const QString &text, const QString &objectName)
+{
+    auto *lab = new QLabel(text);
+    lab->setObjectName(objectName);
+    lab->setWordWrap(true);
+    return lab;
+}
+
+SettingsDialog::ToggleRow SettingsDialog::addToggleRow(QWidget *section, const QString &label,
+                                                       const QString &desc,
+                                                       const QString &accessibleName)
+{
+    ToggleRow out;
+    auto *row = new QWidget(section);
+    auto *h = new QHBoxLayout(row);
+    h->setContentsMargins(0, 0, 0, 0);
+    h->setSpacing(16);
+
+    auto *left = new QVBoxLayout;
+    left->setContentsMargins(0, 0, 0, 0);
+    left->setSpacing(2);
+    out.label = makeToggleLabel(label, QStringLiteral("rowLabel"));
+    out.desc = makeToggleLabel(desc, QStringLiteral("hint"));
+    left->addWidget(out.label);
+    left->addWidget(out.desc);
+    h->addLayout(left, 1);
+
+    out.toggle = new PillToggle(row);
+    out.toggle->setAccessibleName(accessibleName);
+    out.toggle->setToolTip(desc);
+    h->addWidget(out.toggle, 0, Qt::AlignVCenter);
+
+    row->setMinimumHeight(44);
+    if (auto *v = qobject_cast<QVBoxLayout *>(section->layout())) {
+        v->addSpacing(6);
+        v->addWidget(row);
+    }
+    return out;
+}
+
 QComboBox *SettingsDialog::addComboRow(QWidget *section, const QString &label, const char *key,
                                        const QString &def,
                                        const QList<QPair<QString, QString>> &options,
@@ -1096,62 +1141,188 @@ void SettingsDialog::buildViewPage(QWidget *page)
 void SettingsDialog::buildAppearancePage(QWidget *page)
 {
     // —— 主题 ——
-    // 三档：跟随系统 / 深色 / 浅色。落盘形态沿用 main.cpp 第 18 期前的取值约定：
-    // theme=dark | light | system，默认 dark。UI 上以「跟随系统」为主开关，
-    // 关闭后才能手选深浅——避免三选一 radio 里 system 与 dark/light 语义重叠。
+    // 语义：theme=dark | light | system，默认 dark。「跟随系统」开 → system；
+    // 关 → 由「浅色模式」开关决定 light/dark（开=浅色、关=深色）。
+    // 两个开关写同一键，必须互斥：跟随开启时浅色开关禁用，并显示系统当前解析值。
+    // 主题为即时预览（SET-02 会话框架内，不走 LiveCheck：一键一布尔的表装不下复合键）。
     QWidget *sec = beginSection(page, tr("主题"));
-    m_followSystem = addCheckRaw(sec, tr("跟随系统"));
-    m_darkToggle = addCheckRaw(sec, tr("深色模式"));
+    {
+        ToggleRow r = addToggleRow(
+            sec, tr("跟随系统"),
+            tr("深浅色随 Windows 设置自动切换；开启后不能手动切换浅色模式。"),
+            tr("跟随系统"));
+        m_followSystem = r.toggle;
+        m_followLabel = r.label;
+        m_followDesc = r.desc;
+    }
+    {
+        ToggleRow r = addToggleRow(
+            sec, tr("浅色模式"),
+            tr("关闭「跟随系统」后生效：开为浅色，关为深色。"),
+            tr("浅色模式"));
+        m_lightToggle = r.toggle;
+        m_lightLabel = r.label;
+        m_lightDesc = r.desc;
+    }
 
-    const bool follow = sGet("theme", QStringLiteral("dark")) == QStringLiteral("system");
-    const bool dark = Theme::resolveMode(sGet("theme", QStringLiteral("dark")))
-                      == Theme::Mode::Dark;
-    m_followSystem->setChecked(follow);
-    m_darkToggle->setChecked(dark);
-    // 跟随系统时深浅由 Windows 决定，手选开关必须灰掉，否则两者写同一键互相打架。
-    m_darkToggle->setEnabled(!follow);
-    if (follow)
-        m_darkToggle->setToolTip(tr("跟随系统开启时由系统决定"));
+    const QString theme = sGet("theme", QStringLiteral("dark"));
+    syncThemeControls(theme);
+    updateThemeControlStates();
 
     connect(m_followSystem, &QCheckBox::toggled, this, [this](bool on) {
-        m_darkToggle->setEnabled(!on);
-        if (on) {
-            m_darkToggle->setToolTip(tr("跟随系统开启时由系统决定"));
-            // 开启跟随的一刻把勾选态亮成系统当前解析值，让用户知道现在是什么模式。
-            const QSignalBlocker b(m_darkToggle);
-            m_darkToggle->setChecked(Theme::resolveMode(QStringLiteral("system"))
-                                     == Theme::Mode::Dark);
-        } else {
-            m_darkToggle->setToolTip(QString());
+        if (!m_themeApplying && on && m_lightToggle) {
+            // 开启跟随的一刻让禁用开关显示系统当前解析值（只读展示，不写盘）。
+            const QSignalBlocker b(m_lightToggle);
+            m_lightToggle->setChecked(Theme::resolveMode(QStringLiteral("system"))
+                                      == Theme::Mode::Light);
         }
+        updateThemeControlStates();
+        applyThemePreview();
     });
-    addHint(sec, tr("跟随系统关闭后，可用上面的开关手动选择深色或浅色。"));
+    connect(m_lightToggle, &QCheckBox::toggled, this, [this](bool) {
+        if (!m_themeApplying)
+            applyThemePreview();
+    });
+    // 跟随系统时，Windows 深浅色变化要同步禁用开关的展示值与设置页自身 QSS。
+    connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged, this,
+            [this](Qt::ColorScheme cs) {
+                if (m_themeApplying || !m_followSystem || !m_followSystem->isChecked())
+                    return;
+                {
+                    // 用信号携带的新值，别在回调里再读 colorScheme()：
+                    // setColorScheme 的提示值与信号到达顺序不保证同步。
+                    const QSignalBlocker b(m_lightToggle);
+                    m_lightToggle->setChecked(cs == Qt::ColorScheme::Light);
+                    m_lightToggle->update();
+                }
+                refreshDialogStyle();
+                if (auto *host = qobject_cast<MainWindow *>(parentWidget()))
+                    host->refreshThemeSurfaces();
+            });
+    addHint(sec, tr("主题为即时预览：切换后立即生效；点「保存设置」后保留，"
+                    "取消 / Esc / 标题栏关闭会恢复进入设置前的值。"));
 
     // —— 材质 ——
     // 磨砂只做右键菜单与信息浮层（第 18 期④），独立键 ui/blur_material，
     // 默认关、不参与「恢复默认」清空（在 config 组外）。Win10 上 DWM 不支持
     // SystemBackdrop，勾了也只会是半透明纯色——直接灰掉，别给人坏的期待。
+    // 控件形态与主题区统一为胶囊拨动开关；功能与键值不动，保存后生效。
     sec = beginSection(page, tr("材质"));
-    m_blurMaterial = addCheckRaw(sec, tr("磨砂材质（右键菜单与信息浮层）"));
+    {
+        ToggleRow r = addToggleRow(
+            sec, tr("磨砂材质（右键菜单与信息浮层）"),
+            tr("仅影响右键菜单与信息浮层；Windows 11 效果最佳，Windows 10 降级为半透明。"),
+            tr("磨砂材质"));
+        m_blurMaterial = r.toggle;
+    }
     m_blurMaterial->setChecked(bGet("ui/blur_material", false));
 #if defined(Q_OS_WIN)
     if (QOperatingSystemVersion::current() < QOperatingSystemVersion::Windows11)
         m_blurMaterial->setEnabled(false);   // 不写回、不落盘，保留用户已有取值
 #endif
-    addHint(sec, tr("仅影响右键菜单与信息浮层。Windows 11 效果最佳，Windows 10 降级为半透明。"));
 }
 
 void SettingsDialog::saveAppearance()
 {
     // 外观页唯一落盘点：主题三选一 + 材质独立键。跟随时只写 system，
     // 显式选择才写 dark/light；disabled 的材质钮绝不回写（no writeback）。
-    if (m_followSystem && m_darkToggle)
-        sSet("theme", m_followSystem->isChecked()
-                          ? QStringLiteral("system")
-                          : (m_darkToggle->isChecked() ? QStringLiteral("dark")
-                                                       : QStringLiteral("light")));
+    if (m_followSystem && m_lightToggle)
+        sSet("theme", themeFromControls());
     if (m_blurMaterial && m_blurMaterial->isEnabled())
         bSet("ui/blur_material", m_blurMaterial->isChecked());
+}
+
+QString SettingsDialog::themeFromControls() const
+{
+    if (m_followSystem && m_followSystem->isChecked())
+        return QStringLiteral("system");
+    if (m_lightToggle && m_lightToggle->isChecked())
+        return QStringLiteral("light");
+    return QStringLiteral("dark");
+}
+
+void SettingsDialog::syncThemeControls(const QString &theme)
+{
+    if (!m_followSystem || !m_lightToggle)
+        return;
+    const bool follow = theme == QLatin1String("system");
+    // 跟随系统时浅色开关只读展示系统解析值；显式主题按 light/dark 落。
+    const bool light = Theme::resolveMode(theme) == Theme::Mode::Light;
+    const QSignalBlocker b1(m_followSystem);
+    const QSignalBlocker b2(m_lightToggle);
+    m_followSystem->setChecked(follow);
+    m_lightToggle->setChecked(light);
+    m_themeLast = theme;
+    updateThemeControlStates();
+}
+
+void SettingsDialog::updateThemeControlStates()
+{
+    if (!m_followSystem || !m_lightToggle)
+        return;
+    const bool follow = m_followSystem->isChecked();
+    m_lightToggle->setEnabled(!follow);
+    m_lightToggle->setToolTip(follow
+        ? tr("跟随系统开启时由 Windows 决定，不能手动切换浅色模式。")
+        : tr("开为浅色，关为深色。"));
+    // 整行灰显：禁用项要可读且说明原因（tooltip 已给原因）。
+    if (m_lightLabel)
+        m_lightLabel->setEnabled(!follow);
+    if (m_lightDesc)
+        m_lightDesc->setEnabled(!follow);
+}
+
+void SettingsDialog::refreshDialogStyle()
+{
+    // 设置页构造时把 dialogQss() 编译进了局部表；主题切换后必须按新令牌重装，
+    // 否则设置页（用户正在看的这一面）会停在旧主题。
+    setStyleSheet(UiStyle::dialogQss() + extraQss());
+    update();
+}
+
+void SettingsDialog::applyThemePreview()
+{
+    if (m_themeApplying)
+        return;
+    if (!m_followSystem || !m_lightToggle)
+        return;
+
+    const QString want = themeFromControls();
+    const QString prev = m_themeLast.isEmpty() ? sGet("theme", QStringLiteral("dark"))
+                                               : m_themeLast;
+    auto *host = qobject_cast<MainWindow *>(parentWidget());
+    if (!host)
+        return;
+
+    m_themeApplying = true;
+    QString error;
+    const bool ok = host->applyLiveSetting(QStringLiteral("theme"), want, &error);
+    if (ok) {
+        m_themeLast = want;
+        refreshDialogStyle();
+    } else {
+        // 运行态没变（失败发生在下发入口）；把两个开关同步回上一次成功值，
+        // 避免「控件显示浅色、界面还是深色」的半截状态。
+        syncThemeControls(prev);
+        updateThemeControlStates();
+        QMessageBox::warning(this, tr("主题未应用"),
+                             error.isEmpty() ? tr("本次主题切换失败，已恢复原设置。")
+                                             : error);
+    }
+    m_themeApplying = false;
+}
+
+void SettingsDialog::rollbackThemePreview()
+{
+    // 取消 / Esc / 标题栏关闭：按打开前的快照恢复运行态主题（不写盘）。
+    if (!m_followSystem || !m_lightToggle)
+        return;
+    const QString old = m_snapshot.value(QStringLiteral("theme"), QStringLiteral("dark"))
+                            .toString();
+    syncThemeControls(old);
+    if (auto *host = qobject_cast<MainWindow *>(parentWidget()))
+        host->applyLiveSetting(QStringLiteral("theme"), old, nullptr);
+    refreshDialogStyle();
 }
 
 // ===========================================================================
@@ -1753,6 +1924,11 @@ void SettingsDialog::loadFromConfig()
         const int idx = m_language->findData(sGet("language", QStringLiteral("system")));
         m_language->setCurrentIndex(idx >= 0 ? idx : 0);
     }
+    // 外观页两件套不进绑定表，单独回读（历史 theme 三值 → 跟随 + 浅色两开关）。
+    if (m_followSystem && m_lightToggle)
+        syncThemeControls(sGet("theme", QStringLiteral("dark")));
+    if (m_blurMaterial)
+        m_blurMaterial->setChecked(bGet("ui/blur_material", false));
 }
 
 void SettingsDialog::takeSnapshot()
@@ -1925,6 +2101,8 @@ void SettingsDialog::onReset()
     // 标题栏关闭时由 restoreSnapshot + rollbackLiveSession 一起回滚。
     for (int i = 0; i < m_liveChecks.size(); ++i)
         applyLiveCheck(i, m_liveChecks[i].cb->isChecked());
+    // 主题也是即时项：恢复默认后立即回到默认深色运行态。
+    applyThemePreview();
 
     // 「背景」段的两个颜色钮已随第 18 期下线；其余直接读写 config 的控件
     // 均为绑定表/专项控件，loadFromConfig() 已覆盖。
@@ -2189,7 +2367,9 @@ void SettingsDialog::accept()
 void SettingsDialog::reject()
 {
     // 取消语义：配置与已即时生效的运行态一起回到进入设置前（Cancel / Esc / 标题栏 ✕）。
+    // 顺序：先恢复配置快照 → 主题运行态按快照值回滚 → 其余 LiveCheck 运行态回滚。
     restoreSnapshot();
+    rollbackThemePreview();
     rollbackLiveSession();
     QDialog::reject();
 }

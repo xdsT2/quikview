@@ -160,6 +160,14 @@ inline constexpr int TitleBarH    = 43;
 inline constexpr int NavWidth     = 204;
 inline constexpr int FooterH      = 62;
 inline constexpr int InfoPanelW   = 344;
+// 胶囊拨动开关（外观页主题区/材质区）：轨道 40×20、圆角 10（复用最大档位），
+// 滑块 16、内边距 2、焦点环外扩 2。已在设计规范 §4.2 登记。
+inline constexpr int SwitchTrackW = 40;
+inline constexpr int SwitchTrackH = 20;
+inline constexpr int SwitchRadius = 10;
+inline constexpr int SwitchKnob   = 16;
+inline constexpr int SwitchInset  = 2;
+inline constexpr int SwitchPad    = 2;
 
 // 12px ≈ 9pt 微软雅黑，与原型 12px 正文一致
 inline QFont font(int px = 12)

@@ -21,6 +21,7 @@ class QMouseEvent;
 class QPaintEvent;
 class QPushButton;
 class QSpinBox;
+class PillToggle;
 class QStackedWidget;
 class QVBoxLayout;
 class QWidget;
@@ -105,6 +106,15 @@ private:
                            const QList<QPair<QString, QString>> &options,
                            int comboWidth = 160);
     QLabel *addHint(QWidget *section, const QString &text);
+    // 胶囊拨动开关行：左侧标题 + 说明，右侧开关（右对齐）；返回三件套便于
+    // 禁用态联动（跟随系统开启时「浅色模式」整块灰显）。
+    struct ToggleRow {
+        PillToggle *toggle = nullptr;
+        QLabel *label = nullptr;
+        QLabel *desc = nullptr;
+    };
+    ToggleRow addToggleRow(QWidget *section, const QString &label,
+                           const QString &desc, const QString &accessibleName);
     QPushButton *addButton(QWidget *parent, const QString &text);
     QPushButton *addMiniButton(QWidget *parent, const QString &text);
 
@@ -173,11 +183,30 @@ private:
 
     // —— 专项控件 ——
     QSpinBox *m_cacheSize = nullptr;      // 图像处理：缓存大小 MB
-    // 外观页（第 18 期）：主题三档专用控件——不进绑定表，saveAppearance() 手工落盘，
+    // 外观页（第 18 期）：主题三件套——不进绑定表，saveAppearance() 手工落盘，
     // 因为 config/theme 是三态字符串（dark/light/system），不是布尔/枚举绑定能表达的。
-    QCheckBox *m_followSystem = nullptr;  // 「跟随系统」勾选（→ theme=system）
-    QCheckBox *m_darkToggle = nullptr;    // 「深色模式」（跟随系统时禁用）
-    QCheckBox *m_blurMaterial = nullptr;  // 「磨砂材质」ui/blur_material（④ 接线生效）
+    // 2026-11-06：改为胶囊拨动开关，「深色模式」更名为「浅色模式」（浅色开 = light）。
+    PillToggle *m_followSystem = nullptr;  // 「跟随系统」（→ theme=system）
+    PillToggle *m_lightToggle = nullptr;   // 「浅色模式」（跟随系统时禁用）
+    PillToggle *m_blurMaterial = nullptr;  // 「磨砂材质」ui/blur_material（④ 接线生效）
+    QLabel *m_followLabel = nullptr;
+    QLabel *m_followDesc = nullptr;
+    QLabel *m_lightLabel = nullptr;
+    QLabel *m_lightDesc = nullptr;
+
+    // —— 主题即时预览（SET-02 会话快照内）——
+    // 主题是复合控件（跟随 + 浅色两个开关映射同一 config/theme），不走
+    // LiveCheck（那个结构是一键一布尔）；单独处理：切换即下发运行态、
+    // 不写盘；取消 / Esc / ✕ 由 rollbackThemePreview() 按快照恢复。
+    void applyThemePreview();
+    void rollbackThemePreview();
+    void syncThemeControls(const QString &theme);
+    void updateThemeControlStates();
+    void refreshDialogStyle();
+    QString themeFromControls() const;
+    QLabel *makeToggleLabel(const QString &text, const QString &objectName);
+    bool m_themeApplying = false;
+    QString m_themeLast;   // 最近一次成功下发的主题（失败时回退用它）
     // 浏览页「背景」段（m_bkgndPath / m_bkgndColorBtn / m_borderColorBtn）已随
     // 第 18 期下线删除。
     struct KeyRow {                       // 键盘页一行（QString 值拷贝：

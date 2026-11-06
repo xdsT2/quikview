@@ -36,6 +36,9 @@ public:
     // 当前字号档位（SET-02 即时预览：设置页开窗时快照运行态用）
     bool smallFont() const { return m_smallFont; }
 
+    // 主题切换后重装面板局部 QSS（颜色令牌变了，不重装会停在旧主题）
+    void refreshThemeStyle();
+
     // 验收探针：把面板各层 sizeHint/实际高度写到文件（smoke 命令 metadump）
     void dumpHeights(const QString &path, const QString &tag = QString()) const;
 

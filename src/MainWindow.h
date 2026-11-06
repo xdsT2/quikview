@@ -58,8 +58,13 @@ public:
     // —— SET-02/03 设置页即时预览 ——
     // 设置页在会话中直接下发运行态（不等「保存设置」）。已接：
     // view/exif_small_font（SET-02）；always_on_top / view/show_side_arrow /
-    // view/show_zoom_control（SET-03 小批 A）。应用失败返回 false 并写入 error。
+    // view/show_zoom_control（SET-03 小批 A）；theme（外观页跟进单）。
+    // 应用失败返回 false 并写入 error。
     bool applyLiveSetting(const QString &key, const QVariant &value, QString *error);
+    // 主题切换后刷新「局部 QSS / 位置相关」的表面：画布底色 + 信息浮层 QSS。
+    // appQss 由 Theme::applySetting 覆盖全局；这两处各自 setStyleSheet 过，
+    // 不刷新会停在旧主题（SET-02 交接里 3.1.1 的「重复切换残留」即指此）。
+    void refreshThemeSurfaces();
     // 打开设置时的运行态快照来源（与配置值独立，供取消回滚）。
     QVariant liveSettingValue(const QString &key) const;
 

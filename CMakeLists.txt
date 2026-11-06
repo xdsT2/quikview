@@ -49,6 +49,8 @@ add_executable(quikview WIN32
     src/Wallpaper.h
     src/SettingsDialog.cpp
     src/SettingsDialog.h
+    src/PillToggle.cpp
+    src/PillToggle.h
     src/Chrome.cpp
     src/Chrome.h
     src/BatchConvertDialog.cpp

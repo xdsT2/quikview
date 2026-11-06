@@ -1110,11 +1110,14 @@ void MainWindow::createActions()
 
     actDark = new QAction(tr("深色模式(&D)"), this);
     actDark->setCheckable(true);
-    connect(actDark, &QAction::toggled, this, [](bool on) {
+    connect(actDark, &QAction::toggled, this, [this](bool on) {
         // 菜单点击=显式选择深/浅，退出「跟随系统」。
         Config::instance().settings().setValue(QStringLiteral("config/theme"),
                                                 on ? QStringLiteral("dark") : QStringLiteral("light"));
         Theme::applySetting(*qApp, on ? QStringLiteral("dark") : QStringLiteral("light"));
+        // 局部 QSS 表面（画布底色 / 信息浮层）不跟着 appQss 走，菜单直接切换时
+        // 也要补一次，否则会停在旧主题。
+        refreshThemeSurfaces();
     });
     syncThemeActions();
     // 跟随系统时，Windows 深浅色切换也要把菜单勾选态带到实际模式上。
@@ -2523,6 +2526,16 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                 navs.at(index)->click();
             }
         });
+    }
+    // scheme:light|dark —— 仅验收用：覆盖应用级 colorScheme，模拟 Windows 深浅色
+    // 变化（不动系统设置，不污染用户桌面）。配合 theme=system 验证「跟随系统」：
+    // 主题应即时切换、设置页禁用开关应同步刷新，且取消后回到快照值。
+    else if (c.startsWith(QLatin1String("scheme:"))) {
+        const QString v = c.mid(7).trimmed();
+        if (v == QLatin1String("light"))
+            QGuiApplication::styleHints()->setColorScheme(Qt::ColorScheme::Light);
+        else if (v == QLatin1String("dark"))
+            QGuiApplication::styleHints()->setColorScheme(Qt::ColorScheme::Dark);
     }
     // —— 临时几何探针（M-05 返工取证）：打开设置→键盘页，dump 关键部件几何 ——
     // 取证用，M-05 交付前删除。输出追加到 Temp/keyboard-layout-20261105/geom.txt，
@@ -4060,13 +4073,17 @@ void MainWindow::syncThemeActions()
     // 勾选态=实际生效的模式：跟随系统时随系统深浅色走，菜单里显示的是真相。
     // 程序化 setChecked 必须挡信号：否则启动/系统切换时 toggled 会把本次勾选
     // 当成用户点击，反向写库并把「跟随系统」覆盖成显式 dark/light（实测翻车）。
-    if (!actDark)
-        return;
-    const bool dark = Theme::resolveMode(Config::instance().theme()) == Theme::Mode::Dark;
-    if (actDark->isChecked() == dark)
-        return;
-    const QSignalBlocker b(actDark);
-    actDark->setChecked(dark);
+    if (actDark) {
+        // 勾选态取「运行态」而不是 config：设置页即时预览期间 config 还没写盘，
+        // 用 config 会让菜单停在旧模式（预览 light 时仍勾着深色）。
+        const bool dark = Theme::resolveMode(Theme::currentSetting()) == Theme::Mode::Dark;
+        if (actDark->isChecked() != dark) {
+            const QSignalBlocker b(actDark);
+            actDark->setChecked(dark);
+        }
+    }
+    // 系统深浅色切换（跟随系统）也走这里：局部 QSS 表面要一起刷新。
+    refreshThemeSurfaces();
 }
 
 // ---------------------------------------------------------------------------
@@ -4137,9 +4154,33 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         return true;
     }
 
+    if (key == QLatin1String("theme")) {
+        // 外观页即时预览：只切运行态，不写 config。appQss / 调色板由
+        // Theme::applySetting 全局换；画布底色与信息浮层是各自 setStyleSheet 的
+        // 局部表，必须单独重装，否则会停在旧主题（见 refreshThemeSurfaces 注释）。
+        const QString theme = value.toString();
+        if (theme != QLatin1String("dark") && theme != QLatin1String("light")
+            && theme != QLatin1String("system")) {
+            if (error)
+                *error = tr("未知的主题值：%1").arg(theme);
+            return false;
+        }
+        Theme::applySetting(*qApp, theme);
+        syncThemeActions();          // 菜单勾选 + 局部表面刷新
+        return true;
+    }
+
     if (error)
         *error = tr("未知的即时设置项：%1").arg(key);
     return false;
+}
+
+void MainWindow::refreshThemeSurfaces()
+{
+    if (m_canvas)
+        m_canvas->setBackgroundColor(UiStyle::canvasBg());
+    if (m_metadata)
+        m_metadata->refreshThemeStyle();
 }
 
 QVariant MainWindow::liveSettingValue(const QString &key) const

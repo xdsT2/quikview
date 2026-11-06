@@ -589,6 +589,14 @@ void MetadataPanel::setSmallFont(bool small)
     }
 }
 
+void MetadataPanel::refreshThemeStyle()
+{
+    // 面板构造时 setStyleSheet(panelQss()) 把颜色编译进了局部表；主题切换后
+    // 全局 appQss 会换，但局部表优先，必须按新令牌重装一次。
+    setStyleSheet(UiStyle::panelQss());
+    update();
+}
+
 void MetadataPanel::finishLayout()
 {
     // 宽度自适应：键列取最宽键、值列取最长单行值（超长值在浮层内换行，不撑宽），
