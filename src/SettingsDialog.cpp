@@ -682,6 +682,20 @@ QLabel:disabled { color: @DisabledText@; }
    QLabel:disabled，必须显式补 id+pseudo，否则 setEnabled(false) 后文字亮度不变。 */
 QLabel#rowLabel:disabled, QLabel#hint:disabled { color: @DisabledText@; }
 QComboBox:disabled { color: @DisabledText@; background: @DisabledBg@; border-color: @DisabledBorder@; }
+/* 下拉六态（SET-04 阶段 C）：底座/悬停/按下/焦点/展开列表全部走主题令牌。
+   QComboBox:pressed 在部分平台不触发，另用 :open 覆盖弹层打开时的按下观感；
+   焦点态用强调色描边，键盘 Tab 进入时可见，不加额外光晕避免改变控件尺寸。 */
+QComboBox { background: @Field@; color: @FieldText@; border: 1px solid @Border@; }
+QComboBox:hover { border-color: @BorderHover@; }
+QComboBox:pressed, QComboBox:open { background: @HeadBg@; border-color: @Accent@; }
+QComboBox:focus { border-color: @Accent@; }
+QComboBox QAbstractItemView { background: @GroupBg@; color: @FieldText@;
+    border: 1px solid @Line@; border-radius: 6px; padding: 4px;
+    outline: 0; selection-background-color: @HeadBg@; selection-color: @FieldText@; }
+QComboBox QAbstractItemView::item { min-height: 24px; padding: 0 8px; }
+QComboBox QAbstractItemView::item:hover { background: @HeadBg@; }
+QComboBox QAbstractItemView::item:selected { background: @HeadBg@; color: @FieldText@; }
+QComboBox QAbstractItemView::item:disabled { color: @DisabledText@; }
 QSpinBox:disabled { color: @DisabledText@; background: @DisabledBg@; border-color: @DisabledBorder@; }
 QLineEdit:disabled { color: @DisabledText@; background: @DisabledBg@; border-color: @DisabledBorder@; }
 QPushButton:disabled { color: @DisabledText@; border-color: @DisabledBorder@; background: @HeadBg@; }
@@ -1601,22 +1615,34 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     addHint(sec, tr("使用监视器的 ICC 设置需要显示器级色彩管理，Qt6 光栅后端不支持，暂不可用。"));
 
     sec = beginSection(page, tr("透明与翻页"));
-    addComboRow(sec, tr("为 GIF 图片使用透明背景"), "imageproc/gif_transparent",
-                QStringLiteral("0"),
-                { { "0", tr("默认GIF调色板") }, { "1", tr("白色背景") },
-                  { "2", tr("黑色背景") }, { "3", tr("自定义颜色") } }, 160);
-    addComboRow(sec, tr("为32位图片使用透明背景"), "imageproc/img32_transparent",
-                QStringLiteral("0"),
-                { { "0", tr("网格背景") }, { "1", tr("白色背景") },
-                  { "2", tr("黑色背景") }, { "3", tr("深色网格") } }, 160);
+    // SET-04 阶段 C（下拉类）：四项都只在关闭设置页后的画布路径读取，模态页内
+    // 看不到效果，因此不做假称「即时」，逐项在 tooltip 与本段 hint 写明真实时机。
+    auto *gifBg = addComboRow(sec, tr("为 GIF 图片使用透明背景"), "imageproc/gif_transparent",
+                              QStringLiteral("0"),
+                              { { "0", tr("默认GIF调色板") }, { "1", tr("白色背景") },
+                                { "2", tr("黑色背景") },
+                                { "3", tr("中灰背景（自定义取色待实现）") } }, 200);
+    gifBg->setToolTip(tr("保存后生效：下次打开 GIF 时按所选方式铺底。"));
+    auto *img32Bg = addComboRow(sec, tr("为32位图片使用透明背景"), "imageproc/img32_transparent",
+                                QStringLiteral("0"),
+                                { { "0", tr("网格背景") }, { "1", tr("白色背景") },
+                                  { "2", tr("黑色背景") }, { "3", tr("深色网格") } }, 160);
+    img32Bg->setToolTip(tr("保存后生效：下次打开带透明通道的图片时按所选方式铺底。"));
     // 标签按实测语义改名：Canvas 的 InterpBilinear 走 FastTransformation（最近邻），
     // 中间档是 GPU 平滑（双线性量级），第三档才是真 Lanczos3 重采样。
-    addComboRow(sec, tr("插值算法（裁剪或减淡）"), "imageproc/interpolate", QStringLiteral("0"),
-                { { "0", tr("最近邻 (快)") }, { "1", tr("平滑 (双线性)") },
-                  { "2", tr("Lanczos (锐利)") } }, 160);
-    addComboRow(sec, tr("翻页效果"), "imageproc/pageturn_fx", QStringLiteral("0"),
-                { { "0", tr("无") }, { "1", tr("淡入淡出") },
-                  { "2", tr("Alpha 滑动") }, { "3", tr("滑动") } }, 160);
+    auto *interp = addComboRow(sec, tr("插值算法（裁剪或减淡）"), "imageproc/interpolate",
+                               QStringLiteral("0"),
+                               { { "0", tr("最近邻 (快)") }, { "1", tr("平滑 (双线性)") },
+                                 { "2", tr("Lanczos (锐利)") } }, 160);
+    interp->setToolTip(tr("保存后生效：关闭设置页后按新档位缩放 / 重采样；当前模态页内不可见。"));
+    auto *pageFx = addComboRow(sec, tr("翻页效果"), "imageproc/pageturn_fx", QStringLiteral("0"),
+                               { { "0", tr("无") }, { "1", tr("淡入淡出") },
+                                 { "2", tr("Alpha 滑动") }, { "3", tr("滑动") } }, 160);
+    pageFx->setToolTip(tr("保存后生效：下一次翻页时播放所选过渡。"));
+    addHint(sec, tr("生效时机：以上四项都需要点「保存设置」——GIF / 32 位透明背景在"
+                    "下次打开对应图片时生效；插值算法在关闭设置页后的缩放 / 重采样时生效；"
+                    "翻页效果从下一次翻页开始。当前模态设置页内看不到画布，因此不做会话内预览。"
+                    "「自定义颜色」档暂无取色器，实际按中灰铺底（已按真实行为改名）。"));
 }
 
 // ===========================================================================
