@@ -270,7 +270,7 @@ private:
 // 导航图标：不依赖 Qt6::Svg（本机无 qsvg 插件），用 QPainter 画 16px 线性几何图形，
 // 颜色跟随按钮状态（选中=强调青 / 悬停=白 / 常态 NavText），与文字间距 9px。
 // ---------------------------------------------------------------------------
-enum class NavGlyph { Gear, Eye, Image, Doc, Keyboard, Mouse, Bookmark, Menu, More, Globe, Info };
+enum class NavGlyph { Gear, Eye, Image, Doc, Link, Keyboard, Mouse, Bookmark, Menu, More, Globe, Info };
 
 void paintNavGlyph(QPainter &p, NavGlyph glyph, const QRect &box, const QColor &color)
 {
@@ -335,6 +335,12 @@ void paintNavGlyph(QPainter &p, NavGlyph glyph, const QRect &box, const QColor &
         p.drawLine(QPointF(x + 9.0, y + 4.6), QPointF(x + 12.8, y + 4.6));
         p.drawLine(QPointF(x + 5.0, y + 8.0), QPointF(x + 10.6, y + 8.0));
         p.drawLine(QPointF(x + 5.0, y + 11.0), QPointF(x + 10.6, y + 11.0));
+        break;
+    }
+    case NavGlyph::Link: {
+        // 格式关联：两节相扣的链环（16px 下横排两段胶囊，重叠区自然形成扣接）
+        p.drawRoundedRect(QRectF(x + 0.4, y + 5.2, 8.6, 5.6), 2.8, 2.8);
+        p.drawRoundedRect(QRectF(x + 7.0, y + 5.2, 8.6, 5.6), 2.8, 2.8);
         break;
     }
     case NavGlyph::Keyboard: {
@@ -458,24 +464,84 @@ protected:
     {
         if (ev->type() == QEvent::Polish || ev->type() == QEvent::Show) {
             if (auto *le = static_cast<QKeySequenceEdit *>(parent())->findChild<QLineEdit *>()) {
-                le->setPlaceholderText(QCoreApplication::translate("SettingsDialog", "未设置"));
-                QPalette pal = le->palette();
-                pal.setBrush(QPalette::PlaceholderText, UiStyle::muted());
-                le->setPalette(pal);
+                apply(le);
+                // QKeySequenceEdit::clear()/resetState() 会把占位重置回英文
+                // "Press shortcut"；文本重新变空时（含 Esc 清空）补回中文占位。
+                if (!m_watchingEmpty) {
+                    m_watchingEmpty = true;
+                    // 延迟到事件循环：resetState() 里 setText 之后紧接着会写回英文占位，
+                    // 必须等它写完再覆盖，否则又被冲掉。编辑结束（焦点离开也走
+                    // finishEditing→resetState）同样要补一次。
+                    auto *edit = static_cast<QKeySequenceEdit *>(parent());
+                    auto reapply = [le]() {
+                        QTimer::singleShot(0, le, [le]() {
+                            if (le->text().isEmpty())
+                                apply(le);
+                        });
+                    };
+                    connect(le, &QLineEdit::textChanged, this, [reapply](const QString &t) {
+                        if (t.isEmpty())
+                            reapply();
+                    });
+                    connect(edit, &QKeySequenceEdit::editingFinished, this, reapply);
+                }
             }
         }
         return false;
     }
+private:
+    bool m_watchingEmpty = false;
+    static void apply(QLineEdit *le)
+    {
+        le->setPlaceholderText(QCoreApplication::translate("SettingsDialog", "未设置"));
+        QPalette pal = le->palette();
+        pal.setBrush(QPalette::PlaceholderText, UiStyle::muted());
+        le->setPalette(pal);
+    }
 };
 
-// 10 个页签的图标（顺序与 addPage 调用顺序一致）
+// Qt 6.11 的 QKeySequenceEdit 会把 Esc 本身记成键位（只有「全选文本后按 Backspace」
+// 才清空），而键盘页提示承诺「Esc 清空」。这里在编辑框上补一个过滤器：焦点在热键
+// 编辑框内按 Esc → 清空为「未设置」，不再把 Esc 存成快捷键；其余情况 Esc 仍照常
+// 交给对话框（关闭设置）。
+class KeySeqEscClearFilter : public QObject
+{
+public:
+    explicit KeySeqEscClearFilter(QKeySequenceEdit *edit) : QObject(edit), m_edit(edit)
+    {
+        edit->installEventFilter(this);
+        // 焦点实际落在内部 QLineEdit（QKeySequenceEdit 设了 focusProxy），键事件先到它。
+        if (auto *le = edit->findChild<QLineEdit *>())
+            le->installEventFilter(this);
+    }
+
+protected:
+    bool eventFilter(QObject *, QEvent *ev) override
+    {
+        if (ev->type() == QEvent::KeyPress) {
+            auto *ke = static_cast<QKeyEvent *>(ev);
+            if (ke->key() == Qt::Key_Escape && !ke->isAutoRepeat()) {
+                m_edit->clear();
+                return true;
+            }
+        }
+        return false;
+    }
+
+private:
+    QKeySequenceEdit *m_edit;
+};
+
+// 11 个页签的图标（顺序必须与 addPage 调用顺序一致；漏项会让其后全部错一格）
 NavGlyph navGlyphFor(int index)
 {
     static const NavGlyph glyphs[] = { NavGlyph::Gear,  NavGlyph::Eye,    NavGlyph::Image,
-                                       NavGlyph::Doc,   NavGlyph::Keyboard, NavGlyph::Mouse,
-                                       NavGlyph::Bookmark, NavGlyph::Menu, NavGlyph::More,
-                                       NavGlyph::Globe };
-    return (index >= 0 && index < 10) ? glyphs[index] : NavGlyph::Menu;
+                                       NavGlyph::Doc,   NavGlyph::Link,   NavGlyph::Keyboard,
+                                       NavGlyph::Mouse, NavGlyph::Bookmark, NavGlyph::Menu,
+                                       NavGlyph::More,  NavGlyph::Globe };
+    return (index >= 0 && index < int(sizeof(glyphs) / sizeof(glyphs[0])))
+               ? glyphs[index]
+               : NavGlyph::Menu;
 }
 
 // ---------------------------------------------------------------------------
@@ -587,14 +653,20 @@ QLabel#keyAction { color: @Body@; font-size: 12px; }
 
 QLabel#valueText { color: @Body@; font-size: 11px; }
 
-/* 键盘页热键编辑器（批次 D1）：QKeySequenceEdit 自绘边框，与 QLineEdit 同一
-   底座/描边/焦点色，避免「能用但长得不像这套 UI」的原生外观。 */
-QKeySequenceEdit { background: @Field@; color: @FieldText@; border: 1px solid @Border@;
-    border-radius: 5px; font-size: 11px; padding: 0 6px; min-height: 24px; }
-QKeySequenceEdit:hover { border-color: @BorderHover@; }
-QKeySequenceEdit:focus { border-color: @Accent@; }
-QKeySequenceEdit:disabled { color: @DisabledTextSoft@; border-color: @DisabledBorder@;
-    background: @DisabledBg@; }
+/* 键盘页热键编辑器（批次 D1 / 2026-11-06 下沿修复）：
+   QKeySequenceEdit 是纯 QWidget 容器，自身不绘制 QSS 背景与边框——实际可见的
+   底座/描边来自内部 QLineEdit。内部编辑框继承全局 QLineEdit 的 min-height:26px，
+   在 26px 高的容器里被裁掉底部 1px 描边（用户图里从 Ctrl+O 到 Del 下边框全消失）。
+   改法：容器透明无边框，底座/描边/悬停/焦点全部落到内部 QLineEdit，并解除
+   min-height，让四边框完整落在容器内。焦点态由内部 QLineEdit:focus 提供。 */
+QKeySequenceEdit { background: transparent; border: 0; padding: 0; }
+QKeySequenceEdit QLineEdit { background: @Field@; color: @FieldText@;
+    border: 1px solid @Border@; border-radius: 5px; font-size: 11px;
+    padding: 0 6px; min-height: 0; }
+QKeySequenceEdit QLineEdit:hover { border-color: @BorderHover@; }
+QKeySequenceEdit QLineEdit:focus { border-color: @Accent@; }
+QKeySequenceEdit QLineEdit:disabled { color: @DisabledTextSoft@;
+    border-color: @DisabledBorder@; background: @DisabledBg@; }
 
 /* 键盘页冲突行（保存被拒时整行高亮，动态属性 conflict） */
 QWidget[conflict="true"] { background: @DangerBg@; border-radius: 4px; }
@@ -1589,7 +1661,8 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     // 14 行全部可配置（config/keyboard/<action>_{enabled,_key,_action}），
     // MainWindow::applyShortcutConfig 在保存后立即给 QAction 重装键位。
     auto *hint = new QLabel(tr("双击「热键」栏录入新键位（Esc 清空），保存后立即生效；"
-                               "取消勾选可停用该动作。"
+                               "取消「启用」可停用该动作。"
+                               "已启用但热键显示「未设置」表示该动作暂无快捷键。"
                                "两个启用的动作占用同一键位时保存会被拒绝。"), page);
     hint->setObjectName(QStringLiteral("pageHint"));
     hint->setWordWrap(true);
@@ -1616,7 +1689,7 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
             lab->setFixedWidth(width);
         return lab;
     };
-    hl->addWidget(makeHeadCell(tr("勾选"), 42));
+    hl->addWidget(makeHeadCell(tr("启用"), 42));
     hl->addWidget(makeHeadCell(tr("热键"), 122));
     hl->addWidget(makeHeadCell(tr("操作"), 0), 1);
     tl->addWidget(head);
@@ -1690,6 +1763,7 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
         // 空热键：Qt 内置占位是英文 "Press shortcut"，且 windeployqt 没带 Qt 翻译，
         // 直接显示裸英文。Polish/Show 时把内部 QLineEdit 占位换成中文「未设置」（Muted 色）。
         new KeySeqPlaceholderFixer(edit);
+        new KeySeqEscClearFilter(edit);
         el->addWidget(edit);
         rl->addWidget(editHost);
 
@@ -2339,12 +2413,12 @@ QString SettingsDialog::keyboardConflicts()
         return s.toString(QKeySequence::NativeText);
     };
 
-    // 1) 两个自定义行键位相同（同目标动作内部重复由 MainWindow 聚合去重，不算冲突）
+    // 1) 两个已启用且已改绑的行键位相同（同目标动作内部重复由 MainWindow 聚合去重，不算冲突）
     for (int i = 0; i < st.size(); ++i) {
-        if (st[i].factory || st[i].key.isEmpty())
+        if (!st[i].enabled || st[i].factory || st[i].key.isEmpty())
             continue;
         for (int j = i + 1; j < st.size(); ++j) {
-            if (st[j].factory || st[j].key.isEmpty())
+            if (!st[j].enabled || st[j].factory || st[j].key.isEmpty())
                 continue;
             if (st[i].target == st[j].target)
                 continue;
@@ -2355,9 +2429,9 @@ QString SettingsDialog::keyboardConflicts()
                                  label(st[j].target)));
         }
     }
-    // 2) 自定义行 vs 出厂/固定键位（目标动作自己的出厂表不参与：改绑后原表即让位）
+    // 2) 已启用的改绑行 vs 出厂/固定键位（停用行不占键；目标动作自己的出厂表不参与）
     for (int i = 0; i < st.size(); ++i) {
-        if (st[i].factory || st[i].key.isEmpty())
+        if (!st[i].enabled || st[i].factory || st[i].key.isEmpty())
             continue;
         for (int k = 0; k < occupied.size(); ++k) {
             if (!occupiedIds[k].isEmpty() && occupiedIds[k] == st[i].target)
@@ -2378,8 +2452,8 @@ QString SettingsDialog::keyboardConflicts()
 // —— 验收探针（--smoke keyconflict）——
 void SettingsDialog::probeKeyConflict()
 {
-    // 切到键盘页（导航第 5 项），让冲突行高亮进截图
-    selectPage(4);
+    // 切到键盘页（导航第 5 项，0=一般；格式关联插在第 4 项），让冲突行高亮进截图
+    selectPage(5);
     // 把「删除」行热键改成 Ctrl+P（固定动作「打印」的主键），走真实保存链路：
     // 应弹「Ctrl+P 已被『打印』占用」、冲突行高亮、config 不落盘。
     for (const KeyRow &r : m_keyRows) {
