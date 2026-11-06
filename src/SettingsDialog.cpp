@@ -1848,8 +1848,12 @@ void SettingsDialog::buildMousePage(QWidget *page)
     // 两项均已接线：双击最大化/还原走 ImageCanvas::doubleClickRequested →
     // MainWindow 切换窗口；两侧单击翻页走 edgeTurnRequested，且老配置默认值
     // 做过一次性迁移（main.cpp 的 etc/migrated_side_click）。
-    addCheck(sec, tr("双击最大化 / 还原"), "mouse/dblclick_maximize", false, true);
-    addCheck(sec, tr("单击屏幕两侧时翻页"), "mouse/click_side_pageturn", false, false);
+    // 保存生效型：两项都只在画布鼠标事件里读取，模态设置页内看不到画布，
+    // 因此不接即时下发，只标注真实生效时机。
+    addPillCheck(sec, tr("双击最大化 / 还原"), "mouse/dblclick_maximize", false, true,
+                 tr("保存后生效：下次双击画布时按新值最大化 / 还原窗口。"));
+    addPillCheck(sec, tr("单击屏幕两侧时翻页"), "mouse/click_side_pageturn", false, false,
+                 tr("保存后生效：下次单击画布两侧箭头区域时按新值翻页。"));
 
     sec = beginSection(page, tr("自定义操作"));
 
@@ -1920,7 +1924,10 @@ void SettingsDialog::buildBookmarkPage(QWidget *page)
     QWidget *sec = beginSection(page, tr("书签设置"));
     // 自动书签与最大书签数已接通；「多窗口共享」在单实例语义下无实现，
     // 2026-11-04 按视觉基线 P0 删除（原为勾着 + 禁用 + 零写回）。
-    addCheck(sec, tr("自动保存当前图片路径为书签"), "bookmark/auto_bookmark", false, false);
+    // 保存生效型：只在 MainWindow::openFile 打开图片时追加书签，不触发画布重绘，
+    // 模态设置页内无可见效果。
+    addPillCheck(sec, tr("自动保存当前图片路径为书签"), "bookmark/auto_bookmark", false, false,
+                 tr("保存后生效：之后每次打开图片时按新值自动写入书签；翻页不追加。"));
     // 「自动记忆当前图片在压缩包中的路径」与「删除已记忆位置」已删：
     // 压缩包浏览未实现，压缩包路径记忆无从产生，两项勾/点了也不会有任何事发生。
 
