@@ -115,6 +115,10 @@ private:
     };
     ToggleRow addToggleRow(QWidget *section, const QString &label,
                            const QString &desc, const QString &accessibleName);
+    // 胶囊二态项 + 绑定表：标题 + 生效时机说明 + 右侧胶囊。保存路径照常走
+    // m_chkBinds 写同名键（PillToggle 是 QCheckBox 子类），不走即时下发。
+    PillToggle *addPillCheck(QWidget *section, const QString &label, const char *key,
+                             bool inverted, bool def, const QString &timing);
     QPushButton *addButton(QWidget *parent, const QString &text);
     QPushButton *addMiniButton(QWidget *parent, const QString &text);
 

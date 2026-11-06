@@ -1095,6 +1095,17 @@ SettingsDialog::ToggleRow SettingsDialog::addToggleRow(QWidget *section, const Q
     return out;
 }
 
+PillToggle *SettingsDialog::addPillCheck(QWidget *section, const QString &label,
+                                         const char *key, bool inverted, bool def,
+                                         const QString &timing)
+{
+    ToggleRow row = addToggleRow(section, label, timing, label);
+    // 与 addCheck 同一张绑定表：loadFromConfig 回填、onAccepted 写盘都复用，
+    // 保证胶囊只是换了外壳，配置键与保存路径不变。
+    m_chkBinds.append({ row.toggle, key, inverted, def });
+    return row.toggle;
+}
+
 QComboBox *SettingsDialog::addComboRow(QWidget *section, const QString &label, const char *key,
                                        const QString &def,
                                        const QList<QPair<QString, QString>> &options,
@@ -1551,7 +1562,9 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     // MainWindow 各处），留个勾选框只会让人以为能关。实现处见
     // FrameNavigator.cpp 的同名注释。
     // 强锐化（C13）：lanczos 缩图路径叠加固定强度 unsharp mask，见 ImageCanvas。
-    addCheck(sec, tr("使用强锐化滤镜"), "imageproc/strong_sharpen", false, false);
+    // 保存生效型：只在 Lanczos 且缩放 <100% 时参与重采样，开关不触发重绘。
+    addPillCheck(sec, tr("使用强锐化滤镜"), "imageproc/strong_sharpen", false, false,
+                 tr("保存后生效：下次在 Lanczos 插值下缩小显示（缩放小于 100%）时按新值锐化。"));
     addCheck(sec, tr("缓存下一张图片"), "imageproc/cache_image", false, true);
 
     QHBoxLayout *cacheRow = addRow(sec, tr("缓存大小"));
@@ -1569,15 +1582,19 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     // 缓存上限已接配置：保存时 applyRuntimeSettings 调 ImageCache::setFullCacheLimit
     // 即时生效（构造时也读同一键设初值），无需重启。
 
-    addCheck(sec, tr("图片大于窗口时显示图片顶部"),
-             "imageproc/align_top_when_large", false, true);
+    // 保存生效型：setAlignTopWhenLarge 在 applyRuntimeSettings 里下发，模态页内看不到画布。
+    addPillCheck(sec, tr("图片大于窗口时显示图片顶部"), "imageproc/align_top_when_large",
+                 false, true,
+                 tr("保存后生效：下次按「适配宽度」或「实际大小」打开、且图片高于窗口时显示顶部。"));
     // 快帧预览（C14）：ImageCache::startFullDecode 里的 DCT 缩放先出帧一级。
     addCheck(sec, tr("先显示低品质图片以加速渲染"), "imageproc/preview_mode", false, true);
 
     // 图片内嵌 ICC 已接通（C1）；监视器 ICC 判定为暂不可行（C2）：Win32 可用
     // GetICMProfile / WcsGetDefaultColorProfile 取到 profile，但 Qt6 的 raster
     // 后端没有显示器色彩管理，转换后的像素仍按 sRGB 上屏，等于错误映射。
-    addCheck(sec, tr("使用图片文件的 ICC 设置"), "imageproc/image_icc", false, true);
+    // 保存生效型：ICC 转换在解码/上屏路径读取，仅对带非 sRGB ICC 的图片有可见差异。
+    addPillCheck(sec, tr("使用图片文件的 ICC 设置"), "imageproc/image_icc", false, true,
+                 tr("保存后生效：下次打开带非 sRGB ICC 配置的图片时按新值转换上屏；普通 sRGB 图片无变化。"));
     auto *iccMonitor = addCheck(sec, tr("使用监视器的 ICC 设置"), "imageproc/monitor_icc", false, false);
     iccMonitor->setEnabled(false);
     iccMonitor->setToolTip(tr("Qt6 光栅后端不支持显示器色彩管理，暂不可用"));
