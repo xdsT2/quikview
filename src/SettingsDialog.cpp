@@ -1246,6 +1246,9 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
     updateRow->addStretch(1);
     addCheck(sec, tr("启动时检查更新"), "check_updates", false, false);
     addHint(sec, tr("自动检查每 24 小时最多一次；手动检查不受限制。"));
+    addHint(sec, tr("外部操作：「检查更新」会联网访问发布源；按钮会显示「检查中…」，"
+                    "失败时在设置页内提示「检查失败，请检查网络」。本轮未做外部验证"
+                    "（未实际触发联网检查）。"));
     connect(m_checkUpdateBtn, &QPushButton::clicked, this, [this]() {
         m_checkUpdateBtn->setEnabled(false);
         m_checkUpdateBtn->setText(tr("检查中…"));
@@ -1678,12 +1681,19 @@ void SettingsDialog::buildAssocPage(QWidget *page)
     btnRow->addWidget(btnAssoc);
     btnRow->addWidget(btnClassic);
     btnRow->addStretch(1);
-    connect(btnAssoc, &QPushButton::clicked, this, []() {
-        // 直接打开 Windows 设置 → 应用 → 默认应用
-        ShellExecuteW(nullptr, L"open", L"ms-settings:defaultapps", nullptr, nullptr,
-                      SW_SHOWNORMAL);
+    connect(btnAssoc, &QPushButton::clicked, this, [this]() {
+        // 直接打开 Windows 设置 → 应用 → 默认应用。只报告「有没有拉起来」；
+        // 系统侧是否真的改了关联，应用内无法确认，也不做外部副作用测试。
+        const HINSTANCE r = ShellExecuteW(nullptr, L"open", L"ms-settings:defaultapps",
+                                          nullptr, nullptr, SW_SHOWNORMAL);
+        if (reinterpret_cast<INT_PTR>(r) <= 32) {
+            QMessageBox::warning(this, tr("设为默认打开方式"),
+                                 tr("无法打开 Windows 默认应用设置（错误码 %1）。\n"
+                                    "请手动打开：设置 → 应用 → 默认应用。")
+                                     .arg(reinterpret_cast<INT_PTR>(r)));
+        }
     });
-    connect(btnClassic, &QPushButton::clicked, this, []() {
+    connect(btnClassic, &QPushButton::clicked, this, [this]() {
         // 经典方法：Windows 7+ 高级文件关联界面
         const HRESULT hrInit = CoInitialize(nullptr);
         IApplicationAssociationRegistrationUI *ui = nullptr;
@@ -1693,11 +1703,19 @@ void SettingsDialog::buildAssocPage(QWidget *page)
         if (SUCCEEDED(hr) && ui) {
             ui->LaunchAdvancedAssociationUI(L"QuikView");
             ui->Release();
+        } else {
+            QMessageBox::warning(this, tr("打开系统默认应用"),
+                                 tr("无法打开旧式文件关联面板（HRESULT 0x%1）。\n"
+                                    "可改用「设为默认打开方式…」进入 Windows 设置。")
+                                     .arg(QString::number(static_cast<unsigned long>(hr), 16)));
         }
         if (SUCCEEDED(hrInit)) {
             CoUninitialize();
         }
     });
+    addHint(sec, tr("外部操作：两个按钮都会离开 QuikView 进入 Windows 系统界面。"
+                    "应用内只呈现「启动是否成功」，系统侧结果需你自行确认；"
+                    "本项未做外部验证（未实际改动系统关联）。"));
 
     // 逐格式勾选组已删除（第 13 期）：
     // Windows 10/11 不允许程序静默改默认关联（UserChoice 带哈希，写完无效），
@@ -2137,10 +2155,21 @@ void SettingsDialog::buildEtcPage(QWidget *page)
             if (!d.isEmpty())
                 (*edit)->setText(d);
         });
-        connect(btnOpen, &QPushButton::clicked, this, [edit]() {
+        connect(btnOpen, &QPushButton::clicked, this, [this, edit]() {
             const QString d = (*edit)->text().trimmed();
-            if (!d.isEmpty())
-                QDesktopServices::openUrl(QUrl::fromLocalFile(d));
+            if (d.isEmpty()) {
+                QMessageBox::warning(this, tr("打开文件夹"), tr("请先填写文件夹路径。"));
+                return;
+            }
+            if (!QFileInfo::exists(d)) {
+                QMessageBox::warning(this, tr("打开文件夹"),
+                                     tr("文件夹不存在：\n%1").arg(d));
+                return;
+            }
+            if (!QDesktopServices::openUrl(QUrl::fromLocalFile(d))) {
+                QMessageBox::warning(this, tr("打开文件夹"),
+                                     tr("无法调用系统文件管理器打开：\n%1").arg(d));
+            }
         });
     };
     makeFolderRow(tr("图片文件夹 1"), &m_photoFolder1);
@@ -2202,22 +2231,34 @@ void SettingsDialog::buildLangPage(QWidget *page)
     m_language->setMaximumWidth(200);
     row->addWidget(m_language);
     row->addStretch(1);
+    addHint(sec, tr("重启后生效：界面语言在保存后不会立即切换，重启 QuikView 后应用。"));
 
-    auto *link1 = new LinkLabel(tr("下载更多语言…"), []() {
-        QDesktopServices::openUrl(
-            QUrl(QStringLiteral("https://github.com/xdsT2/quikview")));
+    auto *link1 = new LinkLabel(tr("下载更多语言…"), [this]() {
+        // 外部网页：只报告系统是否接受了打开请求；网络可达性不做验证。
+        if (!QDesktopServices::openUrl(
+                QUrl(QStringLiteral("https://github.com/xdsT2/quikview")))) {
+            QMessageBox::warning(this, tr("下载更多语言"),
+                                 tr("无法打开浏览器。请手动访问：\n"
+                                    "https://github.com/xdsT2/quikview"));
+        }
     }, sec);
-    auto *link2 = new LinkLabel(tr("打开语言文件夹…"), []() {
+    auto *link2 = new LinkLabel(tr("打开语言文件夹…"), [this]() {
         const QString dir = QCoreApplication::applicationDirPath()
                             + QStringLiteral("/translations");
         QDir().mkpath(dir);
-        QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
+        if (!QDesktopServices::openUrl(QUrl::fromLocalFile(dir))) {
+            QMessageBox::warning(this, tr("打开语言文件夹"),
+                                 tr("无法调用系统文件管理器打开：\n%1").arg(dir));
+        }
     }, sec);
     if (auto *v = qobject_cast<QVBoxLayout *>(sec->layout())) {
         v->addSpacing(4);
         v->addWidget(link1);
         v->addWidget(link2);
     }
+    addHint(sec, tr("外部操作：「下载更多语言…」会联网打开项目网页，「打开语言文件夹…」"
+                    "会调用系统文件管理器。应用内只呈现启动失败；两项未做外部验证"
+                    "（未实际访问网页、未改动语言文件）。"));
 
     // 「翻译」区原是硬编码的等宽文本清单，与上方语言下拉重复且像调试输出；
     // 2026-11-04 按视觉基线 H2 直接删除（已安装语言以下拉为准）。
