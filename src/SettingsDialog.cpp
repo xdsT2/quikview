@@ -73,6 +73,12 @@ constexpr int kNavW = 204;
 constexpr int kFooterH = 62;
 constexpr int kComboH = 30;
 constexpr int kInputH = 30;
+// 统一设置行（2026-11-07 排版统一）：行高 40、左右 11px 内边距，文案列与
+// 右侧控件列共用同一条左边线 / 右边线。
+constexpr int kRowMinH = 40;
+constexpr int kRowPadX = 11;
+constexpr int kRowPadY = 5;
+constexpr int kGroupTop = 16;   // 分组标题与上一组卡片之间
 
 // ---------------------------------------------------------------------------
 // QSettings 便捷读写（统一 config/ 前缀）
@@ -227,44 +233,6 @@ private:
     QScrollArea *m_outer = nullptr;
     int m_step = 33;
     bool m_applyQueued = false;
-};
-
-// ---------------------------------------------------------------------------
-// 蓝色链接文字：匿名命名空间内不能用 Q_OBJECT，点击回调走 std::function。
-// ---------------------------------------------------------------------------
-class LinkLabel : public QWidget
-{
-public:
-    LinkLabel(const QString &text, std::function<void()> onClick, QWidget *parent = nullptr)
-        : QWidget(parent), m_text(text), m_onClick(std::move(onClick))
-    {
-        setFont(UiStyle::font(12));
-        setCursor(Qt::PointingHandCursor);
-        setFixedHeight(22);
-        setMouseTracking(true);
-    }
-
-    void paintEvent(QPaintEvent *) override
-    {
-        QPainter p(this);
-        p.setFont(font());
-        p.setPen(UiStyle::linkText());   // 浅色下 Accent 对白 1.99:1，链接要用加深值
-        p.drawText(rect(), Qt::AlignVCenter | Qt::AlignLeft, m_text);
-        if (underMouse()) {
-            const int w = fontMetrics().horizontalAdvance(m_text);
-            p.drawLine(0, height() - 5, w, height() - 5);
-        }
-    }
-
-    void mouseReleaseEvent(QMouseEvent *e) override
-    {
-        if (e->button() == Qt::LeftButton && m_onClick)
-            m_onClick();
-    }
-
-private:
-    QString m_text;
-    std::function<void()> m_onClick;
 };
 
 // ---------------------------------------------------------------------------
@@ -625,6 +593,10 @@ QString withColorTokens(QString qss)
         { "@DisabledText@",    []{ return UiStyle::pick("#6f747a", "#a0a0a0"); } },
         { "@PureWhite@",       []{ return UiStyle::pick("#ffffff", "#101113"); } },
         { "@DangerBg@",        []{ return UiStyle::pick("rgba(196,43,28,0.20)", "rgba(196,43,28,0.12)"); } },
+        { "@SetGroupBg@",      []{ return UiStyle::setGroupBg(); } },
+        { "@SetGroupLine@",    []{ return UiStyle::setGroupLine(); } },
+        { "@RowHover@",        []{ return UiStyle::setRowHover(); } },
+        { "@RowTag@",          []{ return UiStyle::setRowTag(); } },
     };
     for (const auto &t : tokens)
         qss.replace(QLatin1String(t.key), QLatin1String(t.fn()));
@@ -641,6 +613,19 @@ QFrame#dlgFooter { border-bottom-left-radius: 10px; border-bottom-right-radius: 
 
 QFrame#formatGroup { background: @GroupBg@; border: 1px solid @Line@;
     border-radius: 7px; }
+/* 设置页分组卡片（2026-11-07 排版统一）：低对比组底 + 1px 描边，行与行之间
+   用同色 1px 分隔；整行悬停只提亮背景，不改控件尺寸。 */
+QFrame#setGroup { background: @SetGroupBg@; border: 1px solid @SetGroupLine@;
+    border-radius: 7px; }
+QWidget#settingRow { background: transparent; }
+QWidget#settingRow:hover { background: @RowHover@; }
+QWidget#rowControls { background: transparent; }
+QFrame#rowLine { background: @SetGroupLine@; border: 0; max-height: 1px; }
+QLabel#rowDesc { color: @HintText@; font-size: 11px; }
+QLabel#rowTag { color: @RowTag@; font-size: 11px; }
+QLabel#rowUnit { color: @HintText@; font-size: 11px; }
+QLabel#setNote { color: @HintText@; font-size: 11px; }
+QLabel#navEmpty { color: @HintText@; font-size: 11px; padding: 2px 2px 6px 2px; }
 QFrame#keyTable { border: 1px solid @Line@; border-radius: 7px; }
 QWidget#keyHead { background: @HeadBg@; }
 QLabel#keyHeadCell { color: @HeadText@; font-size: 11px; }
@@ -697,6 +682,12 @@ QComboBox QAbstractItemView::item { min-height: 24px; padding: 0 8px; }
 QComboBox QAbstractItemView::item:hover { background: @HeadBg@; }
 QComboBox QAbstractItemView::item:selected { background: @HeadBg@; color: @FieldText@; }
 QComboBox QAbstractItemView::item:disabled { color: @DisabledText@; }
+/* 数值框（2026-11-07）：与下拉框同一套深浅主题边界与焦点样式。浅色主题
+   此前只有全局 appQss（无 QSpinBox 规则）导致「只剩一条底线」，这里补齐。 */
+QSpinBox { background: @Field@; color: @FieldText@; border: 1px solid @Border@;
+    border-radius: 5px; padding: 0 6px; font-size: 12px; min-height: 28px; }
+QSpinBox:hover { border-color: @BorderHover@; }
+QSpinBox:focus { border-color: @Accent@; }
 QSpinBox:disabled { color: @DisabledText@; background: @DisabledBg@; border-color: @DisabledBorder@; }
 QLineEdit:disabled { color: @DisabledText@; background: @DisabledBg@; border-color: @DisabledBorder@; }
 QPushButton:disabled { color: @DisabledText@; border-color: @DisabledBorder@; background: @HeadBg@; }
@@ -758,10 +749,23 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     m_navLayout = new QVBoxLayout(nav);
     m_navLayout->setContentsMargins(10, 16, 10, 16);
     m_navLayout->setSpacing(2);
+    // 侧栏搜索（2026-11-07 排版统一）：按设置名匹配，命中页签保留并跳转；
+    // 清空恢复全部导航，无匹配给明确反馈。
+    m_search = new QLineEdit(nav);
+    m_search->setObjectName(QStringLiteral("navSearch"));
+    m_search->setPlaceholderText(tr("搜索设置…"));
+    m_search->setClearButtonEnabled(true);
+    m_search->setFixedHeight(kComboH);
+    m_search->setAccessibleName(tr("搜索设置"));
+    m_navLayout->addWidget(m_search);
+    m_navLayout->addSpacing(10);
     auto *caption = new QLabel(tr("偏好设置"), nav);
     caption->setObjectName(QStringLiteral("navCaption"));
     m_navLayout->addWidget(caption);
     m_navLayout->addSpacing(10);
+    m_navLayout->addWidget(m_searchEmpty = new QLabel(tr("没有匹配的设置"), nav));
+    m_searchEmpty->setObjectName(QStringLiteral("navEmpty"));
+    m_searchEmpty->setVisible(false);
     bl->addWidget(nav);
 
     auto *rail = new QFrame(body);
@@ -779,14 +783,24 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     m_pageDesc = new QLabel(content);
     m_pageDesc->setObjectName(QStringLiteral("pageDesc"));
     m_pageDesc->setWordWrap(true);
+    // 页标题 / 分组标题 / 行文案共享同一条左边线：卡片内行有 11px 内边距，
+    // 标题同样左缩进 11px。
+    m_pageTitle->setContentsMargins(11, 0, 0, 0);
+    m_pageDesc->setContentsMargins(11, 0, 0, 0);
     auto *headBox = new QWidget(content);
     auto *hb = new QVBoxLayout(headBox);
     hb->setContentsMargins(0, 0, 0, 0);
-    hb->setSpacing(6);
+    hb->setSpacing(5);
     hb->addWidget(m_pageTitle);
     hb->addWidget(m_pageDesc);
     cl->addWidget(headBox);
-    cl->addSpacing(16);
+    // 页头分隔线（原型 .qv-page-head 的 border-bottom），分隔标题区与分组卡片。
+    auto *headLine = new QFrame(content);
+    headLine->setObjectName(QStringLiteral("hLine"));
+    headLine->setFixedHeight(1);
+    cl->addSpacing(13);
+    cl->addWidget(headLine);
+    cl->addSpacing(15);
 
     m_stack = new QStackedWidget(content);
     cl->addWidget(m_stack, 1);
@@ -872,9 +886,16 @@ SettingsDialog::SettingsDialog(QWidget *parent)
 
     root->addWidget(footer);
 
+    // 同页下拉统一宽度（按最长选项）+ 搜索索引；再回填配置。
+    for (QWidget *p : m_pages)
+        levelComboWidths(p);
+    buildSearchIndex();
+    connect(m_search, &QLineEdit::textChanged, this,
+            [this](const QString &text) { filterNavigation(text); });
+
     loadFromConfig();
     selectPage(0);
-    // 即时项在加载完控件后再接信号：避免开窗时的 setChecked 触发一次“预览+落盘”。
+    // 即时项在加载完控件后再接信号：避免开窗时的 setChecked 触发一次预览。
     connectLiveChecks();
 }
 
@@ -935,72 +956,121 @@ QWidget *SettingsDialog::beginSection(QWidget *page, const QString &title)
     if (!pageLay)
         return page;
 
-    // 组间 1px 分隔（原型 .section 的 border-top）
-    if (pageLay->count() > 0) {
-        auto *line = new QFrame(page);
-        line->setObjectName(QStringLiteral("hLine"));
-        line->setFixedHeight(1);
-        pageLay->addWidget(line);
-    }
-
     auto *sec = new QWidget(page);
     auto *v = new QVBoxLayout(sec);
-    v->setContentsMargins(0, 13, 0, 13);
+    v->setContentsMargins(0, kGroupTop, 0, 0);
     v->setSpacing(0);
 
     if (!title.isEmpty()) {
         auto *t = new QLabel(title, sec);
         t->setObjectName(QStringLiteral("sectionTitle"));
+        // 与行文案共用左边线（卡片内行左内边距 11px）。
+        t->setContentsMargins(kRowPadX, 0, 0, 0);
         v->addWidget(t);
-        v->addSpacing(7);
+        v->addSpacing(6);
     }
+
+    auto *card = new QFrame(sec);
+    card->setObjectName(QStringLiteral("setGroup"));
+    auto *cardLay = new QVBoxLayout(card);
+    cardLay->setContentsMargins(0, 0, 0, 0);
+    cardLay->setSpacing(0);
+    v->addWidget(card);
 
     pageLay->addWidget(sec);
     return sec;
 }
 
-QWidget *SettingsDialog::addRowWidget(QWidget *section, const QString &label, int labelWidth)
+QWidget *SettingsDialog::groupCard(QWidget *section) const
 {
-    auto *row = new QWidget(section);
-    row->setMinimumHeight(34);
+    return section ? section->findChild<QFrame *>(QStringLiteral("setGroup")) : nullptr;
+}
+
+SettingsDialog::SettingRowParts SettingsDialog::addSettingRow(QWidget *section,
+                                                              const QString &label,
+                                                              const QString &desc)
+{
+    SettingRowParts out;
+    auto *card = groupCard(section);
+    if (!card)
+        return out;
+
+    // 行间 1px 分隔：组卡片里已有内容才插，避免出现首行顶线。
+    if (auto *cardLay = qobject_cast<QVBoxLayout *>(card->layout())) {
+        if (cardLay->count() > 0) {
+            auto *line = new QFrame(card);
+            line->setObjectName(QStringLiteral("rowLine"));
+            line->setFixedHeight(1);
+            cardLay->addWidget(line);
+        }
+    }
+
+    auto *row = new QWidget(card);
+    row->setObjectName(QStringLiteral("settingRow"));
+    // 整行悬停：WA_Hover 让行（含子控件的祖先链）收到 HoverEnter/Leave，
+    // QSS `#settingRow:hover` 只提亮行底，不改变任何控件尺寸。
+    row->setAttribute(Qt::WA_Hover, true);
+    row->setMinimumHeight(kRowMinH);
     auto *h = new QHBoxLayout(row);
-    h->setContentsMargins(0, 0, 0, 0);
+    h->setContentsMargins(kRowPadX, kRowPadY, kRowPadX, kRowPadY);
     h->setSpacing(12);
 
-    if (!label.isEmpty()) {
-        auto *lab = new QLabel(label, row);
-        lab->setObjectName(QStringLiteral("rowLabel"));
-        lab->setFixedWidth(labelWidth);
-        h->addWidget(lab);
+    auto *left = new QVBoxLayout;
+    left->setContentsMargins(0, 0, 0, 0);
+    left->setSpacing(2);
+    out.label = new QLabel(label, row);
+    out.label->setObjectName(QStringLiteral("rowLabel"));
+    out.label->setWordWrap(true);
+    left->addWidget(out.label);
+    if (!desc.isEmpty()) {
+        out.desc = new QLabel(desc, row);
+        out.desc->setObjectName(QStringLiteral("rowDesc"));
+        out.desc->setWordWrap(true);
+        left->addWidget(out.desc);
     }
+    h->addLayout(left, 1);
 
-    if (auto *v = qobject_cast<QVBoxLayout *>(section->layout())) {
-        v->addSpacing(5);
-        v->addWidget(row);
-    }
-    return row;
+    auto *ctlHost = new QWidget(row);
+    ctlHost->setObjectName(QStringLiteral("rowControls"));
+    auto *ctl = new QHBoxLayout(ctlHost);
+    ctl->setContentsMargins(0, 0, 0, 0);
+    ctl->setSpacing(8);
+    out.controls = ctl;
+    h->addWidget(ctlHost, 0, Qt::AlignVCenter);
+
+    if (auto *cardLay = qobject_cast<QVBoxLayout *>(card->layout()))
+        cardLay->addWidget(row);
+    out.row = row;
+    return out;
 }
 
-QHBoxLayout *SettingsDialog::addRow(QWidget *section, const QString &label, int labelWidth)
+QHBoxLayout *SettingsDialog::addRow(QWidget *section, const QString &label,
+                                    const QString &desc)
 {
-    return qobject_cast<QHBoxLayout *>(addRowWidget(section, label, labelWidth)->layout());
-}
-
-QCheckBox *SettingsDialog::addCheckRaw(QWidget *section, const QString &text)
-{
-    auto *cb = new QCheckBox(text, section);
-    cb->setCursor(Qt::PointingHandCursor);
-    cb->setMinimumHeight(23);
-    if (auto *v = qobject_cast<QVBoxLayout *>(section->layout()))
-        v->addWidget(cb);
-    return cb;
+    return addSettingRow(section, label, desc).controls;
 }
 
 QCheckBox *SettingsDialog::addCheck(QWidget *section, const QString &text, const char *key,
                                     bool inverted, bool def)
 {
-    auto *cb = addCheckRaw(section, text);
-    m_chkBinds.append({ cb, key, inverted, def });
+    return addSwitchRow(section, text, QString(), key, inverted, def);
+}
+
+PillToggle *SettingsDialog::addSwitchRow(QWidget *section, const QString &label,
+                                         const QString &desc, const char *key,
+                                         bool inverted, bool def)
+{
+    SettingRowParts parts = addSettingRow(section, label, desc);
+    if (!parts.row)
+        return nullptr;
+
+    auto *cb = new PillToggle(parts.row);
+    cb->setAccessibleName(label);
+    if (!desc.isEmpty())
+        cb->setToolTip(desc);
+    parts.controls->addWidget(cb, 0, Qt::AlignVCenter);
+    if (key)
+        m_chkBinds.append({ cb, key, inverted, def });
     return cb;
 }
 
@@ -1074,39 +1144,28 @@ SettingsDialog::ToggleRow SettingsDialog::addToggleRow(QWidget *section, const Q
                                                        const QString &accessibleName)
 {
     ToggleRow out;
-    auto *row = new QWidget(section);
-    auto *h = new QHBoxLayout(row);
-    h->setContentsMargins(0, 0, 0, 0);
-    h->setSpacing(16);
+    SettingRowParts parts = addSettingRow(section, label, desc);
+    if (!parts.row)
+        return out;
 
-    auto *left = new QVBoxLayout;
-    left->setContentsMargins(0, 0, 0, 0);
-    left->setSpacing(2);
-    out.label = makeToggleLabel(label, QStringLiteral("rowLabel"));
-    out.desc = makeToggleLabel(desc, QStringLiteral("hint"));
-    left->addWidget(out.label);
-    left->addWidget(out.desc);
-    h->addLayout(left, 1);
-
-    out.toggle = new PillToggle(row);
+    out.label = parts.label;
+    out.desc = parts.desc;
+    out.row = parts.row;
+    out.toggle = new PillToggle(parts.row);
     out.toggle->setAccessibleName(accessibleName);
     out.toggle->setToolTip(desc);
-    h->addWidget(out.toggle, 0, Qt::AlignVCenter);
+    parts.controls->addWidget(out.toggle, 0, Qt::AlignVCenter);
 
     // 启用行的标题、说明和行内空白都是开关命中区；焦点仍只在轨道上。
     out.label->setCursor(Qt::PointingHandCursor);
-    out.desc->setCursor(Qt::PointingHandCursor);
-    row->setCursor(Qt::PointingHandCursor);
-    auto *hit = new ToggleRowHitFilter(out.toggle, row, row);
+    if (out.desc)
+        out.desc->setCursor(Qt::PointingHandCursor);
+    parts.row->setCursor(Qt::PointingHandCursor);
+    auto *hit = new ToggleRowHitFilter(out.toggle, parts.row, parts.row);
     out.label->installEventFilter(hit);
-    out.desc->installEventFilter(hit);
-    row->installEventFilter(hit);
-
-    row->setMinimumHeight(44);
-    if (auto *v = qobject_cast<QVBoxLayout *>(section->layout())) {
-        v->addSpacing(6);
-        v->addWidget(row);
-    }
+    if (out.desc)
+        out.desc->installEventFilter(hit);
+    parts.row->installEventFilter(hit);
     return out;
 }
 
@@ -1117,40 +1176,81 @@ PillToggle *SettingsDialog::addPillCheck(QWidget *section, const QString &label,
     ToggleRow row = addToggleRow(section, label, timing, label);
     // 与 addCheck 同一张绑定表：loadFromConfig 回填、onAccepted 写盘都复用，
     // 保证胶囊只是换了外壳，配置键与保存路径不变。
-    m_chkBinds.append({ row.toggle, key, inverted, def });
+    if (row.toggle)
+        m_chkBinds.append({ row.toggle, key, inverted, def });
     return row.toggle;
 }
 
-QComboBox *SettingsDialog::addComboRow(QWidget *section, const QString &label, const char *key,
+QComboBox *SettingsDialog::addComboRow(QWidget *section, const QString &label,
+                                       const QString &desc, const char *key,
                                        const QString &def,
                                        const QList<QPair<QString, QString>> &options,
-                                       int comboWidth)
+                                       int minWidth)
 {
-    QHBoxLayout *row = addRow(section, label);
+    SettingRowParts parts = addSettingRow(section, label, desc);
+    if (!parts.row)
+        return nullptr;
 
-    auto *combo = new QComboBox;
+    auto *combo = new QComboBox(parts.row);
     for (const auto &opt : options)
         combo->addItem(opt.second, opt.first);
     combo->setCursor(Qt::PointingHandCursor);
     combo->setFixedHeight(kComboH);
-    combo->setMinimumWidth(comboWidth);
-    combo->setMaximumWidth(comboWidth);
-    row->addWidget(combo);
-    row->addStretch(1);
+    if (!desc.isEmpty())
+        combo->setToolTip(desc);
 
-    m_comboBinds.append({ combo, key, def });
+    // 宽度按最长选项计算（含箭头与左右内边距），同页再由 levelComboWidths
+    // 统一到最大需求；上下限避免超长选项把控件列撑爆。
+    int req = minWidth;
+    if (req <= 0) {
+        const QFontMetrics fm(combo->font());
+        for (const auto &opt : options)
+            req = qMax(req, fm.horizontalAdvance(opt.second));
+        req += 44;
+        req = qBound(160, req, 260);
+    }
+    combo->setProperty("reqW", req);
+    combo->setFixedWidth(req);
+    combo->setMinimumWidth(req);
+    combo->setMaximumWidth(req);
+    parts.controls->addWidget(combo, 0, Qt::AlignVCenter);
+
+    if (key)
+        m_comboBinds.append({ combo, key, def });
     return combo;
+}
+
+void SettingsDialog::levelComboWidths(QWidget *page)
+{
+    if (!page)
+        return;
+    int widest = 0;
+    for (QComboBox *combo : page->findChildren<QComboBox *>()) {
+        // 键盘页没有下拉；语言页单行自然保持自身需求。
+        widest = qMax(widest, combo->property("reqW").toInt());
+    }
+    if (widest <= 0)
+        return;
+    for (QComboBox *combo : page->findChildren<QComboBox *>()) {
+        if (combo->property("reqW").toInt() <= 0)
+            continue;   // 专项控件（书签上限等）保留既有宽度
+        combo->setFixedWidth(widest);
+        combo->setMinimumWidth(widest);
+        combo->setMaximumWidth(widest);
+    }
 }
 
 QLabel *SettingsDialog::addHint(QWidget *section, const QString &text)
 {
-    auto *lab = new QLabel(text, section);
-    lab->setObjectName(QStringLiteral("hint"));
+    auto *card = groupCard(section);
+    if (!card)
+        return nullptr;
+    auto *lab = new QLabel(text, card);
+    lab->setObjectName(QStringLiteral("setNote"));
     lab->setWordWrap(true);
-    if (auto *v = qobject_cast<QVBoxLayout *>(section->layout())) {
-        v->addSpacing(4);
-        v->addWidget(lab);
-    }
+    lab->setContentsMargins(kRowPadX, 8, kRowPadX, 9);
+    if (auto *cardLay = qobject_cast<QVBoxLayout *>(card->layout()))
+        cardLay->addWidget(lab);
     return lab;
 }
 
@@ -1203,12 +1303,13 @@ QCheckBox *SettingsDialog::addCheckUnavailable(QWidget *section, const QString &
 }
 
 QComboBox *SettingsDialog::addComboRowUnavailable(QWidget *section, const QString &label,
-                                                  const char *key, const QString &def,
+                                                  const QString &desc, const char *key,
+                                                  const QString &def,
                                                   const QList<QPair<QString, QString>> &options,
-                                                  int comboWidth)
+                                                  int minWidth)
 {
-    QComboBox *combo = addComboRow(section, label, key, def, options, comboWidth);
-    markUnavailable(combo->parentWidget());   // 整行（行标签 + 下拉）一起灰
+    QComboBox *combo = addComboRow(section, label, desc, key, def, options, minWidth);
+    markUnavailable(combo->parentWidget()->parentWidget());   // 整行（行标签 + 下拉）一起灰
     return combo;
 }
 
@@ -1218,37 +1319,37 @@ QComboBox *SettingsDialog::addComboRowUnavailable(QWidget *section, const QStrin
 
 void SettingsDialog::buildGeneralPage(QWidget *page)
 {
-    QWidget *sec = beginSection(page, tr("一般设定"));
-    // 「捕捉窗口」原为灰显假开关（勾着 + 禁用 + 零消费点），2026-11-04 按视觉基线
-    // P0 删除：Config::captureWindow() 一并下线，本段已无灰显项。
-    addCheck(sec, tr("不保存浏览过的文件夹路径"), "remember_browsed_folders", true, true);
-    addCheck(sec, tr("不允许多个实例"), "allow_multiple_instances", true, false);
-    addCheck(sec, tr("删除文件时确认"), "delete_confirm", false, true);
-    addCheck(sec, tr("在边角显示通知信息，而非中心"), "notify_corner", false, true);
-    auto *alwaysOnTop = addCheck(sec, tr("总在最前 (Ctrl+A)"), "always_on_top", false, false);
+    QWidget *sec = beginSection(page, tr("窗口与操作"));
+    // 说明贴在行下，生效时机用短句；统一规则只在页脚说一次。
+    addSwitchRow(sec, tr("不保存浏览过的文件夹路径"),
+                 tr("勾选＝不记录最近打开的文件夹；下次打开文件时生效"),
+                 "remember_browsed_folders", true, true);
+    addSwitchRow(sec, tr("不允许多个实例"), tr("重启 QuikView 后生效"),
+                 "allow_multiple_instances", true, false);
+    addSwitchRow(sec, tr("删除文件时确认"), tr("下次删除文件时生效"),
+                 "delete_confirm", false, true);
+    addSwitchRow(sec, tr("在边角显示通知信息，而非中心"), tr("下一次通知时生效"),
+                 "notify_corner", false, true);
+    auto *alwaysOnTop = addSwitchRow(sec, tr("总在最前 (Ctrl+A)"),
+                                     tr("切换后立即生效"),
+                                     "always_on_top", false, false);
     // SET-03 小批 A：置顶是二态且运行态可逆（setWindowFlag 有值变化守卫）。
-    m_liveChecks.append({ alwaysOnTop, "always_on_top", false, false, false });
-    addCheck(sec, tr("按 ESC 退出"), "esc_exit", false, true);
-    // SET-04 批次 C：本页二态项的生效时机逐项写死。反选项必须明确哪一侧为开。
-    addHint(sec, tr("生效时机：总在最前＝即时；不保存浏览过的文件夹路径"
-                    "（勾选＝不记录最近打开，取消勾选＝记录）／删除文件时确认／"
-                    "边角通知／按 ESC 退出＝保存设置后、下次对应行为时；"
-                    "不允许多个实例／启动时检查更新＝保存设置后、重启生效。"));
-    // 「检查更新 / 检查小版本更新」旧开关见下方「检查更新」组：
-    // 现在有真实的联网实现（UpdateChecker），不再是零消费假开关。
+    m_liveChecks.append({ alwaysOnTop, "always_on_top", false, false });
+    addSwitchRow(sec, tr("按 ESC 退出"), tr("下次按 Esc 时生效"),
+                 "esc_exit", false, true);
 
     // —— 检查更新 ——
     // 手动检查不受频控；自动检查默认关（不擅自联网），勾上后启动 5s 静默查一次。
     sec = beginSection(page, tr("检查更新"));
-    QHBoxLayout *updateRow = addRow(sec, tr("手动检查"));
+    QHBoxLayout *updateRow = addRow(sec, tr("手动检查"),
+                                    tr("立即连接发布源检查更新"));
     m_checkUpdateBtn = addButton(updateRow->parentWidget(), tr("检查更新"));
-    updateRow->addWidget(m_checkUpdateBtn);
-    updateRow->addStretch(1);
-    addCheck(sec, tr("启动时检查更新"), "check_updates", false, false);
-    addHint(sec, tr("自动检查每 24 小时最多一次；手动检查不受限制。"));
-    addHint(sec, tr("外部操作：「检查更新」会联网访问发布源；按钮会显示「检查中…」，"
-                    "失败时在设置页内提示「检查失败，请检查网络」。本轮未做外部验证"
-                    "（未实际触发联网检查）。"));
+    updateRow->addWidget(m_checkUpdateBtn, 0, Qt::AlignVCenter);
+    addSwitchRow(sec, tr("启动时检查更新"), tr("重启后生效；每 24 小时最多一次"),
+                 "check_updates", false, false);
+    addHint(sec, tr("手动检查不受频率限制；检查更新会联网访问发布源，"
+                    "失败时在页内提示「检查失败，请检查网络」。"
+                    "本轮未做外部验证（未实际联网）。"));
     connect(m_checkUpdateBtn, &QPushButton::clicked, this, [this]() {
         m_checkUpdateBtn->setEnabled(false);
         m_checkUpdateBtn->setText(tr("检查中…"));
@@ -1267,8 +1368,9 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
 
     sec = beginSection(page, tr("到达首尾图片时"));
     const auto opts = lastFileOptions();
-    auto *edge = addComboRow(sec, tr("到达首尾图片时执行"), "edge_action",
-                             QStringLiteral("stop"), opts, 160);
+    auto *edge = addComboRow(sec, tr("到达首尾图片时执行"),
+                             tr("下次到达首尾图片时按所选行为处理"),
+                             "edge_action", QStringLiteral("stop"), opts, 160);
     // 档位诚实化：DirectoryLoader 只实现 first / stop；ask 既没有询问对话框，
     // 在 next/prev 与 advance 两条路径上的回绕行为还不一致，按缺口灰显。
     if (auto *model = qobject_cast<QStandardItemModel *>(edge->model())) {
@@ -1281,10 +1383,8 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
             }
         }
     }
-    edge->setToolTip(tr("保存后生效：下次到达首尾图片时按所选行为处理。"));
     addHint(sec, tr("「转到首个文件」在末尾继续时回绕到首个；「停止」停在当前图片。"
                     "「询问」档当前无询问对话框实现，已灰显，不按生效计。"));
-    // 「到达压缩包内首尾图片时执行」已删：压缩包浏览未实现，该场景不存在。
 }
 
 // ===========================================================================
@@ -1295,38 +1395,38 @@ void SettingsDialog::buildViewPage(QWidget *page)
 {
     // 已接通：保存缩放状态、侧边箭头、动画帧信息、悬浮提示（B 批）。
     // 其余仍灰显的键在仓储侧无消费点，保持不可用态。
-    QWidget *sec = beginSection(page, tr("浏览设置"));
-    // 「显示主窗口」原为灰显假开关：语义待确认（启动时显示？托盘模式？），
-    // 无法给出可验收的行为，按交办单要求删除该项，理由写进交接文档。
-    addCheck(sec, tr("顶端菜单隐藏时显示文件名 (Shift+TAB)"),
-             "view/overlay_filename", false, false);
-    // SET-04 浏览页批次：模态设置页内 Shift+TAB 会被拦截，只能在关闭设置页后观察，
-    // 因此按保存生效型迁移，控件旁标注真实生效时机（不假称会话内即时预览）。
-    addHint(sec, tr("保存设置后生效：下一次隐藏顶端菜单并按 Shift+TAB 时读取。"));
-    addCheck(sec, tr("保存缩放状态"), "view/save_zoom_state", false, false);
-    // 该项只在缩放变化时记录、下次开图 / 重启时恢复，当前画面不会变化。
-    addHint(sec, tr("保存设置后生效：下次打开图片或重启时按记录恢复缩放；当前画面不变。"));
-    // 「不显示菜单栏 / 控制栏」两项同样零消费，2026-11-04 按视觉基线 P0 删除；
-    // 本页已无灰显项，unavailableTip 提示一并去掉。
+    QWidget *sec = beginSection(page, tr("导航"));
     // 侧边箭头是真开关：ImageCanvas::setSideArrowsEnabled()。
-    auto *sideArrows = addCheck(sec, tr("不显示侧边箭头"), "view/show_side_arrow", true, true);
-    auto *animInfo = addCheck(sec, tr("不显示动画信息控制"), "view/show_anim_control", true, true);
+    auto *sideArrows = addSwitchRow(sec, tr("显示侧边箭头"),
+                                    tr("切换后立即生效"),
+                                    "view/show_side_arrow", false, true);
+    addSwitchRow(sec, tr("记住缩放状态"),
+                 tr("下次打开图片或重启时恢复；当前画面不变"),
+                 "view/save_zoom_state", false, false);
+
+    sec = beginSection(page, tr("画面信息"));
+    addSwitchRow(sec, tr("显示文件名浮层"),
+                 tr("隐藏顶端菜单时，按 Shift+Tab 显隐文件名浮层"),
+                 "view/overlay_filename", false, false);
     // SET-04：帧号行由 updateInfoOverlay() 直接重排，模态设置页内也能看到信息行变化。
-    addHint(sec, tr("即时预览：切换后底部信息行的「第 n/N 帧」立刻显示 / 隐藏"
-                    "（需已打开 GIF / MNG）；点「保存设置」后保留，"
-                    "取消 / Esc / 标题栏关闭会恢复进入设置前的值。"));
-    auto *zoomInfo = addCheck(sec, tr("不显示缩放信息控制"), "view/show_zoom_control", true, true);
-    addCheck(sec, tr("不显示鼠标悬浮工具提示"), "view/show_tooltip", true, true);
-    // 模态设置页吸收真实悬停，工具提示只能在关闭设置页后观察。
-    addHint(sec, tr("保存设置后生效：下一次鼠标悬停时读取。"));
-    auto *smallFont = addCheck(sec, tr("用小字体显示 EXIF / 文件信息"),
-                               "view/exif_small_font", false, false);
+    auto *animInfo = addSwitchRow(sec, tr("显示动画帧号"),
+                                  tr("GIF / MNG 底部信息行显示「第 n/N 帧」"),
+                                  "view/show_anim_control", false, true);
+    auto *zoomInfo = addSwitchRow(sec, tr("显示缩放浮标"),
+                                  tr("缩放时在窗口内显示当前比例"),
+                                  "view/show_zoom_control", false, true);
+    addSwitchRow(sec, tr("显示鼠标悬浮提示"),
+                 tr("鼠标停在图片边缘或栏位按钮上时显示说明"),
+                 "view/show_tooltip", false, true);
+    auto *smallFont = addSwitchRow(sec, tr("用小字体显示 EXIF / 文件信息"),
+                                   tr("信息面板字号更小，可容纳更多字段"),
+                                   "view/exif_small_font", false, false);
     // SET-02 样板 + SET-03 小批 A + SET-04 浏览页批次（同一页面，均为二态运行态开关）：
-    // addCheck 已把它们加入 m_chkBinds，保存路径照常写同名键。
-    m_liveChecks.append({ smallFont, "view/exif_small_font", false, false, false });
-    m_liveChecks.append({ sideArrows, "view/show_side_arrow", true, true, false });
-    m_liveChecks.append({ zoomInfo, "view/show_zoom_control", true, true, false });
-    m_liveChecks.append({ animInfo, "view/show_anim_control", true, true, false });
+    // addSwitchRow 已把它们加入 m_chkBinds，保存路径照常写同名键。
+    m_liveChecks.append({ smallFont, "view/exif_small_font", false, false });
+    m_liveChecks.append({ sideArrows, "view/show_side_arrow", false, false });
+    m_liveChecks.append({ zoomInfo, "view/show_zoom_control", false, false });
+    m_liveChecks.append({ animInfo, "view/show_anim_control", false, false });
     addHint(sec, tr("即时预览：切换后信息面板字号 / 侧边箭头 / 缩放浮标立刻变化；"
                     "点「保存设置」后保留，取消 / Esc / 标题栏关闭会恢复进入设置前的值。"));
 
@@ -1349,7 +1449,7 @@ void SettingsDialog::buildAppearancePage(QWidget *page)
     {
         ToggleRow r = addToggleRow(
             sec, tr("跟随系统"),
-            tr("深浅色随 Windows 设置自动切换；开启后不能手动切换浅色模式。"),
+            tr("浅色与深色随 Windows 设置自动切换"),
             tr("跟随系统"));
         m_followSystem = r.toggle;
         m_followLabel = r.label;
@@ -1358,7 +1458,7 @@ void SettingsDialog::buildAppearancePage(QWidget *page)
     {
         ToggleRow r = addToggleRow(
             sec, tr("浅色模式"),
-            tr("关闭「跟随系统」后生效：开为浅色，关为深色。"),
+            tr("关闭「跟随系统」后手动选择；开启为浅色，关闭为深色"),
             tr("浅色模式"));
         m_lightToggle = r.toggle;
         m_lightLabel = r.label;
@@ -1409,20 +1509,24 @@ void SettingsDialog::buildAppearancePage(QWidget *page)
     // 磨砂只做右键菜单与信息浮层（第 18 期④），独立键 ui/blur_material，
     // 默认关、不参与「恢复默认」清空（在 config 组外）。Win10 上 DWM 不支持
     // SystemBackdrop，勾了也只会是半透明纯色——直接灰掉，别给人坏的期待。
-    // 控件形态与主题区统一为胶囊拨动开关；功能与键值不动，保存后生效。
+    // 控件形态与主题区统一为胶囊拨动开关；功能与键值不动，点「保存设置」后生效。
     sec = beginSection(page, tr("材质"));
-    {
-        ToggleRow r = addToggleRow(
-            sec, tr("磨砂材质（右键菜单与信息浮层）"),
-            tr("仅影响右键菜单与信息浮层；Windows 11 效果最佳，Windows 10 降级为半透明。"),
-            tr("磨砂材质"));
-        m_blurMaterial = r.toggle;
-    }
+    ToggleRow blurRow = addToggleRow(
+        sec, tr("磨砂材质（右键菜单与信息浮层）"),
+        tr("影响右键菜单与信息浮层；Windows 11 效果最佳"),
+        tr("磨砂材质"));
+    m_blurMaterial = blurRow.toggle;
     m_blurMaterial->setChecked(bGet("ui/blur_material", false));
 #if defined(Q_OS_WIN)
-    if (QOperatingSystemVersion::current() < QOperatingSystemVersion::Windows11)
+    if (QOperatingSystemVersion::current() < QOperatingSystemVersion::Windows11) {
         m_blurMaterial->setEnabled(false);   // 不写回、不落盘，保留用户已有取值
+        if (blurRow.desc)
+            blurRow.desc->setText(tr("当前系统不支持系统级磨砂，已停用"));
+        blurRow.row->setToolTip(tr("当前系统不支持系统级磨砂，已停用"));
+    }
 #endif
+    addHint(sec, tr("磨砂材质仅影响右键菜单与信息浮层；Windows 10 上降级为半透明，"
+                    "点「保存设置」后生效。"));
 }
 
 void SettingsDialog::saveAppearance()
@@ -1590,79 +1694,77 @@ void SettingsDialog::rollbackThemePreview()
 
 void SettingsDialog::buildImageProcPage(QWidget *page)
 {
-    QWidget *sec = beginSection(page, tr("图像处理"));
     // 「根据 EXIF 信息自动旋转图片」勾选框已移除：功能恒开且无开关消费方——
-    // 解码链路无条件 setAutoTransform(true)（FrameNavigator / ImageCache /
-    // MainWindow 各处），留个勾选框只会让人以为能关。实现处见
-    // FrameNavigator.cpp 的同名注释。
+    // 解码链路无条件 setAutoTransform(true)，留个勾选框只会让人以为能关。
+    QWidget *sec = beginSection(page, tr("渲染"));
+    // 标签按实测语义：Canvas 的 InterpBilinear 走 FastTransformation（最近邻），
+    // 中间档是 GPU 平滑（双线性量级），第三档才是真 Lanczos3 重采样。
+    addComboRow(sec, tr("插值算法"), tr("缩放与减淡重采样时使用"),
+                "imageproc/interpolate", QStringLiteral("0"),
+                { { "0", tr("最近邻 (快)") }, { "1", tr("平滑 (双线性)") },
+                  { "2", tr("Lanczos (锐利)") } });
     // 强锐化（C13）：lanczos 缩图路径叠加固定强度 unsharp mask，见 ImageCanvas。
-    // 保存生效型：只在 Lanczos 且缩放 <100% 时参与重采样，开关不触发重绘。
-    addPillCheck(sec, tr("使用强锐化滤镜"), "imageproc/strong_sharpen", false, false,
-                 tr("保存后生效：下次在 Lanczos 插值下缩小显示（缩放小于 100%）时按新值锐化。"));
-    addCheck(sec, tr("缓存下一张图片"), "imageproc/cache_image", false, true);
+    addSwitchRow(sec, tr("使用强锐化滤镜"),
+                 tr("Lanczos 插值下缩小显示（小于 100%）时叠加锐化"),
+                 "imageproc/strong_sharpen", false, false);
+    addSwitchRow(sec, tr("图片大于窗口时显示图片顶部"),
+                 tr("按「适配宽度」或「实际大小」打开且图片高于窗口时显示顶部"),
+                 "imageproc/align_top_when_large", false, true);
 
-    QHBoxLayout *cacheRow = addRow(sec, tr("缓存大小"));
-    m_cacheSize = new QSpinBox;
-    m_cacheSize->setRange(10, 100000);
-    m_cacheSize->setButtonSymbols(QAbstractSpinBox::NoButtons);
-    m_cacheSize->setFixedHeight(kComboH);
-    m_cacheSize->setFixedWidth(78);
-    m_cacheSize->setAlignment(Qt::AlignCenter);
-    cacheRow->addWidget(m_cacheSize);
-    auto *mb = new QLabel(tr("MB"));
-    mb->setObjectName(QStringLiteral("hint"));
-    cacheRow->addWidget(mb);
-    cacheRow->addStretch(1);
-    // 缓存上限已接配置：保存时 applyRuntimeSettings 调 ImageCache::setFullCacheLimit
-    // 即时生效（构造时也读同一键设初值），无需重启。
+    sec = beginSection(page, tr("缓存与载入"));
+    addSwitchRow(sec, tr("缓存下一张图片"), tr("提前解码下一张，翻页更快"),
+                 "imageproc/cache_image", false, true);
+    {
+        SettingRowParts parts = addSettingRow(sec, tr("缓存大小"),
+                                              tr("全尺寸解码缓存的占用上限"));
+        m_cacheSize = new QSpinBox(parts.row);
+        m_cacheSize->setRange(10, 100000);
+        m_cacheSize->setButtonSymbols(QAbstractSpinBox::NoButtons);
+        m_cacheSize->setFixedHeight(kComboH);
+        m_cacheSize->setFixedWidth(88);
+        m_cacheSize->setAlignment(Qt::AlignCenter);
+        m_cacheSize->setAccessibleName(tr("缓存大小"));
+        parts.controls->addWidget(m_cacheSize, 0, Qt::AlignVCenter);
+        // 单位紧随数值，不单独占一列。
+        auto *mb = new QLabel(tr("MB"), parts.row);
+        mb->setObjectName(QStringLiteral("rowUnit"));
+        parts.controls->addWidget(mb, 0, Qt::AlignVCenter);
+    }
+    addSwitchRow(sec, tr("先显示低品质图片以加速渲染"),
+                 tr("大图先出低清预览，再补全清晰度"),
+                 "imageproc/preview_mode", false, true);
 
-    // 保存生效型：setAlignTopWhenLarge 在 applyRuntimeSettings 里下发，模态页内看不到画布。
-    addPillCheck(sec, tr("图片大于窗口时显示图片顶部"), "imageproc/align_top_when_large",
-                 false, true,
-                 tr("保存后生效：下次按「适配宽度」或「实际大小」打开、且图片高于窗口时显示顶部。"));
-    // 快帧预览（C14）：ImageCache::startFullDecode 里的 DCT 缩放先出帧一级。
-    addCheck(sec, tr("先显示低品质图片以加速渲染"), "imageproc/preview_mode", false, true);
+    sec = beginSection(page, tr("透明背景"));
+    addComboRow(sec, tr("为 GIF 图片使用透明背景"), tr("打开 GIF 时按所选方式铺底"),
+                "imageproc/gif_transparent", QStringLiteral("0"),
+                { { "0", tr("默认 GIF 调色板") }, { "1", tr("白色背景") },
+                  { "2", tr("黑色背景") },
+                  { "3", tr("中灰背景（自定义取色待实现）") } });
+    addComboRow(sec, tr("为 32 位图片使用透明背景"),
+                tr("带透明通道的图片按所选方式铺底"),
+                "imageproc/img32_transparent", QStringLiteral("0"),
+                { { "0", tr("网格背景") }, { "1", tr("白色背景") },
+                  { "2", tr("黑色背景") }, { "3", tr("深色网格") } });
 
-    // 图片内嵌 ICC 已接通（C1）；监视器 ICC 判定为暂不可行（C2）：Win32 可用
-    // GetICMProfile / WcsGetDefaultColorProfile 取到 profile，但 Qt6 的 raster
-    // 后端没有显示器色彩管理，转换后的像素仍按 sRGB 上屏，等于错误映射。
-    // 保存生效型：ICC 转换在解码/上屏路径读取，仅对带非 sRGB ICC 的图片有可见差异。
-    addPillCheck(sec, tr("使用图片文件的 ICC 设置"), "imageproc/image_icc", false, true,
-                 tr("保存后生效：下次打开带非 sRGB ICC 配置的图片时按新值转换上屏；普通 sRGB 图片无变化。"));
-    auto *iccMonitor = addCheck(sec, tr("使用监视器的 ICC 设置"), "imageproc/monitor_icc", false, false);
+    sec = beginSection(page, tr("翻页效果"));
+    addComboRow(sec, tr("翻页效果"), tr("下一次翻页时播放所选过渡"),
+                "imageproc/pageturn_fx", QStringLiteral("0"),
+                { { "0", tr("无") }, { "1", tr("淡入淡出") },
+                  { "2", tr("Alpha 滑动") }, { "3", tr("滑动") } });
+
+    sec = beginSection(page, tr("色彩管理"));
+    addSwitchRow(sec, tr("使用图片文件的 ICC 设置"),
+                 tr("打开带非 sRGB ICC 的图片时按配置转换上屏"),
+                 "imageproc/image_icc", false, true);
+    auto *iccMonitor = addSwitchRow(sec, tr("使用监视器的 ICC 设置"),
+                                    tr("Qt6 光栅后端不支持显示器色彩管理，暂不可用"),
+                                    "imageproc/monitor_icc", false, false);
     iccMonitor->setEnabled(false);
     iccMonitor->setToolTip(tr("Qt6 光栅后端不支持显示器色彩管理，暂不可用"));
-    addHint(sec, tr("使用监视器的 ICC 设置需要显示器级色彩管理，Qt6 光栅后端不支持，暂不可用。"));
-
-    sec = beginSection(page, tr("透明与翻页"));
-    // SET-04 阶段 C（下拉类）：四项都只在关闭设置页后的画布路径读取，模态页内
-    // 看不到效果，因此不做假称「即时」，逐项在 tooltip 与本段 hint 写明真实时机。
-    auto *gifBg = addComboRow(sec, tr("为 GIF 图片使用透明背景"), "imageproc/gif_transparent",
-                              QStringLiteral("0"),
-                              { { "0", tr("默认GIF调色板") }, { "1", tr("白色背景") },
-                                { "2", tr("黑色背景") },
-                                { "3", tr("中灰背景（自定义取色待实现）") } }, 200);
-    gifBg->setToolTip(tr("保存后生效：下次打开 GIF 时按所选方式铺底。"));
-    auto *img32Bg = addComboRow(sec, tr("为32位图片使用透明背景"), "imageproc/img32_transparent",
-                                QStringLiteral("0"),
-                                { { "0", tr("网格背景") }, { "1", tr("白色背景") },
-                                  { "2", tr("黑色背景") }, { "3", tr("深色网格") } }, 160);
-    img32Bg->setToolTip(tr("保存后生效：下次打开带透明通道的图片时按所选方式铺底。"));
-    // 标签按实测语义改名：Canvas 的 InterpBilinear 走 FastTransformation（最近邻），
-    // 中间档是 GPU 平滑（双线性量级），第三档才是真 Lanczos3 重采样。
-    auto *interp = addComboRow(sec, tr("插值算法（裁剪或减淡）"), "imageproc/interpolate",
-                               QStringLiteral("0"),
-                               { { "0", tr("最近邻 (快)") }, { "1", tr("平滑 (双线性)") },
-                                 { "2", tr("Lanczos (锐利)") } }, 160);
-    interp->setToolTip(tr("保存后生效：关闭设置页后按新档位缩放 / 重采样；当前模态页内不可见。"));
-    auto *pageFx = addComboRow(sec, tr("翻页效果"), "imageproc/pageturn_fx", QStringLiteral("0"),
-                               { { "0", tr("无") }, { "1", tr("淡入淡出") },
-                                 { "2", tr("Alpha 滑动") }, { "3", tr("滑动") } }, 160);
-    pageFx->setToolTip(tr("保存后生效：下一次翻页时播放所选过渡。"));
-    addHint(sec, tr("生效时机：以上四项都需要点「保存设置」——GIF / 32 位透明背景在"
-                    "下次打开对应图片时生效；插值算法在关闭设置页后的缩放 / 重采样时生效；"
-                    "翻页效果从下一次翻页开始。当前模态设置页内看不到画布，因此不做会话内预览。"
-                    "「自定义颜色」档暂无取色器，实际按中灰铺底（已按真实行为改名）。"));
+    addHint(sec, tr("以上四项都需点「保存设置」：GIF / 32 位透明背景在下次打开对应图片时生效；"
+                    "插值算法在关闭设置页后的缩放 / 重采样时生效；翻页效果从下一次翻页开始。"
+                    "当前模态设置页内看不到画布。「自定义颜色」档暂无取色器，"
+                    "实际按中灰铺底（已按真实行为改名）。"));
 }
 
 // ===========================================================================
@@ -1671,16 +1773,21 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
 
 void SettingsDialog::buildAssocPage(QWidget *page)
 {
-    QWidget *sec = beginSection(page, tr("格式关联"));
-    addHint(sec, tr("两个入口都用于修改系统默认打开方式：前者打开 Windows「默认应用」，"
-                    "后者打开旧式文件关联面板。"));
-
-    QHBoxLayout *btnRow = addRow(sec, QString());
+    QWidget *sec = beginSection(page, tr("默认打开方式"));
     auto *btnAssoc = addButton(nullptr, tr("设为默认打开方式…"));
+    {
+        SettingRowParts parts = addSettingRow(
+            sec, tr("设为默认打开方式"),
+            tr("打开 Windows「默认应用」，在其中选择 QuikView"));
+        parts.controls->addWidget(btnAssoc, 0, Qt::AlignVCenter);
+    }
     auto *btnClassic = addButton(nullptr, tr("打开系统默认应用"));
-    btnRow->addWidget(btnAssoc);
-    btnRow->addWidget(btnClassic);
-    btnRow->addStretch(1);
+    {
+        SettingRowParts parts = addSettingRow(
+            sec, tr("旧式文件关联面板"),
+            tr("打开 Windows 7 风格的高级文件关联界面"));
+        parts.controls->addWidget(btnClassic, 0, Qt::AlignVCenter);
+    }
     connect(btnAssoc, &QPushButton::clicked, this, [this]() {
         // 直接打开 Windows 设置 → 应用 → 默认应用。只报告「有没有拉起来」；
         // 系统侧是否真的改了关联，应用内无法确认，也不做外部副作用测试。
@@ -1713,32 +1820,23 @@ void SettingsDialog::buildAssocPage(QWidget *page)
             CoUninitialize();
         }
     });
-    addHint(sec, tr("外部操作：两个按钮都会离开 QuikView 进入 Windows 系统界面。"
-                    "应用内只呈现「启动是否成功」，系统侧结果需你自行确认；"
-                    "本项未做外部验证（未实际改动系统关联）。"));
+    addHint(sec, tr("两个按钮都会离开 QuikView 进入 Windows 系统界面；"
+                    "应用内只报告「启动是否成功」，系统侧结果需你自行确认。"
+                    "本轮未做外部验证（未实际改动系统关联）。"));
 
-    // 逐格式勾选组已删除（第 13 期）：
-    // Windows 10/11 不允许程序静默改默认关联（UserChoice 带哈希，写完无效），
-    // 而原先这一组勾选框只是把 assoc/ext_* 写进 config，没有任何消费点 ——
-    // 就是「勾了也没事发生」的假开关。留一句只读清单，把格式范围讲清楚，
-    // 真正的关联动作只有上面两个系统入口。
-    {
-        const QList<DirectoryLoader::Group> groups = DirectoryLoader::imageGroups();
-        QStringList parts;
-        for (const DirectoryLoader::Group &g : groups) {
-            parts << QStringLiteral("%1（%2）").arg(g.label, g.exts.join(QStringLiteral(" / ")));
-        }
-        auto *fmt = new QLabel(parts.join(QStringLiteral("、")), sec);
-        fmt->setWordWrap(true);
-        fmt->setObjectName(QStringLiteral("hintText"));
-        fmt->setContentsMargins(0, 6, 0, 0);
-        if (auto *v = qobject_cast<QVBoxLayout *>(sec->layout()))
-            v->addWidget(fmt);
+    // 逐格式勾选组已删除（第 13 期）：Windows 10/11 不允许程序静默改默认关联
+    // （UserChoice 带哈希，写完无效）。这里只留按类分行的只读清单。
+    sec = beginSection(page, tr("可选格式"));
+    const QList<DirectoryLoader::Group> groups = DirectoryLoader::imageGroups();
+    for (const DirectoryLoader::Group &g : groups) {
+        SettingRowParts parts = addSettingRow(
+            sec, g.label, g.exts.join(QStringLiteral(" / ")));
+        Q_UNUSED(parts);
     }
-
     addHint(sec, tr("安装程序已把 QuikView 登记为上述格式的候选打开方式；"
                     "Windows 10 起不允许程序静默抢占默认关联，"
-                    "要改默认请在系统「默认应用」里选择 QuikView。"));
+                    "要改默认请在系统「默认应用」里选择 QuikView。"
+                    "本轮未做外部验证（未实际改动系统关联）。"));
 }
 
 // ===========================================================================
@@ -1756,11 +1854,11 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     // 14 行全部可配置（config/keyboard/<action>_{enabled,_key,_action}），
     // MainWindow::applyShortcutConfig 在保存后立即给 QAction 重装键位。
     auto *hint = new QLabel(tr("双击「热键」栏录入新键位（Esc 清空）；「启用」状态与热键都在点「保存设置」后生效。"
-                               "取消「启用」可停用该动作。"
                                "已启用但热键显示「未设置」表示该动作暂无快捷键。"
                                "两个启用的动作占用同一键位时保存会被拒绝。"), page);
     hint->setObjectName(QStringLiteral("pageHint"));
     hint->setWordWrap(true);
+    hint->setContentsMargins(11, 0, 0, 0);
     pageLay->addWidget(hint);
 
     auto *table = new QFrame(page);
@@ -1776,19 +1874,20 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     auto *hl = new QHBoxLayout(head);
     hl->setContentsMargins(0, 0, 0, 0);
     hl->setSpacing(0);
-    auto makeHeadCell = [head](const QString &text, int width) {
+    auto makeHeadCell = [head](const QString &text, int width, int leftPad = 8) {
         auto *lab = new QLabel(text, head);
         lab->setObjectName(QStringLiteral("keyHeadCell"));
-        lab->setContentsMargins(8, 0, 8, 0);
+        lab->setContentsMargins(leftPad, 0, 8, 0);
         if (width > 0)
             lab->setFixedWidth(width);
         return lab;
     };
-    // SET-04 阶段B：勾选列换成 44×24 胶囊开关，列宽由 42 改为 52（44 + 两侧 4px 呼吸位），
-    // 行高 32 + 分隔线 1、操作列右缘 6px 均不变。
-    hl->addWidget(makeHeadCell(tr("启用"), 52));
+    // 三列「操作 / 热键 / 启用」：与统一行同一阅读顺序——文案在左，控件在右。
+    // 行高 32 + 分隔线 1、操作列左缩进 11、末列右缘 6px 均保留。
+    hl->addWidget(makeHeadCell(tr("操作"), 0, 11), 1);
     hl->addWidget(makeHeadCell(tr("热键"), 122));
-    hl->addWidget(makeHeadCell(tr("操作"), 0), 1);
+    hl->addWidget(makeHeadCell(tr("启用"), 52));
+    hl->addSpacing(6);
     tl->addWidget(head);
 
     // 行区：独立滚动、高度按整行吸附（见 KeyRowsArea 注释）
@@ -1841,15 +1940,11 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
         rl->setContentsMargins(0, 0, 0, 0);
         rl->setSpacing(0);
 
-        auto *chkHost = new QWidget(row);
-        chkHost->setFixedWidth(52);
-        auto *cl2 = new QHBoxLayout(chkHost);
-        cl2->setContentsMargins(0, 0, 0, 0);
-        // SET-04 阶段B 批次3：14 行全部胶囊化，原生勾选在键盘页清零。
-        QCheckBox *chk = new PillToggle(chkHost);
-        chk->setCursor(Qt::PointingHandCursor);
-        cl2->addWidget(chk, 0, Qt::AlignCenter);
-        rl->addWidget(chkHost);
+        // 「操作」列只读：动作由行本身决定，不给下拉、不给编辑（用户 2026-11-04 拍板）
+        auto *actionLab = new QLabel(tr(def.label), row);
+        actionLab->setObjectName(QStringLiteral("keyAction"));
+        actionLab->setContentsMargins(11, 0, 8, 0);
+        rl->addWidget(actionLab, 1);
 
         auto *editHost = new QWidget(row);
         editHost->setFixedWidth(122);
@@ -1865,12 +1960,16 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
         el->addWidget(edit);
         rl->addWidget(editHost);
 
-        // 「操作」列只读：动作由行本身决定，不给下拉、不给编辑（用户 2026-11-04 拍板）
-        auto *actionLab = new QLabel(tr(def.label), row);
-        actionLab->setObjectName(QStringLiteral("keyAction"));
-        actionLab->setContentsMargins(8, 0, 8, 0);
-        rl->addWidget(actionLab, 1);
-        // 「操作」列右缘与行区滚动条留 6px，避免文字/箭头贴着滚动条（P-17 / D3）
+        auto *chkHost = new QWidget(row);
+        chkHost->setFixedWidth(52);
+        auto *cl2 = new QHBoxLayout(chkHost);
+        cl2->setContentsMargins(0, 0, 0, 0);
+        // 14 行全部胶囊化，原生勾选在键盘页清零。
+        QCheckBox *chk = new PillToggle(chkHost);
+        chk->setCursor(Qt::PointingHandCursor);
+        cl2->addWidget(chk, 0, Qt::AlignCenter);
+        rl->addWidget(chkHost);
+        // 末列右缘与行区滚动条留 6px，避免胶囊贴着滚动条（P-17 / D3）
         rl->addSpacing(6);
 
         // 任一字段改动即撤掉上次保存被拒的冲突高亮（重新保存时再检测）
@@ -1909,24 +2008,14 @@ void SettingsDialog::buildMousePage(QWidget *page)
     // 两项均已接线：双击最大化/还原走 ImageCanvas::doubleClickRequested →
     // MainWindow 切换窗口；两侧单击翻页走 edgeTurnRequested，且老配置默认值
     // 做过一次性迁移（main.cpp 的 etc/migrated_side_click）。
-    // 保存生效型：两项都只在画布鼠标事件里读取，模态设置页内看不到画布，
-    // 因此不接即时下发，只标注真实生效时机。
-    addPillCheck(sec, tr("双击最大化 / 还原"), "mouse/dblclick_maximize", false, true,
-                 tr("保存后生效：下次双击画布时按新值最大化 / 还原窗口。"));
-    addPillCheck(sec, tr("单击屏幕两侧时翻页"), "mouse/click_side_pageturn", false, false,
-                 tr("保存后生效：下次单击画布两侧箭头区域时按新值翻页。"));
+    addSwitchRow(sec, tr("双击最大化 / 还原"),
+                 tr("下次双击画布时按新值最大化 / 还原窗口"),
+                 "mouse/dblclick_maximize", false, true);
+    addSwitchRow(sec, tr("单击屏幕两侧时翻页"),
+                 tr("下次单击画布两侧箭头区域时按新值翻页"),
+                 "mouse/click_side_pageturn", false, false);
 
-    sec = beginSection(page, tr("自定义操作"));
-
-    auto *host = new QWidget(sec);
-    auto *grid = new QGridLayout(host);
-    grid->setContentsMargins(0, 0, 0, 0);
-    grid->setHorizontalSpacing(18);
-    grid->setVerticalSpacing(4);
-    grid->setColumnStretch(0, 1);
-    grid->setColumnStretch(1, 1);
-    if (auto *v = qobject_cast<QVBoxLayout *>(sec->layout()))
-        v->addWidget(host);
+    sec = beginSection(page, tr("按键映射"));
 
     // configurable：该行是否真有消费点。中键与滚轮的「平移/缩放」经
     // onAccepted 桥接写回 config/middle_pan、config/wheel_zoom 生效；
@@ -1946,17 +2035,8 @@ void SettingsDialog::buildMousePage(QWidget *page)
     const auto opts = actionOptions();
     for (int i = 0; i < 7; ++i) {
         const BtnDef &b = btns[i];
-        auto *row = new QWidget(host);
-        auto *rl = new QHBoxLayout(row);
-        rl->setContentsMargins(0, 0, 0, 0);
-        rl->setSpacing(12);
-
-        auto *lab = new QLabel(tr(b.label), row);
-        lab->setObjectName(QStringLiteral("rowLabel"));
-        lab->setFixedWidth(88);
-        rl->addWidget(lab);
-
-        auto *combo = new QComboBox(row);
+        SettingRowParts parts = addSettingRow(sec, tr(b.label), QString());
+        auto *combo = new QComboBox(parts.row);
         for (const auto &opt : opts)
             combo->addItem(opt.second, opt.first);
         // 档位诚实化（SET-04 阶段 C）：右键 / X / Y 没有 "pan" 的
@@ -2005,27 +2085,23 @@ void SettingsDialog::buildMousePage(QWidget *page)
                 }
             }
         }
-        combo->setToolTip(tr("保存后生效：下次点击该按键时按新映射派发。"));
+        combo->setToolTip(tr("下次触发该按键时按新映射派发"));
         combo->setCursor(Qt::PointingHandCursor);
         combo->setFixedHeight(kComboH);
-        combo->setMinimumWidth(160);
-        combo->setMaximumWidth(170);
-        rl->addWidget(combo, 1);
+        combo->setProperty("reqW", 170);
+        combo->setFixedWidth(170);
+        parts.controls->addWidget(combo, 0, Qt::AlignVCenter);
 
         if (!b.configurable)
-            markUnavailable(combo->parentWidget());   // 整行（行标签 + 下拉）一起灰
+            markUnavailable(parts.row);   // 整行（行标签 + 下拉）一起灰
 
         m_mouseRows.append({ combo, QString::fromUtf8(b.key), QString::fromUtf8(b.def) });
-        grid->addWidget(row, i % 4, i / 4);
     }
 
-    addHint(sec, tr("左/右/X/Y 键可映射成动作；「无」保留内置行为（左键拖动平移与"
-                    "边缘单击翻页、右键上下文菜单、中键切全屏、滚轮缩放）。"
-                    "「拖拽平移」档只有左键有效，右键 / X / Y 已灰显；"
-                    "所有映射均为保存后生效——下次触发该按键时读取。"));
-    addHint(sec, tr("中键与滚轮：中键只支持「无操作 / 拖拽平移」；滚轮向上只支持"
-                    "「无操作 / 放大」、向下只支持「无操作 / 缩小」；其余档位已灰显"
-                    "（无运行时实现，属实现缺口，不按生效计）。三项均为保存后生效。"));
+    addHint(sec, tr("「无」保留内置行为（左键拖动平移与边缘单击翻页、右键上下文菜单、"
+                    "中键切全屏、滚轮缩放）。中键只支持「无操作 / 拖拽平移」，滚轮只支持"
+                    "「无操作 / 放大 / 缩小」；其余档位已灰显，属实现缺口。"
+                    "所有映射在下次触发按键时生效。"));
 }
 
 // ===========================================================================
@@ -2034,37 +2110,34 @@ void SettingsDialog::buildMousePage(QWidget *page)
 
 void SettingsDialog::buildBookmarkPage(QWidget *page)
 {
-    QWidget *sec = beginSection(page, tr("书签设置"));
+    QWidget *sec = beginSection(page, tr("书签行为"));
     // 自动书签与最大书签数已接通；「多窗口共享」在单实例语义下无实现，
     // 2026-11-04 按视觉基线 P0 删除（原为勾着 + 禁用 + 零写回）。
-    // 保存生效型：只在 MainWindow::openFile 打开图片时追加书签，不触发画布重绘，
-    // 模态设置页内无可见效果。
-    addPillCheck(sec, tr("自动保存当前图片路径为书签"), "bookmark/auto_bookmark", false, false,
-                 tr("保存后生效：之后每次打开图片时按新值自动写入书签；翻页不追加。"));
+    addSwitchRow(sec, tr("自动保存当前图片路径为书签"),
+                 tr("打开图片时自动追加一条；翻页不追加"),
+                 "bookmark/auto_bookmark", false, false);
     // 「自动记忆当前图片在压缩包中的路径」与「删除已记忆位置」已删：
     // 压缩包浏览未实现，压缩包路径记忆无从产生，两项勾/点了也不会有任何事发生。
 
     sec = beginSection(page, tr("书签容量"));
-    QHBoxLayout *row = addRow(sec, tr("最大书签数"));
-    m_maxBookmarks = new QComboBox;
-    for (int v : { 10, 20, 30, 50, 100 })
-        m_maxBookmarks->addItem(QString::number(v), v);
-    m_maxBookmarks->setCursor(Qt::PointingHandCursor);
-    m_maxBookmarks->setFixedHeight(kComboH);
-    m_maxBookmarks->setFixedWidth(110);
-    m_maxBookmarks->setToolTip(tr("保存后生效：之后新增书签触发上限时，从最早的书签开始淘汰。"));
-    row->addWidget(m_maxBookmarks);
-    row->addStretch(1);
-    addHint(sec, tr("保存后生效：上限在下次新增书签时读取；已有书签不会在保存瞬间被裁剪。"
-                    "到达上限后按最早优先淘汰。"));
+    {
+        SettingRowParts parts = addSettingRow(
+            sec, tr("最大书签数"),
+            tr("新增书签超过上限时，从最早的书签开始淘汰"));
+        m_maxBookmarks = new QComboBox(parts.row);
+        for (int v : { 10, 20, 30, 50, 100 })
+            m_maxBookmarks->addItem(QString::number(v), v);
+        m_maxBookmarks->setCursor(Qt::PointingHandCursor);
+        m_maxBookmarks->setFixedHeight(kComboH);
+        m_maxBookmarks->setFixedWidth(110);
+        m_maxBookmarks->setAccessibleName(tr("最大书签数"));
+        parts.controls->addWidget(m_maxBookmarks, 0, Qt::AlignVCenter);
+    }
     // 已接配置：Config::toggleFavorite 超限时从尾部淘汰最早的书签
     // （键 config/bookmark/max_bookmarks，默认 50，clamp 10..100）。
-
-    // P2 / E2：补一段真实说明，减少「内容只占上半屏」的空白占比。
-    sec = beginSection(page, tr("说明"));
-    addHint(sec, tr("书签记录图片的完整路径，文件移动或重命名后原条目会失效。"
-                    "自动保存只在打开图片时追加一条；数量超过上限时从最早的书签开始淘汰。"
-                    "书签数据保存在本机配置中，不随安装包或账户同步。"));
+    addHint(sec, tr("上限在下次新增书签时读取，已有书签不会在保存瞬间被裁剪。"
+                    "书签记录完整路径，文件移动或重命名后原条目失效；"
+                    "数据保存在本机配置中，不随安装包或账户同步。"));
 }
 
 // ===========================================================================
@@ -2081,29 +2154,18 @@ void SettingsDialog::buildContextMenuPage(QWidget *page)
     const QString shellState = shellReady ? tr("已随安装包注册 ✓")
                                           : tr("未检测到壳扩展");
 
-    auto addStatusRow = [](QWidget *section, const QString &label,
-                           const QString &state, const char *color) {
-        auto *row = new QWidget(section);
-        row->setMinimumHeight(30);
-        auto *h = new QHBoxLayout(row);
-        h->setContentsMargins(0, 0, 0, 0);
-        h->setSpacing(12);
-
-        auto *name = new QLabel(label, row);
-        name->setObjectName(QStringLiteral("rowLabel"));
-        name->setFixedWidth(230);
-        h->addWidget(name);
-
-        auto *value = new QLabel(state, row);
+    auto addStatusRow = [this](QWidget *section, const QString &label,
+                               const QString &state, const char *color) {
+        SettingRowParts parts = addSettingRow(section, label);
+        auto *value = new QLabel(state, parts.row);
+        value->setObjectName(QStringLiteral("rowTag"));
         value->setWordWrap(true);
+        value->setMaximumWidth(320);
+        value->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
         value->setStyleSheet(QStringLiteral("color:%1;font-size:11px;")
                                  .arg(QLatin1String(color)));
-        h->addWidget(value, 1);
-
-        if (auto *v = qobject_cast<QVBoxLayout *>(section->layout())) {
-            v->addSpacing(5);
-            v->addWidget(row);
-        }
+        value->setToolTip(state);
+        parts.controls->addWidget(value, 0, Qt::AlignVCenter);
     };
     const char *kOk = UiStyle::StatusOk;      // 已注册
     const char *kWarn = UiStyle::StatusWarn;   // 缺文件
@@ -2126,10 +2188,9 @@ void SettingsDialog::buildContextMenuPage(QWidget *page)
     addStatusRow(sec, tr("PSD"), tr("部分支持（内嵌 JPEG 缩略图，无内嵌回退默认图标）"), kWarn);
     addStatusRow(sec, tr("PSB"), tr("部分支持（内嵌 JPEG 缩略图，无内嵌回退默认图标）"), kWarn);
 
-    sec = beginSection(page, tr("说明"));
     addHint(sec, tr("这些入口由 QuikView 壳扩展在资源管理器中提供，"
                     "不是应用内图片右键菜单的功能开关；"
-                    "安装/卸载安装包时自动注册/移除。"));
+                    "安装 / 卸载安装包时自动注册 / 移除。"));
 }
 
 // ===========================================================================
@@ -2138,22 +2199,24 @@ void SettingsDialog::buildContextMenuPage(QWidget *page)
 
 void SettingsDialog::buildEtcPage(QWidget *page)
 {
-    QWidget *sec = beginSection(page, tr("图片文件夹"));
-
+    // 路径输入组：输入框与「浏览 / 打开」按钮保持同一组、统一右对齐。
+    QWidget *sec = beginSection(page, tr("常用路径"));
     auto makeFolderRow = [this, sec](const QString &label, QLineEdit **edit) {
-        QHBoxLayout *row = addRow(sec, label);
-        *edit = new QLineEdit;
+        SettingRowParts parts = addSettingRow(sec, label, tr("留空表示不使用该文件夹"));
+        *edit = new QLineEdit(parts.row);
         (*edit)->setFixedHeight(kInputH);
-        row->addWidget(*edit, 1);
+        (*edit)->setFixedWidth(210);
+        (*edit)->setAccessibleName(label);
+        parts.controls->addWidget(*edit, 0, Qt::AlignVCenter);
         auto *btnBrowse = addButton(nullptr, tr("浏览…"));
         auto *btnOpen = addButton(nullptr, tr("打开"));
-        row->addWidget(btnBrowse);
-        row->addWidget(btnOpen);
+        parts.controls->addWidget(btnBrowse, 0, Qt::AlignVCenter);
+        parts.controls->addWidget(btnOpen, 0, Qt::AlignVCenter);
         connect(btnBrowse, &QPushButton::clicked, this, [this, edit]() {
             const QString d = QFileDialog::getExistingDirectory(
                 this, tr("选择一个文件夹."), (*edit)->text());
             if (!d.isEmpty())
-                (*edit)->setText(d);
+                (*edit)->setText(d);   // 只改界面，保存设置时统一写盘
         });
         connect(btnOpen, &QPushButton::clicked, this, [this, edit]() {
             const QString d = (*edit)->text().trimmed();
@@ -2174,44 +2237,54 @@ void SettingsDialog::buildEtcPage(QWidget *page)
     };
     makeFolderRow(tr("图片文件夹 1"), &m_photoFolder1);
     makeFolderRow(tr("图片文件夹 2"), &m_photoFolder2);
+    {
+        SettingRowParts parts = addSettingRow(
+            sec, tr("图像编辑器程序路径"), tr("留空时使用系统默认程序"));
+        m_editorPath = new QLineEdit(parts.row);
+        m_editorPath->setFixedHeight(kInputH);
+        m_editorPath->setFixedWidth(210);
+        m_editorPath->setAccessibleName(tr("图像编辑器程序路径"));
+        parts.controls->addWidget(m_editorPath, 0, Qt::AlignVCenter);
+        auto *btnBrowse = addButton(nullptr, tr("浏览…"));
+        auto *btnPreset = addButton(nullptr, tr("预设"));
+        parts.controls->addWidget(btnBrowse, 0, Qt::AlignVCenter);
+        parts.controls->addWidget(btnPreset, 0, Qt::AlignVCenter);
+        connect(btnBrowse, &QPushButton::clicked, this, [this]() {
+            const QString f = QFileDialog::getOpenFileName(
+                this, tr("选择图像编辑器"), m_editorPath->text(),
+                tr("程序 (*.exe);;所有文件 (*)"));
+            if (!f.isEmpty())
+                m_editorPath->setText(f);   // 只改界面，保存设置时统一写盘
+        });
+        connect(btnPreset, &QPushButton::clicked, this, [this]() {
+            const QString preset = QStringLiteral("C:/Windows/System32/mspaint.exe");
+            m_editorPath->setText(preset);   // 只填输入框，不启动程序
+        });
+    }
 
-    sec = beginSection(page, tr("图像编辑器"));
-    QHBoxLayout *row = addRow(sec, tr("程序路径"));
-    m_editorPath = new QLineEdit;
-    m_editorPath->setFixedHeight(kInputH);
-    row->addWidget(m_editorPath, 1);
-    auto *btnBrowse = addButton(nullptr, tr("浏览…"));
-    auto *btnPreset = addButton(nullptr, tr("预设"));
-    row->addWidget(btnBrowse);
-    row->addWidget(btnPreset);
-    connect(btnBrowse, &QPushButton::clicked, this, [this]() {
-        const QString f = QFileDialog::getOpenFileName(
-            this, tr("选择图像编辑器"), m_editorPath->text(),
-            tr("程序 (*.exe);;所有文件 (*)"));
-        if (!f.isEmpty())
-            m_editorPath->setText(f);
-    });
-    connect(btnPreset, &QPushButton::clicked, this, [this]() {
-        m_editorPath->setText(QStringLiteral("C:/Windows/System32/mspaint.exe"));
-    });
-
-    sec = beginSection(page, tr("其他"));
+    sec = beginSection(page, tr("RAW 图片"));
     // 本批已接线：翻页音效 / 按图调窗 / 禁用屏保 / 不打开 RAW / JPEG 同名过滤 / RAW 缩略图。
-    addCheck(sec, tr("翻页时播放音效"), "etc/pageturn_wav", false, false);
-    addCheck(sec, tr("不打开 RAW 图片文件"), "etc/no_raw_load", false, false);
-    addCheck(sec, tr("打开 JPEG 文件时，不打开同名 RAW 文件"), "etc/skip_raw_when_jpg", false, true);
-    addCheck(sec, tr("打开 RAW 图片文件时，显示已有缩略图"), "etc/raw_thumbnail", false, true);
-    addCheck(sec, tr("根据图片大小调节窗口大小"), "etc/fit_window_to_image", false, true);
-    addCheck(sec, tr("运行 QuikView 时禁用 Windows 屏幕保护程序"), "etc/disable_screensaver",
-             false, false);
+    addSwitchRow(sec, tr("不打开 RAW 图片文件"),
+                 tr("下次打开 RAW 时生效"), "etc/no_raw_load", false, false);
+    addSwitchRow(sec, tr("打开 JPEG 文件时，不打开同名 RAW 文件"),
+                 tr("打开 JPEG 时不再自动带出同名 RAW"),
+                 "etc/skip_raw_when_jpg", false, true);
+    addSwitchRow(sec, tr("打开 RAW 图片文件时，显示已有缩略图"),
+                 tr("打开 RAW 时先显示内嵌缩略图"),
+                 "etc/raw_thumbnail", false, true);
 
-    // P2 / G1-2：补一段 RAW / 编辑器说明，减少内容下方的大块空白。
-    addHint(sec, tr("RAW 相关选项只影响 RAW 文件的打开方式；勾选「不打开 RAW 图片文件」时，"
-                    "JPEG 旁的 RAW 也不会被自动带出。外部编辑器留空时使用系统默认程序。"));
-    addHint(sec, tr("生效时机：以上选项均需保存设置后生效——按图调窗＝下次打开图片时；"
-                    "不打开 RAW／RAW 缩略图＝下次打开 RAW 时；JPEG 同名 RAW 过滤＝"
-                    "下次打开 JPEG 时；翻页音效＝下次翻页时；禁用屏保＝保存后即作用于系统，"
-                    "退出 QuikView 后恢复。"));
+    sec = beginSection(page, tr("窗口与声音"));
+    addSwitchRow(sec, tr("翻页时播放音效"), tr("下次翻页时生效"),
+                 "etc/pageturn_wav", false, false);
+    addSwitchRow(sec, tr("根据图片大小调节窗口大小"),
+                 tr("下次打开图片时按图片尺寸调整窗口"),
+                 "etc/fit_window_to_image", false, true);
+    addSwitchRow(sec, tr("运行 QuikView 时禁用 Windows 屏幕保护程序"),
+                 tr("退出 QuikView 后恢复系统屏保设置"),
+                 "etc/disable_screensaver", false, false);
+
+    addHint(sec, tr("RAW 选项只影响 RAW 文件的打开方式；勾选「不打开 RAW 图片文件」时，"
+                    "JPEG 旁的 RAW 也不会被自动带出。翻页音效在下次翻页时生效。"));
 }
 
 // ===========================================================================
@@ -2220,48 +2293,57 @@ void SettingsDialog::buildEtcPage(QWidget *page)
 
 void SettingsDialog::buildLangPage(QWidget *page)
 {
-    QWidget *sec = beginSection(page, tr("语言设定"));
-
-    QHBoxLayout *row = addRow(sec, tr("界面语言"));
-    m_language = new QComboBox;
-    populateLanguageCombo(m_language);
-    m_language->setCursor(Qt::PointingHandCursor);
-    m_language->setFixedHeight(kComboH);
-    m_language->setMinimumWidth(160);
-    m_language->setMaximumWidth(200);
-    row->addWidget(m_language);
-    row->addStretch(1);
-    addHint(sec, tr("重启后生效：界面语言在保存后不会立即切换，重启 QuikView 后应用。"));
-
-    auto *link1 = new LinkLabel(tr("下载更多语言…"), [this]() {
-        // 外部网页：只报告系统是否接受了打开请求；网络可达性不做验证。
-        if (!QDesktopServices::openUrl(
-                QUrl(QStringLiteral("https://github.com/xdsT2/quikview")))) {
-            QMessageBox::warning(this, tr("下载更多语言"),
-                                 tr("无法打开浏览器。请手动访问：\n"
-                                    "https://github.com/xdsT2/quikview"));
-        }
-    }, sec);
-    auto *link2 = new LinkLabel(tr("打开语言文件夹…"), [this]() {
-        const QString dir = QCoreApplication::applicationDirPath()
-                            + QStringLiteral("/translations");
-        QDir().mkpath(dir);
-        if (!QDesktopServices::openUrl(QUrl::fromLocalFile(dir))) {
-            QMessageBox::warning(this, tr("打开语言文件夹"),
-                                 tr("无法调用系统文件管理器打开：\n%1").arg(dir));
-        }
-    }, sec);
-    if (auto *v = qobject_cast<QVBoxLayout *>(sec->layout())) {
-        v->addSpacing(4);
-        v->addWidget(link1);
-        v->addWidget(link2);
+    QWidget *sec = beginSection(page, tr("界面语言"));
+    {
+        SettingRowParts parts = addSettingRow(
+            sec, tr("界面语言"),
+            tr("保存后生效；重启 QuikView 后切换界面"));
+        m_language = new QComboBox(parts.row);
+        populateLanguageCombo(m_language);
+        m_language->setCursor(Qt::PointingHandCursor);
+        m_language->setFixedHeight(kComboH);
+        m_language->setFixedWidth(200);
+        m_language->setAccessibleName(tr("界面语言"));
+        parts.controls->addWidget(m_language, 0, Qt::AlignVCenter);
     }
-    addHint(sec, tr("外部操作：「下载更多语言…」会联网打开项目网页，「打开语言文件夹…」"
-                    "会调用系统文件管理器。应用内只呈现启动失败；两项未做外部验证"
-                    "（未实际访问网页、未改动语言文件）。"));
 
-    // 「翻译」区原是硬编码的等宽文本清单，与上方语言下拉重复且像调试输出；
-    // 2026-11-04 按视觉基线 H2 直接删除（已安装语言以下拉为准）。
+    sec = beginSection(page, tr("语言资源"));
+    {
+        SettingRowParts parts = addSettingRow(
+            sec, tr("打开语言文件夹"),
+            tr("从 translations 目录加载 .qm 语言文件"));
+        auto *btn = addButton(nullptr, tr("打开文件夹"));
+        parts.controls->addWidget(btn, 0, Qt::AlignVCenter);
+        connect(btn, &QPushButton::clicked, this, [this]() {
+            const QString dir = QCoreApplication::applicationDirPath()
+                                + QStringLiteral("/translations");
+            QDir().mkpath(dir);
+            if (!QDesktopServices::openUrl(QUrl::fromLocalFile(dir))) {
+                QMessageBox::warning(this, tr("打开语言文件夹"),
+                                     tr("无法调用系统文件管理器打开：\n%1").arg(dir));
+            }
+        });
+    }
+    {
+        SettingRowParts parts = addSettingRow(
+            sec, tr("下载更多语言"),
+            tr("在浏览器中打开项目页面获取语言包"));
+        auto *btn = addButton(nullptr, tr("下载更多语言"));
+        parts.controls->addWidget(btn, 0, Qt::AlignVCenter);
+        connect(btn, &QPushButton::clicked, this, [this]() {
+            // 外部网页：只报告系统是否接受了打开请求；网络可达性不做验证。
+            if (!QDesktopServices::openUrl(
+                    QUrl(QStringLiteral("https://github.com/xdsT2/quikview")))) {
+                QMessageBox::warning(this, tr("下载更多语言"),
+                                     tr("无法打开浏览器。请手动访问：\n"
+                                        "https://github.com/xdsT2/quikview"));
+            }
+        });
+    }
+    addHint(sec, tr("语言文件按程序目录下的 translations 加载；"
+                    "两个入口都会离开 QuikView，应用内只报告启动是否成功，"
+                    "未做外部验证。重启后生效：界面语言在保存后不会立即切换，"
+                    "重启 QuikView 后应用。"));
 }
 
 // ===========================================================================
@@ -2270,6 +2352,7 @@ void SettingsDialog::buildLangPage(QWidget *page)
 
 void SettingsDialog::loadFromConfig()
 {
+    m_loading = true;
     for (const ChkBind &b : m_chkBinds) {
         const bool v = bGet(b.key, b.def);
         b.cb->setChecked(b.inverted ? !v : v);
@@ -2315,6 +2398,7 @@ void SettingsDialog::loadFromConfig()
         syncThemeControls(sGet("theme", QStringLiteral("dark")));
     if (m_blurMaterial)
         m_blurMaterial->setChecked(bGet("ui/blur_material", false));
+    m_loading = false;
 }
 
 void SettingsDialog::takeSnapshot()
@@ -2335,6 +2419,79 @@ void SettingsDialog::restoreSnapshot()
     for (auto it = m_snapshot.constBegin(); it != m_snapshot.constEnd(); ++it)
         s.setValue(it.key(), it.value());
     s.endGroup();
+}
+
+void SettingsDialog::writeBridgeKeys()
+{
+    // —— 兼容桥：运行逻辑沿用的旧 key 由新设置项推导 ——
+    // 三档必须一一对应；Config::interpolation() 会把 fast→bilinear、
+    // smooth→bicubic 翻译成画布认识的模式，lanczos 原样透传。
+    const QString interp = sGet("imageproc/interpolate", QStringLiteral("0"));
+    sSet("interpolation", interp == QStringLiteral("0") ? QStringLiteral("fast")
+                          : interp == QStringLiteral("1") ? QStringLiteral("smooth")
+                                                          : QStringLiteral("lanczos"));
+    bSet("wheel_zoom", sGet("mouse/wheel_up", QStringLiteral("zoom_in")) == QStringLiteral("zoom_in")
+                       && sGet("mouse/wheel_down", QStringLiteral("zoom_out")) == QStringLiteral("zoom_out"));
+    bSet("middle_pan", sGet("mouse/btn_middle", QStringLiteral("pan")) == QStringLiteral("pan"));
+}
+
+// ---------------------------------------------------------------------------
+// 侧栏搜索：按设置名 / 分组名 / 选项文字匹配，命中页签保留并跳转
+// ---------------------------------------------------------------------------
+
+void SettingsDialog::buildSearchIndex()
+{
+    m_pageSearchIndex.clear();
+    for (QWidget *page : m_pages) {
+        QStringList parts;
+        for (QLabel *lab : page->findChildren<QLabel *>()) {
+            const QString name = lab->objectName();
+            if (name == QLatin1String("rowLabel")
+                || name == QLatin1String("rowDesc")
+                || name == QLatin1String("sectionTitle")
+                || name == QLatin1String("pageTitle")
+                || name == QLatin1String("pageDesc")
+                || name == QLatin1String("pageHint")) {
+                parts << lab->text();
+            }
+        }
+        for (QComboBox *combo : page->findChildren<QComboBox *>()) {
+            for (int i = 0; i < combo->count(); ++i)
+                parts << combo->itemText(i);
+        }
+        for (QPushButton *btn : page->findChildren<QPushButton *>())
+            parts << btn->text();
+        m_pageSearchIndex << parts.join(QStringLiteral(" ")).toLower();
+    }
+}
+
+void SettingsDialog::selectFirstVisiblePage()
+{
+    for (int i = 0; i < m_tabs.size(); ++i) {
+        if (!m_tabs[i]->isHidden()) {
+            selectPage(i);
+            return;
+        }
+    }
+}
+
+void SettingsDialog::filterNavigation(const QString &text)
+{
+    const QString term = text.trimmed().toLower();
+    bool any = false;
+    for (int i = 0; i < m_tabs.size(); ++i) {
+        const bool hit = term.isEmpty() || m_pageSearchIndex.value(i).contains(term);
+        m_tabs[i]->setVisible(hit);
+        any = any || hit;
+    }
+    if (m_searchEmpty)
+        m_searchEmpty->setVisible(!term.isEmpty() && !any);
+    // 当前页被过滤掉时跳到第一个命中页，避免右侧停在「无匹配」的旧页。
+    if (!term.isEmpty() && any) {
+        const int cur = m_stack ? m_stack->currentIndex() : 0;
+        if (cur >= 0 && cur < m_tabs.size() && m_tabs[cur]->isHidden())
+            selectFirstVisiblePage();
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2455,19 +2612,21 @@ bool SettingsDialog::onAccepted()
         sSet("language", m_language->currentData().toString());
 
     // —— 兼容桥：运行逻辑沿用的旧 key 由新设置项推导 ——
-    // 三档必须一一对应，之前只写了 fast/smooth 两支，选 Lanczos("2") 被吞成
-    // smooth，Lanczos 永远选不中。Config::interpolation() 会把 fast→bilinear、
-    // smooth→bicubic 翻译成画布认识的模式，lanczos 原样透传。
-    const QString interp = sGet("imageproc/interpolate", QStringLiteral("0"));
-    sSet("interpolation", interp == QStringLiteral("0") ? QStringLiteral("fast")
-                          : interp == QStringLiteral("1") ? QStringLiteral("smooth")
-                                                          : QStringLiteral("lanczos"));
-    bSet("wheel_zoom", sGet("mouse/wheel_up", QStringLiteral("zoom_in")) == QStringLiteral("zoom_in")
-                       && sGet("mouse/wheel_down", QStringLiteral("zoom_out")) == QStringLiteral("zoom_out"));
-    bSet("middle_pan", sGet("mouse/btn_middle", QStringLiteral("pan")) == QStringLiteral("pan"));
+    writeBridgeKeys();
 
     // 外观页（第 18 期）：三态主题与磨砂键在这里统一落盘。
     saveAppearance();
+
+    // 保存失败不关闭：sync 后检查状态，失败保留界面改动并说明原因。
+    QSettings &s = Config::instance().settings();
+    s.sync();
+    if (s.status() != QSettings::NoError) {
+        QMessageBox::warning(this, tr("设置"),
+                             tr("保存失败：配置文件写入失败（%1）。\n"
+                                "改动仍保留在界面上，可稍后重试。")
+                                 .arg(QString::number(static_cast<int>(s.status()))));
+        return false;
+    }
     return true;
 }
 
@@ -2734,11 +2893,26 @@ void SettingsDialog::mouseReleaseEvent(QMouseEvent *event)
 
 void SettingsDialog::keyPressEvent(QKeyEvent *event)
 {
+    // 搜索框内 Esc 先清搜索；Enter 不做「保存设置」。
+    if (m_search && m_search->hasFocus()
+        && event->key() == Qt::Key_Escape && !m_search->text().isEmpty()) {
+        m_search->clear();
+        event->accept();
+        return;
+    }
     if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
+        QWidget *f = focusWidget();
+        // 输入类控件里回车属于控件自身（选择下拉项 / 结束键位录制 / 编辑框提交），
+        // 不能顺带保存并关窗。
+        if (qobject_cast<QLineEdit *>(f) || qobject_cast<QAbstractSpinBox *>(f)
+            || qobject_cast<QComboBox *>(f) || qobject_cast<QKeySequenceEdit *>(f)
+            || (f && qobject_cast<QKeySequenceEdit *>(f->parentWidget()))) {
+            return;
+        }
         accept();   // 与保存按钮同一条校验路径，冲突时不关闭窗口（P0-1）
         return;
     }
-    QDialog::keyPressEvent(event); // ESC -> reject() -> 回滚
+    QDialog::keyPressEvent(event); // ESC -> reject() -> 取消回滚
 }
 
 void SettingsDialog::accept()

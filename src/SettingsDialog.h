@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QDialog>
+#include <QHash>
 #include <QList>
 #include <QPair>
 #include <QPoint>
@@ -27,11 +28,16 @@ class QVBoxLayout;
 class QWidget;
 
 // 设置对话框：QuikView 深色三栏布局（视觉真源 Temp/quikview-secondary-prototype.html）。
-// 顶部 43px 标题栏 + 左侧 204px 导航（11 个 navItem）+ 1px 竖分隔 + 内容区 + 62px footer。
+// 顶部 43px 标题栏 + 左侧 204px 导航（搜索 + 11 个 navItem）+ 1px 竖分隔 + 内容区 + 62px footer。
 // 11 页：一般 / 浏览 / 外观 / 图像处理 / 格式关联 / 键盘 / 鼠标 / 书签 / 上下文菜单 / 杂项 / 语言。
 // 打开时快照 config 组 + 即时项运行态：保存设置 → 写回 Config；× / ESC → 回滚两者；
-// 恢复默认 → 确认后清空。SET-02 起「用小字体显示 EXIF / 文件信息」为即时预览样板。
-// 控件全部使用标准 Qt 控件，配色/字号由 UiStyle::dialogQss() 提供。
+// 普通项只在「保存设置」时统一写盘，取消 / Esc / 标题栏关闭不落盘。
+//
+// 2026-11-07 设置页排版统一：
+//   · 统一普通设置行（左文案 + 右控件列，组卡片 + 整行悬停），复用到 11 页；
+//   · 左侧导航顶部「搜索设置…」按设置名匹配并跳转，清空恢复全部导航；
+//   · 排版不改写盘语义：即时项仍是「切换即预览、取消即恢复、期间不落盘」。
+// 控件全部使用标准 Qt 控件与胶囊开关，配色/字号由 UiStyle::dialogQss() 提供。
 class SettingsDialog : public QDialog
 {
     Q_OBJECT
@@ -58,7 +64,7 @@ protected:
     void accept() override;
 
 private slots:
-    // 校验 + 写盘；键盘冲突时不写盘并返回 false。
+    // 校验 + 写盘；键盘冲突 / 写盘失败时不写盘并返回 false。
     bool onAccepted();
     void onReset();
 
@@ -94,17 +100,31 @@ private:
     void buildEtcPage(QWidget *page);
     void buildLangPage(QWidget *page);
 
-    // —— 控件工厂（全部走布局，不绝对定位）——
+    // —— 统一设置行工厂（全部走布局，不绝对定位）——
+    // beginSection：分组标题 + 卡片壳；标题与行文案共享同一条左边线。
     QWidget *beginSection(QWidget *page, const QString &title);
-    QHBoxLayout *addRow(QWidget *section, const QString &label, int labelWidth = 155);
-    QWidget *addRowWidget(QWidget *section, const QString &label, int labelWidth = 155);
+    // 组卡片本体（beginSection 内部创建，行 / 分隔线都追加到这里）。
+    QWidget *groupCard(QWidget *section) const;
+    struct SettingRowParts {
+        QWidget *row = nullptr;
+        QLabel *label = nullptr;
+        QLabel *desc = nullptr;
+        QHBoxLayout *controls = nullptr;
+    };
+    // 统一行：左侧名称 + 可选说明（随文本列换行），右侧控件列共用右边线。
+    SettingRowParts addSettingRow(QWidget *section, const QString &label,
+                                  const QString &desc = QString());
+    // 二态项：胶囊开关（保持 40×20 与现有点击命中）。
+    PillToggle *addSwitchRow(QWidget *section, const QString &label, const QString &desc,
+                             const char *key, bool inverted, bool def);
+    QHBoxLayout *addRow(QWidget *section, const QString &label,
+                        const QString &desc = QString());
     QCheckBox *addCheck(QWidget *section, const QString &text, const char *key,
                         bool inverted, bool def);
-    QCheckBox *addCheckRaw(QWidget *section, const QString &text);
-    QComboBox *addComboRow(QWidget *section, const QString &label, const char *key,
-                           const QString &def,
+    QComboBox *addComboRow(QWidget *section, const QString &label, const QString &desc,
+                           const char *key, const QString &def,
                            const QList<QPair<QString, QString>> &options,
-                           int comboWidth = 160);
+                           int minWidth = 0);
     QLabel *addHint(QWidget *section, const QString &text);
     // 胶囊拨动开关行：左侧标题 + 说明，右侧开关（右对齐）；返回三件套便于
     // 禁用态联动（跟随系统开启时「浅色模式」整块灰显）。
@@ -112,15 +132,17 @@ private:
         PillToggle *toggle = nullptr;
         QLabel *label = nullptr;
         QLabel *desc = nullptr;
+        QWidget *row = nullptr;
     };
     ToggleRow addToggleRow(QWidget *section, const QString &label,
                            const QString &desc, const QString &accessibleName);
-    // 胶囊二态项 + 绑定表：标题 + 生效时机说明 + 右侧胶囊。保存路径照常走
-    // m_chkBinds 写同名键（PillToggle 是 QCheckBox 子类），不走即时下发。
+    // 胶囊二态项 + 绑定表：标题 + 说明 + 右侧胶囊。
     PillToggle *addPillCheck(QWidget *section, const QString &label, const char *key,
                              bool inverted, bool def, const QString &timing);
     QPushButton *addButton(QWidget *parent, const QString &text);
     QPushButton *addMiniButton(QWidget *parent, const QString &text);
+    // 同页下拉统一宽度：按最长选项计算，取整页各行的最大需求。
+    void levelComboWidths(QWidget *page);
 
     // —— 诚实化：零消费项统一灰显 ——
     // 配置 key 仍留在绑定表里（保存照常写入，向后兼容），但视觉与交互必须是
@@ -128,15 +150,28 @@ private:
     void markUnavailable(QWidget *w);
     QCheckBox *addCheckUnavailable(QWidget *section, const QString &text, const char *key,
                                    bool inverted, bool def);
-    QComboBox *addComboRowUnavailable(QWidget *section, const QString &label, const char *key,
+    QComboBox *addComboRowUnavailable(QWidget *section, const QString &label,
+                                      const QString &desc, const char *key,
                                       const QString &def,
                                       const QList<QPair<QString, QString>> &options,
-                                      int comboWidth = 160);
+                                      int minWidth = 0);
 
     void loadFromConfig();
     void takeSnapshot();
     void restoreSnapshot();
     void saveAppearance();   // 外观页（第 18 期）：theme 三态 + ui/blur_material 落盘
+
+    // 兼容桥键：保存时由新设置项推导，供运行逻辑沿用。
+    void writeBridgeKeys();
+    bool m_loading = false;
+
+    // —— 搜索 ——
+    QLineEdit *m_search = nullptr;
+    QLabel *m_searchEmpty = nullptr;
+    QStringList m_pageSearchIndex;   // 每页可匹配文字（小写）
+    void buildSearchIndex();
+    void filterNavigation(const QString &text);
+    void selectFirstVisiblePage();
 
     // —— SET-02 即时预览会话（样板：view/exif_small_font）——
     // 控件变更只下发 MainWindow 运行态（预览），不逐次落盘；保存设置时才写盘。
@@ -222,8 +257,7 @@ private:
     bool m_themePendingActive = false;
     int m_themeSerial = 0;
     QTimer *m_themeDefer = nullptr;   // 变色下发的延迟器（按圆点过渡时长）
-    // 浏览页「背景」段（m_bkgndPath / m_bkgndColorBtn / m_borderColorBtn）已随
-    // 第 18 期下线删除。
+
     struct KeyRow {                       // 键盘页一行（QString 值拷贝：
         QCheckBox *cb;                    // 数据源是构建函数的栈数组，const char*
         QKeySequenceEdit *edit;           // 悬空会导致热键列显示乱码）

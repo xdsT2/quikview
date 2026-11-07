@@ -150,6 +150,14 @@ inline QColor navText()    { return color(pick("#bfc3c8", "#4a4d51")); }
 // 与浮层 mapLink 同一取值，两处别各改各的。
 inline QColor linkText()   { return color(pick("#55c0f0", "#0b6f9f")); }
 
+// —— 设置页排版统一（2026-11-07）——
+// 分组卡片底/描边、整行悬停底、只读状态标签文字。浅色分组底比内容白面板
+// 低一档（#f5f7f8），靠 1px 描边勾出组边界；悬停只提亮行，不改变控件尺寸。
+inline const char *setGroupBg()   { return pick("#292b2f", "#f5f7f8"); }
+inline const char *setGroupLine() { return pick("#3c4046", "#dce1e6"); }
+inline const char *setRowHover()  { return pick("#33373e", "#e6edf2"); }
+inline const char *setRowTag()    { return pick("#aab0b7", "#545e69"); }
+
 // —— 尺寸令牌 ——
 inline constexpr int RadiusDialog = 10;
 inline constexpr int RadiusCard   = 9;
