@@ -4178,6 +4178,15 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         return true;
     }
 
+    if (key.startsWith(QLatin1String("keyboard/"))
+        && key.endsWith(QLatin1String("_enabled"))) {
+        // 键盘页「启用」是即时项：配置由设置页在调用前写入，这里在切换点
+        // 立即按新配置重装 14 个动作的热键表，保证会话内按键立刻按新表分发，
+        // 不再等对话框关闭后的 onSettings() 统一重放。
+        applyShortcutConfig();
+        return true;
+    }
+
     if (key == QLatin1String("theme")) {
         // 外观页即时预览：只切运行态，不写 config。appQss / 调色板由
         // Theme::applySetting 全局换；画布底色与信息浮层是各自 setStyleSheet 的

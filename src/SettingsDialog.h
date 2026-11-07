@@ -158,13 +158,21 @@ private:
                                       int minWidth = 0);
 
     void loadFromConfig();
-    void saveAppearance();   // 外观页（第 18 期）：theme 三态 + ui/blur_material 落盘
+
+    // —— 唯一写盘入口（2026-11-07 关闭流程统一）——
+    // 即时项、兼容桥键、关闭时的按变更键提交都经 commitValues / flushPendingWrites：
+    // 写内存 → sync → 检查 QSettings::status()。sync 失败时值仍留在内存与
+    // m_pendingWrites 中，下一次提交（或关闭重试）会再次 sync，不丢已应用值。
+    bool commitValues(const QList<QPair<QString, QVariant>> &values, QString *error = nullptr);
+    bool flushPendingWrites(QString *error = nullptr);
+    void warnSaveFailure(const QString &error);
+    QHash<QString, QVariant> m_pendingWrites;   // 已写入内存、尚未 sync 成功的键
 
     // —— 即时写盘（普通项默认路径）——
-    // 控件变更立刻写 config + 同步写兼容桥键；运行时由 MainWindow::onSettings
-    // 在对话框关闭后按配置重放（模态页内画布不可见）。m_loading 用于屏蔽回填。
+    // 控件变更立刻写 config + 同步写兼容桥键；运行态在可下发项上由设置页
+    // 即时调用 MainWindow::applyLiveSetting，其余按配置在下一次操作生效。
     void connectInstantSignals();
-    void applyInstantValue(const QString &key, const QVariant &value);
+    bool applyInstantValue(const QString &key, const QVariant &value);
     void writeBridgeKeys();
     bool m_loading = false;
 

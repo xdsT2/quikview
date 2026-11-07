@@ -1,5 +1,7 @@
 #include "Config.h"
 
+#include <new>
+
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDir>
@@ -35,6 +37,14 @@ Config &Config::instance()
 {
     static Config inst;
     return inst;
+}
+
+void Config::reopenSettings()
+{
+    const QString fileName = m_settings.fileName();
+    QSettings *p = &m_settings;
+    p->~QSettings();
+    new (p) QSettings(fileName, QSettings::IniFormat);
 }
 
 bool Config::isPortable() const

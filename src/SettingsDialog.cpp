@@ -95,18 +95,6 @@ int iGet(const char *key, int def)
 {
     return Config::instance().settings().value(QStringLiteral("config/") + key, def).toInt();
 }
-void sSet(const char *key, const QString &v)
-{
-    Config::instance().settings().setValue(QStringLiteral("config/") + key, v);
-}
-void bSet(const char *key, bool v)
-{
-    Config::instance().settings().setValue(QStringLiteral("config/") + key, v);
-}
-void iSet(const char *key, int v)
-{
-    Config::instance().settings().setValue(QStringLiteral("config/") + key, v);
-}
 
 // ---------------------------------------------------------------------------
 // 键盘页行区：高度按整行吸附（行 32 + 分隔线 1），自己滚。
@@ -1525,17 +1513,6 @@ void SettingsDialog::buildAppearancePage(QWidget *page)
     addHint(sec, tr("磨砂材质在 Windows 10 上降级为半透明。"));
 }
 
-void SettingsDialog::saveAppearance()
-{
-    // 外观页唯一落盘点：主题三选一 + 材质独立键。跟随时只写 system，
-    // 显式选择才写 dark/light；disabled 的材质钮绝不回写（no writeback）。
-    flushPendingTheme();   // 排队中的真实变色先落运行态，再写配置
-    if (m_followSystem && m_lightToggle)
-        sSet("theme", themeFromControls());
-    if (m_blurMaterial && m_blurMaterial->isEnabled())
-        bSet("ui/blur_material", m_blurMaterial->isChecked());
-}
-
 QString SettingsDialog::themeFromControls() const
 {
     if (m_followSystem && m_followSystem->isChecked())
@@ -1604,7 +1581,7 @@ void SettingsDialog::applyThemePreview()
         m_themeAppliedSetting = want;
         // 等色也写盘：来源从「手选深色」变成「跟随系统」，配色虽未变，
         // 但配置必须保存，否则关窗后来源又跳回去。
-        sSet("theme", want);
+        applyInstantValue(QStringLiteral("theme"), want);
         return;
     }
 
@@ -1644,7 +1621,7 @@ void SettingsDialog::applyPendingTheme(int serial)
         m_themeLast = want;
         refreshDialogStyle();
         // 主题是即时项：切换成功即写盘，关闭窗口（含「不保存」）也保留。
-        sSet("theme", want);
+        applyInstantValue(QStringLiteral("theme"), want);
     } else {
         // 运行态没变（失败发生在下发入口）；回退到运行态实际值，而不是
         // 用户最后一次点选值，避免「控件显示浅色、界面还是深色」。
@@ -2386,25 +2363,59 @@ void SettingsDialog::loadFromConfig()
 // 即时写盘（普通项默认路径）+ 待保存项（热键 / 语言）
 // ---------------------------------------------------------------------------
 
-void SettingsDialog::applyInstantValue(const QString &key, const QVariant &value)
+bool SettingsDialog::commitValues(const QList<QPair<QString, QVariant>> &values, QString *error)
+{
+    QSettings &s = Config::instance().settings();
+    for (const auto &kv : values) {
+        // 键名统一不带 config/ 前缀；落盘时统一补前缀，避免两套写法。
+        s.setValue(QStringLiteral("config/") + kv.first, kv.second);
+        m_pendingWrites.insert(kv.first, kv.second);
+    }
+    return flushPendingWrites(error);
+}
+
+bool SettingsDialog::flushPendingWrites(QString *error)
+{
+    QSettings &s = Config::instance().settings();
+    s.sync();
+    if (s.status() != QSettings::NoError) {
+        // QSettings::status() 会被首个错误粘住：即使权限恢复、后续 sync 实际
+        // 已写入，status 仍返回 AccessError。重建实例并重放全部内存键后再试一次，
+        // 这样「留在设置页稍后重试」才真的能落盘，且不丢主窗口刚写入的键。
+        QHash<QString, QVariant> snapshot;
+        for (const QString &k : s.allKeys())
+            snapshot.insert(k, s.value(k));
+        Config::instance().reopenSettings();
+        QSettings &retry = Config::instance().settings();
+        for (auto it = snapshot.cbegin(); it != snapshot.cend(); ++it)
+            retry.setValue(it.key(), it.value());
+        retry.sync();
+        if (retry.status() != QSettings::NoError) {
+            if (error)
+                *error = tr("配置文件写入失败（%1）")
+                             .arg(QString::number(static_cast<int>(retry.status())));
+            return false;
+        }
+    }
+    m_pendingWrites.clear();
+    return true;
+}
+
+void SettingsDialog::warnSaveFailure(const QString &error)
+{
+    QMessageBox::warning(this, tr("设置"),
+                         tr("保存失败：%1。\n"
+                            "改动仍保留在界面上，可稍后重试。")
+                             .arg(error));
+}
+
+bool SettingsDialog::applyInstantValue(const QString &key, const QVariant &value)
 {
     if (m_loading)
-        return;
-    switch (value.typeId()) {
-    case QMetaType::Bool:
-        bSet(key.toLatin1().constData(), value.toBool());
-        break;
-    case QMetaType::Int:
-    case QMetaType::LongLong:
-    case QMetaType::UInt:
-        iSet(key.toLatin1().constData(), value.toInt());
-        break;
-    default:
-        sSet(key.toLatin1().constData(), value.toString());
-        break;
-    }
-    // 运行态由 MainWindow 在对话框关闭后按配置重放；本函数只保证「不点保存也落盘」。
-    // 对话框仍是模态，画布不可见，因此不在这里强行重排主窗口。
+        return true;
+    // 运行态由设置页在可下发项上即时调用 MainWindow::applyLiveSetting；
+    // 本函数只保证「不点保存也落盘」，并与关闭提交共用同一个写盘入口。
+    return commitValues({{key, value}});
 }
 
 void SettingsDialog::writeBridgeKeys()
@@ -2412,13 +2423,36 @@ void SettingsDialog::writeBridgeKeys()
     // —— 兼容桥：运行逻辑沿用的旧 key 由新设置项推导 ——
     // 三档必须一一对应；Config::interpolation() 会把 fast→bilinear、
     // smooth→bicubic 翻译成画布认识的模式，lanczos 原样透传。
+    // 只有推导值与现有配置不同才写，未变更键不重写。
+    QSettings &s = Config::instance().settings();
+    const auto writeIfChanged = [&s](const QString &key, const QVariant &want) {
+        if (!s.value(QStringLiteral("config/") + key).isValid()
+            || s.value(QStringLiteral("config/") + key) != want)
+            return QPair<QString, QVariant>(key, want);
+        return QPair<QString, QVariant>();
+    };
+
     const QString interp = sGet("imageproc/interpolate", QStringLiteral("0"));
-    sSet("interpolation", interp == QStringLiteral("0") ? QStringLiteral("fast")
-                          : interp == QStringLiteral("1") ? QStringLiteral("smooth")
-                                                          : QStringLiteral("lanczos"));
-    bSet("wheel_zoom", sGet("mouse/wheel_up", QStringLiteral("zoom_in")) == QStringLiteral("zoom_in")
-                       && sGet("mouse/wheel_down", QStringLiteral("zoom_out")) == QStringLiteral("zoom_out"));
-    bSet("middle_pan", sGet("mouse/btn_middle", QStringLiteral("pan")) == QStringLiteral("pan"));
+    const QPair<QString, QVariant> interpPair = writeIfChanged(
+        QStringLiteral("interpolation"),
+        interp == QStringLiteral("0") ? QStringLiteral("fast")
+            : interp == QStringLiteral("1") ? QStringLiteral("smooth")
+                                           : QStringLiteral("lanczos"));
+    const QPair<QString, QVariant> wheelPair = writeIfChanged(
+        QStringLiteral("wheel_zoom"),
+        sGet("mouse/wheel_up", QStringLiteral("zoom_in")) == QStringLiteral("zoom_in")
+            && sGet("mouse/wheel_down", QStringLiteral("zoom_out")) == QStringLiteral("zoom_out"));
+    const QPair<QString, QVariant> middlePair = writeIfChanged(
+        QStringLiteral("middle_pan"),
+        sGet("mouse/btn_middle", QStringLiteral("pan")) == QStringLiteral("pan"));
+
+    QList<QPair<QString, QVariant>> changes;
+    for (const QPair<QString, QVariant> &p : { interpPair, wheelPair, middlePair }) {
+        if (!p.first.isEmpty())
+            changes.append(p);
+    }
+    if (!changes.isEmpty())
+        commitValues(changes);
 }
 
 void SettingsDialog::connectInstantSignals()
@@ -2484,16 +2518,35 @@ void SettingsDialog::connectInstantSignals()
         connect(m_blurMaterial, &QCheckBox::toggled, this, [this](bool on) {
             if (m_loading)
                 return;
-            bSet("ui/blur_material", on);
+            applyInstantValue(QStringLiteral("ui/blur_material"), on);
             UiStyle::setBlurMaterial(on);
             refreshDialogStyle();
         });
     }
-    // 热键改绑 / 语言只更新待保存计数，不写盘；「启用」开关仍是即时项。
+    // 热键改绑 / 语言只更新待保存计数，不写盘；「启用」是即时项：
+    // 先写配置，再在切换点让 MainWindow 重装热键表（不能等对话框关闭）。
     for (const KeyRow &r : m_keyRows) {
         const QString action = r.action;
-        connect(r.cb, &QCheckBox::toggled, this, [this, action](bool on) {
-            applyInstantValue(QStringLiteral("keyboard/%1_enabled").arg(action), on);
+        QCheckBox *cb = r.cb;
+        connect(cb, &QCheckBox::toggled, this, [this, action, cb](bool on) {
+            if (m_loading)
+                return;
+            const QString key = QStringLiteral("keyboard/%1_enabled").arg(action);
+            applyInstantValue(key, on);
+            // 运行态即时生效：失败时控件回退，避免「看是关、实际还能按」。
+            if (MainWindow *host = qobject_cast<MainWindow *>(parentWidget())) {
+                QString error;
+                if (!host->applyLiveSetting(key, on, &error)) {
+                    {
+                        const QSignalBlocker b(cb);
+                        cb->setChecked(!on);
+                    }
+                    applyInstantValue(key, !on);
+                    QMessageBox::warning(this, tr("设置"),
+                                         tr("「%1」未能即时生效：%2\n已恢复原值。")
+                                             .arg(cb->text(), error));
+                }
+            }
         });
         connect(r.edit, &QKeySequenceEdit::keySequenceChanged, this, [this]() {
             updatePendingNote();
@@ -2665,53 +2718,40 @@ bool SettingsDialog::onAccepted()
         return false;
     }
 
-    for (const ChkBind &b : m_chkBinds) {
-        const bool v = b.cb->isChecked();
-        bSet(b.key, b.inverted ? !v : v);
-    }
-    for (const ComboBind &b : m_comboBinds)
-        sSet(b.key, b.combo->currentData().toString());
+    // 排队中的主题切换先落运行态（写盘经 applyInstantValue 同一入口）。
+    flushPendingTheme();
 
-    if (m_cacheSize)
-        iSet("imageproc/cache_size_mb", m_cacheSize->value());
+    // —— 只提交实际变更的键：普通即时项在变更点已经落盘，这里不再整表重写。
+    // 待保存项只有热键改绑与界面语言；「启用」是即时项，不在这里重复写。 ——
+    QList<QPair<QString, QVariant>> changes;
+    QSettings &s = Config::instance().settings();
     for (const KeyRow &r : m_keyRows) {
-        bSet(QStringLiteral("keyboard/%1_enabled").arg(r.action).toLatin1().constData(),
-             r.cb->isChecked());
         // _key 存 PortableText（"Ctrl+P"、"Right"…），MainWindow 按
         // QKeySequence::fromString(…, PortableText) 读回。
-        sSet(QStringLiteral("keyboard/%1_key").arg(r.action).toLatin1().constData(),
-             r.edit->keySequence().toString(QKeySequence::PortableText));
-        // 动作固定，仍写回同名字段：把历史改绑留下的旧值清掉。
-        sSet(QStringLiteral("keyboard/%1_action").arg(r.action).toLatin1().constData(),
-             r.action);
+        const QString now = r.edit->keySequence().toString(QKeySequence::PortableText);
+        if (now != m_keyBaseline.value(r.action)) {
+            changes.append({ QStringLiteral("keyboard/%1_key").arg(r.action), now });
+        }
+        // 动作固定；仅当历史改绑残留的旧值与目标动作不一致时才清理一次。
+        const QString actionKey = QStringLiteral("keyboard/%1_action").arg(r.action);
+        const QVariant storedAction = s.value(QStringLiteral("config/") + actionKey);
+        if (storedAction.isValid() && storedAction.toString() != r.action)
+            changes.append({ actionKey, r.action });
     }
-    for (const MouseRow &r : m_mouseRows)
-        sSet(r.key.toLatin1().constData(), r.combo->currentData().toString());
-    if (m_maxBookmarks)
-        iSet("bookmark/max_bookmarks", m_maxBookmarks->currentData().toInt());
-    if (m_photoFolder1)
-        sSet("etc/photo_folder_1", m_photoFolder1->text());
-    if (m_photoFolder2)
-        sSet("etc/photo_folder_2", m_photoFolder2->text());
-    if (m_editorPath)
-        sSet("etc/image_editor", m_editorPath->text());
-    if (m_language)
-        sSet("language", m_language->currentData().toString());
+    if (m_language) {
+        const QString now = m_language->currentData().toString();
+        if (now != m_langBaseline)
+            changes.append({ QStringLiteral("language"), now });
+    }
 
-    // —— 兼容桥：运行逻辑沿用的旧 key 由新设置项推导 ——
-    writeBridgeKeys();
-
-    // 外观页（第 18 期）：三态主题与磨砂键在这里统一落盘。
-    saveAppearance();
-
-    // 保存失败不关闭：sync 后检查状态，失败保留界面改动并说明原因。
-    QSettings &s = Config::instance().settings();
-    s.sync();
-    if (s.status() != QSettings::NoError) {
-        QMessageBox::warning(this, tr("设置"),
-                             tr("保存失败：配置文件写入失败（%1）。\n"
-                                "改动仍保留在界面上，可稍后重试。")
-                                 .arg(QString::number(static_cast<int>(s.status()))));
+    QString error;
+    if (!changes.isEmpty() && !commitValues(changes, &error)) {
+        warnSaveFailure(error);
+        return false;
+    }
+    // 即时写盘曾有 sync 失败的键在 m_pendingWrites 中：这里一起重试。
+    if (!flushPendingWrites(&error)) {
+        warnSaveFailure(error);
         return false;
     }
     return true;
@@ -3022,7 +3062,12 @@ void SettingsDialog::reject()
     flushPendingTheme();   // 排队中的主题切换先落运行态并写盘，再决定关闭方式
     const QStringList names = pendingChangeNames();
     if (names.isEmpty()) {
-        Config::instance().settings().sync();
+        // 直接关闭：同样要确认写盘成功，不能「看着关了、其实没落盘」。
+        QString error;
+        if (!flushPendingWrites(&error)) {
+            warnSaveFailure(error);
+            return;   // 留在设置页，允许稍后重试
+        }
         QDialog::reject();
         return;
     }
@@ -3049,7 +3094,12 @@ void SettingsDialog::reject()
         return;
     }
     if (box.clickedButton() && box.clickedButton() != keepBtn) {
-        Config::instance().settings().sync();
+        // 不保存：只丢弃热键 / 语言草稿；已即时应用的普通项仍须确认落盘。
+        QString error;
+        if (!flushPendingWrites(&error)) {
+            warnSaveFailure(error);
+            return;   // 留在设置页，允许稍后重试
+        }
         QDialog::reject();   // 丢弃待保存草稿，已即时项保留
     }
 }

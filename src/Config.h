@@ -127,6 +127,11 @@ public:
 
     QSettings &settings() { return m_settings; }
 
+    // 写盘失败后 QSettings::status() 会被首个错误粘住（后续 sync 即使成功也仍
+    // 返回 AccessError）。重建同一路径的 QSettings 实例可清掉该状态，供设置页
+    // 在权限恢复后真正重试落盘；内存中的待写值由调用方按 m_pendingWrites 重放。
+    void reopenSettings();
+
 private:
     static QString defaultConfigPath();
 
