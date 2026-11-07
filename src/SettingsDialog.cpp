@@ -2363,41 +2363,94 @@ void SettingsDialog::loadFromConfig()
 // 即时写盘（普通项默认路径）+ 待保存项（热键 / 语言）
 // ---------------------------------------------------------------------------
 
-bool SettingsDialog::commitValues(const QList<QPair<QString, QVariant>> &values, QString *error)
+void SettingsDialog::refreshSettingsInstanceIfError()
 {
     QSettings &s = Config::instance().settings();
+    if (s.status() == QSettings::NoError)
+        return;
+    // QSettings::status() 会被首个错误粘住：重建实例并重放当前内存键，
+    // 让「留在设置页稍后重试」拿到干净状态；同时不丢主窗口刚写入的键。
+    QHash<QString, QVariant> snapshot;
+    for (const QString &k : s.allKeys())
+        snapshot.insert(k, s.value(k));
+    Config::instance().reopenSettings();
+    QSettings &retry = Config::instance().settings();
+    for (auto it = snapshot.cbegin(); it != snapshot.cend(); ++it)
+        retry.setValue(it.key(), it.value());
+}
+
+bool SettingsDialog::writeValues(const QList<QPair<QString, QVariant>> &values, bool retryable,
+                                 QString *error)
+{
+    refreshSettingsInstanceIfError();
+    QSettings &s = Config::instance().settings();
+
+    // 记录旧值：草稿写失败时要按旧值回滚内存，不能把用户放弃的键留在
+    // QSettings 里（否则「不保存」路径的 sync 会把草稿刷到磁盘）。
+    QHash<QString, QVariant> previous;
+    QSet<QString> previousPresent;
     for (const auto &kv : values) {
-        // 键名统一不带 config/ 前缀；落盘时统一补前缀，避免两套写法。
-        s.setValue(QStringLiteral("config/") + kv.first, kv.second);
-        m_pendingWrites.insert(kv.first, kv.second);
+        const QString full = QStringLiteral("config/") + kv.first;
+        if (s.contains(full))
+            previousPresent.insert(full);
+        previous.insert(full, s.value(full));
+        s.setValue(full, kv.second);
+        if (retryable)
+            m_pendingWrites.insert(kv.first, kv.second);
     }
-    return flushPendingWrites(error);
+    s.sync();
+    if (s.status() == QSettings::NoError) {
+        if (retryable) {
+            for (const auto &kv : values)
+                m_pendingWrites.remove(kv.first);
+        }
+        return true;
+    }
+
+    if (!retryable) {
+        for (const auto &kv : values) {
+            const QString full = QStringLiteral("config/") + kv.first;
+            if (previousPresent.contains(full))
+                s.setValue(full, previous.value(full));
+            else
+                s.remove(full);
+        }
+    }
+    if (error)
+        *error = tr("配置文件写入失败（%1）")
+                     .arg(QString::number(static_cast<int>(s.status())));
+    return false;
+}
+
+bool SettingsDialog::commitValues(const QList<QPair<QString, QVariant>> &values, QString *error)
+{
+    // 热键改绑 / 语言草稿：失败即回滚内存，草稿只存在于界面上。
+    return writeValues(values, false, error);
 }
 
 bool SettingsDialog::flushPendingWrites(QString *error)
 {
-    QSettings &s = Config::instance().settings();
-    s.sync();
-    if (s.status() != QSettings::NoError) {
-        // QSettings::status() 会被首个错误粘住：即使权限恢复、后续 sync 实际
-        // 已写入，status 仍返回 AccessError。重建实例并重放全部内存键后再试一次，
-        // 这样「留在设置页稍后重试」才真的能落盘，且不丢主窗口刚写入的键。
-        QHash<QString, QVariant> snapshot;
-        for (const QString &k : s.allKeys())
-            snapshot.insert(k, s.value(k));
-        Config::instance().reopenSettings();
-        QSettings &retry = Config::instance().settings();
-        for (auto it = snapshot.cbegin(); it != snapshot.cend(); ++it)
-            retry.setValue(it.key(), it.value());
-        retry.sync();
-        if (retry.status() != QSettings::NoError) {
+    if (m_pendingWrites.isEmpty()) {
+        if (!m_forceSync)
+            return true;
+        refreshSettingsInstanceIfError();
+        QSettings &s = Config::instance().settings();
+        s.sync();
+        if (s.status() != QSettings::NoError) {
             if (error)
                 *error = tr("配置文件写入失败（%1）")
-                             .arg(QString::number(static_cast<int>(retry.status())));
+                             .arg(QString::number(static_cast<int>(s.status())));
             return false;
         }
+        m_forceSync = false;
+        return true;
     }
-    m_pendingWrites.clear();
+    QList<QPair<QString, QVariant>> values;
+    for (auto it = m_pendingWrites.cbegin(); it != m_pendingWrites.cend(); ++it)
+        values.append({ it.key(), it.value() });
+    if (!writeValues(values, true, error))
+        return false;
+    m_forceSync = false;
     return true;
 }
 
@@ -2415,7 +2468,7 @@ bool SettingsDialog::applyInstantValue(const QString &key, const QVariant &value
         return true;
     // 运行态由设置页在可下发项上即时调用 MainWindow::applyLiveSetting；
     // 本函数只保证「不点保存也落盘」，并与关闭提交共用同一个写盘入口。
-    return commitValues({{key, value}});
+    return writeValues({{ key, value }}, true, nullptr);
 }
 
 void SettingsDialog::writeBridgeKeys()
@@ -2452,7 +2505,7 @@ void SettingsDialog::writeBridgeKeys()
             changes.append(p);
     }
     if (!changes.isEmpty())
-        commitValues(changes);
+        writeValues(changes, true, nullptr);   // 兼容桥随即时项一起重试，不丢推导值
 }
 
 void SettingsDialog::connectInstantSignals()
@@ -2745,12 +2798,13 @@ bool SettingsDialog::onAccepted()
     }
 
     QString error;
-    if (!changes.isEmpty() && !commitValues(changes, &error)) {
+    // 先重试此前 sync 失败的即时项：失败则不动草稿，避免「草稿已落盘、窗口还开着」。
+    if (!flushPendingWrites(&error)) {
         warnSaveFailure(error);
         return false;
     }
-    // 即时写盘曾有 sync 失败的键在 m_pendingWrites 中：这里一起重试。
-    if (!flushPendingWrites(&error)) {
+    // 只提交实际变更的键：普通即时项在变更点已经落盘，这里不再整表重写。
+    if (!changes.isEmpty() && !commitValues(changes, &error)) {
         warnSaveFailure(error);
         return false;
     }
@@ -2767,6 +2821,7 @@ void SettingsDialog::onReset()
     s.beginGroup(QStringLiteral("config"));
     s.remove(QStringLiteral(""));
     s.endGroup();
+    m_forceSync = true;   // 直接改内存的批量变更，由关闭/后续写盘统一 sync
     loadFromConfig();
 
     // 恢复默认同样是「即时项立即生效」：配置已清成默认值，运行态按默认值重放；

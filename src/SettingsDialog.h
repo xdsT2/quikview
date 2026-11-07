@@ -160,13 +160,19 @@ private:
     void loadFromConfig();
 
     // —— 唯一写盘入口（2026-11-07 关闭流程统一）——
-    // 即时项、兼容桥键、关闭时的按变更键提交都经 commitValues / flushPendingWrites：
-    // 写内存 → sync → 检查 QSettings::status()。sync 失败时值仍留在内存与
-    // m_pendingWrites 中，下一次提交（或关闭重试）会再次 sync，不丢已应用值。
+    // 即时项、兼容桥键、关闭时的按变更键提交都经 writeValues：
+    // 写内存 → sync → 检查 QSettings::status()。
+    // retryable=true（即时项）：失败时值保留在内存并记入 m_pendingWrites，
+    // 下一次提交 / 关闭时重试；retryable=false（热键 / 语言草稿）：失败时
+    // 立即回滚内存，草稿绝不留在 QSettings 里，后续「不保存」无从把它们刷盘。
     bool commitValues(const QList<QPair<QString, QVariant>> &values, QString *error = nullptr);
     bool flushPendingWrites(QString *error = nullptr);
+    bool writeValues(const QList<QPair<QString, QVariant>> &values, bool retryable,
+                     QString *error);
+    void refreshSettingsInstanceIfError();
     void warnSaveFailure(const QString &error);
-    QHash<QString, QVariant> m_pendingWrites;   // 已写入内存、尚未 sync 成功的键
+    QHash<QString, QVariant> m_pendingWrites;   // 已写入内存、尚未 sync 成功的即时项
+    bool m_forceSync = false;                   // 恢复默认等直接改内存的批量变更待同步
 
     // —— 即时写盘（普通项默认路径）——
     // 控件变更立刻写 config + 同步写兼容桥键；运行态在可下发项上由设置页
