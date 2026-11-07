@@ -53,6 +53,9 @@ if(MINGW)
     # 测试器动态链接 MinGW 运行时（仅本机自测用，不随产品分发）。
     target_link_options(thumb_selftest PRIVATE -static-libgcc)
 elseif(MSVC)
+    # The installer registers this DLL without installing the Visual C++ runtime.
+    set_property(TARGET quikthumb PROPERTY MSVC_RUNTIME_LIBRARY
+        "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     # 源码是 UTF-8（无 BOM）中文注释
     target_compile_options(quikthumb PRIVATE /utf-8 /W4)
     target_compile_options(thumb_selftest PRIVATE /utf-8 /W4)
