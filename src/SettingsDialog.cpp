@@ -703,8 +703,6 @@ QPushButton:disabled { color: @DisabledText@; border-color: @DisabledBorder@; ba
 SettingsDialog::SettingsDialog(QWidget *parent)
     : QDialog(parent)
 {
-    takeSnapshot();
-
     setWindowTitle(tr("设置"));
     setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
     setAttribute(Qt::WA_TranslucentBackground, true);
@@ -855,8 +853,9 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     // 右缘与内容区右缘对齐（内容 pane 右内边距 28px；原 18px 会让保存按钮外凸 9px）。
     fl->setContentsMargins(18, 0, 28, 0);
     fl->setSpacing(9);
-    auto *note = new QLabel(tr("带「即时」说明的项切换即生效；其余项保存后生效"), footer);
+    auto *note = new QLabel(tr("普通设置即时生效；热键改绑与界面语言在保存后生效"), footer);
     note->setObjectName(QStringLiteral("footerNote"));
+    m_footerNote = note;
     fl->addWidget(note);
     fl->addStretch(1);
 
@@ -886,7 +885,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
 
     root->addWidget(footer);
 
-    // 同页下拉统一宽度（按最长选项）+ 搜索索引；再回填配置。
+    // 同页下拉统一宽度（按最长选项）+ 搜索索引；再回填配置与待保存基线。
     for (QWidget *p : m_pages)
         levelComboWidths(p);
     buildSearchIndex();
@@ -895,8 +894,11 @@ SettingsDialog::SettingsDialog(QWidget *parent)
 
     loadFromConfig();
     selectPage(0);
-    // 即时项在加载完控件后再接信号：避免开窗时的 setChecked 触发一次预览。
+    capturePendingBaseline();
+    updatePendingNote();
+    // 即时项在加载完控件后再接信号：避免开窗时的 setChecked 触发一次写盘。
     connectLiveChecks();
+    connectInstantSignals();
 }
 
 // ===========================================================================
@@ -1348,8 +1350,7 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
     addSwitchRow(sec, tr("启动时检查更新"), tr("重启后生效；每 24 小时最多一次"),
                  "check_updates", false, false);
     addHint(sec, tr("手动检查不受频率限制；检查更新会联网访问发布源，"
-                    "失败时在页内提示「检查失败，请检查网络」。"
-                    "本轮未做外部验证（未实际联网）。"));
+                    "失败时在页内提示「检查失败，请检查网络」。"));
     connect(m_checkUpdateBtn, &QPushButton::clicked, this, [this]() {
         m_checkUpdateBtn->setEnabled(false);
         m_checkUpdateBtn->setText(tr("检查中…"));
@@ -1427,8 +1428,7 @@ void SettingsDialog::buildViewPage(QWidget *page)
     m_liveChecks.append({ sideArrows, "view/show_side_arrow", false, false });
     m_liveChecks.append({ zoomInfo, "view/show_zoom_control", false, false });
     m_liveChecks.append({ animInfo, "view/show_anim_control", false, false });
-    addHint(sec, tr("即时预览：切换后信息面板字号 / 侧边箭头 / 缩放浮标立刻变化；"
-                    "点「保存设置」后保留，取消 / Esc / 标题栏关闭会恢复进入设置前的值。"));
+    addHint(sec, tr("以上显示项切换后立即重排信息面板；关闭设置页后按当前值保留。"));
 
     // 「背景」段（背景图 + 路径 + 背景色 + 边框色）已按用户 2026-11-03 决定整段
     // 移除（第 18 期）：画布外观固定，见 MainWindow::applyRuntimeSettings 的注释。
@@ -1502,14 +1502,13 @@ void SettingsDialog::buildAppearancePage(QWidget *page)
                 if (auto *host = qobject_cast<MainWindow *>(parentWidget()))
                     host->refreshThemeSurfaces();
             });
-    addHint(sec, tr("主题为即时预览：切换后立即生效；点「保存设置」后保留，"
-                    "取消 / Esc / 标题栏关闭会恢复进入设置前的值。"));
+    addHint(sec, tr("主题切换后立即应用；关闭设置页后保留当前主题。"));
 
     // —— 材质 ——
     // 磨砂只做右键菜单与信息浮层（第 18 期④），独立键 ui/blur_material，
     // 默认关、不参与「恢复默认」清空（在 config 组外）。Win10 上 DWM 不支持
     // SystemBackdrop，勾了也只会是半透明纯色——直接灰掉，别给人坏的期待。
-    // 控件形态与主题区统一为胶囊拨动开关；功能与键值不动，点「保存设置」后生效。
+    // 控件形态与主题区统一为胶囊拨动开关；功能与键值不动，关闭设置页后保留。
     sec = beginSection(page, tr("材质"));
     ToggleRow blurRow = addToggleRow(
         sec, tr("磨砂材质（右键菜单与信息浮层）"),
@@ -1525,8 +1524,7 @@ void SettingsDialog::buildAppearancePage(QWidget *page)
         blurRow.row->setToolTip(tr("当前系统不支持系统级磨砂，已停用"));
     }
 #endif
-    addHint(sec, tr("磨砂材质仅影响右键菜单与信息浮层；Windows 10 上降级为半透明，"
-                    "点「保存设置」后生效。"));
+    addHint(sec, tr("磨砂材质在 Windows 10 上降级为半透明；切换后立即应用。"));
 }
 
 void SettingsDialog::saveAppearance()
@@ -1606,6 +1604,9 @@ void SettingsDialog::applyThemePreview()
         m_themePending.clear();
         m_themeLast = want;
         m_themeAppliedSetting = want;
+        // 等色也写盘：来源从「手选深色」变成「跟随系统」，配色虽未变，
+        // 但配置必须保存，否则关窗后来源又跳回去。
+        sSet("theme", want);
         return;
     }
 
@@ -1644,6 +1645,8 @@ void SettingsDialog::applyPendingTheme(int serial)
         m_themeAppliedMode = themeMode(want);
         m_themeLast = want;
         refreshDialogStyle();
+        // 主题是即时项：切换成功即写盘，关闭窗口（含「不保存」）也保留。
+        sSet("theme", want);
     } else {
         // 运行态没变（失败发生在下发入口）；回退到运行态实际值，而不是
         // 用户最后一次点选值，避免「控件显示浅色、界面还是深色」。
@@ -1664,28 +1667,6 @@ void SettingsDialog::flushPendingTheme()
         m_themeDefer->stop();
     if (m_themePendingActive)
         applyPendingTheme(m_themeSerial);
-}
-
-void SettingsDialog::rollbackThemePreview()
-{
-    // 取消 / Esc / 标题栏关闭：按打开前的快照恢复运行态主题（不写盘）。
-    if (!m_followSystem || !m_lightToggle)
-        return;
-    // 先作废在途请求：旧请求晚到也不能覆盖回滚结果。
-    ++m_themeSerial;
-    m_themePendingActive = false;
-    m_themePending.clear();
-    if (m_themeDefer)
-        m_themeDefer->stop();
-    const QString old = m_snapshot.value(QStringLiteral("theme"), QStringLiteral("dark"))
-                            .toString();
-    syncThemeControls(old);
-    m_themeAppliedSetting = old;
-    m_themeAppliedMode = themeMode(old);
-    m_themeLast = old;
-    if (auto *host = qobject_cast<MainWindow *>(parentWidget()))
-        host->applyLiveSetting(QStringLiteral("theme"), old, nullptr);
-    refreshDialogStyle();
 }
 
 // ===========================================================================
@@ -1761,10 +1742,8 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
                                     "imageproc/monitor_icc", false, false);
     iccMonitor->setEnabled(false);
     iccMonitor->setToolTip(tr("Qt6 光栅后端不支持显示器色彩管理，暂不可用"));
-    addHint(sec, tr("以上四项都需点「保存设置」：GIF / 32 位透明背景在下次打开对应图片时生效；"
-                    "插值算法在关闭设置页后的缩放 / 重采样时生效；翻页效果从下一次翻页开始。"
-                    "当前模态设置页内看不到画布。「自定义颜色」档暂无取色器，"
-                    "实际按中灰铺底（已按真实行为改名）。"));
+    addHint(sec, tr("「自定义颜色」档暂无取色器，实际按中灰铺底；"
+                    "透明背景与翻页效果在下次打开图片 / 翻页时生效。"));
 }
 
 // ===========================================================================
@@ -1821,8 +1800,7 @@ void SettingsDialog::buildAssocPage(QWidget *page)
         }
     });
     addHint(sec, tr("两个按钮都会离开 QuikView 进入 Windows 系统界面；"
-                    "应用内只报告「启动是否成功」，系统侧结果需你自行确认。"
-                    "本轮未做外部验证（未实际改动系统关联）。"));
+                    "应用内只报告「启动是否成功」，系统侧结果需你自行确认。"));
 
     // 逐格式勾选组已删除（第 13 期）：Windows 10/11 不允许程序静默改默认关联
     // （UserChoice 带哈希，写完无效）。这里只留按类分行的只读清单。
@@ -1835,8 +1813,7 @@ void SettingsDialog::buildAssocPage(QWidget *page)
     }
     addHint(sec, tr("安装程序已把 QuikView 登记为上述格式的候选打开方式；"
                     "Windows 10 起不允许程序静默抢占默认关联，"
-                    "要改默认请在系统「默认应用」里选择 QuikView。"
-                    "本轮未做外部验证（未实际改动系统关联）。"));
+                    "要改默认请在系统「默认应用」里选择 QuikView。"));
 }
 
 // ===========================================================================
@@ -1852,8 +1829,9 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     // 表格高度由 KeyRowsArea::apply() 按内容自然高／整行封顶决定（M-05）。
 
     // 14 行全部可配置（config/keyboard/<action>_{enabled,_key,_action}），
-    // MainWindow::applyShortcutConfig 在保存后立即给 QAction 重装键位。
-    auto *hint = new QLabel(tr("双击「热键」栏录入新键位（Esc 清空）；「启用」状态与热键都在点「保存设置」后生效。"
+    // 启用开关即时写盘；热键改绑在保存时统一校验后写入。
+    auto *hint = new QLabel(tr("双击「热键」栏录入新键位（Esc 清空）；热键改绑在保存时生效。"
+                               "「启用」开关即时生效。"
                                "已启用但热键显示「未设置」表示该动作暂无快捷键。"
                                "两个启用的动作占用同一键位时保存会被拒绝。"), page);
     hint->setObjectName(QStringLiteral("pageHint"));
@@ -2201,7 +2179,8 @@ void SettingsDialog::buildEtcPage(QWidget *page)
 {
     // 路径输入组：输入框与「浏览 / 打开」按钮保持同一组、统一右对齐。
     QWidget *sec = beginSection(page, tr("常用路径"));
-    auto makeFolderRow = [this, sec](const QString &label, QLineEdit **edit) {
+    auto makeFolderRow = [this, sec](const QString &label, const QString &cfgKey,
+                                     QLineEdit **edit) {
         SettingRowParts parts = addSettingRow(sec, label, tr("留空表示不使用该文件夹"));
         *edit = new QLineEdit(parts.row);
         (*edit)->setFixedHeight(kInputH);
@@ -2212,11 +2191,13 @@ void SettingsDialog::buildEtcPage(QWidget *page)
         auto *btnOpen = addButton(nullptr, tr("打开"));
         parts.controls->addWidget(btnBrowse, 0, Qt::AlignVCenter);
         parts.controls->addWidget(btnOpen, 0, Qt::AlignVCenter);
-        connect(btnBrowse, &QPushButton::clicked, this, [this, edit]() {
+        connect(btnBrowse, &QPushButton::clicked, this, [this, edit, cfgKey]() {
             const QString d = QFileDialog::getExistingDirectory(
                 this, tr("选择一个文件夹."), (*edit)->text());
-            if (!d.isEmpty())
-                (*edit)->setText(d);   // 只改界面，保存设置时统一写盘
+            if (!d.isEmpty()) {
+                (*edit)->setText(d);
+                applyInstantValue(cfgKey, d);
+            }
         });
         connect(btnOpen, &QPushButton::clicked, this, [this, edit]() {
             const QString d = (*edit)->text().trimmed();
@@ -2235,8 +2216,8 @@ void SettingsDialog::buildEtcPage(QWidget *page)
             }
         });
     };
-    makeFolderRow(tr("图片文件夹 1"), &m_photoFolder1);
-    makeFolderRow(tr("图片文件夹 2"), &m_photoFolder2);
+    makeFolderRow(tr("图片文件夹 1"), QStringLiteral("etc/photo_folder_1"), &m_photoFolder1);
+    makeFolderRow(tr("图片文件夹 2"), QStringLiteral("etc/photo_folder_2"), &m_photoFolder2);
     {
         SettingRowParts parts = addSettingRow(
             sec, tr("图像编辑器程序路径"), tr("留空时使用系统默认程序"));
@@ -2253,12 +2234,15 @@ void SettingsDialog::buildEtcPage(QWidget *page)
             const QString f = QFileDialog::getOpenFileName(
                 this, tr("选择图像编辑器"), m_editorPath->text(),
                 tr("程序 (*.exe);;所有文件 (*)"));
-            if (!f.isEmpty())
-                m_editorPath->setText(f);   // 只改界面，保存设置时统一写盘
+            if (!f.isEmpty()) {
+                m_editorPath->setText(f);
+                applyInstantValue(QStringLiteral("etc/image_editor"), f);
+            }
         });
         connect(btnPreset, &QPushButton::clicked, this, [this]() {
             const QString preset = QStringLiteral("C:/Windows/System32/mspaint.exe");
-            m_editorPath->setText(preset);   // 只填输入框，不启动程序
+            m_editorPath->setText(preset);
+            applyInstantValue(QStringLiteral("etc/image_editor"), preset);
         });
     }
 
@@ -2341,9 +2325,8 @@ void SettingsDialog::buildLangPage(QWidget *page)
         });
     }
     addHint(sec, tr("语言文件按程序目录下的 translations 加载；"
-                    "两个入口都会离开 QuikView，应用内只报告启动是否成功，"
-                    "未做外部验证。重启后生效：界面语言在保存后不会立即切换，"
-                    "重启 QuikView 后应用。"));
+                    "两个入口都会离开 QuikView，应用内只报告启动是否成功。"
+                    "语言选择是待保存项：关闭时可选「保存并关闭」，重启后生效。"));
 }
 
 // ===========================================================================
@@ -2401,24 +2384,29 @@ void SettingsDialog::loadFromConfig()
     m_loading = false;
 }
 
-void SettingsDialog::takeSnapshot()
-{
-    QSettings &s = Config::instance().settings();
-    s.beginGroup(QStringLiteral("config"));
-    const QStringList keys = s.allKeys();
-    for (const QString &key : keys)
-        m_snapshot.insert(key, s.value(key));
-    s.endGroup();
-}
+// ---------------------------------------------------------------------------
+// 即时写盘（普通项默认路径）+ 待保存项（热键 / 语言）
+// ---------------------------------------------------------------------------
 
-void SettingsDialog::restoreSnapshot()
+void SettingsDialog::applyInstantValue(const QString &key, const QVariant &value)
 {
-    QSettings &s = Config::instance().settings();
-    s.beginGroup(QStringLiteral("config"));
-    s.remove(QStringLiteral(""));
-    for (auto it = m_snapshot.constBegin(); it != m_snapshot.constEnd(); ++it)
-        s.setValue(it.key(), it.value());
-    s.endGroup();
+    if (m_loading)
+        return;
+    switch (value.typeId()) {
+    case QMetaType::Bool:
+        bSet(key.toLatin1().constData(), value.toBool());
+        break;
+    case QMetaType::Int:
+    case QMetaType::LongLong:
+    case QMetaType::UInt:
+        iSet(key.toLatin1().constData(), value.toInt());
+        break;
+    default:
+        sSet(key.toLatin1().constData(), value.toString());
+        break;
+    }
+    // 运行态由 MainWindow 在对话框关闭后按配置重放；本函数只保证「不点保存也落盘」。
+    // 对话框仍是模态，画布不可见，因此不在这里强行重排主窗口。
 }
 
 void SettingsDialog::writeBridgeKeys()
@@ -2433,6 +2421,129 @@ void SettingsDialog::writeBridgeKeys()
     bSet("wheel_zoom", sGet("mouse/wheel_up", QStringLiteral("zoom_in")) == QStringLiteral("zoom_in")
                        && sGet("mouse/wheel_down", QStringLiteral("zoom_out")) == QStringLiteral("zoom_out"));
     bSet("middle_pan", sGet("mouse/btn_middle", QStringLiteral("pan")) == QStringLiteral("pan"));
+}
+
+void SettingsDialog::connectInstantSignals()
+{
+    const auto isLive = [this](QCheckBox *cb) {
+        for (const LiveCheck &item : m_liveChecks) {
+            if (item.cb == cb)
+                return true;
+        }
+        return false;
+    };
+    for (const ChkBind &b : m_chkBinds) {
+        if (isLive(b.cb))
+            continue;   // 即时预览项由 applyLiveCheck 统一下发 + 写盘
+        connect(b.cb, &QCheckBox::toggled, this, [this, b](bool on) {
+            applyInstantValue(QString::fromLatin1(b.key),
+                              b.inverted ? !on : on);
+            updatePendingNote();
+        });
+    }
+    for (const ComboBind &b : m_comboBinds) {
+        connect(b.combo, &QComboBox::currentIndexChanged, this, [this, b]() {
+            applyInstantValue(QString::fromLatin1(b.key),
+                              b.combo->currentData().toString());
+            writeBridgeKeys();
+        });
+    }
+    if (m_cacheSize) {
+        connect(m_cacheSize, &QSpinBox::valueChanged, this, [this](int v) {
+            applyInstantValue(QStringLiteral("imageproc/cache_size_mb"), v);
+        });
+    }
+    for (const MouseRow &r : m_mouseRows) {
+        auto *combo = r.combo;
+        const QString key = r.key;
+        connect(combo, &QComboBox::currentIndexChanged, this, [this, key, combo]() {
+            applyInstantValue(key, combo->currentData().toString());
+            writeBridgeKeys();
+        });
+    }
+    if (m_maxBookmarks) {
+        connect(m_maxBookmarks, &QComboBox::currentIndexChanged, this, [this]() {
+            applyInstantValue(QStringLiteral("bookmark/max_bookmarks"),
+                              m_maxBookmarks->currentData().toInt());
+        });
+    }
+    if (m_photoFolder1) {
+        connect(m_photoFolder1, &QLineEdit::editingFinished, this, [this]() {
+            applyInstantValue(QStringLiteral("etc/photo_folder_1"), m_photoFolder1->text());
+        });
+    }
+    if (m_photoFolder2) {
+        connect(m_photoFolder2, &QLineEdit::editingFinished, this, [this]() {
+            applyInstantValue(QStringLiteral("etc/photo_folder_2"), m_photoFolder2->text());
+        });
+    }
+    if (m_editorPath) {
+        connect(m_editorPath, &QLineEdit::editingFinished, this, [this]() {
+            applyInstantValue(QStringLiteral("etc/image_editor"), m_editorPath->text());
+        });
+    }
+    if (m_blurMaterial) {
+        connect(m_blurMaterial, &QCheckBox::toggled, this, [this](bool on) {
+            if (m_loading)
+                return;
+            bSet("ui/blur_material", on);
+            UiStyle::setBlurMaterial(on);
+            refreshDialogStyle();
+        });
+    }
+    // 热键改绑 / 语言只更新待保存计数，不写盘；「启用」开关仍是即时项。
+    for (const KeyRow &r : m_keyRows) {
+        const QString action = r.action;
+        connect(r.cb, &QCheckBox::toggled, this, [this, action](bool on) {
+            applyInstantValue(QStringLiteral("keyboard/%1_enabled").arg(action), on);
+        });
+        connect(r.edit, &QKeySequenceEdit::keySequenceChanged, this, [this]() {
+            updatePendingNote();
+        });
+    }
+    if (m_language) {
+        connect(m_language, &QComboBox::currentIndexChanged, this, [this]() {
+            updatePendingNote();
+        });
+    }
+}
+
+void SettingsDialog::capturePendingBaseline()
+{
+    m_keyBaseline.clear();
+    for (const KeyRow &r : m_keyRows) {
+        m_keyBaseline.insert(r.action,
+                             r.edit->keySequence().toString(QKeySequence::PortableText));
+    }
+    if (m_language)
+        m_langBaseline = m_language->currentData().toString();
+}
+
+QStringList SettingsDialog::pendingChangeNames() const
+{
+    QStringList names;
+    for (const KeyRow &r : m_keyRows) {
+        const QString now = r.edit->keySequence().toString(QKeySequence::PortableText);
+        if (now != m_keyBaseline.value(r.action))
+            names << tr("热键：%1").arg(r.label);
+    }
+    if (m_language && m_language->currentData().toString() != m_langBaseline)
+        names << tr("界面语言");
+    return names;
+}
+
+void SettingsDialog::updatePendingNote()
+{
+    if (!m_footerNote)
+        return;
+    const QStringList names = pendingChangeNames();
+    if (names.isEmpty()) {
+        m_footerNote->setText(tr("普通设置即时生效；热键改绑与界面语言在保存后生效"));
+        return;
+    }
+    m_footerNote->setText(tr("有 %1 项待保存（%2）；关闭时会询问")
+                              .arg(names.size())
+                              .arg(names.join(QStringLiteral("、"))));
 }
 
 // ---------------------------------------------------------------------------
@@ -2500,24 +2611,18 @@ void SettingsDialog::filterNavigation(const QString &text)
 
 void SettingsDialog::connectLiveChecks()
 {
-    MainWindow *host = qobject_cast<MainWindow *>(parentWidget());
     for (int i = 0; i < m_liveChecks.size(); ++i) {
         LiveCheck &item = m_liveChecks[i];
-        item.originalChecked = item.cb->isChecked();   // 进入设置时的控件态
         item.lastValue = item.inverted ? !item.cb->isChecked() : item.cb->isChecked();
-        const QString key = QString::fromLatin1(item.key);
-        // 运行态快照：取真实对象当前值，不假设它一定等于配置值。
-        m_liveRuntime.insert(key, host ? host->liveSettingValue(key) : QVariant(item.lastValue));
         connect(item.cb, &QCheckBox::toggled, this, [this, i](bool on) {
             applyLiveCheck(i, on);
         });
     }
-    m_liveSessionActive = true;
 }
 
 void SettingsDialog::applyLiveCheck(int index, bool checked)
 {
-    if (!m_liveSessionActive || index < 0 || index >= m_liveChecks.size())
+    if (m_loading || index < 0 || index >= m_liveChecks.size())
         return;
     LiveCheck &item = m_liveChecks[index];
     const bool want = item.inverted ? !checked : checked;
@@ -2531,7 +2636,7 @@ void SettingsDialog::applyLiveCheck(int index, bool checked)
         error = tr("未找到主窗口，无法下发运行态。");
     if (!host || !host->applyLiveSetting(key, want, &error)) {
         // 运行态没变 → 控件必须退回上一次成功值，避免 UI 与实际状态分叉；
-        // 此时配置也未写入，取消/关闭不会留下半套状态。
+        // 配置未写入，不会留下半套状态。
         const bool previousChecked = item.inverted ? !item.lastValue : item.lastValue;
         {
             const QSignalBlocker b(item.cb);
@@ -2545,25 +2650,9 @@ void SettingsDialog::applyLiveCheck(int index, bool checked)
         return;
     }
 
-    // 只预览，不在此落盘：关闭「保存设置」时才由 onAccepted() 统一写盘，
-    // 取消 / Esc / 标题栏关闭由 restoreSnapshot + 运行态快照回滚（预览式设置会话）。
+    // 即时生效 + 立刻写盘：关闭窗口（含「不保存」）也保留该值。
     item.lastValue = want;
-}
-
-void SettingsDialog::rollbackLiveSession()
-{
-    m_liveSessionActive = false;
-    for (LiveCheck &item : m_liveChecks) {
-        const QSignalBlocker b(item.cb);
-        item.cb->setChecked(item.originalChecked);
-        item.lastValue = item.inverted ? !item.originalChecked : item.originalChecked;
-    }
-
-    MainWindow *host = qobject_cast<MainWindow *>(parentWidget());
-    if (!host)
-        return;
-    for (auto it = m_liveRuntime.constBegin(); it != m_liveRuntime.constEnd(); ++it)
-        host->applyLiveSetting(it.key(), it.value(), nullptr);
+    applyInstantValue(key, want);
 }
 
 bool SettingsDialog::onAccepted()
@@ -2642,12 +2731,16 @@ void SettingsDialog::onReset()
     s.endGroup();
     loadFromConfig();
 
-    // 恢复默认同样是「预览」：即时项立即下发运行态（不落盘），取消 / Esc /
-    // 标题栏关闭时由 restoreSnapshot + rollbackLiveSession 一起回滚。
+    // 恢复默认同样是「即时项立即生效」：配置已清成默认值，运行态按默认值重放；
+    // 热键 / 语言若与进入设置时不同，进入待保存计数（关闭时会询问）。
     for (int i = 0; i < m_liveChecks.size(); ++i)
         applyLiveCheck(i, m_liveChecks[i].cb->isChecked());
-    // 主题也是即时项：恢复默认后立即回到默认深色运行态。
     applyThemePreview();
+    if (m_blurMaterial) {
+        UiStyle::setBlurMaterial(m_blurMaterial->isChecked());
+        refreshDialogStyle();
+    }
+    updatePendingNote();
 
     // 「背景」段的两个颜色钮已随第 18 期下线；其余直接读写 config 的控件
     // 均为绑定表/专项控件，loadFromConfig() 已覆盖。
@@ -2912,7 +3005,7 @@ void SettingsDialog::keyPressEvent(QKeyEvent *event)
         accept();   // 与保存按钮同一条校验路径，冲突时不关闭窗口（P0-1）
         return;
     }
-    QDialog::keyPressEvent(event); // ESC -> reject() -> 取消回滚
+    QDialog::keyPressEvent(event); // ESC -> reject() -> 待保存询问
 }
 
 void SettingsDialog::accept()
@@ -2926,10 +3019,39 @@ void SettingsDialog::accept()
 
 void SettingsDialog::reject()
 {
-    // 取消语义：配置与已即时生效的运行态一起回到进入设置前（Cancel / Esc / 标题栏 ✕）。
-    // 顺序：先恢复配置快照 → 主题运行态按快照值回滚 → 其余 LiveCheck 运行态回滚。
-    restoreSnapshot();
-    rollbackThemePreview();
-    rollbackLiveSession();
-    QDialog::reject();
+    // 关闭语义（2026-11-07）：普通设置已即时写盘，关闭即保留；
+    // 只有热键改绑 / 界面语言是待保存项。有草稿时弹三选一。
+    flushPendingTheme();   // 排队中的主题切换先落运行态并写盘，再决定关闭方式
+    const QStringList names = pendingChangeNames();
+    if (names.isEmpty()) {
+        Config::instance().settings().sync();
+        QDialog::reject();
+        return;
+    }
+
+    QMessageBox box(this);
+    box.setWindowTitle(tr("保存更改？"));
+    box.setIcon(QMessageBox::Question);
+    box.setText(tr("有 %1 项更改尚未保存。").arg(names.size()));
+    QStringList shown = names.mid(0, 4);
+    if (names.size() > shown.size())
+        shown << tr("等 %1 项").arg(names.size());
+    box.setInformativeText(tr("待保存：%1\n\n"
+                             "「不保存」只放弃这些草稿；已即时应用的普通设置会保留。")
+                               .arg(shown.join(QStringLiteral("、"))));
+    auto *saveBtn = box.addButton(tr("保存并关闭"), QMessageBox::AcceptRole);
+    box.addButton(tr("不保存"), QMessageBox::DestructiveRole);
+    auto *keepBtn = box.addButton(tr("继续编辑"), QMessageBox::RejectRole);
+    box.setDefaultButton(saveBtn);
+    box.setEscapeButton(keepBtn);
+    box.exec();
+
+    if (box.clickedButton() == saveBtn) {
+        accept();   // 冲突 / 写盘失败时 accept 内部已拦截，窗口保持打开
+        return;
+    }
+    if (box.clickedButton() && box.clickedButton() != keepBtn) {
+        Config::instance().settings().sync();
+        QDialog::reject();   // 丢弃待保存草稿，已即时项保留
+    }
 }

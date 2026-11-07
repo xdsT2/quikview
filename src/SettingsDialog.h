@@ -30,13 +30,14 @@ class QWidget;
 // 设置对话框：QuikView 深色三栏布局（视觉真源 Temp/quikview-secondary-prototype.html）。
 // 顶部 43px 标题栏 + 左侧 204px 导航（搜索 + 11 个 navItem）+ 1px 竖分隔 + 内容区 + 62px footer。
 // 11 页：一般 / 浏览 / 外观 / 图像处理 / 格式关联 / 键盘 / 鼠标 / 书签 / 上下文菜单 / 杂项 / 语言。
-// 打开时快照 config 组 + 即时项运行态：保存设置 → 写回 Config；× / ESC → 回滚两者；
-// 普通项只在「保存设置」时统一写盘，取消 / Esc / 标题栏关闭不落盘。
 //
-// 2026-11-07 设置页排版统一：
+// 2026-11-07 设置页排版统一首批：
 //   · 统一普通设置行（左文案 + 右控件列，组卡片 + 整行悬停），复用到 11 页；
-//   · 左侧导航顶部「搜索设置…」按设置名匹配并跳转，清空恢复全部导航；
-//   · 排版不改写盘语义：即时项仍是「切换即预览、取消即恢复、期间不落盘」。
+//   · 普通开关 / 下拉 / 数值 / 路径输入改为即时写盘（关闭窗口不保存也保留），
+//     运行态由 MainWindow 在对话框关闭后按配置重放；
+//   · 只有热键改绑与界面语言仍待保存：关闭时若有改动，弹「保存更改？」。
+//     不保存只丢弃这两类草稿，已即时应用的设置保留；改回原值即清除待保存状态。
+//   · 左侧导航顶部「搜索设置…」按设置名匹配并跳转，清空恢复全部导航。
 // 控件全部使用标准 Qt 控件与胶囊开关，配色/字号由 UiStyle::dialogQss() 提供。
 class SettingsDialog : public QDialog
 {
@@ -157,13 +158,23 @@ private:
                                       int minWidth = 0);
 
     void loadFromConfig();
-    void takeSnapshot();
-    void restoreSnapshot();
     void saveAppearance();   // 外观页（第 18 期）：theme 三态 + ui/blur_material 落盘
 
-    // 兼容桥键：保存时由新设置项推导，供运行逻辑沿用。
+    // —— 即时写盘（普通项默认路径）——
+    // 控件变更立刻写 config + 同步写兼容桥键；运行时由 MainWindow::onSettings
+    // 在对话框关闭后按配置重放（模态页内画布不可见）。m_loading 用于屏蔽回填。
+    void connectInstantSignals();
+    void applyInstantValue(const QString &key, const QVariant &value);
     void writeBridgeKeys();
     bool m_loading = false;
+
+    // —— 待保存项（热键改绑 / 界面语言）——
+    QStringList pendingChangeNames() const;
+    void capturePendingBaseline();
+    void updatePendingNote();
+    QLabel *m_footerNote = nullptr;
+    QHash<QString, QString> m_keyBaseline;   // action → PortableText（进入设置时）
+    QString m_langBaseline;                  // 进入设置时的语言代码
 
     // —— 搜索 ——
     QLineEdit *m_search = nullptr;
@@ -174,21 +185,17 @@ private:
     void selectFirstVisiblePage();
 
     // —— SET-02 即时预览会话（样板：view/exif_small_font）——
-    // 控件变更只下发 MainWindow 运行态（预览），不逐次落盘；保存设置时才写盘。
-    // 失败回退控件与运行态并报错；取消 / Esc / 标题栏关闭恢复配置与运行态快照。
+    // 控件变更下发 MainWindow 运行态并立即写盘；失败时控件与运行态回退，
+    // 不留下半套状态。取消关闭不再回滚（已即时应用的设置保留）。
     struct LiveCheck {
         QCheckBox *cb;
         const char *key;
         bool inverted;
-        bool originalChecked;   // 进入设置时的控件值（取消恢复）
-        bool lastValue;         // 最近一次成功下发的预览值（幂等 / 失败回退）
+        bool lastValue;         // 最近一次成功下发的值（幂等 / 失败回退）
     };
     void connectLiveChecks();
     void applyLiveCheck(int index, bool checked);
-    void rollbackLiveSession();
     QList<LiveCheck> m_liveChecks;
-    QVariantMap m_liveRuntime;   // 进入设置时受影响运行态对象的真实值
-    bool m_liveSessionActive = false;
 
     // —— 键盘自定义（批次 D1）冲突检测 ——
     // 保存前调用：同一键位只归一个启用的绑定、键位不得与固定动作相撞、
@@ -213,9 +220,6 @@ private:
     bool m_centered = false;
     QPoint m_dragOffset;
 
-    // 打开时的配置快照（取消时回滚）
-    QVariantMap m_snapshot;
-
     // —— 绑定表 ——
     QList<ChkBind> m_chkBinds;
     QList<ComboBind> m_comboBinds;
@@ -233,16 +237,14 @@ private:
     QLabel *m_lightLabel = nullptr;
     QLabel *m_lightDesc = nullptr;
 
-    // —— 主题即时预览（SET-02 会话快照内）——
+    // —— 主题即时应用 ——
     // 主题是复合控件（跟随 + 浅色两个开关映射同一 config/theme），不走
-    // LiveCheck（那个结构是一键一布尔）；单独处理：切换即下发运行态、
-    // 不写盘；取消 / Esc / ✕ 由 rollbackThemePreview() 按快照恢复。
+    // LiveCheck（那个结构是一键一布尔）；单独处理：切换即下发运行态并写盘。
     void applyThemePreview();
     // 延迟下发：点击回调只更新状态并排队，重任务等开关圆点过渡走完再执行，
-    // 否则全程重抛光会把过渡拦腰截断；serial 用于丢弃被新点击 / 回滚取代的旧请求。
+    // 否则全程重抛光会把过渡拦腰截断；serial 用于丢弃被新点击取代的旧请求。
     void applyPendingTheme(int serial);
     void flushPendingTheme();
-    void rollbackThemePreview();
     void syncThemeControls(const QString &theme);
     void updateThemeControlStates();
     void refreshDialogStyle();
