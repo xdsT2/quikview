@@ -1333,7 +1333,7 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
     addSwitchRow(sec, tr("在边角显示通知信息，而非中心"), tr("下一次通知时生效"),
                  "notify_corner", false, true);
     auto *alwaysOnTop = addSwitchRow(sec, tr("总在最前 (Ctrl+A)"),
-                                     tr("切换后立即生效"),
+                                     QString(),
                                      "always_on_top", false, false);
     // SET-03 小批 A：置顶是二态且运行态可逆（setWindowFlag 有值变化守卫）。
     m_liveChecks.append({ alwaysOnTop, "always_on_top", false, false });
@@ -1399,7 +1399,7 @@ void SettingsDialog::buildViewPage(QWidget *page)
     QWidget *sec = beginSection(page, tr("导航"));
     // 侧边箭头是真开关：ImageCanvas::setSideArrowsEnabled()。
     auto *sideArrows = addSwitchRow(sec, tr("显示侧边箭头"),
-                                    tr("切换后立即生效"),
+                                    QString(),
                                     "view/show_side_arrow", false, true);
     addSwitchRow(sec, tr("记住缩放状态"),
                  tr("下次打开图片或重启时恢复；当前画面不变"),
@@ -1502,8 +1502,6 @@ void SettingsDialog::buildAppearancePage(QWidget *page)
                 if (auto *host = qobject_cast<MainWindow *>(parentWidget()))
                     host->refreshThemeSurfaces();
             });
-    addHint(sec, tr("主题切换后立即应用；关闭设置页后保留当前主题。"));
-
     // —— 材质 ——
     // 磨砂只做右键菜单与信息浮层（第 18 期④），独立键 ui/blur_material，
     // 默认关、不参与「恢复默认」清空（在 config 组外）。Win10 上 DWM 不支持
@@ -1524,7 +1522,7 @@ void SettingsDialog::buildAppearancePage(QWidget *page)
         blurRow.row->setToolTip(tr("当前系统不支持系统级磨砂，已停用"));
     }
 #endif
-    addHint(sec, tr("磨砂材质在 Windows 10 上降级为半透明；切换后立即应用。"));
+    addHint(sec, tr("磨砂材质在 Windows 10 上降级为半透明。"));
 }
 
 void SettingsDialog::saveAppearance()
