@@ -34,7 +34,15 @@ PUSH-QUEUE.md
 已交办/
 DESIGN-WORK-SUMMARY.md
 
-# 派单证据（截图/视觉基线，体积大且可重生成；派单正文本身照常入库）
+# 内部管理文档：本地协作用，不入公开仓库（2026-11-08）
+# 派单/ 含回执、批次推进、挂起升级、冲突裁定等内部协作记录；
+# PROJECT-PLAN.md 是内部状态看板；AGENTS.md 是本地 Agent 协作约定。
+# 公开文档保留 README / CHANGELOG / ROADMAP / ARCHITECTURE 与 docs/。
+派单/
+PROJECT-PLAN.md
+AGENTS.md
+
+# 派单证据（截图/视觉基线，体积大且可重生成）
 派单/证据/
 
 # 本地验收/比对脚本（依赖本机路径与原版参考截图，不入库）

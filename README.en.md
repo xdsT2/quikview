@@ -13,8 +13,8 @@ A fast, clean image viewer for Windows. C++ / Qt6, MIT licensed.
 
 > Most documentation is currently written in Chinese. This page mirrors `README.md`;
 > for what is implemented and what is still missing
-> see [ROADMAP.md](ROADMAP.md). Testing recipes and architecture trade-offs are in
-> [STATUS-2026-10-25.md](派单/规范/STATUS-2026-10-25.md) (a 2026-10-25 snapshot).
+> see [ROADMAP.md](ROADMAP.md). Testing entry points (`--smoke` / `--probe`) and
+> architecture trade-offs are in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 This is a from-scratch rewrite and contains no third-party proprietary code or binaries.
 Its feature scope and architectural understanding came from reverse-engineering the installer of
