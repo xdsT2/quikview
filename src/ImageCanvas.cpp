@@ -26,9 +26,6 @@
 
 namespace {
 
-// 双击最大化开启时，边缘单击翻页的等待窗口：220ms 内收到第二击 = 双击，
-// 取消翻页只做最大化；超时 = 单击，兑现翻页。
-constexpr int kEdgeClickDblWaitMs = 220;
 
 // 分离式 Lanczos3 重采样：先水平后垂直，两个方向各 3-lobe 窗口。
 // 只用于「缩小显示」——原版把 Lanczos 标成「慢，高品质」，正是因为它比
@@ -406,8 +403,7 @@ void ImageCanvas::setBorderColor(const QColor &color)
 }
 
 // 侧边箭头开关：只关「视觉」，不关命中——edgeTurnDelta 走箭头矩形，矩形仍由
-// placeEdgeArrows 摆在原位，所以两侧点击照旧翻页（光标也仍是手型，否则开关一关
-// 用户就再也找不到翻页热区了）。显示箭头的唯一路径是 updateEdgeHover()，
+// placeEdgeArrows 摆在原位，所以两侧点击照旧翻页。显示箭头的唯一路径是 updateEdgeHover()，
 // 因此那里判一次即可覆盖 resize/scroll/show/crop 等全部刷新时机。
 void ImageCanvas::setSideArrowsEnabled(bool on)
 {
@@ -1001,7 +997,7 @@ int ImageCanvas::edgeTurnDelta(const QPoint &pos) const
     return 0;
 }
 
-// 悬停反馈：光标落在箭头矩形内 → 箭头淡入 + 手掌光标；离开 → 淡出。
+// 悬停反馈由侧边箭头提供，光标保持普通箭头。
 // 显隐判定只看箭头自身矩形（与点击同一口径），不再有更宽的悬停带。
 // 这里是**唯一的显箭头入口**（其余时机都是 setShown(false)），所以侧边箭头
 // 总开关只需在这里与一下，就能同时挡住 resize/scroll/show/换图等所有刷新路径。
@@ -1014,8 +1010,7 @@ void ImageCanvas::updateEdgeHover(const QPoint &pos)
     m_arrowPrev->setShown(m_sideArrowsEnabled && delta < 0);
     m_arrowNext->setShown(m_sideArrowsEnabled && delta > 0);
     if (!m_cropMode) {
-        // 关掉箭头也保留手型：命中带还在（点击仍翻页），没有光标提示就成暗坑了
-        viewport()->setCursor(delta != 0 ? Qt::PointingHandCursor : Qt::ArrowCursor);
+        viewport()->setCursor(Qt::ArrowCursor);
     }
 }
 
@@ -1101,8 +1096,11 @@ void ImageCanvas::mousePressEvent(QMouseEvent *event)
         m_pressPos = event->pos();
         m_pressClock.restart();
     }
-    // 左键平移由 QGraphicsView::ScrollHandDrag 原生处理，勿拦截基类事件。
+    // 保留 Qt 的拖拽处理，但侧边单击在超过拖拽阈值前保持普通箭头。
     QGraphicsView::mousePressEvent(event);
+    if (event->button() == Qt::LeftButton && edgeTurnDelta(event->pos()) != 0) {
+        viewport()->setCursor(Qt::ArrowCursor);
+    }
 }
 
 void ImageCanvas::mouseMoveEvent(QMouseEvent *event)
@@ -1127,7 +1125,10 @@ void ImageCanvas::mouseMoveEvent(QMouseEvent *event)
         refreshEdgeHover();
     } else if (m_pressTracked && (event->buttons() & Qt::LeftButton)
                && (event->pos() - m_pressPos).manhattanLength() >= 3) {
-        // 位移到 3px 即判定为拖拽平移，松手不再翻页（原逻辑不受影响）
+        // 真正开始平移时恢复拖拽光标，松手不再翻页。
+        if (edgeTurnDelta(m_pressPos) != 0 && dragMode() == QGraphicsView::ScrollHandDrag) {
+            viewport()->setCursor(Qt::ClosedHandCursor);
+        }
         m_pressTracked = false;
     }
     QGraphicsView::mouseMoveEvent(event);
@@ -1162,46 +1163,39 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent *event)
         const bool isClick = m_pressClock.isValid() && m_pressClock.elapsed() < 300
                              && (event->pos() - m_pressPos).manhattanLength() < 3;
         const int delta = isClick ? edgeTurnDelta(event->pos()) : 0;
+        QGraphicsView::mouseReleaseEvent(event);
+        refreshEdgeHover();
         // 左键映射（C9）：非 none/pan 的动作在「点击」时派发（拖动平移不受影响）；
         // 边缘带照旧翻页，保证「两侧单击翻页」回归不被映射破坏。
         const QString leftAct = Config::instance().mouseLeftAction();
         if (isClick && delta == 0 && leftAct != QLatin1String("none")
             && leftAct != QLatin1String("pan")) {
-            QGraphicsView::mouseReleaseEvent(event);
             emit mouseActionRequested(leftAct);
             return;
         }
-        QGraphicsView::mouseReleaseEvent(event);
         // 两侧单击翻页受设置控制（键 "config/mouse/click_side_pageturn"）：
         // 关闭时箭头照常显示，点击不再翻页。
         if (delta == 0 || !Config::instance().sideClickPageturn()) {
             return;
         }
-        if (!m_dblClickMaximize) {
-            // 双击最大化关闭：边缘单击零延迟直接翻页
-            emit edgeTurnRequested(delta);
-            return;
-        }
-        // 双击最大化开启：边缘单击延迟 220ms 等第二击；220ms 内收到双击就取消
-        // 翻页只做最大化（见 mouseDoubleClickEvent），超时后按单击兑现翻页。
-        m_pendingEdgeTurn = delta;
-        QTimer::singleShot(kEdgeClickDblWaitMs, this, [this]() {
-            if (m_pendingEdgeTurn != 0) {
-                const int d = m_pendingEdgeTurn;
-                m_pendingEdgeTurn = 0;
-                emit edgeTurnRequested(d);
-            }
-        });
+        emit edgeTurnRequested(delta);
         return;
     }
     QGraphicsView::mouseReleaseEvent(event);
+    if (event->button() == Qt::LeftButton && edgeTurnDelta(event->pos()) != 0) {
+        refreshEdgeHover();
+    }
 }
 
 void ImageCanvas::mouseDoubleClickEvent(QMouseEvent *event)
 {
+    if (event->button() == Qt::LeftButton && Config::instance().sideClickPageturn()
+        && edgeTurnDelta(event->pos()) != 0) {
+        // Qt 将连续点击的第二次按下报告为双击，侧边区域仍按普通点击处理。
+        mousePressEvent(event);
+        return;
+    }
     if (event->button() == Qt::LeftButton && m_dblClickMaximize) {
-        // 边缘单击的 220ms 等待窗口内收到第二击：取消挂起的翻页，只做最大化
-        m_pendingEdgeTurn = 0;
         emit doubleClickRequested();
         event->accept();
         return;

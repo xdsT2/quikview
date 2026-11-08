@@ -395,7 +395,7 @@ MainWindow::MainWindow(QWidget *parent)
             this, &MainWindow::toggleFullscreen);
 
     // 左键双击（设置「双击最大化 / 还原」开启时）= 窗口最大化/还原。
-    // 画布已处理与边缘单击翻页的冲突：220ms 内收到双击会先取消翻页。
+    // 侧边翻页区域优先处理点击，画布其余区域仍支持双击最大化。
     connect(m_canvas, &ImageCanvas::doubleClickRequested, this, [this]() {
         if (isMaximized()) {
             showNormal();

@@ -213,9 +213,6 @@ private:
     QPoint m_midPressPos;
     bool m_midPressTracked = false;
     bool m_dblClickMaximize = false;    // 双击最大化开关（applyRuntimeSettings 下发）
-    // 双击最大化开启时，边缘单击先挂起的翻页方向；收到双击/超时执行后清零。
-    // 非 0 表示有一笔「等第二击」的翻页在途（220ms 后兑现或取消）。
-    int m_pendingEdgeTurn = 0;
     class SideArrow;
     SideArrow *m_arrowPrev = nullptr;   // 悬停带内 160ms 淡入，纯视觉不接鼠标
     SideArrow *m_arrowNext = nullptr;
