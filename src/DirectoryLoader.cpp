@@ -71,15 +71,16 @@ QStringList DirectoryLoader::imageExtensions()
 QString DirectoryLoader::imageFilter()
 {
     QStringList entries;
+    // QFileDialog 默认选中第一个过滤器。把「所有图片」放在首位，避免 PSD、
+    // RAW 等已支持格式因为落在类型分组里而在打开窗口中被默认隐藏。
+    entries << QStringLiteral("%1 (%2)")
+                   .arg(QCoreApplication::translate("DirectoryLoader", "所有图片"),
+                        imageExtensions().join(QLatin1Char(' ')));
     for (const ImageGroup &g : kImageGroups) {
         entries << QStringLiteral("%1 (%2)")
                        .arg(QCoreApplication::translate("DirectoryLoader", g.label),
                             groupPatterns(g).join(QLatin1Char(' ')));
     }
-    // 「所有图片」直接用白名单拼，保证和扫描口径永远一致
-    entries << QStringLiteral("%1 (%2)")
-                   .arg(QCoreApplication::translate("DirectoryLoader", "所有图片"),
-                        imageExtensions().join(QLatin1Char(' ')));
     entries << QCoreApplication::translate("DirectoryLoader", "所有文件 (*)");
     return entries.join(QStringLiteral(";;"));
 }

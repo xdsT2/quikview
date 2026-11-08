@@ -37,7 +37,7 @@ public:
     // 解码白名单唯一事实来源：目录扫描、文件对话框过滤器都从这里派生。
     // 新增格式只改 DirectoryLoader.cpp 里的 kImageGroups 表，别处不许重复列表。
     static QStringList imageExtensions();
-    // QFileDialog 过滤器串：按类型分组 + 末尾「所有图片」「所有文件」
+    // QFileDialog 过滤器串：默认「所有图片」+ 按类型分组 +「所有文件」
     static QString imageFilter();
 
     // 分组视图：设置页「格式关联」直接消费本表。
