@@ -10,15 +10,20 @@
 #include <QPair>
 #include <QPointer>
 #include <QVariant>
+#include <QVector>
+
+#include "PsdLoader.h"
 
 class ImageCanvas;
 class ImageCache;
 class DirectoryLoader;
 class MetadataPanel;
+class LayerPanel;
 class ThumbnailBrowser;
 class FrameNavigator;
 class QAction;
 class QLabel;
+class QPushButton;
 class QTimer;
 class QMenu;
 class QMouseEvent;
@@ -172,6 +177,10 @@ private:
     QMenu *buildSystemMenu();
 
     void applyRuntimeSettings();
+    void setupPsdDocument(const QString &path);
+    void clearPsdDocument();
+    void refreshPsdView();
+    bool psdSimplified() const;
     // 键盘快捷键自定义（批次 D1）：按 config/keyboard/* 给 14 个可配置动作
     // 重装键位。启动（createActions 末尾）与设置页保存返回后各走一次。
     void applyShortcutConfig();
@@ -299,6 +308,13 @@ private:
     DirectoryLoader *m_dir = nullptr;
     MetadataPanel *m_metadata = nullptr;
     ThumbnailBrowser *m_browser = nullptr;
+    // —— PSD 图层（仅当前文件的会话内临时状态，不写回源文件）——
+    LayerPanel *m_layerPanel = nullptr;
+    QPushButton *m_layerEntry = nullptr;
+    PsdDocument m_psdDoc;
+    QVector<bool> m_psdVisible;
+    QString m_psdPath;
+    int m_psdPreviewIndex = -1;   // -1 = 整图，>=0 = 单层预览
     FrameNavigator *m_frames = nullptr;
     QTimer *m_slideshowTimer = nullptr;
     // 翻页停手 300ms 后触发空闲预读（前后各一张，只进缓存不上屏）

@@ -65,6 +65,8 @@
 #include "HeifLoader.h"
 #include "ImageCache.h"
 #include "ImageCanvas.h"
+#include "PsdLoader.h"
+#include "LayerPanel.h"
 #include "ImageEffects.h"
 #include "MetadataPanel.h"
 #include "ToneMap.h"
@@ -240,6 +242,40 @@ MainWindow::MainWindow(QWidget *parent)
     m_browser = new ThumbnailBrowser(m_cache, this);
     m_browser->hide();
     connect(m_browser, &ThumbnailBrowser::activateImage, this, &MainWindow::onActivateImage);
+
+    // PSD 图层：工具栏一级入口（仅 PSD 可见）+ 右侧浮层面板。
+    m_layerEntry = new QPushButton(tr("图层"), this);
+    m_layerEntry->setObjectName(QStringLiteral("layerEntry"));
+    m_layerEntry->setCursor(Qt::PointingHandCursor);
+    m_layerEntry->setFixedSize(60, 24);
+    m_layerEntry->hide();
+    m_layerPanel = new LayerPanel(this);
+    m_layerPanel->hide();
+    connect(m_layerEntry, &QPushButton::clicked, this, [this]() {
+        if (!m_layerPanel) return;
+        m_layerPanel->setVisible(!m_layerPanel->isVisible());
+        if (m_layerPanel->isVisible()) m_layerPanel->raise();
+    });
+    connect(m_layerPanel, &LayerPanel::contentChanged, this, [this]() {
+        applyChromeLayout();
+    });
+    connect(m_layerPanel, &LayerPanel::closeRequested, this, [this]() {
+        if (m_layerPanel) m_layerPanel->hide();
+        if (m_psdPreviewIndex >= 0) { m_psdPreviewIndex = -1; refreshPsdView(); }
+    });
+    connect(m_layerPanel, &LayerPanel::compositeSelected, this, [this]() {
+        m_psdPreviewIndex = -1;
+        refreshPsdView();
+    });
+    connect(m_layerPanel, &LayerPanel::eyeToggled, this, [this](int i) {
+        if (i < 0 || i >= m_psdVisible.size()) return;
+        m_psdVisible[i] = !m_psdVisible.at(i);   // 只改当前文件整图模式的临时可见性
+        refreshPsdView();                        // 保持选中项不动
+    });
+    connect(m_layerPanel, &LayerPanel::layerSelected, this, [this](int i) {
+        m_psdPreviewIndex = i;
+        refreshPsdView();
+    });
 
     m_slideshowTimer = new QTimer(this);
     m_slideshowTimer->setInterval(Config::instance().slideshowIntervalMs());
@@ -567,6 +603,16 @@ void MainWindow::applyChromeLayout()
         const QSize hint = m_metadata->sizeHint();
         m_metadata->setGeometry(x + left, y + top, hint.width(), hint.height());
         m_metadata->raise();
+    }
+    if (m_layerEntry) {
+        m_layerEntry->move(x + w - m_layerEntry->width() - 12, y + 28 + 5);
+        m_layerEntry->raise();
+    }
+    if (m_layerPanel && m_layerPanel->isVisible()) {
+        const int pw = m_layerPanel->width();
+        const int ph = qMin(m_layerPanel->preferredHeight(), h - 90);
+        m_layerPanel->setGeometry(x + w - pw - 12, y + 70, pw, ph);
+        m_layerPanel->raise();
     }
 
     m_caption->raise();
@@ -1991,8 +2037,72 @@ void MainWindow::preloadNeighbors()
     }
 }
 
+void MainWindow::setupPsdDocument(const QString &path)
+{
+    m_psdDoc = PsdLoader::load(path, true);
+    m_psdPath = path;
+    m_psdVisible.clear();
+    for (const PsdLayer &L : m_psdDoc.layers)
+        m_psdVisible.append(L.visible);   // 从文件保存的可见性重新初始化
+    m_psdPreviewIndex = -1;
+    if (m_layerEntry) m_layerEntry->setVisible(m_psdDoc.valid());
+    if (m_layerPanel) {
+        m_layerPanel->hide();
+        m_layerPanel->setDocument(m_psdDoc, m_psdVisible, -1, false);
+    }
+}
+
+void MainWindow::clearPsdDocument()
+{
+    m_psdDoc = PsdDocument();
+    m_psdPath.clear();
+    m_psdVisible.clear();
+    m_psdPreviewIndex = -1;
+    if (m_layerEntry) m_layerEntry->hide();
+    if (m_layerPanel) m_layerPanel->hide();
+}
+
+bool MainWindow::psdSimplified() const
+{
+    if (!m_psdDoc.valid() || m_psdPreviewIndex >= 0) return false;
+    for (int i = 0; i < m_psdDoc.layers.size(); ++i) {
+        const bool want = i < m_psdVisible.size() ? m_psdVisible.at(i)
+                                                  : m_psdDoc.layers.at(i).visible;
+        if (want != m_psdDoc.layers.at(i).visible) return true;
+    }
+    return false;
+}
+
+void MainWindow::refreshPsdView()
+{
+    if (!m_psdDoc.valid() || !m_canvas) return;
+    const bool simplified = psdSimplified();
+    QImage img;
+    if (m_psdPreviewIndex >= 0) {
+        img = PsdLoader::layerOnCanvas(m_psdDoc, m_psdPreviewIndex);
+    } else if (simplified) {
+        // 明确标注的临时可见性预览，绝不冒充原始合成图
+        img = PsdLoader::compositeFromVisible(m_psdDoc, m_psdVisible);
+    } else {
+        img = m_psdDoc.composite;
+    }
+    if (!img.isNull())
+        m_canvas->setPixmapPreservingView(QPixmap::fromImage(img), QPointF(0.5, 0.5),
+                                          m_canvas->zoom(), false, false);
+    if (m_layerPanel)
+        m_layerPanel->setDocument(m_psdDoc, m_psdVisible, m_psdPreviewIndex, simplified);
+}
+
 void MainWindow::onFullReady(const QString &path, const QImage &image, bool preview)
 {
+    // PSD：路径变化才装载图层树（快帧不重复解析）；切到普通图片立即收起入口与面板。
+    if (!preview) {
+        if (PsdLoader::isPsdPath(path)) {
+            if (path != m_psdPath) setupPsdDocument(path);
+        } else if (!m_psdPath.isEmpty()) {
+            clearPsdDocument();
+        }
+    }
     // FIFO 单飞保证 emit 顺序 == 请求顺序，这里不再做过期丢弃：
     // 连按/长按时每张都按序上屏（快帧先到先显示，全图到了替换）。
     showImage(image, path, preview);
@@ -2016,6 +2126,16 @@ void MainWindow::onDragPreviewReady(const QString &path, const QImage &image)
 void MainWindow::onLoadFailed(const QString &path, const QString &error)
 {
     if (path != m_currentPath) {
+        return;
+    }
+    // 例如 ZIP 压缩 PSD 解码失败：收起上一次 PSD 残留的入口与面板
+    if (!m_psdPath.isEmpty()) {
+        clearPsdDocument();
+    }
+    // PSD 的错误来自 PsdLoader，直接呈现；不要再走 libraw/libheif 兜底，
+    // 否则会被改写成「libraw 打开失败」这类与文件无关的误导信息。
+    if (PsdLoader::isPsdPath(path)) {
+        m_toast->showMessage(tr("无法打开：%1").arg(error));
         return;
     }
     QString rawErr;
@@ -2828,6 +2948,68 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         if (m_metadata) {
             m_metadata->dumpHeights(QStringLiteral("Temp/meta-dump.txt"));
         }
+    }
+    // PSD 解析验收探针：psdprobe 取全量，psdprobe0 只取元信息+合成图（定位解码卡点）。
+    else if (c.startsWith(QLatin1String("psdprobe0:")) || c.startsWith(QLatin1String("psdprobe:"))) {
+        const bool metaOnly = c.startsWith(QLatin1String("psdprobe0:"));
+        const QString psdPath = c.mid(metaOnly ? 10 : 9).trimmed();
+        const PsdDocument psdDoc = PsdLoader::load(psdPath, !metaOnly);
+        QFile f(QStringLiteral("Temp/psd-probe.txt"));
+        if (f.open(QIODevice::Append | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << "PATH=" << psdPath
+               << " canvas=" << psdDoc.canvasSize.width() << 'x' << psdDoc.canvasSize.height()
+               << " composite=" << psdDoc.composite.width() << 'x' << psdDoc.composite.height()
+               << " layers=" << psdDoc.layers.size()
+               << " error=" << psdDoc.error
+               << " limits=" << psdDoc.limitations.join(QStringLiteral(" / ")) << '\n';
+            for (int i = 0; i < psdDoc.layers.size(); ++i) {
+                const PsdLayer &L = psdDoc.layers.at(i);
+                ts << "  [" << i << "] name=" << L.name
+                   << " visible=" << (L.visible ? 1 : 0)
+                   << " opacity=" << L.opacity
+                   << " bounds=" << L.bounds.x() << ',' << L.bounds.y()
+                   << ' ' << L.bounds.width() << 'x' << L.bounds.height()
+                   << " groupDepth=" << L.groupDepth
+                   << " groupStart=" << (L.groupStart ? 1 : 0)
+                   << " groupEnd=" << (L.groupEnd ? 1 : 0)
+                   << " blend=" << L.blendKey
+                   << " previewable=" << (L.previewable ? 1 : 0)
+                   << " image=" << L.image.width() << 'x' << L.image.height()
+                   << " limit=" << L.limitation << '\n';
+            }
+        }
+        if (!psdDoc.composite.isNull())
+            psdDoc.composite.save(QStringLiteral("Temp/psd-composite.png"));
+    }
+    // PSD 图层验收探针（仅 --smoke 路径）：模拟面板/眼睛/单层预览操作
+    else if (c == QLatin1String("psdpanel")) {
+        if (m_layerPanel && m_psdDoc.valid()) {
+            m_layerPanel->setVisible(!m_layerPanel->isVisible());
+            if (m_layerPanel->isVisible()) m_layerPanel->raise();
+            applyChromeLayout();
+        }
+    }
+    else if (c.startsWith(QLatin1String("psdeye:"))) {
+        const int i = c.mid(7).trimmed().toInt();
+        if (i >= 0 && i < m_psdVisible.size()) {
+            m_psdVisible[i] = !m_psdVisible.at(i);
+            refreshPsdView();
+        }
+    }
+    else if (c.startsWith(QLatin1String("psdpreview:"))) {
+        const int i = c.mid(11).trimmed().toInt();
+        if (i >= 0 && i < m_psdDoc.layers.size()) {
+            m_psdPreviewIndex = i;
+            refreshPsdView();
+        }
+    }
+    else if (c.startsWith(QLatin1String("psdfold:"))) {
+        if (m_layerPanel) m_layerPanel->toggleGroup(c.mid(8).trimmed().toInt());
+    }
+    else if (c == QLatin1String("psdcomposite")) {
+        m_psdPreviewIndex = -1;
+        refreshPsdView();
     }
     else if (c == QLatin1String("report")) {
         QFile f(QStringLiteral("Temp/zoom-report.txt"));

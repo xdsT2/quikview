@@ -4,6 +4,7 @@
 #include <QImage>
 #include <QImageIOHandler>
 #include <QImageReader>
+#include "PsdLoader.h"
 #include <QtConcurrent/QtConcurrent>
 
 #include "Config.h"
@@ -108,9 +109,14 @@ void ImageCache::startNextPreload()
     const QString path = m_preloadQueue.takeFirst();
     m_preloadPath = path;
     QtConcurrent::run([this, path]() {
-        QImageReader reader(path);
-        reader.setAutoTransform(true);
-        const QImage img = reader.read();
+        QImage img;
+        if (PsdLoader::isPsdPath(path)) {
+            img = PsdLoader::load(path, false).composite;
+        } else {
+            QImageReader reader(path);
+            reader.setAutoTransform(true);
+            img = reader.read();
+        }
         QMetaObject::invokeMethod(this, [this, path, img]() {
             if (m_preloadPath != path) {
                 return;   // clearFull() 已作废这轮预读
@@ -232,6 +238,17 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize)
 {
     m_fullInFlight.insert(path);
     QtConcurrent::run([this, path, previewSize]() {
+        // PSD 走 PsdLoader（QImageReader 无 PSD 插件）：用文件自带的原始合成预览，
+        // 不逐层重合成，避免用近似结果冒充原文件效果。
+        if (PsdLoader::isPsdPath(path)) {
+            const PsdDocument psdDoc = PsdLoader::load(path, false);
+            const QImage img = psdDoc.composite;
+            const QString err = psdDoc.error;   // 例如「ZIP 压缩的 PSD 暂不支持」
+            QMetaObject::invokeMethod(this, [this, path, img, err]() {
+                finishFullDecode(path, img, err);
+            }, Qt::QueuedConnection);
+            return;
+        }
         const bool rawFile = isRawFilePath(path);
         // RAW 内嵌缩略图优先上屏（键 "config/etc/raw_thumbnail"，默认开）：
         // libraw unpack_thumb 通常几十毫秒，先顶住首屏，全尺寸随后在同一后台
@@ -285,7 +302,8 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize)
     });
 }
 
-void ImageCache::finishFullDecode(const QString &path, const QImage &img)
+void ImageCache::finishFullDecode(const QString &path, const QImage &img,
+                                       const QString &error)
 {
     // clearFull() 会在开关 HDR 时清空在飞集合：被清任务的结果到这里静默丢弃
     if (!m_fullInFlight.contains(path)) {
@@ -295,7 +313,7 @@ void ImageCache::finishFullDecode(const QString &path, const QImage &img)
     const bool drop = m_dropInFlightResult;
     m_dropInFlightResult = false;
     if (img.isNull()) {
-        emit loadFailed(path, QStringLiteral("无法解码"));
+        emit loadFailed(path, error.isEmpty() ? QStringLiteral("无法解码") : error);
     } else {
         insertFull(path, img);
         if (!drop) {
@@ -336,6 +354,12 @@ void ImageCache::requestThumbnail(const QString &path, const QSize &size)
     m_thumbInFlight.insert(key);
 
     auto future = QtConcurrent::run([path, size]() {
+        if (PsdLoader::isPsdPath(path)) {
+            QImage thumb = PsdLoader::load(path, false).composite;
+            if (!thumb.isNull() && (thumb.width() > size.width() || thumb.height() > size.height()))
+                thumb = thumb.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            return thumb;
+        }
         QImageReader reader(path);
         reader.setAutoTransform(true);
         // 先按 KeepAspectRatio 算出真正要解码的尺寸，再 setScaledSize。

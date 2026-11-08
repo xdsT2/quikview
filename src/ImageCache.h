@@ -52,7 +52,8 @@ signals:
 
 private:
     void startFullDecode(const QString &path, const QSize &previewSize);
-    void finishFullDecode(const QString &path, const QImage &img);
+    void finishFullDecode(const QString &path, const QImage &img,
+                             const QString &error = QString());
     void startNext();
     void startNextPreload();
     void startDragDecode();
