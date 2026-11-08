@@ -153,6 +153,32 @@ build-shell32\Release\thumb_selftest.exe <仓库根>\build-shell32\quikthumb.dll
 真实安装的 exe）；结尾 `RESULT: PASS`。当前两份数均为 **21/21 PASS**
 （缩略图 7 + 上下文菜单 14）。
 
+### 测试夹具的生成
+
+`testdata/` 里的 PSD 夹具都是脚本生成的，不塞二进制：
+
+```powershell
+pip install psd-tools pillow
+python shell-ext\testdata\make_psd_fixtures.py       # test-thumb / test-nothumb
+python shell-ext\testdata\make_layered_psd_fixtures.py   # 两个带图层的夹具
+```
+
+`make_layered_psd_fixtures.py` 产出两个文件，对应缩略图解码的两条分支：
+
+| 文件 | 内容 | 用途 |
+|---|---|---|
+| `test-layered-embedded.psd` | 3 层（背景 / 分组内含一圆 / 越界光斑），**带** 8BIM `0x040C` 内嵌缩略图 | 验证直接取内嵌预览的路径 |
+| `test-layered-no-embedded.psd` | 2 层，**不带** `0x040C` | 验证回退到自渲染的路径 |
+
+两者都是 640×480、含中文图层名。脚本末尾会自检「该有的有、该没有的没有」，
+不符预期直接非零退出。
+
+> 中文图层名有个坑：psd_tools 写图层名的 Pascal 串默认 macroman 编码，中文会抛
+> `UnicodeEncodeError`。脚本的做法是先用 ASCII 名建层、再赋值 `.name` 为中文，
+> 这样走 `luni`（UNICODE_LAYER_NAME）附加块才能正常保存。
+
+这两个夹具不入库（体积 0.9–2.3MB，且随时可重建）；上面两个脚本入库。
+
 ## 注册 / 反注册（管理员 PowerShell）
 
 ```powershell
