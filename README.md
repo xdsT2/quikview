@@ -12,7 +12,7 @@
 ![QuikView 主窗口：顶部栏与底部控制胶囊浮在照片上](docs/screenshots/01-main.webp)
 
 > 想先知道**实现到什么程度、哪些还没做**？看 [ROADMAP.md](ROADMAP.md)。
-> 自测方法与架构取舍见 [STATUS-2026-10-25.md](派单/规范/STATUS-2026-10-25.md)（2026-10-25 快照）。
+> 自测入口（`--smoke` / `--probe`）与架构取舍见 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
 本项目**从零重写**，不包含任何第三方专有代码或二进制。其功能范围与架构理解，来自对 Honeyview（Bandisoft 已停更的免费看图器）官方安装包的逆向分析——但这是两个独立的工程：QuikView 是原创实现。
 

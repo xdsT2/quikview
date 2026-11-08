@@ -34,8 +34,10 @@ PUSH-QUEUE.md
 已交办/
 DESIGN-WORK-SUMMARY.md
 
-# 派单证据（截图/视觉基线，体积大且可重生成；派单正文本身照常入库）
-派单/证据/
+# 本地管理文档（不入公开仓库）
+派单/
+PROJECT-PLAN.md
+AGENTS.md
 
 # 本地验收/比对脚本（依赖本机路径与原版参考截图，不入库）
 verify.sh
