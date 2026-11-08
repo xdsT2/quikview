@@ -494,6 +494,26 @@ QPushButton#mapLink:hover { color: #0a608c; }
 QPushButton#histToggle { background: transparent; border: 0; padding: 0;
     text-align: left; font-size: 12px; color: #5f6368; }
 QPushButton#histToggle:hover { color: #1b1b1b; }
+/* 图层面板：与 infoPanel 同一套白卡片 + 1px 描边，浅色下必须完全不透明。
+   所有按钮显式 min-height:0 / padding 抵消全局 QPushButton 的 30px 底高。 */
+QWidget#layerPanel { background: #ffffff; border: 1px solid #dfe0e2; border-radius: 8px; }
+QLabel#panelTitle { color: #1b1b1b; font-size: 12px; }
+QPushButton#layerPanelClose { min-height: 0; padding: 0; background: transparent;
+    border: 0; color: #5f6368; font-size: 13px; }
+QPushButton#layerPanelClose:hover { color: #1b1b1b; }
+QPushButton#layerComposite, QPushButton#layerRow { min-height: 0; background: transparent;
+    border: 0; border-radius: 6px; text-align: left; padding: 3px 8px;
+    color: #1b1b1b; font-size: 12px; }
+QPushButton#layerComposite { padding-left: 12px; }
+QPushButton#layerComposite:checked, QPushButton#layerRow:checked {
+    background: rgba(11,111,159,0.10); color: #0b6f9f; }
+QPushButton#layerComposite:hover, QPushButton#layerRow:hover { background: rgba(0,0,0,0.05); }
+QPushButton#layerFold { min-height: 0; padding: 0; background: transparent;
+    border: 0; color: #5f6368; }
+QLabel#layerName { color: #5f6368; font-size: 12px; }
+QLabel#layerThumb { border: 1px solid #dfe0e2; border-radius: 3px; }
+QLabel#layerHint { color: #5f6368; font-size: 11px; background: rgba(0,0,0,0.04);
+    border-radius: 4px; }
 )");
     }
     return QStringLiteral(R"(
@@ -515,6 +535,26 @@ QPushButton#mapLink:hover { color: #72caf1; }
 QPushButton#histToggle { background: transparent; border: 0; padding: 0;
     text-align: left; font-size: 12px; color: #9ba0a5; }
 QPushButton#histToggle:hover { color: #e9eaec; }
+/* 图层面板：与 infoPanel 同一套深色半透明底板（白图上也可读），1px 细边。 */
+QWidget#layerPanel { background: rgba(28,29,31,0.94);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; }
+QLabel#panelTitle { color: #e9eaec; font-size: 12px; }
+QPushButton#layerPanelClose { min-height: 0; padding: 0; background: transparent;
+    border: 0; color: #9ba0a5; font-size: 13px; }
+QPushButton#layerPanelClose:hover { color: #e9eaec; }
+QPushButton#layerComposite, QPushButton#layerRow { min-height: 0; background: transparent;
+    border: 0; border-radius: 6px; text-align: left; padding: 3px 8px;
+    color: #e9eaec; font-size: 12px; }
+QPushButton#layerComposite { padding-left: 12px; }
+QPushButton#layerComposite:checked, QPushButton#layerRow:checked {
+    background: rgba(85,192,240,0.16); color: #55c0f0; }
+QPushButton#layerComposite:hover, QPushButton#layerRow:hover { background: rgba(255,255,255,0.06); }
+QPushButton#layerFold { min-height: 0; padding: 0; background: transparent;
+    border: 0; color: #9ba0a5; }
+QLabel#layerName { color: #9ba0a5; font-size: 12px; }
+QLabel#layerThumb { border: 1px solid rgba(255,255,255,0.12); border-radius: 3px; }
+QLabel#layerHint { color: #9ba0a5; font-size: 11px; background: rgba(255,255,255,0.05);
+    border-radius: 4px; }
 )");
 }
 
