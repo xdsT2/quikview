@@ -2886,6 +2886,58 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             QApplication::sendEvent(m_canvas->viewport(), &rl);
         }
     }
+    else if (c.startsWith(QLatin1String("dblclickb:"))) {
+        // 冒烟：投递 Qt 真实的双击事件序列（四步缺一不可，否则
+        // mouseDoubleClickEvent 永不触发，双击最大化就没法自动验）。
+        // 用法 dblclickb:left:<x>:<y>（画布视口坐标）。
+        const QStringList parts = c.split(QLatin1Char(':'));
+        const QString which = parts.value(1);
+        const Qt::MouseButton btn = (which == QLatin1String("left")) ? Qt::LeftButton
+                                   : (which == QLatin1String("right")) ? Qt::RightButton
+                                                                      : Qt::XButton1;
+        const QPoint pos(parts.value(2).toInt(), parts.value(3).toInt());
+        if (m_canvas) {
+            const QPoint global = m_canvas->viewport()->mapToGlobal(pos);
+            QMouseEvent pr(QEvent::MouseButtonPress, pos, global, btn, btn, Qt::NoModifier);
+            QMouseEvent rl1(QEvent::MouseButtonRelease, pos, global, btn, Qt::NoButton,
+                            Qt::NoModifier);
+            QMouseEvent dbl(QEvent::MouseButtonDblClick, pos, global, btn, btn, Qt::NoModifier);
+            QMouseEvent rl2(QEvent::MouseButtonRelease, pos, global, btn, Qt::NoButton,
+                            Qt::NoModifier);
+            QApplication::sendEvent(m_canvas->viewport(), &pr);
+            QApplication::sendEvent(m_canvas->viewport(), &rl1);
+            QApplication::sendEvent(m_canvas->viewport(), &dbl);
+            QApplication::sendEvent(m_canvas->viewport(), &rl2);
+        }
+    }
+    else if (c.startsWith(QLatin1String("dragb:"))) {
+        // 冒烟：投递 press → 若干 move → release，位移超过 isClick 的 3px 阈值，
+        // 用来验「中央拖动不翻页、不最大化」。用法 dragb:left:<x1>:<y1>:<x2>:<y2>
+        const QStringList parts = c.split(QLatin1Char(':'));
+        const QString which = parts.value(1);
+        const Qt::MouseButton btn = (which == QLatin1String("left")) ? Qt::LeftButton
+                                   : (which == QLatin1String("right")) ? Qt::RightButton
+                                                                      : Qt::XButton1;
+        const QPoint from(parts.value(2).toInt(), parts.value(3).toInt());
+        const QPoint to(parts.value(4).toInt(), parts.value(5).toInt());
+        if (m_canvas) {
+            QWidget *vp = m_canvas->viewport();
+            QMouseEvent pr(QEvent::MouseButtonPress, from, vp->mapToGlobal(from), btn, btn,
+                           Qt::NoModifier);
+            QApplication::sendEvent(vp, &pr);
+            // 分 5 步移动，模拟真实拖拽轨迹（一步跳过去可能被当成无位移）
+            for (int s = 1; s <= 5; ++s) {
+                const QPoint mid(from.x() + (to.x() - from.x()) * s / 5,
+                                 from.y() + (to.y() - from.y()) * s / 5);
+                QMouseEvent mv(QEvent::MouseMove, mid, vp->mapToGlobal(mid), Qt::NoButton,
+                               btn, Qt::NoModifier);
+                QApplication::sendEvent(vp, &mv);
+            }
+            QMouseEvent rl(QEvent::MouseButtonRelease, to, vp->mapToGlobal(to), btn, Qt::NoButton,
+                           Qt::NoModifier);
+            QApplication::sendEvent(vp, &rl);
+        }
+    }
     else if (c == QLatin1String("info")) {
         if (m_metadata) {
             m_metadata->show();
@@ -3059,6 +3111,8 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << " dockop=" << (m_dockOpacity ? QString::number(m_dockOpacity->opacity(), 'f', 2) : QStringLiteral("na"))
                << " top=" << static_cast<int>(m_topPhase)
                << " dpr=" << devicePixelRatioF()
+               << " maximized=" << (isMaximized() ? 1 : 0)
+               << " winstate=" << static_cast<int>(windowState())
                << " keys=" << shortcutsReport()
                << "\n";
         }

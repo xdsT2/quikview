@@ -1189,9 +1189,11 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent *event)
 
 void ImageCanvas::mouseDoubleClickEvent(QMouseEvent *event)
 {
-    if (event->button() == Qt::LeftButton && Config::instance().sideClickPageturn()
-        && edgeTurnDelta(event->pos()) != 0) {
+    if (event->button() == Qt::LeftButton && edgeTurnDelta(event->pos()) != 0) {
         // Qt 将连续点击的第二次按下报告为双击，侧边区域仍按普通点击处理。
+        // 注意这里只判「在不在侧边热区」，不判翻页开关：开关关掉时侧边双击
+        // 只是「不翻页」，仍然不是画布中央的双击，不能落到下面去最大化。
+        // 开关本身由 mousePressEvent 的派发路径把关。
         mousePressEvent(event);
         return;
     }
