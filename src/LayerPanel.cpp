@@ -199,20 +199,53 @@ LayerPanel::LayerPanel(QWidget *parent)
     root->addWidget(m_hint);
 }
 
-int LayerPanel::preferredHeight() const
+QVector<int> LayerPanel::visibleLayerIndexes() const
 {
-    // 与 rebuild() 的可见性口径一致：折叠组内的子层不占高度。
-    int rows = 0;
-    int currentGroup = -1;
+    // 倒序遍历（psd_sdk 底层在前，面板顶层在上），用深度栈匹配嵌套分组。
+    //
+    // 关键点：不能只记「最近遇到的 groupStart」。遇到内层组时它会覆盖掉外层组，
+    // 父组的折叠状态就丢了；groupEnd 也必须真的出栈，否则栈永远不平。
+    // 判定「这一行要不要显示」的唯一依据是：栈里有没有一个已折叠的组。
+    QVector<int> out;
+    QVector<int> stack;   // 当前所处的组头层索引，栈底是外层
+    out.reserve(m_doc.layers.size());
     for (int i = m_doc.layers.size() - 1; i >= 0; --i) {
         const PsdLayer &L = m_doc.layers.at(i);
-        if (L.groupEnd) continue;
-        if (L.groupStart) { currentGroup = i; ++rows; continue; }
-        if (currentGroup >= 0 && L.groupDepth > 0
-            && m_collapsed.value(currentGroup, false))
+        // 组尾：弹出对应组头，本身不是可见行
+        if (L.groupEnd) {
+            if (!stack.isEmpty()) {
+                stack.pop_back();
+            }
             continue;
-        ++rows;
+        }
+        // 祖先链里只要有一个组折叠着，本行就整行不显示（组头也一样，
+        // 折叠父组时嵌套子组应该连带消失）
+        bool hidden = false;
+        for (int g : stack) {
+            if (m_collapsed.value(g, false)) {
+                hidden = true;
+                break;
+            }
+        }
+        if (L.groupStart) {
+            if (!hidden) {
+                out.append(i);
+            }
+            // 无论本行显示与否都要入栈：它的子层仍需按它的折叠状态判定
+            stack.push_back(i);
+            continue;
+        }
+        if (!hidden) {
+            out.append(i);
+        }
     }
+    return out;
+}
+
+int LayerPanel::preferredHeight() const
+{
+    // 与 rebuild() 共用同一份可见行判定，不再复制一遍折叠逻辑。
+    const int rows = visibleLayerIndexes().size();
     int h = 84 + rows * 34 + (m_simplified ? 44 : 0);
     return qBound(180, h, 620);
 }
@@ -253,14 +286,11 @@ void LayerPanel::rebuild()
     }
 
     // psd_sdk 层顺序为「底层在前」，面板按文档顺序倒序显示（顶层在上）。
-    // groupStart 是组头，groupEnd 只是边界标记不显示。
-    int currentGroup = -1;
-    for (int i = m_doc.layers.size() - 1; i >= 0; --i) {
+    // 可见行由 visibleLayerIndexes() 统一判定：嵌套分组靠深度栈，父组折叠时
+    // 内层组及其子层一并隐藏。这里只负责把那些行造出来。
+    for (int i : visibleLayerIndexes()) {
         const PsdLayer &L = m_doc.layers.at(i);
-        if (L.groupEnd)
-            continue;
         if (L.groupStart) {
-            currentGroup = i;
             auto *row = new QWidget(this);
             auto *rl = new QHBoxLayout(row);
             rl->setContentsMargins(4 + L.groupDepth * 12, 0, 4, 0);
@@ -274,8 +304,6 @@ void LayerPanel::rebuild()
             m_rows->insertWidget(m_rows->count() - 1, row);
             continue;
         }
-        if (currentGroup >= 0 && L.groupDepth > 0 && m_collapsed.value(currentGroup, false))
-            continue;
 
         auto *row = new QWidget(this);
         row->setObjectName(QStringLiteral("layerItem"));

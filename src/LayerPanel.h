@@ -35,6 +35,9 @@ signals:
 
 private:
     void rebuild();
+    // 当前折叠状态下应显示的层索引（含组头行，不含 groupEnd 边界标记）。
+    // rebuild() 与 preferredHeight() 共用这一份判定，避免两处口径走偏。
+    QVector<int> visibleLayerIndexes() const;
 
     PsdDocument m_doc;
     QVector<bool> m_visible;
