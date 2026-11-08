@@ -2938,6 +2938,19 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             QApplication::sendEvent(vp, &rl);
         }
     }
+    else if (c == QLatin1String("filter")) {
+        // 冒烟：把打开对话框的过滤器串写出来，用于核对「所有图片」是否在首项、
+        // 以及 PSD/RAW/常规图扩展名是否都在首项里。对话框本身不打开。
+        if (QFile f(QStringLiteral("Temp/filter-report.txt")); f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            const QStringList all = DirectoryLoader::imageFilter().split(QStringLiteral(";;"));
+            QTextStream ts(&f);
+            ts.setEncoding(QStringConverter::Utf8);
+            ts << "count=" << all.size() << "\n";
+            for (int i = 0; i < all.size(); ++i) {
+                ts << "[" << i << "] " << all.at(i) << "\n";
+            }
+        }
+    }
     else if (c == QLatin1String("info")) {
         if (m_metadata) {
             m_metadata->show();
