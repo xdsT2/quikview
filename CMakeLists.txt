@@ -9,6 +9,11 @@ set(CMAKE_AUTOUIC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent PrintSupport Network LinguistTools)
 
+# PSD 图层解析：MolecularMatters/psd_sdk（BSD-2-Clause，与本项目 MIT 兼容）。
+# 自带 miniz，覆盖 RAW/RLE/ZIP/ZIP+Prediction、8/16/32bit、分组/蒙版/智能对象。
+# 只用它做二进制解析，渲染与可见性合成仍由本项目负责。
+add_subdirectory(third_party/psd_sdk)
+
 # 图标资源脚本（win32）：exe 里必须有 RT_GROUP_ICON，否则安装后快捷方式/任务栏全白板
 if(WIN32)
     enable_language(RC)
@@ -67,6 +72,10 @@ add_executable(quikview WIN32
     src/MainWindow.h
     src/UpdateChecker.cpp
     src/UpdateChecker.h
+    src/PsdLoader.cpp
+    src/PsdLoader.h
+    src/LayerPanel.cpp
+    src/LayerPanel.h
     resources/ui.qrc
 )
 
@@ -89,11 +98,14 @@ qt_add_translations(quikview
     TS_FILES translations/quikview_en_US.ts translations/quikview_ko_KR.ts translations/quikview_ja_JP.ts translations/quikview_fr_FR.ts translations/quikview_de_DE.ts translations/quikview_es_ES.ts translations/quikview_ru_RU.ts translations/quikview_zh_TW.ts
 )
 
+target_include_directories(quikview PRIVATE third_party/psd_sdk)
+
 target_link_libraries(quikview PRIVATE
     Qt6::Widgets
     Qt6::Concurrent
     Qt6::PrintSupport
     Qt6::Network
+    Psd
     dwmapi
 )
 
