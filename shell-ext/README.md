@@ -78,8 +78,7 @@ png / jpg / jpeg / bmp / gif / webp / tif / tiff（系统 WIC 解码器），
 
 - **webp**：需 Windows 10 1809+ 的内置 WIC WebP 解码器（本机实测可解码）；
   更老系统该格式静默回退默认图标，不影响其它格式。
-- **PSD/PSB**（交办单 `ctxmenu/thumb_psd`、`thumb_psb`）：未支持，需复合文档
-  解析，交办单允许延后。
+- **PSD/PSB**：优先提取文件内嵌 JPEG 缩略图。没有内嵌缩略图时回退为系统默认文件图标。
 - **`--batch` 现状**：主程序 `src/main.cpp` 尚未定义该选项（QCommandLineParser
   会拒绝未知选项），「用 QuikView 转换」在主程序接线 `ctxmenu/transform_dlg`
   之前点了不会有转换行为——属主程序批次的工作，本 DLL 按交办单口径先传参。

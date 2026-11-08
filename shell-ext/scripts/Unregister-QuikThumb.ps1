@@ -16,7 +16,8 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 $Clsid    = '{D8A1C4E2-7B35-4F69-92A4-5C6D7E8F1A2B}'
 $CtxClsid = '{C9FFAFAD-7C1C-4CCC-A37C-A075ED1F27AF}'
 $Category = '{e357fccd-a995-4576-b01f-234630154e96}'
-$Exts     = @('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tif', '.tiff')
+$Exts     = @('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tif', '.tiff',
+              '.psd', '.psb')
 
 # 1) 扩展名 ShellEx：共享视图 + WOW6432Node 兜底对称清理（交办单硬约束 2）
 foreach ($ext in $Exts) {

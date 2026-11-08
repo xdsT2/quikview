@@ -23,7 +23,8 @@ $CtxClsid = '{C9FFAFAD-7C1C-4CCC-A37C-A075ED1F27AF}'   # 上下文菜单 Handler
 # 注意：交办单阶段 2 写的 {8895b1c6-...} 是预览处理器（IPreviewHandler）类别，
 # 缩略图应用 {e357fccd-...}，见 shell-ext/README.md 说明。
 $Category = '{e357fccd-a995-4576-b01f-234630154e96}'
-$Exts     = @('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tif', '.tiff')
+$Exts     = @('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tif', '.tiff',
+              '.psd', '.psb')
 
 # DLL 路径相对化：默认 <仓库根>\build-shell64(32)\quikthumb.dll
 # 仓库根 = 本脚本目录(shell-ext/scripts) 的上两级
