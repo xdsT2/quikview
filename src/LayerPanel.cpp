@@ -5,12 +5,11 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPainter>
+#include <QPainterPath>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSizePolicy>
 #include <QVBoxLayout>
-
-#include <algorithm>
 
 #include "UiStyle.h"
 
@@ -32,38 +31,100 @@ protected:
     {
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing, true);
-        const QColor ink = isChecked() ? UiStyle::text() : UiStyle::muted();
-        QPen pen(ink, 1.4);
-        p.setPen(pen);
+        const QRectF button = QRectF(rect()).adjusted(1, 1, -1, -1);
+        if (underMouse() || isDown()) {
+            p.setPen(Qt::NoPen);
+            p.setBrush(isDown() ? UiStyle::accentSoft()
+                                : UiStyle::color(UiStyle::setRowHover()));
+            p.drawRoundedRect(button, 5, 5);
+        }
+        if (hasFocus()) {
+            p.setPen(QPen(UiStyle::accent(), 1));
+            p.setBrush(Qt::NoBrush);
+            p.drawRoundedRect(button, 5, 5);
+        }
+
+        p.translate(QRectF(rect()).center());
+        p.setPen(QPen(UiStyle::muted(), 1.25, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         p.setBrush(Qt::NoBrush);
-        const QRectF eye(2.5, 7.5, 19.0, 10.0);
-        p.drawEllipse(eye.adjusted(0, 1, 0, -1));
+        QPainterPath eye;
         if (isChecked()) {
-            p.setBrush(ink);
-            p.drawEllipse(QPointF(12, 12), 2.6, 2.6);
+            eye.moveTo(-7, 0);
+            eye.cubicTo(-3, -5.5, 3, -5.5, 7, 0);
+            eye.cubicTo(3, 5.5, -3, 5.5, -7, 0);
+            eye.closeSubpath();
+            p.drawPath(eye);
+            p.drawEllipse(QPointF(0, 0), 1.7, 1.7);
         } else {
-            p.drawLine(QLineF(3, 21, 21, 3));
+            eye.moveTo(-7, 0);
+            eye.cubicTo(-5, -2.7, -3, -4, 0, -4);
+            eye.cubicTo(3, -4, 5, -2.7, 7, 0);
+            eye.cubicTo(6, 1.4, 4.5, 2.5, 3, 3.2);
+            eye.moveTo(-7, 0);
+            eye.cubicTo(-5.5, 2, -4, 3, -2, 3.6);
+            p.drawPath(eye);
+            p.drawLine(QPointF(-5.5, -5.5), QPointF(5.5, 5.5));
         }
     }
+};
+
+class GroupButton : public QPushButton
+{
+public:
+    GroupButton(const QString &name, bool collapsed, QWidget *parent)
+        : QPushButton(name, parent), m_collapsed(collapsed)
+    {
+        setObjectName(QStringLiteral("layerFold"));
+        setFixedHeight(32);
+        setCursor(Qt::PointingHandCursor);
+    }
+
+protected:
+    void paintEvent(QPaintEvent *event) override
+    {
+        QPushButton::paintEvent(event);
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(QPen(UiStyle::muted(), 1.25, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        p.translate(12, height() / 2.0);
+        if (m_collapsed)
+            p.drawPolyline(QPolygonF{QPointF(-2, -3), QPointF(1, 0), QPointF(-2, 3)});
+        else
+            p.drawPolyline(QPolygonF{QPointF(-3, -1), QPointF(0, 2), QPointF(3, -1)});
+
+        p.translate(24, 0);
+        QPainterPath folder;
+        folder.moveTo(-7, 5);
+        folder.lineTo(-7, -5);
+        folder.lineTo(-2, -5);
+        folder.lineTo(0, -3);
+        folder.lineTo(7, -3);
+        folder.lineTo(7, 5);
+        folder.closeSubpath();
+        p.drawPath(folder);
+    }
+
+private:
+    bool m_collapsed;
 };
 
 QLabel *makeThumb(const QImage &image)
 {
     auto *lab = new QLabel;
-    lab->setFixedSize(44, 32);
+    lab->setFixedSize(36, 26);
     lab->setScaledContents(false);
     lab->setObjectName(QStringLiteral("layerThumb"));
     if (!image.isNull()) {
         // 透明区域用浅/深棋盘垫底，避免透明层和背景同色看不出来
-        QImage bg(44, 32, QImage::Format_ARGB32);
-        for (int y = 0; y < 32; ++y) {
-            for (int x = 0; x < 44; ++x) {
+        QImage bg(36, 26, QImage::Format_ARGB32);
+        for (int y = 0; y < 26; ++y) {
+            for (int x = 0; x < 36; ++x) {
                 const bool a = ((x / 6) + (y / 6)) % 2 == 0;
                 bg.setPixel(x, y, a ? qRgb(190, 190, 190) : qRgb(230, 230, 230));
             }
         }
         QPainter p(&bg);
-        p.drawImage(QRect(0, 0, 44, 32), image);
+        p.drawImage(QRect(0, 0, 36, 26), image);
         p.end();
         lab->setPixmap(QPixmap::fromImage(bg));
     }
@@ -77,7 +138,7 @@ QWidget *makeRow(QWidget *host, const QString &text, bool selected)
     row->setCheckable(true);
     row->setChecked(selected);
     row->setCursor(Qt::PointingHandCursor);
-    row->setMinimumHeight(28);
+    row->setFixedHeight(32);
     row->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     return row;
 }
@@ -93,13 +154,13 @@ LayerPanel::LayerPanel(QWidget *parent)
     setStyleSheet(UiStyle::panelQss());
 
     auto *root = new QVBoxLayout(this);
-    root->setContentsMargins(1, 1, 1, 1);
-    root->setSpacing(0);
+    root->setContentsMargins(8, 6, 8, 8);
+    root->setSpacing(4);
 
     auto *header = new QWidget(this);
     header->setObjectName(QStringLiteral("layerPanelHead"));
     auto *hl = new QHBoxLayout(header);
-    hl->setContentsMargins(10, 8, 6, 8);
+    hl->setContentsMargins(6, 0, 0, 2);
     auto *title = new QLabel(tr("图层"), header);
     title->setObjectName(QStringLiteral("panelTitle"));
     hl->addWidget(title);
@@ -115,7 +176,7 @@ LayerPanel::LayerPanel(QWidget *parent)
     auto *composite = new QPushButton(tr("整图"), this);
     composite->setObjectName(QStringLiteral("layerComposite"));
     composite->setCheckable(true);
-    composite->setMinimumHeight(30);
+    composite->setFixedHeight(32);
     connect(composite, &QPushButton::clicked, this, &LayerPanel::compositeSelected);
     root->addWidget(composite);
 
@@ -124,7 +185,7 @@ LayerPanel::LayerPanel(QWidget *parent)
     m_scroll->setFrameShape(QFrame::NoFrame);
     auto *content = new QWidget;
     m_rows = new QVBoxLayout(content);
-    m_rows->setContentsMargins(4, 4, 4, 4);
+    m_rows->setContentsMargins(0, 2, 0, 2);
     m_rows->setSpacing(2);
     m_rows->addStretch(1);
     m_scroll->setWidget(content);
@@ -152,7 +213,7 @@ int LayerPanel::preferredHeight() const
             continue;
         ++rows;
     }
-    int h = 40 + 32 + 8 + rows * 38 + (m_simplified ? 44 : 0) + 12;
+    int h = 84 + rows * 34 + (m_simplified ? 44 : 0);
     return qBound(180, h, 620);
 }
 
@@ -203,22 +264,13 @@ void LayerPanel::rebuild()
             auto *row = new QWidget(this);
             auto *rl = new QHBoxLayout(row);
             rl->setContentsMargins(4 + L.groupDepth * 12, 0, 4, 0);
-            rl->setSpacing(6);
-            auto *fold = new QPushButton(m_collapsed.value(i, false) ? QStringLiteral("▸")
-                                                                     : QStringLiteral("▾"), row);
-            fold->setObjectName(QStringLiteral("layerFold"));
-            fold->setFixedSize(20, 24);
-            fold->setCursor(Qt::PointingHandCursor);
-            connect(fold, &QPushButton::clicked, this, [this, i, fold]() {
-                toggleGroup(i);
-            });
+            const bool collapsed = m_collapsed.value(i, false);
+            auto *fold = new GroupButton(L.name, collapsed, row);
+            fold->setAccessibleName(tr("%1，%2").arg(
+                L.name, collapsed ? tr("已折叠") : tr("已展开")));
+            fold->setToolTip(collapsed ? tr("展开分组") : tr("折叠分组"));
+            connect(fold, &QPushButton::clicked, this, [this, i]() { toggleGroup(i); });
             rl->addWidget(fold);
-            auto *name = new QLabel(L.name, row);
-            name->setObjectName(QStringLiteral("layerName"));
-            rl->addWidget(name, 1);
-            row->setToolTip(tr("分组（%1 个子层）").arg(
-                std::count_if(m_doc.layers.begin(), m_doc.layers.end(),
-                              [](const PsdLayer &x) { return x.groupDepth > 0; })));
             m_rows->insertWidget(m_rows->count() - 1, row);
             continue;
         }
@@ -226,6 +278,9 @@ void LayerPanel::rebuild()
             continue;
 
         auto *row = new QWidget(this);
+        row->setObjectName(QStringLiteral("layerItem"));
+        row->setAttribute(Qt::WA_StyledBackground);
+        row->setProperty("selected", m_selected == i);
         auto *rl = new QHBoxLayout(row);
         rl->setContentsMargins(4 + L.groupDepth * 12, 0, 4, 0);
         rl->setSpacing(6);
