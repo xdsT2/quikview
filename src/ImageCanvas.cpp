@@ -558,6 +558,17 @@ void ImageCanvas::setPixmapPreservingView(const QPixmap &pixmap, const QPointF &
     refreshEdgeHover();
 }
 
+void ImageCanvas::replacePixmapInPlace(const QPixmap &pixmap)
+{
+    if (!m_item || pixmap.deviceIndependentSize() != m_sourcePixmap.deviceIndependentSize()) {
+        setPixmapPreservingView(pixmap, viewCenterNormalized(), zoom(), false, false);
+        return;
+    }
+    m_sourcePixmap = pixmap;
+    m_samplingSize = QSize();
+    doRefreshSampling();
+}
+
 QPointF ImageCanvas::viewCenterNormalized() const
 {
     if (!m_item) {

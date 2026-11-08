@@ -244,25 +244,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_browser, &ThumbnailBrowser::activateImage, this, &MainWindow::onActivateImage);
 
     // PSD 图层：工具栏一级入口（仅 PSD 可见）+ 右侧浮层面板。
-    m_layerEntry = new QPushButton(tr("图层"), this);
-    m_layerEntry->setObjectName(QStringLiteral("layerEntry"));
-    m_layerEntry->setCursor(Qt::PointingHandCursor);
-    m_layerEntry->setFixedSize(60, 24);
-    m_layerEntry->hide();
     m_layerPanel = new LayerPanel(this);
     m_layerPanel->hide();
-    connect(m_layerEntry, &QPushButton::clicked, this, [this]() {
-        if (!m_layerPanel) return;
-        m_layerPanel->setVisible(!m_layerPanel->isVisible());
-        if (m_layerPanel->isVisible()) m_layerPanel->raise();
-    });
-    connect(m_layerPanel, &LayerPanel::contentChanged, this, [this]() {
-        applyChromeLayout();
-    });
-    connect(m_layerPanel, &LayerPanel::closeRequested, this, [this]() {
-        if (m_layerPanel) m_layerPanel->hide();
-        if (m_psdPreviewIndex >= 0) { m_psdPreviewIndex = -1; refreshPsdView(); }
-    });
+    connect(m_layerPanel, &LayerPanel::contentChanged, this, &MainWindow::applyChromeLayout);
+    connect(m_layerPanel, &LayerPanel::closeRequested, this, &MainWindow::togglePsdLayers);
     connect(m_layerPanel, &LayerPanel::compositeSelected, this, [this]() {
         m_psdPreviewIndex = -1;
         refreshPsdView();
@@ -296,11 +281,19 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_caption, &Chrome::CaptionBar::closeClicked, this, &QWidget::close);
     connect(m_caption, &Chrome::CaptionBar::systemMenuRequested, this, [this](const QPoint &g) {
         QMenu *menu = buildSystemMenu();
+        if (m_psdDoc.valid()) {
+            auto *layers = new QAction(tr("图层"), menu);
+            layers->setCheckable(true);
+            layers->setChecked(m_layerPanel->isVisible());
+            connect(layers, &QAction::triggered, this, &MainWindow::togglePsdLayers);
+            menu->insertAction(menu->actions().value(0), layers);
+        }
         menu->exec(g);
         menu->deleteLater();
     });
 
     m_toolbar = new Chrome::ToolBar(this);
+    connect(m_toolbar, &Chrome::ToolBar::layersClicked, this, &MainWindow::togglePsdLayers);
     connect(m_toolbar, &Chrome::ToolBar::openClicked, this, &MainWindow::onOpen);
     connect(m_toolbar, &Chrome::ToolBar::browseMenuRequested, this, [this](const QPoint &g) {
         QMenu *menu = buildBrowseMenu();
@@ -604,14 +597,13 @@ void MainWindow::applyChromeLayout()
         m_metadata->setGeometry(x + left, y + top, hint.width(), hint.height());
         m_metadata->raise();
     }
-    if (m_layerEntry) {
-        m_layerEntry->move(x + w - m_layerEntry->width() - 12, y + 28 + 5);
-        m_layerEntry->raise();
-    }
     if (m_layerPanel && m_layerPanel->isVisible()) {
         const int pw = m_layerPanel->width();
-        const int ph = qMin(m_layerPanel->preferredHeight(), h - 90);
-        m_layerPanel->setGeometry(x + w - pw - 12, y + 70, pw, ph);
+        const int top = full ? 10 : 70;
+        // 控制栏淡入时会升到最上层。始终给它留空间，避免图层列表随显隐跳动。
+        const int bottom = m_control ? m_control->y() - 8 : y + h - 14;
+        const int ph = qMin(m_layerPanel->preferredHeight(), bottom - (y + top));
+        m_layerPanel->setGeometry(x + w - pw - 14, y + top, pw, ph);
         m_layerPanel->raise();
     }
 
@@ -1131,8 +1123,15 @@ void MainWindow::createActions()
     actToggleMeta->setCheckable(true);
     // Tab = 信息面板开关（对照原版）。Chrome 工具栏的 Tab 焦点导航分支已删，
     // 避免工具栏吃掉 Tab 导致快捷键失效。
-    actToggleMeta->setShortcut(QKeySequence(QStringLiteral("Tab")));
-    addAction(actToggleMeta);
+    auto *toggleInfo = new QAction(this);
+    toggleInfo->setShortcut(QKeySequence(Qt::Key_Tab));
+    addAction(toggleInfo);
+    connect(toggleInfo, &QAction::triggered, this, [this]() {
+        if (m_psdDoc.valid())
+            togglePsdLayers();
+        else
+            actToggleMeta->toggle();
+    });
     // 浮层几何依赖可见性（隐藏时 applyChromeLayout 跳过它），显示后要立刻排一次
     connect(actToggleMeta, &QAction::toggled, this, [this](bool on) {
         m_metadata->setVisible(on);
@@ -2045,7 +2044,7 @@ void MainWindow::setupPsdDocument(const QString &path)
     for (const PsdLayer &L : m_psdDoc.layers)
         m_psdVisible.append(L.visible);   // 从文件保存的可见性重新初始化
     m_psdPreviewIndex = -1;
-    if (m_layerEntry) m_layerEntry->setVisible(m_psdDoc.valid());
+    m_toolbar->setLayerState(m_psdDoc.valid(), false);
     if (m_layerPanel) {
         m_layerPanel->hide();
         m_layerPanel->setDocument(m_psdDoc, m_psdVisible, -1, false);
@@ -2058,7 +2057,7 @@ void MainWindow::clearPsdDocument()
     m_psdPath.clear();
     m_psdVisible.clear();
     m_psdPreviewIndex = -1;
-    if (m_layerEntry) m_layerEntry->hide();
+    m_toolbar->setLayerState(false, false);
     if (m_layerPanel) m_layerPanel->hide();
 }
 
@@ -2071,6 +2070,20 @@ bool MainWindow::psdSimplified() const
         if (want != m_psdDoc.layers.at(i).visible) return true;
     }
     return false;
+}
+
+void MainWindow::togglePsdLayers()
+{
+    if (!m_psdDoc.valid())
+        return;
+    const bool open = !m_layerPanel->isVisible();
+    m_layerPanel->setVisible(open);
+    m_toolbar->setLayerState(true, open);
+    if (!open && m_psdPreviewIndex >= 0) {
+        m_psdPreviewIndex = -1;
+        refreshPsdView();
+    }
+    applyChromeLayout();
 }
 
 void MainWindow::refreshPsdView()
@@ -2087,8 +2100,7 @@ void MainWindow::refreshPsdView()
         img = m_psdDoc.composite;
     }
     if (!img.isNull())
-        m_canvas->setPixmapPreservingView(QPixmap::fromImage(img), QPointF(0.5, 0.5),
-                                          m_canvas->zoom(), false, false);
+        m_canvas->replacePixmapInPlace(QPixmap::fromImage(img));
     if (m_layerPanel)
         m_layerPanel->setDocument(m_psdDoc, m_psdVisible, m_psdPreviewIndex, simplified);
 }
@@ -2984,11 +2996,7 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     }
     // PSD 图层验收探针（仅 --smoke 路径）：模拟面板/眼睛/单层预览操作
     else if (c == QLatin1String("psdpanel")) {
-        if (m_layerPanel && m_psdDoc.valid()) {
-            m_layerPanel->setVisible(!m_layerPanel->isVisible());
-            if (m_layerPanel->isVisible()) m_layerPanel->raise();
-            applyChromeLayout();
-        }
+        togglePsdLayers();
     }
     else if (c.startsWith(QLatin1String("psdeye:"))) {
         const int i = c.mid(7).trimmed().toInt();
@@ -4396,6 +4404,8 @@ void MainWindow::refreshThemeSurfaces()
         m_canvas->setBackgroundColor(UiStyle::canvasBg());
     if (m_metadata)
         m_metadata->refreshThemeStyle();
+    if (m_layerPanel)
+        m_layerPanel->setStyleSheet(UiStyle::panelQss());
 }
 
 QVariant MainWindow::liveSettingValue(const QString &key) const

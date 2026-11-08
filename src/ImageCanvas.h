@@ -35,6 +35,7 @@ public:
     void setPixmapPreservingView(const QPixmap &pixmap, const QPointF &anchorNorm,
                                  qreal zoom, bool fitWindow, bool fitWidth);
     // 视口中心落在当前图片内的归一化坐标（0..1），无图时返回 (0.5, 0.5)
+    void replacePixmapInPlace(const QPixmap &pixmap);
     QPointF viewCenterNormalized() const;
     void clear();
     void setSmooth(bool on);

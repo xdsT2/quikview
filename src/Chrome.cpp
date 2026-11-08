@@ -893,6 +893,13 @@ void ToolBar::setHdr(bool on)
 
 // 按钮几何从左往右累加（原实现 262/295/328 硬编码，插按钮即错位）；
 // 锁定 / 更多仍锚定右边缘。id：0打开 1浏览 2幻灯片 3书签 4HDR 5编辑 6复制到 7锁定 8更多。
+void ToolBar::setLayerState(bool available, bool open)
+{
+    m_layersAvailable = available;
+    m_layersOpen = open;
+    update();
+}
+
 QVector<ToolBar::Btn> ToolBar::buttons() const
 {
     QVector<Btn> out;
@@ -917,6 +924,9 @@ QVector<ToolBar::Btn> ToolBar::buttons() const
 
     out.append({ 7, QString(), QRect(width() - 68, y, 30, h), false, false });
     out.append({ 8, QString(), QRect(width() - 38, y, 30, h), false, false });
+    const QRect layers(x + 33, y, 68, h);
+    if (m_layersAvailable && layers.right() + 3 < width() - 68)
+        out.append({ 9, tr("图层"), layers, false, false });
     return out;
 }
 
@@ -944,6 +954,7 @@ QString ToolBar::tipText(int index) const
     case 6: return tr("复制到");
     case 7: return m_locked ? tr("解锁工具栏") : tr("锁定工具栏");
     case 8: return tr("更多");
+    case 9: return tr("图层");
     default: break;
     }
     return QString();
@@ -963,7 +974,8 @@ void ToolBar::paintEvent(QPaintEvent *)
         BtnState st;
         st.hover = (m_hover == i);
         st.pressed = (m_press == i);
-        st.checked = (b.id == 7 && m_locked) || (b.id == 4 && m_hdr);
+        st.checked = (b.id == 7 && m_locked) || (b.id == 4 && m_hdr)
+                     || (b.id == 9 && m_layersOpen);
         st.focus = (m_keyboardFocus && m_focus == i);
         BtnVisual v = m_feedback->visual(i);
 
@@ -986,48 +998,49 @@ void ToolBar::paintEvent(QPaintEvent *)
 
         beginButton(p, QRectF(b.rect), st, v, pal);
         const QColor ink = buttonInk(st, pal);
-        if (b.primary) {
-            drawIcon(p, Icon::Folder, QRectF(b.rect.x() + 10, b.rect.center().y() - 8, 16, 16),
-                     ink);
-            p.setFont(uiFont(12, QFont::DemiBold));
+        const QRectF bounds(b.rect);
+        const QPointF center = bounds.center();
+        const QRectF iconRect(bounds.x() + 9, center.y() - 8, 16, 16);
+        const QRectF centerIcon(center.x() - 8, center.y() - 8, 16, 16);
+        const auto drawLabel = [&](qreal left, qreal right, const QFont &font) {
+            p.setFont(font);
             p.setPen(ink);
-            p.drawText(QRect(b.rect.x() + 31, b.rect.y(), b.rect.width() - 35, b.rect.height()),
-                       Qt::AlignVCenter | Qt::AlignLeft, b.text);
+            const QFontMetricsF metrics(font);
+            p.save();
+            p.setClipRect(QRectF(left, bounds.y(), right - left, bounds.height()), Qt::IntersectClip);
+            p.drawText(QPointF(left, center.y() + (metrics.ascent() - metrics.descent()) / 2),
+                       b.text);
+            p.restore();
+        };
+        if (b.primary) {
+            drawIcon(p, Icon::Folder, iconRect, ink);
+            drawLabel(bounds.x() + 30, bounds.right() - 4, uiFont(12, QFont::DemiBold));
             endButton(p);
             continue;
         }
 
-        const QRectF iconRect(b.rect.x() + 9, b.rect.center().y() - 8, 16, 16);
-        const QRectF centerIcon(b.rect.center().x() - 8, b.rect.center().y() - 8, 16, 16);
         switch (b.id) {
         case 1: drawIcon(p, Icon::Grid, iconRect, ink); break;
         case 2: drawIcon(p, Icon::Play, iconRect, ink); break;
         case 3: drawIcon(p, Icon::Bookmark, centerIcon, ink); break;
         case 4: {
-            // HDR：纯文字钮（原型 .command.hdr-toggle .label：11px/600/.3px 字距）
-            QFont f = uiFont(11, QFont::DemiBold);
-            f.setLetterSpacing(QFont::AbsoluteSpacing, 0.3);
-            p.setFont(f);
-            p.setPen(ink);
-            p.drawText(b.rect, Qt::AlignCenter, b.text);
+            const QFont font = uiFont(12);
+            drawLabel(center.x() - QFontMetricsF(font).horizontalAdvance(b.text) / 2, bounds.right(), font);
             break;
         }
         case 5: drawIcon(p, Icon::Edit, centerIcon, ink); break;
         case 6: drawIcon(p, Icon::Copy, centerIcon, ink); break;
         case 7: drawIcon(p, Icon::Lock, centerIcon, ink); break;
         case 8: drawIcon(p, Icon::More, centerIcon, ink); break;
+        case 9: drawIcon(p, Icon::Copy, iconRect, ink); break;
         default: break;
         }
 
-        if (b.id == 1 || b.id == 2) {
-            p.setFont(uiFont(12));
-            p.setPen(ink);
-            p.drawText(QRect(b.rect.x() + 30, b.rect.y(),
-                             b.rect.width() - (b.id == 1 ? 47 : 34), b.rect.height()),
-                       Qt::AlignVCenter | Qt::AlignLeft, b.text);
+        if (b.id == 1 || b.id == 2 || b.id == 9) {
+            drawLabel(bounds.x() + 30, bounds.right() - (b.caret ? 17 : 4), uiFont(12));
             if (b.caret) {
                 drawIcon(p, Icon::ChevronDown,
-                         QRectF(b.rect.right() - 18, b.rect.center().y() - 5, 10, 10),
+                         QRectF(b.rect.right() - 18, center.y() - 5, 10, 10),
                          QColor(QString::fromLatin1(UiStyle::pick("#8e9297", "#71757a"))), 1.4);
             }
         }
@@ -1052,6 +1065,7 @@ void ToolBar::activate(int index, const QPoint &globalPos)
     case 6: emit copytoMenuRequested(globalPos); break;
     case 7: emit lockToggled(); break;
     case 8: emit moreMenuRequested(globalPos); break;
+    case 9: if (m_layersAvailable) emit layersClicked(); break;
     default: break;
     }
 }
@@ -1114,7 +1128,10 @@ void ToolBar::mouseMoveEvent(QMouseEvent *e)
     if (e->buttons() != Qt::NoButton) {
         m_tip->hideNow();   // 按住拖动期间不出提示
     } else if (m_hover >= 0) {
-        m_tip->hover(tipText(m_hover), e->globalPosition().toPoint());
+        const Btn button = buttons().at(m_hover);
+        const QPoint anchor = button.id == 7 ? mapToGlobal(button.rect.center())
+                                              : e->globalPosition().toPoint();
+        m_tip->hover(tipText(m_hover), anchor);
     } else {
         m_tip->hideNow();
     }
@@ -1661,7 +1678,10 @@ void ControlBar::mouseMoveEvent(QMouseEvent *e)
     if (e->buttons() != Qt::NoButton) {
         m_tip->hideNow();   // 按住拖动期间不出提示
     } else if (m_hover >= 0) {
-        m_tip->hover(tipText(list[m_hover].action), e->globalPosition().toPoint());
+        const Item &item = list.at(m_hover);
+        const QPoint anchor = item.action == Action::Lock ? mapToGlobal(item.rect.center())
+                                                          : e->globalPosition().toPoint();
+        m_tip->hover(tipText(item.action), anchor);
     } else {
         m_tip->hideNow();
     }

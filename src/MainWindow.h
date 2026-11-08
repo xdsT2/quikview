@@ -179,6 +179,7 @@ private:
     void applyRuntimeSettings();
     void setupPsdDocument(const QString &path);
     void clearPsdDocument();
+    void togglePsdLayers();
     void refreshPsdView();
     bool psdSimplified() const;
     // 键盘快捷键自定义（批次 D1）：按 config/keyboard/* 给 14 个可配置动作
@@ -310,7 +311,6 @@ private:
     ThumbnailBrowser *m_browser = nullptr;
     // —— PSD 图层（仅当前文件的会话内临时状态，不写回源文件）——
     LayerPanel *m_layerPanel = nullptr;
-    QPushButton *m_layerEntry = nullptr;
     PsdDocument m_psdDoc;
     QVector<bool> m_psdVisible;
     QString m_psdPath;

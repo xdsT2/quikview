@@ -157,6 +157,7 @@ public:
     bool isLocked() const { return m_locked; }
     // HDR 色调映射开关（原型 .command.hdr-toggle：44px 文字钮，开时 accent 选中态）
     void setHdr(bool on);
+    void setLayerState(bool available, bool open);
     bool isHdr() const { return m_hdr; }
 
 signals:
@@ -168,6 +169,7 @@ signals:
     void editMenuRequested(const QPoint &globalPos);
     void copytoMenuRequested(const QPoint &globalPos);
     void lockToggled();
+    void layersClicked();
     void moreMenuRequested(const QPoint &globalPos);
 
 protected:
@@ -201,6 +203,8 @@ private:
     int m_showModeIcon = 0;
     bool m_locked = false;
     bool m_hdr = false;
+    bool m_layersAvailable = false;
+    bool m_layersOpen = false;
     ButtonFeedback *m_feedback = nullptr;
     TooltipHint *m_tip = nullptr;
     int m_focus = -1;            // 键盘焦点所在按钮
