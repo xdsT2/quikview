@@ -956,6 +956,40 @@ void MainWindow::applyNativeFrameStyles()
                  SWP_FRAMECHANGED);
 }
 
+// 置顶真值只认原生 WS_EX_TOPMOST。运行期的置顶切换走 applyTopmost 的原生切带，
+// Qt 的 windowFlags() 缓存不随之回写；若再读 flags 就会出现「UI 勾着、窗口没置顶」。
+// 非 Windows（或 winId 尚未创建）时退回 Qt flags。
+bool MainWindow::actualTopmost() const
+{
+#ifdef Q_OS_WIN
+    const HWND hwnd = reinterpret_cast<HWND>(const_cast<MainWindow *>(this)->winId());
+    if (hwnd)
+        return (GetWindowLongW(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
+#endif
+    return windowFlags().testFlag(Qt::WindowStaysOnTopHint);
+}
+
+// 置顶切换唯一入口。可见窗口若走 setWindowFlag()，Qt 的 setWindowFlags 会把
+// 窗口隐藏再 show() 回来（QWindowsWindow::setWindowFlags 的 hide+show 路径），
+// 就是用户报的「窗口置顶的时候会闪一下」，且切换后前台焦点丢失。
+// Windows 上 WS_EX_TOPMOST 只能经 SetWindowPos 改带，这里直接原生切带：
+// 不隐藏、不重建、不动激活态（SWP_NOACTIVATE），画面零变化。
+// 只有启动期窗口尚不可见时才允许 setWindowFlag 缓存路径（那时无闪可谈，
+// 且 flags 缓存决定 Qt 之后创建窗口时的初始样式）。
+void MainWindow::applyTopmost(bool top)
+{
+#ifdef Q_OS_WIN
+    if (isVisible()) {
+        HWND hwnd = reinterpret_cast<HWND>(winId());
+        SetWindowPos(hwnd, top ? HWND_TOPMOST : HWND_NOTOPMOST,
+                     0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        return;
+    }
+#endif
+    setWindowFlag(Qt::WindowStaysOnTopHint, top);
+}
+
 // 全屏/还原的唯一入口：标题栏按钮、F11、中键单击、--smoke fullscreen 共用。
 // 不要在画布里直接调 showFullScreen：Qt 会按窗口 flags 重写原生样式，
 // 退出时要靠 changeEvent 再把 DWM 帧补回来（见 applyNativeFrameStyles）。
@@ -980,6 +1014,12 @@ void MainWindow::changeEvent(QEvent *event)
             m_canvas->refreshEdgeHover();
         }
 #ifdef Q_OS_WIN
+        // 全屏进出会按 QWindow flags 重写原生样式，而置顶真值只在原生带上
+        // （applyTopmost 不回写 Qt 缓存）。这里按配置真值重断言一次原生带：
+        // SetWindowPos 对已在正确带上的窗口是视觉无操作，重复断言安全。
+        const bool wantTop = Config::instance().alwaysOnTop();
+        if (isVisible() && actualTopmost() != wantTop)
+            applyTopmost(wantTop);
         if (!isFullScreen())
             applyNativeFrameStyles();
 #endif
@@ -1152,6 +1192,14 @@ void MainWindow::createActions()
     connect(m_metadata, &MetadataPanel::heightChanged, this, [this]() {
         QTimer::singleShot(60, this, [this]() { applyChromeLayout(); });
     });
+
+    // 窗口置顶（Ctrl+A）：可勾选，勾选态读真实 windowFlags，不读配置——
+    // 配置与窗口标志在重建失败时会短暂不一致，以窗口实际状态为准才不会「勾着却没置顶」。
+    // 此前 toggleAlwaysOnTop() 只有定义没有调用方，是死代码；设置页又写着「Ctrl+A」
+    // 却没绑定键位。这里统一成一个 QAction，菜单、快捷键、设置页三处同源。
+    actAlwaysOnTop = mkFn(tr("窗口置顶"), QKeySequence(QStringLiteral("Ctrl+A")),
+                          [this]() { toggleAlwaysOnTop(); });
+    actAlwaysOnTop->setCheckable(true);
 
     actDark = new QAction(tr("深色模式(&D)"), this);
     actDark->setCheckable(true);
@@ -1719,6 +1767,14 @@ QMenu *MainWindow::buildContextMenu()
     addMenuItem(nav, tr("上一个文件夹"), QStringLiteral("["), [this]() { onPrevFolder(); });
     UiStyle::polishMenu(nav);
 
+    // —— 窗口置顶 ——
+    // 放在「浏览导航」之后自成一组：置顶属于窗口层面的常驻状态，跟下面的
+    // 插值/效果/排序等「看图参数」不是一类，也不该沉到最底下的「应用」组里。
+    // 勾选态每次弹菜单都从原生置顶带重取，不在别处缓存。
+    actAlwaysOnTop->setChecked(actualTopmost());
+    menu->addAction(actAlwaysOnTop);
+    menu->addSeparator();
+
     // —— 插值算法（3 项，勾选态跟随真实设置）——
     QMenu *interp = menu->addMenu(tr("插值算法"));
     actInterpFast->setChecked(m_interpMode == 0);
@@ -1838,23 +1894,13 @@ void MainWindow::applyRuntimeSettings()
 {
     const Config &cfg = Config::instance();
 
-    // 置顶标志只在**值真的变化**时才下发：setWindowFlag() 会重建原生窗口，
-    // 保存设置时值没变却无条件调用，窗口会消失再出现（用户以为程序重启）。
-    // 值变化时属于必要重建，顺手记下几何/可见/最大化状态，重建后还原。
+    // 置顶只在**原生带**真的变化时才下发。运行期一律走 applyTopmost 的
+    // SetWindowPos 原生切带（不隐藏、不重建、不夺焦点）；setWindowFlag 的
+    // hide+show 重建路径就是用户报的「切置顶闪一下」，已废弃。
+    // 启动期窗口尚不可见时 applyTopmost 内部会退回 flags 缓存路径。
     const bool wantTop = cfg.alwaysOnTop();
-    const bool isTop = windowFlags().testFlag(Qt::WindowStaysOnTopHint);
-    if (wantTop != isTop) {
-        const QRect geo = geometry();
-        const bool wasVisible = isVisible();
-        const bool wasMaximized = isMaximized();
-        setWindowFlag(Qt::WindowStaysOnTopHint, wantTop);
-        if (wasMaximized) {
-            showMaximized();
-        } else if (wasVisible) {
-            show();
-            setGeometry(geo);
-        }
-    }
+    if (actualTopmost() != wantTop)
+        applyTopmost(wantTop);
 
     setInterpolationMode(cfg.interpolation());
     m_canvas->setStretchSmall(cfg.stretchSmall());
@@ -1951,7 +1997,17 @@ void MainWindow::toggleAlwaysOnTop()
     const bool on = !Config::instance().alwaysOnTop();
     Config::instance().settings().setValue(QStringLiteral("config/always_on_top"), on);
     applyRuntimeSettings();
-    m_toast->showMessage(on ? tr("总在最前端：开") : tr("总在最前端：关"));
+    // 勾选态跟真实窗口置顶走：applyRuntimeSettings 里有「带没变就不动」的守卫，
+    // 若切换被跳过，原生 WS_EX_TOPMOST 才是唯一可信来源。
+    if (actAlwaysOnTop) {
+        const bool real = actualTopmost();
+        if (actAlwaysOnTop->isChecked() != real) {
+            const QSignalBlocker block(actAlwaysOnTop);
+            actAlwaysOnTop->setChecked(real);
+        }
+    }
+    m_toast->showMessage(actualTopmost()
+                             ? tr("总在最前端：开") : tr("总在最前端：关"));
 }
 
 // ---------------------------------------------------------------------------
@@ -2979,7 +3035,79 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     }
     else if (c == QLatin1String("ctxmenu")) {
         QMenu *menu = buildContextMenu();
+        // 顺带导出菜单结构：验收「窗口置顶」入口/勾选态用，把「菜单里到底有没有
+        // 这一项」从看图猜变成可断言的事实（同时给出各项可点击的中心坐标）。
+        if (QFile f(QStringLiteral("Temp/ctxmenu-report.txt"));
+            f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts.setEncoding(QStringConverter::Utf8);
+            menu->ensurePolished();
+            menu->adjustSize();
+            const QList<QAction *> acts = menu->actions();
+            ts << "count=" << acts.size()
+               << " topmostFlag=" << (actualTopmost() ? 1 : 0)
+               << " menusize=" << menu->size().width() << 'x' << menu->size().height()
+               << "\n";
+            for (int i = 0; i < acts.size(); ++i) {
+                QAction *a = acts.at(i);
+                if (a->isSeparator()) {
+                    ts << i << "\t<sep>\n";
+                    continue;
+                }
+                const QRect gr = menu->actionGeometry(a);
+                ts << i << '\t' << a->text()
+                   << "\tcheckable=" << (a->isCheckable() ? 1 : 0)
+                   << "\tchecked=" << (a->isChecked() ? 1 : 0)
+                   << "\tgeom=" << gr.x() << ',' << gr.y() << ',' << gr.width() << ',' << gr.height()
+                   << '\n';
+            }
+        }
         menu->popup(mapToGlobal(QPoint(width() / 2 - 120, height() / 3)));
+    }
+    // 验收探针：置顶切换的闪一下取证。在进程内逐拍记录可见性/激活态/几何/HWND，
+    // 比外部轮询可靠（外部采样会漏掉短于采样间隔的隐藏）。判定「闪」= 出现
+    // visible=0 的拍，或几何/HWND 中途变化。写 Temp/topmost-flash.txt。
+    else if (c == QLatin1String("topflash")) {
+        if (QFile f(QStringLiteral("Temp/topmost-flash.txt"));
+            f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts.setEncoding(QStringConverter::Utf8);
+            auto dump = [this, &ts](const char *tag) {
+                const QRect g = geometry();
+                ts << tag
+                   << " visible=" << (isVisible() ? 1 : 0)
+                   << " active=" << (isActiveWindow() ? 1 : 0)
+                   << " minimized=" << (isMinimized() ? 1 : 0)
+                   << " topmost=" << (actualTopmost() ? 1 : 0)
+                   << " hwnd=" << static_cast<qulonglong>(winId())
+                   << " geo=" << g.x() << ',' << g.y() << ',' << g.width() << ',' << g.height()
+                   << '\n';
+            };
+            dump("before");
+            // 连拍：用 0ms singleShot 递归抓取切换过程中的中间态
+            QElapsedTimer timer;
+            timer.start();
+            QStringList frames;
+            toggleAlwaysOnTop();
+            dump("after-toggle");
+            // 立刻再抓 20 拍，捕捉异步的隐藏/显示
+            for (int i = 0; i < 20; ++i) {
+                QCoreApplication::processEvents();
+                const QRect g = geometry();
+                frames << QStringLiteral("%1 visible=%2 active=%3 topmost=%4 hwnd=%5 geo=%6,%7,%8,%9")
+                              .arg(i)
+                              .arg(isVisible() ? 1 : 0)
+                              .arg(isActiveWindow() ? 1 : 0)
+                              .arg(actualTopmost() ? 1 : 0)
+                              .arg(static_cast<qulonglong>(winId()))
+                              .arg(g.x()).arg(g.y()).arg(g.width()).arg(g.height());
+            }
+            for (const QString &s : frames) {
+                ts << "  " << s << '\n';
+            }
+            dump("settled");
+            ts << "elapsed_ms=" << timer.elapsed() << '\n';
+        }
     }
     // 验收探针：直接弹出「浏览方式」子菜单 —— 勾选态（缩放✔ + 双页✔ 同亮）只能靠
     // --screenshot-ui 截子菜单本身来判定。按 actTwoL2R 定位，不依赖菜单文案/语言。
@@ -4387,22 +4515,18 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
     }
 
     if (key == QLatin1String("always_on_top")) {
-        // SET-03：置顶标志只在值真的变化时下发（setWindowFlag 会重建原生窗口），
-        // 重建后补回边框样式，并保留几何/最大化/可见状态。
+        // SET-03：运行期一律走 applyTopmost 原生切带（无隐藏、无重建、无焦点丢失）。
         const bool wantTop = value.toBool();
-        const bool isTop = windowFlags().testFlag(Qt::WindowStaysOnTopHint);
-        if (wantTop != isTop) {
-            const QRect geo = geometry();
-            const bool wasVisible = isVisible();
-            const bool wasMaximized = isMaximized();
-            setWindowFlag(Qt::WindowStaysOnTopHint, wantTop);
-            if (wasMaximized) {
-                showMaximized();
-            } else if (wasVisible) {
-                show();
-                setGeometry(geo);
+        if (actualTopmost() != wantTop)
+            applyTopmost(wantTop);
+        // 勾选态跟真实窗口置顶走：设置页开关、Ctrl+A、右键菜单是三条入口，
+        // 都改同一个运行态，菜单勾选必须反映实际，否则「勾着却没置顶」。
+        if (actAlwaysOnTop) {
+            const bool real = actualTopmost();
+            if (actAlwaysOnTop->isChecked() != real) {
+                const QSignalBlocker block(actAlwaysOnTop);
+                actAlwaysOnTop->setChecked(real);
             }
-            applyNativeFrameStyles();
         }
         return true;
     }
@@ -4485,7 +4609,7 @@ QVariant MainWindow::liveSettingValue(const QString &key) const
         return Config::instance().exifSmallFont();
     }
     if (key == QLatin1String("always_on_top"))
-        return windowFlags().testFlag(Qt::WindowStaysOnTopHint);
+        return actualTopmost();
     if (key == QLatin1String("view/show_side_arrow"))
         return m_canvas ? m_canvas->sideArrowsEnabled() : true;
     if (key == QLatin1String("view/show_zoom_control")) {
@@ -4501,8 +4625,31 @@ QVariant MainWindow::liveSettingValue(const QString &key) const
 
 void MainWindow::onSettings()
 {
-    SettingsDialog dlg(this);
-    dlg.exec();
+    // 已开着就把它提到前面，不叠第二个（F5 连按、菜单重复点击都会走到这里）。
+    if (m_settingsDlg) {
+        m_settingsDlg->raise();
+        m_settingsDlg->activateWindow();
+        return;
+    }
+
+    // 非模态打开：模态（exec）会让 Qt 把主窗口在 Win32 层 disable，主窗口收不到
+    // 鼠标消息，标题栏拖动失效——这正是需求池里「设置打开时主窗口无法拖动」的成因。
+    // 用 show() 后主窗口保持可交互，设置窗口自身也能拖（它自己的标题栏拖动实现）。
+    auto *dlg = new SettingsDialog(this);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    m_settingsDlg = dlg;
+    // 关闭（accept / reject / 点 ×）后统一收尾；destroyed 保证点 × 走的 close()
+    // 也不会漏掉运行态重放。
+    connect(dlg, &QDialog::finished, this, [this]() { finishSettings(); });
+    dlg->show();
+}
+
+// 设置关闭后的收尾。内容与原 exec() 返回后那段完全一致：清预览会话覆盖、
+// 重放主题/磨砂/幻灯片间隔/运行态/键盘自定义。设置页是即时写盘，
+// 所以「取消」不需要在这里回滚（草稿回滚由 SettingsDialog 自己负责）。
+void MainWindow::finishSettings()
+{
+    m_settingsDlg = nullptr;
     // 预览会话结束：清掉运行态覆盖，之后一律以配置为准（保存=新值，取消=旧值）。
     m_liveZoomControlOverrideSet = false;
     m_liveAnimControlOverrideSet = false;

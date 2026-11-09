@@ -694,7 +694,11 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     setWindowTitle(tr("设置"));
     setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
     setAttribute(Qt::WA_TranslucentBackground, true);
-    setModal(true);
+    // 非模态（2026-11-09）：原来 setModal(true) + exec() 会把主窗口在 Win32 层
+    // disable，主窗口收不到鼠标消息、标题栏拖不动——需求池「设置打开时主窗口
+    // 无法拖动」的成因。设置页是即时写盘，不需要模态来保证一致性；关闭收尾由
+    // MainWindow::finishSettings() 负责。设置窗口自身拖动见 mousePressEvent。
+    setModal(false);
     resize(kDlgW, kDlgH);
     setMinimumSize(kDlgMinW, kDlgMinH);
     setFont(UiStyle::font(12));

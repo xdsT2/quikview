@@ -166,6 +166,12 @@ private slots:
 private:
     // 动作系统：所有 QAction 只创建一次，右键菜单 / 工具栏下拉菜单共用
     void applyNativeFrameStyles();   // Win11：补回 DWM 帧（描边/阴影/圆角）
+    // 置顶真值只认原生 WS_EX_TOPMOST：运行期切换走 applyTopmost 的原生切带，
+    // Qt 的 windowFlags() 缓存不会回写，再读它就会「勾着却没置顶」。
+    bool actualTopmost() const;
+    // 置顶切换唯一入口：可见窗口走 SetWindowPos 原生切带（不隐藏、不重建、
+    // 不夺焦点，无闪），仅启动期不可见时才允许 setWindowFlag 缓存路径。
+    void applyTopmost(bool top);
     void toggleFullscreen();         // 全屏/还原唯一入口：标题栏 · F11 · 中键 · smoke
     void createActions();
     QMenu *buildContextMenu();
@@ -249,6 +255,13 @@ private:
     QAction *actSaveAs = nullptr;
     QAction *actPrint = nullptr;
     QAction *actBatchConvert = nullptr;
+    // 设置对话框改为非模态打开（2026-11-09）：模态时 Qt 会把主窗口在 Win32 层
+    // disabled，鼠标消息到不了主窗口，标题栏拖动随之失效（需求池「设置打开时主窗口
+    // 无法拖动」）。改为 show() 后主窗口保持可交互，关闭收尾走 finishSettings()。
+    // QPointer 天然处理「用户点 × 已销毁」的悬空，重复 F5 也能识别已开着的实例。
+    QPointer<QDialog> m_settingsDlg;
+    void finishSettings();   // 设置关闭后重放运行态（原 exec() 之后的收尾）
+
     QAction *actSettings = nullptr;
     QAction *actFavorite = nullptr;
     QAction *actDelete = nullptr;
@@ -302,6 +315,9 @@ private:
     QAction *actSortType = nullptr;
     QAction *actSortDesc = nullptr;
     QAction *actStretchSmall = nullptr;   // 拉伸小图（Z，原版 MENUSTR_FILTER_STRETCHWHENSMALL）
+    // 窗口置顶（Ctrl+A）。可勾选，勾选态以真实 windowFlags 为准，菜单与快捷键共用这一个
+    // QAction——避免出现「菜单里没有入口」「设置页写着 Ctrl+A 但没绑定」这类分叉。
+    QAction *actAlwaysOnTop = nullptr;
 
     // —— 引擎成员 ——
     ImageCanvas *m_canvas = nullptr;
