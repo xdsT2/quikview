@@ -103,7 +103,8 @@ private:
 
     // —— 统一设置行工厂（全部走布局，不绝对定位）——
     // beginSection：分组标题 + 卡片壳；标题与行文案共享同一条左边线。
-    QWidget *beginSection(QWidget *page, const QString &title);
+    // topGap < 0 时用全局默认 kGroupTop；一般页样板传 24 拉开分组层次。
+    QWidget *beginSection(QWidget *page, const QString &title, int topGap = -1);
     // 组卡片本体（beginSection 内部创建，行 / 分隔线都追加到这里）。
     QWidget *groupCard(QWidget *section) const;
     struct SettingRowParts {

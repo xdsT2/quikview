@@ -79,6 +79,9 @@ constexpr int kRowMinH = 40;
 constexpr int kRowPadX = 11;
 constexpr int kRowPadY = 5;
 constexpr int kGroupTop = 16;   // 分组标题与上一组卡片之间
+// 一般页样板：右侧控件列的固定宽度（最宽的下拉是 160，留 16 内边距）。
+// 只作用于一般页的 rowControls，其余十页保持随内容宽度。
+constexpr int kGeneralCtlW = 176;
 
 // ---------------------------------------------------------------------------
 // QSettings 便捷读写（统一 config/ 前缀）
@@ -117,10 +120,13 @@ public:
     }
 
     // hint / head 是行区之外、同样占据纵向空间的固定部件。
-    void snapTo(QWidget *hint, QWidget *head, int rowStep)
+    // extra：行区之外新增的部件（键盘页状态图例），也要从可用高度里扣掉，
+    // 否则 14 行会算出过高、表格底部越出页面。其余页不传，行为不变。
+    void snapTo(QWidget *hint, QWidget *head, int rowStep, QWidget *extra = nullptr)
     {
         m_hint = hint;
         m_head = head;
+        m_extra = extra;
         m_step = rowStep;
         QWidget *w = parentWidget();
         while (w && !qobject_cast<QScrollArea *>(w)) {
@@ -196,7 +202,8 @@ private:
         // 表格外 spacing 已随 M-05 删除），不再重复扣减。
         constexpr int kTableBorder = 2;
         const int avail = m_outer->viewport()->height() - m_hint->height()
-                          - m_head->height() - kTableBorder;
+                          - m_head->height() - (m_extra ? m_extra->height() : 0)
+                          - kTableBorder;
 
         // 高度两步走：
         // 1) 窗口够高 → 就取内容自然高，表格不再吃满页面，剩余纵向空间由页面底部弹簧吸收；
@@ -217,6 +224,7 @@ private:
 
     QWidget *m_hint = nullptr;
     QWidget *m_head = nullptr;
+    QWidget *m_extra = nullptr;
     QWidget *m_page = nullptr;
     QScrollArea *m_outer = nullptr;
     int m_step = 33;
@@ -489,6 +497,60 @@ private:
     QKeySequenceEdit *m_edit;
 };
 
+// 键盘页热键框状态（2026-11-09 样板）：把「已设置 / 未设置 / 正在录入」写成动态
+// 属性 state，交给 QSS 属性选择器；冲突态由整行 [conflict="true"] 级联，不在这里判。
+// 属性变化后必须对容器和内部 QLineEdit 都重新 polish，否则后代选择器不会重算。
+class KeySeqStateFilter : public QObject
+{
+public:
+    explicit KeySeqStateFilter(QKeySequenceEdit *edit) : QObject(edit), m_edit(edit)
+    {
+        edit->installEventFilter(this);
+        if (auto *le = edit->findChild<QLineEdit *>())
+            le->installEventFilter(this);
+        connect(edit, &QKeySequenceEdit::keySequenceChanged, this,
+                [this]() { schedule(); });
+        schedule();
+    }
+
+    void schedule()
+    {
+        QTimer::singleShot(0, m_edit, [this]() { refresh(); });
+    }
+
+    void refresh()
+    {
+        const bool editing = m_edit->hasFocus()
+            || (m_edit->focusProxy() && m_edit->focusProxy()->hasFocus());
+        const QString state = editing ? QStringLiteral("editing")
+            : (m_edit->keySequence().isEmpty() ? QStringLiteral("empty")
+                                               : QStringLiteral("set"));
+        if (m_edit->property("state").toString() == state)
+            return;
+        m_edit->setProperty("state", state);
+        m_edit->style()->unpolish(m_edit);
+        m_edit->style()->polish(m_edit);
+        if (auto *le = m_edit->findChild<QLineEdit *>()) {
+            le->style()->unpolish(le);
+            le->style()->polish(le);
+        }
+        m_edit->update();
+    }
+
+protected:
+    bool eventFilter(QObject *, QEvent *ev) override
+    {
+        const QEvent::Type t = ev->type();
+        if (t == QEvent::FocusIn || t == QEvent::FocusOut
+            || t == QEvent::Show || t == QEvent::Polish)
+            schedule();
+        return false;
+    }
+
+private:
+    QKeySequenceEdit *m_edit;
+};
+
 // 11 个页签的图标（顺序必须与 addPage 调用顺序一致；漏项会让其后全部错一格）
 NavGlyph navGlyphFor(int index)
 {
@@ -686,6 +748,31 @@ QSpinBox:focus { border-color: @Accent@; }
 QSpinBox:disabled { color: @DisabledText@; background: @DisabledBg@; border-color: @DisabledBorder@; }
 QLineEdit:disabled { color: @DisabledText@; background: @DisabledBg@; border-color: @DisabledBorder@; }
 QPushButton:disabled { color: @DisabledText@; border-color: @DisabledBorder@; background: @HeadBg@; }
+
+/* ===== 一般 / 键盘 两页样板（2026-11-09）=================================
+   用属性选择器与 #keyTable / #keyLegend 后代限定，只作用于这两页；
+   其余九页、菜单和弹窗不套用。色值一律走上面的 @Token@，不在此另造。 */
+/* 一般页：分组标题提级为独立层级（页标题 21px → 说明 12px → 分组标题 13px/600） */
+QLabel#sectionTitle[variant="page"] { font-size: 13px; font-weight: 600;
+    color: @Body@; padding-bottom: 2px; }
+/* 键盘页：表头与行区分层；三列表头加重，下边线用组卡片同色 1px */
+QWidget#keyHead { border-bottom: 1px solid @SetGroupLine@; }
+QLabel#keyHeadCell { font-size: 11px; font-weight: 600; color: @HeadText@; }
+/* 状态图例：默认（鼠标移开）画面里就能读出热键框四种状态的含义 */
+QWidget#keyLegend { background: transparent; }
+QLabel#keyLegendChip { font-size: 10px; padding: 2px 8px; border-radius: 4px;
+    background: @Field@; color: @FieldText@; border: 1px solid @Border@; }
+QLabel#keyLegendChip[state="empty"] { background: transparent;
+    color: @HintText@; border-style: dashed; }
+QLabel#keyLegendChip[state="editing"] { color: @Accent@; border-color: @Accent@; }
+QLabel#keyLegendChip[state="conflict"] { background: @DangerBg@;
+    border-color: @DangerBg@; color: @Body@; }
+/* 热键输入框：未设置用虚线 + 提示色；正在录入用强调色文字（不改边框宽度，
+   避免 26px 容器里再次出现裁边）；冲突由整行 [conflict] 级联，压过前两态。 */
+QKeySequenceEdit[state="empty"] QLineEdit { border-style: dashed; color: @HintText@; }
+QKeySequenceEdit[state="editing"] QLineEdit { color: @Accent@; border-color: @Accent@; }
+QWidget#keyRow[conflict="true"] QKeySequenceEdit QLineEdit {
+    background: @DangerBg@; border-color: @DangerBg@; color: @FieldText@; }
 )"));
 }
 
@@ -951,7 +1038,7 @@ void SettingsDialog::selectPage(int index)
 // 控件工厂
 // ===========================================================================
 
-QWidget *SettingsDialog::beginSection(QWidget *page, const QString &title)
+QWidget *SettingsDialog::beginSection(QWidget *page, const QString &title, int topGap)
 {
     auto *pageLay = qobject_cast<QVBoxLayout *>(page->layout());
     if (!pageLay)
@@ -959,7 +1046,7 @@ QWidget *SettingsDialog::beginSection(QWidget *page, const QString &title)
 
     auto *sec = new QWidget(page);
     auto *v = new QVBoxLayout(sec);
-    v->setContentsMargins(0, kGroupTop, 0, 0);
+    v->setContentsMargins(0, topGap >= 0 ? topGap : kGroupTop, 0, 0);
     v->setSpacing(0);
 
     if (!title.isEmpty()) {
@@ -1320,28 +1407,35 @@ QComboBox *SettingsDialog::addComboRowUnavailable(QWidget *section, const QStrin
 
 void SettingsDialog::buildGeneralPage(QWidget *page)
 {
-    QWidget *sec = beginSection(page, tr("窗口与操作"));
+    // 样板（2026-11-09）：原来 6 项挤在「窗口与操作」一组里，按用途拆成
+    // 「窗口行为」与「操作反馈」两组；页标题 / 说明 / 分组标题成为三级层次。
+    // 只调分组与版式，选项、key、生效时机、即时生效绑定一律不动。
+    constexpr int kFirstGap = 12;
+    constexpr int kGroupGap = 20;
+    QWidget *sec = beginSection(page, tr("窗口行为"), kFirstGap);
     // 说明贴在行下，生效时机用短句；统一规则只在页脚说一次。
     addSwitchRow(sec, tr("不保存浏览过的文件夹路径"),
                  tr("勾选＝不记录最近打开的文件夹；下次打开文件时生效"),
                  "remember_browsed_folders", true, true);
     addSwitchRow(sec, tr("不允许多个实例"), tr("重启 QuikView 后生效"),
                  "allow_multiple_instances", true, false);
-    addSwitchRow(sec, tr("删除文件时确认"), tr("下次删除文件时生效"),
-                 "delete_confirm", false, true);
-    addSwitchRow(sec, tr("在边角显示通知信息，而非中心"), tr("下一次通知时生效"),
-                 "notify_corner", false, true);
     auto *alwaysOnTop = addSwitchRow(sec, tr("总在最前 (Ctrl+A)"),
                                      QString(),
                                      "always_on_top", false, false);
-    // SET-03 小批 A：置顶是二态且运行态可逆（setWindowFlag 有值变化守卫）。
+    // SET-03 小批 A：置顶是二态且运行态可逆（原生 SetWindowPos 切带）。
     m_liveChecks.append({ alwaysOnTop, "always_on_top", false, false });
     addSwitchRow(sec, tr("按 ESC 退出"), tr("下次按 Esc 时生效"),
                  "esc_exit", false, true);
 
+    sec = beginSection(page, tr("操作反馈"), kGroupGap);
+    addSwitchRow(sec, tr("删除文件时确认"), tr("下次删除文件时生效"),
+                 "delete_confirm", false, true);
+    addSwitchRow(sec, tr("在边角显示通知信息，而非中心"), tr("下一次通知时生效"),
+                 "notify_corner", false, true);
+
     // —— 检查更新 ——
     // 手动检查不受频控；自动检查默认关（不擅自联网），勾上后启动 5s 静默查一次。
-    sec = beginSection(page, tr("检查更新"));
+    sec = beginSection(page, tr("检查更新"), kGroupGap);
     QHBoxLayout *updateRow = addRow(sec, tr("手动检查"),
                                     tr("立即连接发布源检查更新"));
     m_checkUpdateBtn = addButton(updateRow->parentWidget(), tr("检查更新"));
@@ -1366,7 +1460,7 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
                 m_checkUpdateBtn->setText(tr("检查更新"));
             });
 
-    sec = beginSection(page, tr("到达首尾图片时"));
+    sec = beginSection(page, tr("到达首尾图片时"), kGroupGap);
     const auto opts = lastFileOptions();
     auto *edge = addComboRow(sec, tr("到达首尾图片时执行"),
                              tr("下次到达首尾图片时按所选行为处理"),
@@ -1385,6 +1479,20 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
     }
     addHint(sec, tr("「转到首个文件」在末尾继续时回绕到首个；「停止」停在当前图片。"
                     "「询问」档当前无询问对话框实现，已灰显，不按生效计。"));
+
+    // 本页样板版式：行高 46 给双行说明留空间；右侧控件列固定宽度并把控件
+    // 推到列右缘，开关 / 按钮 / 下拉共用同一条对齐边界。只遍历本页的子控件，
+    // 不改 addSettingRow 的全局实现，其余十页不受影响。
+    for (QWidget *row : page->findChildren<QWidget *>(QStringLiteral("settingRow"))) {
+        row->setMinimumHeight(42);
+        if (auto *ctl = row->findChild<QWidget *>(QStringLiteral("rowControls"))) {
+            ctl->setFixedWidth(kGeneralCtlW);
+            if (auto *hl = qobject_cast<QHBoxLayout *>(ctl->layout()))
+                hl->insertStretch(0, 1);
+        }
+    }
+    for (QLabel *t : page->findChildren<QLabel *>(QStringLiteral("sectionTitle")))
+        t->setProperty("variant", QStringLiteral("page"));
 }
 
 // ===========================================================================
@@ -1816,14 +1924,36 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
 
     // 14 行全部可配置（config/keyboard/<action>_{enabled,_key,_action}），
     // 启用开关即时写盘；热键改绑在保存时统一校验后写入。
-    auto *hint = new QLabel(tr("双击「热键」栏录入新键位（Esc 清空）；热键改绑在保存时生效。"
-                               "「启用」开关即时生效。"
-                               "已启用但热键显示「未设置」表示该动作暂无快捷键。"
-                               "两个启用的动作占用同一键位时保存会被拒绝。"), page);
+    // 样板（2026-11-09）：原来四句规则挤成一段两行提示。收成一句主说明，
+    // 四条状态规则改由下方图例在「鼠标移开」的默认画面里直接可读。
+    auto *hint = new QLabel(tr("双击「热键」栏录入新键位（Esc 清空）；改绑在保存时生效，"
+                               "「启用」开关即时生效。"), page);
     hint->setObjectName(QStringLiteral("pageHint"));
     hint->setWordWrap(true);
-    hint->setContentsMargins(11, 0, 0, 0);
+    hint->setContentsMargins(11, 0, 0, 2);
     pageLay->addWidget(hint);
+
+    auto *legend = new QWidget(page);
+    legend->setObjectName(QStringLiteral("keyLegend"));
+    auto *ll = new QHBoxLayout(legend);
+    ll->setContentsMargins(11, 0, 0, 8);
+    ll->setSpacing(8);
+    struct LegendDef { const char *key; const char *text; };
+    static const LegendDef legends[] = {
+        { "set",      QT_TR_NOOP("已设置") },
+        { "empty",    QT_TR_NOOP("未设置") },
+        { "editing",  QT_TR_NOOP("正在录入") },
+        { "conflict", QT_TR_NOOP("键位冲突") },
+    };
+    for (const LegendDef &d : legends) {
+        auto *chip = new QLabel(tr(d.text), legend);
+        chip->setObjectName(QStringLiteral("keyLegendChip"));
+        chip->setProperty("state", QString::fromLatin1(d.key));
+        chip->setToolTip(tr("热键框处于该状态时的显示样式"));
+        ll->addWidget(chip);
+    }
+    ll->addStretch(1);
+    pageLay->addWidget(legend);
 
     auto *table = new QFrame(page);
     table->setObjectName(QStringLiteral("keyTable"));
@@ -1834,7 +1964,7 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     // 表头
     auto *head = new QWidget(table);
     head->setObjectName(QStringLiteral("keyHead"));
-    head->setFixedHeight(31);
+    head->setFixedHeight(34);
     auto *hl = new QHBoxLayout(head);
     hl->setContentsMargins(0, 0, 0, 0);
     hl->setSpacing(0);
@@ -1925,6 +2055,7 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
         // 直接显示裸英文。Polish/Show 时把内部 QLineEdit 占位换成中文「未设置」（Muted 色）。
         new KeySeqPlaceholderFixer(edit);
         new KeySeqEscClearFilter(edit);
+        new KeySeqStateFilter(edit);   // 已设置 / 未设置 / 正在录入 三态
         el->addWidget(edit);
         rl->addWidget(editHost);
 
@@ -1963,7 +2094,8 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
 
     // 整行吸附：高度按外层页面可视高算出「能放下几整行」，多出来的行交给行区
     // 自己的滚动条（行高 32 + 分隔线 1 = 33）。
-    rowsArea->snapTo(hint, head, 33);
+    // 图例也占纵向空间，必须计入吸附计算，否则 14 行会算出过高、表格越出页面。
+    rowsArea->snapTo(hint, head, 33, legend);
 }
 
 // ===========================================================================
