@@ -624,6 +624,13 @@ QPushButton#miniBtn { min-height: 18px; max-height: 22px; padding: 0 9px; font-s
 /* 颜色按钮（ColorPickButton）已随第 18 期「背景段下线」删除，QSS 一并清掉 */
 /* 键盘页「操作」列：只读动作名（原 flatCombo 可改绑，2026-11-04 锁死为标签） */
 QLabel#keyAction { color: @Body@; font-size: 12px; }
+/* 键盘页整行悬停（2026-11-09）：与一般页 settingRow 对齐，只提亮行底，
+   不改行高/内边距。冲突行必须保持危险底色——`#keyRow:hover` 与
+   `#keyRow[conflict="true"]` 特异性相同（id+伪类 / id+属性），冲突规则必须排在其后。 */
+QWidget#keyRow { background: transparent; }
+QWidget#keyRow:hover { background: @RowHover@; }
+QWidget#keyRow[conflict="true"], QWidget#keyRow[conflict="true"]:hover {
+    background: @DangerBg@; border-radius: 4px; }
 
 QLabel#valueText { color: @Body@; font-size: 11px; }
 
@@ -1891,8 +1898,12 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
 
         const KeyDef &def = defs[i];
         auto *row = new QWidget(table);
+        row->setObjectName(QStringLiteral("keyRow"));
         row->setFixedHeight(32);
         row->setAttribute(Qt::WA_StyledBackground, true);   // 冲突行高亮走 QSS 背景色
+        // 整行悬停：与一般页 settingRow 一致（WA_Hover 让含子控件的祖先链收到
+        // HoverEnter/Leave），只提亮行底，不改任何控件尺寸与行节距。
+        row->setAttribute(Qt::WA_Hover, true);
         auto *rl = new QHBoxLayout(row);
         rl->setContentsMargins(0, 0, 0, 0);
         rl->setSpacing(0);

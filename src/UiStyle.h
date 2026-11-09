@@ -168,12 +168,13 @@ inline constexpr int TitleBarH    = 43;
 inline constexpr int NavWidth     = 204;
 inline constexpr int FooterH      = 62;
 inline constexpr int InfoPanelW   = 344;
-// 胶囊拨动开关（外观页主题区/材质区）：轨道 40×20、圆角 10（复用最大档位），
-// 滑块 16、内边距 2、焦点环外扩 2。已在设计规范 §4.2 登记。
+// 胶囊拨动开关（外观页主题区/材质区、键盘页启用列）：轨道 40×20、圆角 10，
+// 滑块 12（2026-11-09 由 16 改 12，对齐 WinUI 3 ToggleSwitch 的滑块/轨道比例）、
+// 内边距 2、焦点环外扩 2。已在设计规范 §3 控件尺寸登记。
 inline constexpr int SwitchTrackW = 40;
 inline constexpr int SwitchTrackH = 20;
 inline constexpr int SwitchRadius = 10;
-inline constexpr int SwitchKnob   = 16;
+inline constexpr int SwitchKnob   = 12;
 inline constexpr int SwitchInset  = 2;
 inline constexpr int SwitchPad    = 2;
 
