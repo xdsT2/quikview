@@ -1,13 +1,15 @@
 # QuikView
 
-一个快速、干净的看图器。C++ / Qt6，MIT 开源。
+QuikView 是一款开源的 Windows 看图器，支持目录翻页、双页阅览、EXIF 查看和批量转换。使用 C++ 和 Qt 6 构建，采用 MIT 许可证。
 
 [![CI](https://github.com/xdsT2/quikview/actions/workflows/ci.yml/badge.svg)](https://github.com/xdsT2/quikview/actions/workflows/ci.yml)
 [![下载](https://img.shields.io/github/v/release/xdsT2/quikview?include_prereleases&label=%E4%B8%8B%E8%BD%BD)](https://github.com/xdsT2/quikview/releases)
 
 **简体中文** | [English](README.en.md)
 
-> **不想自己编译？** 到 [Releases](https://github.com/xdsT2/quikview/releases) 下 `quikview-*-win64.zip`，解压双击即用，不需要装 Qt。
+> **Windows x64 下载** · 到[最新发布页](https://github.com/xdsT2/quikview/releases/latest)选择安装版或便携 ZIP。便携版解压即可运行，无需另装 Qt。
+
+> **0.4.1** 改善了设置页布局和浅色主题，主题等设置可即时应用。资源管理器集成新增右键预览和图片信息，并可显示带内嵌缩略图的 PSD / PSB 文件。详见 [版本说明](https://github.com/xdsT2/quikview/releases/tag/v0.4.1)。
 
 ![QuikView 主窗口：顶部栏与底部控制胶囊浮在照片上](docs/screenshots/01-main.webp)
 
@@ -27,7 +29,7 @@
 | [![双页阅览](docs/screenshots/04-spread.webp)](docs/SCREENSHOTS.md) | [![图像效果](docs/screenshots/06-effects.webp)](docs/SCREENSHOTS.md) |
 | **双页阅览**<br>画册、漫画并排看 | **图像效果**<br>反色 / Gamma / 旋转 / 插值 |
 | [![右键菜单](docs/screenshots/07-context-menu.webp)](docs/SCREENSHOTS.md) | [![设置](docs/screenshots/09-settings.webp)](docs/SCREENSHOTS.md) |
-| **右键菜单**<br>按功能分组，标快捷键 | **设置**<br>九类选项，就地生效 |
+| **右键菜单**<br>按功能分组，标快捷键 | **设置**<br>统一布局，支持深浅主题 |
 
 **[全部 10 张截图（含说明）→](docs/SCREENSHOTS.md)**
 
@@ -62,7 +64,7 @@
 - 零遥测、零推广（对照逆向出的"坑清单"反向设计）
 
 **系统集成**（`shell-ext/` 子项目，纯 Win32 COM + WIC，不依赖 Qt）
-- 资源管理器缩略图 + 右键菜单（「用 QuikView 浏览 / 转换」）
+- 资源管理器缩略图（包括带内嵌缩略图的 PSD / PSB）与右键浏览、转换、预览、图片信息
 
 ## 构建
 

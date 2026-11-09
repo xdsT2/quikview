@@ -1,13 +1,15 @@
 # QuikView
 
-A fast, clean image viewer for Windows. C++ / Qt6, MIT licensed.
+QuikView is an open-source Windows image viewer with folder navigation, two-page spreads, EXIF inspection, and batch conversion. Built with C++ and Qt 6 under the MIT license.
 
 [![CI](https://github.com/xdsT2/quikview/actions/workflows/ci.yml/badge.svg)](https://github.com/xdsT2/quikview/actions/workflows/ci.yml)
 [![Download](https://img.shields.io/github/v/release/xdsT2/quikview?include_prereleases&label=download)](https://github.com/xdsT2/quikview/releases)
 
 [简体中文](README.md) | **English**
 
-> **Don't want to build it yourself?** Grab `quikview-*-win64.zip` from [Releases](https://github.com/xdsT2/quikview/releases) — unzip and run, no Qt installation needed.
+> **Windows x64 downloads** · Choose the installer or portable ZIP from the [latest release](https://github.com/xdsT2/quikview/releases/latest). Extract and run the portable version without installing Qt.
+
+> **0.4.1** refines the settings layout and light theme, applies changes such as theme selection immediately, and adds File Explorer context-menu previews, image info, and embedded PSD / PSB thumbnails. See the [release notes](https://github.com/xdsT2/quikview/releases/tag/v0.4.1).
 
 ![QuikView main window: top strip and bottom control capsule floating over the photo](docs/screenshots/01-main.webp)
 
@@ -33,7 +35,7 @@ full size.
 | [![Double-page spread](docs/screenshots/04-spread.webp)](docs/SCREENSHOTS.md) | [![Image effects](docs/screenshots/06-effects.webp)](docs/SCREENSHOTS.md) |
 | **Double-page spread**<br>Photo books and comics side by side | **Image effects**<br>Invert / gamma / rotate / resampling |
 | [![Context menu](docs/screenshots/07-context-menu.webp)](docs/SCREENSHOTS.md) | [![Settings](docs/screenshots/09-settings.webp)](docs/SCREENSHOTS.md) |
-| **Context menu**<br>Grouped, with shortcuts | **Settings**<br>Nine categories, applied in place |
+| **Context menu**<br>Grouped, with shortcuts | **Settings**<br>Consistent layout in light and dark themes |
 
 **[All 10 screenshots (with captions) →](docs/SCREENSHOTS.md)**
 
@@ -74,7 +76,7 @@ full size.
 
 **Explorer integration** (`shell-ext/`, bare Win32 COM + WIC, no Qt dependency)
 
-- Thumbnail provider and context menu ("browse with QuikView" / "convert with QuikView")
+- File Explorer thumbnails for files with embedded PSD / PSB previews, plus context-menu commands for browsing, conversion, preview, and image info
 
 ## Build
 
