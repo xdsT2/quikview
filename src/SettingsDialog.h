@@ -297,4 +297,7 @@ private:
     QLineEdit *m_editorPath = nullptr;    // 杂项页
     QComboBox *m_language = nullptr;      // 语言页
     QPushButton *m_checkUpdateBtn = nullptr;  // 一般页：手动检查更新
+    // 三选一确认框执行中：主窗口 closeEvent 与 Qt 自动关闭子窗口可能
+    // 在同一次退出里各调一次 reject()，此标志保证只弹一次。
+    bool m_prompting = false;
 };

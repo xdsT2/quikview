@@ -3259,6 +3259,10 @@ void SettingsDialog::accept()
 
 void SettingsDialog::reject()
 {
+    // 同一次退出里，MainWindow::closeEvent 会显式调一次 reject()，Qt 关主窗口时
+    // 也可能向非模态子对话框再发一次关闭。没有这层守卫会连弹两次「保存更改？」。
+    if (m_prompting)
+        return;
     // 关闭语义（2026-11-07）：普通设置已即时写盘，关闭即保留；
     // 只有热键改绑 / 界面语言是待保存项。有草稿时弹三选一。
     flushPendingTheme();   // 排队中的主题切换先落运行态并写盘，再决定关闭方式
@@ -3289,7 +3293,9 @@ void SettingsDialog::reject()
     auto *keepBtn = box.addButton(tr("继续编辑"), QMessageBox::RejectRole);
     box.setDefaultButton(saveBtn);
     box.setEscapeButton(keepBtn);
+    m_prompting = true;
     box.exec();
+    m_prompting = false;
 
     if (box.clickedButton() == saveBtn) {
         accept();   // 冲突 / 写盘失败时 accept 内部已拦截，窗口保持打开

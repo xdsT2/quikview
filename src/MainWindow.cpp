@@ -4,6 +4,7 @@
 #include <QActionGroup>
 #include <QApplication>
 #include <QClipboard>
+#include <QCloseEvent>
 #include <QColor>
 #include <QColorSpace>
 #include <QContextMenuEvent>
@@ -1083,7 +1084,9 @@ void MainWindow::createActions()
     // Honeyview：X = 退出。Ctrl+Q 保留为副键
     actQuit = new QAction(tr("退出(&Q)"), this);
     actQuit->setShortcuts({ QKeySequence(QStringLiteral("X")), QKeySequence::Quit });
-    connect(actQuit, &QAction::triggered, qApp, &QApplication::quit);
+    // 退出统一走 close()，由 closeEvent 询问设置窗口的未保存草稿；
+    // 直连 QApplication::quit() 会绕过三选一，草稿未保存就丢会话。
+    connect(actQuit, &QAction::triggered, this, [this]() { close(); });
     addAction(actQuit);   // 不挂到窗口快捷键不参与分发（此前 Ctrl+Q 是死的）
     // Honeyview：F4 = 关闭
     mkFn(tr("关闭"), QKeySequence(QStringLiteral("F4")), [this]() { close(); });
@@ -4621,6 +4624,24 @@ QVariant MainWindow::liveSettingValue(const QString &key) const
                                             : Config::instance().showAnimControl();
     }
     return QVariant();
+}
+
+// 退出流程（2026-11-10 返工）：标题栏 × / F4 / 右键退出 / X / Ctrl+Q /
+// Esc 退出 / 自定义按键 close / 系统 Alt+F4 最终都汇聚到 closeEvent。
+// 设置窗口是非模态 QDialog，Qt 的 WA_QuitOnClose 只认主窗口，主窗口一关
+// 应用就结束，确认框里的「继续编辑」形同虚设。这里先把退出决定交给设置
+// 窗口自己的三选一：选完窗口仍可见（继续编辑，或保存被冲突/写盘失败拦下）
+// 就作废本次关闭，主窗口与草稿都保留。
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    if (m_settingsDlg && m_settingsDlg->isVisible()) {
+        m_settingsDlg->reject();
+        if (m_settingsDlg && m_settingsDlg->isVisible()) {
+            event->ignore();
+            return;
+        }
+    }
+    QMainWindow::closeEvent(event);
 }
 
 void MainWindow::onSettings()

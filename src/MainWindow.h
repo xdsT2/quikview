@@ -22,6 +22,7 @@ class LayerPanel;
 class ThumbnailBrowser;
 class FrameNavigator;
 class QAction;
+class QCloseEvent;
 class QLabel;
 class QPushButton;
 class QTimer;
@@ -82,6 +83,7 @@ public:
     QHash<QString, QList<QKeySequence>> factoryShortcutLists() const;
 
 protected:
+    void closeEvent(QCloseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void dragEnterEvent(QDragEnterEvent *event) override;
     void dragMoveEvent(QDragMoveEvent *event) override;
