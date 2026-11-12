@@ -18,6 +18,10 @@ public:
 signals:
     void valueChanged(qreal gamma);
 
+protected:
+    void paintEvent(QPaintEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private:
     void applySlider(int sliderValue);
     void reset();
@@ -25,4 +29,5 @@ private:
     QSlider *m_slider = nullptr;
     QLabel *m_valueLabel = nullptr;
     qreal m_value = 1.0;
+    QPoint m_dragOffset;
 };
