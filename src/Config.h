@@ -33,7 +33,7 @@ public:
 
     // 一般
     bool rememberBrowsedFolders() const;  // 记住浏览过的文件夹（默认 true）
-    bool allowMultipleInstances() const;  // 允许多个实例（默认 false）
+    bool allowMultipleInstances() const;  // 允许多个实例（默认 true：默认多开）
     bool deleteConfirm() const;        // 删除文件时确认（默认 true）
     bool notifyCorner() const;         // 在边角显示通知信息
     bool showTooltip() const;          // 悬浮工具提示总开关（默认显示）
@@ -42,7 +42,7 @@ public:
     bool exifSmallFont() const;        // EXIF / 文件信息用小字体（默认 12px，开则 10px）
     bool alwaysOnTop() const;          // 总在最前
     bool escExit() const;              // 按 ESC 退出
-    QString edgeAction() const;        // "first" | "stop" | "ask"（默认 "stop"）
+    QString edgeAction() const;        // "first" | "stop"（默认 "first"；旧值 "ask" 折算为 "stop"，询问实现落地前）
 
     // 浏览
     QString thumbnailSize() const;     // "small" | "medium" | "large"（默认 "medium"）
@@ -79,11 +79,11 @@ public:
     QString interpolation() const;     // "bilinear" | "bicubic" | "lanczos"（默认 "bicubic"）
     bool smoothZoom() const;           // 默认平滑缩放
     bool stretchSmall() const;         // 适合窗口时把小于窗口的图放大填满（默认 false）
-    bool hdrTonemap() const;           // HDR 色调映射（高位深→SDR，命令栏 HDR 钮，默认 true）
+    bool hdrTonemap() const;           // HDR 色调映射（本版恒 false：启用入口已移除，旧配置不激活）
     bool imageIcc() const;             // 使用图片内嵌 ICC（非 sRGB 图转 sRGB，默认 true）
     int gifTransparent() const;        // GIF 透明区域底色档位 0..3（默认 0）
     int img32Transparent() const;      // 32 位图（带 alpha）底色档位 0..3（默认 0）
-    int pageTurnFx() const;            // 翻页效果 0 无 / 1 淡入淡出 / 2 Alpha 滑动 / 3 滑动（默认 0）
+    int pageTurnFx() const;            // 翻页效果 0 无 / 1 淡入淡出 / 2 Alpha 滑动 / 3 滑动（默认 1）
     bool cacheNextImage() const;       // 缓存下一张图片（翻页前预读，默认 true）
     int cacheSizeMb() const;           // 原图缓存上限 MB（默认 300，clamp 64..4096）
     bool alignTopWhenLarge() const;    // 图片大于窗口时显示图片顶部（默认开）
@@ -99,7 +99,7 @@ public:
     bool noRawLoad() const;            // 不打开 RAW 图片文件（默认 false）
     bool skipRawWhenJpg() const;       // JPEG 存在时跳过同名 RAW（默认 true）
     bool rawThumbnail() const;         // RAW 先显示内嵌缩略图（默认 true）
-    bool fitWindowToImage() const;     // 打开图片时按图片尺寸调节窗口（默认 true）
+    bool fitWindowToImage() const;     // 打开图片时按图片尺寸调节窗口（默认 false，需用户开启）
     bool pageturnWav() const;          // 翻页时播放音效（默认 false）
 
     // 排序（浏览菜单）：键 0名称/1修改时间/2大小/3类型 + 降序开关（默认升序）
@@ -118,7 +118,7 @@ public:
     void addRecentFile(const QString &path);
 
     // 检查更新
-    bool checkUpdatesOnStartup() const;      // 启动时自动检查（默认关：不擅自联网）
+    bool checkUpdatesOnStartup() const;      // 启动时自动检查（默认开，5s 延迟 / 24h 限频）
     qint64 lastUpdateCheck() const;          // 上次检查时间（epoch 秒，0 = 从未）
     void setLastUpdateCheck(qint64 secsSinceEpoch);
 
