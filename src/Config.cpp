@@ -130,7 +130,8 @@ bool Config::rememberBrowsedFolders() const
 
 bool Config::allowMultipleInstances() const
 {
-    return m_settings.value(QStringLiteral("config/allow_multiple_instances"), false).toBool();
+    // 2026-11-12 定稿默认：默认允许多开（设置页「不允许多个实例」显示为关）。
+    return m_settings.value(QStringLiteral("config/allow_multiple_instances"), true).toBool();
 }
 
 bool Config::deleteConfirm() const
@@ -183,7 +184,13 @@ bool Config::escExit() const
 
 QString Config::edgeAction() const
 {
-    return m_settings.value(QStringLiteral("config/edge_action"), QStringLiteral("stop")).toString();
+    // 2026-11-12 定稿默认：到达末尾继续时回绕到首个文件。
+    // 旧配置里的 "ask" 在「询问」实现落地（翻页批次 2）前按「停止」处理：
+    // 目录加载器 next/prev 只认 stop，ask 会绕回另一端，与 advance 不一致，
+    // 这里统一折算，配置原值保留，不回写。
+    const QString v = m_settings.value(QStringLiteral("config/edge_action"),
+                                        QStringLiteral("first")).toString();
+    return v == QLatin1String("ask") ? QStringLiteral("stop") : v;
 }
 
 QString Config::thumbnailSize() const
@@ -208,25 +215,35 @@ QString Config::mouseLeftAction() const
                             QStringLiteral("none")).toString();
 }
 
+namespace {
+// 右键 / X / Y 没有 "pan" 的 onMouseAction 分支（设置页该档已灰显）：旧配置里
+// 残留的 "pan" 按下只会吞掉事件——右键连内置菜单都不弹。读取时折算回内置
+// 行为 "none"，让运行态与设置页显示的安全值一致；配置原值不回写不删除，
+// 翻页批次 2 的独立映射迁移仍能看到用户存过的原始档位。
+QString mouseBtnAction(const QSettings &s, const char *key)
+{
+    const QString v = s.value(QStringLiteral("config/mouse/") + key,
+                              QStringLiteral("none")).toString();
+    return v == QLatin1String("pan") ? QStringLiteral("none") : v;
+}
+} // namespace
+
 QString Config::mouseRightAction() const
 {
     // 右键映射（C10）。none 保留内置行为（弹出上下文菜单）。
-    return m_settings.value(QStringLiteral("config/mouse/btn_right"),
-                            QStringLiteral("none")).toString();
+    return mouseBtnAction(m_settings, "btn_right");
 }
 
 QString Config::mouseXAction() const
 {
     // X 键（XButton1，浏览器后退键）映射（C11）；默认无操作。
-    return m_settings.value(QStringLiteral("config/mouse/btn_x"),
-                            QStringLiteral("none")).toString();
+    return mouseBtnAction(m_settings, "btn_x");
 }
 
 QString Config::mouseYAction() const
 {
     // Y 键（XButton2，浏览器前进键）映射（C12）；默认无操作。
-    return m_settings.value(QStringLiteral("config/mouse/btn_y"),
-                            QStringLiteral("none")).toString();
+    return mouseBtnAction(m_settings, "btn_y");
 }
 
 bool Config::actionEnabled(const QString &action, bool def) const
@@ -284,9 +301,11 @@ bool Config::stretchSmall() const
 
 bool Config::hdrTonemap() const
 {
-    // 出厂默认关闭：SDR 屏上默认开色调映射会改变画质，只有 HDR 屏/明确的用户才需要。
-    // 只影响没有写过该键的用户，已有配置里的值优先。
-    return m_settings.value(QStringLiteral("config/hdr_tonemap"), false).toBool();
+    // 本版已移除 HDR 启用入口（右键「图片参数」项，批次 1）：色调映射只在部分
+    // 高位深图上转 SDR，界面却提示「HDR 已开启」，与实际不符。此处一律返回 false，
+    // 旧配置里残留的 config/hdr_tonemap=true 在本版也无法激活；该键不再被读取，
+    // 也不回写不删除，后续真 HDR 输出落地时再按新语义接回。
+    return false;
 }
 
 bool Config::imageIcc() const
@@ -314,7 +333,7 @@ int Config::pageTurnFx() const
 {
     // 「翻页效果」：MainWindow::showImage 在整图路径判断是否换页后调用
     // ImageCanvas::setPixmapAnimated；拖动滑块跟手预览（preview=true）不经过。
-    return qBound(0, m_settings.value(QStringLiteral("config/imageproc/pageturn_fx"), 0).toInt(), 3);
+    return qBound(0, m_settings.value(QStringLiteral("config/imageproc/pageturn_fx"), 1).toInt(), 3);
 }
 
 bool Config::cacheNextImage() const
@@ -329,7 +348,8 @@ bool Config::alignTopWhenLarge() const
 
 int Config::cacheSizeMb() const
 {
-    // 原图缓存上限，单位 MB；设置页范围比这宽，这里再夹一次防止手改配置越界。
+    // 原图缓存上限，单位 MB；与设置页输入框同范围（64–4096），这里再夹一次
+    // 防止手改配置越界，旧配置越界值按边界生效并在设置页按边界值显示。
     return qBound(64, m_settings.value(QStringLiteral("config/imageproc/cache_size_mb"), 300).toInt(), 4096);
 }
 
@@ -340,12 +360,23 @@ bool Config::smoothZoom() const
 
 bool Config::wheelZoom() const
 {
-    return m_settings.value(QStringLiteral("config/wheel_zoom"), true).toBool();
+    // 滚轮上下共用一个缩放开关：任一方向不是「放大/缩小」对应档（含旧配置里
+    // 不可执行的档位）就整体停用，与设置页写回的兼容桥同一公式。这里直接按
+    // mouse/wheel_up|down 推导而不是回读 config/wheel_zoom，避免手改或旧版
+    // 残留的开关键与档位键不一致时，运行态和设置页显示各说各话。
+    const QString up = m_settings.value(QStringLiteral("config/mouse/wheel_up"),
+                                        QStringLiteral("zoom_in")).toString();
+    const QString down = m_settings.value(QStringLiteral("config/mouse/wheel_down"),
+                                          QStringLiteral("zoom_out")).toString();
+    return up == QLatin1String("zoom_in") && down == QLatin1String("zoom_out");
 }
 
 bool Config::middlePan() const
 {
-    return m_settings.value(QStringLiteral("config/middle_pan"), true).toBool();
+    // 与 wheelZoom 同理按档位键推导：中键只有「拖拽平移」档生效（含单击全屏），
+    // 其余档位（含旧配置残留的不可执行值）连单击全屏一起停用。
+    return m_settings.value(QStringLiteral("config/mouse/btn_middle"),
+                            QStringLiteral("pan")).toString() == QLatin1String("pan");
 }
 
 bool Config::sideClickPageturn() const
@@ -385,7 +416,9 @@ bool Config::rawThumbnail() const
 
 bool Config::fitWindowToImage() const
 {
-    return m_settings.value(QStringLiteral("config/etc/fit_window_to_image"), true).toBool();
+    // 2026-11-12 用户口径：窗口尺寸默认不随打开的图片变化，保持初始 1080×815。
+    // 设置「根据图片大小调节窗口大小」仍保留，用户显式开启后才按图调窗。
+    return m_settings.value(QStringLiteral("config/etc/fit_window_to_image"), false).toBool();
 }
 
 bool Config::pageturnWav() const
@@ -410,8 +443,9 @@ bool Config::contextCopy() const
 
 bool Config::checkUpdatesOnStartup() const
 {
-    // 默认关：未经用户明确同意不联网。设置页「启动时检查更新」勾上才为 true。
-    return m_settings.value(QStringLiteral("config/check_updates"), false).toBool();
+    // 2026-11-12 用户定稿：启动时检查更新默认开。启动 5s 静默发起、24h 限频；
+    // 联网行为仍由该开关控制，用户可在设置页随时关闭。
+    return m_settings.value(QStringLiteral("config/check_updates"), true).toBool();
 }
 
 qint64 Config::lastUpdateCheck() const

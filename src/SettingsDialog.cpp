@@ -10,8 +10,10 @@
 #include <QCoreApplication>
 #include <QDesktopServices>
 #include <QDir>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QTextStream>
 #include <QFontMetrics>
 #include <QFrame>
 #include <QGridLayout>
@@ -33,6 +35,9 @@
 #include <QSpinBox>
 #include <QStackedWidget>
 #include <QStandardItemModel>
+#include <QStyledItemDelegate>
+#include <QAbstractItemView>
+#include <QFont>
 #include <QStyle>
 #include <QStyleHints>
 #include <QStyleOptionButton>
@@ -54,34 +59,161 @@
 
 #include <QOperatingSystemVersion>
 
+// ---------------------------------------------------------------------------
+// 输入来源追踪（v2 焦点可见性，2026-11-11 修订规格）
+// 鼠标点击控件时不得出现蓝色焦点框，再次点击已聚焦控件也要隐藏；只有
+// Tab / Shift+Tab 等键盘导航显示 2px #1688F8 环并留 2px 外距。这里不改任何
+// 控件的 FocusPolicy（保留 StrongFocus、Tab 顺序与高对比模式），只用一条应用级
+// 过滤器记录最近一次输入来源，把结果写成每个控件的 kbFocus 动态属性；
+// QSS 与 PillToggle 自绘都只在「有焦点 且 kbFocus」时画环。
+// 菜单 Esc 返回是 KeyPress，自然延续键盘模式；程序性恢复焦点由 Qt 的
+// focusChanged 触发 refresh，继承同一份模式状态。
+// ---------------------------------------------------------------------------
+class InputModeWatcher : public QObject
+{
+public:
+    explicit InputModeWatcher(SettingsDialog *dialog)
+        : QObject(dialog), m_dialog(dialog)
+    {
+    }
+
+    bool keyboardMode() const { return m_keyboard; }
+
+    // 焦点变化 / 切页 / 打开菜单后按当前焦点重刷一次属性。
+    void refresh()
+    {
+        if (!m_dialog)
+            return;
+        QWidget *host = m_dialog->window();
+        if (!host)
+            return;
+        QWidget *focus = host->focusWidget();
+        // focusProxy 链：QKeySequenceEdit / 可编辑 QComboBox 的实际焦点在内层
+        // QLineEdit 上，环要画在真正可见的那个控件上。
+        QSet<QWidget *> ringTargets;
+        for (QWidget *f = focus; f; f = f->focusProxy())
+            ringTargets.insert(f);
+        const QList<QWidget *> widgets = host->findChildren<QWidget *>();
+        for (QWidget *w : widgets) {
+            const bool on = m_keyboard && ringTargets.contains(w);
+            if (w->property("kbFocus").toBool() != on) {
+                w->setProperty("kbFocus", on);
+                w->update();
+            }
+        }
+        // focusWidget 可能尚未进入 findChildren（首次显示 / 刚切页）。
+        for (QWidget *f : ringTargets) {
+            if (f->property("kbFocus").toBool() != m_keyboard) {
+                f->setProperty("kbFocus", m_keyboard);
+                f->update();
+            }
+        }
+    }
+
+protected:
+    bool eventFilter(QObject *obj, QEvent *event) override
+    {
+        switch (event->type()) {
+        case QEvent::KeyPress: {
+            auto *ke = static_cast<QKeyEvent *>(event);
+            // 单独按修饰键不算导航，避免 Ctrl 起手的组合键先闪一下环。
+            if (ke->key() != Qt::Key_Shift && ke->key() != Qt::Key_Control
+                && ke->key() != Qt::Key_Alt && ke->key() != Qt::Key_Meta) {
+                setKeyboardMode(true);
+            }
+            break;
+        }
+        case QEvent::MouseButtonPress:
+        case QEvent::MouseButtonDblClick:
+        case QEvent::Wheel:
+        case QEvent::TouchBegin:
+            setKeyboardMode(false);
+            break;
+        default:
+            break;
+        }
+        return QObject::eventFilter(obj, event);
+    }
+
+private:
+    void setKeyboardMode(bool keyboard)
+    {
+        if (m_keyboard == keyboard)
+            return;
+        m_keyboard = keyboard;
+        refresh();
+    }
+
+    SettingsDialog *m_dialog = nullptr;
+    bool m_keyboard = false;
+};
+
 namespace {
 
 // ---------------------------------------------------------------------------
-// 尺寸（对齐原型 .settings：宽 940 / 标题 43 / 导航 204 / footer 62 / 内容内边距 25,28）
-// 高度见下方 kDlgH 的说明：720 放不下键盘页 14 行，2026-11-04 起为 800。
+// 尺寸：所有页共用 920 × 784（窄窗 900 × 660）。
+// 其余十页沿用 2026-11-11 的 kPage* 节奏，取值不变。
 // ---------------------------------------------------------------------------
-constexpr int kDlgW = 940;
-// 2026-11-04：720 时键盘页 14 行只能塞下 11 行，右侧逼出滚动条、表格下方空一大片，
-// 用户以原型图（940x900、14 行一屏全显、无滚动条）为基准判定「不对」。
-// 14 行 = 14*(32+1)=462，加表头 31、提示行约 44、底部 12 与内容区内边距，
-// 需要约 800 逻辑高；800 刚好填满，不会像 900 那样又留出 100px 空白。
-constexpr int kDlgH = 800;
+// 2026-11-12 用户纠偏：窗口随内容收紧（参考 macOS 设置窗口），默认逻辑宽
+// 920（原 1068 让卡片两侧留出大片无用空白），侧栏 208，卡片最大 640，
+// 超出继续拉宽时额外空间均分两侧、卡片不再变宽。实测：卡片 638、左右留白
+// 36/37；125% 下物理 1150 × 980。
+constexpr int kDlgW = 920;
+constexpr int kDlgH = 784;
+// 键盘页只加高到 822（宽同 920）：14 行 + 四分组 + 冲突红条要一屏审阅
+// （规格 §审图索引）。宽度不再单独放宽。
+constexpr int kDlgKeyboardH = 822;
 constexpr int kDlgMinW = 900;
 constexpr int kDlgMinH = 660;
-constexpr int kTitleBarH = 43;
-constexpr int kNavW = 204;
-constexpr int kFooterH = 62;
+constexpr int kTitleBarH = 41;     // v2：标题栏 41（窄窗 40）
+constexpr int kNavW = 208;         // 收紧后左栏 208（窄窗 180），11 项不挤
+constexpr int kFooterH = 44;       // v2：底栏 44（窄窗 43）
 constexpr int kComboH = 30;
 constexpr int kInputH = 30;
-// 统一设置行（2026-11-07 排版统一）：行高 40、左右 11px 内边距，文案列与
-// 右侧控件列共用同一条左边线 / 右边线。
+// 其余十页的设置行节奏（既有实现，不变）
 constexpr int kRowMinH = 40;
 constexpr int kRowPadX = 11;
 constexpr int kRowPadY = 5;
-constexpr int kGroupTop = 16;   // 分组标题与上一组卡片之间
-// 一般页样板：右侧控件列的固定宽度（最宽的下拉是 160，留 16 内边距）。
-// 只作用于一般页的 rowControls，其余十页保持随内容宽度。
-constexpr int kGeneralCtlW = 176;
+constexpr int kGroupTop = 16;
+// v2 修订（2026-11-11）：组间 14；行高不再统一加高，按行型由内容撑开——
+// 单行设置 38、标题+说明 44（说明换行继续按文字增长），控件列 154。
+constexpr int kPageFirstGap = 16;
+constexpr int kPageGroupGap = 14;
+constexpr int kPageRowH = 44;        // 标题+说明
+constexpr int kPageRowHSingle = 38;  // 单行设置
+constexpr int kPageCtlW = 190;
+
+// —— 「设置 › 一般」v2 母版专用尺寸 ——
+// 标准 920×784：卡片列居中最大 640（实测 638）、两侧留白 36/37；组间距 12、
+// 行高按内容撑开、导航行 36 / 行距 4、图标底板 22、控件高 30、下拉宽 190。
+// 窄窗 900×660：左栏 180、导航行 34 / 行距 2、组间距 8、行高约 38、
+// 标题栏 40、底栏 43；卡片仍 638、左右各 40/41（实测）。
+constexpr int kGenContentMaxW = 640;   // 卡片上限 640（620–640 区间取上沿）
+constexpr int kGenColumnPadX = 28;
+constexpr int kGenCompactPadX = 24;
+constexpr int kGenPaneTop = 20;
+constexpr int kGenFirstGap = 14;
+constexpr int kGenGroupGap = 12;
+constexpr int kGenRowH = 47;
+constexpr int kGenRowPadX = 14;
+constexpr int kGenTextGap = 16;
+constexpr int kGenCtlW = 190;
+constexpr int kGenNavRowH = 36;
+constexpr int kGenCtrlH = 30;
+constexpr int kGenNavSpacing = 4;
+constexpr int kGenComboW = 190;
+// 紧凑档（窗口宽 < 1000 时启用）
+constexpr int kGenCompactNavW = 180;
+constexpr int kGenCompactNavRowH = 34;
+constexpr int kGenCompactNavSpacing = 2;
+constexpr int kGenCompactTitleH = 40;
+constexpr int kGenCompactFooterH = 43;
+constexpr int kGenCompactGroupGap = 8;
+constexpr int kGenCompactRowH = 38;
+constexpr int kGenCompactFirstGap = 8;
+constexpr int kGenCompactPaneTop = 12;
+constexpr int kGenCompactHeadGap = 4;
+constexpr int kGenCompactThreshold = 920;   // 小于默认宽度才进紧凑档
 
 // ---------------------------------------------------------------------------
 // QSettings 便捷读写（统一 config/ 前缀）
@@ -97,6 +229,39 @@ bool bGet(const char *key, bool def)
 int iGet(const char *key, int def)
 {
     return Config::instance().settings().value(QStringLiteral("config/") + key, def).toInt();
+}
+
+// ---------------------------------------------------------------------------
+// 壳扩展状态（2026-11-11 修订）：只有 CLSID 的 InprocServer32 真指向本机
+// quikthumb.dll，才允许在设置页写「已注册」；仅文件存在时只能写「已检测到
+// 壳扩展文件」。避免仅凭 DLL 落盘就谎报注册成功。
+// ---------------------------------------------------------------------------
+bool shellExtDllPresent()
+{
+    return QFileInfo::exists(QCoreApplication::applicationDirPath()
+                             + QStringLiteral("/quikthumb.dll"));
+}
+
+bool shellExtRegistered()
+{
+    if (!shellExtDllPresent())
+        return false;
+    // 两个 COM 类：缩略图提供程序与上下文菜单（shell-ext/src/guids.h）。
+    static const char *kGuids[] = {
+        "{D8A1C4E2-7B35-4F69-92A4-5C6D7E8F1A2B}",   // CLSID_QuikThumbProvider
+        "{C9FFAFAD-7C1C-4CCC-A37C-A075ED1F27AF}",   // CLSID_QuikContextMenu
+    };
+    for (const char *guid : kGuids) {
+        QSettings reg(QStringLiteral("HKEY_CLASSES_ROOT\\CLSID\\%1\\InprocServer32")
+                          .arg(QLatin1String(guid)),
+                      QSettings::NativeFormat);
+        const QString path = reg.value(QStringLiteral(".")).toString();
+        if (path.isEmpty())
+            return false;
+        if (!path.endsWith(QStringLiteral("quikthumb.dll"), Qt::CaseInsensitive))
+            return false;
+    }
+    return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -122,12 +287,14 @@ public:
     // hint / head 是行区之外、同样占据纵向空间的固定部件。
     // extra：行区之外新增的部件（键盘页状态图例），也要从可用高度里扣掉，
     // 否则 14 行会算出过高、表格底部越出页面。其余页不传，行为不变。
-    void snapTo(QWidget *hint, QWidget *head, int rowStep, QWidget *extra = nullptr)
+    void snapTo(QWidget *hint, QWidget *head, int rowStep, QWidget *extra = nullptr,
+                int fixedContent = 0)
     {
         m_hint = hint;
         m_head = head;
         m_extra = extra;
         m_step = rowStep;
+        m_fixedContent = fixedContent;
         QWidget *w = parentWidget();
         while (w && !qobject_cast<QScrollArea *>(w)) {
             w = w->parentWidget();
@@ -167,13 +334,12 @@ protected:
     // 高度直接由内容 sizeHint 决定：QScrollArea 默认 sizeHint 是固定值（360），
     // 与 AdjustToContents 无关——stretch=0 时布局按 sizeHint 给高度，所以必须自己重写。
     // NoFrame 时 frameWidth()=0，高度 = 内容 sizeHint 高度。宽度沿用父类（跟随外层表格）。
+    // stretch 模式（键盘页 2026-11-11 起）：表格吃满页面剩余高度，行区可压缩，
+    // sizeHint 必须给一个小值；否则 QBoxLayout 先按内容自然高分配，页面被撑出
+    // 外层滚动条。滚动范围仍由 widget 内容决定，不受这里影响。
     QSize sizeHint() const override
     {
-        if (widget()) {
-            const int h = widget()->sizeHint().height() + 2 * frameWidth();
-            return QSize(QScrollArea::sizeHint().width(), h);
-        }
-        return QScrollArea::sizeHint();
+        return QSize(QScrollArea::sizeHint().width(), 120);
     }
 
 private:
@@ -201,9 +367,10 @@ private:
         // 页面 layout 在这三段之外已无其它纵向占用（margins/spacing 均 0，
         // 表格外 spacing 已随 M-05 删除），不再重复扣减。
         constexpr int kTableBorder = 2;
+        // 分组头等固定内容也占纵向空间：先扣掉，再按整行数封顶。
         const int avail = m_outer->viewport()->height() - m_hint->height()
                           - m_head->height() - (m_extra ? m_extra->height() : 0)
-                          - kTableBorder;
+                          - kTableBorder - m_fixedContent;
 
         // 高度两步走：
         // 1) 窗口够高 → 就取内容自然高，表格不再吃满页面，剩余纵向空间由页面底部弹簧吸收；
@@ -228,7 +395,200 @@ private:
     QWidget *m_page = nullptr;
     QScrollArea *m_outer = nullptr;
     int m_step = 33;
+    int m_fixedContent = 0;   // 分组头等不参与整行吸附的固定内容高
     bool m_applyQueued = false;
+};
+
+// ---------------------------------------------------------------------------
+// v2 checkbox（2026-11-11 修订）：表格内逐项启用用它，16×16 外框、勾选为
+// 中性填充 + 对比色勾（不是蓝色）。自绘而不用 QSS ::indicator，原因有二：
+//   1) 深/浅主题的勾色需要跟随填充色反转，QSS 只能靠两张位图；
+//   2) 焦点环只在键盘导航时出现（kbFocus），和 PillToggle 用同一套规则。
+// 命中区 24×24：16 外框 + 2px 环 + 2px 外距，正好满足规格的外距要求。
+// ---------------------------------------------------------------------------
+class V2CheckBox : public QCheckBox
+{
+public:
+    explicit V2CheckBox(QWidget *parent = nullptr) : QCheckBox(parent)
+    {
+        setText(QString());
+        setCursor(Qt::PointingHandCursor);
+        setFocusPolicy(Qt::StrongFocus);
+        setFixedSize(24, 24);
+    }
+
+    QSize sizeHint() const override { return QSize(24, 24); }
+    QSize minimumSizeHint() const override { return QSize(24, 24); }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing, true);
+
+        const QRectF box((width() - 16) / 2.0, (height() - 16) / 2.0, 16, 16);
+        const bool on = isChecked();
+        QColor fill = on ? UiStyle::fluent::switchOffColor() : QColor(0, 0, 0, 0);
+        QColor line = on ? UiStyle::fluent::switchOffColor()
+                         : (underMouse() ? UiStyle::fluent::descColor()
+                                         : UiStyle::fluent::borderColor());
+        if (!isEnabled())
+            p.setOpacity(0.45);
+
+        p.setPen(QPen(line, 1));
+        p.setBrush(fill);
+        p.drawRoundedRect(box.adjusted(0.5, 0.5, -0.5, -0.5), 4, 4);
+
+        if (on) {
+            const QColor mark(Qt::white);
+            QPainterPath path;
+            path.moveTo(box.left() + 3.6, box.center().y() + 0.2);
+            path.lineTo(box.left() + 6.4, box.bottom() - 3.8);
+            path.lineTo(box.right() - 3.2, box.top() + 4.0);
+            p.setBrush(Qt::NoBrush);
+            p.setPen(QPen(mark, 1.8, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+            p.drawPath(path);
+        }
+
+        if (isEnabled())
+            p.setOpacity(1.0);
+        if (hasFocus() && property("kbFocus").toBool()) {
+            p.setBrush(Qt::NoBrush);
+            p.setPen(QPen(UiStyle::fluent::accentColor(), 2));
+            p.drawRoundedRect(box.adjusted(-2, -2, 2, 2), 5, 5);
+        }
+    }
+
+    bool hitButton(const QPoint &pos) const override { return rect().contains(pos); }
+};
+
+// ---------------------------------------------------------------------------
+// v2 pop-up（2026-11-11 修订）：持续显示互斥值的字段。
+// 规格：行内左文右箭头、当前值、选中项有勾 + 中性底、禁用项灰显并把原因写在
+// 次行、菜单宽度按最长值扩展（上限 290）、方向键跳过禁用项、Enter 提交、
+// Esc 取消并恢复触发器焦点。QComboBox 本身已提供键盘语义与焦点恢复，
+// 这里只替换弹出项绘制与几何。
+// ---------------------------------------------------------------------------
+class PopupDelegate : public QStyledItemDelegate
+{
+public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+
+    int currentRow = -1;
+
+    QSize sizeHint(const QStyleOptionViewItem &opt, const QModelIndex &idx) const override
+    {
+        const QString reason = idx.data(Qt::UserRole + 1).toString();
+        return QSize(opt.rect.width(), reason.isEmpty() ? 30 : 46);
+    }
+
+    void paint(QPainter *p, const QStyleOptionViewItem &opt,
+               const QModelIndex &idx) const override
+    {
+        p->save();
+        p->setRenderHint(QPainter::Antialiasing, true);
+
+        const bool enabled = idx.flags() & Qt::ItemIsEnabled;
+        const bool hot = opt.state & QStyle::State_Selected;
+        const bool isCurrent = idx.row() == currentRow;
+        const QString reason = idx.data(Qt::UserRole + 1).toString();
+
+        QRect r = opt.rect.adjusted(2, 1, -2, -1);
+        if (hot) {
+            p->setPen(Qt::NoPen);
+            p->setBrush(UiStyle::fluent::hoverColor());
+            p->drawRoundedRect(r, 6, 6);
+        }
+        if (!enabled)
+            p->setOpacity(0.45);
+
+        // 勾：当前值左侧 18px 区域，用两条线段画，不依赖位图。
+        if (isCurrent) {
+            QPen pen(UiStyle::fluent::textColor(), 1.6, Qt::SolidLine,
+                     Qt::RoundCap, Qt::RoundJoin);
+            p->setPen(pen);
+            const qreal cx = r.left() + 12;
+            const qreal cy = r.top() + (reason.isEmpty() ? r.height() / 2.0
+                                                          : 14.0);
+            p->drawLine(QPointF(cx - 3, cy), QPointF(cx - 0.5, cy + 3));
+            p->drawLine(QPointF(cx - 0.5, cy + 3), QPointF(cx + 4, cy - 3));
+        }
+
+        QFont f = opt.font;
+        f.setPixelSize(13);
+        f.setWeight(QFont::Normal);
+        p->setFont(f);
+        p->setPen(enabled ? UiStyle::fluent::textColor()
+                          : UiStyle::fluent::descColor());
+        const QRect textRect = reason.isEmpty()
+            ? r.adjusted(24, 0, -10, 0)
+            : QRect(r.left() + 24, r.top() + 3, r.width() - 34, 20);
+        const QString text = p->fontMetrics().elidedText(
+            idx.data(Qt::DisplayRole).toString(), Qt::ElideRight, textRect.width());
+        p->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, text);
+
+        // 禁用原因：次行小字，始终可见，不用悬停才看到。
+        if (!reason.isEmpty()) {
+            QFont rf = opt.font;
+            rf.setPixelSize(11);
+            p->setFont(rf);
+            p->setPen(UiStyle::fluent::descColor());
+            const QRect rr(r.left() + 24, r.top() + 23, r.width() - 34, 18);
+            p->drawText(rr, Qt::AlignLeft | Qt::AlignVCenter,
+                        p->fontMetrics().elidedText(reason, Qt::ElideRight, rr.width()));
+        }
+
+        p->restore();
+    }
+};
+
+class V2ComboBox : public QComboBox
+{
+public:
+    explicit V2ComboBox(QWidget *parent = nullptr) : QComboBox(parent)
+    {
+        auto *d = new PopupDelegate(this);
+        m_delegate = d;
+        view()->setItemDelegate(d);
+        view()->setMouseTracking(true);
+        setCursor(Qt::PointingHandCursor);
+        setFixedHeight(kComboH);
+    }
+
+    // 弹出前按最长值 + 原因算宽度：最小与按钮同宽，最大 290，屏幕边缘交给 Qt。
+    void showPopup() override
+    {
+        int need = width();
+        const QFontMetrics fm(font());
+        for (int i = 0; i < count(); ++i) {
+            int w = fm.horizontalAdvance(itemText(i)) + 44;
+            const QString reason = itemData(i, Qt::UserRole + 1).toString();
+            if (!reason.isEmpty())
+                w = qMax(w, fm.horizontalAdvance(reason) + 44);
+            need = qMax(need, w);
+        }
+        view()->setMinimumWidth(qMin(need, 290));
+        m_delegate->currentRow = currentIndex();
+        QComboBox::showPopup();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *event) override
+    {
+        QComboBox::paintEvent(event);
+        // 右侧 12–14px 下箭头自绘（QSS 的 image 在小尺寸下不可控）。
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setPen(QPen(UiStyle::fluent::descColor(), 1.5, Qt::SolidLine,
+                      Qt::RoundCap, Qt::RoundJoin));
+        const qreal cx = width() - 15;
+        const qreal cy = height() / 2.0;
+        p.drawLine(QPointF(cx - 3.5, cy - 1.5), QPointF(cx, cy + 2.0));
+        p.drawLine(QPointF(cx, cy + 2.0), QPointF(cx + 3.5, cy - 1.5));
+    }
+
+private:
+    PopupDelegate *m_delegate = nullptr;
 };
 
 // ---------------------------------------------------------------------------
@@ -365,8 +725,9 @@ class NavItemButton : public QPushButton
 {
 public:
     NavItemButton(const QString &text, NavGlyph glyph, QWidget *parent = nullptr,
-                  bool muted = false)
-        : QPushButton(text, parent), m_glyph(glyph), m_muted(muted)
+                  bool muted = false, int categoryIndex = -1)
+        : QPushButton(text, parent), m_glyph(glyph), m_muted(muted),
+          m_category(categoryIndex)
     {
     }
 
@@ -379,23 +740,39 @@ protected:
         opt.text.clear();
 
         QStylePainter p(this);
+        // 整行选中 / 悬停底色由 QSS 的 #navItem:checked / :hover 绘制。
         p.drawControl(QStyle::CE_PushButton, opt);
 
-        QColor color = m_muted ? UiStyle::muted() : UiStyle::navText();
-        if (isChecked())
-            color = UiStyle::accent();
-        else if (underMouse())
-            color = UiStyle::text();
+        // 定稿：20×20 实色圆角底板（半径 5）+ 16×16 网格白色线性图形。
+        // 主题切换保留类别色，选中只用整行底色与 600 字重表达。
+        const int plateSize = 22;   // v2：底板 22×22、圆角 6
+        const int pad = 10;
+        const QRect plate(pad, (height() - plateSize) / 2, plateSize, plateSize);
+        QColor plateColor = m_muted ? UiStyle::color(UiStyle::fluent::neutralIcon())
+                                    : UiStyle::fluent::categoryColor(m_category);
+        if (!isEnabled())
+            plateColor.setAlpha(140);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setPen(Qt::NoPen);
+        p.setBrush(plateColor);
+        p.drawRoundedRect(plate, 6, 6);
 
-        const int pad = 11;
         const int glyphSize = 16;
-        const int gap = 9;
-        paintNavGlyph(p, m_glyph, QRect(pad, (height() - glyphSize) / 2, glyphSize, glyphSize),
-                      color);
+        paintNavGlyph(p, m_glyph,
+                      QRect(plate.x() + (plateSize - glyphSize) / 2,
+                            plate.y() + (plateSize - glyphSize) / 2,
+                            glyphSize, glyphSize),
+                      QColor(255, 255, 255));
 
-        p.setPen(color);
-        p.setFont(font());
-        p.drawText(QRect(pad + glyphSize + gap, 0, width() - pad - glyphSize - gap - 8, height()),
+        QFont f = font();
+        if (isChecked())
+            f.setWeight(QFont::DemiBold);
+        p.setFont(f);
+        p.setPen(isEnabled() ? UiStyle::fluent::textColor()
+                             : UiStyle::fluent::descColor());
+        const int gap = 9;
+        const int textX = plate.right() + gap;
+        p.drawText(QRect(textX, 0, width() - textX - 8, height()),
                    Qt::AlignVCenter | Qt::AlignLeft, label);
     }
 
@@ -413,6 +790,7 @@ protected:
 private:
     NavGlyph m_glyph;
     bool m_muted = false;
+    int m_category = -1;
 };
 
 // 空热键占位修正：QKeySequenceEdit 内部的 QLineEdit 在构造后才挂上，
@@ -458,7 +836,15 @@ private:
     bool m_watchingEmpty = false;
     static void apply(QLineEdit *le)
     {
-        le->setPlaceholderText(QCoreApplication::translate("SettingsDialog", "未设置"));
+        // QKeySequenceEdit 不会替内部编辑框保留完整高度；明确固定到键帽的
+        // 26px 外形，避免全局 QLineEdit 最小高度把它压成一条矮槽。
+        le->setFixedHeight(26);
+        const bool editing = le->parentWidget()
+            && le->parentWidget()->property("state").toString()
+                   == QLatin1String("editing");
+        le->setPlaceholderText(editing
+            ? QCoreApplication::translate("SettingsDialog", "按下组合键…")
+            : QCoreApplication::translate("SettingsDialog", "未设置"));
         QPalette pal = le->palette();
         pal.setBrush(QPalette::PlaceholderText, UiStyle::muted());
         le->setPalette(pal);
@@ -475,26 +861,41 @@ public:
     explicit KeySeqEscClearFilter(QKeySequenceEdit *edit) : QObject(edit), m_edit(edit)
     {
         edit->installEventFilter(this);
-        // 焦点实际落在内部 QLineEdit（QKeySequenceEdit 设了 focusProxy），键事件先到它。
-        if (auto *le = edit->findChild<QLineEdit *>())
-            le->installEventFilter(this);
+        hookInner();
+        // 内部 QLineEdit 在构造后才由 QKeySequenceEdit 挂上；补一次延迟安装，
+        // 否则 Esc 会漏到 QDialog::reject 把整个设置窗口关掉（2026-11-11 实测）。
+        QTimer::singleShot(0, this, [this]() { hookInner(); });
     }
 
 protected:
     bool eventFilter(QObject *, QEvent *ev) override
     {
+        if (ev->type() == QEvent::Show || ev->type() == QEvent::Polish)
+            hookInner();
         if (ev->type() == QEvent::KeyPress) {
             auto *ke = static_cast<QKeyEvent *>(ev);
             if (ke->key() == Qt::Key_Escape && !ke->isAutoRepeat()) {
                 m_edit->clear();
-                return true;
+                return true;   // 吃掉 Esc：不再向上冒泡关闭对话框
             }
         }
         return false;
     }
 
 private:
+    void hookInner()
+    {
+        if (m_hooked)
+            return;
+        // 焦点实际落在内部 QLineEdit（QKeySequenceEdit 设了 focusProxy），键事件先到它。
+        if (auto *le = m_edit->findChild<QLineEdit *>()) {
+            le->installEventFilter(this);
+            m_hooked = true;
+        }
+    }
+
     QKeySequenceEdit *m_edit;
+    bool m_hooked = false;
 };
 
 // 键盘页热键框状态（2026-11-09 样板）：把「已设置 / 未设置 / 正在录入」写成动态
@@ -503,7 +904,9 @@ private:
 class KeySeqStateFilter : public QObject
 {
 public:
-    explicit KeySeqStateFilter(QKeySequenceEdit *edit) : QObject(edit), m_edit(edit)
+    explicit KeySeqStateFilter(QKeySequenceEdit *edit,
+                               std::function<void()> onStateChanged = {})
+        : QObject(edit), m_edit(edit), m_onStateChanged(onStateChanged)
     {
         edit->installEventFilter(this);
         if (auto *le = edit->findChild<QLineEdit *>())
@@ -525,16 +928,46 @@ public:
         const QString state = editing ? QStringLiteral("editing")
             : (m_edit->keySequence().isEmpty() ? QStringLiteral("empty")
                                                : QStringLiteral("set"));
-        if (m_edit->property("state").toString() == state)
-            return;
-        m_edit->setProperty("state", state);
-        m_edit->style()->unpolish(m_edit);
-        m_edit->style()->polish(m_edit);
-        if (auto *le = m_edit->findChild<QLineEdit *>()) {
-            le->style()->unpolish(le);
-            le->style()->polish(le);
+        if (m_edit->property("state").toString() != state) {
+            m_edit->setProperty("state", state);
+            m_edit->style()->unpolish(m_edit);
+            m_edit->style()->polish(m_edit);
+            if (auto *le = m_edit->findChild<QLineEdit *>()) {
+                le->style()->unpolish(le);
+                le->style()->polish(le);
+            }
+            m_edit->update();
         }
-        m_edit->update();
+        // 录入时把旧值从显示上拿掉，键帽直接写「按下组合键…」（设计图 05）。
+        // Qt 内部仍保留原序列：直接点走会走 finishEditing→resetState 恢复旧值，
+        // 不会把「没按键就离开」误判成清空。
+        if (auto *le = m_edit->findChild<QLineEdit *>()) {
+            if (editing && !m_wasEditing && !le->text().isEmpty())
+                le->clear();
+            const QString want = editing ? tr("按下组合键…")
+                : (m_edit->keySequence().isEmpty() ? tr("未设置") : QString());
+            if (le->placeholderText() != want)
+                le->setPlaceholderText(want);
+            QPalette pal = le->palette();
+            pal.setBrush(QPalette::PlaceholderText, UiStyle::muted());
+            le->setPalette(pal);
+            if (!editing && !m_edit->keySequence().isEmpty()) {
+                QString shown = m_edit->keySequence().toString(QKeySequence::PortableText);
+                shown.replace(QStringLiteral("Ctrl+"), QStringLiteral("Ctrl + "));
+                shown.replace(QStringLiteral("Shift+"), QStringLiteral("Shift + "));
+                shown.replace(QStringLiteral("Alt+"), QStringLiteral("Alt + "));
+                shown.replace(QStringLiteral("Meta+"), QStringLiteral("Meta + "));
+                shown.replace(QStringLiteral("Right"), QStringLiteral("→"));
+                shown.replace(QStringLiteral("Left"), QStringLiteral("←"));
+                if (le->text() != shown)
+                    le->setText(shown);
+            }
+        }
+        m_wasEditing = editing;
+
+        // 行内「正在录入」与页首说明都靠这一次回调同步（含焦点进出）。
+        if (m_onStateChanged)
+            m_onStateChanged();
     }
 
 protected:
@@ -549,6 +982,8 @@ protected:
 
 private:
     QKeySequenceEdit *m_edit;
+    std::function<void()> m_onStateChanged;
+    bool m_wasEditing = false;
 };
 
 // 11 个页签的图标（顺序必须与 addPage 调用顺序一致；漏项会让其后全部错一格）
@@ -647,6 +1082,30 @@ QString withColorTokens(QString qss)
         { "@SetGroupLine@",    []{ return UiStyle::setGroupLine(); } },
         { "@RowHover@",        []{ return UiStyle::setRowHover(); } },
         { "@RowTag@",          []{ return UiStyle::setRowTag(); } },
+        // 「一般」v2 母版定稿的语义角色，全部映射到 UiStyle::fluent 令牌，
+        // 设置页内部不另存色值。旧版蓝灰色值已全部作废。
+        { "@GenTitleBg@",      []{ return UiStyle::fluent::titleBarBg(); } },
+        { "@GenNavBg@",        []{ return UiStyle::fluent::navBg(); } },
+        { "@GenContentBg@",    []{ return UiStyle::fluent::contentBg(); } },
+        { "@GenCardBg@",       []{ return UiStyle::fluent::cardBg(); } },
+        { "@GenCardLine@",     []{ return UiStyle::fluent::cardLine(); } },
+        { "@GenRowLine@",      []{ return UiStyle::fluent::rowLine(); } },
+        { "@GenFrameLine@",    []{ return UiStyle::fluent::frameLine(); } },
+        { "@GenText@",         []{ return UiStyle::fluent::text(); } },
+        { "@GenDesc@",         []{ return UiStyle::fluent::desc(); } },
+        { "@GenAccent@",       []{ return UiStyle::fluent::focus(); } },
+        { "@GenOnAccent@",     []{ return UiStyle::fluent::navSelText(); } },
+        { "@GenNavSel@",       []{ return UiStyle::fluent::navSelected(); } },
+        { "@GenHover@",        []{ return UiStyle::fluent::hover(); } },
+        { "@GenCtrlBg@",       []{ return UiStyle::fluent::controlBg(); } },
+        { "@GenCtrlLine@",     []{ return UiStyle::fluent::controlLine(); } },
+        { "@GenDisabled@",     []{ return UiStyle::fluent::disabled(); } },
+        { "@GenStatusOk@",     []{ return UiStyle::fluent::statusOk(); } },
+        { "@GenStatusWarn@",   []{ return UiStyle::fluent::statusWarn(); } },
+        { "@GenError@",        []{ return UiStyle::fluent::error(); } },
+        { "@GenDangerBg@",     []{ return UiStyle::fluent::dangerBg(); } },
+        { "@GenDangerLine@",   []{ return UiStyle::fluent::dangerLine(); } },
+        { "@GenDangerIconText@", []{ return UiStyle::fluent::dangerIconText(); } },
     };
     for (const auto &t : tokens)
         qss.replace(QLatin1String(t.key), QLatin1String(t.fn()));
@@ -692,7 +1151,7 @@ QLabel#keyAction { color: @Body@; font-size: 12px; }
 QWidget#keyRow { background: transparent; }
 QWidget#keyRow:hover { background: @RowHover@; }
 QWidget#keyRow[conflict="true"], QWidget#keyRow[conflict="true"]:hover {
-    background: @DangerBg@; border-radius: 4px; }
+    background: transparent; }
 
 QLabel#valueText { color: @Body@; font-size: 11px; }
 
@@ -707,12 +1166,10 @@ QKeySequenceEdit QLineEdit { background: @Field@; color: @FieldText@;
     border: 1px solid @Border@; border-radius: 5px; font-size: 11px;
     padding: 0 6px; min-height: 0; }
 QKeySequenceEdit QLineEdit:hover { border-color: @BorderHover@; }
-QKeySequenceEdit QLineEdit:focus { border-color: @Accent@; }
 QKeySequenceEdit QLineEdit:disabled { color: @DisabledTextSoft@;
     border-color: @DisabledBorder@; background: @DisabledBg@; }
 
-/* 键盘页冲突行（保存被拒时整行高亮，动态属性 conflict） */
-QWidget[conflict="true"] { background: @DangerBg@; border-radius: 4px; }
+/* 键盘页冲突态由 v2 段按键帽/文字表达，不再整行染色（2026-11-11 修订） */
 
 /* 置灰（尚未实现）项的统一不可用态：文字压暗、底座与边框退到背景层，
    与可交互项一眼可分。UiStyle::dialogQss() 只给了 indicator:disabled，
@@ -723,7 +1180,8 @@ QCheckBox:disabled { color: @DisabledText@; }
 QLabel:disabled { color: @DisabledText@; }
 /* 主题区「浅色模式」整行灰显：rowLabel / hint 是 id 选择器，特异性高于
    QLabel:disabled，必须显式补 id+pseudo，否则 setEnabled(false) 后文字亮度不变。 */
-QLabel#rowLabel:disabled, QLabel#hint:disabled { color: @DisabledText@; }
+QLabel#rowLabel:disabled, QLabel#rowDesc:disabled,
+QLabel#hint:disabled { color: @DisabledText@; }
 QComboBox:disabled { color: @DisabledText@; background: @DisabledBg@; border-color: @DisabledBorder@; }
 /* 下拉六态（SET-04 阶段 C）：底座/悬停/按下/焦点/展开列表全部走主题令牌。
    QComboBox:pressed 在部分平台不触发，另用 :open 覆盖弹层打开时的按下观感；
@@ -772,7 +1230,159 @@ QLabel#keyLegendChip[state="conflict"] { background: @DangerBg@;
 QKeySequenceEdit[state="empty"] QLineEdit { border-style: dashed; color: @HintText@; }
 QKeySequenceEdit[state="editing"] QLineEdit { color: @Accent@; border-color: @Accent@; }
 QWidget#keyRow[conflict="true"] QKeySequenceEdit QLineEdit {
-    background: @DangerBg@; border-color: @DangerBg@; color: @FieldText@; }
+    background: @Field@; border-color: @DangerBg@; color: @FieldText@; }
+
+/* ===== 设置 › 一般 v2 母版定稿（2026-11-11）============================
+   唯一基准：QuikView-一般页-母版定稿/{dark,light,compact}-v2.png +
+   颜色与尺寸标注.md。上一版蓝灰色板（#24262B 系 / #83BBFF / 蓝色开关）
+   已作废，这里不保留任何旧值。外壳规则只覆盖设置对话框内具名对象；
+   一般页规则一律带 [fluent="v2"]。色值全部走 @Gen*@ 令牌。 */
+/* —— 外壳：中性石墨黑三档表面，禁止蓝灰 / 蓝紫 —— */
+QWidget#dlgTitleBar { background: @GenTitleBg@; border-bottom: 1px solid @GenCardLine@; }
+QLabel#dlgTitle { color: @GenDesc@; font-size: 11px; }
+QWidget#navRail { background: @GenNavBg@; }
+QFrame#navDivider { background: @GenCardLine@; border: 0; }
+QWidget#contentPane { background: @GenContentBg@; }
+QWidget#dlgFooter { background: @GenTitleBg@; border-top: 1px solid @GenCardLine@; }
+QLabel#footerNote { color: @GenDesc@; font-size: 11px; }
+QLabel#navCaption { color: @GenDesc@; font-size: 11px; }
+QLineEdit#navSearch { background: @GenCtrlBg@; color: @GenText@;
+    border: 1px solid @GenCtrlLine@; border-radius: 7px;
+    min-height: 30px; max-height: 30px; padding: 0 10px; font-size: 11px; }
+QLineEdit#navSearch[kbFocus="true"]:focus { border: 2px solid @GenAccent@; padding: 0 9px; }
+QFrame#hLine { background: @GenCardLine@; }
+QPushButton#closeBtn { color: @GenDesc@; }
+QPushButton#closeBtn:hover { background: @GenHover@; color: @GenText@; }
+
+/* 11 项导航：整行选中 #1688F8（圆角 8），彩色图标底板见自绘 */
+QPushButton#navItem { background: transparent; border: 1px solid transparent;
+    border-radius: 8px; color: @GenText@; font-size: 13px; text-align: left;
+    padding: 0 10px; min-height: 36px; }
+QPushButton#navItem:hover { background: @GenHover@; }
+QPushButton#navItem:checked { background: @GenNavSel@; color: @GenOnAccent@;
+    font-weight: 600; }
+QPushButton#navItem[kbFocus="true"]:focus { border: 2px solid @GenAccent@; padding: 0 9px; }
+QPushButton#navItem:disabled { color: @GenDisabled@; }
+
+/* 页标题 23/600，说明 11 */
+QLabel#pageTitle { font-size: 23px; font-weight: 600; color: @GenText@; }
+QLabel#pageDesc { font-size: 11px; color: @GenDesc@; }
+
+/* 底栏全部中性：恢复默认 / 取消为文字钮，保存设置为中性描边钮 */
+QPushButton#btnSubtle, QPushButton#genNeutral {
+    background: transparent; color: @GenText@; border: 1px solid transparent;
+    border-radius: 7px; min-height: 30px; padding: 0 12px; font-size: 13px; }
+QPushButton#btnSubtle:hover, QPushButton#genNeutral:hover { background: @GenHover@; }
+QPushButton#btnPrimary { background: @GenCtrlBg@; color: @GenText@;
+    border: 1px solid @GenCtrlLine@; border-radius: 7px; min-height: 30px;
+    padding: 0 12px; font-size: 13px; font-weight: 600; }
+QPushButton#btnPrimary:hover { background: @GenHover@; }
+QPushButton#btnPrimary[kbFocus="true"]:focus, QPushButton#btnSubtle[kbFocus="true"]:focus,
+QPushButton#genNeutral[kbFocus="true"]:focus { border: 2px solid @GenAccent@; padding: 0 9px; }
+
+/* —— 一般页：中性灰卡片，极弱描边，靠明暗与间距分组 —— */
+QFrame#setGroup[fluent="v2"] { background: @GenCardBg@;
+    border: 1px solid @GenCardLine@; border-radius: 11px; }
+QFrame#rowLine[fluent="v2"] { background: @GenRowLine@;
+    margin-left: 14px; margin-right: 14px; }
+QWidget#settingRow[fluent="v2"] { background: transparent; }
+QWidget#settingRow[fluent="v2"]:hover { background: @GenHover@; }
+QLabel#sectionTitle[fluent="v2"] { font-size: 13px; font-weight: 600;
+    color: @GenText@; }
+QLabel#rowLabel[fluent="v2"] { font-size: 13px; color: @GenText@; }
+QLabel#rowDesc[fluent="v2"] { font-size: 11px; color: @GenDesc@; }
+QLabel#setNote[fluent="v2"] { font-size: 11px; color: @GenDesc@; }
+
+QPushButton[fluent="v2"] { background: @GenCtrlBg@; color: @GenText@;
+    border: 1px solid @GenCtrlLine@; border-radius: 7px;
+    min-height: 30px; max-height: 30px; padding: 0 12px; font-size: 13px; }
+QPushButton[fluent="v2"]:hover, QPushButton[fluent="v2"]:pressed {
+    background: @GenHover@; }
+QPushButton[fluent="v2"][kbFocus="true"]:focus { border: 2px solid @GenAccent@;
+    padding: 0 9px; }
+QPushButton[fluent="v2"]:disabled { color: @GenDisabled@;
+    border-color: @GenCtrlLine@; background: @GenCtrlBg@; }
+
+QComboBox[fluent="v2"] { background: @GenCtrlBg@; color: @GenText@;
+    border: 1px solid @GenCtrlLine@; border-radius: 7px;
+    min-height: 30px; max-height: 30px; font-size: 13px;
+    padding: 0 26px 0 9px; }
+QComboBox[fluent="v2"]:hover { border-color: @GenDesc@; }
+QComboBox[fluent="v2"]:focus { border-color: @GenCtrlLine@; }
+QComboBox[fluent="v2"][kbFocus="true"]:focus {
+    border: 2px solid @GenAccent@; padding: 0 25px 0 8px; }
+/* 菜单展开不画焦点环：字段保持普通描边，环只在键盘导航进入时出现。 */
+QComboBox[fluent="v2"]:open { border-color: @GenControlLine@; }
+/* 箭头由 V2ComboBox::paintEvent 自绘，QSS 不再画一份 */
+QComboBox[fluent="v2"]::drop-down { border: 0; width: 26px; }
+QComboBox[fluent="v2"]::down-arrow { image: none; width: 0; height: 0; }
+QComboBox[fluent="v2"]:disabled { color: @GenDisabled@;
+    border-color: @GenCtrlLine@; background: @GenCtrlBg@; }
+QComboBox[fluent="v2"] QAbstractItemView { background: @GenCardBg@;
+    color: @GenText@; border: 1px solid @GenCardLine@; border-radius: 8px;
+    padding: 4px; outline: 0; selection-background-color: @GenNavSel@;
+    selection-color: @GenOnAccent@; }
+QComboBox[fluent="v2"] QAbstractItemView::item { min-height: 26px;
+    padding: 0 8px; }
+QComboBox[fluent="v2"] QAbstractItemView::item:selected {
+    background: @GenNavSel@; color: @GenOnAccent@; }
+QComboBox[fluent="v2"] QAbstractItemView::item:disabled { color: @GenDisabled@; }
+
+/* v2：普通勾选框（格式关联等）与键盘表格，同一套令牌，不退回蓝灰 */
+QCheckBox { color: @GenText@; }
+QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid @GenCtrlLine@;
+    border-radius: 4px; background: @GenCtrlBg@; }
+QCheckBox::indicator:hover { border-color: @GenDesc@; }
+QCheckBox::indicator:checked { background: @GenAccent@; border-color: @GenAccent@;
+    image: url(:/ui/check-light.png); }
+QCheckBox::indicator:disabled { border-color: @GenDisabled@; background: @GenCtrlBg@; }
+QFrame#keyTable { background: @GenCardBg@; border: 1px solid @GenCardLine@;
+    border-radius: 11px; }
+/* 表头与行同底色，只靠下分隔线与 600 字重区分；分组头压到内容色，形成
+   「表头 → 组 → 行」三级层次（设计图 04/07 实测 #303133 / #252628 / #303133）。 */
+QWidget#keyHead { background: @GenCardBg@; border-bottom: 1px solid @GenRowLine@; }
+QLabel#keyHeadCell { color: @GenDesc@; font-size: 11px; font-weight: 600; }
+QLabel#keyAction { color: @GenText@; font-size: 13px; }
+QWidget#keyRow { background: transparent; }
+QWidget#keyRow:hover { background: @GenHover@; }
+QWidget#keyRow[editing="true"]:hover,
+QWidget#keyRow[conflict="true"], QWidget#keyRow[conflict="true"]:hover {
+    background: transparent; }
+QFrame#keyRowLine { background: @GenRowLine@; }
+QWidget#keyGroupHead { background: @GenContentBg@; }
+QLabel#keyGroupTitle { color: @GenDesc@; font-size: 11px; font-weight: 600; }
+/* 行内状态：录入态蓝字、冲突态红字，和键帽边框一起表达 */
+QLabel#keyRowState { font-size: 11px; }
+QLabel#keyRowState[state="editing"] { color: @GenAccent@; }
+QLabel#keyRowState[state="conflict"] { color: @GenError@; }
+
+/* 冲突红条（设计图 06）：深色 #382C2D / 浅色 #FDECEC，文字用状态红 */
+QWidget#keyBanner { background: @GenDangerBg@; border: 1px solid @GenDangerLine@;
+    border-radius: 8px; }
+QLabel#keyBannerIcon { background: @GenError@; color: @GenDangerIconText@;
+    border-radius: 8px; font-size: 11px; font-weight: 600; }
+QLabel#keyBannerText { color: @GenError@; font-size: 12px; }
+
+/* 冲突行：键帽描边转红 + 行内「冲突」红字（设计图 06 行底不变，不做整行染色） */
+QWidget#keyRow[conflict="true"] QKeySequenceEdit QLineEdit {
+    background: @GenCtrlBg@; border: 1px solid @GenError@; color: @GenError@; }
+
+QKeySequenceEdit QLineEdit { background: @GenCtrlBg@; color: @GenText@;
+    border: 1px solid @GenCtrlLine@; border-radius: 6px; font-size: 12px;
+    min-height: 0; max-height: 26px; padding: 0 8px; }
+QKeySequenceEdit QLineEdit:hover { border-color: @GenDesc@; }
+/* 全局 QLineEdit:focus 会把内部编辑框染成浅蓝；v2 只允许键盘导航画环，
+   指针模式下焦点保持普通描边（2026-11-11 焦点规则）。 */
+QKeySequenceEdit QLineEdit:focus { border-color: @GenCtrlLine@; }
+QKeySequenceEdit QLineEdit[kbFocus="true"]:focus { border: 2px solid @GenAccent@;
+    padding: 1px 7px; }
+QKeySequenceEdit QLineEdit:disabled { color: @GenDisabled@; border-color: @GenCtrlLine@; }
+
+/* 启用列 checkbox 由 V2CheckBox 自绘（16×16 中性填充 + 对比勾 + 键盘焦点环） */
+
+/* 保存按钮在冲突时禁用：中性底 + 压暗文字，不保留强调描边 */
+QPushButton#btnPrimary:disabled { color: @GenDisabled@; border-color: @GenCtrlLine@;
+    background: @GenCtrlBg@; }
 )"));
 }
 
@@ -801,15 +1411,19 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     auto *root = new QVBoxLayout(this);
     root->setContentsMargins(1, 1, 1, 1);
     root->setSpacing(0);
+    // 允许窗口缩到 900x660：布局最小高（约 716）不得反向撑住窗口，
+    // 超出部分由右侧内容区滚动承担（v2 窄窗口径）。
+    root->setSizeConstraint(QLayout::SetNoConstraint);
 
     // —— 标题栏：⚙ 设置 … × ——
     auto *titleBar = new QFrame(this);
     titleBar->setObjectName(QStringLiteral("dlgTitleBar"));
+    m_titleBar = titleBar;
     titleBar->setFixedHeight(kTitleBarH);
     auto *tl = new QHBoxLayout(titleBar);
     tl->setContentsMargins(18, 0, 14, 0);
     tl->setSpacing(9);
-    auto *title = new QLabel(tr("⚙  设置"), titleBar);
+    auto *title = new QLabel(tr("QuikView — 设置"), titleBar);
     title->setObjectName(QStringLiteral("dlgTitle"));
     tl->addWidget(title);
     tl->addStretch(1);
@@ -830,16 +1444,17 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     auto *nav = new QFrame(body);
     nav->setObjectName(QStringLiteral("navRail"));
     nav->setFixedWidth(kNavW);
+    m_navRail = nav;
     m_navLayout = new QVBoxLayout(nav);
     m_navLayout->setContentsMargins(10, 16, 10, 16);
-    m_navLayout->setSpacing(2);
+    m_navLayout->setSpacing(kGenNavSpacing);   // v2：行距 4（窄窗 2）
     // 侧栏搜索（2026-11-07 排版统一）：按设置名匹配，命中页签保留并跳转；
     // 清空恢复全部导航，无匹配给明确反馈。
     m_search = new QLineEdit(nav);
     m_search->setObjectName(QStringLiteral("navSearch"));
     m_search->setPlaceholderText(tr("搜索设置…"));
     m_search->setClearButtonEnabled(true);
-    m_search->setFixedHeight(kComboH);
+    m_search->setFixedHeight(kGenCtrlH);
     m_search->setAccessibleName(tr("搜索设置"));
     m_navLayout->addWidget(m_search);
     m_navLayout->addSpacing(10);
@@ -860,45 +1475,69 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     auto *content = new QFrame(body);
     content->setObjectName(QStringLiteral("contentPane"));
     auto *cl = new QVBoxLayout(content);
-    cl->setContentsMargins(28, 25, 28, 20);
+    // 外壳：内容列由 updateContentColumnWidth() 居中限宽到 kGenContentMaxW
+    // （2026-11-12 收窗：默认 920 下卡片 638、两侧各留 36/37）。
+    cl->setContentsMargins(0, 25, 0, 20);
     cl->setSpacing(0);
-    m_pageTitle = new QLabel(tr("浏览"), content);
+    m_contentLay = cl;
+    auto *column = new QWidget(content);
+    column->setObjectName(QStringLiteral("contentColumn"));
+    column->setMaximumWidth(kGenContentMaxW);
+    auto *cvl = new QVBoxLayout(column);
+    // 左右留白由 updateContentColumnWidth() 统一算（含 pane 内边距），
+    // 这里不再叠一层，否则卡片会被吃掉 56px（2026-11-12 收窗实测）。
+    cvl->setContentsMargins(0, 0, 0, 0);
+    cvl->setSpacing(0);
+    m_contentColumn = column;
+
+    m_pageTitle = new QLabel(tr("浏览"), column);
     m_pageTitle->setObjectName(QStringLiteral("pageTitle"));
-    m_pageDesc = new QLabel(content);
+    m_pageDesc = new QLabel(column);
     m_pageDesc->setObjectName(QStringLiteral("pageDesc"));
     m_pageDesc->setWordWrap(true);
     // 页标题 / 分组标题 / 行文案共享同一条左边线：卡片内行有 11px 内边距，
-    // 标题同样左缩进 11px。
+    // 标题同样左缩进 11px。一般页由 selectPage 把缩进归零，让标题与卡片左缘对齐。
     m_pageTitle->setContentsMargins(11, 0, 0, 0);
     m_pageDesc->setContentsMargins(11, 0, 0, 0);
-    auto *headBox = new QWidget(content);
+    auto *headBox = new QWidget(column);
     auto *hb = new QVBoxLayout(headBox);
     hb->setContentsMargins(0, 0, 0, 0);
     hb->setSpacing(5);
     hb->addWidget(m_pageTitle);
     hb->addWidget(m_pageDesc);
-    cl->addWidget(headBox);
-    // 页头分隔线（原型 .qv-page-head 的 border-bottom），分隔标题区与分组卡片。
-    auto *headLine = new QFrame(content);
+    cvl->addWidget(headBox);
+    // 页头分隔线（原型 .qv-page-head 的 border-bottom）。定稿的一般页无此线，
+    // 由 selectPage 只在该页隐藏；其余页保持原样。
+    auto *headLine = new QFrame(column);
     headLine->setObjectName(QStringLiteral("hLine"));
     headLine->setFixedHeight(1);
-    cl->addSpacing(13);
-    cl->addWidget(headLine);
-    cl->addSpacing(15);
+    m_headLine = headLine;
+    m_headGapTop = new QSpacerItem(0, 13);
+    m_headGapBottom = new QSpacerItem(0, 15);
+    cvl->addSpacerItem(m_headGapTop);
+    cvl->addWidget(headLine);
+    cvl->addSpacerItem(m_headGapBottom);
 
-    m_stack = new QStackedWidget(content);
-    cl->addWidget(m_stack, 1);
+    m_stack = new QStackedWidget(column);
+    cvl->addWidget(m_stack, 1);
+    // 内容列居中：宽由 updateContentColumnWidth() 以 min=max 固定到
+    // kGenContentMaxW，AlignHCenter 把剩余空间均分两侧。窗口继续拉宽时
+    // 卡片不变宽，只有两侧留白变大（2026-11-12 收窗口径）。
+    cl->addWidget(column, 1, Qt::AlignHCenter);
     bl->addWidget(content, 1);
 
     root->addWidget(body, 1);
 
     // —— 页面（每页一个 QScrollArea，内容 widget 存 m_pages）——
-    buildGeneralPage(addPage(tr("一般"), tr("窗口行为、检查更新与到达首尾时的操作。")));
+    buildGeneralPage(addPage(tr("一般"), tr("管理窗口行为、操作反馈、更新和首尾翻页。")));
     buildViewPage(addPage(tr("浏览"), tr("缩放状态、侧边箭头与悬浮提示等浏览显示设置；画布底色已固定。")));
     buildAppearancePage(addPage(tr("外观"), tr("主题与材质。跟随系统时由 Windows 的深浅色设置决定。")));
     buildImageProcPage(addPage(tr("图像处理"), tr("透明背景、插值算法、翻页效果与 ICC 色彩管理；监视器 ICC 受 Qt6 限制暂不可用。")));
-    buildAssocPage(addPage(tr("格式关联"), tr("通过系统入口设置默认打开方式（Windows 10+ 不允许程序静默改默认）。")));
-    buildKeyboardPage(addPage(tr("键盘"), tr("14 个动作可自定义热键与启用状态；「操作」列固定不可改，保存后立即生效。")));
+    buildAssocPage(addPage(tr("格式关联"),
+                           tr("查看 QuikView 可打开的格式，并在 Windows 中选择默认应用。")));
+    // 键盘页不显示 pageDesc：页首说明由 m_keyHint 承担（默认/录入两态切换），
+    // 避免标题下出现两条近似文案（设计图 04/05 只有一行）。
+    buildKeyboardPage(addPage(tr("键盘"), QString()));
     buildMousePage(addPage(tr("鼠标"), tr("左/右/X/Y 与滚轮的按键映射可自定义；中键平移、双击最大化可用。")));
     buildBookmarkPage(addPage(tr("书签"), tr("自动保存开关与书签数量上限。")));
     buildContextMenuPage(addPage(tr("上下文菜单"), tr("右键菜单与资源管理器缩略图随安装包注册、卸载时移除；本页仅作状态说明。")));
@@ -906,10 +1545,13 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     buildLangPage(addPage(tr("语言"), tr("选择界面语言并管理语言文件。")));
 
     // 页面内容不足一屏时，多余空间落在末尾弹簧上（否则各 section 会被均匀拉开）。
-    for (QWidget *p : m_pages) {
-        if (auto *pv = qobject_cast<QVBoxLayout *>(p->layout())) {
+    // 键盘页例外：它用单一表格滚动区，表格本身 stretch 吃满剩余高度，再加弹簧
+    // 会把表格压成半屏（2026-11-11 修订）。
+    for (int i = 0; i < m_pages.size(); ++i) {
+        if (i == 5)
+            continue;
+        if (auto *pv = qobject_cast<QVBoxLayout *>(m_pages[i]->layout()))
             pv->addStretch(1);
-        }
     }
 
     // 导航底部：分隔 + 关于
@@ -921,9 +1563,10 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     m_navLayout->addWidget(navDivider);
     m_navLayout->addSpacing(9);
     auto *btnAbout = new NavItemButton(tr("关于 QuikView"), NavGlyph::Info, nav, true);
+    m_btnAbout = btnAbout;
     btnAbout->setObjectName(QStringLiteral("navItem"));
     btnAbout->setCursor(Qt::PointingHandCursor);
-    btnAbout->setFixedHeight(36);
+    btnAbout->setFixedHeight(kGenNavRowH);
     m_navLayout->addWidget(btnAbout);
     connect(btnAbout, &QPushButton::clicked, this, [this]() {
         QMessageBox::about(this, tr("关于 QuikView"),
@@ -935,34 +1578,43 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     auto *footer = new QFrame(this);
     footer->setObjectName(QStringLiteral("dlgFooter"));
     footer->setFixedHeight(kFooterH);
+    m_footer = footer;
     auto *fl = new QHBoxLayout(footer);
-    // 右缘与内容区右缘对齐（内容 pane 右内边距 28px；原 18px 会让保存按钮外凸 9px）。
-    fl->setContentsMargins(18, 0, 28, 0);
-    fl->setSpacing(9);
+    // 定稿页脚：恢复默认贴左栏下方、提示与内容左缘对齐、取消/保存右对齐，
+    // 按钮间距 8。148 的间隔按 980 评审画布算（10 + 恢复默认约 76 + 8 + 148
+    // ≈ 内容列左缘 242）；窗口变化时提示仍在右栏内、不压按钮。
+    fl->setContentsMargins(10, 0, 20, 0);
+    fl->setSpacing(8);
+
+    m_btnReset = new QPushButton(tr("恢复默认"), footer);
+    m_btnReset->setObjectName(QStringLiteral("btnSubtle"));
+    m_btnReset->setCursor(Qt::PointingHandCursor);
+    m_btnReset->setFixedHeight(kGenCtrlH);
+    connect(m_btnReset, &QPushButton::clicked, this, &SettingsDialog::onReset);
+    fl->addWidget(m_btnReset);
+    // 提示与卡片左缘对齐：间隔由 updateContentColumnWidth() 按内容列实测左缘
+    // 逐帧计算（窗口收窄到 920 后固定 240 会把提示留在 1068 时代的位置）。
+    m_footerGap = new QSpacerItem(240, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
+    fl->addSpacerItem(m_footerGap);
+
     auto *note = new QLabel(tr("普通设置即时生效；热键改绑与界面语言在保存后生效"), footer);
     note->setObjectName(QStringLiteral("footerNote"));
     m_footerNote = note;
     fl->addWidget(note);
     fl->addStretch(1);
 
-    m_btnReset = new QPushButton(tr("恢复默认"), footer);
-    m_btnReset->setObjectName(QStringLiteral("btnSubtle"));
-    m_btnReset->setCursor(Qt::PointingHandCursor);
-    m_btnReset->setFixedHeight(32);
-    connect(m_btnReset, &QPushButton::clicked, this, &SettingsDialog::onReset);
-    fl->addWidget(m_btnReset);
-
     auto *btnCancel = new QPushButton(tr("取消"), footer);
+    btnCancel->setObjectName(QStringLiteral("genNeutral"));
     btnCancel->setCursor(Qt::PointingHandCursor);
-    btnCancel->setFixedHeight(32);
+    btnCancel->setFixedHeight(kGenCtrlH);
     connect(btnCancel, &QPushButton::clicked, this, [this]() { reject(); });
     fl->addWidget(btnCancel);
 
     m_btnOk = new QPushButton(tr("保存设置"), footer);
     m_btnOk->setObjectName(QStringLiteral("btnPrimary"));
     m_btnOk->setCursor(Qt::PointingHandCursor);
-    m_btnOk->setFixedHeight(32);
-    m_btnOk->setMinimumWidth(86);
+    m_btnOk->setFixedHeight(kGenCtrlH);
+    m_btnOk->setMinimumWidth(92);
     m_btnOk->setDefault(true);
     // 保存按钮只走 accept()：校验与写盘都在 accept()/onAccepted() 里统一处理，
     // 冲突时不关闭窗口（P0-1）。
@@ -985,6 +1637,38 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     // 即时项在加载完控件后再接信号：避免开窗时的 setChecked 触发一次写盘。
     connectLiveChecks();
     connectInstantSignals();
+    // 全部控件建完后再放开一次：QDialog 默认会把布局最小高写成窗口最小高，
+    // 导致 900×660 窄窗被撑到 716。放最后确保覆盖默认约束。
+    layout()->setSizeConstraint(QLayout::SetNoConstraint);
+
+    // v2 焦点可见性：应用级追踪最近一次输入来源。窗口首次打开没有主动键盘
+    // 输入，全部控件保持无环；Tab 之后才由 kbFocus 属性点亮当前焦点控件。
+    m_inputMode = new InputModeWatcher(this);
+    qApp->installEventFilter(m_inputMode);
+    connect(qApp, &QApplication::focusChanged, this, [this](QWidget *, QWidget *) {
+        if (m_inputMode)
+            m_inputMode->refresh();
+    });
+}
+
+SettingsDialog::~SettingsDialog()
+{
+    if (m_inputMode) {
+        qApp->removeEventFilter(m_inputMode);
+        // 关闭时清理追踪状态，避免下一次打开沿用上一次的键盘模式。
+        m_inputMode = nullptr;
+    }
+}
+
+bool SettingsDialog::keyboardInputMode() const
+{
+    return m_inputMode && m_inputMode->keyboardMode();
+}
+
+void SettingsDialog::refreshFocusVisibility()
+{
+    if (m_inputMode)
+        m_inputMode->refresh();
 }
 
 // ===========================================================================
@@ -1001,6 +1685,8 @@ QWidget *SettingsDialog::addPage(const QString &title, const QString &desc)
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
     auto *page = new QWidget;
+    // 所有页面共用 v2 外壳：卡片 / 行 / 字号 / 控件列都由这枚标记命中。
+    page->setProperty("fluent", QStringLiteral("v2"));
     auto *v = new QVBoxLayout(page);
     v->setContentsMargins(0, 0, 0, 0);
     v->setSpacing(0);
@@ -1011,11 +1697,12 @@ QWidget *SettingsDialog::addPage(const QString &title, const QString &desc)
     m_pageTitles.append(title);
     m_pageDescs.append(desc);
 
-    auto *btn = new NavItemButton(title, navGlyphFor(index), m_navLayout->parentWidget());
+    auto *btn = new NavItemButton(title, navGlyphFor(index), m_navLayout->parentWidget(),
+                                  false, index);
     btn->setObjectName(QStringLiteral("navItem"));
     btn->setCheckable(true);
     btn->setCursor(Qt::PointingHandCursor);
-    btn->setFixedHeight(36);
+    btn->setFixedHeight(kGenNavRowH);
     connect(btn, &QPushButton::clicked, this, [this, index]() { selectPage(index); });
     m_navLayout->addWidget(btn);
     m_tabs.append(btn);
@@ -1029,9 +1716,133 @@ void SettingsDialog::selectPage(int index)
         return;
     m_stack->setCurrentIndex(index);
     m_pageTitle->setText(m_pageTitles.at(index));
-    m_pageDesc->setText(m_pageDescs.at(index));
+    const QString desc = m_pageDescs.at(index);
+    m_pageDesc->setText(desc);
+    m_pageDesc->setVisible(!desc.isEmpty());
     for (int i = 0; i < m_tabs.size(); ++i)
         m_tabs.at(i)->setChecked(i == index);
+
+    // v2 母版：所有页统一无页头分隔线、标题与卡片左缘对齐、内容列 640 居中。
+    if (m_headLine)
+        m_headLine->setVisible(false);
+    updateGeneralHeaderSpacing();
+    m_pageTitle->setContentsMargins(0, 0, 0, 0);
+    m_pageDesc->setContentsMargins(0, 0, 0, 0);
+    updateContentColumnWidth();
+
+    // 键盘页标准画布比其他页高 38px：14 行 + 四分组要一屏审阅。窄窗（≤660）
+    // 不干预，交给表格内单一滚动区；用户手动放大过的高度也不强行压回。
+    if (height() > kDlgMinH + 8) {
+        const int target = (index == 5) ? kDlgKeyboardH : kDlgH;
+        if (height() != target)
+            resize(width(), target);
+    }
+}
+
+void SettingsDialog::updateGeneralHeaderSpacing()
+{
+    // v2：所有页都无页头分隔线；标准档 8+8，紧凑档 6+6。
+    const int gap = m_compact ? kGenCompactHeadGap : 8;
+    if (m_headGapTop)
+        m_headGapTop->changeSize(0, gap);
+    if (m_headGapBottom)
+        m_headGapBottom->changeSize(0, gap);
+    if (m_contentColumn && m_contentColumn->layout())
+        m_contentColumn->layout()->invalidate();
+}
+
+void SettingsDialog::updateContentColumnWidth()
+{
+    if (!m_contentLay)
+        return;
+    // 内容列：宽度封顶到 kGenContentMaxW，靠 QBoxLayout 的居中把多出来的
+    // 空间均分到两侧（align=AlignHCenter 已在外壳上设好）。窗口继续拉宽时
+    // 卡片不变宽，只有两侧留白变大；窗口变窄时列跟着收，不再叠第二层内边距。
+    const int navW = m_compact ? kGenCompactNavW : kNavW;
+    const int padX = m_compact ? kGenCompactPadX : kGenColumnPadX;
+    const int paneW = qMax(0, width() - navW - 1 - 2 * padX);
+    const int colW = qMin(kGenContentMaxW, paneW);
+    if (m_contentColumn) {
+        m_contentColumn->setMinimumWidth(colW);
+        m_contentColumn->setMaximumWidth(colW);
+    }
+    m_contentLay->setContentsMargins(0, m_compact ? kGenCompactPaneTop : kGenPaneTop, 0, 12);
+
+    // 底栏提示对齐到内容列左缘：footer 左边距 + 恢复默认按钮宽 + 布局间距
+    // 是固定量（实测合计 20），其余交给弹性间隔，提示文字起点 = 卡片左缘。
+    if (m_footerGap && m_btnReset && m_footer && m_footer->layout()) {
+        const int columnLeft = navW + 1 + qMax(0, width() - navW - 1 - colW) / 2;
+        const int resetW = m_btnReset->width() > 0 ? m_btnReset->width()
+                                                   : m_btnReset->sizeHint().width();
+        const int gap = qMax(0, columnLeft - 20 - resetW);
+        m_footerGap->changeSize(gap, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
+        m_footer->layout()->invalidate();
+    }
+}
+
+void SettingsDialog::applyCompactLayout(bool compact)
+{
+    if (m_compact == compact)
+        return;
+    m_compact = compact;
+
+    if (m_navRail)
+        m_navRail->setFixedWidth(compact ? kGenCompactNavW : kNavW);
+    if (m_titleBar)
+        m_titleBar->setFixedHeight(compact ? kGenCompactTitleH : kTitleBarH);
+    if (m_footer)
+        m_footer->setFixedHeight(compact ? kGenCompactFooterH : kFooterH);
+    if (m_navLayout)
+        m_navLayout->setSpacing(compact ? kGenCompactNavSpacing : kGenNavSpacing);
+    const int navRowH = compact ? kGenCompactNavRowH : kGenNavRowH;
+    for (QAbstractButton *b : m_tabs) {
+        if (auto *w = qobject_cast<QWidget *>(b))
+            w->setFixedHeight(navRowH);
+    }
+    if (m_btnAbout)
+        m_btnAbout->setFixedHeight(navRowH);
+
+    // 所有页：组间距与行高按档位收放（字号与控件尺寸不变）。
+    for (QWidget *page : m_pages) {
+        int index = 0;
+        if (auto *lay = page->layout()) {
+            for (int i = 0; i < lay->count(); ++i) {
+                QWidget *sec = lay->itemAt(i) ? lay->itemAt(i)->widget() : nullptr;
+                if (!sec || sec->objectName() != QLatin1String("pageSection"))
+                    continue;
+                if (auto *v = qobject_cast<QVBoxLayout *>(sec->layout())) {
+                    const int gap = index == 0
+                        ? (compact ? kGenCompactFirstGap : kGenFirstGap)
+                        : (compact ? kGenCompactGroupGap : kGenGroupGap);
+                    v->setContentsMargins(0, gap, 0, 0);
+                    for (int k = 0; k < v->count(); ++k) {
+                        if (auto *sp = v->itemAt(k)->spacerItem())
+                            sp->changeSize(0, compact ? 4 : 6);
+                    }
+                }
+                ++index;
+            }
+        }
+        for (QWidget *row : page->findChildren<QWidget *>(QStringLiteral("settingRow"))) {
+            row->setMinimumHeight(compact ? kGenCompactRowH : kGenRowH);
+            if (auto *h = qobject_cast<QHBoxLayout *>(row->layout())) {
+                const int padY = compact ? 2 : kRowPadY;
+                h->setContentsMargins(kGenRowPadX, padY, kGenRowPadX, padY);
+                if (auto *left = qobject_cast<QVBoxLayout *>(h->itemAt(0)->layout()))
+                    left->setSpacing(compact ? 1 : 2);
+            }
+        }
+    }
+    updateGeneralHeaderSpacing();
+    updateContentColumnWidth();
+}
+
+void SettingsDialog::resizeEvent(QResizeEvent *event)
+{
+    QDialog::resizeEvent(event);
+    // 窗口大小变化时即时重排：先切标准/紧凑档，再算内容列宽度。
+    applyCompactLayout(width() < kGenCompactThreshold);
+    updateContentColumnWidth();
 }
 
 // ===========================================================================
@@ -1045,6 +1856,8 @@ QWidget *SettingsDialog::beginSection(QWidget *page, const QString &title, int t
         return page;
 
     auto *sec = new QWidget(page);
+    // 标记分组壳：applyPageRhythm() 按页面顺序统一首组 / 组间距，不再逐页传参。
+    sec->setObjectName(QStringLiteral("pageSection"));
     auto *v = new QVBoxLayout(sec);
     v->setContentsMargins(0, topGap >= 0 ? topGap : kGroupTop, 0, 0);
     v->setSpacing(0);
@@ -1074,6 +1887,93 @@ QWidget *SettingsDialog::groupCard(QWidget *section) const
     return section ? section->findChild<QFrame *>(QStringLiteral("setGroup")) : nullptr;
 }
 
+void SettingsDialog::applyPageRhythm(QWidget *page, int firstGap, int groupGap,
+                                    int rowH, int ctlW)
+{
+    if (!page)
+        return;
+
+    // v2 母版：所有设置页共用同一套卡片 / 行 / 字号 / 控件列。每个页面在
+    // addPage 时已打上 fluent=v2，这里再把本页生成的控件逐类打标，供
+    // extraQss 的属性选择器命中。参数留空即用 v2 默认 16/12/47/154。
+    const int fg = firstGap >= 0 ? firstGap : kPageFirstGap;
+    const int gg = groupGap >= 0 ? groupGap : kPageGroupGap;
+    const int rh = rowH >= 0 ? rowH : kPageRowH;
+    const int rowWithDesc = rowH >= 0 ? rowH : kPageRowH;
+    const int rowSingle = qMax(28, rowWithDesc - 6);
+    const int cw = ctlW >= 0 ? ctlW : kPageCtlW;
+    const bool isFirstPage = !m_pages.isEmpty() && m_pages.at(0) == page;
+
+    const char *marks[] = { "setGroup", "rowLine", "settingRow", "rowLabel",
+                            "rowDesc", "sectionTitle", "setNote" };
+    for (const char *name : marks) {
+        for (QWidget *w : page->findChildren<QWidget *>(QLatin1String(name)))
+            w->setProperty("fluent", QStringLiteral("v2"));
+    }
+    for (QPushButton *b : page->findChildren<QPushButton *>()) {
+        if (b->objectName() == QLatin1String("miniBtn"))
+            continue;   // 迷你按钮保持 22 高，不套 30 高控件规格
+        b->setProperty("fluent", QStringLiteral("v2"));
+    }
+    for (QComboBox *c : page->findChildren<QComboBox *>())
+        c->setProperty("fluent", QStringLiteral("v2"));
+    for (QCheckBox *cb : page->findChildren<QCheckBox *>())
+        cb->setProperty("fluent", QStringLiteral("v2"));
+
+    // 分组顶部间距：首组 fg，其余 gg。
+    int index = 0;
+    if (auto *lay = page->layout()) {
+        for (int i = 0; i < lay->count(); ++i) {
+            QLayoutItem *item = lay->itemAt(i);
+            QWidget *sec = item ? item->widget() : nullptr;
+            if (!sec || sec->objectName() != QLatin1String("pageSection"))
+                continue;
+            if (auto *v = qobject_cast<QVBoxLayout *>(sec->layout()))
+                v->setContentsMargins(0, index == 0 ? fg : gg, 0, 0);
+            ++index;
+        }
+    }
+
+    // 行高、卡片内边距 14、文案与控件相隔 16；控件列整页同宽并右对齐。
+    // 一般页（首块验收页）控件列固定 154；其他页先量后设，避免杂项路径输入
+    // 或上下文菜单长状态被 154 挤扁。
+    QList<QWidget *> rows;
+    int ctlWidth = cw;
+    for (QWidget *row : page->findChildren<QWidget *>(QStringLiteral("settingRow"))) {
+        rows.append(row);
+        if (isFirstPage)
+            continue;
+        row->ensurePolished();
+        if (auto *ctl = row->findChild<QWidget *>(QStringLiteral("rowControls"))) {
+            ctl->ensurePolished();
+            ctlWidth = qMax(ctlWidth, ctl->sizeHint().width() + 8);
+        }
+    }
+    for (QWidget *row : rows) {
+        // 三类行型（规格 §布局与文字）：单行设置 38 / 标题+说明 44 /
+        // 表格与映射行走自己的密度（不在这一支）。minimumHeight 只是下限，
+        // 说明换行或多行内容仍由文字自然撑高，不做封顶、不删说明。
+        const bool hasDesc = row->findChild<QLabel *>(QStringLiteral("rowDesc")) != nullptr;
+        row->setMinimumHeight(hasDesc ? rowWithDesc : rowSingle);
+        if (auto *h = qobject_cast<QHBoxLayout *>(row->layout())) {
+            h->setContentsMargins(kGenRowPadX, kRowPadY, kGenRowPadX, kRowPadY);
+            h->setSpacing(kGenTextGap);
+        }
+        if (auto *ctl = row->findChild<QWidget *>(QStringLiteral("rowControls"))) {
+            ctl->setFixedWidth(ctlWidth);
+            if (auto *hl = qobject_cast<QHBoxLayout *>(ctl->layout()))
+                hl->insertStretch(0, 1);
+        }
+    }
+
+    for (QLabel *t : page->findChildren<QLabel *>(QStringLiteral("sectionTitle"))) {
+        t->setProperty("variant", QStringLiteral("page"));
+        t->setContentsMargins(kGenRowPadX, 0, 0, 0);
+    }
+    for (QLabel *n : page->findChildren<QLabel *>(QStringLiteral("setNote")))
+        n->setContentsMargins(kGenRowPadX, 8, kGenRowPadX, 9);
+}
+
 SettingsDialog::SettingRowParts SettingsDialog::addSettingRow(QWidget *section,
                                                               const QString &label,
                                                               const QString &desc)
@@ -1100,15 +2000,17 @@ SettingsDialog::SettingRowParts SettingsDialog::addSettingRow(QWidget *section,
     row->setAttribute(Qt::WA_Hover, true);
     row->setMinimumHeight(kRowMinH);
     auto *h = new QHBoxLayout(row);
-    h->setContentsMargins(kRowPadX, kRowPadY, kRowPadX, kRowPadY);
-    h->setSpacing(12);
+    h->setContentsMargins(kGenRowPadX, kRowPadY, kGenRowPadX, kRowPadY);
+    h->setSpacing(kGenTextGap);
 
     auto *left = new QVBoxLayout;
     left->setContentsMargins(0, 0, 0, 0);
-    left->setSpacing(2);
+    // 规格：第一行 18px，第二行 15px，间隔 1px。
+    left->setSpacing(1);
     out.label = new QLabel(label, row);
     out.label->setObjectName(QStringLiteral("rowLabel"));
     out.label->setWordWrap(true);
+    left->addStretch(1);
     left->addWidget(out.label);
     if (!desc.isEmpty()) {
         out.desc = new QLabel(desc, row);
@@ -1116,6 +2018,7 @@ SettingsDialog::SettingRowParts SettingsDialog::addSettingRow(QWidget *section,
         out.desc->setWordWrap(true);
         left->addWidget(out.desc);
     }
+    left->addStretch(1);
     h->addLayout(left, 1);
 
     auto *ctlHost = new QWidget(row);
@@ -1269,6 +2172,13 @@ PillToggle *SettingsDialog::addPillCheck(QWidget *section, const QString &label,
     return row.toggle;
 }
 
+QComboBox *SettingsDialog::makePopupCombo(QWidget *parent)
+{
+    auto *combo = new V2ComboBox(parent);
+    combo->setProperty("fluent", QStringLiteral("v2"));
+    return combo;
+}
+
 QComboBox *SettingsDialog::addComboRow(QWidget *section, const QString &label,
                                        const QString &desc, const char *key,
                                        const QString &def,
@@ -1279,7 +2189,8 @@ QComboBox *SettingsDialog::addComboRow(QWidget *section, const QString &label,
     if (!parts.row)
         return nullptr;
 
-    auto *combo = new QComboBox(parts.row);
+    auto *combo = new V2ComboBox(parts.row);
+    combo->setProperty("fluent", QStringLiteral("v2"));
     for (const auto &opt : options)
         combo->addItem(opt.second, opt.first);
     combo->setCursor(Qt::PointingHandCursor);
@@ -1305,6 +2216,13 @@ QComboBox *SettingsDialog::addComboRow(QWidget *section, const QString &label,
 
     if (key)
         m_comboBinds.append({ combo, key, def });
+    // 把禁用项的 tooltip 复制到 UserRole+1：pop-up 委托在次行显示禁用原因，
+    // 不用悬停才看得到（规格 §Pop-up button）。
+    for (int i = 0; i < combo->count(); ++i) {
+        const QString tip = combo->itemData(i, Qt::ToolTipRole).toString();
+        if (!tip.isEmpty())
+            combo->setItemData(i, tip, Qt::UserRole + 1);
+    }
     return combo;
 }
 
@@ -1407,18 +2325,18 @@ QComboBox *SettingsDialog::addComboRowUnavailable(QWidget *section, const QStrin
 
 void SettingsDialog::buildGeneralPage(QWidget *page)
 {
+    // 2026-11-11 v2 母版：页面标记由 addPage 统一打，本页不再单独设置。
     // 样板（2026-11-09）：原来 6 项挤在「窗口与操作」一组里，按用途拆成
     // 「窗口行为」与「操作反馈」两组；页标题 / 说明 / 分组标题成为三级层次。
     // 只调分组与版式，选项、key、生效时机、即时生效绑定一律不动。
-    constexpr int kFirstGap = 12;
-    constexpr int kGroupGap = 20;
-    QWidget *sec = beginSection(page, tr("窗口行为"), kFirstGap);
+    // 2026-11-11：版式部分收进 applyPageRhythm()，九页共用同一套节奏。
+    QWidget *sec = beginSection(page, tr("窗口行为"));
     // 说明贴在行下，生效时机用短句；统一规则只在页脚说一次。
     addSwitchRow(sec, tr("不保存浏览过的文件夹路径"),
                  tr("勾选＝不记录最近打开的文件夹；下次打开文件时生效"),
                  "remember_browsed_folders", true, true);
     addSwitchRow(sec, tr("不允许多个实例"), tr("重启 QuikView 后生效"),
-                 "allow_multiple_instances", true, false);
+                 "allow_multiple_instances", true, true);
     auto *alwaysOnTop = addSwitchRow(sec, tr("总在最前 (Ctrl+A)"),
                                      QString(),
                                      "always_on_top", false, false);
@@ -1427,23 +2345,25 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
     addSwitchRow(sec, tr("按 ESC 退出"), tr("下次按 Esc 时生效"),
                  "esc_exit", false, true);
 
-    sec = beginSection(page, tr("操作反馈"), kGroupGap);
+    sec = beginSection(page, tr("操作反馈"));
     addSwitchRow(sec, tr("删除文件时确认"), tr("下次删除文件时生效"),
                  "delete_confirm", false, true);
     addSwitchRow(sec, tr("在边角显示通知信息，而非中心"), tr("下一次通知时生效"),
                  "notify_corner", false, true);
 
     // —— 检查更新 ——
-    // 手动检查不受频控；自动检查默认关（不擅自联网），勾上后启动 5s 静默查一次。
-    sec = beginSection(page, tr("检查更新"), kGroupGap);
+    // 手动检查不受频控；自动检查默认开（2026-11-12 用户定稿），启动 5s 静默查一次、24h 限频。
+    sec = beginSection(page, tr("检查更新"));
     QHBoxLayout *updateRow = addRow(sec, tr("手动检查"),
                                     tr("立即连接发布源检查更新"));
     m_checkUpdateBtn = addButton(updateRow->parentWidget(), tr("检查更新"));
     updateRow->addWidget(m_checkUpdateBtn, 0, Qt::AlignVCenter);
     addSwitchRow(sec, tr("启动时检查更新"), tr("重启后生效；每 24 小时最多一次"),
-                 "check_updates", false, false);
-    addHint(sec, tr("手动检查不受频率限制；检查更新会联网访问发布源，"
-                    "失败时在页内提示「检查失败，请检查网络」。"));
+                 "check_updates", false, true);
+    // v2 母版卡片内不放长说明（避免旧版密集表单感）；原文案保留在分组
+    // 提示里，信息不丢失，鼠标悬停即可读到。
+    sec->setToolTip(tr("手动检查不受频率限制；检查更新会联网访问发布源，"
+                       "失败时提示「检查失败，请检查网络」。"));
     connect(m_checkUpdateBtn, &QPushButton::clicked, this, [this]() {
         m_checkUpdateBtn->setEnabled(false);
         m_checkUpdateBtn->setText(tr("检查中…"));
@@ -1460,11 +2380,11 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
                 m_checkUpdateBtn->setText(tr("检查更新"));
             });
 
-    sec = beginSection(page, tr("到达首尾图片时"), kGroupGap);
+    sec = beginSection(page, tr("首尾翻页"));
     const auto opts = lastFileOptions();
     auto *edge = addComboRow(sec, tr("到达首尾图片时执行"),
                              tr("下次到达首尾图片时按所选行为处理"),
-                             "edge_action", QStringLiteral("stop"), opts, 160);
+                             "edge_action", QStringLiteral("first"), opts, kGenComboW);
     // 档位诚实化：DirectoryLoader 只实现 first / stop；ask 既没有询问对话框，
     // 在 next/prev 与 advance 两条路径上的回绕行为还不一致，按缺口灰显。
     if (auto *model = qobject_cast<QStandardItemModel *>(edge->model())) {
@@ -1477,22 +2397,36 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
             }
         }
     }
-    addHint(sec, tr("「转到首个文件」在末尾继续时回绕到首个；「停止」停在当前图片。"
-                    "「询问」档当前无询问对话框实现，已灰显，不按生效计。"));
+    // v2 母版：长说明收进分组提示（内容不丢），卡片只留设置行。
+    sec->setToolTip(tr("「转到首个文件」在末尾继续时回绕到首个；「停止」停在当前图片。"
+                       "「询问」档当前无询问对话框实现，已灰显，不按生效计。"));
 
-    // 本页样板版式：行高 46 给双行说明留空间；右侧控件列固定宽度并把控件
-    // 推到列右缘，开关 / 按钮 / 下拉共用同一条对齐边界。只遍历本页的子控件，
-    // 不改 addSettingRow 的全局实现，其余十页不受影响。
-    for (QWidget *row : page->findChildren<QWidget *>(QStringLiteral("settingRow"))) {
-        row->setMinimumHeight(42);
-        if (auto *ctl = row->findChild<QWidget *>(QStringLiteral("rowControls"))) {
-            ctl->setFixedWidth(kGeneralCtlW);
-            if (auto *hl = qobject_cast<QHBoxLayout *>(ctl->layout()))
-                hl->insertStretch(0, 1);
-        }
+    // —— 一般页 v2 母版定稿（2026-11-11）：只改视觉，不动任何业务 ——
+    // 控件高 30 与工厂一致；首尾下拉宽 154（v2 标注）。按钮按文字自然宽，
+    // 不再强制 92 最小宽。
+    m_checkUpdateBtn->setFixedHeight(kGenCtrlH);
+    m_checkUpdateBtn->setProperty("fluent", QStringLiteral("v2"));
+    edge->setFixedHeight(kGenCtrlH);
+    edge->setFixedWidth(kGenComboW);
+    edge->setProperty("fluent", QStringLiteral("v2"));
+
+    // 2) 开关：30×16 轨道、38×24 命中区、定稿配色与焦点环。
+    // PillToggle 没有 Q_OBJECT，findChildren<PillToggle*> / qobject_cast 都会
+    // 触发 Qt 静态断言；改用动态属性，控件内部 fluentMode() 自行读取。
+    for (QCheckBox *cb : page->findChildren<QCheckBox *>())
+        cb->setProperty("fluent", QStringLiteral("v2"));
+
+    // 3) 逐类打标，让 extraQss 的 [fluent="v2"] 规则只作用于本页。
+    const char *marks[] = { "setGroup", "rowLine", "settingRow", "rowLabel",
+                            "rowDesc", "sectionTitle", "setNote" };
+    for (const char *name : marks) {
+        for (QWidget *w : page->findChildren<QWidget *>(QLatin1String(name)))
+            w->setProperty("fluent", QStringLiteral("v2"));
     }
-    for (QLabel *t : page->findChildren<QLabel *>(QStringLiteral("sectionTitle")))
-        t->setProperty("variant", QStringLiteral("page"));
+
+    // 4) 定稿节奏：首组 22 / 组间 14、行高 44、控件列 160；其余十页仍走
+    //    applyPageRhythm(page) 的默认 12/20/42/176。
+    applyPageRhythm(page, kGenFirstGap, kGenGroupGap, kGenRowH, kGenCtlW);
 }
 
 // ===========================================================================
@@ -1506,7 +2440,7 @@ void SettingsDialog::buildViewPage(QWidget *page)
     QWidget *sec = beginSection(page, tr("导航"));
     // 侧边箭头是真开关：ImageCanvas::setSideArrowsEnabled()。
     auto *sideArrows = addSwitchRow(sec, tr("显示侧边箭头"),
-                                    QString(),
+                                    tr("鼠标移到画布左右边缘时显示翻页箭头"),
                                     "view/show_side_arrow", false, true);
     addSwitchRow(sec, tr("记住缩放状态"),
                  tr("下次打开图片或重启时恢复；当前画面不变"),
@@ -1539,6 +2473,7 @@ void SettingsDialog::buildViewPage(QWidget *page)
 
     // 「背景」段（背景图 + 路径 + 背景色 + 边框色）已按用户 2026-11-03 决定整段
     // 移除（第 18 期）：画布外观固定，见 MainWindow::applyRuntimeSettings 的注释。
+    applyPageRhythm(page);
 }
 
 // ===========================================================================
@@ -1548,28 +2483,26 @@ void SettingsDialog::buildViewPage(QWidget *page)
 void SettingsDialog::buildAppearancePage(QWidget *page)
 {
     // —— 主题 ——
-    // 语义：theme=dark | light | system，默认 dark。「跟随系统」开 → system；
-    // 关 → 由「浅色模式」开关决定 light/dark（开=浅色、关=深色）。
-    // 两个开关写同一键，必须互斥：跟随开启时浅色开关禁用，并显示系统当前解析值。
-    // 主题为即时预览（SET-02 会话框架内，不走 LiveCheck：一键一布尔的表装不下复合键）。
+    // 2026-11-11 修订：原来的「跟随系统 / 浅色模式」两个联动开关合成一个
+    // 互斥值字段（pop-up）。语义不变：theme = system | light | dark，默认 dark。
+    // 选择成功即应用并写盘；失败回退到上一次实际生效值（applyPendingTheme）。
+    // 快速连续切换只提交最后一次（m_themeSerial + 延迟器）。
     QWidget *sec = beginSection(page, tr("主题"));
     {
-        ToggleRow r = addToggleRow(
-            sec, tr("跟随系统"),
-            tr("浅色与深色随 Windows 设置自动切换"),
-            tr("跟随系统"));
-        m_followSystem = r.toggle;
-        m_followLabel = r.label;
-        m_followDesc = r.desc;
-    }
-    {
-        ToggleRow r = addToggleRow(
-            sec, tr("浅色模式"),
-            tr("关闭「跟随系统」后手动选择；开启为浅色，关闭为深色"),
-            tr("浅色模式"));
-        m_lightToggle = r.toggle;
-        m_lightLabel = r.label;
-        m_lightDesc = r.desc;
+        SettingRowParts parts = addSettingRow(
+            sec, tr("界面主题"),
+            tr("跟随系统时，随 Windows 深浅色设置切换"));
+        m_themeCombo = makePopupCombo(parts.row);
+        m_themeCombo->addItem(tr("跟随系统"), QStringLiteral("system"));
+        m_themeCombo->addItem(tr("浅色"), QStringLiteral("light"));
+        m_themeCombo->addItem(tr("深色"), QStringLiteral("dark"));
+        m_themeCombo->setAccessibleName(tr("界面主题"));
+        m_themeCombo->setFixedWidth(kGenComboW);
+        parts.controls->addWidget(m_themeCombo, 0, Qt::AlignVCenter);
+        connect(m_themeCombo, &QComboBox::currentIndexChanged, this, [this](int) {
+            if (!m_themeApplying)
+                applyThemePreview();
+        });
     }
 
     const QString theme = sGet("theme", QStringLiteral("dark"));
@@ -1578,33 +2511,16 @@ void SettingsDialog::buildAppearancePage(QWidget *page)
     m_themeAppliedMode = themeMode(theme);
     updateThemeControlStates();
 
-    connect(m_followSystem, &QCheckBox::toggled, this, [this](bool on) {
-        if (!m_themeApplying && on && m_lightToggle) {
-            // 开启跟随的一刻让禁用开关显示系统当前解析值（只读展示，不写盘）。
-            const QSignalBlocker b(m_lightToggle);
-            m_lightToggle->setChecked(Theme::resolveMode(QStringLiteral("system"))
-                                      == Theme::Mode::Light);
-        }
-        updateThemeControlStates();
-        applyThemePreview();
-    });
-    connect(m_lightToggle, &QCheckBox::toggled, this, [this](bool) {
-        if (!m_themeApplying)
-            applyThemePreview();
-    });
-    // 跟随系统时，Windows 深浅色变化要同步禁用开关的展示值与设置页自身 QSS。
+    // 跟随系统时，Windows 深浅色变化要刷新设置页自身 QSS 与主窗口表面；
+    // 字段显示值保持「跟随系统」，不跟着系统色来回跳。
     connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged, this,
             [this](Qt::ColorScheme cs) {
-                if (m_themeApplying || m_themePendingActive || !m_followSystem
-                    || !m_followSystem->isChecked())
+                Q_UNUSED(cs);
+                if (m_themeApplying || m_themePendingActive || !m_themeCombo)
                     return;
-                {
-                    // 用信号携带的新值，别在回调里再读 colorScheme()：
-                    // setColorScheme 的提示值与信号到达顺序不保证同步。
-                    const QSignalBlocker b(m_lightToggle);
-                    m_lightToggle->setChecked(cs == Qt::ColorScheme::Light);
-                    m_lightToggle->update();
-                }
+                if (m_themeCombo->currentData().toString() != QLatin1String("system"))
+                    return;
+                Theme::currentSetting() = QStringLiteral("system");
                 refreshDialogStyle();
                 if (auto *host = qobject_cast<MainWindow *>(parentWidget()))
                     host->refreshThemeSurfaces();
@@ -1630,46 +2546,36 @@ void SettingsDialog::buildAppearancePage(QWidget *page)
     }
 #endif
     addHint(sec, tr("磨砂材质在 Windows 10 上降级为半透明。"));
+    applyPageRhythm(page);
 }
 
 QString SettingsDialog::themeFromControls() const
 {
-    if (m_followSystem && m_followSystem->isChecked())
-        return QStringLiteral("system");
-    if (m_lightToggle && m_lightToggle->isChecked())
-        return QStringLiteral("light");
+    if (m_themeCombo) {
+        const QString v = m_themeCombo->currentData().toString();
+        if (v == QLatin1String("system") || v == QLatin1String("light")
+            || v == QLatin1String("dark"))
+            return v;
+    }
     return QStringLiteral("dark");
 }
 
 void SettingsDialog::syncThemeControls(const QString &theme)
 {
-    if (!m_followSystem || !m_lightToggle)
+    if (!m_themeCombo)
         return;
-    const bool follow = theme == QLatin1String("system");
-    // 跟随系统时浅色开关只读展示系统解析值；显式主题按 light/dark 落。
-    const bool light = Theme::resolveMode(theme) == Theme::Mode::Light;
-    const QSignalBlocker b1(m_followSystem);
-    const QSignalBlocker b2(m_lightToggle);
-    m_followSystem->setChecked(follow);
-    m_lightToggle->setChecked(light);
+    const QString v = (theme == QLatin1String("system") || theme == QLatin1String("light"))
+        ? theme : QStringLiteral("dark");
+    const int idx = m_themeCombo->findData(v);
+    const QSignalBlocker blocker(m_themeCombo);
+    m_themeCombo->setCurrentIndex(idx >= 0 ? idx : 2);
     m_themeLast = theme;
-    updateThemeControlStates();
 }
 
 void SettingsDialog::updateThemeControlStates()
 {
-    if (!m_followSystem || !m_lightToggle)
-        return;
-    const bool follow = m_followSystem->isChecked();
-    m_lightToggle->setEnabled(!follow);
-    m_lightToggle->setToolTip(follow
-        ? tr("跟随系统开启时由 Windows 决定，不能手动切换浅色模式。")
-        : tr("开为浅色，关为深色。"));
-    // 整行灰显：禁用项要可读且说明原因（tooltip 已给原因）。
-    if (m_lightLabel)
-        m_lightLabel->setEnabled(!follow);
-    if (m_lightDesc)
-        m_lightDesc->setEnabled(!follow);
+    // 单一 pop-up 字段没有互斥禁用项；三个值始终都可选。
+    // 保留该入口供既有调用点（加载配置 / 失败回退）复用。
 }
 
 void SettingsDialog::refreshDialogStyle()
@@ -1682,7 +2588,7 @@ void SettingsDialog::refreshDialogStyle()
 
 void SettingsDialog::applyThemePreview()
 {
-    if (!m_followSystem || !m_lightToggle)
+    if (!m_themeCombo)
         return;
 
     const QString want = themeFromControls();
@@ -1725,7 +2631,7 @@ void SettingsDialog::applyPendingTheme(int serial)
     const QString want = m_themePending;
     m_themePendingActive = false;
     m_themePending.clear();
-    if (!m_followSystem || !m_lightToggle)
+    if (!m_themeCombo)
         return;
     auto *host = qobject_cast<MainWindow *>(parentWidget());
     if (!host)
@@ -1791,9 +2697,11 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
                  "imageproc/cache_image", false, true);
     {
         SettingRowParts parts = addSettingRow(sec, tr("缓存大小"),
-                                              tr("全尺寸解码缓存的占用上限"));
+                                              tr("全尺寸解码缓存的占用上限，范围 64–4096 MB，越界按边界值生效"));
         m_cacheSize = new QSpinBox(parts.row);
-        m_cacheSize->setRange(10, 100000);
+        // 与 Config::cacheSizeMb() 的读回夹取同范围：输入、旧配置加载、实际
+        // 上限共用 64–4096，设置页不再显示一个超出实际生效范围的数值。
+        m_cacheSize->setRange(64, 4096);
         m_cacheSize->setButtonSymbols(QAbstractSpinBox::NoButtons);
         m_cacheSize->setFixedHeight(kComboH);
         m_cacheSize->setFixedWidth(88);
@@ -1823,7 +2731,7 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
 
     sec = beginSection(page, tr("翻页效果"));
     addComboRow(sec, tr("翻页效果"), tr("下一次翻页时播放所选过渡"),
-                "imageproc/pageturn_fx", QStringLiteral("0"),
+                "imageproc/pageturn_fx", QStringLiteral("1"),
                 { { "0", tr("无") }, { "1", tr("淡入淡出") },
                   { "2", tr("Alpha 滑动") }, { "3", tr("滑动") } });
 
@@ -1834,10 +2742,17 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     auto *iccMonitor = addSwitchRow(sec, tr("使用监视器的 ICC 设置"),
                                     tr("Qt6 光栅后端不支持显示器色彩管理，暂不可用"),
                                     "imageproc/monitor_icc", false, false);
+    // 整行灰显（标题 + 说明 + 开关一起压暗），默认态就能读出「不可用」；
+    // 原因写在说明与整行 tooltip 里，不只藏在开关上。
     iccMonitor->setEnabled(false);
-    iccMonitor->setToolTip(tr("Qt6 光栅后端不支持显示器色彩管理，暂不可用"));
+    if (QWidget *row = iccMonitor->parentWidget()) {
+        row->setEnabled(false);
+        row->setCursor(Qt::ArrowCursor);
+        row->setToolTip(tr("Qt6 光栅后端不支持显示器色彩管理，暂不可用"));
+    }
     addHint(sec, tr("「自定义颜色」档暂无取色器，实际按中灰铺底；"
                     "透明背景与翻页效果在下次打开图片 / 翻页时生效。"));
+    applyPageRhythm(page);
 }
 
 // ===========================================================================
@@ -1846,68 +2761,41 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
 
 void SettingsDialog::buildAssocPage(QWidget *page)
 {
-    QWidget *sec = beginSection(page, tr("默认打开方式"));
-    auto *btnAssoc = addButton(nullptr, tr("设为默认打开方式…"));
-    {
-        SettingRowParts parts = addSettingRow(
-            sec, tr("设为默认打开方式"),
-            tr("打开 Windows「默认应用」，在其中选择 QuikView"));
-        parts.controls->addWidget(btnAssoc, 0, Qt::AlignVCenter);
-    }
-    auto *btnClassic = addButton(nullptr, tr("打开系统默认应用"));
-    {
-        SettingRowParts parts = addSettingRow(
-            sec, tr("旧式文件关联面板"),
-            tr("打开 Windows 7 风格的高级文件关联界面"));
-        parts.controls->addWidget(btnClassic, 0, Qt::AlignVCenter);
-    }
-    connect(btnAssoc, &QPushButton::clicked, this, [this]() {
-        // 直接打开 Windows 设置 → 应用 → 默认应用。只报告「有没有拉起来」；
-        // 系统侧是否真的改了关联，应用内无法确认，也不做外部副作用测试。
-        const HINSTANCE r = ShellExecuteW(nullptr, L"open", L"ms-settings:defaultapps",
+    // 2026-11-11 修订：删掉假的扩展名勾选、全选/反选、计数与「应用」——
+    // 那些勾选没有任何消费点（默认打开方式只能由 Windows 确认）。改为
+    // DirectoryLoader::imageGroups() 的只读支持列表 + 真实系统入口。
+    QWidget *sec = beginSection(page, tr("Windows 默认应用"));
+    auto *btnDefault = addButton(nullptr, tr("打开默认应用…"));
+    btnDefault->setToolTip(tr("打开 Windows 设置，再按扩展名选择默认应用"));
+    auto parts = addSettingRow(sec, tr("在 Windows 中设置文件关联"),
+                               tr("打开系统设置，再按扩展名选择默认应用"));
+    parts.controls->addWidget(btnDefault, 0, Qt::AlignVCenter);
+    connect(btnDefault, &QPushButton::clicked, this, [this]() {
+        const HINSTANCE r = ShellExecuteW(nullptr, L"open",
+                                          L"ms-settings:defaultapps?registeredAppMachine=QuikView",
                                           nullptr, nullptr, SW_SHOWNORMAL);
         if (reinterpret_cast<INT_PTR>(r) <= 32) {
-            QMessageBox::warning(this, tr("设为默认打开方式"),
-                                 tr("无法打开 Windows 默认应用设置（错误码 %1）。\n"
-                                    "请手动打开：设置 → 应用 → 默认应用。")
-                                     .arg(reinterpret_cast<INT_PTR>(r)));
+            QMessageBox::warning(this, tr("格式关联"),
+                                 tr("无法打开 Windows 默认应用，请从 Windows 设置手动打开。"));
         }
     });
-    connect(btnClassic, &QPushButton::clicked, this, [this]() {
-        // 经典方法：Windows 7+ 高级文件关联界面
-        const HRESULT hrInit = CoInitialize(nullptr);
-        IApplicationAssociationRegistrationUI *ui = nullptr;
-        const HRESULT hr = CoCreateInstance(CLSID_ApplicationAssociationRegistrationUI,
-                                            nullptr, CLSCTX_INPROC_SERVER,
-                                            IID_PPV_ARGS(&ui));
-        if (SUCCEEDED(hr) && ui) {
-            ui->LaunchAdvancedAssociationUI(L"QuikView");
-            ui->Release();
-        } else {
-            QMessageBox::warning(this, tr("打开系统默认应用"),
-                                 tr("无法打开旧式文件关联面板（HRESULT 0x%1）。\n"
-                                    "可改用「设为默认打开方式…」进入 Windows 设置。")
-                                     .arg(QString::number(static_cast<unsigned long>(hr), 16)));
-        }
-        if (SUCCEEDED(hrInit)) {
-            CoUninitialize();
-        }
-    });
-    addHint(sec, tr("两个按钮都会离开 QuikView 进入 Windows 系统界面；"
-                    "应用内只报告「启动是否成功」，系统侧结果需你自行确认。"));
+    addHint(sec, tr("默认打开方式由 Windows 管理，QuikView 不能绕过系统直接改写；"
+                    "若系统里找不到 QuikView，请先运行安装包注册。"));
 
-    // 逐格式勾选组已删除（第 13 期）：Windows 10/11 不允许程序静默改默认关联
-    // （UserChoice 带哈希，写完无效）。这里只留按类分行的只读清单。
-    sec = beginSection(page, tr("可选格式"));
+    // 支持的格式：只读文本，分组与顺序全部来自解码白名单唯一事实来源，
+    // 不在设置页另写第二份扩展名列表。
+    sec = beginSection(page, tr("支持的格式"));
     const QList<DirectoryLoader::Group> groups = DirectoryLoader::imageGroups();
     for (const DirectoryLoader::Group &g : groups) {
-        SettingRowParts parts = addSettingRow(
-            sec, g.label, g.exts.join(QStringLiteral(" / ")));
-        Q_UNUSED(parts);
+        QStringList exts;
+        exts.reserve(g.exts.size());
+        for (const QString &e : g.exts)
+            exts.append(e.toUpper());
+        addSettingRow(sec, g.label, exts.join(QStringLiteral(" · ")));
     }
-    addHint(sec, tr("安装程序已把 QuikView 登记为上述格式的候选打开方式；"
-                    "Windows 10 起不允许程序静默抢占默认关联，"
-                    "要改默认请在系统「默认应用」里选择 QuikView。"));
+    addHint(sec, tr("以上为 QuikView 能直接打开的全部格式；列表只读，"
+                    "新增格式请随程序版本更新。"));
+    applyPageRhythm(page);
 }
 
 // ===========================================================================
@@ -1919,41 +2807,35 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     auto *pageLay = qobject_cast<QVBoxLayout *>(page->layout());
     if (!pageLay)
         return;
-    // 页面有末尾弹簧（统一在 buildPages 之后补上），剩余高度落在弹簧里，
-    // 表格高度由 KeyRowsArea::apply() 按内容自然高／整行封顶决定（M-05）。
 
-    // 14 行全部可配置（config/keyboard/<action>_{enabled,_key,_action}），
-    // 启用开关即时写盘；热键改绑在保存时统一校验后写入。
-    // 样板（2026-11-09）：原来四句规则挤成一段两行提示。收成一句主说明，
-    // 四条状态规则改由下方图例在「鼠标移开」的默认画面里直接可读。
-    auto *hint = new QLabel(tr("双击「热键」栏录入新键位（Esc 清空）；改绑在保存时生效，"
-                               "「启用」开关即时生效。"), page);
-    hint->setObjectName(QStringLiteral("pageHint"));
-    hint->setWordWrap(true);
-    hint->setContentsMargins(11, 0, 0, 2);
-    pageLay->addWidget(hint);
+    // 页首说明：默认态 / 录入态两种文案（规格 §焦点与键盘状态）。冲突时由
+    // 红条顶替，不叠两条提示（设计图 06）。
+    m_keyHint = new QLabel(page);
+    m_keyHint->setObjectName(QStringLiteral("pageHint"));
+    m_keyHint->setWordWrap(true);
+    m_keyHint->setContentsMargins(kGenRowPadX, 0, kGenRowPadX, 6);
+    m_keyHint->setText(tr("双击热键录入，Esc 清空。勾选即时生效，改绑需保存。"));
+    pageLay->addWidget(m_keyHint);
 
-    auto *legend = new QWidget(page);
-    legend->setObjectName(QStringLiteral("keyLegend"));
-    auto *ll = new QHBoxLayout(legend);
-    ll->setContentsMargins(11, 0, 0, 8);
-    ll->setSpacing(8);
-    struct LegendDef { const char *key; const char *text; };
-    static const LegendDef legends[] = {
-        { "set",      QT_TR_NOOP("已设置") },
-        { "empty",    QT_TR_NOOP("未设置") },
-        { "editing",  QT_TR_NOOP("正在录入") },
-        { "conflict", QT_TR_NOOP("键位冲突") },
-    };
-    for (const LegendDef &d : legends) {
-        auto *chip = new QLabel(tr(d.text), legend);
-        chip->setObjectName(QStringLiteral("keyLegendChip"));
-        chip->setProperty("state", QString::fromLatin1(d.key));
-        chip->setToolTip(tr("热键框处于该状态时的显示样式"));
-        ll->addWidget(chip);
-    }
-    ll->addStretch(1);
-    pageLay->addWidget(legend);
+    // 冲突红条：指出涉及的动作与键位，修正后自动消失（可被辅助技术读到）。
+    m_keyBanner = new QWidget(page);
+    m_keyBanner->setObjectName(QStringLiteral("keyBanner"));
+    m_keyBanner->setAttribute(Qt::WA_StyledBackground, true);
+    auto *bannerLay = new QHBoxLayout(m_keyBanner);
+    bannerLay->setContentsMargins(10, 7, 10, 7);
+    bannerLay->setSpacing(8);
+    auto *bannerIcon = new QLabel(QStringLiteral("!"), m_keyBanner);
+    bannerIcon->setObjectName(QStringLiteral("keyBannerIcon"));
+    bannerIcon->setAlignment(Qt::AlignCenter);
+    bannerIcon->setFixedSize(16, 16);
+    bannerLay->addWidget(bannerIcon, 0, Qt::AlignVCenter);
+    m_keyBannerText = new QLabel(m_keyBanner);
+    m_keyBannerText->setObjectName(QStringLiteral("keyBannerText"));
+    m_keyBannerText->setWordWrap(true);
+    m_keyBannerText->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    bannerLay->addWidget(m_keyBannerText, 1);
+    m_keyBanner->hide();
+    pageLay->addWidget(m_keyBanner);
 
     auto *table = new QFrame(page);
     table->setObjectName(QStringLiteral("keyTable"));
@@ -1961,10 +2843,10 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     tl->setContentsMargins(0, 0, 0, 0);
     tl->setSpacing(0);
 
-    // 表头
+    // 表头 30px：操作 / 热键 / 启用（规格 §布局与文字）。
     auto *head = new QWidget(table);
     head->setObjectName(QStringLiteral("keyHead"));
-    head->setFixedHeight(34);
+    head->setFixedHeight(30);
     auto *hl = new QHBoxLayout(head);
     hl->setContentsMargins(0, 0, 0, 0);
     hl->setSpacing(0);
@@ -1976,126 +2858,162 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
             lab->setFixedWidth(width);
         return lab;
     };
-    // 三列「操作 / 热键 / 启用」：与统一行同一阅读顺序——文案在左，控件在右。
-    // 行高 32 + 分隔线 1、操作列左缩进 11、末列右缘 6px 均保留。
-    hl->addWidget(makeHeadCell(tr("操作"), 0, 11), 1);
-    hl->addWidget(makeHeadCell(tr("热键"), 122));
-    hl->addWidget(makeHeadCell(tr("启用"), 52));
-    hl->addSpacing(6);
+    hl->addWidget(makeHeadCell(tr("操作"), 0, kGenRowPadX), 1);
+    hl->addWidget(makeHeadCell(tr("热键"), 160, 0));
+    hl->addWidget(makeHeadCell(tr("启用"), 52, 0));
+    hl->addSpacing(8);
     tl->addWidget(head);
 
-    // 行区：独立滚动、高度按整行吸附（见 KeyRowsArea 注释）
+    // 单一滚动区：表头固定，分组头与行一起滚（窄窗 900×660 用同一支）。
     auto *rowsArea = new KeyRowsArea(table);
     rowsArea->setObjectName(QStringLiteral("keyRowsArea"));
     auto *rowsBox = new QWidget;
     rowsBox->setObjectName(QStringLiteral("keyRowsBox"));
     auto *rl0 = new QVBoxLayout(rowsBox);
-    // 底部 12px 安全留白属于行区内容：14 行全显时末行与表格底边之间有明确间距，
-    // 滚动到底时同样保留（M-05 返工，2026-11-05）。旧实现把留白放在表格外的
-    // pageLay->addSpacing(12)，表格内末行直接贴底——视觉上等于没有。
-    rl0->setContentsMargins(0, 0, 0, 12);
+    rl0->setContentsMargins(0, 0, 0, 6);
     rl0->setSpacing(0);
 
-    // 默认键位 = MainWindow 出厂硬编码值（PortableText；幻灯片/裁剪出厂无单键，
-    // 放映由 Ctrl+1..9/Ctrl+0 承担、裁剪走菜单）。改动须同步
-    // MainWindow::applyShortcutConfig 的槽位表。
-    struct KeyDef { const char *action; const char *hotkey; const char *label; };
+    // 默认键位 = MainWindow 出厂硬编码值（PortableText；幻灯片/裁剪出厂无单键）。
+    // 四个分组按文件、浏览、显示与缩放、编辑与其他排列（规格 §焦点与键盘状态）。
+    struct KeyDef {
+        const char *group;
+        const char *action;
+        const char *hotkey;
+        const char *label;
+    };
     static const KeyDef defs[] = {
-        { "open",        "Ctrl+O",     QT_TR_NOOP("打开") },
-        { "openfolder",  "F",          QT_TR_NOOP("打开文件夹") },
-        { "next",        "Right",      QT_TR_NOOP("翻下一张") },
-        { "prev",        "Left",       QT_TR_NOOP("翻上一张") },
-        { "next_frame",  "Ctrl+Right", QT_TR_NOOP("下一帧") },
-        { "prev_frame",  "Ctrl+Left",  QT_TR_NOOP("上一帧") },
-        { "zoom_in",     "Ctrl++",     QT_TR_NOOP("放大") },
-        { "zoom_out",    "Ctrl+-",     QT_TR_NOOP("缩小") },
-        { "actual_size", "0",          QT_TR_NOOP("实际大小") },
-        { "fit",         "9",          QT_TR_NOOP("适配窗口") },
-        { "slideshow",   "",           QT_TR_NOOP("幻灯片") },
-        { "crop",        "",           QT_TR_NOOP("裁剪") },
-        { "favorite",    "B",          QT_TR_NOOP("收藏") },
-        { "del",         "Del",        QT_TR_NOOP("删除") },
+        { "file", "open",        "Ctrl+O",     QT_TR_NOOP("打开") },
+        { "file", "openfolder",  "F",          QT_TR_NOOP("打开文件夹") },
+        { "nav",  "next",        "Right",      QT_TR_NOOP("翻下一张") },
+        { "nav",  "prev",        "Left",       QT_TR_NOOP("翻上一张") },
+        { "nav",  "next_frame",  "Ctrl+Right", QT_TR_NOOP("下一帧") },
+        { "nav",  "prev_frame",  "Ctrl+Left",  QT_TR_NOOP("上一帧") },
+        { "nav",  "slideshow",   "",           QT_TR_NOOP("幻灯片") },
+        { "view", "zoom_in",     "Ctrl++",     QT_TR_NOOP("放大") },
+        { "view", "zoom_out",    "Ctrl+-",     QT_TR_NOOP("缩小") },
+        { "view", "actual_size", "0",          QT_TR_NOOP("实际大小") },
+        { "view", "fit",         "9",          QT_TR_NOOP("适配窗口") },
+        { "edit", "crop",        "",           QT_TR_NOOP("裁剪") },
+        { "edit", "favorite",    "B",          QT_TR_NOOP("收藏") },
+        { "edit", "del",         "Del",        QT_TR_NOOP("删除") },
+    };
+    static const struct { const char *id; const char *title; } groups[] = {
+        { "file", QT_TR_NOOP("文件") },
+        { "nav",  QT_TR_NOOP("浏览") },
+        { "view", QT_TR_NOOP("显示与缩放") },
+        { "edit", QT_TR_NOOP("编辑与其他") },
     };
 
-    // 「操作」列只读：动作由行本身决定，用户只能改勾选与热键（2026-11-04 拍板）。
+    QString currentGroup;
+    int groupCount = 0;
+    int groupHeadTotal = 0;   // 交给行区：分组头也占纵向空间
+    constexpr int kKeyRowH = 36;
+    constexpr int kKeyGroupHeadH = 22;
+
     for (int i = 0; i < int(sizeof(defs) / sizeof(defs[0])); ++i) {
-        if (i > 0) {
+        const KeyDef &def = defs[i];
+        const QString groupId = QString::fromLatin1(def.group);
+        if (groupId != currentGroup) {
+            currentGroup = groupId;
+            auto *gh = new QWidget(table);
+            gh->setObjectName(QStringLiteral("keyGroupHead"));
+            gh->setAttribute(Qt::WA_StyledBackground, true);
+            gh->setFixedHeight(kKeyGroupHeadH);
+            auto *gl = new QHBoxLayout(gh);
+            gl->setContentsMargins(kGenRowPadX, 0, 8, 0);
+            auto *gt = new QLabel(gh);
+            gt->setObjectName(QStringLiteral("keyGroupTitle"));
+            for (const auto &g : groups) {
+                if (groupId == QLatin1String(g.id)) {
+                    gt->setText(tr(g.title));
+                    break;
+                }
+            }
+            gl->addWidget(gt);
+            gl->addStretch(1);
+            rl0->addWidget(gh);
+            groupHeadTotal += kKeyGroupHeadH;
+            ++groupCount;
+        } else {
             auto *line = new QFrame(table);
-            line->setObjectName(QStringLiteral("hLine"));
+            line->setObjectName(QStringLiteral("keyRowLine"));
             line->setFixedHeight(1);
             rl0->addWidget(line);
         }
 
-        const KeyDef &def = defs[i];
         auto *row = new QWidget(table);
         row->setObjectName(QStringLiteral("keyRow"));
-        row->setFixedHeight(32);
-        row->setAttribute(Qt::WA_StyledBackground, true);   // 冲突行高亮走 QSS 背景色
-        // 整行悬停：与一般页 settingRow 一致（WA_Hover 让含子控件的祖先链收到
-        // HoverEnter/Leave），只提亮行底，不改任何控件尺寸与行节距。
+        row->setFixedHeight(kKeyRowH - 1);
+        row->setAttribute(Qt::WA_StyledBackground, true);
         row->setAttribute(Qt::WA_Hover, true);
         auto *rl = new QHBoxLayout(row);
         rl->setContentsMargins(0, 0, 0, 0);
         rl->setSpacing(0);
 
-        // 「操作」列只读：动作由行本身决定，不给下拉、不给编辑（用户 2026-11-04 拍板）
         auto *actionLab = new QLabel(tr(def.label), row);
         actionLab->setObjectName(QStringLiteral("keyAction"));
-        actionLab->setContentsMargins(11, 0, 8, 0);
+        actionLab->setContentsMargins(kGenRowPadX, 0, 8, 0);
         rl->addWidget(actionLab, 1);
 
+        // 热键列：键帽固定 88 宽、左对齐；右侧留出行内状态文字
+        // （「正在录入」/「冲突」），不挤压键帽本身。
         auto *editHost = new QWidget(row);
-        editHost->setFixedWidth(122);
+        editHost->setFixedWidth(160);
         auto *el = new QHBoxLayout(editHost);
-        el->setContentsMargins(8, 3, 8, 3);
+        el->setContentsMargins(0, 0, 0, 0);
+        el->setSpacing(6);
         auto *edit = new QKeySequenceEdit(editHost);
-        edit->setFixedHeight(26);
-        edit->setStyleSheet(QStringLiteral("QKeySequenceEdit{font-size:11px;padding:0 6px;}"));
-        // 空热键：Qt 内置占位是英文 "Press shortcut"，且 windeployqt 没带 Qt 翻译，
-        // 直接显示裸英文。Polish/Show 时把内部 QLineEdit 占位换成中文「未设置」（Muted 色）。
+        edit->setFixedSize(88, 26);
         new KeySeqPlaceholderFixer(edit);
         new KeySeqEscClearFilter(edit);
-        new KeySeqStateFilter(edit);   // 已设置 / 未设置 / 正在录入 三态
-        el->addWidget(edit);
+        new KeySeqStateFilter(edit, [this]() { refreshKeyEditingState(); });
+        el->addWidget(edit, 0, Qt::AlignVCenter);
+        auto *stateLab = new QLabel(editHost);
+        stateLab->setObjectName(QStringLiteral("keyRowState"));
+        stateLab->hide();
+        el->addWidget(stateLab, 0, Qt::AlignVCenter);
+        el->addStretch(1);
         rl->addWidget(editHost);
 
         auto *chkHost = new QWidget(row);
         chkHost->setFixedWidth(52);
         auto *cl2 = new QHBoxLayout(chkHost);
         cl2->setContentsMargins(0, 0, 0, 0);
-        // 14 行全部胶囊化，原生勾选在键盘页清零。
-        QCheckBox *chk = new PillToggle(chkHost);
-        chk->setCursor(Qt::PointingHandCursor);
+        // 启用列统一用 checkbox（表格内逐项启用），不再是 mini switch。
+        auto *chk = new V2CheckBox(chkHost);
+        chk->setObjectName(QStringLiteral("keyEnable"));
+        chk->setAccessibleName(tr("%1 启用").arg(tr(def.label)));
         cl2->addWidget(chk, 0, Qt::AlignCenter);
         rl->addWidget(chkHost);
-        // 末列右缘与行区滚动条留 6px，避免胶囊贴着滚动条（P-17 / D3）
-        rl->addSpacing(6);
+        rl->addSpacing(8);
 
-        // 任一字段改动即撤掉上次保存被拒的冲突高亮（重新保存时再检测）
-        connect(chk, &QCheckBox::toggled, this, [this]() { clearKeyConflicts(); });
+        // 任一字段改动即重算冲突：红条、行内标记与保存按钮一起变。
+        connect(chk, &QCheckBox::toggled, this, [this]() { refreshKeyConflictBanner(); });
         connect(edit, &QKeySequenceEdit::keySequenceChanged, this,
-                [this]() { clearKeyConflicts(); });
+                [this]() { refreshKeyConflictBanner(); });
 
-        m_keyRows.append({ chk, edit, actionLab, row, QString::fromUtf8(def.action),
-                           QString::fromUtf8(def.hotkey), tr(def.label) });
+        KeyRow kr;
+        kr.cb = chk;
+        kr.edit = edit;
+        kr.actionLab = actionLab;
+        kr.row = row;
+        kr.action = QString::fromUtf8(def.action);
+        kr.defHotkey = QString::fromUtf8(def.hotkey);
+        kr.label = tr(def.label);
+        kr.stateLab = stateLab;
+        m_keyRows.append(kr);
         rl0->addWidget(row);
     }
 
     rowsArea->setWidget(rowsBox);
-    // 行区不吃 stretch：widgetResizable 会把 rowsBox 拉到视口高，QVBoxLayout 再把
-    // 多出来的高度均摊到 27 个 item 之间（行距被打散、末行贴底）。改为行区高度=内容
-    // 自然高，表格内不再留弹簧（多余高度交给页面底部弹簧），行距恒为 33（M-05 根因）。
-    tl->addWidget(rowsArea, 0);
-    // 表格内部不再留弹簧：表格高度 = 表头 + 行区，多余高度交给页面底部弹簧（M-05）。
+    // 单一表格滚动区（规格 §审图索引）：表格吃满页面剩余高度，表头在滚动区
+    // 之外固定，分组头与 14 行一起滚；900×660 与 1068×822 用同一支布局，
+    // 只由可用高度决定露出多少行。不再做整行吸附——设计图 08 本身就允许
+    // 末行被视口边缘自然截断。
+    tl->addWidget(rowsArea, 1);
+    pageLay->addWidget(table, 1);
 
-    pageLay->addWidget(table, 0);   // 表格按内容自然高分配，不再吃满页面高度（M-05）
-    // 旧的表格外 12px spacing 已删除：留白改由 rowsBox 内容底部 margin 承担
-    // （表格外留白不算数，单子 §4.1）。
-
-    // 整行吸附：高度按外层页面可视高算出「能放下几整行」，多出来的行交给行区
-    // 自己的滚动条（行高 32 + 分隔线 1 = 33）。
-    // 图例也占纵向空间，必须计入吸附计算，否则 14 行会算出过高、表格越出页面。
-    rowsArea->snapTo(hint, head, 33, legend);
+    applyPageRhythm(page);
 }
 
 // ===========================================================================
@@ -2151,8 +3069,10 @@ void SettingsDialog::buildMousePage(QWidget *page)
                 if (opts[j].first == QLatin1String("pan")) {
                     if (auto *model = qobject_cast<QStandardItemModel *>(combo->model())) {
                         if (auto *item = model->item(j)) {
+                            const QString why = tr("该按键没有拖拽平移实现，灰显不可选");
                             item->setEnabled(false);
-                            item->setToolTip(tr("该按键没有拖拽平移实现，灰显不可选"));
+                            item->setToolTip(why);
+                            item->setData(why, Qt::UserRole + 1);
                         }
                     }
                 }
@@ -2165,7 +3085,7 @@ void SettingsDialog::buildMousePage(QWidget *page)
         QString denyTip;
         if (key == QLatin1String("mouse/btn_middle")) {
             allowed << QStringLiteral("none") << QStringLiteral("pan");
-            denyTip = tr("中键暂无该动作实现；仅「无操作 / 拖拽平移」生效");
+            denyTip = tr("中键暂无该动作实现；仅「无操作 / 拖拽平移」生效（「无」会连现有的单击全屏一起停用）");
         } else if (key == QLatin1String("mouse/wheel_up")) {
             allowed << QStringLiteral("none") << QStringLiteral("zoom_in");
             denyTip = tr("滚轮向上暂无该动作实现；仅「无操作 / 放大」生效（「无」会关闭滚轮缩放）");
@@ -2181,6 +3101,7 @@ void SettingsDialog::buildMousePage(QWidget *page)
                     if (auto *item = model->item(j)) {
                         item->setEnabled(false);
                         item->setToolTip(denyTip);
+                        item->setData(denyTip, Qt::UserRole + 1);
                     }
                 }
             }
@@ -2198,10 +3119,12 @@ void SettingsDialog::buildMousePage(QWidget *page)
         m_mouseRows.append({ combo, QString::fromUtf8(b.key), QString::fromUtf8(b.def) });
     }
 
-    addHint(sec, tr("「无」保留内置行为（左键拖动平移与边缘单击翻页、右键上下文菜单、"
-                    "中键切全屏、滚轮缩放）。中键只支持「无操作 / 拖拽平移」，滚轮只支持"
-                    "「无操作 / 放大 / 缩小」；其余档位已灰显，属实现缺口。"
-                    "所有映射在下次触发按键时生效。"));
+    addHint(sec, tr("「无」保留内置行为：左键拖动平移与边缘单击翻页、右键上下文菜单。"
+                    "滚轮上下共用一个缩放开关，任一方向选「无」会同时停掉双向缩放；"
+                    "中键选「无」会同时停掉拖拽平移与现有的单击全屏。"
+                    "中键只支持「无操作 / 拖拽平移」，滚轮只支持「无操作 / 放大 / 缩小」；"
+                    "其余档位已灰显，属实现缺口。所有映射在下次触发按键时生效。"));
+    applyPageRhythm(page);
 }
 
 // ===========================================================================
@@ -2238,6 +3161,7 @@ void SettingsDialog::buildBookmarkPage(QWidget *page)
     addHint(sec, tr("上限在下次新增书签时读取，已有书签不会在保存瞬间被裁剪。"
                     "书签记录完整路径，文件移动或重命名后原条目失效；"
                     "数据保存在本机配置中，不随安装包或账户同步。"));
+    applyPageRhythm(page);
 }
 
 // ===========================================================================
@@ -2246,51 +3170,65 @@ void SettingsDialog::buildBookmarkPage(QWidget *page)
 
 void SettingsDialog::buildContextMenuPage(QWidget *page)
 {
-    // 壳扩展随安装包落盘：64 位 quikthumb.dll 与 exe 同目录（packaging/quikview.nsi）。
-    // 本页只做只读状态说明，不再放会写 config 的勾选框——ctxmenu/* 全仓零消费，
-    // 真正生效的是安装器注册的 Shell 扩展。
-    const bool shellReady = QFileInfo::exists(
-        QCoreApplication::applicationDirPath() + QStringLiteral("/quikthumb.dll"));
-    const QString shellState = shellReady ? tr("已随安装包注册 ✓")
-                                          : tr("未检测到壳扩展");
+    // 状态真实性（2026-11-11 修订）：DLL 存在只说「已检测到壳扩展文件」；
+    // 只有 CLSID 的 InProcServer32 指向本机 DLL 才写「已注册」。PSD/PSB 的
+    // 缩略图能力按实际解码器显示为部分支持，并说明无内嵌 JPEG 时的回退。
+    const bool dllPresent = shellExtDllPresent();
+    const bool registered = shellExtRegistered();
 
     auto addStatusRow = [this](QWidget *section, const QString &label,
-                               const QString &state, const char *color) {
-        SettingRowParts parts = addSettingRow(section, label);
+                               const QString &detail, const QString &state,
+                               const char *color) {
+        SettingRowParts parts = addSettingRow(section, label, detail);
         auto *value = new QLabel(state, parts.row);
         value->setObjectName(QStringLiteral("rowTag"));
-        value->setWordWrap(true);
-        value->setMaximumWidth(320);
+        value->setWordWrap(false);
         value->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
         value->setStyleSheet(QStringLiteral("color:%1;font-size:11px;")
                                  .arg(QLatin1String(color)));
-        value->setToolTip(state);
+        value->setToolTip(detail.isEmpty() ? state : detail);
         parts.controls->addWidget(value, 0, Qt::AlignVCenter);
     };
-    const char *kOk = UiStyle::StatusOk;      // 已注册
-    const char *kWarn = UiStyle::StatusWarn;   // 缺文件
-    const char *kMuted = UiStyle::Muted;      // 本版未提供 / 暂不支持
+    const char *kOk = UiStyle::fluent::statusOk();
+    const char *kWarn = UiStyle::fluent::statusWarn();
+    const char *kMuted = UiStyle::fluent::desc();
+
+    // 注册态：已注册 → 绿色「已注册」；仅文件在 → 提醒色「已检测到壳扩展文件」。
+    const QString menuState = registered ? tr("已注册")
+                                         : (dllPresent ? tr("已检测到壳扩展文件")
+                                                       : tr("未检测到壳扩展"));
+    const char *menuColor = registered ? kOk : kWarn;
 
     QWidget *sec = beginSection(page, tr("上下文菜单设定"));
-    // 本版壳扩展真实提供两个菜单项（浏览 / 转换），其余三项是规划项，不能谎报已注册。
-    addStatusRow(sec, tr("在资源管理器中使用上下文菜单"), shellState,
-                 shellReady ? kOk : kWarn);
-    addStatusRow(sec, tr("用QuikView转换图片"), shellState, shellReady ? kOk : kWarn);
-    addStatusRow(sec, tr("用QuikView浏览图片"), shellState, shellReady ? kOk : kWarn);
-    addStatusRow(sec, tr("上下文菜单预览"), tr("已实现自绘缩略图（≤256px），待资源管理器验收"), kMuted);
-    addStatusRow(sec, tr("显示图片信息"), tr("已支持（宽×高 · 文件大小）"), kOk);
-    addStatusRow(sec, tr("显示软件图标"), tr("已支持（壳扩展内嵌资源图标）"), kOk);
-    if (!shellReady)
-        addHint(sec, tr("未检测到壳扩展，重新运行安装包可修复。"));
+    // 本版壳扩展真实提供两个菜单项（浏览 / 转换），其余为规划或自绘能力，
+    // 不能因为 DLL 在就写成已注册。
+    addStatusRow(sec, tr("在资源管理器中使用上下文菜单"), QString(), menuState, menuColor);
+    addStatusRow(sec, tr("用 QuikView 转换图片"), QString(), menuState, menuColor);
+    addStatusRow(sec, tr("用 QuikView 浏览图片"), QString(), menuState, menuColor);
+    addStatusRow(sec, tr("上下文菜单预览"),
+                 tr("已实现自绘缩略图（≤256 px）"), tr("待资源管理器验收"), kMuted);
+    addStatusRow(sec, tr("显示图片信息"),
+                 tr("宽 × 高 · 文件大小"), tr("已支持"), kOk);
+    addStatusRow(sec, tr("显示软件图标"),
+                 tr("壳扩展内嵌资源图标"), tr("已支持"), kOk);
+    if (!dllPresent)
+        addHint(sec, tr("未检测到壳扩展文件，重新运行安装包可修复。"));
+    else if (!registered)
+        addHint(sec, tr("已检测到壳扩展文件，但系统里还没有注册记录。"
+                        "运行安装包或以管理员身份注册后，这里会显示「已注册」。"));
 
     sec = beginSection(page, tr("资源管理器缩略图"));
-    addStatusRow(sec, tr("WebP"), shellState, shellReady ? kOk : kWarn);
-    addStatusRow(sec, tr("PSD"), tr("部分支持（内嵌 JPEG 缩略图，无内嵌回退默认图标）"), kWarn);
-    addStatusRow(sec, tr("PSB"), tr("部分支持（内嵌 JPEG 缩略图，无内嵌回退默认图标）"), kWarn);
+    addStatusRow(sec, tr("WebP"), tr("Qt 解码器直接生成缩略图"),
+                 tr("壳扩展提供"), kOk);
+    addStatusRow(sec, tr("PSD"), tr("缺少内嵌 JPEG 时显示默认图标"),
+                 tr("部分支持"), kWarn);
+    addStatusRow(sec, tr("PSB"), tr("缺少内嵌 JPEG 时显示默认图标"),
+                 tr("部分支持"), kWarn);
 
     addHint(sec, tr("这些入口由 QuikView 壳扩展在资源管理器中提供，"
                     "不是应用内图片右键菜单的功能开关；"
                     "安装 / 卸载安装包时自动注册 / 移除。"));
+    applyPageRhythm(page);
 }
 
 // ===========================================================================
@@ -2383,14 +3321,15 @@ void SettingsDialog::buildEtcPage(QWidget *page)
     addSwitchRow(sec, tr("翻页时播放音效"), tr("下次翻页时生效"),
                  "etc/pageturn_wav", false, false);
     addSwitchRow(sec, tr("根据图片大小调节窗口大小"),
-                 tr("下次打开图片时按图片尺寸调整窗口"),
-                 "etc/fit_window_to_image", false, true);
+                 tr("默认关闭；开启后下次打开图片时生效"),
+                 "etc/fit_window_to_image", false, false);
     addSwitchRow(sec, tr("运行 QuikView 时禁用 Windows 屏幕保护程序"),
                  tr("退出 QuikView 后恢复系统屏保设置"),
                  "etc/disable_screensaver", false, false);
 
     addHint(sec, tr("RAW 选项只影响 RAW 文件的打开方式；勾选「不打开 RAW 图片文件」时，"
                     "JPEG 旁的 RAW 也不会被自动带出。翻页音效在下次翻页时生效。"));
+    applyPageRhythm(page);
 }
 
 // ===========================================================================
@@ -2449,6 +3388,7 @@ void SettingsDialog::buildLangPage(QWidget *page)
     addHint(sec, tr("语言文件按程序目录下的 translations 加载；"
                     "两个入口都会离开 QuikView，应用内只报告启动是否成功。"
                     "语言选择是待保存项：关闭时可选「保存并关闭」，重启后生效。"));
+    applyPageRhythm(page);
 }
 
 // ===========================================================================
@@ -2466,6 +3406,17 @@ void SettingsDialog::loadFromConfig()
         const int idx = b.combo->findData(sGet(b.key, b.def));
         b.combo->setCurrentIndex(idx >= 0 ? idx : 0);
     }
+    // 旧配置 edge_action="ask"：「询问」档灰显（无实现），运行态已由
+    // Config::edgeAction() 折算为「停止」，下拉显示同步折算，不再呈现
+    // 「选着一个灰项」；配置原值保留，翻页批次 2 交付后按新定义启用。
+    for (const ComboBind &b : m_comboBinds) {
+        if (qstrcmp(b.key, "edge_action") != 0
+            || sGet(b.key, b.def) != QLatin1String("ask"))
+            continue;
+        const int stopIdx = b.combo->findData(QStringLiteral("stop"));
+        if (stopIdx >= 0)
+            b.combo->setCurrentIndex(stopIdx);
+    }
     if (m_cacheSize)
         m_cacheSize->setValue(iGet("imageproc/cache_size_mb", 300));
     for (const KeyRow &r : m_keyRows) {
@@ -2481,7 +3432,18 @@ void SettingsDialog::loadFromConfig()
         // 会在下次保存时按固定动作覆写回去）。
     }
     for (const MouseRow &r : m_mouseRows) {
-        const int idx = r.combo->findData(sGet(r.key.toLatin1().constData(), r.def));
+        const QString stored = sGet(r.key.toLatin1().constData(), r.def);
+        int idx = r.combo->findData(stored);
+        // 旧配置里的不可执行档位（灰显项）按运行态安全值「无操作」显示：
+        // 滚轮任一方向非对应档 → 双向缩放都停；中键非「拖拽平移」→ 连单击
+        // 全屏一起停；右键 / X / Y 的 pan 在 Config 读取时折算回内置行为。
+        // 配置原值不回写，翻页批次 2 的独立映射迁移仍读原始档位。
+        if (idx >= 0) {
+            if (auto *model = qobject_cast<QStandardItemModel *>(r.combo->model())) {
+                if (auto *item = model->item(idx); item && !item->isEnabled())
+                    idx = r.combo->findData(QStringLiteral("none"));
+            }
+        }
         r.combo->setCurrentIndex(idx >= 0 ? idx : 0);
     }
     if (m_maxBookmarks) {
@@ -2499,7 +3461,7 @@ void SettingsDialog::loadFromConfig()
         m_language->setCurrentIndex(idx >= 0 ? idx : 0);
     }
     // 外观页两件套不进绑定表，单独回读（历史 theme 三值 → 跟随 + 浅色两开关）。
-    if (m_followSystem && m_lightToggle)
+    if (m_themeCombo)
         syncThemeControls(sGet("theme", QStringLiteral("dark")));
     if (m_blurMaterial)
         m_blurMaterial->setChecked(bGet("ui/blur_material", false));
@@ -3010,6 +3972,114 @@ void SettingsDialog::clearKeyConflicts()
         setKeyRowConflict(i, false);
 }
 
+// 实时冲突反馈：与保存前的检测同一套判定，但每次键位/勾选变化都重算一次
+// （规格 §焦点与键盘状态：冲突态要指出动作与键位、键帽与行内文字标红、
+// 保存按钮不可用；修正后自动清除并恢复保存）。
+void SettingsDialog::refreshKeyConflictBanner()
+{
+    if (m_keyRows.isEmpty())
+        return;
+    const QString msg = keyboardConflicts();   // 内部会逐行设置 conflict 属性
+    const bool has = !msg.isEmpty();
+
+    if (m_keyBanner && m_keyBannerText) {
+        m_keyBannerText->setText(msg.split(QLatin1Char('\n')).join(QStringLiteral("  ")));
+        m_keyBanner->setVisible(has);
+        m_keyBanner->setAccessibleName(msg);
+        m_keyBanner->setAccessibleDescription(msg);
+    }
+    // 冲突时用红条顶替页首说明，避免两条提示叠在一起（设计图 06）。
+    if (m_keyHint)
+        m_keyHint->setVisible(!has);
+    if (m_btnOk) {
+        // 冲突时保存不可用：enabled=false 负责拦截点击/回车，颜色用控件级声明
+        // 覆盖（Qt 的 QStyleSheetStyle 对运行期 :disabled 伪状态不重解析，实测
+        // 对话框级 `#btnPrimary:disabled` 不生效；控件级声明优先级最高，稳）。
+        m_btnOk->setEnabled(!has);
+        if (has) {
+            m_btnOk->setStyleSheet(QStringLiteral("color:%1;")
+                                       .arg(QLatin1String(UiStyle::fluent::disabled())));
+        } else {
+            m_btnOk->setStyleSheet(QString());
+        }
+        m_btnOk->style()->unpolish(m_btnOk);
+        m_btnOk->style()->polish(m_btnOk);
+        m_btnOk->update();
+    }
+    if (m_footerNote) {
+        if (has)
+            m_footerNote->setText(tr("解决键位冲突后可保存。"));
+        else
+            updatePendingNote();
+    }
+
+    for (const KeyRow &r : m_keyRows) {
+        if (!r.stateLab)
+            continue;
+        const bool bad = r.row->property("conflict").toBool();
+        if (bad) {
+            r.stateLab->setText(tr("冲突"));
+            r.stateLab->setProperty("state", QStringLiteral("conflict"));
+            r.stateLab->show();
+        } else if (!r.stateLab->property("state").toString()
+                       .compare(QLatin1String("conflict"))) {
+            // 冲突解除后交还给录入态判定
+            r.stateLab->setProperty("state", QString());
+            r.stateLab->hide();
+        }
+        r.stateLab->style()->unpolish(r.stateLab);
+        r.stateLab->style()->polish(r.stateLab);
+    }
+    refreshKeyEditingState();
+}
+
+// 录入态：只有真正持有键盘焦点的热键框显示「正在录入」，页首说明同步切换。
+void SettingsDialog::refreshKeyEditingState()
+{
+    if (m_keyRows.isEmpty())
+        return;
+    bool anyEditing = false;
+    for (const KeyRow &r : m_keyRows) {
+        const bool editing = r.edit
+            && (r.edit->hasFocus() || (r.edit->focusProxy() && r.edit->focusProxy()->hasFocus()));
+        if (r.row->property("editing").toBool() != editing) {
+            r.row->setProperty("editing", editing);
+            r.row->style()->unpolish(r.row);
+            r.row->style()->polish(r.row);
+            r.row->update();
+        }
+        if (editing)
+            anyEditing = true;
+        if (!r.stateLab)
+            continue;
+        if (r.row->property("conflict").toBool())
+            continue;   // 冲突优先，红字不被「正在录入」覆盖
+        if (editing) {
+            r.stateLab->setText(tr("正在录入"));
+            r.stateLab->setProperty("state", QStringLiteral("editing"));
+            r.stateLab->show();
+        } else {
+            r.stateLab->setText(QString());
+            r.stateLab->setProperty("state", QString());
+            r.stateLab->hide();
+        }
+        r.stateLab->style()->unpolish(r.stateLab);
+        r.stateLab->style()->polish(r.stateLab);
+    }
+    setKeyHintMode(anyEditing);
+}
+
+void SettingsDialog::setKeyHintMode(bool editing)
+{
+    if (!m_keyHint)
+        return;
+    const QString text = editing
+        ? tr("按下新的组合键。Esc 清空当前热键。")
+        : tr("双击热键录入，Esc 清空。勾选即时生效，改绑需保存。");
+    if (m_keyHint->text() != text)
+        m_keyHint->setText(text);
+}
+
 // 键盘页冲突检测（保存前调用）。生效语义与 MainWindow::applyShortcutConfig
 // 一一对应，判定基准是「保存后每个动作实际会装什么键」：
 //   出厂态行（启用 + 绑自身 + 键为空或等于出厂主键）= 基线，自身不参与冲突，
@@ -3115,11 +4185,20 @@ QString SettingsDialog::keyboardConflicts()
         for (int k = 0; k < occupied.size(); ++k) {
             if (!occupiedIds[k].isEmpty() && occupiedIds[k] == st[i].target)
                 continue;
-            if (occupied[k].second.contains(st[i].key))
-                markBad({ i },
+            if (occupied[k].second.contains(st[i].key)) {
+                // 规格：冲突的两行都要标红（键帽 + 行内文字）。占用的若是
+                // 可配置动作，把它对应的行一起标记；固定动作没有行，只标自己。
+                QList<int> rows{i};
+                if (!occupiedIds[k].isEmpty()) {
+                    const int other = rowIndexOfAction(occupiedIds[k]);
+                    if (other >= 0 && other != i)
+                        rows.append(other);
+                }
+                markBad(rows,
                         tr("按键「%1」冲突：『%2』与『%3』被绑到同一组合键。")
                             .arg(keyText(st[i].key), label(st[i].target),
                                  occupied[k].first));
+            }
         }
     }
 
@@ -3172,6 +4251,31 @@ void SettingsDialog::probeResetDefaults()
     accept();
 }
 
+// —— 验收探针（--smoke settingscombo，见 MainWindow::runSmokeCommand）——
+void SettingsDialog::probeOpenCombo(int page, int index)
+{
+    selectPage(page);
+    QTimer::singleShot(500, this, [this, index]() {
+        QList<QComboBox *> combos;
+        for (QComboBox *c : findChildren<QComboBox *>()) {
+            if (c->isVisible()) {
+                combos << c;
+            }
+        }
+        // 清单落盘：索引是「可见下拉」的创建顺序，换顺序时应以这份清单为准
+        if (QFile f(QStringLiteral("Temp/settings-combos.txt")); f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            for (int i = 0; i < combos.size(); ++i) {
+                ts << i << ": current=\"" << combos.at(i)->currentText()
+                   << "\" items=" << combos.at(i)->count() << "\n";
+            }
+        }
+        if (index >= 0 && index < combos.size()) {
+            combos.at(index)->showPopup();
+        }
+    });
+}
+
 // ===========================================================================
 // 窗口铬件：圆角底 + 边框；标题栏拖拽
 // ===========================================================================
@@ -3196,8 +4300,10 @@ void SettingsDialog::paintEvent(QPaintEvent *)
     const QRectF r = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
     QPainterPath path;
     path.addRoundedRect(r, UiStyle::RadiusDialog, UiStyle::RadiusDialog);
-    p.fillPath(path, UiStyle::dialogBg());
-    p.setPen(QPen(UiStyle::color(UiStyle::pick("#4a4c51", "#c8c9cb")), 1));
+    // 设置框外壳走 Fluent 定稿的「内容背景」，1px 边框也用定稿描边色；
+    // 转换对话框有自己的 paintEvent，不受影响。
+    p.fillPath(path, UiStyle::color(UiStyle::fluent::contentBg()));
+    p.setPen(QPen(UiStyle::color(UiStyle::fluent::cardLine()), 1));
     p.drawPath(path);
 }
 
