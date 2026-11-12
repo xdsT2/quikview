@@ -153,6 +153,12 @@ QSlider#qualitySlider::handle:horizontal:disabled { background: #70767e; }
 
     buildUi();
     loadSourceInfo();
+    // 就地空状态：入口虽有守卫，也不弹模态框——禁用开始，列表给占位行。
+    if (m_files.isEmpty()) {
+        m_convertBtn->setEnabled(false);
+        auto *empty = new QListWidgetItem(tr("没有可转换的图片"), m_fileList);
+        empty->setFlags(Qt::NoItemFlags);
+    }
     adjustSize();
 
     if (parent && parent->isVisible()) {
@@ -478,7 +484,7 @@ void BatchConvertDialog::buildUi()
     m_convertBtn->setFixedHeight(32);
     m_convertBtn->setMinimumWidth(86);
     m_convertBtn->setCursor(Qt::PointingHandCursor);
-    connect(m_convertBtn, &QPushButton::clicked, this, &BatchConvertDialog::onConvert);
+    connect(m_convertBtn, &QPushButton::clicked, this, &BatchConvertDialog::onConvertClicked);
     fl->addWidget(m_convertBtn);
 
     root->addWidget(footer);
@@ -622,6 +628,19 @@ QString BatchConvertDialog::resolveOutputDir(const QString &sourceFile) const
     return custom.isEmpty() ? srcDir : custom;
 }
 
+// 转换进行中按钮语义切换为「取消」（同步循环靠 processEvents 收到点击）；
+// 空闲时才是「开始」。
+void BatchConvertDialog::onConvertClicked()
+{
+    if (m_running) {
+        m_cancelRequested = true;
+        m_convertBtn->setEnabled(false);
+        m_convertBtn->setText(tr("正在取消…"));
+        return;
+    }
+    onConvert();
+}
+
 void BatchConvertDialog::onConvert()
 {
     if (m_files.isEmpty()) {
@@ -656,13 +675,18 @@ void BatchConvertDialog::onConvert()
     m_progress->setRange(0, m_files.size());
     m_progress->setValue(0);
     m_progressText->setText(tr("正在转换…"));
-    m_convertBtn->setEnabled(false);
+    m_running = true;
+    m_cancelRequested = false;
+    m_convertBtn->setText(tr("取消"));
     adjustSize();
     QApplication::processEvents();
 
     int ok = 0;
     int failed = 0;
     for (int i = 0; i < m_files.size(); ++i) {
+        if (m_cancelRequested) {
+            break;
+        }
         const QString src = m_files.at(i);
         m_progressCount->setText(QStringLiteral("%1 / %2").arg(i + 1).arg(m_files.size()));
 
@@ -727,8 +751,17 @@ void BatchConvertDialog::onConvert()
     }
 
     m_progress->setValue(m_files.size());
-    m_progressText->setText(tr("转换完成"));
+    m_running = false;
+    m_convertBtn->setText(tr("开始"));
     m_convertBtn->setEnabled(true);
+
+    if (m_cancelRequested) {
+        m_progressText->setText(tr("已取消：成功 %1 / 共 %2 张")
+                                    .arg(ok)
+                                    .arg(m_files.size()));
+        return;
+    }
+    m_progressText->setText(tr("转换完成"));
 
     QMessageBox::information(this, tr("图片转换"),
                              tr("成功 %1 / 共 %2 张%3")

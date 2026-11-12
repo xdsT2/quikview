@@ -28,6 +28,7 @@ protected:
 
 private slots:
     void onBrowse();
+    void onConvertClicked();
     void onConvert();
     void onReset();
     void onFormatChanged();
@@ -49,6 +50,8 @@ private:
     int m_srcH = 0;
     QString m_lastOutDir;
     QPoint m_dragOffset;
+    bool m_running = false;         // 转换循环进行中：开始按钮临时充当取消
+    bool m_cancelRequested = false;
 
     QLabel *m_fileCaption = nullptr;
     QListWidget *m_fileList = nullptr;
