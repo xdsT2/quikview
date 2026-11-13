@@ -34,8 +34,7 @@ class QGraphicsOpacityEffect;
 class QPropertyAnimation;
 
 namespace Chrome {
-class CaptionBar;
-class ToolBar;
+class TopBar;
 class ControlBar;
 class Toast;
 class ZoomBadge;
@@ -60,6 +59,10 @@ public:
     void openSettings() { onSettings(); }   // 调试/自动化：直接打开设置对话框
     void setZoomMode(int mode);             // 调试/自动化 + 菜单共用：0原始/1适合窗口/2适合宽度
     void runSmokeCommand(const QString &cmd); // 调试/自动化：--smoke 单命令驱动（P0 冒烟）
+    // Tab 语义单点（真实快捷键与 --smoke tab 共用）：PSD→图层面板，普通图→信息 HUD
+    void onTabPressed();
+    // 应用激活状态变化（changeEvent 与 --smoke deactivate 共用）：失活收起信息 HUD
+    void onActivationChanged(bool active);
 
     // —— SET-02/03 设置页即时预览 ——
     // 设置页在会话中直接下发运行态（不等「保存设置」）。已接：
@@ -120,6 +123,7 @@ private slots:
     void onFitWidth();
     void onZoomIn();
     void onZoomOut();
+    void onZoomCapsuleToggle();   // 底岛缩放胶囊：自定义→100%→适合窗口 循环
     void onActualSize();
     void onSlideshow();
     void onPrev();
@@ -183,6 +187,9 @@ private:
     QMenu *buildEditMenu();
     QMenu *buildCopytoMenu();
     QMenu *buildSystemMenu();
+    // 三横菜单：完整一级信息架构（文件 / 幻灯片 / 书签 / 编辑与转换 / 复制到 /
+    // 浏览与显示 / 参数 / 窗口与应用 / 危险操作）。每次弹出重建，勾选态取真实运行态。
+    QMenu *buildHamburgerMenu();
 
     void applyRuntimeSettings();
     void setupPsdDocument(const QString &path);
@@ -214,8 +221,13 @@ private:
     void applyEffect();
     void resetEffect();
     void updateStatus(const QString &path);
+    // 页码去重：胶囊（ControlBar）可见时只在胶囊内显示「n / total」，
+    // 状态浮层右下角不重复画；胶囊隐藏时由状态浮层顶上。m_pendingCounter 存最新页码文本。
+    void applyCounterVisibility();
+    QString m_pendingCounter;
     void toggleAlwaysOnTop();
     void refreshZoomBadge(qreal z);           // 缩放浮标文案：当前缩放方式/百分比
+    void syncZoomCapsule();                   // 底岛缩放胶囊：按画布真实状态同步文案与语义
     void applyChromeLayout();
     void updateCanvasInsets();               // 缩略图栏展开时让出左侧可视区
     void toggleBrowserPanel();
@@ -351,8 +363,7 @@ private:
     // 三个常驻栏用 QPointer 持有（2026-10-25 悬空指针防御审计）：
     // 若未来任何路径提前销毁 widget，指针自动置空而不是留悬空值，
     // 现有的 `if (m_caption)` 判空检查直接生效。
-    QPointer<Chrome::CaptionBar> m_caption;
-    QPointer<Chrome::ToolBar> m_toolbar;
+    QPointer<Chrome::TopBar> m_topBar;
     QPointer<Chrome::ControlBar> m_control;
     Chrome::Toast *m_toast = nullptr;
     // Shift+TAB 文件名浮层（惰性创建，挂在画布 viewport 顶部居中）
@@ -376,12 +387,12 @@ private:
     ChromePhase m_topPhase = ChromePhase::Visible;
     bool m_probeCursorActive = false;   // --smoke hover:x:y 时用合成坐标代替真实光标
     QPoint m_probeCursor;
+    // 合成光标定时重放：等价于「鼠标一直停在那里」，否则热区只算一次、截图前已淡出。
+    QTimer *m_probeTimer = nullptr;
     ChromePhase m_dockPhase = ChromePhase::Visible;
     QGraphicsOpacityEffect *m_captionOpacity = nullptr;
-    QGraphicsOpacityEffect *m_toolbarOpacity = nullptr;
     QGraphicsOpacityEffect *m_dockOpacity = nullptr;
     QPropertyAnimation *m_captionFade = nullptr;
-    QPropertyAnimation *m_toolbarFade = nullptr;
     QPropertyAnimation *m_dockFade = nullptr;
     bool m_topLocked = false;
     bool m_dockLocked = false;
@@ -396,6 +407,10 @@ private:
     bool m_firstImage = true;
 
     QString m_currentPath;
+    // 最近一次解码失败的原因（QImageReader::errorString + 当时支持的格式列表）。
+    // --smoke loadreport 会把它落到 Temp/load-report.txt：加载失败不能只剩一张空白
+    // 画布，验收时必须能读出「为什么失败」。
+    QString m_lastLoadError;
     QString m_lastShownPath;   // 上一次完整上屏的路径，用于判断是否触发翻页过渡
     QString m_dragPreviewPath; // 最近一次滑块跟手预览的路径（它的全图落地不算翻页）
     QImage m_sourceImage;      // 文件原始像素，不做任何旋转/翻转/效果（「不旋转」的基准）
@@ -421,7 +436,7 @@ private:
     // 开锁前的缩放方式（0=原始 1=适合窗口 2=适合宽度），-1 表示未记录。
     // 锁定只影响缩放这一维，双页模式不参与记忆。
     int m_zoomModeBeforeLock = -1;
-    bool m_hdrTonemap = false; // HDR 色调映射（命令栏 HDR 钮 / config/hdr_tonemap，默认 false）
+    bool m_hdrTonemap = false; // HDR 色调映射（本版恒 false：入口已移除，loader 口保留）
     int m_interpMode = 1;      // 0 bilinear / 1 bicubic / 2 lanczos
     bool m_slideshow = false;
     bool m_slideshowRandom = false;

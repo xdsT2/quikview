@@ -7,6 +7,7 @@
 #include <QPixmap>
 #include <QPoint>
 #include <QRect>
+#include <QSet>
 #include <QString>
 #include <QVector>
 #include <QWidget>
@@ -14,6 +15,7 @@
 class QTimer;
 class QGraphicsOpacityEffect;
 class QPropertyAnimation;
+class QVariantAnimation;
 class QFocusEvent;
 class QKeyEvent;
 class QWheelEvent;
@@ -45,8 +47,9 @@ struct BtnState {
 
 // 由 ButtonFeedback 推进的绘制插值量（0..1）。
 struct BtnVisual {
-    qreal hover = 0.0;   // 120ms 淡入
-    qreal press = 0.0;   // 90ms，绘制时整体缩放至 94%
+    qreal hover = 0.0;   // 80ms 淡入
+    qreal press = 0.0;   // 65ms 按下 / 100ms 松开；绘制时压暗 + 图标缩至 98%
+    qreal checked = 0.0; // 120ms 选中态切换（锁定图标交叉淡化）
 };
 
 // 系统「减少动画」：QUIKVIEW_REDUCE_MOTION 环境变量优先，其次 Windows 客户端动画设置。
@@ -62,7 +65,8 @@ public:
     explicit ButtonFeedback(QObject *parent = nullptr);
 
     void setHover(int index);      // -1 = 无悬停（会淡出）
-    void setPressed(int index);    // -1 = 松开（会 90ms 恢复，不弹跳）
+    void setPressed(int index);    // -1 = 松开（100ms 恢复，不弹跳）
+    void setChecked(int index, bool on); // 选中态目标（锁定按钮交叉淡化）
     void reset();                  // 立即收回全部状态（禁用 / 失去焦点）
     BtnVisual visual(int index) const;
     int pressedIndex() const { return m_pressed; }
@@ -76,6 +80,7 @@ private:
     void snap();
 
     QHash<int, BtnVisual> m_vals;
+    QSet<int> m_checked;
     int m_hover = -1;
     int m_pressed = -1;
     QTimer *m_timer = nullptr;
@@ -108,16 +113,47 @@ private:
     bool m_shown = false;
 };
 
-// ============================ 标题栏（28px） ============================
-class CaptionBar : public QWidget
+// ==================== 顶部单行工具栏（38px，标题与工具同一行） ====================
+class TopBar : public QWidget
 {
     Q_OBJECT
 public:
-    explicit CaptionBar(QWidget *parent = nullptr);
+    explicit TopBar(QWidget *parent = nullptr);
+
     void setTitle(const QString &title);
+    QString title() const { return m_title; }
+
+    // 三个独立状态中的两个：顶部工具栏锁定 / 图片窗口置顶。
+    // 底栏锁定由 ControlBar 自己持有，三者互不代管。
+    void setTopLocked(bool locked);
+    bool isTopLocked() const { return m_topLocked; }
+    void setPinned(bool pinned);
+    bool isPinned() const { return m_pinned; }
+    void setLayerState(bool available, bool open);
+    bool layersAvailable() const { return m_layersAvailable; }
+
+    // 窄窗收起探针：0打开 1浏览 2幻灯片 3书签 4编辑 5复制到
+    // 6图层 7顶栏锁 8置顶 9三横菜单
+    QVector<int> hiddenActionIds() const;
+    QPoint menuAnchorGlobal() const;
+    QPoint closeAnchorGlobal() const;
+    QPoint actionAnchorGlobal(int id) const;
+
+    // 冒烟取证：按 id 合成 hover / pressed，截图不必依赖真实光标。
+    void probeHover(int id);
+    void probePress(int id);
 
 signals:
-    void fullscreenClicked();
+    void openClicked();
+    void browseMenuRequested(const QPoint &globalPos);
+    void slideshowMenuRequested(const QPoint &globalPos);
+    void bookmarkMenuRequested(const QPoint &globalPos);
+    void editMenuRequested(const QPoint &globalPos);
+    void copytoMenuRequested(const QPoint &globalPos);
+    void layersClicked();
+    void topLockToggled();
+    void pinToggled();
+    void menuRequested(const QPoint &globalPos);
     void minimizeClicked();
     void maximizeClicked();
     void closeClicked();
@@ -131,118 +167,100 @@ protected:
     void mouseDoubleClickEvent(QMouseEvent *event) override;
     void contextMenuEvent(QContextMenuEvent *event) override;
     void leaveEvent(QEvent *event) override;
-    void wheelEvent(QWheelEvent *event) override;
-
-private:
-    QRect buttonRect(int index) const;   // 0=min 1=max 2=close
-    int hitTest(const QPoint &pos) const;
-    QString tipText(int index) const;
-
-    QString m_title;
-    int m_hover = -1;
-    int m_press = -1;
-    ButtonFeedback *m_feedback = nullptr;
-    TooltipHint *m_tip = nullptr;
-};
-
-// ============================ 命令栏（34px） ============================
-class ToolBar : public QWidget
-{
-    Q_OBJECT
-public:
-    explicit ToolBar(QWidget *parent = nullptr);
-    void setShowModeIcon(int index);   // 兼容旧调用，视觉暂不展示模式小图
-    int showModeIcon() const { return m_showModeIcon; }   // 验收探针：确认传进来的是 3/4（双页）还是 0/1/2（缩放）
-    void setLocked(bool locked);
-    bool isLocked() const { return m_locked; }
-    // HDR 色调映射开关（原型 .command.hdr-toggle：44px 文字钮，开时 accent 选中态）
-    void setHdr(bool on);
-    void setLayerState(bool available, bool open);
-    bool isHdr() const { return m_hdr; }
-
-signals:
-    void openClicked();
-    void browseMenuRequested(const QPoint &globalPos);
-    void slideshowMenuRequested(const QPoint &globalPos);
-    void bookmarkMenuRequested(const QPoint &globalPos);
-    void hdrToggled();
-    void editMenuRequested(const QPoint &globalPos);
-    void copytoMenuRequested(const QPoint &globalPos);
-    void lockToggled();
-    void layersClicked();
-    void moreMenuRequested(const QPoint &globalPos);
-
-protected:
-    void paintEvent(QPaintEvent *event) override;
-    void mousePressEvent(QMouseEvent *event) override;
-    void mouseMoveEvent(QMouseEvent *event) override;
-    void mouseReleaseEvent(QMouseEvent *event) override;
-    void leaveEvent(QEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void keyReleaseEvent(QKeyEvent *event) override;
     void focusInEvent(QFocusEvent *event) override;
     void focusOutEvent(QFocusEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
+    // 键盘焦点在顶栏时，方向键/空格必须用于按钮导航，不能被「上一张/下一张」
+    // 等窗口级快捷键抢走；ShortcutOverride 是 Qt 里唯一能在快捷键分发前拦下的钩子。
+    bool event(QEvent *event) override;
 
 private:
+    enum class Action {
+        None, Open, Browse, Slideshow, Bookmark, Edit, CopyTo,
+        Layers, TopLock, Pin, Menu, Minimize, Maximize, Close
+    };
     struct Btn {
-        int id = -1;
-        QString text;
+        Action action = Action::None;
         QRect rect;
-        bool primary = false;
+        QString label;
+        bool iconOnly = true;
         bool caret = false;
+        bool disabled = false;
     };
     QVector<Btn> buttons() const;
     int hitTest(const QPoint &pos) const;
-    void activate(int index, const QPoint &globalPos);
+    void activate(Action action, const QPoint &globalPos);
     void moveFocus(int step);
-    QString tipText(int index) const;
+    QString tipText(Action action) const;
+    static int idForAction(Action action);
+    static Action actionForId(int id);
 
-    int m_hover = -1;
-    int m_press = -1;
-    int m_showModeIcon = 0;
-    bool m_locked = false;
-    bool m_hdr = false;
+    QString m_title;
+    bool m_topLocked = false;
+    bool m_pinned = false;
     bool m_layersAvailable = false;
     bool m_layersOpen = false;
+    int m_hover = -1;
+    int m_press = -1;
+    int m_focus = -1;
+    bool m_keyboardFocus = false;
     ButtonFeedback *m_feedback = nullptr;
     TooltipHint *m_tip = nullptr;
-    int m_focus = -1;            // 键盘焦点所在按钮
-    bool m_keyboardFocus = false; // 焦点是否由键盘进入（决定是否显示焦点环、是否吃空格）
+    // buttons() 每次重算的布局结果（const 方法内写探针/文件名矩形）
+    mutable QVector<int> m_hiddenIds;
+    mutable QRect m_filenameRect;
 };
 
-// ==================== 底部胶囊控制栏（440x72，浮于画布下缘） ====================
+// ==================== 底部控制岛（54px 胶囊，浮于画布下缘 17px） ====================
 class ControlBar : public QWidget
 {
     Q_OBJECT
 public:
     explicit ControlBar(QWidget *parent = nullptr);
-    // 第一行 = 翻页进度（对齐原型 #pageSlider）：current 1-based；total<=0 整行
-    // 不绘制，total<2 滑杆禁用（提示「只有一张图片」）。缩放百分比只由左下
-    // ZoomBadge 呈现，胶囊里不再出现百分比。
+
     void setPage(int current, int total);
-    int page() const { return m_page; }   // 冒烟报告核对滑杆与当前图是否同步
+    int page() const { return m_page; }
     void setLocked(bool locked);
     bool isLocked() const { return m_locked; }
+    // 缩放胶囊独立显示（与目录进度无关）。kind: 0=自定义比例 1=原始 100%
+    // 2=适合窗口；决定悬停提示（下一步操作）与点击切换语义，文案由 MainWindow 同步。
+    void setZoomState(const QString &text, int kind);
+    QString zoomText() const { return m_zoomText; }
+    int zoomKind() const { return m_zoomKind; }
+    // 画布拖动时弱化（不隐藏）。
+    void setWeakened(bool weakened);
+    bool isWeakened() const { return m_weakened; }
+    // 栏内交互 / 进度拖动 / 键盘焦点期间必须保持可见。
+    bool keepVisible() const;
+    // 窗口可用宽度 -> 档位与自身宽度（常规 188 / 窄 119 轨道）。
+    void setAvailableWidth(int width);
+    int preferredWidth() const { return m_preferredWidth; }
+    int trackWidth() const { return m_trackWidth; }
+    QRect sliderRect() const;
+
+    // 冒烟取证：合成 hover / pressed（不依赖真实光标）。
+    void probeHover(int index);
+    void probePress(int index);
 
 signals:
     void openClicked();
     void listClicked();
-    void fitClicked();
     void zoomInClicked();
     void zoomOutClicked();
+    void zoomToggleClicked();   // 缩放胶囊：100% ↔ 适合窗口 循环切换
     void rotateLeftClicked();
     void rotateRightClicked();
+    void fullscreenClicked();
     void lockToggled();
     void prevClicked();
     void nextClicked();
-    void prev10Clicked();       // 右键点 ‹
-    void next10Clicked();       // 右键点 ›
-    void prevFolderClicked();   // 中键点 ‹
-    void nextFolderClicked();   // 中键点 ›
-    void pageRequested(int index);   // 1-based；只在松开滑杆 / 键盘步进时发
-    // 拖动中跟手预览（1-based，节流 ≥60ms）：让经过的每一张都出一帧；
-    // 松手仍只发一次 pageRequested，显式跳转路径不变。
+    void prev10Clicked();
+    void next10Clicked();
+    void prevFolderClicked();
+    void nextFolderClicked();
+    void pageRequested(int index);
     void pagePreviewRequested(int index);
 
 protected:
@@ -256,22 +274,31 @@ protected:
     void keyReleaseEvent(QKeyEvent *event) override;
     void focusInEvent(QFocusEvent *event) override;
     void focusOutEvent(QFocusEvent *event) override;
+    // 同 TopBar：底岛有键盘焦点时方向键用于按钮导航，不触发翻页快捷键。
+    bool event(QEvent *event) override;
 
 private:
     enum class Action {
-        None, Open, List, Fit, RotateLeft, RotateRight,
-        Prev, Next, Lock, ZoomOut, ZoomIn, PageValue, PageSlider
+        None, Open, List, ZoomOut, ZoomValue, ZoomIn,
+        Rotate, Fullscreen, Prev, PageSlider, PageValue, Next, Lock
     };
     struct Item {
         Action action = Action::None;
         QRect rect;
     };
+    enum class Tier { Full, Compact, Narrow, Minimal, Tiny };
+
     QVector<Item> items() const;
-    QVector<Item> layoutItems(QVector<int> *separators) const;  // 唯一布局来源
+    QRect progressRect() const;
+    Tier tier() const;
+    bool showGroup1() const;
+    bool showGroup3() const;
+    bool showZoomButtons() const;
+    void recomputeWidth();
     int hitIndex(const QPoint &pos) const;
-    void activate(Action action);
+    void activate(Action action, Qt::MouseButton button);
     void moveFocus(int step);
-    void applyPageFromX(int x);        // 拖动中只更新视觉，不发 pageRequested
+    void applyPageFromX(int x);
     int sliderPageFromX(int x) const;
     QString tipText(Action action) const;
     bool sliderEnabled() const { return m_pageCount >= 2; }
@@ -280,11 +307,20 @@ private:
     int m_hover = -1;
     int m_press = -1;
     bool m_dragging = false;
-    QElapsedTimer m_previewClock;   // 拖动预览节流（≥60ms 一次）
+    QElapsedTimer m_previewClock;
     bool m_locked = false;
+    bool m_weakened = false;
     int m_page = 1;              // 1-based 当前页
-    int m_pageCount = 0;         // 0 = 未打开（整行不画）；1 = 单张（滑杆禁用）
-    int m_pressPage = 1;         // 按下滑杆时的页码，松开时比较决定是否发信号
+    int m_pageCount = 0;         // 0 = 未打开；1 = 单张（滑杆禁用）
+    int m_pressPage = 1;
+    QString m_zoomText = QStringLiteral("100%");
+    int m_zoomKind = 1;          // 0=自定义比例 1=原始 100% 2=适合窗口
+    // 档位文字交叉淡化：胶囊宽度固定，只做内容淡化，不做伸缩。
+    QString m_prevZoomText;
+    QVariantAnimation *m_zoomFade = nullptr;
+    int m_availableWidth = 2000;
+    int m_preferredWidth = 0;
+    int m_trackWidth = 188;
     ButtonFeedback *m_feedback = nullptr;
     TooltipHint *m_tip = nullptr;
     int m_focus = -1;
@@ -304,6 +340,9 @@ public:
     // 「用小字体显示 EXIF / 文件信息」：底部信息行 11px ↔ 10px。
     void setSmallFont(bool small);
     bool smallFont() const { return m_smallFont; }
+    // 底部控制岛显示时把信息行抬到岛上方，避免被岛压住半行字。
+    void setBottomInset(int inset);
+    int bottomInset() const { return m_bottomInset; }
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -312,6 +351,7 @@ private:
     QString m_info;
     QString m_counter;
     bool m_smallFont = false;
+    int m_bottomInset = 0;
 };
 
 // ============================ 空状态 ============================

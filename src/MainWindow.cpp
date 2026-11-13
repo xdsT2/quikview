@@ -32,6 +32,7 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPixmap>
 #include <QPrintDialog>
@@ -93,9 +94,22 @@ inline short yFromLparam(long v) { return static_cast<short>(HIWORD(v)); }
 #endif
 
 namespace {
-constexpr int kBrowserWidth = 160;   // 缩略图面板宽（20:53：小而随内容）
-constexpr int kBrowserGap = 12;      // 面板与窗口左缘/画布之间的留白
 constexpr int kTopChromeH = 76;      // 标题栏 28 + 命令栏 34 + 视觉留白（仅作面板/浮层定位）
+
+void markTopBarMenu(QMenu *menu)
+{
+    if (menu)
+        menu->setProperty("topBarOwnedPopup", true);
+}
+
+bool isTopBarPopup(QWidget *popup)
+{
+    for (QObject *o = popup; o; o = o->parent()) {
+        if (o->property("topBarOwnedPopup").toBool())
+            return true;
+    }
+    return false;
+}
 
 // 双页拼图：两页等高并排，高度取较高的一页，另一页按比例放大，
 // 避免跨页出现深色竖缝。左←右（漫画式）由调用方调换左右顺序。
@@ -195,7 +209,10 @@ MainWindow::MainWindow(QWidget *parent)
     setWindowFlags(windowFlags() | Qt::FramelessWindowHint);
     setWindowTitle(QStringLiteral("QuikView"));
     resize(1080, 815);
-    setMinimumSize(720, 500);
+    // v2 单行铬件在极窄窗下会把中组、图层、锁、置顶、浏览依次收进三横菜单，
+    // 因此最小尺寸不再需要旧双行布局的 720×500；下限保留到「只留打开、三横菜单、
+    // Windows 三按钮」这一档（顶栏约 332px 自然宽），再小就没有可用画布了。
+    setMinimumSize(360, 260);
     setAcceptDrops(true);
     qApp->installEventFilter(this);
     setMouseTracking(true);
@@ -239,6 +256,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     m_metadata = new MetadataPanel(this);
     m_metadata->hide();                     // 浮动面板，菜单开关
+    // HUD 背板磨砂采样源 = 画布视口（磨砂关时背板走 #242424 实底，不采样）
+    m_metadata->setBackdropSource(m_canvas->viewport());
 
     m_browser = new ThumbnailBrowser(m_cache, this);
     m_browser->hide();
@@ -271,84 +290,79 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_cache, &ImageCache::fullReady, this, &MainWindow::onFullReady);
     connect(m_cache, &ImageCache::loadFailed, this, &MainWindow::onLoadFailed);
 
-    // —— 铬件 ——
-    m_caption = new Chrome::CaptionBar(this);
-    m_caption->setTitle(tr("未打开图片"));
-    connect(m_caption, &Chrome::CaptionBar::fullscreenClicked, this, &MainWindow::toggleFullscreen);
-    connect(m_caption, &Chrome::CaptionBar::minimizeClicked, this, &QWidget::showMinimized);
-    connect(m_caption, &Chrome::CaptionBar::maximizeClicked, this, [this]() {
+    // —— 铬件：38px 单行顶栏 + 54px 底部控制岛 ——
+    m_topBar = new Chrome::TopBar(this);
+    m_topBar->setTitle(tr("未打开图片"));
+    connect(m_topBar, &Chrome::TopBar::openClicked, this, &MainWindow::onOpen);
+    connect(m_topBar, &Chrome::TopBar::browseMenuRequested, this, [this](const QPoint &g) {
+        QMenu *menu = buildBrowseMenu();
+        markTopBarMenu(menu);
+        menu->exec(g);
+        menu->deleteLater();
+    });
+    connect(m_topBar, &Chrome::TopBar::slideshowMenuRequested, this, [this](const QPoint &g) {
+        QMenu *menu = buildSlideshowMenu();
+        markTopBarMenu(menu);
+        menu->exec(g);
+        menu->deleteLater();
+    });
+    connect(m_topBar, &Chrome::TopBar::bookmarkMenuRequested, this, [this](const QPoint &g) {
+        QMenu *menu = buildBookmarkMenu();
+        markTopBarMenu(menu);
+        menu->exec(g);
+        menu->deleteLater();
+    });
+    connect(m_topBar, &Chrome::TopBar::editMenuRequested, this, [this](const QPoint &g) {
+        QMenu *menu = buildEditMenu();
+        markTopBarMenu(menu);
+        menu->exec(g);
+        menu->deleteLater();
+    });
+    connect(m_topBar, &Chrome::TopBar::copytoMenuRequested, this, [this](const QPoint &g) {
+        QMenu *menu = buildCopytoMenu();
+        markTopBarMenu(menu);
+        menu->exec(g);
+        menu->deleteLater();
+    });
+    connect(m_topBar, &Chrome::TopBar::layersClicked, this, &MainWindow::togglePsdLayers);
+    connect(m_topBar, &Chrome::TopBar::topLockToggled, this, &MainWindow::toggleTopLock);
+    connect(m_topBar, &Chrome::TopBar::pinToggled, this, &MainWindow::toggleAlwaysOnTop);
+    connect(m_topBar, &Chrome::TopBar::menuRequested, this, [this](const QPoint &g) {
+        QMenu *menu = buildHamburgerMenu();
+        markTopBarMenu(menu);
+        menu->exec(g);
+        menu->deleteLater();
+    });
+    connect(m_topBar, &Chrome::TopBar::minimizeClicked, this, &QWidget::showMinimized);
+    connect(m_topBar, &Chrome::TopBar::maximizeClicked, this, [this]() {
         isMaximized() ? showNormal() : showMaximized();
     });
-    connect(m_caption, &Chrome::CaptionBar::closeClicked, this, &QWidget::close);
-    connect(m_caption, &Chrome::CaptionBar::systemMenuRequested, this, [this](const QPoint &g) {
+    connect(m_topBar, &Chrome::TopBar::closeClicked, this, &QWidget::close);
+    connect(m_topBar, &Chrome::TopBar::systemMenuRequested, this, [this](const QPoint &g) {
         QMenu *menu = buildSystemMenu();
+        markTopBarMenu(menu);
         if (m_psdDoc.valid()) {
             auto *layers = new QAction(tr("图层"), menu);
             layers->setCheckable(true);
-            layers->setChecked(m_layerPanel->isVisible());
+            layers->setChecked(m_layerPanel && m_layerPanel->isVisible());
             connect(layers, &QAction::triggered, this, &MainWindow::togglePsdLayers);
             menu->insertAction(menu->actions().value(0), layers);
         }
         menu->exec(g);
         menu->deleteLater();
     });
-
-    m_toolbar = new Chrome::ToolBar(this);
-    connect(m_toolbar, &Chrome::ToolBar::layersClicked, this, &MainWindow::togglePsdLayers);
-    connect(m_toolbar, &Chrome::ToolBar::openClicked, this, &MainWindow::onOpen);
-    connect(m_toolbar, &Chrome::ToolBar::browseMenuRequested, this, [this](const QPoint &g) {
-        QMenu *menu = buildBrowseMenu();
-        menu->exec(g);
-        menu->deleteLater();
-    });
-    connect(m_toolbar, &Chrome::ToolBar::slideshowMenuRequested, this, [this](const QPoint &g) {
-        QMenu *menu = buildSlideshowMenu();
-        menu->exec(g);
-        menu->deleteLater();
-    });
-    connect(m_toolbar, &Chrome::ToolBar::bookmarkMenuRequested, this, [this](const QPoint &g) {
-        QMenu *menu = buildBookmarkMenu();
-        menu->exec(g);
-        menu->deleteLater();
-    });
-    connect(m_toolbar, &Chrome::ToolBar::editMenuRequested, this, [this](const QPoint &g) {
-        QMenu *menu = buildEditMenu();
-        menu->exec(g);
-        menu->deleteLater();
-    });
-    connect(m_toolbar, &Chrome::ToolBar::copytoMenuRequested, this, [this](const QPoint &g) {
-        QMenu *menu = buildCopytoMenu();
-        menu->exec(g);
-        menu->deleteLater();
-    });
-    connect(m_toolbar, &Chrome::ToolBar::lockToggled, this, &MainWindow::toggleTopLock);
-    // HDR 色调映射开关（activate 已翻转 isHdr，这里只持久化 + 让当前图走一遍新管线）
-    connect(m_toolbar, &Chrome::ToolBar::hdrToggled, this, [this]() {
-        m_hdrTonemap = m_toolbar->isHdr();
-        Config::instance().settings().setValue(QStringLiteral("config/hdr_tonemap"),
-                                               m_hdrTonemap);
-        m_cache->clearFull();   // 解码输出随开关变化，原图缓存全部失效
-        if (!m_currentPath.isEmpty()) {
-            loadAsync(m_currentPath);
-        }
-        m_toast->showMessage(m_hdrTonemap ? tr("HDR 已开启") : tr("HDR 已关闭"));
-    });
-    m_toolbar->setHdr(Config::instance().hdrTonemap());
-    m_hdrTonemap = Config::instance().hdrTonemap();
-    connect(m_toolbar, &Chrome::ToolBar::moreMenuRequested, this, [this](const QPoint &g) {
-        QMenu *menu = buildSystemMenu();
-        menu->exec(g);
-        menu->deleteLater();
-    });
+    m_hdrTonemap = Config::instance().hdrTonemap();   // 本版恒 false：HDR 入口已移除，旧配置不激活
 
     m_control = new Chrome::ControlBar(this);
+
     connect(m_control, &Chrome::ControlBar::openClicked, this, &MainWindow::onOpen);
     connect(m_control, &Chrome::ControlBar::listClicked, this, &MainWindow::toggleBrowserPanel);
     connect(m_control, &Chrome::ControlBar::zoomInClicked, this, &MainWindow::onZoomIn);
     connect(m_control, &Chrome::ControlBar::zoomOutClicked, this, &MainWindow::onZoomOut);
-    connect(m_control, &Chrome::ControlBar::fitClicked, this, &MainWindow::onFit);
+    connect(m_control, &Chrome::ControlBar::zoomToggleClicked, this, &MainWindow::onZoomCapsuleToggle);
     connect(m_control, &Chrome::ControlBar::rotateLeftClicked, this, &MainWindow::onRotateLeft);
     connect(m_control, &Chrome::ControlBar::rotateRightClicked, this, &MainWindow::onRotateRight);
+    connect(m_control, &Chrome::ControlBar::fullscreenClicked, this, &MainWindow::toggleFullscreen);
     connect(m_control, &Chrome::ControlBar::lockToggled, this, &MainWindow::toggleDockLock);
     connect(m_control, &Chrome::ControlBar::prevClicked, this, &MainWindow::onPrev);
     connect(m_control, &Chrome::ControlBar::nextClicked, this, &MainWindow::onNext);
@@ -409,6 +423,13 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_canvas, &ImageCanvas::mouseActionRequested,
             this, &MainWindow::onMouseAction);
 
+    // 画布拖动时底部控制岛弱化（不隐藏）；松手恢复。
+    connect(m_canvas, &ImageCanvas::panStateChanged, this, [this](bool panning) {
+        if (m_control) {
+            m_control->setWeakened(panning);
+        }
+    });
+
     // 画布缩放联动：左下角浮标 + 浏览方式图标降级（胶囊滑杆已是翻页进度，不再跟随缩放）
     connect(m_canvas, &ImageCanvas::zoomChanged, this, [this](qreal z) {
         // SET-03 即时预览：设置页会话内以运行态覆盖值为准（不写配置）。
@@ -417,6 +438,10 @@ MainWindow::MainWindow(QWidget *parent)
                                   : Config::instance().showZoomControl();
         if (m_zoomBadge && !m_currentImage.isNull() && showZoom) {
             refreshZoomBadge(z);
+        }
+        // 底岛缩放胶囊独立显示（与目录进度无关）：文案与下一步语义跟画布真实状态走。
+        if (m_control) {
+            syncZoomCapsule();
         }
         // 保存缩放状态（键 "config/view/save_zoom_state"）：把当前缩放按路径记下来，
         // 下次打开同一张图时恢复。装图/适配/拖动预览期间的 zoomChanged 是「程序自己
@@ -452,8 +477,7 @@ MainWindow::MainWindow(QWidget *parent)
         animation->setDuration(180);
         animation->setEasingCurve(QEasingCurve::OutCubic);
     };
-    setupFade(m_caption, m_captionOpacity, m_captionFade);
-    setupFade(m_toolbar, m_toolbarOpacity, m_toolbarFade);
+    setupFade(m_topBar, m_captionOpacity, m_captionFade);
     setupFade(m_control, m_dockOpacity, m_dockFade);
 
     // 淡出结束才算 Hidden：动画途中不销毁、不重建、不切控件，避免出现闪烁。
@@ -470,11 +494,8 @@ MainWindow::MainWindow(QWidget *parent)
         const bool hidden = m_captionOpacity
                             && qFuzzyCompare(m_captionOpacity->opacity() + 1.0, 0.0 + 1.0);
         if (hidden) {
-            if (m_caption) {
-                m_caption->hide();
-            }
-            if (m_toolbar) {
-                m_toolbar->hide();
+            if (m_topBar) {
+                m_topBar->hide();
             }
             m_topPhase = ChromePhase::Hidden;
         } else {
@@ -538,7 +559,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::applyChromeLayout()
 {
-    if (!m_canvas || !m_caption) {
+    if (!m_canvas || !m_topBar) {
         return;
     }
     const bool full = isFullScreen();
@@ -548,8 +569,7 @@ void MainWindow::applyChromeLayout()
     const int w = width() - 2 * fw;
     const int h = height() - 2 * fw;
 
-    m_caption->setGeometry(x, y, w, 28);
-    m_toolbar->setGeometry(x, y + 28, w, 34);
+    m_topBar->setGeometry(x, y, w, 38);
     m_canvas->setGeometry(x, y, w, h);
     updateCanvasInsets();
 
@@ -564,8 +584,9 @@ void MainWindow::applyChromeLayout()
         m_statusOverlay->raise();
     }
     if (m_control) {
-        m_control->move(x + (w - m_control->width()) / 2,
-                        y + h - m_control->height() - 19);
+        // 控件高 64 = 54 胶囊 + 10 内绘阴影；胶囊底边距画布底 17px。
+        m_control->setAvailableWidth(w);
+        m_control->move(x + (w - m_control->width()) / 2, y + h - 71);
         m_control->raise();
     }
     if (m_toast) {
@@ -578,29 +599,23 @@ void MainWindow::applyChromeLayout()
         m_zoomBadge->move(x + 12, y + h - m_zoomBadge->height() - 34);
         m_zoomBadge->raise();
     }
-    if (m_browser && m_browser->isVisible()) {
-        // 高度随卡片数量，最多占到窗口底部（面板不再强制满高，也不再为胶囊让位）
-        const int avail = h - 76 - kBrowserGap;
-        m_browser->setGeometry(x + kBrowserGap, y + 76, kBrowserWidth,
-                               qMin(m_browser->preferredHeight(), avail));
-        m_browser->raise();
-    }
-    // 图片信息：左上覆盖层（原型 .info-overlay）。缩略图面板开合跟着横移，
-    // 不遮挡面板（面板右缘 12+160=172，浮层 196 起）；全屏时贴顶 10px。
-    // 宽度是浮层自己算好的自然宽（钳在 280..440）。2026-11-04 定稿：高度就是
-    // 内容自然高，不钳可用高度、不内部滚动——内容比画面高就让画面截断底边
-    // （用户口头修订覆盖工单 1.3 的滚动条款）。
+    if (m_browser)
+        m_browser->place(width(), (m_control ? m_control->y() : y + h) - 8);
+
+    // 图片信息 HUD：设计定稿锚点左上——窗口模式左 16、顶栏(38)下缘 14；
+    // 全屏距左上 12–16（取左 16/上 14）。折叠/切图只改高度，锚点不动。
     if (m_metadata && m_metadata->isVisible()) {
-        const bool browserOpen = m_browser && m_browser->isVisible();
-        const int left = browserOpen ? 196 : 14;
-        const int top = full ? 10 : 70;
+        const int left = 16;
+        const int top = full ? 14 : 52;
+        // HUD 宽度受窗口可用宽约束（极窄窗不画出界），约束变了要重排再取 hint
+        m_metadata->setAvailableWidth(w - left - 8);
         const QSize hint = m_metadata->sizeHint();
         m_metadata->setGeometry(x + left, y + top, hint.width(), hint.height());
         m_metadata->raise();
     }
     if (m_layerPanel && m_layerPanel->isVisible()) {
         const int pw = m_layerPanel->width();
-        const int top = full ? 10 : 70;
+        const int top = full ? 10 : 52;
         // 控制栏淡入时会升到最上层。始终给它留空间，避免图层列表随显隐跳动。
         const int bottom = m_control ? m_control->y() - 8 : y + h - 14;
         const int ph = qMin(m_layerPanel->preferredHeight(), bottom - (y + top));
@@ -608,25 +623,21 @@ void MainWindow::applyChromeLayout()
         m_layerPanel->raise();
     }
 
-    m_caption->raise();
-    m_toolbar->raise();
+    if (m_browser && m_browser->isVisible())
+        m_browser->raise();
+    m_topBar->raise();
 }
 
 // 画布可视区：21:15 交办——图片客户区上下恒为 0，画布直接通顶通底，
 // 顶部栏 / 胶囊 / 左下信息 / 右下序号全部作为浮层覆盖，不占布局。
-// 只有缩略图面板展开时让出左侧（160 + 两侧 12 = 184）。
+// 缩略图栏同样浮在画布上，不改变图片位置或缩放。
 // 注意：这里刻意不看铬件显隐状态，显隐只影响透明度/位移，绝不能反过来改画布几何。
 void MainWindow::updateCanvasInsets()
 {
     if (!m_canvas) {
         return;
     }
-    const bool full = isFullScreen();
-    int left = 0;
-    if (!full && m_browser && m_browser->isVisible()) {
-        left = kBrowserWidth + 2 * kBrowserGap;
-    }
-    const QMargins margins(left, 0, 0, 0);
+    const QMargins margins;
     if (margins == m_canvasInsets) {
         return;
     }
@@ -639,23 +650,12 @@ void MainWindow::toggleBrowserPanel()
     if (!m_browser) {
         return;
     }
-    m_browser->setVisible(!m_browser->isVisible());
-    if (m_browser->isVisible()) {
-        // show 后顶层 layout 会把尺寸拉回 sizeHint，须在显示后重设几何
-        const int fw = isFullScreen() ? 0 : 1;
-        const int avail = height() - 2 * fw - 76 - kBrowserGap;
-        m_browser->setGeometry(fw + kBrowserGap, fw + 76, kBrowserWidth,
-                               qMin(m_browser->preferredHeight(), avail));
-        m_browser->raise();
-    }
-    updateCanvasInsets();
-    applyChromeLayout();            // 面板开合改变浮层避让位置（14/196），浮层开着时必须重排
-    m_canvas->refreshEdgeHover();   // 视口被面板挤压/释放，按真实光标重算箭头
+    m_browser->setExpanded(!m_browser->isExpanded());
 }
 
 void MainWindow::setTopChromeVisible(bool visible, bool animate)
 {
-    if (!m_caption || !m_toolbar) {
+    if (!m_topBar) {
         return;
     }
     m_topVisible = visible;
@@ -695,8 +695,7 @@ void MainWindow::setTopChromeVisible(bool visible, bool animate)
             }
         }
     };
-    apply(m_caption, m_captionOpacity, m_captionFade);
-    apply(m_toolbar, m_toolbarOpacity, m_toolbarFade);
+    apply(m_topBar, m_captionOpacity, m_captionFade);
 }
 
 void MainWindow::setDockVisible(bool visible, bool animate)
@@ -708,6 +707,7 @@ void MainWindow::setDockVisible(bool visible, bool animate)
         visible = false;
     }
     m_dockVisible = visible;
+    applyCounterVisibility();
     if (visible) {
         m_control->setAttribute(Qt::WA_TransparentForMouseEvents, false);
     }
@@ -728,6 +728,9 @@ void MainWindow::setDockVisible(bool visible, bool animate)
     m_dockFade->stop();
     m_dockFade->setStartValue(m_dockOpacity->opacity());
     m_dockFade->setEndValue(visible ? 1.0 : 0.0);
+    // 显隐分速：显示 130ms、隐藏 95ms（退出比进入快约 25%），位置永远不动、只改透明度；
+    // 中断重入时以当前透明度为起点反向（setStartValue 已保证）。减少动效只留 80ms 淡入淡出。
+    m_dockFade->setDuration(Chrome::reducedMotion() ? 80 : (visible ? 130 : 95));
     if (animate && !qFuzzyCompare(m_dockOpacity->opacity(), visible ? 1.0 : 0.0)) {
         m_dockFade->start();
     } else {
@@ -744,8 +747,8 @@ void MainWindow::setDockVisible(bool visible, bool animate)
 void MainWindow::toggleTopLock()
 {
     m_topLocked = !m_topLocked;
-    if (m_toolbar) {
-        m_toolbar->setLocked(m_topLocked);
+    if (m_topBar) {
+        m_topBar->setTopLocked(m_topLocked);
     }
     setTopChromeVisible(true);
     m_topPhase = ChromePhase::Visible;
@@ -792,7 +795,7 @@ void MainWindow::updateChromeProximity()
 // 顶部两条：进入窗口上方 76px 显示，退到 96px 以下才隐藏（20px 滞回）。
 void MainWindow::updateTopProximity()
 {
-    if (!m_caption) {
+    if (!m_topBar) {
         return;
     }
     const QPoint local = probeLocalPoint();
@@ -808,7 +811,11 @@ void MainWindow::updateTopProximity()
     }
 
     const bool shown = (m_topPhase == ChromePhase::Visible || m_topPhase == ChromePhase::Showing);
-    const bool want = inside && local.y() <= (shown ? 96 : 76);
+    // 顶栏菜单弹出后鼠标会离开顶栏热区，此时顶栏必须留在原地，否则菜单会「悬空」。
+    // 键盘焦点在顶栏时同理：方向键导航期间不能淡出。
+    const bool want = isTopBarPopup(QApplication::activePopupWidget())
+                      || m_topBar->hasFocus()
+                      || (inside && local.y() <= (shown ? 96 : 76));
 
     if (want) {
         m_topHideTimer->stop();
@@ -850,10 +857,13 @@ void MainWindow::updateDockProximity()
     const bool overDock = m_control->geometry().adjusted(-12, -12, 12, 12).contains(local);
     const bool shown = (m_dockPhase == ChromePhase::Visible || m_dockPhase == ChromePhase::Showing);
 
+    const bool overFilmstrip = m_browser && m_browser->isExpanded()
+                               && m_browser->geometry().contains(local);
+
     bool want;
-    if (overDock) {
+    if ((overDock && !overFilmstrip) || m_control->keepVisible()) {
         want = true;
-    } else if (!inside) {
+    } else if (!inside || overFilmstrip) {
         want = false;
     } else {
         want = shown ? (local.y() >= height() - 140) : (local.y() >= height() - 124);
@@ -1009,6 +1019,10 @@ void MainWindow::toggleFullscreen()
 void MainWindow::changeEvent(QEvent *event)
 {
     QMainWindow::changeEvent(event);
+    if (event->type() == QEvent::ActivationChange) {
+        // 失焦隐藏（Tab-HUD 设计定稿）：应用失活收起信息 HUD，回前台不自动恢复
+        onActivationChanged(isActiveWindow());
+    }
     if (event->type() == QEvent::WindowStateChange) {
         // 全屏进出：视口几何即将变化，按真实光标重算箭头显隐
         if (m_canvas) {
@@ -1169,17 +1183,15 @@ void MainWindow::createActions()
     auto *toggleInfo = new QAction(this);
     toggleInfo->setShortcut(QKeySequence(Qt::Key_Tab));
     addAction(toggleInfo);
-    connect(toggleInfo, &QAction::triggered, this, [this]() {
-        if (m_psdDoc.valid())
-            togglePsdLayers();
-        else
-            actToggleMeta->toggle();
-    });
-    // 浮层几何依赖可见性（隐藏时 applyChromeLayout 跳过它），显示后要立刻排一次
+    connect(toggleInfo, &QAction::triggered, this, [this]() { onTabPressed(); });
+    // 浮层几何依赖可见性（隐藏时 applyChromeLayout 跳过它），显示后要立刻排一次。
+    // 显示走 showHud（110ms 开启动效），关闭走 dismiss（85ms 淡出）。
     connect(actToggleMeta, &QAction::toggled, this, [this](bool on) {
-        m_metadata->setVisible(on);
         if (on) {
+            m_metadata->showHud();
             applyChromeLayout();
+        } else {
+            m_metadata->dismiss();
         }
     });
     // 面板自带 × 关掉时，把菜单勾选态同步回未勾选，避免「关了还打勾」
@@ -1726,8 +1738,198 @@ QMenu *MainWindow::buildSystemMenu()
     return menu;
 }
 
-// 右键菜单：25 个根项 + 7 组级联（浏览导航/插值算法/图片效果/排序方式/
-// 浏览方式/缩放工具/图像旋转），条目顺序与分隔线位置照抄 contextItems。
+// 三横菜单：完整一级信息架构。每次弹出重建，勾选态全部取真实运行态；
+// 顶栏下拉与三横菜单共用同一批 QAction / 槽，不复制业务逻辑。
+QMenu *MainWindow::buildHamburgerMenu()
+{
+    auto *menu = new QMenu(this);
+
+    // —— 文件 ——
+    menu->addAction(actOpen);
+    menu->addAction(actOpenFolder);
+    menu->addAction(actSaveAs);
+    menu->addSeparator();
+
+    // —— 幻灯片播放 › ——
+    QMenu *slideshow = buildSlideshowMenu();
+    slideshow->setTitle(tr("幻灯片播放"));
+    menu->addMenu(slideshow);
+
+    // —— 书签 › ——
+    QMenu *bookmark = menu->addMenu(tr("书签"));
+    const bool fav = !m_currentPath.isEmpty()
+                     && Config::instance().favorites().contains(m_currentPath);
+    addCheckableItem(bookmark, fav ? tr("取消当前书签") : tr("添加当前书签"),
+                     QStringLiteral("B"), fav, [this]() { onToggleFavorite(); });
+    addMenuItem(bookmark, tr("编辑书签"), QStringLiteral("F3"), [this]() { onEditBookmarks(); });
+    bookmark->addSeparator();
+    addMenuItem(bookmark, tr("删除所有书签"), QString(), [this]() {
+        Config::instance().settings().setValue(QStringLiteral("favorites"), QStringList());
+        refreshLibraryMenus();
+        m_toast->showMessage(tr("已删除所有书签"));
+    });
+    addMenuItem(bookmark, tr("书签设置"), QString(), [this]() { onSettings(); });
+    UiStyle::polishMenu(bookmark);
+
+    // —— 编辑与转换 › ——
+    QMenu *edit = menu->addMenu(tr("编辑与转换"));
+    edit->addAction(actCrop);
+    edit->addAction(actResize);
+    edit->addSeparator();
+    actNegative->setChecked(m_negative);
+    edit->addAction(actNegative);
+    edit->addAction(actGamma);
+    edit->addAction(actFlipV);
+    edit->addAction(actFlipH);
+    edit->addSeparator();
+    addMenuItem(edit, tr("转换图片 (旋转/裁剪)"), QStringLiteral("Ctrl+T"),
+                [this]() { onBatchConvert(); });
+    edit->addAction(actWallpaper);
+    edit->addAction(actPrint);
+    edit->addAction(actOpenWithEditor);
+    UiStyle::polishMenu(edit);
+
+    // —— 复制到 › ——
+    QMenu *copyto = buildCopytoMenu();
+    copyto->setTitle(tr("复制到"));
+    if (Config::instance().contextCopy()) {
+        copyto->addSeparator();
+        copyto->addAction(actCopyToClipboard);
+    }
+    menu->addMenu(copyto);
+    menu->addSeparator();
+
+    // —— 浏览与显示 › ——
+    QMenu *view = menu->addMenu(tr("浏览与显示"));
+    addCheckableItem(view, tr("缩略图"), QString(),
+                     m_browser && m_browser->isExpanded(), [this]() { toggleBrowserPanel(); });
+    view->addSeparator();
+    view->addAction(actPrev);
+    view->addAction(actNext);
+    addMenuItem(view, tr("首张图片"), QStringLiteral("Home"), [this]() { onFirst(); });
+    addMenuItem(view, tr("末尾图片"), QStringLiteral("End"), [this]() { onLast(); });
+    addMenuItem(view, tr("向下 10 张图片"), QStringLiteral("Ctrl+PageDown"),
+                [this]() { onNext10(); });
+    addMenuItem(view, tr("向上 10 张图片"), QStringLiteral("Ctrl+PageUp"),
+                [this]() { onPrev10(); });
+    addMenuItem(view, tr("向后随机转到某张图片"), QStringLiteral("Ctrl+Alt+PageDown"),
+                [this]() { onJumpRandom(true); });
+    addMenuItem(view, tr("向前随机转到某张图片"), QStringLiteral("Ctrl+Alt+PageUp"),
+                [this]() { onJumpRandom(false); });
+    addMenuItem(view, tr("下一个文件夹"), QStringLiteral("]"), [this]() { onNextFolder(); });
+    addMenuItem(view, tr("上一个文件夹"), QStringLiteral("["), [this]() { onPrevFolder(); });
+    view->addSeparator();
+    view->addAction(actPrevFrame);
+    view->addAction(actNextFrame);
+    addCheckableItem(view, tr("EXIF 信息"), QStringLiteral("Tab"),
+                     m_metadata && m_metadata->isVisible(), [this]() {
+        actToggleMeta->setChecked(!(m_metadata && m_metadata->isVisible()));
+    });
+    QAction *layers = addCheckableItem(view, tr("图层"), QString(),
+                                       m_layerPanel && m_layerPanel->isVisible(),
+                                       [this]() { togglePsdLayers(); });
+    layers->setEnabled(m_psdDoc.valid());
+    addMenuItem(view, tr("全屏"), QStringLiteral("F11"), [this]() { toggleFullscreen(); });
+    UiStyle::polishMenu(view);
+
+    // —— 浏览与显示的参数 › ——
+    QMenu *params = menu->addMenu(tr("浏览与显示的参数"));
+
+    QMenu *show = params->addMenu(tr("浏览方式"));
+    syncViewModeActions();
+    show->addAction(actActualSize);
+    show->addAction(actFit);
+    show->addAction(actFitWidth);
+    show->addAction(actTwoL2R);
+    show->addAction(actTwoR2L);
+    actStretchSmall->setChecked(Config::instance().stretchSmall());
+    show->addAction(actStretchSmall);
+    UiStyle::polishMenu(show);
+
+    QMenu *zoom = params->addMenu(tr("缩放"));
+    addMenuItem(zoom, tr("放大"), QStringLiteral("+"), [this]() { onZoomIn(); });
+    addMenuItem(zoom, tr("缩小"), QStringLiteral("−"), [this]() { onZoomOut(); });
+    addMenuItem(zoom, tr("100%"), QString(), [this]() { setZoomMode(0); });
+    addMenuItem(zoom, tr("放大 (1%)"), QStringLiteral("Ctrl++"), [this]() {
+        if (!m_currentImage.isNull()) {
+            m_canvas->setZoom(m_canvas->zoom() + 0.01);
+        }
+    });
+    addMenuItem(zoom, tr("缩小 (1%)"), QStringLiteral("Ctrl+−"), [this]() {
+        if (!m_currentImage.isNull()) {
+            m_canvas->setZoom(m_canvas->zoom() - 0.01);
+        }
+    });
+    actZoomLock->setChecked(m_zoomLocked);
+    zoom->addAction(actZoomLock);
+    UiStyle::polishMenu(zoom);
+
+    QMenu *rot = params->addMenu(tr("旋转"));
+    addCheckableItem(rot, tr("不旋转"), QStringLiteral("Alt+Up"),
+                     m_netRotation == 0 && !m_flipH && !m_flipV, [this]() { resetGeometry(); });
+    rot->addAction(actRotateLeft);
+    rot->addAction(actRotateRight);
+    addMenuItem(rot, tr("旋转 180°"), QStringLiteral("Alt+Down"), [this]() { rotateImage(180); });
+    UiStyle::polishMenu(rot);
+
+    QMenu *sort = params->addMenu(tr("排序方式"));
+    const int sortMode = Config::instance().sortMode();
+    actSortName->setChecked(sortMode == 0);
+    actSortTime->setChecked(sortMode == 1);
+    actSortSize->setChecked(sortMode == 2);
+    actSortType->setChecked(sortMode == 3);
+    actSortDesc->setChecked(Config::instance().sortDescending());
+    sort->addAction(actSortName);
+    sort->addAction(actSortTime);
+    sort->addAction(actSortSize);
+    sort->addAction(actSortType);
+    sort->addSeparator();
+    sort->addAction(actSortDesc);
+    UiStyle::polishMenu(sort);
+
+    QMenu *fx = params->addMenu(tr("显示效果"));
+    fx->addAction(actEffectNone);
+    fx->addAction(actEffectSoften);
+    fx->addAction(actEffectSharpen);
+    UiStyle::polishMenu(fx);
+
+    QMenu *interp = params->addMenu(tr("插值算法"));
+    actInterpFast->setChecked(m_interpMode == 0);
+    actInterpSmooth->setChecked(m_interpMode == 1);
+    actInterpLanczos->setChecked(m_interpMode == 2);
+    interp->addAction(actInterpFast);
+    interp->addAction(actInterpSmooth);
+    interp->addAction(actInterpLanczos);
+    UiStyle::polishMenu(interp);
+
+    // HDR 色调映射入口已移除（批次 1）：开关只对部分高位深图生效却提示
+    // 「HDR 已开启」，与实际不符；Config::hdrTonemap() 恒 false，旧配置不激活。
+    UiStyle::polishMenu(params);
+    menu->addSeparator();
+
+    // —— 窗口与应用 ——
+    syncThemeActions();
+    menu->addAction(actDark);
+    addCheckableItem(menu, tr("保持顶部工具栏显示"), QString(), m_topLocked,
+                     [this]() { toggleTopLock(); });
+    addCheckableItem(menu, tr("保持底部控制栏显示"), QString(), m_dockLocked,
+                     [this]() { toggleDockLock(); });
+    actAlwaysOnTop->setChecked(actualTopmost());
+    menu->addAction(actAlwaysOnTop);
+    menu->addSeparator();
+    menu->addAction(actSettings);
+    menu->addAction(actAbout);
+    menu->addSeparator();
+
+    // —— 危险操作 ——
+    menu->addAction(actDelete);
+    menu->addSeparator();
+    menu->addAction(actQuit);
+
+    UiStyle::polishMenu(menu);
+    return menu;
+}
+
 QMenu *MainWindow::buildContextMenu()
 {
     auto *menu = new QMenu(this);
@@ -1904,6 +2106,10 @@ void MainWindow::applyRuntimeSettings()
     const bool wantTop = cfg.alwaysOnTop();
     if (actualTopmost() != wantTop)
         applyTopmost(wantTop);
+    // 图钉只读真实原生置顶带，与菜单勾选共用同一真值。
+    if (m_topBar) {
+        m_topBar->setPinned(actualTopmost());
+    }
 
     setInterpolationMode(cfg.interpolation());
     m_canvas->setStretchSmall(cfg.stretchSmall());
@@ -1946,8 +2152,6 @@ void MainWindow::applyRuntimeSettings()
                                        .value(QStringLiteral("config/view/show_side_arrow"), true)
                                        .toBool());
 
-    // 缩略图预览尺寸按 20:53 交办固定 128×128（面板 160 宽），
-    // 设置里的「缩略图大小」项暂时不再影响面板，等确认后再决定是否从设置页移除。
 
     m_dir->setEdgeAction(cfg.edgeAction());
 
@@ -2008,6 +2212,9 @@ void MainWindow::toggleAlwaysOnTop()
             const QSignalBlocker block(actAlwaysOnTop);
             actAlwaysOnTop->setChecked(real);
         }
+    }
+    if (m_topBar) {
+        m_topBar->setPinned(actualTopmost());
     }
     m_toast->showMessage(actualTopmost()
                              ? tr("总在最前端：开") : tr("总在最前端：关"));
@@ -2103,7 +2310,7 @@ void MainWindow::setupPsdDocument(const QString &path)
     for (const PsdLayer &L : m_psdDoc.layers)
         m_psdVisible.append(L.visible);   // 从文件保存的可见性重新初始化
     m_psdPreviewIndex = -1;
-    m_toolbar->setLayerState(m_psdDoc.valid(), false);
+    m_topBar->setLayerState(m_psdDoc.valid(), false);
     if (m_layerPanel) {
         m_layerPanel->hide();
         m_layerPanel->setDocument(m_psdDoc, m_psdVisible, -1, false);
@@ -2116,7 +2323,7 @@ void MainWindow::clearPsdDocument()
     m_psdPath.clear();
     m_psdVisible.clear();
     m_psdPreviewIndex = -1;
-    m_toolbar->setLayerState(false, false);
+    m_topBar->setLayerState(false, false);
     if (m_layerPanel) m_layerPanel->hide();
 }
 
@@ -2137,7 +2344,7 @@ void MainWindow::togglePsdLayers()
         return;
     const bool open = !m_layerPanel->isVisible();
     m_layerPanel->setVisible(open);
-    m_toolbar->setLayerState(true, open);
+    m_topBar->setLayerState(true, open);
     if (!open && m_psdPreviewIndex >= 0) {
         m_psdPreviewIndex = -1;
         refreshPsdView();
@@ -2231,6 +2438,12 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error)
         return;
     }
     QString lastErr = rawErr.isEmpty() ? heifErr : rawErr;
+    // 加载失败必须留下可读证据：空白画布本身不带任何诊断信息。
+    // --smoke loadreport 会把这段连同 supportedImageFormats() 一起落盘。
+    m_lastLoadError = QStringLiteral("path=%1 | qimage=%2 | fallback=%3")
+                          .arg(path,
+                               error.isEmpty() ? QStringLiteral("(empty)") : error,
+                               lastErr.isEmpty() ? QStringLiteral("(empty)") : lastErr);
     m_toast->showMessage(tr("无法打开：%1").arg(lastErr.isEmpty() ? error : lastErr));
 }
 
@@ -2244,7 +2457,7 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     if (preview) {
         m_canvas->setPixmap(QPixmap::fromImage(image));
         setWindowTitle(QFileInfo(path).fileName() + QStringLiteral(" - QuikView"));
-        m_caption->setTitle(QFileInfo(path).fileName());
+        m_topBar->setTitle(QFileInfo(path).fileName());
         m_zoomSaveGuard = false;
         return;
     }
@@ -2254,6 +2467,8 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     // 「使用图片文件的 ICC 设置」（键 "config/imageproc/image_icc"）：带内嵌
     // 非 sRGB ICC 的图（Display P3 / AdobeRGB）先转到 sRGB；无 ICC 或已是 sRGB
     // 的图原样直通，普通截图的像素不受影响。
+    // 成功上屏即清空上一次的失败记录，loadreport 才不会被旧错误污染。
+    m_lastLoadError.clear();
     const bool icc = Config::instance().imageIcc();
     auto toSrgb = [icc](QImage img) {
         if (!icc) {
@@ -2312,7 +2527,8 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     const bool pageTurn = !fromDragPreview && !m_lastShownPath.isEmpty()
                           && m_lastShownPath != path;
     m_lastShownPath = path;
-    if (pageTurn && pageFx > 0 && !m_zoomLocked) {
+    // 减少动效：切图直接完成，只保留选中描边等颜色/文字状态反馈。
+    if (pageTurn && pageFx > 0 && !m_zoomLocked && !Chrome::reducedMotion()) {
         m_canvas->setPixmapAnimated(QPixmap::fromImage(display), pageFx, /*fitAfter=*/false);
     } else {
         m_canvas->setPixmap(QPixmap::fromImage(display), /*fitAfter=*/false);
@@ -2355,7 +2571,7 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     applyChromeLayout();
     m_browser->setCurrent(m_dir->index());
     setWindowTitle(QFileInfo(path).fileName() + QStringLiteral(" - QuikView"));
-    m_caption->setTitle(QFileInfo(path).fileName());
+    m_topBar->setTitle(QFileInfo(path).fileName());
     m_frames->open(path);
     // 动图打开即自动播放（P0：仅 GIF）；换到静态图 / 多页 TIFF / 双页模式则停。
     // 这里不弹 toast（自动行为不打扰），空格切换时才提示。
@@ -2486,19 +2702,28 @@ void MainWindow::updateInfoOverlay()
         const QStringList files = m_dir->files();
         const int index = m_dir->index();
         if (!files.isEmpty() && index >= 0) {
-            m_statusOverlay->setCounter(
-                QStringLiteral("%1 / %2").arg(index + 1).arg(files.size()));
+            m_pendingCounter =
+                QStringLiteral("%1 / %2").arg(index + 1).arg(files.size());
         } else {
-            m_statusOverlay->setCounter(QString());
+            m_pendingCounter.clear();
         }
     }
+    applyCounterVisibility();
+}
+
+// 左下图片信息与右下页码属于固定状态层：悬浮岛出现、淡入或锁定时都不改
+// 基线，也不把页码切走。岛本身维持既定位置和内容。
+void MainWindow::applyCounterVisibility()
+{
+    if (!m_statusOverlay) return;
+    m_statusOverlay->setCounter(m_pendingCounter);
 }
 
 void MainWindow::updateStatus(const QString &path)
 {
     // 状态并入标题栏（原版无状态栏）
     setWindowTitle(QFileInfo(path).fileName() + QStringLiteral(" - QuikView"));
-    m_caption->setTitle(QFileInfo(path).fileName());
+    m_topBar->setTitle(QFileInfo(path).fileName());
 }
 
 void MainWindow::onActivateImage(int index)
@@ -2519,6 +2744,40 @@ void MainWindow::onFitWidth()  { setZoomMode(2); }
 void MainWindow::onActualSize() { setZoomMode(0); }
 void MainWindow::onZoomIn()    { m_canvas->zoomIn(); }
 void MainWindow::onZoomOut()   { m_canvas->zoomOut(); }
+
+// 底岛缩放胶囊点击：任何非 100% 的状态第一步都回原始尺寸，之后在
+// 100% ↔ 适合窗口 之间循环（42% → 100% → 适合 → 100% → …）。
+// 状态真源是画布标志（与左下缩放浮标同源）：滚轮手动缩放后胶囊跟实际画面走。
+void MainWindow::onZoomCapsuleToggle()
+{
+    if (!m_canvas || m_currentImage.isNull()) {
+        return;
+    }
+    if (!m_canvas->isFitToWindow() && !m_canvas->isFitToWidth()
+        && qFuzzyCompare(m_canvas->zoom(), 1.0)) {
+        setZoomMode(1);   // 100% → 适合窗口
+    } else {
+        setZoomMode(0);   // 自定义比例 / 适合宽度 → 100%
+    }
+}
+
+// 底岛缩放胶囊与画布真实状态对表：text=显示文案，kind=下一步语义
+// （0=自定义比例 1=原始 100% 2=适合窗口）。不读 m_zoomMode——滚轮只是临时
+// 偏离，胶囊只负责准确反映当前画面。
+void MainWindow::syncZoomCapsule()
+{
+    if (!m_control || !m_canvas) {
+        return;
+    }
+    const qreal z = m_canvas->zoom();
+    if (m_canvas->isFitToWindow()) {
+        m_control->setZoomState(tr("适合"), 2);
+    } else if (!m_canvas->isFitToWidth() && qFuzzyCompare(z, 1.0)) {
+        m_control->setZoomState(QStringLiteral("100%"), 1);
+    } else {
+        m_control->setZoomState(QStringLiteral("%1%").arg(qRound(z * 100.0)), 0);
+    }
+}
 
 // 缩放维度统一入口：0=原始 1=适合窗口 2=适合宽度。只改缩放，不动双页。
 void MainWindow::setZoomMode(int mode)
@@ -2548,6 +2807,9 @@ void MainWindow::applyCurrentZoom()
         m_canvas->fitToWindow();
         break;
     }
+    // 缩放方式落定后对表底岛胶囊：若新比例与之前相同（如本就 100%），画布不发
+    // zoomChanged，这里必须主动同步，否则胶囊的文案与下一步语义会停在旧状态。
+    syncZoomCapsule();
 }
 
 // 硬规则：菜单勾选、画面、内部状态三者同步。任何改状态的地方都调它。
@@ -2572,9 +2834,7 @@ void MainWindow::syncViewModeActions()
 
 void MainWindow::updateShowModeIcon()
 {
-    if (m_toolbar) {
-        m_toolbar->setShowModeIcon(m_spreadMode != 0 ? m_spreadMode : m_zoomMode);
-    }
+    // v2 单行顶栏不再展示浏览方式小图；保留调用点，避免既有装图流程分叉。
 }
 
 // 冒烟自动化：单命令驱动（--smoke next10 等）。命令在首图就绪后由 main() 调度。
@@ -2593,6 +2853,16 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     else if (c == QLatin1String("fit"))        setZoomMode(1);
     else if (c == QLatin1String("fitwidth"))   setZoomMode(2);
     else if (c == QLatin1String("actual"))     setZoomMode(0);
+    // zoomtoggle —— 触发底岛缩放胶囊的点击循环（验收 42%→100%→适合 状态机）
+    else if (c == QLatin1String("zoomtoggle")) onZoomCapsuleToggle();
+    // focusdock —— 测试: 给底岛键盘焦点（Tab 已是信息面板快捷键, 真实用户到不了
+    // 这里；Enter/Space 激活路径本身仍要可测）。岛隐藏时 setFocus 不生效，先显岛。
+    else if (c == QLatin1String("focusdock")) {
+        if (m_control) {
+            setDockVisible(true, false);
+            m_control->setFocus(Qt::TabFocusReason);
+        }
+    }
     else if (c == QLatin1String("zoomin"))     onZoomIn();
     else if (c == QLatin1String("zoomout"))    onZoomOut();
     else if (c == QLatin1String("rotateleft")) onRotateLeft();
@@ -2626,8 +2896,144 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     else if (c == QLatin1String("browser")) {
         toggleBrowserPanel();
     }
+    else if (c == QLatin1String("filmright")) {
+        QKeyEvent event(QEvent::KeyPress, Qt::Key_Right, Qt::NoModifier);
+        QApplication::sendEvent(m_canvas, &event);
+    }
+    else if (c == QLatin1String("filmclick") && m_browser->isExpanded()) {
+        const QPointF local(25, m_browser->height() / 2);
+        const QPointF global(m_browser->mapToGlobal(local.toPoint()));
+        QMouseEvent press(QEvent::MouseButtonPress, local, global,
+                          Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        QMouseEvent release(QEvent::MouseButtonRelease, local, global,
+                            Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+        QApplication::sendEvent(m_browser, &press);
+        QApplication::sendEvent(m_browser, &release);
+    }
+    else if (c.startsWith(QLatin1String("filmwheel:")) && m_browser->isExpanded()) {
+        const QPointF local = m_browser->rect().center();
+        const int delta = c.mid(10).toInt();
+        QWheelEvent event(local, m_browser->mapToGlobal(local.toPoint()), QPoint(),
+                          QPoint(0, delta), Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+        QApplication::sendEvent(m_browser, &event);
+    }
     else if (c == QLatin1String("locktop")) { if (!m_topLocked) toggleTopLock(); }
     else if (c == QLatin1String("lockdock")) { if (!m_dockLocked) toggleDockLock(); }
+    else if (c == QLatin1String("unlocktop")) { if (m_topLocked) toggleTopLock(); }
+    else if (c == QLatin1String("unlockdock")) { if (m_dockLocked) toggleDockLock(); }
+    else if (c == QLatin1String("pin")) { toggleAlwaysOnTop(); }
+    else if (c == QLatin1String("hamburger")) {
+        QMenu *menu = buildHamburgerMenu();
+        markTopBarMenu(menu);
+        menu->setAttribute(Qt::WA_DeleteOnClose);
+        menu->popup(m_topBar ? m_topBar->menuAnchorGlobal()
+                             : mapToGlobal(QPoint(width() - 120, 20)));
+    }
+    else if (c.startsWith(QLatin1String("tophover:"))) {
+        if (m_topBar) m_topBar->probeHover(c.mid(9).toInt());
+    }
+    else if (c.startsWith(QLatin1String("toppress:"))) {
+        if (m_topBar) m_topBar->probePress(c.mid(9).toInt());
+    }
+    else if (c == QLatin1String("topclosehover")) {
+        if (m_topBar) m_topBar->probeHover(12);
+    }
+    else if (c.startsWith(QLatin1String("ctrlhover:"))) {
+        if (m_control) m_control->probeHover(c.mid(10).toInt());
+    }
+    else if (c.startsWith(QLatin1String("ctrlpress:"))) {
+        if (m_control) m_control->probePress(c.mid(10).toInt());
+    }
+    // topfocus / ctrlfocus —— 键盘聚焦铬件并右移一格，验证焦点态与「聚焦不淡出」。
+    else if (c == QLatin1String("topfocus") || c == QLatin1String("ctrlfocus")) {
+        if (c == QLatin1String("topfocus")) {
+            setTopChromeVisible(true, false);
+            m_topPhase = ChromePhase::Visible;
+            m_topHideTimer->stop();
+            if (m_topBar) {
+                m_topBar->setFocus(Qt::TabFocusReason);
+                QKeyEvent ev(QEvent::KeyPress, Qt::Key_Right, Qt::NoModifier);
+                QApplication::sendEvent(m_topBar, &ev);
+            }
+        } else {
+            setDockVisible(true, false);
+            m_dockPhase = ChromePhase::Visible;
+            m_dockHideTimer->stop();
+            if (m_control) {
+                m_control->setFocus(Qt::TabFocusReason);
+                QKeyEvent ev(QEvent::KeyPress, Qt::Key_Right, Qt::NoModifier);
+                QApplication::sendEvent(m_control, &ev);
+            }
+        }
+    }
+    // panstart/panend —— 用真实鼠标事件驱动画布左键拖动，验证底岛「拖动图片时弱化」。
+    else if (c == QLatin1String("panstart") || c == QLatin1String("panend")) {
+        if (!m_canvas) {
+            return;
+        }
+        QWidget *vp = m_canvas->viewport();
+        const QPoint p = vp->rect().center();
+        if (c == QLatin1String("panstart")) {
+            QMouseEvent press(QEvent::MouseButtonPress, QPointF(p),
+                              QPointF(vp->mapToGlobal(p)), Qt::LeftButton,
+                              Qt::LeftButton, Qt::NoModifier);
+            QApplication::sendEvent(vp, &press);
+            const QPoint p2 = p + QPoint(10, 10);
+            QMouseEvent move(QEvent::MouseMove, QPointF(p2),
+                             QPointF(vp->mapToGlobal(p2)), Qt::NoButton,
+                             Qt::LeftButton, Qt::NoModifier);
+            QApplication::sendEvent(vp, &move);
+        } else {
+            QMouseEvent release(QEvent::MouseButtonRelease, QPointF(p),
+                                QPointF(vp->mapToGlobal(p)), Qt::LeftButton,
+                                Qt::NoButton, Qt::NoModifier);
+            QApplication::sendEvent(vp, &release);
+        }
+    }
+    else if (c == QLatin1String("ctrldragstart") || c.startsWith(QLatin1String("ctrldragto:"))
+             || c == QLatin1String("ctrldragend")) {
+        // 用真实 QMouseEvent 驱动底岛滑杆：按下 / 拖动 / 松手走同一条业务路径。
+        if (!m_control) {
+            return;
+        }
+        setDockVisible(true, false);
+        m_dockPhase = ChromePhase::Visible;
+        const QRect track = m_control->sliderRect();
+        const int total = qMax(2, m_dir ? m_dir->count() : 2);
+        const int target = c.startsWith(QLatin1String("ctrldragto:"))
+                               ? qBound(1, c.mid(11).toInt(), total)
+                               : m_control->page();
+        const qreal ratio = (target - 1) / qreal(total - 1);
+        const int x = track.left() + 7 + qRound(ratio * qMax(1, track.width() - 14));
+        const QPoint pos(x, track.center().y());
+        if (c == QLatin1String("ctrldragstart")) {
+            QMouseEvent ev(QEvent::MouseButtonPress, QPointF(pos),
+                           QPointF(m_control->mapToGlobal(pos)), Qt::LeftButton,
+                           Qt::LeftButton, Qt::NoModifier);
+            QApplication::sendEvent(m_control, &ev);
+        } else if (c == QLatin1String("ctrldragend")) {
+            QMouseEvent ev(QEvent::MouseButtonRelease, QPointF(pos),
+                           QPointF(m_control->mapToGlobal(pos)), Qt::LeftButton,
+                           Qt::NoButton, Qt::NoModifier);
+            QApplication::sendEvent(m_control, &ev);
+        } else {
+            QMouseEvent ev(QEvent::MouseMove, QPointF(pos),
+                           QPointF(m_control->mapToGlobal(pos)), Qt::NoButton,
+                           Qt::LeftButton, Qt::NoModifier);
+            QApplication::sendEvent(m_control, &ev);
+        }
+    }
+    else if (c == QLatin1String("layers")) { togglePsdLayers(); }
+    else if (c.startsWith(QLatin1String("theme:"))) {
+        const QString mode = c.mid(6);
+        Config::instance().settings().setValue(QStringLiteral("config/theme"), mode);
+        Theme::applySetting(*qApp, mode);
+        refreshThemeSurfaces();
+        if (m_topBar) m_topBar->update();
+        if (m_control) m_control->update();
+        if (m_statusOverlay) m_statusOverlay->update();
+        update();
+    }
     // 图像效果 / 几何（第一批功能验收用）
     else if (c == QLatin1String("negative")) { onNegative(); }
     else if (c.startsWith(QLatin1String("gamma:"))) {
@@ -2665,6 +3071,7 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         m_dir->setEdgeAction(edge);
     }
     else if (c == QLatin1String("fullscreen")) toggleFullscreen();
+    else if (c == QLatin1String("maximize")) { isMaximized() ? showNormal() : showMaximized(); }
     // wheel:slider|bar:up|down[:ctrl] —— 合成一次滚轮事件，验证「滑杆上滚翻页 / 其余位置缩放 / Ctrl 保留缩放」。
     // 外部注入滚轮要过 DPI 与消息循环，结果不可复现；这里直接把事件送到胶囊，判定只依赖胶囊自身逻辑。
     else if (c.startsWith(QLatin1String("wheel:"))) {
@@ -2701,6 +3108,37 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         dlg->setAttribute(Qt::WA_DeleteOnClose);
         dlg->show();
     }
+    // opendialog:<file> —— 「文件 → 打开」链路的验收探针。
+    // 原生 Windows 对话框无法在无桌面交互的会话里脚本化，这里用同一个
+    // QFileDialog 的非原生模式（选择器语义一致），确认后仍落回 onOpen 使用的
+    // 同一个 openFileFitting()，只验证「选择器 → 打开 → 上屏」这段接线。
+    else if (c.startsWith(QLatin1String("opendialog:"))) {
+        const QString file = c.mid(11);
+        QFileDialog dlg(this, tr("打开图片"));
+        dlg.setOption(QFileDialog::DontUseNativeDialog, true);
+        dlg.setFileMode(QFileDialog::ExistingFile);
+        dlg.setNameFilter(DirectoryLoader::imageFilter());
+        dlg.setDirectory(QFileInfo(file).absolutePath());
+        dlg.selectFile(file);
+        QTimer::singleShot(400, &dlg, [&dlg, file]() {
+            dlg.selectFile(file);
+            // accept() 是 protected slot：走元对象系统调用，等价于用户点「打开」
+            QMetaObject::invokeMethod(&dlg, "accept", Qt::DirectConnection);
+        });
+        if (dlg.exec() == QDialog::Accepted && !dlg.selectedFiles().isEmpty()) {
+            openFileFitting(dlg.selectedFiles().first());
+        }
+    }
+    // settingscombo:<page>:<index> —— 切页并展开第 index 个可见下拉。
+    // 顶栏回归的验收点：下拉是「设置对话框」的 popup，不是 TopBar 自有菜单，
+    // 展开期间主窗口顶栏必须保持隐藏。
+    else if (c.startsWith(QLatin1String("settingscombo:"))) {
+        const QStringList a = c.mid(14).split(QLatin1Char(':'));
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        dlg->probeOpenCombo(a.value(0).toInt(), a.value(1).toInt());
+    }
     // 视觉回归探针：打开设置并切到指定页（settingspage:<序号>，0=一般）。
     // 不新增 SettingsDialog 接口——导航项就是带 objectName 的 QPushButton，点它等价于用户点击。
     // 「关于」按钮也挂 navItem，按文案排除后再取第 N 个，顺序与页面注册顺序一致。
@@ -2732,6 +3170,40 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                 navs.at(index)->click();
             }
         });
+    }
+    // menudump —— 把三横菜单的完整信息架构（含二级菜单、快捷键、勾选/可用态）
+    // 追加到 Temp/v2-menu.txt，供逐项核对；不弹菜单、不点任何业务槽。
+    else if (c == QLatin1String("menudump")) {
+        QFile f(QStringLiteral("Temp/v2-menu.txt"));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            std::function<void(QMenu *, int)> dump = [&](QMenu *menu, int depth) {
+                for (QAction *a : menu->actions()) {
+                    const QString pad(depth * 2, QLatin1Char(' '));
+                    if (a->isSeparator()) {
+                        ts << pad << "----\n";
+                        continue;
+                    }
+                    ts << pad << (a->isChecked() ? "[x] " : "[ ] ") << a->text();
+                    if (!a->shortcut().isEmpty()) {
+                        ts << "  <" << a->shortcut().toString(QKeySequence::NativeText) << '>';
+                    }
+                    if (!a->isEnabled()) {
+                        ts << "  (disabled)";
+                    }
+                    if (a->isCheckable()) {
+                        ts << "  (checkable)";
+                    }
+                    ts << '\n';
+                    if (a->menu()) {
+                        dump(a->menu(), depth + 1);
+                    }
+                }
+            };
+            QMenu *menu = buildHamburgerMenu();
+            dump(menu, 0);
+            menu->deleteLater();
+        }
     }
     // scheme:light|dark —— 仅验收用：覆盖应用级 colorScheme，模拟 Windows 深浅色
     // 变化（不动系统设置，不污染用户桌面）。配合 theme=system 验证「跟随系统」：
@@ -3011,18 +3483,44 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         }
     }
     else if (c == QLatin1String("info")) {
-        if (m_metadata) {
-            m_metadata->show();
-            m_metadata->raise();
-            applyChromeLayout();
+        // 直开信息 HUD：走 actToggleMeta 真实链路（动效/几何/菜单勾选同 Tab 开）
+        if (actToggleMeta && !actToggleMeta->isChecked()) {
+            actToggleMeta->setChecked(true);
         }
     }
-    // 验收探针：切换信息浮层可见性（等价 Tab），验证折叠态跨翻图/重开保持
+    // 验收探针：切换信息 HUD 可见性（= Tab 真实链路：showHud/dismiss+菜单同步），
+    // 验证折叠态跨翻图/重开保持
     else if (c == QLatin1String("infotoggle")) {
-        if (m_metadata) {
-            m_metadata->setVisible(!m_metadata->isVisible());
-            applyChromeLayout();
+        if (actToggleMeta) {
+            actToggleMeta->setChecked(!actToggleMeta->isChecked());
         }
+    }
+    // 验收探针：合成 Esc 键（与真实按键同一条 keyPressEvent 链路），
+    // 验证「HUD 可见时第一次 Esc 只关 HUD」的优先级
+    else if (c == QLatin1String("esc")) {
+        QKeyEvent ev(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+        QApplication::sendEvent(this, &ev);
+    }
+    // 验收探针：模拟应用失活（走 onActivationChanged 真实处理函数），
+    // 验证失焦隐藏 HUD 且菜单勾选被清理
+    else if (c == QLatin1String("deactivate")) {
+        onActivationChanged(false);
+    }
+    // 验收探针：真实 Tab 语义（PSD→图层面板路由 / 普通图→HUD 开关）
+    else if (c == QLatin1String("tab")) {
+        onTabPressed();
+    }
+    // 验收探针：点击 HUD「复制参数」按钮（与鼠标点击同一 clicked 链路），
+    // 配合退出后读系统剪贴板验证真实复制内容
+    else if (c == QLatin1String("hudcopy")) {
+        if (m_metadata && m_metadata->m_copyBtn) {
+            m_metadata->m_copyBtn->click();
+        }
+    }
+    // 验收探针：模拟应用重新激活（走 onActivationChanged 真实处理函数），
+    // 验证失焦隐藏后不自动恢复（hud= 应保持 0）
+    else if (c == QLatin1String("activate")) {
+        onActivationChanged(true);
     }
     // 验收探针：折叠/展开直方图（等价点「▾ 直方图」标题），配合 next 验证
     // 折叠态不被翻图重置、卡片高度跟着收紧
@@ -3215,6 +3713,34 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         m_psdPreviewIndex = -1;
         refreshPsdView();
     }
+    // grab:<path> —— 抓主屏整屏（不是自渲染）：验证「设置对话框的下拉展开时，
+    // 主窗口顶栏是否露出来」必须让两个顶层窗口同框。
+    else if (c.startsWith(QLatin1String("grab:"))) {
+        const QString path = c.mid(5);
+        if (QScreen *screen = QGuiApplication::primaryScreen()) {
+            screen->grabWindow(0).save(path);
+        }
+    }
+    // loadreport —— 图像加载诊断：把插件搜索路径、已注册的图像格式与最近一次
+    // 解码失败原因落盘。空白画布取证时，这一份是唯一的可读证据。
+    else if (c == QLatin1String("loadreport")) {
+        QFile f(QStringLiteral("Temp/load-report.txt"));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << "appDir=" << QCoreApplication::applicationDirPath() << "\n";
+            ts << "libraryPaths=" << QCoreApplication::libraryPaths().join(QLatin1Char(';')) << "\n";
+            ts << "supported="
+               << QString::fromLatin1(QImageReader::supportedImageFormats().join(',')) << "\n";
+            ts << "current=" << m_currentPath << "\n";
+            ts << "idx=" << (m_dir ? m_dir->index() : -1) << "/"
+               << (m_dir ? m_dir->count() : -1) << "\n";
+            ts << "pixmap=" << (m_currentImage.isNull() ? 0 : 1) << " size="
+               << m_currentImage.width() << "x" << m_currentImage.height() << "\n";
+            ts << "lastError="
+               << (m_lastLoadError.isEmpty() ? QStringLiteral("(none)") : m_lastLoadError)
+               << "\n";
+        }
+    }
     else if (c == QLatin1String("report")) {
         QFile f(QStringLiteral("Temp/zoom-report.txt"));
         if (f.open(QIODevice::Append | QIODevice::Text)) {
@@ -3239,10 +3765,20 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << " cap=" << (m_control ? m_control->size().width() : 0) << 'x'
                << (m_control ? m_control->size().height() : 0)
                << " page=" << (m_control ? m_control->page() : 0)
+               << " track=" << (m_control ? m_control->trackWidth() : -1)
+               << " zoomtxt=" << (m_control ? m_control->zoomText() : QString())
+               << " dockfocus=" << (m_control && m_control->hasFocus() ? 1 : 0)
+               << " tophidden=" << (m_topBar ? m_topBar->hiddenActionIds().size() : -1)
+               << " toplock=" << (m_topLocked ? 1 : 0)
+               << " docklock=" << (m_dockLocked ? 1 : 0)
+               << " pinned=" << (m_topBar && m_topBar->isPinned() ? 1 : 0)
+               << " topmost=" << (actualTopmost() ? 1 : 0)
+               << " weakened=" << (m_control && m_control->isWeakened() ? 1 : 0)
+               << " inset=" << (m_statusOverlay ? m_statusOverlay->bottomInset() : -1)
                << " rot=" << m_netRotation
                << " vm=" << (isSpreadMode() ? m_spreadMode : m_zoomMode)
                << " spread=" << m_spreadMode
-               << " icon=" << (m_toolbar ? m_toolbar->showModeIcon() : -1)
+               << " icon=" << (m_control ? m_control->trackWidth() : -1)
                << " zlock=" << (m_zoomLocked ? 1 : 0)
                << " neg=" << (m_negative ? 1 : 0)
                << " gam=" << QString::number(m_gamma, 'f', 2)
@@ -3251,9 +3787,29 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                // 显隐状态机相位（0 Hidden / 1 Showing / 2 Visible / 3 Hiding），
                // 滞回与防闪烁只能靠它验证，截图看不出中间态
                << " dock=" << static_cast<int>(m_dockPhase)
+               << " filmstrip=" << (m_browser && m_browser->isExpanded() ? 1 : 0)
+               << " filmcurrent=" << (m_browser ? m_browser->currentIndex() : -1)
+               << " filminview=" << (m_browser && m_browser->currentInView() ? 1 : 0)
+               << " dockbottom=" << (m_control ? height() - m_control->y() : -1)
                << " dockvis=" << (m_control && m_control->isVisible() ? 1 : 0)
                << " dockop=" << (m_dockOpacity ? QString::number(m_dockOpacity->opacity(), 'f', 2) : QStringLiteral("na"))
                << " top=" << static_cast<int>(m_topPhase)
+               // 弹窗归属（显隐回归断言用）：popup 表示当前确有弹层，
+               // popuptop 表示它是顶栏自有菜单。两者都不参与显隐判定本身。
+               << " popup=" << (QApplication::activePopupWidget() ? 1 : 0)
+               << " popuptop=" << (isTopBarPopup(QApplication::activePopupWidget()) ? 1 : 0)
+               // 信息 HUD 状态机（Tab-HUD 回归断言用）：hud= 有效可见（关闭动画
+               // 85ms 窗口内不算），menuhud= 菜单勾选态，hudfold= 直方图折叠，
+               // hudgeo= 浮层几何 x,y,w,h（锚点/宽度约束验收）
+               << " hud=" << (m_metadata && m_metadata->isVisible() && !m_metadata->isClosing() ? 1 : 0)
+               << " menuhud=" << (actToggleMeta && actToggleMeta->isChecked() ? 1 : 0)
+               << " hudfold=" << (m_metadata && m_metadata->histFolded() ? 1 : 0)
+               << " hudgeo=" << (m_metadata && m_metadata->isVisible()
+                                     ? QStringLiteral("%1,%2,%3,%4").arg(m_metadata->x())
+                                           .arg(m_metadata->y())
+                                           .arg(m_metadata->width())
+                                           .arg(m_metadata->height())
+                                     : QStringLiteral("-"))
                << " dpr=" << devicePixelRatioF()
                << " maximized=" << (isMaximized() ? 1 : 0)
                << " winstate=" << static_cast<int>(windowState())
@@ -4275,7 +4831,7 @@ void MainWindow::onDeleteFile()
         updateCanvasLogo();
         m_browser->setFiles({}, -1);
         setWindowTitle(QStringLiteral("QuikView"));
-        m_caption->setTitle(tr("未打开图片"));
+        m_topBar->setTitle(tr("未打开图片"));
         m_toast->showMessage(tr("已删除"));
     }
 }
@@ -4600,6 +5156,10 @@ void MainWindow::refreshThemeSurfaces()
         m_metadata->refreshThemeStyle();
     if (m_layerPanel)
         m_layerPanel->setStyleSheet(UiStyle::panelQss());
+    if (m_topBar)
+        m_topBar->update();
+    if (m_control)
+        m_control->update();
 }
 
 QVariant MainWindow::liveSettingValue(const QString &key) const
@@ -4754,6 +5314,26 @@ void MainWindow::placeNameOverlay()
     m_nameOverlay->setGeometry(vp.x() + (vp.width() - w) / 2, vp.y() + 16, w, h);
 }
 
+// Tab 语义单点：PSD 文档按项目规则路由到图层面板（不改成信息 HUD），
+// 普通图片开关信息 HUD。Tab 快捷键、--smoke tab 共用这一条链路。
+void MainWindow::onTabPressed()
+{
+    if (m_psdDoc.valid()) {
+        togglePsdLayers();
+    } else {
+        actToggleMeta->toggle();
+    }
+}
+
+// 应用激活状态变化：失活时立即收起信息 HUD 并清理可见状态（菜单勾选同步、
+// 无动画）；回到前台不自动恢复，必须由用户再次按 Tab 打开。
+void MainWindow::onActivationChanged(bool active)
+{
+    if (!active && m_metadata && m_metadata->isVisible() && !m_metadata->isClosing()) {
+        m_metadata->hideNow();
+    }
+}
+
 void MainWindow::keyPressEvent(QKeyEvent *event)
 {
     switch (event->key()) {
@@ -4789,6 +5369,13 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
         onNext();
         return;
     case Qt::Key_Escape:
+        // HUD 优先：HUD 可见时第一次 Esc 只收起 HUD 并消费该键（本轮新增，
+        // 优先于裁剪/全屏/退出）；HUD 隐藏后的 Esc 才走原有规则。
+        if (m_metadata && m_metadata->isVisible()) {
+            m_metadata->dismiss();
+            event->accept();
+            return;
+        }
         if (m_cropMode) {
             onCrop(); // 取消裁剪
             return;

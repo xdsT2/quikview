@@ -20,6 +20,7 @@
 #include <QPropertyAnimation>
 #include <QStringList>
 #include <QTimer>
+#include <QVariantAnimation>
 #include <QToolTip>
 #include <QWheelEvent>
 #include <QWindow>
@@ -41,9 +42,9 @@ namespace Chrome {
 namespace {
 
 enum class Icon {
-    Folder, Grid, Play, Bookmark, Edit, Copy, Lock, More, ChevronDown,
-    Minus, Plus, Left, Right, Fit, RotateLeft, RotateRight, Picture,
-    MinWindow, MaxWindow, Close
+    Folder, Grid, Play, Bookmark, Edit, Copy, Lock, Unlock, Pin, Layers,
+    Hamburger, More, ChevronDown, Minus, Plus, Left, Right, Fit,
+    Fullscreen, RotateLeft, RotateRight, Picture, MinWindow, MaxWindow, Close
 };
 
 QFont uiFont(int pixelSize, int weight = QFont::Normal)
@@ -146,6 +147,56 @@ void drawIcon(QPainter &p, Icon icon, const QRectF &r, const QColor &color,
         p.drawArc(QRectF(8, 3, 8, 8), 0, 180 * 16);
         p.drawLine(QPointF(16, 7), QPointF(16, 10));
         break;
+    case Icon::Unlock:
+        // 未锁定：锁梁一端留开口（与闭锁共用锁身/梁/线宽）
+        p.drawRoundedRect(QRectF(4, 10, 16, 11), 2, 2);
+        p.drawLine(QPointF(16, 10), QPointF(16, 7));
+        p.drawArc(QRectF(8, 3, 8, 8), 0, 180 * 16);
+        break;
+    case Icon::Pin: {
+        QPainterPath path;
+        path.moveTo(8, 3);
+        path.lineTo(16, 3);
+        path.lineTo(15, 7);
+        path.lineTo(18.5, 10.5);
+        path.lineTo(18.5, 12);
+        path.lineTo(5.5, 12);
+        path.lineTo(5.5, 10.5);
+        path.lineTo(9, 7);
+        path.closeSubpath();
+        p.drawPath(path);
+        p.drawLine(QPointF(12, 12), QPointF(12, 21));
+        break;
+    }
+    case Icon::Layers: {
+        QPainterPath top;
+        top.moveTo(12, 3);
+        top.lineTo(21, 8);
+        top.lineTo(12, 13);
+        top.lineTo(3, 8);
+        top.closeSubpath();
+        p.drawPath(top);
+        p.drawLine(QPointF(3, 12), QPointF(12, 17));
+        p.drawLine(QPointF(12, 17), QPointF(21, 12));
+        p.drawLine(QPointF(3, 16), QPointF(12, 21));
+        p.drawLine(QPointF(12, 21), QPointF(21, 16));
+        break;
+    }
+    case Icon::Hamburger:
+        p.drawLine(QPointF(4, 7), QPointF(20, 7));
+        p.drawLine(QPointF(4, 12), QPointF(20, 12));
+        p.drawLine(QPointF(4, 17), QPointF(20, 17));
+        break;
+    case Icon::Fullscreen:
+        p.drawLine(QPointF(8, 3), QPointF(3, 3));
+        p.drawLine(QPointF(3, 3), QPointF(3, 8));
+        p.drawLine(QPointF(21, 3), QPointF(16, 3));
+        p.drawLine(QPointF(21, 3), QPointF(21, 8));
+        p.drawLine(QPointF(3, 16), QPointF(3, 21));
+        p.drawLine(QPointF(3, 21), QPointF(8, 21));
+        p.drawLine(QPointF(21, 16), QPointF(21, 21));
+        p.drawLine(QPointF(21, 21), QPointF(16, 21));
+        break;
     case Icon::More:
         p.setPen(Qt::NoPen);
         p.setBrush(color);
@@ -235,9 +286,10 @@ void setPointerCursor(QWidget *w, bool pointer)
 inline QColor kHoverBg() { return QColor(QString::fromLatin1(UiStyle::pick("#45484d", "#e9ebed"))); }   // Hover
 inline QColor kPressBg() { return QColor(QString::fromLatin1(UiStyle::pick("#292b2f", "#dfe1e3"))); }   // Pressed
 
-constexpr qreal kPressScale = 0.94;        // 按下时绘制缩放
-constexpr int kHoverMs = 120;              // Hover 淡入
-constexpr int kPressMs = 90;               // 按下 / 释放
+constexpr int kHoverMs = 80;               // Hover 淡入
+constexpr int kPressMs = 65;               // 按下压暗
+constexpr int kReleaseMs = 100;            // 松开恢复（无弹簧、无回弹）
+constexpr int kCheckedMs = 120;            // 锁定/选中态切换
 constexpr int kTickMs = 16;
 
 // ---- 底部胶囊几何（交接单 §7，与原型 .control-dock 一致）----
@@ -252,6 +304,7 @@ constexpr int kZoomRowH = 26;
 constexpr int kActionRowH = 30;
 constexpr int kBtnW = 32;
 constexpr int kBtnH = 30;
+constexpr int kPageLabelW = 76;
 constexpr int kPercentW = 44;
 constexpr int kGridGap = 10;      // 缩放行两列列间距（滑杆 / 百分比）
 constexpr int kSepW = 1;
@@ -291,18 +344,12 @@ QColor blendColor(const QColor &a, const QColor &b, qreal t)
 }
 
 // 开始绘制一个按钮：底色 / 描边 / 焦点环按状态出图，内容随后用同一坐标绘制。
-// 按压缩放只作用于 painter，调用方传入的 rect（= 命中区域）不被修改。
+// 按钮几何永不因状态改动（命中区域 = 绘制区域）；按下只压暗，不放大不上浮，
+// 图标的轻微缩放（98%）由调用方按 v.press 处理。
 QRectF beginButton(QPainter &p, const QRectF &rect, const BtnState &s,
                    const BtnVisual &v, const ButtonPalette &pal)
 {
     p.save();
-
-    const qreal scale = 1.0 - (1.0 - kPressScale) * v.press;
-    if (scale < 0.9995) {
-        p.translate(rect.center());
-        p.scale(scale, scale);
-        p.translate(-rect.center());
-    }
     if (s.disabled) {
         p.setOpacity(p.opacity() * 0.42);
     }
@@ -345,6 +392,11 @@ QRectF beginButton(QPainter &p, const QRectF &rect, const BtnState &s,
     } else if (amt > 0.004) {
         border = pal.baseBorder;
         border.setAlphaF(border.alphaF() * amt);
+    }
+    // 按下态：参考图 03 在圆内补一圈细描边，让「按下」比「悬停」更明确。
+    if (border.alpha() == 0 && !checked && !s.disabled && v.press > 0.004) {
+        border = UiStyle::isLight() ? QColor(0, 0, 0, 46) : QColor(255, 255, 255, 46);
+        border.setAlphaF(border.alphaF() * v.press);
     }
     if (border.alpha() > 0) {
         p.setPen(QPen(border, 1));
@@ -465,6 +517,29 @@ void ButtonFeedback::setPressed(int index)
     start();
 }
 
+void ButtonFeedback::setChecked(int index, bool on)
+{
+    if (index < 0) {
+        return;
+    }
+    if (m_checked.contains(index) == on) {
+        // 状态未变；但按钮列表可能重排过，保证插值条目存在。
+        if (!m_vals.contains(index)) {
+            m_vals.insert(index, BtnVisual());
+        }
+        return;
+    }
+    if (on) {
+        m_checked.insert(index);
+    } else {
+        m_checked.remove(index);
+    }
+    if (!m_vals.contains(index)) {
+        m_vals.insert(index, BtnVisual());
+    }
+    start();
+}
+
 void ButtonFeedback::reset()
 {
     m_hover = -1;
@@ -507,6 +582,9 @@ void ButtonFeedback::snap()
         m_vals[m_pressed].hover = 1.0;
         m_vals[m_pressed].press = 1.0;
     }
+    for (int idx : std::as_const(m_checked)) {
+        m_vals[idx].checked = 1.0;
+    }
     emit changed();
 }
 
@@ -518,12 +596,17 @@ void ButtonFeedback::tick()
         BtnVisual &v = it.value();
         const qreal hoverTarget = (it.key() == m_hover) ? 1.0 : 0.0;
         const qreal pressTarget = (it.key() == m_pressed) ? 1.0 : 0.0;
+        const qreal checkedTarget = m_checked.contains(it.key()) ? 1.0 : 0.0;
         v.hover = stepToward(v.hover, hoverTarget, dt, kHoverMs);
-        v.press = stepToward(v.press, pressTarget, dt, kPressMs);
+        // 按下与松开各用各的时长：65ms 压暗、100ms 恢复。
+        v.press = stepToward(v.press, pressTarget, dt,
+                             pressTarget > v.press ? kPressMs : kReleaseMs);
+        v.checked = stepToward(v.checked, checkedTarget, dt, kCheckedMs);
 
         const bool settled = qFuzzyCompare(v.hover + 1.0, hoverTarget + 1.0)
-                          && qFuzzyCompare(v.press + 1.0, pressTarget + 1.0);
-        if (settled && hoverTarget == 0.0 && pressTarget == 0.0) {
+                          && qFuzzyCompare(v.press + 1.0, pressTarget + 1.0)
+                          && qFuzzyCompare(v.checked + 1.0, checkedTarget + 1.0);
+        if (settled && hoverTarget == 0.0 && pressTarget == 0.0 && checkedTarget == 0.0) {
             it = m_vals.erase(it);
             continue;
         }
@@ -659,418 +742,582 @@ QPixmap skinFrame(const QString &name, int idx)
 }
 
 // ===========================================================================
-// 标题栏
+// 顶部单行工具栏（38px）
 // ===========================================================================
 
-CaptionBar::CaptionBar(QWidget *parent)
-    : QWidget(parent)
+namespace {
+
+constexpr int kTopH = 38;
+constexpr int kTopBtn = 36;
+constexpr int kTopWinBtn = 46;
+constexpr int kTopMargin = 6;
+constexpr int kTopLogoW = 22;
+
+int topTextWidth(const QString &text)
 {
-    setMouseTracking(true);
-    setFixedHeight(28);
-    setAttribute(Qt::WA_OpaquePaintEvent);
-    m_feedback = new ButtonFeedback(this);
-    connect(m_feedback, &ButtonFeedback::changed, this, [this]() { update(); });
-    m_tip = new TooltipHint(this);
+    return QFontMetrics(uiFont(12)).horizontalAdvance(text);
 }
 
-void CaptionBar::setTitle(const QString &title)
+// 图标+文字按钮的自然宽度；纯图标固定 36。
+// 文字态：左内边距 10 + 图标 18 + 图标文字间距 8 + 文字 + 右内边距 10。
+int topButtonWidth(const QString &label, bool withLabel)
 {
-    m_title = title;
-    update();
-}
-
-QRect CaptionBar::buttonRect(int index) const
-{
-    const int bw = 44;
-    return QRect(width() - (3 - index) * bw, 0, bw, height());
-}
-
-int CaptionBar::hitTest(const QPoint &pos) const
-{
-    for (int i = 0; i < 3; ++i) {
-        if (buttonRect(i).contains(pos)) {
-            return i;
-        }
+    if (!withLabel || label.isEmpty()) {
+        return kTopBtn;
     }
-    return -1;
+    return 10 + 18 + 8 + topTextWidth(label) + 10;
 }
 
-// 窗口控制按钮提示；最大化按钮随状态在「最大化 / 还原」之间切换
-QString CaptionBar::tipText(int index) const
+QString topActionLabel(int id)
 {
-    switch (index) {
-    case 0: return tr("最小化");
-    case 1: return (window() && window()->isMaximized()) ? tr("还原") : tr("最大化");
-    case 2: return tr("关闭");
+    switch (id) {
+    case 0: return QObject::tr("打开");
+    case 1: return QObject::tr("浏览");
+    case 2: return QObject::tr("幻灯片");
+    case 3: return QObject::tr("书签");
+    case 4: return QObject::tr("编辑");
+    case 5: return QObject::tr("复制到");
     default: break;
     }
     return QString();
 }
 
-void CaptionBar::paintEvent(QPaintEvent *)
+// 圆形反馈：36×36 命中区里画 32×32 的圆，四角仍可点。
+QRectF circleVisual(const QRect &hit, int diameter = 32)
 {
-    QPainter p(this);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    p.fillRect(rect(), QColor(QString::fromLatin1(UiStyle::pick("#1d1e20", "#f7f8f9"))));
-    p.fillRect(QRect(0, height() - 1, width(), 1), (UiStyle::isLight() ? QColor(0,0,0,10) : QColor(255,255,255,10)));
-
-    // 应用标识
-    const QRectF logoRect(11, (height() - 16) / 2.0, 16, 16);
-    p.setPen(Qt::NoPen);
-    p.setBrush(QColor(QStringLiteral("#0b84c6")));
-    p.drawRoundedRect(logoRect, 4, 4);
-    p.setFont(uiFont(10, QFont::DemiBold));
-    p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#ffffff", "#1b1b1b"))));
-    p.drawText(logoRect, Qt::AlignCenter, QStringLiteral("Q"));
-
-    p.setFont(uiFont(12));
-    p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#d7d7d7", "#2a2a2a"))));
-    p.drawText(QRect(34, 0, 78, height()), Qt::AlignVCenter | Qt::AlignLeft,
-               QStringLiteral("QuikView"));
-
-    const int dividerX = 103;
-    p.fillRect(QRect(dividerX, 9, 1, height() - 17), (UiStyle::isLight() ? QColor(0,0,0,19) : QColor(255,255,255,19)));
-
-    // 文件名
-    const int controlsLeft = width() - 3 * 44;
-    const int titleLeft = dividerX + 12;
-    p.setFont(uiFont(12));
-    p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#96999d", "#696c70"))));
-    const QRect titleRect(titleLeft, 0, qMax(0, controlsLeft - titleLeft - 12), height());
-    p.drawText(titleRect, Qt::AlignVCenter | Qt::AlignLeft,
-               p.fontMetrics().elidedText(m_title, Qt::ElideMiddle, titleRect.width()));
-
-    // 窗口按钮
-    for (int i = 0; i < 3; ++i) {
-        const QRect r = buttonRect(i);
-        BtnState st;
-        st.hover = (m_hover == i);
-        st.pressed = (m_press == i);
-        st.danger = (i == 2);
-        BtnVisual v = m_feedback->visual(i);
-
-        ButtonPalette pal;
-        pal.radius = 0;   // Windows 窗口按钮保持直角
-        pal.ink = QColor(QString::fromLatin1(UiStyle::pick("#c9c9c9", "#333333")));
-        if (st.danger) {
-            pal.hover = UiStyle::color(UiStyle::Danger);
-            pal.press = UiStyle::color(UiStyle::Danger).darker(122);
-            pal.ink = (st.hover || st.pressed) ? QColor(Qt::white)
-                                               : QColor(QString::fromLatin1(UiStyle::pick("#c9c9c9", "#333333")));
-        } else {
-            pal.hover = QColor(QString::fromLatin1(UiStyle::pick("#343539", "#e9ebed")));
-            pal.press = QColor(QString::fromLatin1(UiStyle::pick("#2a2b2e", "#dfe1e3")));
-        }
-
-        beginButton(p, QRectF(r), st, v, pal);
-        const Icon icon = i == 0 ? Icon::MinWindow
-                                 : (i == 1 ? Icon::MaxWindow : Icon::Close);
-        drawIcon(p, icon, QRectF(r.center().x() - 6, r.center().y() - 6, 12, 12),
-                 pal.ink, 1.4);
-        endButton(p);
-    }
+    return QRectF(hit.center().x() - diameter / 2.0 + 0.5,
+                  hit.center().y() - diameter / 2.0 + 0.5,
+                  diameter, diameter);
 }
 
-void CaptionBar::mousePressEvent(QMouseEvent *e)
-{
-    m_tip->hideNow();   // 按下立即收起提示
-    if (e->button() == Qt::LeftButton) {
-        m_press = hitTest(e->pos());
-        if (m_press >= 0) {
-            m_feedback->setPressed(m_press);   // 按下即出反馈
-            update();
-            return;
-        }
-        if (window() && window()->windowHandle()) {
-            window()->windowHandle()->startSystemMove();
-        }
-        return;
-    }
-    QWidget::mousePressEvent(e);
-}
+} // namespace
 
-void CaptionBar::mouseReleaseEvent(QMouseEvent *e)
-{
-    const int i = m_press;
-    m_press = -1;
-    m_feedback->setPressed(-1);
-    update();
-    if (e->button() == Qt::LeftButton && i >= 0 && i == hitTest(e->pos())) {
-        switch (i) {
-        case 0: emit minimizeClicked(); break;
-        case 1: emit maximizeClicked(); break;
-        case 2: emit closeClicked(); break;
-        default: break;
-        }
-    }
-    QWidget::mouseReleaseEvent(e);
-}
-
-void CaptionBar::mouseMoveEvent(QMouseEvent *e)
-{
-    m_hover = hitTest(e->pos());
-    m_feedback->setHover(m_hover);
-    setPointerCursor(this, m_hover >= 0);
-    if (e->buttons() != Qt::NoButton) {
-        m_tip->hideNow();   // 按住拖动期间不出提示
-    } else if (m_hover >= 0) {
-        m_tip->hover(tipText(m_hover), e->globalPosition().toPoint());
-    } else {
-        m_tip->hideNow();
-    }
-    update();
-    QWidget::mouseMoveEvent(e);
-}
-
-void CaptionBar::mouseDoubleClickEvent(QMouseEvent *e)
-{
-    if (e->button() == Qt::LeftButton && hitTest(e->pos()) < 0) {
-        emit maximizeClicked();
-    }
-    QWidget::mouseDoubleClickEvent(e);
-}
-
-void CaptionBar::contextMenuEvent(QContextMenuEvent *e)
-{
-    emit systemMenuRequested(e->globalPos());
-    e->accept();
-}
-
-void CaptionBar::leaveEvent(QEvent *)
-{
-    m_hover = -1;
-    m_feedback->setHover(-1);
-    setPointerCursor(this, false);
-    m_tip->hideNow();
-    update();
-}
-
-// 滚轮也算「离开交互」：提示立即收起，其余行为交回基础实现
-void CaptionBar::wheelEvent(QWheelEvent *e)
-{
-    m_tip->hideNow();
-    QWidget::wheelEvent(e);
-}
-
-// ===========================================================================
-// 命令栏
-// ===========================================================================
-
-ToolBar::ToolBar(QWidget *parent)
+TopBar::TopBar(QWidget *parent)
     : QWidget(parent)
 {
     setMouseTracking(true);
-    setFixedHeight(34);
+    setFixedHeight(kTopH);
     setAttribute(Qt::WA_OpaquePaintEvent);
-    setFocusPolicy(Qt::StrongFocus);   // 键盘可达：Tab 进入后显示 2px 焦点环
+    setFocusPolicy(Qt::StrongFocus);
+    setAccessibleName(tr("顶部工具栏"));
+    setAccessibleDescription(tr("打开、浏览、幻灯片、书签、编辑、复制到、图层、锁定顶栏、图片置顶与三横菜单"));
     m_feedback = new ButtonFeedback(this);
     connect(m_feedback, &ButtonFeedback::changed, this, [this]() { update(); });
     m_tip = new TooltipHint(this);
 }
 
-void ToolBar::setShowModeIcon(int index)
+void TopBar::setTitle(const QString &title)
 {
-    m_showModeIcon = qBound(0, index, 4);
-}
-
-void ToolBar::setLocked(bool locked)
-{
-    if (m_locked == locked) {
+    if (m_title == title) {
         return;
     }
-    m_locked = locked;
+    m_title = title;
     update();
 }
 
-void ToolBar::setHdr(bool on)
+void TopBar::setTopLocked(bool locked)
 {
-    if (m_hdr == on) {
+    if (m_topLocked == locked) {
         return;
     }
-    m_hdr = on;
+    m_topLocked = locked;
     update();
 }
 
-// 按钮几何从左往右累加（原实现 262/295/328 硬编码，插按钮即错位）；
-// 锁定 / 更多仍锚定右边缘。id：0打开 1浏览 2幻灯片 3书签 4HDR 5编辑 6复制到 7锁定 8更多。
-void ToolBar::setLayerState(bool available, bool open)
+void TopBar::setPinned(bool pinned)
 {
+    if (m_pinned == pinned) {
+        return;
+    }
+    m_pinned = pinned;
+    update();
+}
+
+void TopBar::setLayerState(bool available, bool open)
+{
+    if (m_layersAvailable == available && m_layersOpen == open) {
+        return;
+    }
     m_layersAvailable = available;
     m_layersOpen = open;
     update();
 }
 
-QVector<ToolBar::Btn> ToolBar::buttons() const
+int TopBar::idForAction(Action action)
 {
-    QVector<Btn> out;
-    const int y = 4;
-    const int h = 26;
-    int x = 8;
-    out.append({ 0, QStringLiteral("打开"), QRect(x, y, 68, h), true, false });
-    x += 68 + 3;
-    out.append({ 1, QStringLiteral("浏览"), QRect(x, y, 72, h), false, true });
-    x += 72 + 3;
-    out.append({ 2, QStringLiteral("幻灯片放映"), QRect(x, y, 96, h), false, false });
-    x += 96;
-    // 幻灯片与工具组之间的分隔线画在 x+7（见 paintEvent），按钮从 x+12 起步
-    x += 12;
-    out.append({ 3, QString(), QRect(x, y, 30, h), false, false });
-    x += 30 + 3;
-    out.append({ 4, QStringLiteral("HDR"), QRect(x, y, 44, h), false, false });
-    x += 44 + 3;
-    out.append({ 5, QString(), QRect(x, y, 30, h), false, false });
-    x += 30 + 3;
-    out.append({ 6, QString(), QRect(x, y, 30, h), false, false });
+    switch (action) {
+    case Action::Open: return 0;
+    case Action::Browse: return 1;
+    case Action::Slideshow: return 2;
+    case Action::Bookmark: return 3;
+    case Action::Edit: return 4;
+    case Action::CopyTo: return 5;
+    case Action::Layers: return 6;
+    case Action::TopLock: return 7;
+    case Action::Pin: return 8;
+    case Action::Menu: return 9;
+    case Action::Minimize: return 10;
+    case Action::Maximize: return 11;
+    case Action::Close: return 12;
+    default: break;
+    }
+    return -1;
+}
 
-    out.append({ 7, QString(), QRect(width() - 68, y, 30, h), false, false });
-    out.append({ 8, QString(), QRect(width() - 38, y, 30, h), false, false });
-    const QRect layers(x + 33, y, 68, h);
-    if (m_layersAvailable && layers.right() + 3 < width() - 68)
-        out.append({ 9, tr("图层"), layers, false, false });
+TopBar::Action TopBar::actionForId(int id)
+{
+    switch (id) {
+    case 0: return Action::Open;
+    case 1: return Action::Browse;
+    case 2: return Action::Slideshow;
+    case 3: return Action::Bookmark;
+    case 4: return Action::Edit;
+    case 5: return Action::CopyTo;
+    case 6: return Action::Layers;
+    case 7: return Action::TopLock;
+    case 8: return Action::Pin;
+    case 9: return Action::Menu;
+    case 10: return Action::Minimize;
+    case 11: return Action::Maximize;
+    case 12: return Action::Close;
+    default: break;
+    }
+    return Action::None;
+}
+
+// 单行布局。分阶段收窄（与标注同序）：
+//   0 全文字 + 文件名 140 ｜ 1 文件名归零 ｜ 2 中组收成图标
+//   3 复制到 ｜ 4 编辑 ｜ 5 书签 ｜ 6 幻灯片 ｜ 7 图层
+//   8 顶栏锁 ｜ 9 置顶 ｜ 10 浏览
+// 最后始终保留打开、三横菜单和 Windows 三按钮。
+QVector<TopBar::Btn> TopBar::buttons() const
+{
+    struct Plan {
+        bool labels = true;        // 中组是否带文字
+        bool browseLabel = true;
+        int filenameMin = 0;
+        QVector<Action> center;
+        bool browse = true;
+        bool layers = true;
+        bool topLock = true;
+        bool pin = true;
+        int required = 0;
+    };
+
+    // 文字按钮之间 4px，纯图标按钮之间 2px（36 命中区几乎相邻）。
+    auto gapFor = [](bool labeled) { return labeled ? 4 : 2; };
+
+    auto makePlan = [&](int stage) {
+        Plan p;
+        p.labels = stage <= 1;
+        p.browseLabel = stage <= 2;
+        p.filenameMin = stage == 0 ? 140 : 0;
+        p.center = { Action::Slideshow, Action::Bookmark, Action::Edit, Action::CopyTo };
+        p.browse = stage < 10;
+        p.layers = stage < 7;
+        p.topLock = stage < 8;
+        p.pin = stage < 9;
+        if (stage >= 3) p.center.removeOne(Action::CopyTo);
+        if (stage >= 4) p.center.removeOne(Action::Edit);
+        if (stage >= 5) p.center.removeOne(Action::Bookmark);
+        if (stage >= 6) p.center.removeOne(Action::Slideshow);
+
+        // 打开始终带文字（极窄窗也保留），只有中组与浏览会依次图标化/收入菜单。
+        int left = kTopMargin + kTopLogoW + 8;
+        left += topButtonWidth(topActionLabel(0), true) + gapFor(true);
+        if (p.browse) {
+            left += topButtonWidth(topActionLabel(1), p.browseLabel);
+        }
+        int centerW = 0;
+        for (Action a : p.center) {
+            centerW += topButtonWidth(topActionLabel(idForAction(a)), p.labels) + gapFor(p.labels);
+        }
+        if (centerW > 0) {
+            centerW -= gapFor(p.labels);
+        }
+
+        int right = 3 * kTopWinBtn + 8 + kTopBtn;   // 菜单常驻
+        if (p.layers) right += kTopBtn;
+        if (p.topLock) right += kTopBtn;
+        if (p.pin) right += kTopBtn;
+
+        // 中组两侧各留 16px，文件名再留 24px 起收点。
+        p.required = left + p.filenameMin + centerW + right + 40;
+        return p;
+    };
+
+    Plan plan;
+    bool fitted = false;
+    for (int stage = 0; stage <= 10; ++stage) {
+        plan = makePlan(stage);
+        if (plan.required <= width()) {
+            fitted = true;
+            break;
+        }
+    }
+    if (!fitted) {
+        plan = makePlan(10);
+    }
+
+    QVector<Btn> out;
+    m_hiddenIds.clear();
+    m_filenameRect = QRect();
+
+    const int h = height() > 0 ? height() : kTopH;
+    const int y = (h - kTopBtn) / 2;
+
+    // —— 左组：Q 标识、打开、浏览、文件名 ——
+    int x = kTopMargin + kTopLogoW + 8;
+    const int openW = topButtonWidth(topActionLabel(0), true);
+    out.append(Btn{ Action::Open, QRect(x, y, openW, kTopBtn), topActionLabel(0),
+                    false, false, false });
+    x += openW + gapFor(true);
+
+    if (plan.browse) {
+        const int browseW = topButtonWidth(topActionLabel(1), plan.browseLabel);
+        out.append(Btn{ Action::Browse, QRect(x, y, browseW, kTopBtn), topActionLabel(1),
+                        !plan.browseLabel, false, false });
+        x += browseW;
+    } else {
+        m_hiddenIds.append(1);
+    }
+    const int leftEnd = x;
+
+    // —— 中组（相对整窗居中；空间不足时按计划收纳） ——
+    int centerW = 0;
+    for (Action a : plan.center) {
+        centerW += topButtonWidth(topActionLabel(idForAction(a)), plan.labels) + gapFor(plan.labels);
+    }
+    if (centerW > 0) {
+        centerW -= gapFor(plan.labels);
+    }
+
+    const int rightEdge = width() - 3 * kTopWinBtn - 8;
+    int rightStart = rightEdge;
+    if (plan.layers) rightStart -= kTopBtn;
+    if (plan.topLock) rightStart -= kTopBtn;
+    if (plan.pin) rightStart -= kTopBtn;
+    rightStart -= kTopBtn;   // menu
+
+    int centerStart = width() / 2 - centerW / 2;
+    centerStart = qBound(leftEnd + 16, centerStart, qMax(leftEnd + 16, rightStart - 12 - centerW));
+    int cx = centerStart;
+    for (Action a : plan.center) {
+        const int id = idForAction(a);
+        const int bw = topButtonWidth(topActionLabel(id), plan.labels);
+        out.append(Btn{ a, QRect(cx, y, bw, kTopBtn), topActionLabel(id),
+                        !plan.labels, false, false });
+        cx += bw + gapFor(plan.labels);
+    }
+    for (int id : { 2, 3, 4, 5 }) {
+        const Action a = actionForId(id);
+        if (!plan.center.contains(a)) {
+            m_hiddenIds.append(id);
+        }
+    }
+
+    // 文件名：优先省略，可收至零宽；低于 80px 就整段不画（避免只剩一两个字母）。
+    const int fnLeft = leftEnd + 12;
+    const int fnRight = qMax(fnLeft, centerStart - 20);
+    const int fnW = qMin(360, fnRight - fnLeft);
+    m_filenameRect = fnW >= 80 ? QRect(fnLeft, 0, fnW, h) : QRect();
+
+    // —— 右组：图层 / 顶栏锁 / 置顶 / 三横菜单，再往右是 Windows 三按钮 ——
+    int rx = rightEdge;
+    rx -= kTopBtn;
+    out.append(Btn{ Action::Menu, QRect(rx, y, kTopBtn, kTopBtn), QString(), true, false, false });
+    if (plan.pin) {
+        rx -= kTopBtn;
+        out.append(Btn{ Action::Pin, QRect(rx, y, kTopBtn, kTopBtn), QString(), true, false, false });
+    } else {
+        m_hiddenIds.append(8);
+    }
+    if (plan.topLock) {
+        rx -= kTopBtn;
+        out.append(Btn{ Action::TopLock, QRect(rx, y, kTopBtn, kTopBtn), QString(), true, false, false });
+    } else {
+        m_hiddenIds.append(7);
+    }
+    if (plan.layers) {
+        rx -= kTopBtn;
+        out.append(Btn{ Action::Layers, QRect(rx, y, kTopBtn, kTopBtn), QString(), true, false,
+                        !m_layersAvailable });
+    } else {
+        m_hiddenIds.append(6);
+    }
+
+    for (int i = 0; i < 3; ++i) {
+        const QRect r(width() - (3 - i) * kTopWinBtn, 0, kTopWinBtn, h);
+        const Action a = i == 0 ? Action::Minimize : (i == 1 ? Action::Maximize : Action::Close);
+        out.append(Btn{ a, r, QString(), true, false, false });
+    }
+
     return out;
 }
 
-int ToolBar::hitTest(const QPoint &pos) const
+QVector<int> TopBar::hiddenActionIds() const
 {
-    const QVector<Btn> btns = buttons();
-    for (int i = 0; i < btns.size(); ++i) {
-        if (btns[i].rect.contains(pos)) {
+    buttons();
+    return m_hiddenIds;
+}
+
+QPoint TopBar::actionAnchorGlobal(int id) const
+{
+    const QVector<Btn> list = buttons();
+    const Action want = actionForId(id);
+    for (const Btn &b : list) {
+        if (b.action == want) {
+            return mapToGlobal(b.rect.center());
+        }
+    }
+    return mapToGlobal(QPoint(width() - 3 * kTopWinBtn - 6 - kTopBtn / 2, height() / 2));
+}
+
+QPoint TopBar::menuAnchorGlobal() const
+{
+    return actionAnchorGlobal(9);
+}
+
+QPoint TopBar::closeAnchorGlobal() const
+{
+    return actionAnchorGlobal(12);
+}
+
+void TopBar::probeHover(int id)
+{
+    const QVector<Btn> list = buttons();
+    const Action want = actionForId(id);
+    int index = -1;
+    for (int i = 0; i < list.size(); ++i) {
+        if (list[i].action == want) {
+            index = i;
+            break;
+        }
+    }
+    m_hover = index;
+    m_feedback->setHover(index);
+    // 探针也模拟「悬停够久」：把 tooltip 一起亮出来，截图才能取证。
+    if (index >= 0 && index < list.size()) {
+        m_tip->hover(tipText(list[index].action),
+                     mapToGlobal(list[index].rect.center()));
+    }
+    update();
+}
+
+void TopBar::probePress(int id)
+{
+    const QVector<Btn> list = buttons();
+    const Action want = actionForId(id);
+    int index = -1;
+    for (int i = 0; i < list.size(); ++i) {
+        if (list[i].action == want) {
+            index = i;
+            break;
+        }
+    }
+    m_press = index;
+    m_feedback->setPressed(index);
+    update();
+}
+
+int TopBar::hitTest(const QPoint &pos) const
+{
+    const QVector<Btn> list = buttons();
+    for (int i = 0; i < list.size(); ++i) {
+        if (list[i].rect.contains(pos)) {
             return i;
         }
     }
     return -1;
 }
 
-// 仅图标按钮 / 可切换按钮的文字提示；HDR 与锁定项随状态切换
-QString ToolBar::tipText(int index) const
+QString TopBar::tipText(Action action) const
 {
-    switch (index) {
-    case 0: return tr("打开");
-    case 1: return tr("浏览");
-    case 2: return tr("幻灯片放映");
-    case 3: return tr("书签");
-    case 4: return m_hdr ? tr("关闭 HDR") : tr("开启 HDR");
-    case 5: return tr("编辑");
-    case 6: return tr("复制到");
-    case 7: return m_locked ? tr("解锁工具栏") : tr("锁定工具栏");
-    case 8: return tr("更多");
-    case 9: return tr("图层");
+    switch (action) {
+    case Action::Open: return tr("打开");
+    case Action::Browse: return tr("浏览");
+    case Action::Slideshow: return tr("幻灯片放映");
+    case Action::Bookmark: return tr("书签");
+    case Action::Edit: return tr("编辑");
+    case Action::CopyTo: return tr("复制到");
+    case Action::Layers:
+        return m_layersAvailable ? (m_layersOpen ? tr("隐藏 PSD 图层") : tr("PSD 图层"))
+                                 : tr("PSD 图层（当前图片没有可用图层）");
+    case Action::TopLock: return tr("保持顶部工具栏显示");
+    case Action::Pin: return tr("图片窗口置顶");
+    case Action::Menu: return tr("菜单");
+    case Action::Minimize: return tr("最小化");
+    case Action::Maximize: return (window() && window()->isMaximized()) ? tr("还原") : tr("最大化");
+    case Action::Close: return tr("关闭");
     default: break;
     }
     return QString();
 }
 
-void ToolBar::paintEvent(QPaintEvent *)
+void TopBar::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
-    p.fillRect(rect(), QColor(QString::fromLatin1(UiStyle::pick("#232426", "#f3f4f6"))));
-    p.fillRect(QRect(0, height() - 1, width(), 1), rgba(0, 0, 0, 82));
-    p.fillRect(QRect(0, height() - 2, width(), 1), (UiStyle::isLight() ? QColor(0,0,0,5) : QColor(255,255,255,5)));
+    p.fillRect(rect(), QColor(QString::fromLatin1(UiStyle::fluent::titleBarBg())));
+    p.fillRect(QRect(0, height() - 1, width(), 1),
+               (UiStyle::isLight() ? QColor(0, 0, 0, 22) : QColor(255, 255, 255, 18)));
 
-    const QVector<Btn> btns = buttons();
-    for (int i = 0; i < btns.size(); ++i) {
-        const Btn &b = btns[i];
+    // 应用标识：22×22 蓝色圆角方块 + Q
+    const QRectF logo(kTopMargin, (height() - kTopLogoW) / 2.0, kTopLogoW, kTopLogoW);
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(QStringLiteral("#1688f8")));
+    p.drawRoundedRect(logo, 6, 6);
+    p.setFont(uiFont(11, QFont::DemiBold));
+    p.setPen(QColor(Qt::white));
+    p.drawText(logo, Qt::AlignCenter, QStringLiteral("Q"));
+
+    // 文件名：优先省略；零宽时整段不画
+    if (m_filenameRect.width() > 2) {
+        p.setFont(uiFont(12));
+        p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#9a9da2", "#5f6368"))));
+        const QString elided = p.fontMetrics().elidedText(m_title, Qt::ElideMiddle,
+                                                          m_filenameRect.width());
+        p.drawText(m_filenameRect, Qt::AlignVCenter | Qt::AlignLeft, elided);
+    }
+
+    const QVector<Btn> list = buttons();
+    const QColor ink = QColor(QString::fromLatin1(UiStyle::pick("#d9dadd", "#2a2c30")));
+    const QColor mutedInk = QColor(QString::fromLatin1(UiStyle::pick("#8e9297", "#6b7075")));
+    const QColor accent = UiStyle::accent();
+
+    for (int i = 0; i < list.size(); ++i) {
+        const Btn &b = list.at(i);
         BtnState st;
         st.hover = (m_hover == i);
         st.pressed = (m_press == i);
-        st.checked = (b.id == 7 && m_locked) || (b.id == 4 && m_hdr)
-                     || (b.id == 9 && m_layersOpen);
         st.focus = (m_keyboardFocus && m_focus == i);
+        st.disabled = b.disabled;
+        st.danger = (b.action == Action::Close);
+        st.checked = (b.action == Action::Pin && m_pinned)
+                     || (b.action == Action::Layers && m_layersOpen);
+
         BtnVisual v = m_feedback->visual(i);
-
         ButtonPalette pal;
-        if (b.primary) {
-            pal.base = QColor(QStringLiteral("#0b6f9f"));
-            pal.baseBorder = QColor(QStringLiteral("#2485b3"));
-            pal.hover = QColor(QStringLiteral("#0e7fb5"));
-            pal.press = QColor(QStringLiteral("#0a5c84"));
-            pal.ink = QColor(Qt::white);
-        } else {
-            pal.hover = kHoverBg();
-            pal.press = kPressBg();
-            pal.baseBorder = (UiStyle::isLight() ? QColor(0,0,0,19) : QColor(255,255,255,19));
-            pal.checkedBg = UiStyle::accentSoft();
-            pal.checkedBorder = rgba(85, 192, 240, 64);
-            pal.ink = QColor(QString::fromLatin1(UiStyle::pick("#d9dadd", "#242628")));
-            pal.checkedInk = UiStyle::accent();
+        pal.ink = ink;
+        pal.radius = 17;
+        pal.hover = QColor(QString::fromLatin1(UiStyle::pick("#35373b", "#e7e9eb")));
+        pal.press = QColor(QString::fromLatin1(UiStyle::pick("#292b2f", "#dcdfe2")));
+        pal.checkedBg = UiStyle::accentSoft();
+        pal.checkedBorder = QColor(accent.red(), accent.green(), accent.blue(), 60);
+        pal.checkedInk = accent;
+
+        if (b.action == Action::Close) {
+            pal.radius = 0;
+            pal.hover = UiStyle::color(UiStyle::Danger);
+            pal.press = UiStyle::color(UiStyle::Danger).darker(122);
+            pal.ink = (st.hover || st.pressed) ? QColor(Qt::white)
+                                               : QColor(QString::fromLatin1(UiStyle::pick("#c9c9c9", "#333333")));
+        } else if (b.action == Action::Minimize || b.action == Action::Maximize) {
+            pal.radius = 0;
+            pal.hover = QColor(QString::fromLatin1(UiStyle::pick("#343539", "#e9ebed")));
+            pal.press = QColor(QString::fromLatin1(UiStyle::pick("#2a2b2e", "#dfe1e3")));
+            pal.ink = QColor(QString::fromLatin1(UiStyle::pick("#c9c9c9", "#333333")));
+        } else if (b.action == Action::TopLock) {
+            // 顶栏闭锁：保持透明底；悬停仍是中性圆（与底栏蓝底明确区分）。
+            pal.checkedBg = QColor(0, 0, 0, 0);
+            pal.checkedBorder = QColor(0, 0, 0, 0);
+            pal.checkedInk = QColor(QString::fromLatin1(UiStyle::pick("#ffffff", "#101214")));
+        } else if (b.action == Action::Pin) {
+            // 图片置顶：独立图钉 + 自身选中样式（半透明蓝底 + 淡蓝描边/图标）。
+            const QColor light(QStringLiteral("#98d0ff"));
+            pal.checkedBg = QColor(accent.red(), accent.green(), accent.blue(), 64);
+            pal.checkedBorder = light;
+            pal.checkedInk = light;
         }
 
-        beginButton(p, QRectF(b.rect), st, v, pal);
-        const QColor ink = buttonInk(st, pal);
-        const QRectF bounds(b.rect);
-        const QPointF center = bounds.center();
-        const QRectF iconRect(bounds.x() + 9, center.y() - 8, 16, 16);
-        const QRectF centerIcon(center.x() - 8, center.y() - 8, 16, 16);
-        const auto drawLabel = [&](qreal left, qreal right, const QFont &font) {
-            p.setFont(font);
-            p.setPen(ink);
-            const QFontMetricsF metrics(font);
-            p.save();
-            p.setClipRect(QRectF(left, bounds.y(), right - left, bounds.height()), Qt::IntersectClip);
-            p.drawText(QPointF(left, center.y() + (metrics.ascent() - metrics.descent()) / 2),
-                       b.text);
-            p.restore();
-        };
-        if (b.primary) {
-            drawIcon(p, Icon::Folder, iconRect, ink);
-            drawLabel(bounds.x() + 30, bounds.right() - 4, uiFont(12, QFont::DemiBold));
-            endButton(p);
-            continue;
+        const bool circle = (b.action != Action::Close && b.action != Action::Minimize
+                             && b.action != Action::Maximize && b.iconOnly);
+        if (!circle && b.action != Action::Close && b.action != Action::Minimize
+            && b.action != Action::Maximize) {
+            pal.radius = 9;   // 带文字按钮用圆角矩形反馈，不做胶囊
         }
+        const QRectF visual = circle ? circleVisual(b.rect) : QRectF(b.rect);
+        beginButton(p, visual, st, v, pal);
+        const QColor drawInk = buttonInk(st, pal);
 
-        switch (b.id) {
-        case 1: drawIcon(p, Icon::Grid, iconRect, ink); break;
-        case 2: drawIcon(p, Icon::Play, iconRect, ink); break;
-        case 3: drawIcon(p, Icon::Bookmark, centerIcon, ink); break;
-        case 4: {
-            const QFont font = uiFont(12);
-            drawLabel(center.x() - QFontMetricsF(font).horizontalAdvance(b.text) / 2, bounds.right(), font);
+        const QPointF center = b.rect.center();
+        // 按下时图标轻微缩至 98%（按下只压暗不上浮；与底岛按钮同一语义）。
+        const qreal iconS = 18.0 * (1.0 - 0.02 * v.press);
+        // 带文字按钮：图标靠左（左内边距 10），文字接在图标右侧 8px。
+        const QRectF icon = b.iconOnly
+                                ? QRectF(center.x() - iconS / 2, center.y() - iconS / 2, iconS, iconS)
+                                : QRectF(b.rect.x() + 10, center.y() - iconS / 2, iconS, iconS);
+
+        switch (b.action) {
+        case Action::Open: drawIcon(p, Icon::Folder, icon, drawInk); break;
+        case Action::Browse: drawIcon(p, Icon::Grid, icon, drawInk); break;
+        case Action::Slideshow: drawIcon(p, Icon::Play, icon, drawInk); break;
+        case Action::Bookmark: drawIcon(p, Icon::Bookmark, icon, drawInk); break;
+        case Action::Edit: drawIcon(p, Icon::Edit, icon, drawInk); break;
+        case Action::CopyTo: drawIcon(p, Icon::Copy, icon, drawInk); break;
+        case Action::Layers: drawIcon(p, Icon::Layers, icon, drawInk); break;
+        case Action::TopLock:
+            drawIcon(p, m_topLocked ? Icon::Lock : Icon::Unlock, icon,
+                     m_topLocked ? drawInk : drawInk, m_topLocked ? 1.75 : 1.5);
             break;
-        }
-        case 5: drawIcon(p, Icon::Edit, centerIcon, ink); break;
-        case 6: drawIcon(p, Icon::Copy, centerIcon, ink); break;
-        case 7: drawIcon(p, Icon::Lock, centerIcon, ink); break;
-        case 8: drawIcon(p, Icon::More, centerIcon, ink); break;
-        case 9: drawIcon(p, Icon::Copy, iconRect, ink); break;
+        case Action::Pin: drawIcon(p, Icon::Pin, icon, drawInk, m_pinned ? 1.8 : 1.55); break;
+        case Action::Menu: drawIcon(p, Icon::Hamburger, icon, drawInk); break;
+        case Action::Minimize:
+            drawIcon(p, Icon::MinWindow, QRectF(center.x() - 7, center.y() - 7, 14, 14), pal.ink, 1.4);
+            break;
+        case Action::Maximize:
+            drawIcon(p, window() && window()->isMaximized() ? Icon::MinWindow : Icon::MaxWindow,
+                     QRectF(center.x() - 7, center.y() - 7, 14, 14), pal.ink, 1.4);
+            break;
+        case Action::Close:
+            drawIcon(p, Icon::Close, QRectF(center.x() - 7, center.y() - 7, 14, 14), pal.ink, 1.4);
+            break;
         default: break;
         }
 
-        if (b.id == 1 || b.id == 2 || b.id == 9) {
-            drawLabel(bounds.x() + 30, bounds.right() - (b.caret ? 17 : 4), uiFont(12));
+        // 带文字的按钮：图标在左，文字随后（文字光学中心与 18px 图标中心同线）。
+        if (!b.iconOnly && !b.label.isEmpty()) {
+            const QFont f = uiFont(12);
+            p.setFont(f);
+            p.setPen(drawInk);
+            const int textX = b.rect.x() + 10 + 18 + 8;
+            const QRect textRect(textX, b.rect.y(), b.rect.right() - textX - 10,
+                                 b.rect.height());
+            p.drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft, b.label);
             if (b.caret) {
                 drawIcon(p, Icon::ChevronDown,
-                         QRectF(b.rect.right() - 18, center.y() - 5, 10, 10),
-                         QColor(QString::fromLatin1(UiStyle::pick("#8e9297", "#71757a"))), 1.4);
+                         QRectF(b.rect.right() - 16, center.y() - 5, 10, 10), mutedInk, 1.4);
             }
         }
         endButton(p);
     }
-
-    // 工具组前的分隔线
-    const QRect slideRect = btns.size() > 2 ? btns[2].rect : QRect();
-    const int sepX = slideRect.right() + 8;
-    p.fillRect(QRect(sepX, 8, 1, height() - 17), (UiStyle::isLight() ? QColor(0,0,0,19) : QColor(255,255,255,19)));
 }
 
-void ToolBar::activate(int index, const QPoint &globalPos)
+void TopBar::activate(Action action, const QPoint &globalPos)
 {
-    switch (index) {
-    case 0: emit openClicked(); break;
-    case 1: emit browseMenuRequested(globalPos); break;
-    case 2: emit slideshowMenuRequested(globalPos); break;
-    case 3: emit bookmarkMenuRequested(globalPos); break;
-    case 4: m_hdr = !m_hdr; emit hdrToggled(); break;
-    case 5: emit editMenuRequested(globalPos); break;
-    case 6: emit copytoMenuRequested(globalPos); break;
-    case 7: emit lockToggled(); break;
-    case 8: emit moreMenuRequested(globalPos); break;
-    case 9: if (m_layersAvailable) emit layersClicked(); break;
+    switch (action) {
+    case Action::Open: emit openClicked(); break;
+    case Action::Browse: emit browseMenuRequested(globalPos); break;
+    case Action::Slideshow: emit slideshowMenuRequested(globalPos); break;
+    case Action::Bookmark: emit bookmarkMenuRequested(globalPos); break;
+    case Action::Edit: emit editMenuRequested(globalPos); break;
+    case Action::CopyTo: emit copytoMenuRequested(globalPos); break;
+    case Action::Layers:
+        if (m_layersAvailable) {
+            emit layersClicked();
+        }
+        break;
+    case Action::TopLock: emit topLockToggled(); break;
+    case Action::Pin: emit pinToggled(); break;
+    case Action::Menu: emit menuRequested(globalPos); break;
+    case Action::Minimize: emit minimizeClicked(); break;
+    case Action::Maximize: emit maximizeClicked(); break;
+    case Action::Close: emit closeClicked(); break;
     default: break;
     }
 }
 
-void ToolBar::moveFocus(int step)
+void TopBar::moveFocus(int step)
 {
     const int n = buttons().size();
     if (n <= 0) {
@@ -1078,7 +1325,6 @@ void ToolBar::moveFocus(int step)
     }
     int next = (m_focus < 0) ? (step > 0 ? 0 : n - 1) : m_focus + step;
     if (next < 0 || next >= n) {
-        // 走到边界：把焦点交还给外层焦点链
         m_focus = -1;
         m_keyboardFocus = false;
         m_feedback->setHover(-1);
@@ -1091,22 +1337,29 @@ void ToolBar::moveFocus(int step)
     update();
 }
 
-void ToolBar::mousePressEvent(QMouseEvent *e)
+void TopBar::mousePressEvent(QMouseEvent *e)
 {
-    m_tip->hideNow();   // 按下立即收起提示
+    m_tip->hideNow();
     if (e->button() == Qt::LeftButton) {
         if (m_keyboardFocus) {
-            m_keyboardFocus = false;   // 鼠标接管后不再显示焦点环
+            m_keyboardFocus = false;
             m_focus = -1;
         }
         m_press = hitTest(e->pos());
-        m_feedback->setPressed(m_press);   // 按下即出反馈，不等 clicked
+        m_feedback->setPressed(m_press);
         update();
+        if (m_press >= 0) {
+            return;
+        }
+        if (window() && window()->windowHandle()) {
+            window()->windowHandle()->startSystemMove();
+        }
+        return;
     }
     QWidget::mousePressEvent(e);
 }
 
-void ToolBar::mouseReleaseEvent(QMouseEvent *e)
+void TopBar::mouseReleaseEvent(QMouseEvent *e)
 {
     const int i = m_press;
     m_press = -1;
@@ -1116,22 +1369,26 @@ void ToolBar::mouseReleaseEvent(QMouseEvent *e)
         QWidget::mouseReleaseEvent(e);
         return;
     }
-    activate(i, e->globalPosition().toPoint());
+    const QVector<Btn> list = buttons();
+    if (i < list.size()) {
+        activate(list[i].action, e->globalPosition().toPoint());
+    }
     QWidget::mouseReleaseEvent(e);
 }
 
-void ToolBar::mouseMoveEvent(QMouseEvent *e)
+void TopBar::mouseMoveEvent(QMouseEvent *e)
 {
     m_hover = hitTest(e->pos());
     m_feedback->setHover(m_hover);
     setPointerCursor(this, m_hover >= 0);
     if (e->buttons() != Qt::NoButton) {
-        m_tip->hideNow();   // 按住拖动期间不出提示
+        m_tip->hideNow();
     } else if (m_hover >= 0) {
-        const Btn button = buttons().at(m_hover);
-        const QPoint anchor = button.id == 7 ? mapToGlobal(button.rect.center())
-                                              : e->globalPosition().toPoint();
-        m_tip->hover(tipText(m_hover), anchor);
+        const Btn &b = buttons().at(m_hover);
+        const QPoint anchor = (b.action == Action::TopLock || b.action == Action::Pin)
+                                  ? mapToGlobal(b.rect.center())
+                                  : e->globalPosition().toPoint();
+        m_tip->hover(tipText(b.action), anchor);
     } else {
         m_tip->hideNow();
     }
@@ -1139,7 +1396,21 @@ void ToolBar::mouseMoveEvent(QMouseEvent *e)
     QWidget::mouseMoveEvent(e);
 }
 
-void ToolBar::leaveEvent(QEvent *)
+void TopBar::mouseDoubleClickEvent(QMouseEvent *e)
+{
+    if (e->button() == Qt::LeftButton && hitTest(e->pos()) < 0) {
+        emit maximizeClicked();
+    }
+    QWidget::mouseDoubleClickEvent(e);
+}
+
+void TopBar::contextMenuEvent(QContextMenuEvent *e)
+{
+    emit systemMenuRequested(e->globalPos());
+    e->accept();
+}
+
+void TopBar::leaveEvent(QEvent *)
 {
     m_hover = -1;
     m_feedback->setHover(-1);
@@ -1148,13 +1419,13 @@ void ToolBar::leaveEvent(QEvent *)
     update();
 }
 
-void ToolBar::wheelEvent(QWheelEvent *e)
+void TopBar::wheelEvent(QWheelEvent *e)
 {
     m_tip->hideNow();
     QWidget::wheelEvent(e);
 }
 
-void ToolBar::focusInEvent(QFocusEvent *e)
+void TopBar::focusInEvent(QFocusEvent *e)
 {
     const bool byKeyboard = (e->reason() == Qt::TabFocusReason
                              || e->reason() == Qt::BacktabFocusReason
@@ -1168,7 +1439,7 @@ void ToolBar::focusInEvent(QFocusEvent *e)
     QWidget::focusInEvent(e);
 }
 
-void ToolBar::focusOutEvent(QFocusEvent *e)
+void TopBar::focusOutEvent(QFocusEvent *e)
 {
     m_focus = -1;
     m_keyboardFocus = false;
@@ -1179,10 +1450,31 @@ void ToolBar::focusOutEvent(QFocusEvent *e)
     QWidget::focusOutEvent(e);
 }
 
-void ToolBar::keyPressEvent(QKeyEvent *e)
+bool TopBar::event(QEvent *e)
+{
+    if (e->type() == QEvent::ShortcutOverride && m_keyboardFocus) {
+        auto *ke = static_cast<QKeyEvent *>(e);
+        switch (ke->key()) {
+        case Qt::Key_Left:
+        case Qt::Key_Right:
+        case Qt::Key_Up:
+        case Qt::Key_Down:
+        case Qt::Key_Space:
+        case Qt::Key_Return:
+        case Qt::Key_Enter:
+        case Qt::Key_Escape:
+            ke->accept();
+            return true;
+        default:
+            break;
+        }
+    }
+    return QWidget::event(e);
+}
+
+void TopBar::keyPressEvent(QKeyEvent *e)
 {
     if (!m_keyboardFocus) {
-        // 鼠标点进来的焦点不抢全局快捷键（方向键翻页 / 空格下一张）
         QWidget::keyPressEvent(e);
         return;
     }
@@ -1215,7 +1507,7 @@ void ToolBar::keyPressEvent(QKeyEvent *e)
     QWidget::keyPressEvent(e);
 }
 
-void ToolBar::keyReleaseEvent(QKeyEvent *e)
+void TopBar::keyReleaseEvent(QKeyEvent *e)
 {
     if (m_keyboardFocus
         && (e->key() == Qt::Key_Space || e->key() == Qt::Key_Return
@@ -1225,11 +1517,9 @@ void ToolBar::keyReleaseEvent(QKeyEvent *e)
         m_press = -1;
         m_feedback->setPressed(-1);
         update();
-        if (i >= 0 && i == m_focus) {
-            const QVector<Btn> btns = buttons();
-            if (i < btns.size()) {
-                activate(i, mapToGlobal(btns[i].rect.center()));
-            }
+        const QVector<Btn> list = buttons();
+        if (i >= 0 && i == m_focus && i < list.size()) {
+            activate(list[i].action, mapToGlobal(list[i].rect.center()));
         }
         e->accept();
         return;
@@ -1238,20 +1528,54 @@ void ToolBar::keyReleaseEvent(QKeyEvent *e)
 }
 
 // ===========================================================================
-// 底部胶囊控制栏
+// 底部控制岛（54px 胶囊）
 // ===========================================================================
+
+namespace {
+
+constexpr int kIslandH = 54;
+constexpr int kIslandWidgetH = 64;
+constexpr int kIslandPadX = 10;
+constexpr int kIslandBtn = 34;      // 普通按钮热区（含锁定）
+constexpr int kIslandNavBtn = 36;   // 上一张/下一张热区
+constexpr int kIslandY = (kIslandH - kIslandBtn) / 2;
+constexpr int kIslandInnerGap = 4;
+constexpr int kIslandGroupGap = 8;
+constexpr int kIslandTrackWide = 168;     // 宽窗轨道上限
+constexpr int kIslandTrackStandard = 150; // 标准轨道（取代 188 长轨道）
+constexpr int kIslandTrackNarrow = 119;
+constexpr int kZoomCapsuleW = 72;   // 缩放胶囊：点击在 100% / 适合窗口 间切换
+constexpr int kZoomCapsuleH = 32;   // 高 32 → 圆角取一半，两端为完整半圆
+constexpr int kPageValueW = 44;
+constexpr int kProgressPadX = 10;    // 进度块左右内边距
+constexpr int kProgressInnerGap = 8; // 滑杆与页码之间
+
+} // namespace
 
 ControlBar::ControlBar(QWidget *parent)
     : QWidget(parent)
 {
     setMouseTracking(true);
-    setFixedSize(kDockW, kDockH);
+    setFixedSize(320, kIslandWidgetH);
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_NoSystemBackground);
     setFocusPolicy(Qt::StrongFocus);
+    setAccessibleName(tr("底部控制栏"));
+    setAccessibleDescription(tr("打开、缩略图、缩放、旋转、全屏、上一张、进度、下一张与锁定"));
     m_feedback = new ButtonFeedback(this);
     connect(m_feedback, &ButtonFeedback::changed, this, [this]() { update(); });
     m_tip = new TooltipHint(this);
+    m_zoomFade = new QVariantAnimation(this);
+    m_zoomFade->setDuration(100);
+    m_zoomFade->setStartValue(0.0);
+    m_zoomFade->setEndValue(1.0);
+    m_zoomFade->setEasingCurve(QEasingCurve::OutCubic);
+    connect(m_zoomFade, &QVariantAnimation::valueChanged, this, [this]() { update(); });
+    connect(m_zoomFade, &QVariantAnimation::finished, this, [this]() {
+        m_prevZoomText.clear();
+        update();
+    });
+    recomputeWidth();
 }
 
 void ControlBar::setPage(int current, int total)
@@ -1267,72 +1591,202 @@ void ControlBar::setLocked(bool locked)
         return;
     }
     m_locked = locked;
+    // 锁按钮恒为最后一项：用 checked 插值驱动两层视觉（透明底/蓝圆）交叉淡化。
+    const QVector<Item> list = items();
+    if (!list.isEmpty()) {
+        m_feedback->setChecked(list.size() - 1, locked);
+    }
+    update();
+}
+
+void ControlBar::setZoomState(const QString &text, int kind)
+{
+    if (m_zoomText == text && m_zoomKind == kind) {
+        return;
+    }
+    m_prevZoomText = m_zoomText;
+    m_zoomText = text;
+    m_zoomKind = kind;
+    if (reducedMotion()) {
+        m_zoomFade->stop();
+        m_prevZoomText.clear();
+        update();
+        return;
+    }
+    m_zoomFade->stop();
+    m_zoomFade->start();
+    update();
+}
+
+void ControlBar::setWeakened(bool weakened)
+{
+    if (m_weakened == weakened) {
+        return;
+    }
+    m_weakened = weakened;
+    update();
+}
+
+bool ControlBar::keepVisible() const
+{
+    // 判定「底岛仍在操作中」时，弹窗必须限定为底岛自己拥有的菜单。
+    // QApplication::activePopupWidget() 是全局量：画布右键菜单、设置页 QComboBox
+    // 下拉、顶栏三横菜单都会点亮它。旧逻辑只判 != nullptr，等价于「任何弹窗
+    // 都算底岛操作中」，于是这些与底岛无关的菜单会把本该隐藏的悬浮岛唤出来。
+    // 顶栏已有 isTopBarPopup 做同样的归属判定，这里与之对称、互不影响。
+    bool ownPopup = false;
+    for (QObject *o = QApplication::activePopupWidget(); o; o = o->parent()) {
+        if (o == this || o->property("dockOwnedPopup").toBool()) {
+            ownPopup = true;
+            break;
+        }
+    }
+    // 其余合法保持条件不变：鼠标真正悬停岛体 / 键盘焦点 / 滑杆拖动。
+    // 底部热区与底栏锁定由 MainWindow::updateDockProximity 单独判定。
+    return m_keyboardFocus || m_dragging || m_hover >= 0 || ownPopup;
+}
+
+// 档位阈值按「该档整条岛的自然宽度 + 左右各 24px 呼吸位」定，
+// 这样不会出现「岛比可用宽度还宽」的挤出，也不会过早收掉低频项。
+ControlBar::Tier ControlBar::tier() const
+{
+    if (m_availableWidth >= 736) return Tier::Full;      // 全组 + 150 轨道 ≈ 688（宽窗 168 → ≈ 706）
+    if (m_availableWidth >= 705) return Tier::Compact;   // 全组 + 119 轨道 ≈ 657
+    if (m_availableWidth >= 625) return Tier::Narrow;    // 收旋转/全屏 ≈ 577
+    if (m_availableWidth >= 545) return Tier::Minimal;   // 再收打开/缩略图 ≈ 497
+    return Tier::Tiny;                                   // 再收缩放加减 ≈ 425
+}
+
+bool ControlBar::showGroup1() const
+{
+    const Tier t = tier();
+    return t == Tier::Full || t == Tier::Compact || t == Tier::Narrow;
+}
+
+bool ControlBar::showGroup3() const
+{
+    const Tier t = tier();
+    return t == Tier::Full || t == Tier::Compact;
+}
+
+bool ControlBar::showZoomButtons() const
+{
+    return tier() != Tier::Tiny;
+}
+
+void ControlBar::setAvailableWidth(int width)
+{
+    const int w = qMax(200, width);
+    if (w == m_availableWidth) {
+        return;
+    }
+    m_availableWidth = w;
+    recomputeWidth();
+}
+
+void ControlBar::recomputeWidth()
+{
+    // 滑杆三档响应：宽窗 168 / 标准 150 / 窄窗 119（胶囊与按钮不参与收窄）。
+    m_trackWidth = (tier() == Tier::Full)
+                       ? (m_availableWidth >= 754 ? kIslandTrackWide : kIslandTrackStandard)
+                       : kIslandTrackNarrow;
+    QVector<Item> list = items();
+    int width = list.isEmpty() ? 240 : list.last().rect.right() + 1 + kIslandPadX;
+    // 极窄窗：先缩短轨道，保留翻页热区、页码与倍率。
+    if (width > m_availableWidth) {
+        const int excess = width - m_availableWidth;
+        m_trackWidth = qMax(48, m_trackWidth - excess);
+        list = items();
+        width = list.isEmpty() ? 240 : list.last().rect.right() + 1 + kIslandPadX;
+    }
+    m_preferredWidth = width;
+    setFixedWidth(width);
+    // 档位切换会移动锁按钮的索引（恒为最后一项），同步选中态插值目标。
+    m_feedback->setChecked(list.isEmpty() ? -1 : list.size() - 1, m_locked);
     update();
 }
 
 QVector<ControlBar::Item> ControlBar::items() const
 {
-    return layoutItems(nullptr);
+    QVector<Item> out;
+    int x = kIslandPadX;
+    const int y = kIslandY;
+
+    auto place = [&](Action a, int w, int h = kIslandBtn) {
+        out.append(Item{ a, QRect(x, y + (kIslandBtn - h) / 2, w, h) });
+        x += w;
+    };
+
+    if (showGroup1()) {
+        place(Action::Open, kIslandBtn);
+        x += kIslandInnerGap;
+        place(Action::List, kIslandBtn);
+        x += kIslandGroupGap;
+    }
+
+    if (showZoomButtons()) {
+        place(Action::ZoomOut, kIslandBtn);
+        x += kIslandInnerGap;
+    }
+    place(Action::ZoomValue, kZoomCapsuleW, kZoomCapsuleH);
+    x += kIslandInnerGap;
+    if (showZoomButtons()) {
+        place(Action::ZoomIn, kIslandBtn);
+    }
+    x += kIslandGroupGap;
+
+    if (showGroup3()) {
+        place(Action::Rotate, kIslandBtn);
+        x += kIslandInnerGap;
+        place(Action::Fullscreen, kIslandBtn);
+        x += kIslandGroupGap;
+    }
+
+    place(Action::Prev, kIslandNavBtn, kIslandNavBtn);
+    x += 8;
+    // 进度块：滑杆 + 页码放在同一个深色内嵌圆角里（对齐概念图 01/03）。
+    x += kProgressPadX;
+    place(Action::PageSlider, m_trackWidth);
+    x += kProgressInnerGap;
+    place(Action::PageValue, kPageValueW);
+    x += kProgressPadX + 8;
+    place(Action::Next, kIslandNavBtn, kIslandNavBtn);
+    x += kIslandGroupGap;
+
+    place(Action::Lock, kIslandBtn);
+
+    return out;
 }
 
-// 胶囊的唯一布局来源（交接单 §7）：
-//   内边距 上 6 / 左右 9 / 下 7，两排间距 3；翻页行 26，操作行 30。
-//   第一排：翻页滑杆 / 44px 页码（"3 / 24"），两列，列间距 10，垂直居中；
-//           未打开文件（total=0）整行不布置。
-//   第二排：打开、缩略图 ｜ 适合窗口、缩小、放大 ｜ 左旋、右旋 ｜ 上一张、下一张 ｜ 锁定。
-QVector<ControlBar::Item> ControlBar::layoutItems(QVector<int> *separators) const
+// 进度块外框（滑杆 + 页码 + 左右内边距）。
+QRect ControlBar::progressRect() const
 {
-    QVector<Item> out;
-
-    // ---- 翻页行：滑杆 / 页码 两列，列间距 10，整行垂直居中 ----
-    if (m_pageCount > 0) {
-        const int zoomY = kDockPadTop;
-        const int sliderW = kDockW - 2 * kDockPadX - kPercentW - kGridGap;
-        int x = kDockPadX;
-        out.append({ Action::PageSlider, QRect(x, zoomY, sliderW, kZoomRowH) });
-        x += sliderW + kGridGap;
-        out.append({ Action::PageValue, QRect(x, zoomY, kPercentW, kZoomRowH) });
-    }
-
-    // ---- 操作行：10 × 32×30 按钮 + 4 条分隔线，整行在两内边距之间水平居中 ----
-    struct Cell {
-        Action action;
-        bool sepBefore;
-    };
-    const Cell cells[] = {
-        { Action::Open, false },      { Action::List, false },
-        { Action::Fit, true },        { Action::ZoomOut, false },
-        { Action::ZoomIn, false },    { Action::RotateLeft, true },
-        { Action::RotateRight, false },
-        { Action::Prev, true },       { Action::Next, false },
-        { Action::Lock, true },
-    };
-    const int count = static_cast<int>(sizeof(cells) / sizeof(cells[0]));
-
-    int contentW = kItemGap * (count - 1);
-    for (const Cell &c : cells) {
-        contentW += kBtnW;
-        if (c.sepBefore) {
-            // 分隔线：自身 1px + 左右各 3px 外边距 + 它自己占一个按钮间距
-            contentW += kSepW + 2 * kSepMargin + kItemGap;
+    QRect track;
+    QRect page;
+    for (const Item &it : items()) {
+        if (it.action == Action::PageSlider) {
+            track = it.rect;
+        } else if (it.action == Action::PageValue) {
+            page = it.rect;
         }
     }
-
-    const int actionY = kDockPadTop + kZoomRowH + kRowGap;
-    const int contentArea = kDockW - 2 * kDockPadX;
-    int cur = kDockPadX + qRound((contentArea - contentW) / 2.0);
-    for (const Cell &c : cells) {
-        if (c.sepBefore) {
-            const int sepX = cur + kSepMargin;   // cur 已含上一个按钮后的间距
-            if (separators) {
-                separators->append(sepX);
-            }
-            cur = sepX + kSepW + kSepMargin + kItemGap;
-        }
-        out.append({ c.action, QRect(cur, actionY, kBtnW, kBtnH) });
-        cur += kBtnW + kItemGap;
+    if (track.isNull() || page.isNull()) {
+        return QRect();
     }
-    return out;
+    return QRect(track.left() - kProgressPadX, kIslandY - 3,
+                 page.right() + kProgressPadX - (track.left() - kProgressPadX) + 1,
+                 kIslandBtn + 6);
+}
+
+QRect ControlBar::sliderRect() const
+{
+    const QVector<Item> list = items();
+    for (const Item &it : list) {
+        if (it.action == Action::PageSlider) {
+            return it.rect;
+        }
+    }
+    return QRect();
 }
 
 int ControlBar::hitIndex(const QPoint &pos) const
@@ -1351,53 +1805,43 @@ int ControlBar::clampedPage(int page) const
     return qBound(1, page, qMax(1, m_pageCount));
 }
 
-// 把滑杆横向位置换算成 1..total 的页码（与绘制的手柄内缩口径一致）
 int ControlBar::sliderPageFromX(int x) const
 {
-    QRect track;
-    const QVector<Item> list = items();
-    for (const Item &item : list) {
-        if (item.action == Action::PageSlider) {
-            track = item.rect;
-            break;
-        }
-    }
+    const QRect track = sliderRect();
     if (track.isNull()) {
         return m_page;
     }
-    const qreal left = track.left() + 5.5;    // 手柄半径内缩，与绘制一致
-    const qreal right = track.right() - 5.5;
+    const qreal left = track.left() + 7.0;
+    const qreal right = track.right() - 7.0;
     const qreal ratio = qBound(0.0, (x - left) / qMax(1.0, right - left), 1.0);
     const int maxPage = qMax(1, m_pageCount);
     return qBound(1, qRound(1.0 + ratio * (maxPage - 1)), maxPage);
 }
 
-// 胶囊内每个控件（含滑杆）都必须有提示；锁定项随状态切换
 QString ControlBar::tipText(Action action) const
 {
     switch (action) {
     case Action::Open: return tr("打开");
     case Action::List: return tr("缩略图栏");
-    case Action::Fit: return tr("适合窗口");
     case Action::ZoomOut: return tr("缩小");
+    case Action::ZoomValue:
+        // 提示跟着下一步操作走：100% 时点它去适合窗口，其余状态都先回原始尺寸。
+        return m_zoomKind == 1 ? tr("适合窗口") : tr("查看原始尺寸（100%）");
     case Action::ZoomIn: return tr("放大");
-    case Action::RotateLeft: return tr("逆时针旋转 90° (Alt+Left)");
-    case Action::RotateRight: return tr("顺时针旋转 90° (Alt+Right)");
+    case Action::Rotate: return tr("旋转：左键逆时针 90°，右键顺时针 90°");
+    case Action::Fullscreen: return tr("全屏 / 还原 (F11)");
     case Action::Prev: return tr("上一张图片 (←)");
-    case Action::Next: return tr("下一张图片 (→)");
-    case Action::Lock: return m_locked ? tr("解锁控制栏") : tr("锁定控制栏");
     case Action::PageSlider:
         return sliderEnabled() ? tr("浏览进度：拖动切换图片；滚轮上一张/下一张")
                                : tr("浏览进度：只有一张图片");
-    case Action::PageValue: return tr("适合窗口");
-    case Action::None: break;
+    case Action::PageValue: return tr("当前页码 / 总页数");
+    case Action::Next: return tr("下一张图片 (→)");
+    case Action::Lock: return tr("保持底部控制栏显示");
+    default: break;
     }
     return QString();
 }
 
-// 拖动中：滑杆视觉与页码跟手更新，并按 ≥60ms 节流发 pagePreviewRequested
-// （跟手预览，让拖动经过的每张都出一帧）。真正跳图仍在松手时发一次 pageRequested，
-// 避免 24 张目录一路拖过去就是 24 次全尺寸解码。
 void ControlBar::applyPageFromX(int x)
 {
     const int page = sliderPageFromX(x);
@@ -1416,55 +1860,74 @@ void ControlBar::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
-
-    // 胶囊底：整条只有这一层，缩放行不再叠第二层背景
-    p.setPen(QPen((UiStyle::isLight() ? QColor(0,0,0,33) : QColor(255,255,255,33)), 1));
-    p.setBrush(UiStyle::isLight() ? QColor(250, 250, 251, 242) : rgba(40, 42, 45, 242));
-    p.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), 10, 10);
-
-    QVector<int> separators;
-    const QVector<Item> list = layoutItems(&separators);
-
-    // 分隔线：1px 宽 / 16px 高，操作行垂直居中
-    const int sepY = kDockPadTop + kZoomRowH + kRowGap + (kActionRowH - kSepH) / 2;
-    for (int sx : separators) {
-        p.fillRect(QRect(sx, sepY, kSepW, kSepH), (UiStyle::isLight() ? QColor(0,0,0,23) : QColor(255,255,255,23)));
+    if (m_weakened) {
+        p.setOpacity(0.45);
     }
 
+    const QRectF capsule(0.5, 0.5, width() - 1.0, kIslandH - 1.0);
+
+    // 软阴影：胶囊下方三层，越远越淡（不依赖系统阴影，截图可复现）。
+    p.setPen(Qt::NoPen);
+    for (int i = 0; i < 3; ++i) {
+        const qreal grow = 2.0 + i * 2.5;
+        QColor sh(0, 0, 0, 34 - i * 9);
+        p.setBrush(sh);
+        p.drawRoundedRect(capsule.adjusted(-grow, grow, grow, grow + 2),
+                          (kIslandH + 2 * grow) / 2.0, (kIslandH + 2 * grow) / 2.0);
+    }
+
+    p.setPen(QPen((UiStyle::isLight() ? QColor(0, 0, 0, 28) : QColor(255, 255, 255, 30)), 1));
+    p.setBrush(UiStyle::isLight() ? QColor(250, 250, 251, 242)
+                                  : QColor(31, 32, 35, 227));
+    p.drawRoundedRect(capsule, 27, 27);
+
+    // 进度块：比胶囊略深的嵌入式圆角底（滑杆 + 页码同区）。
+    const QRect prog = progressRect();
+    if (!prog.isNull()) {
+        p.setPen(Qt::NoPen);
+        p.setBrush(UiStyle::isLight() ? QColor(0, 0, 0, 20) : QColor(0, 0, 0, 48));
+        p.drawRoundedRect(QRectF(prog).adjusted(0.5, 0.5, -0.5, -0.5), 17, 17);
+    }
+
+    const QVector<Item> list = items();
+    const QColor ink = QColor(QString::fromLatin1(UiStyle::pick("#d7d9dc", "#26282a")));
+    const QColor accent = UiStyle::accent();
+
     for (int i = 0; i < list.size(); ++i) {
-        const Item &item = list.at(i);
+        const Item &it = list.at(i);
+        const QRect r = it.rect;
         BtnVisual v = m_feedback->visual(i);
 
-        if (item.action == Action::PageSlider) {
-            const QRectF track = item.rect;
-            const qreal y = track.center().y() + 0.5;
-            const qreal left = track.left() + 5.5;     // 手柄半径，避免两端被裁
-            const qreal right = track.right() - 5.5;
-            // 单张禁用：整段按 58% 不透明度画（原型 button:disabled），不可交互
+        if (it.action == Action::PageSlider) {
             const bool enabled = sliderEnabled();
             if (!enabled) {
                 p.setOpacity(p.opacity() * 0.58);
             }
-            // 拖动中轨道略微提亮，和单纯 Hover 区分
-            QColor idle(QStringLiteral("#5d6166"));
+            const qreal y = r.center().y() + 0.5;
+            const qreal left = r.left() + 7.0;
+            const qreal right = r.right() - 7.0;
+            QColor idle(QString::fromLatin1(UiStyle::pick("#626365", "#c4c8cc")));
             if (v.press > 0.004) {
-                idle = blendColor(idle, QColor(0x7a, 0x7e, 0x84), 0.55 * v.press);
+                idle = blendColor(idle, QColor(0x8a, 0x8e, 0x94), 0.55 * v.press);
             }
             p.setPen(QPen(idle, 3, Qt::SolidLine, Qt::RoundCap));
             p.drawLine(QPointF(left, y), QPointF(right, y));
-            // 已读进度：1/(n-1) 线性映射；单张时按原型铺满
-            const qreal ratio = enabled
-                ? (m_page - 1) / qMax(1.0, qreal(m_pageCount - 1))
-                : 1.0;
+            // 只有一张图时滑杆没有可拖动范围：不画蓝色进度、滑块停在左端并灰显，
+            // 避免「满格」被误读成已到目录末尾。
+            const qreal ratio = enabled ? (m_page - 1) / qMax(1.0, qreal(m_pageCount - 1)) : 0.0;
             const qreal thumbX = left + ratio * (right - left);
-            p.setPen(QPen(UiStyle::accent(), 3, Qt::SolidLine, Qt::RoundCap));
-            p.drawLine(QPointF(left, y), QPointF(thumbX, y));
-            // 手柄：Hover 1.12 / Dragging 1.22，取较大者不叠加
+            if (enabled) {
+                // 概念图 03 的进度填充为亮蓝 #61b1ff，比界面强调色更偏蓝。
+                const QColor fill(QString::fromLatin1(UiStyle::pick("#61b1ff", "#1688f8")));
+                p.setPen(QPen(fill, 3, Qt::SolidLine, Qt::RoundCap));
+                p.drawLine(QPointF(left, y), QPointF(thumbX, y));
+            }
             const qreal grow = 1.0 + qMax(0.12 * v.hover, 0.22 * v.press);
-            const qreal hot = qMax(v.hover, v.press);
-            QColor thumb(QStringLiteral("#f3f5f6"));
-            if (hot > 0.01) {
-                thumb = blendColor(thumb, UiStyle::accent(), hot);
+            QColor thumb(QStringLiteral("#f5f5f5"));
+            if (!enabled) {
+                thumb = QColor(QString::fromLatin1(UiStyle::pick("#8a8e94", "#a8acb1")));
+            } else if (qMax(v.hover, v.press) > 0.01) {
+                thumb = blendColor(thumb, accent, qMax(v.hover, v.press));
             }
             p.setPen(Qt::NoPen);
             p.setBrush(thumb);
@@ -1472,100 +1935,181 @@ void ControlBar::paintEvent(QPaintEvent *)
             continue;
         }
 
+        if (it.action == Action::ZoomValue) {
+            // 缩放胶囊：中性深底常亮，悬停提亮、按下加深，只走颜色过渡——
+            // 不套 beginButton 的按压缩放，也不占蓝色选中态，避免与锁定、进度滑杆抢重点。
+            const QColor base(QString::fromLatin1(UiStyle::pick("#35373b", "#e7e9eb")));
+            const QColor hot(QString::fromLatin1(UiStyle::pick("#3e4147", "#dcdfe2")));
+            const QColor down(QString::fromLatin1(UiStyle::pick("#2a2c30", "#cfd3d7")));
+            QColor bg = base;
+            const qreal over = qMax(v.hover, v.press);
+            if (over > 0.004) {
+                bg = blendColor(base, hot, over);
+            }
+            if (v.press > 0.004) {
+                bg = blendColor(bg, down, v.press);
+            }
+            const QRectF cap(r);
+            const qreal capRadius = kZoomCapsuleH / 2.0;
+            p.setPen(Qt::NoPen);
+            p.setBrush(bg);
+            p.drawRoundedRect(cap.adjusted(0.5, 0.5, -0.5, -0.5), capRadius, capRadius);
+            // 焦点环只在键盘操作时出现：鼠标按下即清 m_keyboardFocus，不残留。
+            if (m_keyboardFocus && m_focus == i) {
+                p.setPen(QPen(QColor(85, 192, 240, 215), 2));
+                p.setBrush(Qt::NoBrush);
+                p.drawRoundedRect(cap.adjusted(1.5, 1.5, -1.5, -1.5),
+                                  capRadius, capRadius);
+            }
+            // 档位文字交叉淡化：胶囊宽度固定，只换内容不伸缩。
+            const qreal fadeT = m_zoomFade->state() == QAbstractAnimation::Running
+                                    ? m_zoomFade->currentValue().toReal() : 1.0;
+            if (!m_prevZoomText.isEmpty() && fadeT < 0.999) {
+                QColor prevInk = ink;
+                prevInk.setAlphaF(prevInk.alphaF() * (1.0 - fadeT));
+                drawTabularText(p, cap, m_prevZoomText, prevInk, 12);
+                QColor curInk = ink;
+                curInk.setAlphaF(curInk.alphaF() * fadeT);
+                drawTabularText(p, cap, m_zoomText, curInk, 12);
+            } else {
+                drawTabularText(p, cap, m_zoomText, ink, 12);
+            }
+            continue;
+        }
+        if (it.action == Action::PageValue) {
+            const QString text = m_pageCount > 0
+                                     ? tr("%1 / %2").arg(m_page).arg(m_pageCount)
+                                     : QStringLiteral("– / –");
+            drawTabularText(p, QRectF(r), text, ink, 12);
+            continue;
+        }
+
         BtnState st;
         st.hover = (m_hover == i);
         st.pressed = (m_press == i);
-        st.checked = (item.action == Action::Lock && m_locked);
         st.focus = (m_keyboardFocus && m_focus == i);
+        st.checked = (it.action == Action::Lock && m_locked);
 
         ButtonPalette pal;
-        pal.hover = kHoverBg();
-        pal.press = kPressBg();
-        pal.baseBorder = (UiStyle::isLight() ? QColor(0,0,0,19) : QColor(255,255,255,19));
+        pal.radius = 17;
+        pal.hover = QColor(QString::fromLatin1(UiStyle::pick("#35373b", "#e7e9eb")));
+        pal.press = QColor(QString::fromLatin1(UiStyle::pick("#292b2f", "#dcdfe2")));
+        pal.ink = ink;
         pal.checkedBg = UiStyle::accentSoft();
-        pal.checkedBorder = rgba(85, 192, 240, 64);
-        pal.ink = QColor(QString::fromLatin1(UiStyle::pick("#d7d9dc", "#26282a")));
-        pal.checkedInk = UiStyle::accent();
-        switch (item.action) {
-        case Action::Prev:
-        case Action::Next:
-            pal.ink = QColor(QString::fromLatin1(UiStyle::pick("#f0f0f0", "#3d3d3d")));
-            break;
-        case Action::ZoomOut:
-        case Action::ZoomIn:
-        case Action::PageValue:
-            pal.ink = QColor(QString::fromLatin1(UiStyle::pick("#b7bbc0", "#45494e")));
-            break;
-        default:
-            break;
+        pal.checkedBorder = QColor(accent.red(), accent.green(), accent.blue(), 60);
+        pal.checkedInk = accent;
+
+        const QPointF center = r.center();
+
+        if (it.action == Action::Lock) {
+            // 锁定态交叉淡化：透明底（开）↔ 蓝圆底+深锁（锁）两层按 checked 插值
+            // 叠画；底色与锁图标同步 120ms 过渡，不做位移或缩放。蓝圆底与顶栏
+            // 透明底明确区分。
+            const qreal chk = v.checked;
+            const qreal lockS = 20.0 * (1.0 - 0.02 * v.press);
+            if (chk < 0.999) {
+                p.save();
+                p.setOpacity(p.opacity() * (1.0 - chk));
+                BtnState stU = st;
+                stU.checked = false;
+                beginButton(p, circleVisual(r), stU, v, pal);
+                drawIcon(p, Icon::Unlock,
+                         QRectF(center.x() - lockS / 2, center.y() - lockS / 2, lockS, lockS),
+                         buttonInk(stU, pal), 1.7);
+                endButton(p);
+                p.restore();
+            }
+            if (chk > 0.001) {
+                p.save();
+                p.setOpacity(p.opacity() * chk);
+                const QRectF vr = circleVisual(r);
+                p.setPen(Qt::NoPen);
+                QColor blue(QStringLiteral("#1688f8"));
+                if (st.hover || st.pressed) {
+                    blue = blue.lighter(112);
+                }
+                p.setBrush(blue);
+                p.drawEllipse(vr);
+                drawIcon(p, Icon::Lock,
+                         QRectF(center.x() - lockS / 2, center.y() - lockS / 2, lockS, lockS),
+                         QColor(QStringLiteral("#0b1a24")), 1.9);
+                p.restore();
+            }
+            continue;
         }
 
-        const QRect r = item.rect;
-        beginButton(p, QRectF(r), st, v, pal);
-        const QColor ink = buttonInk(st, pal);
-        const QRectF centerIcon(r.center().x() - kIconSize / 2.0,
-                                r.center().y() - kIconSize / 2.0, kIconSize, kIconSize);
-        const QRectF navIcon(r.center().x() - kNavIconSize / 2.0,
-                             r.center().y() - kNavIconSize / 2.0, kNavIconSize, kNavIconSize);
+        beginButton(p, circleVisual(r), st, v, pal);
+        const QColor drawInk = buttonInk(st, pal);
+        // 按下时图标轻微缩至 98%（不放大、不上浮；松开 100ms 恢复）。
+        const qreal iconS = 20.0 * (1.0 - 0.02 * v.press);
+        const qreal navS = 21.0 * (1.0 - 0.02 * v.press);
+        const QRectF icon(center.x() - iconS / 2, center.y() - iconS / 2, iconS, iconS);
+        const QRectF navIcon(center.x() - navS / 2, center.y() - navS / 2, navS, navS);
 
-        switch (item.action) {
-        case Action::Open:
-            drawIcon(p, Icon::Folder, centerIcon, ink, kIconStroke);
-            break;
-        case Action::List:
-            drawIcon(p, Icon::Grid, centerIcon, ink, kIconStroke);
-            break;
-        case Action::Fit:
-            drawIcon(p, Icon::Fit, centerIcon, ink, kIconStroke);
-            break;
-        case Action::RotateLeft:
-            drawIcon(p, Icon::RotateLeft, centerIcon, ink, kIconStroke);
-            break;
-        case Action::RotateRight:
-            drawIcon(p, Icon::RotateRight, centerIcon, ink, kIconStroke);
-            break;
-        case Action::Prev:
-            drawIcon(p, Icon::Left, navIcon, ink, kNavIconStroke);
-            break;
-        case Action::Next:
-            drawIcon(p, Icon::Right, navIcon, ink, kNavIconStroke);
-            break;
-        case Action::Lock:
-            drawIcon(p, Icon::Lock, centerIcon, ink, kIconStroke);
-            break;
-        case Action::ZoomOut:
-            drawIcon(p, Icon::Minus, centerIcon, ink, kIconStroke);
-            break;
-        case Action::ZoomIn:
-            drawIcon(p, Icon::Plus, centerIcon, ink, kIconStroke);
-            break;
-        case Action::PageValue:
-            drawTabularText(p, QRectF(r), tr("%1 / %2").arg(m_page).arg(qMax(0, m_pageCount)),
-                            ink, 11);
-            break;
-        default:
-            break;
+        switch (it.action) {
+        case Action::Open: drawIcon(p, Icon::Folder, icon, drawInk, 1.7); break;
+        case Action::List: drawIcon(p, Icon::Grid, icon, drawInk, 1.7); break;
+        case Action::ZoomOut: drawIcon(p, Icon::Minus, icon, drawInk, 1.7); break;
+        case Action::ZoomIn: drawIcon(p, Icon::Plus, icon, drawInk, 1.7); break;
+        case Action::Rotate: drawIcon(p, Icon::RotateLeft, icon, drawInk, 1.7); break;
+        case Action::Fullscreen: drawIcon(p, Icon::Fullscreen, icon, drawInk, 1.7); break;
+        case Action::Prev: drawIcon(p, Icon::Left, navIcon, drawInk, 2.0); break;
+        case Action::Next: drawIcon(p, Icon::Right, navIcon, drawInk, 2.0); break;
+        case Action::Lock: drawIcon(p, Icon::Unlock, icon, drawInk, 1.7); break;
+        default: break;
         }
         endButton(p);
     }
 }
 
-void ControlBar::activate(Action action)
+void ControlBar::activate(Action action, Qt::MouseButton button)
 {
     switch (action) {
     case Action::Open: emit openClicked(); break;
     case Action::List: emit listClicked(); break;
-    case Action::Fit: emit fitClicked(); break;
-    case Action::RotateLeft: emit rotateLeftClicked(); break;
-    case Action::RotateRight: emit rotateRightClicked(); break;
-    case Action::Prev: emit prevClicked(); break;
-    case Action::Next: emit nextClicked(); break;
-    case Action::Lock: emit lockToggled(); break;
-    case Action::ZoomOut: emit zoomOutClicked(); break;
     case Action::ZoomIn: emit zoomInClicked(); break;
-    case Action::PageValue: emit fitClicked(); break;
+    case Action::ZoomOut: emit zoomOutClicked(); break;
+    case Action::ZoomValue: emit zoomToggleClicked(); break;
+    case Action::Rotate:
+        if (button == Qt::RightButton) {
+            emit rotateRightClicked();
+        } else {
+            emit rotateLeftClicked();
+        }
+        break;
+    case Action::Fullscreen: emit fullscreenClicked(); break;
+    case Action::Prev:
+        if (button == Qt::RightButton) emit prev10Clicked();
+        else if (button == Qt::MiddleButton) emit prevFolderClicked();
+        else emit prevClicked();
+        break;
+    case Action::Next:
+        if (button == Qt::RightButton) emit next10Clicked();
+        else if (button == Qt::MiddleButton) emit nextFolderClicked();
+        else emit nextClicked();
+        break;
+    case Action::Lock: emit lockToggled(); break;
     default: break;
     }
+}
+
+void ControlBar::probeHover(int index)
+{
+    m_hover = index;
+    m_feedback->setHover(index);
+    const QVector<Item> list = items();
+    if (index >= 0 && index < list.size()) {
+        m_tip->hover(tipText(list[index].action),
+                     mapToGlobal(list[index].rect.center()));
+    }
+    update();
+}
+
+void ControlBar::probePress(int index)
+{
+    m_press = index;
+    m_feedback->setPressed(index);
+    update();
 }
 
 void ControlBar::moveFocus(int step)
@@ -1576,7 +2120,6 @@ void ControlBar::moveFocus(int step)
     }
     const int next = (m_focus < 0) ? (step > 0 ? 0 : n - 1) : m_focus + step;
     if (next < 0 || next >= n) {
-        // 走到边界：把焦点交还给外层焦点链
         m_focus = -1;
         m_keyboardFocus = false;
         m_feedback->setHover(-1);
@@ -1591,7 +2134,7 @@ void ControlBar::moveFocus(int step)
 
 void ControlBar::mousePressEvent(QMouseEvent *e)
 {
-    m_tip->hideNow();   // 按下立即收起提示
+    m_tip->hideNow();
     const QVector<Item> list = items();
     const int idx = hitIndex(e->pos());
     const Action action = (idx >= 0 && idx < list.size()) ? list[idx].action : Action::None;
@@ -1599,6 +2142,7 @@ void ControlBar::mousePressEvent(QMouseEvent *e)
     if (e->button() == Qt::RightButton) {
         if (action == Action::Prev) { emit prev10Clicked(); return; }
         if (action == Action::Next) { emit next10Clicked(); return; }
+        if (action == Action::Rotate) { emit rotateRightClicked(); return; }
     }
     if (e->button() == Qt::MiddleButton) {
         if (action == Action::Prev) { emit prevFolderClicked(); return; }
@@ -1606,15 +2150,15 @@ void ControlBar::mousePressEvent(QMouseEvent *e)
     }
     if (e->button() == Qt::LeftButton) {
         if (m_keyboardFocus) {
-            m_keyboardFocus = false;   // 鼠标接管后不再显示焦点环
+            m_keyboardFocus = false;
             m_focus = -1;
         }
         m_press = idx;
-        m_feedback->setPressed(idx);   // 按下即出反馈，不等 clicked
+        m_feedback->setPressed(idx);
         if (action == Action::PageSlider && sliderEnabled()) {
             m_dragging = true;
             m_pressPage = m_page;
-            m_previewClock.invalidate();   // 本次拖动的第一次换页立即预览
+            m_previewClock.invalidate();
             applyPageFromX(e->pos().x());
             return;
         }
@@ -1631,7 +2175,6 @@ void ControlBar::mouseReleaseEvent(QMouseEvent *e)
     if (m_dragging) {
         m_dragging = false;
         update();
-        // 整段拖动只在这里发一次：松手才真正跳图（拖动中只动视觉）
         if (pressedIndex >= 0 && pressedIndex < items().size()
             && items()[pressedIndex].action == Action::PageSlider
             && m_page != m_pressPage) {
@@ -1649,7 +2192,7 @@ void ControlBar::mouseReleaseEvent(QMouseEvent *e)
     }
     const QVector<Item> list = items();
     if (pressedIndex < list.size()) {
-        activate(list[pressedIndex].action);
+        activate(list[pressedIndex].action, e->button());
     }
     QWidget::mouseReleaseEvent(e);
 }
@@ -1657,7 +2200,7 @@ void ControlBar::mouseReleaseEvent(QMouseEvent *e)
 void ControlBar::mouseMoveEvent(QMouseEvent *e)
 {
     if (m_dragging && (e->buttons() & Qt::LeftButton)) {
-        m_tip->hideNow();   // 拖动滑杆时不出提示
+        m_tip->hideNow();
         applyPageFromX(e->pos().x());
         return;
     }
@@ -1676,12 +2219,13 @@ void ControlBar::mouseMoveEvent(QMouseEvent *e)
         setPointerCursor(this, m_hover >= 0);
     }
     if (e->buttons() != Qt::NoButton) {
-        m_tip->hideNow();   // 按住拖动期间不出提示
+        m_tip->hideNow();
     } else if (m_hover >= 0) {
-        const Item &item = list.at(m_hover);
-        const QPoint anchor = item.action == Action::Lock ? mapToGlobal(item.rect.center())
-                                                          : e->globalPosition().toPoint();
-        m_tip->hover(tipText(item.action), anchor);
+        const Item &it = list.at(m_hover);
+        const QPoint anchor = (it.action == Action::Lock || it.action == Action::Rotate)
+                                  ? mapToGlobal(it.rect.center())
+                                  : e->globalPosition().toPoint();
+        m_tip->hover(tipText(it.action), anchor);
     } else {
         m_tip->hideNow();
     }
@@ -1724,14 +2268,34 @@ void ControlBar::focusOutEvent(QFocusEvent *e)
     QWidget::focusOutEvent(e);
 }
 
+bool ControlBar::event(QEvent *e)
+{
+    if (e->type() == QEvent::ShortcutOverride && m_keyboardFocus) {
+        auto *ke = static_cast<QKeyEvent *>(e);
+        switch (ke->key()) {
+        case Qt::Key_Left:
+        case Qt::Key_Right:
+        case Qt::Key_Up:
+        case Qt::Key_Down:
+        case Qt::Key_Space:
+        case Qt::Key_Return:
+        case Qt::Key_Enter:
+        case Qt::Key_Escape:
+            ke->accept();
+            return true;
+        default:
+            break;
+        }
+    }
+    return QWidget::event(e);
+}
+
 void ControlBar::keyPressEvent(QKeyEvent *e)
 {
     if (!m_keyboardFocus) {
-        // 鼠标点进来的焦点不抢全局快捷键（方向键翻页 / 空格下一张）
         QWidget::keyPressEvent(e);
         return;
     }
-    // 焦点落在滑杆上：←/→ 步进一张并立即加载（发 pageRequested），不挪焦点
     if (m_focus >= 0 && m_focus < items().size()
         && items()[m_focus].action == Action::PageSlider) {
         if (e->key() == Qt::Key_Left || e->key() == Qt::Key_Right) {
@@ -1787,11 +2351,9 @@ void ControlBar::keyReleaseEvent(QKeyEvent *e)
         m_press = -1;
         m_feedback->setPressed(-1);
         update();
-        if (i >= 0 && i == m_focus) {
-            const QVector<Item> list = items();
-            if (i < list.size() && list[i].action != Action::PageSlider) {
-                activate(list[i].action);
-            }
+        const QVector<Item> list = items();
+        if (i >= 0 && i == m_focus && i < list.size() && list[i].action != Action::PageSlider) {
+            activate(list[i].action, Qt::LeftButton);
         }
         e->accept();
         return;
@@ -1799,19 +2361,14 @@ void ControlBar::keyReleaseEvent(QKeyEvent *e)
     QWidget::keyReleaseEvent(e);
 }
 
-// 滑杆上滚轮翻页（上滚上一张 / 下滚下一张），保持原行为不改成缩放；
-// 胶囊其余位置滚轮不做事（缩放只属于画布滚轮与 ZoomBadge 反馈）。
 void ControlBar::wheelEvent(QWheelEvent *e)
 {
-    m_tip->hideNow();   // 滚动立即收起提示
-
-    const QPoint pos = e->position().toPoint();
+    m_tip->hideNow();
     const QVector<Item> list = items();
-    const int idx = hitIndex(pos);
+    const int idx = hitIndex(e->position().toPoint());
     const bool onSlider = (idx >= 0 && idx < list.size()
                            && list[idx].action == Action::PageSlider);
     const int delta = e->angleDelta().y();
-
     if (onSlider && sliderEnabled()) {
         if (delta > 0) {
             emit prevClicked();
@@ -1821,6 +2378,7 @@ void ControlBar::wheelEvent(QWheelEvent *e)
     }
     e->accept();
 }
+
 
 // ===========================================================================
 // 状态浮层
@@ -1852,6 +2410,16 @@ void StatusOverlay::clear()
     update();
 }
 
+void StatusOverlay::setBottomInset(int inset)
+{
+    const int v = qMax(0, inset);
+    if (m_bottomInset == v) {
+        return;
+    }
+    m_bottomInset = v;
+    update();
+}
+
 void StatusOverlay::setSmallFont(bool small)
 {
     m_smallFont = small;
@@ -1863,13 +2431,19 @@ void StatusOverlay::paintEvent(QPaintEvent *)
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setFont(uiFont(m_smallFont ? 10 : 11));
-    const int baselineTop = height() - 25;
+    const int baselineTop = height() - 25 - m_bottomInset;
+    const QRect infoRect(16, baselineTop, width() / 2, 16);
+    const QRect counterRect(width() / 2, baselineTop, width() / 2 - 17, 16);
+    // 信息行叠在图片上：深色主题补一层 1px 暗影，亮图上也能读清。
+    if (!UiStyle::isLight()) {
+        p.setPen(QColor(0, 0, 0, 150));
+        p.drawText(infoRect.translated(0, 1), Qt::AlignVCenter | Qt::AlignLeft, m_info);
+        p.drawText(counterRect.translated(0, 1), Qt::AlignVCenter | Qt::AlignRight, m_counter);
+    }
     p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#797d82", "#868a8f"))));
-    p.drawText(QRect(16, baselineTop, width() / 2, 16),
-               Qt::AlignVCenter | Qt::AlignLeft, m_info);
+    p.drawText(infoRect, Qt::AlignVCenter | Qt::AlignLeft, m_info);
     p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#85898e", "#7a7e83"))));
-    p.drawText(QRect(width() / 2, baselineTop, width() / 2 - 17, 16),
-               Qt::AlignVCenter | Qt::AlignRight, m_counter);
+    p.drawText(counterRect, Qt::AlignVCenter | Qt::AlignRight, m_counter);
 }
 
 // ===========================================================================
