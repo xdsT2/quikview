@@ -221,6 +221,9 @@ public:
     explicit ControlBar(QWidget *parent = nullptr);
 
     void setPage(int current, int total);
+    // 进度块（滑杆 + 页码）几何，ControlBar 局部坐标。连续翻页加载反馈用它
+    // 把「正在打开第 N 张」锚到页码旁；胶囊隐藏时调用方自行回落画布底部。
+    QRect progressRect() const;
     int page() const { return m_page; }
     void setLocked(bool locked);
     bool isLocked() const { return m_locked; }
@@ -289,7 +292,6 @@ private:
     enum class Tier { Full, Compact, Narrow, Minimal, Tiny };
 
     QVector<Item> items() const;
-    QRect progressRect() const;
     Tier tier() const;
     bool showGroup1() const;
     bool showGroup3() const;
@@ -360,6 +362,10 @@ class EmptyState : public QWidget
     Q_OBJECT
 public:
     explicit EmptyState(QWidget *parent = nullptr);
+    // 首次打开的加载/失败反馈（连续翻页派单 §二）：画布还没有上一张图可顶时，
+    // 空状态里直接给出「正在打开 …」或「无法打开 … 文件名 + 原因」。
+    // 空文本隐藏该行；isError 用警示色。换图/重试由 MainWindow 调 setStatus("").
+    void setStatus(const QString &text, bool isError = false);
 
 signals:
     void openClicked();
@@ -377,6 +383,8 @@ private:
     QRect secondaryRect() const;
     int m_hover = -1;
     int m_press = -1;
+    QString m_status;
+    bool m_statusError = false;
 };
 
 // ============================ 消息提示 ============================

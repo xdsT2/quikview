@@ -83,7 +83,8 @@ public:
     bool imageIcc() const;             // 使用图片内嵌 ICC（非 sRGB 图转 sRGB，默认 true）
     int gifTransparent() const;        // GIF 解码兼容底色 0..3（§3.8 起仅内部读取，不在设置页暴露）
     QString canvasBackdrop() const;    // 全画布背景材质 "checker"|"solid"（旧值一次性迁移，默认随主题着色）
-    bool canvasShadow() const;         // 透明图像阴影开关（默认 false，仅 32 位 alpha 非 GIF 图）
+    bool showTransparency() const;     // 「显示透明区域」（默认开：纯色背景下透明像素铺指示棋盘）
+    bool canvasShadow() const;         // 图片阴影开关（默认 false，仅 32 位 alpha 非 GIF 图）
     int pageTurnFx() const;            // 翻页效果 0 无 / 1 淡入淡出 / 2 Alpha 滑动 / 3 滑动（默认 1）
     bool cacheNextImage() const;       // 缓存下一张图片（翻页前预读，默认 true）
     int cacheSizeMb() const;           // 原图缓存上限 MB（默认 300，clamp 64..4096）

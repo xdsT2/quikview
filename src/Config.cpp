@@ -345,9 +345,17 @@ QString Config::canvasBackdrop() const
     return v == QLatin1String("solid") ? QStringLiteral("solid") : QStringLiteral("checker");
 }
 
+bool Config::showTransparency() const
+{
+    // 「显示透明区域」（UI-001 §3.8 返工三控件之二）：默认开——纯色背景下
+    // 透明像素在图片矩形内铺指示棋盘，帮用户看清透明范围；关闭时透明像素
+    // 直接透出全画布背景。
+    return m_settings.value(QStringLiteral("config/imageproc/show_transparency"), true).toBool();
+}
+
 bool Config::canvasShadow() const
 {
-    // 「透明图像阴影」（UI-001 §3.8.3）：旧用户与全新安装均默认 false，
+    // 「图片阴影」（UI-001 §3.8.3）：旧用户与全新安装均默认 false，
     // 避免升级后突然改变图片观感。
     return m_settings.value(QStringLiteral("config/imageproc/canvas_shadow"), false).toBool();
 }

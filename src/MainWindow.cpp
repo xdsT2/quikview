@@ -534,6 +534,17 @@ MainWindow::MainWindow(QWidget *parent)
     m_preloadTimer->setInterval(300);
     connect(m_preloadTimer, &QTimer::timeout, this, &MainWindow::preloadNeighbors);
 
+    // 连续翻页加载反馈：目标图 200ms 未出画面 → 页码旁等待提示（派单 §二，
+    // 约 200ms 作试测起点）。只提示、不抢焦点、不挡输入（见 m_loadStatus）。
+    m_loadWaitTimer = new QTimer(this);
+    m_loadWaitTimer->setSingleShot(true);
+    m_loadWaitTimer->setInterval(200);
+    connect(m_loadWaitTimer, &QTimer::timeout, this, &MainWindow::updateLoadWait);
+    m_loadStatus = new QLabel(this);
+    m_loadStatus->setAttribute(Qt::WA_TransparentForMouseEvents);
+    m_loadStatus->setFocusPolicy(Qt::NoFocus);
+    m_loadStatus->hide();
+
     createActions();
     applyRuntimeSettings();
     applyChromeLayout();
@@ -626,6 +637,8 @@ void MainWindow::applyChromeLayout()
     if (m_browser && m_browser->isVisible())
         m_browser->raise();
     m_topBar->raise();
+    if (m_loadStatus && m_loadStatus->isVisible())
+        positionLoadStatus();   // 页码旁状态标签跟胶囊/窗口几何走
 }
 
 // 画布可视区：21:15 交办——图片客户区上下恒为 0，画布直接通顶通底，
@@ -2147,6 +2160,7 @@ void MainWindow::applyRuntimeSettings()
                                     == QLatin1String("solid")
                                 ? int(UiStyle::canvas::Backdrop::Solid)
                                 : int(UiStyle::canvas::Backdrop::Checker));
+    m_canvas->setShowTransparency(cfg.showTransparency());
     m_canvas->setImageShadowEnabled(cfg.canvasShadow());
     m_canvas->setBorderColor(QColor(Qt::transparent));
     m_canvas->setBackgroundImage(QImage());
@@ -2277,6 +2291,16 @@ void MainWindow::loadAsync(const QString &path)
     m_cache->requestFull(path, m_canvas ? m_canvas->viewport()->size() : QSize());
     if (m_preloadTimer) {
         m_preloadTimer->start();   // 又有输入：空闲预读重新计时
+    }
+    // 加载反馈（派单 §二）：换图即清失败态；目标还没画面时 200ms 后出等待提示。
+    // 首次打开（画布还是空状态）直接在空状态里给提示，不等阈值。
+    m_loadFailed = false;
+    hideLoadStatus();
+    if (m_currentImage.isNull() && m_emptyState) {
+        m_emptyState->setStatus(tr("正在打开 %1 …").arg(QFileInfo(path).fileName()), false);
+        m_emptyState->update();
+    } else if (path != m_displayedPath) {
+        startLoadWaitTimer();
     }
 }
 
@@ -2410,6 +2434,12 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error)
     if (path != m_currentPath) {
         return;
     }
+    // 旧任务的失败不得覆盖当前状态（派单 §二）：同一路径已被重新请求（新任务
+    // 在队列/在飞/预读升级中）时，这次失败属于旧任务，静默丢弃等新结果。
+    // 队列上限丢最旧项的场景里路径也不再 pending，失败照常落 state。
+    if (m_cache->isFullPending(path)) {
+        return;
+    }
     // 例如 ZIP 压缩 PSD 解码失败：收起上一次 PSD 残留的入口与面板
     if (!m_psdPath.isEmpty()) {
         clearPsdDocument();
@@ -2448,7 +2478,99 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error)
                           .arg(path,
                                error.isEmpty() ? QStringLiteral("(empty)") : error,
                                lastErr.isEmpty() ? QStringLiteral("(empty)") : lastErr);
-    m_toast->showMessage(tr("无法打开：%1").arg(lastErr.isEmpty() ? error : lastErr));
+    // 最终失败（派单 §二）：就地持久显示文件名与原因，可继续翻页；信息保留到
+    // 换图 / 重试 / 打开新文件。有上一张时页码旁浮标签；首次打开画布还是空
+    // 状态，提示写进空状态里。toast 不再承担这次报错（它会两秒消失）。
+    const QString reason = lastErr.isEmpty() ? error : lastErr;
+    const QString text = tr("无法打开 %1：%2")
+                             .arg(QFileInfo(path).fileName(), reason);
+    m_loadFailed = true;
+    hideLoadStatus();
+    if (m_currentImage.isNull()) {
+        if (m_emptyState) {
+            m_emptyState->setStatus(text, true);
+            m_emptyState->update();
+        }
+    } else {
+        showLoadStatus(text, true);
+    }
+}
+
+// —— 连续翻页加载反馈（派单 2026-11-14 §二）——
+
+void MainWindow::startLoadWaitTimer()
+{
+    if (m_loadWaitTimer) {
+        m_loadWaitTimer->start();   // 200ms 单发；到点 updateLoadWait 复核再显示
+    }
+}
+
+void MainWindow::updateLoadWait()
+{
+    // 复核：等待期间可能已出画面（快帧/预览）、可能换图、任务也可能已结束。
+    // 目标路径不再 pending（队列丢最旧、任务已败）就不显示，避免空等死提示。
+    if (m_loadFailed || m_currentPath.isEmpty() || m_currentPath == m_displayedPath) {
+        return;
+    }
+    if (!m_cache->isFullPending(m_currentPath)) {
+        return;
+    }
+    const int n = m_dir->files().indexOf(m_currentPath);
+    const int page = (n >= 0 ? n : m_dir->index()) + 1;
+    const QString text = tr("正在打开第 %1 张 · %2")
+                             .arg(page)
+                             .arg(QFileInfo(m_currentPath).fileName());
+    showLoadStatus(text, false);
+}
+
+void MainWindow::showLoadStatus(const QString &text, bool error)
+{
+    if (!m_loadStatus) {
+        return;
+    }
+    // 颜色全部走 UiStyle 令牌（§3.6 门禁：.cpp 不新增裸色值）；等待 = tooltip
+    // 族，失败 = danger 族。错误样式在每次显示时重算，主题切换后仍正确。
+    const char *bg = error ? UiStyle::fluent::dangerBg() : UiStyle::tipBg();
+    const char *border = error ? UiStyle::fluent::dangerLine() : UiStyle::menuLine();
+    m_loadStatus->setStyleSheet(QStringLiteral(
+        "QLabel{background:%1;color:%2;border:1px solid %3;border-radius:6px;"
+        "padding:4px 10px;font-size:12px;}")
+        .arg(QString::fromLatin1(bg),
+             QString::fromLatin1(UiStyle::tipText()),
+             QString::fromLatin1(border)));
+    m_loadStatus->setText(text);
+    positionLoadStatus();
+    m_loadStatus->show();
+    m_loadStatus->raise();
+}
+
+void MainWindow::hideLoadStatus()
+{
+    if (m_loadStatus && m_loadStatus->isVisible()) {
+        m_loadStatus->hide();
+    }
+}
+
+void MainWindow::positionLoadStatus()
+{
+    if (!m_loadStatus || !m_control) {
+        return;
+    }
+    m_loadStatus->adjustSize();
+    // 页码旁：锚定底部胶囊的进度块（滑杆 + 页码）上缘居中；胶囊隐藏时退到
+    // 画布底部居中。标签只读不抢焦点（WA_TransparentForMouseEvents + NoFocus），
+    // 不覆盖滑杆与翻页热区。
+    const bool dockVisible = m_dockPhase == ChromePhase::Visible
+                             || m_dockPhase == ChromePhase::Showing;
+    const QRect pr = m_control->progressRect();
+    if (dockVisible && pr.isValid()) {
+        const QPoint tl = m_control->mapTo(this, pr.topLeft());
+        m_loadStatus->move(tl.x() + (pr.width() - m_loadStatus->width()) / 2,
+                           tl.y() - m_loadStatus->height() - 8);
+    } else {
+        m_loadStatus->move((width() - m_loadStatus->width()) / 2,
+                           height() - m_loadStatus->height() - 64);
+    }
 }
 
 void MainWindow::showImage(const QImage &image, const QString &path, bool preview)
@@ -2517,6 +2639,18 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     // 透明图像阴影资格（§3.8.3）：GIF 恒不参与；非 GIF 的 32 位 alpha 图由
     // 画布按 pixmap 实际 alpha 再判一次。旋转/翻转/效果重绘沿用同一资格。
     m_canvas->setImageShadowEligible(!gifPath);
+    // 加载反馈（派单 §二）：这张图真的上屏了——页码 / 缩略图选中 / 信息浮层
+    // 全部对应「已显示」的图；等待提示与失败态就地撤除。
+    m_displayedPath = path;
+    m_displayedIndex = m_dir->files().indexOf(path);
+    if (m_displayedIndex < 0) {
+        m_displayedIndex = m_dir->index();   // 路径不在目录清单（拖入单图等）回落当前索引
+    }
+    m_loadFailed = false;
+    hideLoadStatus();
+    if (m_emptyState) {
+        m_emptyState->setStatus(QString(), false);
+    }
     m_effect = 0;
     if (actEffectNone) {
         actEffectNone->setChecked(true);
@@ -2572,12 +2706,14 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     updateShowModeIcon();
     m_firstImage = false;
     updateCanvasLogo();
-    // 胶囊第一行 = 翻页进度（对齐原型 #pageSlider）；单张目录时控件自动禁用
-    m_control->setPage(m_dir->index() + 1, m_dir->count());
+    // 胶囊第一行 = 翻页进度（对齐原型 #pageSlider）；单张目录时控件自动禁用。
+    // 页码与滑杆对应「已显示」的图：慢图等待期间页码停在上一张，目标页码由
+    // 等待提示表达（派单 §二：页码与已显示图片对应）。
+    m_control->setPage(m_displayedIndex + 1, m_dir->count());
     m_metadata->showImage(path, image);
     // 信息浮层宽度随元数据自适应，换图后重排一次几何
     applyChromeLayout();
-    m_browser->setCurrent(m_dir->index());
+    m_browser->setCurrent(m_displayedIndex);
     setWindowTitle(QFileInfo(path).fileName() + QStringLiteral(" - QuikView"));
     m_topBar->setTitle(QFileInfo(path).fileName());
     m_frames->open(path);
@@ -3115,6 +3251,15 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         auto *dlg = new SettingsDialog(this);
         dlg->setAttribute(Qt::WA_DeleteOnClose);
         dlg->show();
+    }
+    // settingsctx:<leaf> —— 上下文菜单页开关联动探针：打开设置、切到上下文
+    // 菜单页、点击 ctxmenu.<leaf> 开关（与真实点击同一条 writeValues 写盘
+    // 链路）。资源管理器右键验收用它驱动设置页开关。
+    else if (c.startsWith(QLatin1String("settingsctx:"))) {
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        dlg->probeCtxToggle(c.mid(13));
     }
     // opendialog:<file> —— 「文件 → 打开」链路的验收探针。
     // 原生 Windows 对话框无法在无桌面交互的会话里脚本化，这里用同一个
@@ -3789,6 +3934,11 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << " icon=" << (m_control ? m_control->trackWidth() : -1)
                << " zlock=" << (m_zoomLocked ? 1 : 0)
                << " neg=" << (m_negative ? 1 : 0)
+               // 连续翻页加载反馈（派单 2026-11-14）：探针据此断言等待/失败态
+               << " disp=" << QFileInfo(m_displayedPath).fileName()
+               << " cur=" << QFileInfo(m_currentPath).fileName()
+               << " wait=" << (m_loadStatus && m_loadStatus->isVisible() ? 1 : 0)
+               << " loadfail=" << (m_loadFailed ? 1 : 0)
                << " gam=" << QString::number(m_gamma, 'f', 2)
                << " stretch=" << (m_canvas && m_canvas->stretchSmall() ? 1 : 0)
                << " interp=" << m_interpMode
@@ -5131,8 +5281,15 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         return true;
     }
 
+    if (key == QLatin1String("imageproc/show_transparency")) {
+        // 显示透明区域即时预览（返工三控件之二）。
+        if (m_canvas)
+            m_canvas->setShowTransparency(value.toBool());
+        return true;
+    }
+
     if (key == QLatin1String("imageproc/canvas_shadow")) {
-        // 透明图像阴影即时预览：只切屏幕预览层，不触碰任何导出路径。
+        // 图片阴影即时预览：只切屏幕预览层，不触碰任何导出路径。
         if (m_canvas)
             m_canvas->setImageShadowEnabled(value.toBool());
         return true;
@@ -5150,6 +5307,12 @@ void MainWindow::refreshThemeSurfaces()
                                         == QLatin1String("solid")
                                     ? int(UiStyle::canvas::Backdrop::Solid)
                                     : int(UiStyle::canvas::Backdrop::Checker));
+    if (m_loadStatus && m_loadStatus->isVisible()) {
+        // 主题切换：状态标签重取令牌色（等待/失败两种样式在显示时重算）
+        const bool error = m_loadFailed;
+        const QString text = m_loadStatus->text();
+        showLoadStatus(text, error);
+    }
     if (m_metadata)
         m_metadata->refreshThemeStyle();
     if (m_layerPanel)

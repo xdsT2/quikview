@@ -146,6 +146,14 @@ bool ImageCache::isIdle() const
         && m_preloadPath.isEmpty();
 }
 
+bool ImageCache::isFullPending(const QString &path) const
+{
+    // 预读升级路径也要算：requestFull 命中 m_preloadPath 时直接置 promote 返回，
+    // 不进队列，仅看队列/在飞会漏判「仍在等待」。
+    return m_queue.contains(path) || m_fullInFlight.contains(path)
+           || m_preloadPath == path;
+}
+
 // 拖动滑杆的跟手预览：把「当前落点」记成最新意图，实际解码交给 startDragDecode()
 // 串行做（同一时刻至多 1 个）。落点变来变去时，旧结果只进缓存不上屏。
 void ImageCache::requestDragPreview(const QString &path, const QSize &size)

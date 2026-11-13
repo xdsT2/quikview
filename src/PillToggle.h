@@ -10,6 +10,9 @@ class QVariantAnimation;
 // 设置页 Fluent 模式使用 30×16 轨道与 12×12 滑块；旧模式仍读 UiStyle 令牌。
 class PillToggle : public QCheckBox
 {
+    // Q_OBJECT：SettingsDialog 用 findChildren<PillToggle*> 统一改 mini 轨道
+    // 尺寸，QMetaObject 查询要求该宏（2026-11-14 补，连续翻页派单顺带修复）。
+    Q_OBJECT
 public:
     explicit PillToggle(QWidget *parent = nullptr);
 

@@ -170,6 +170,17 @@ private slots:
     void onSlideshowTick();
 
 private:
+    // —— 连续翻页加载反馈（派单 2026-11-14 §二）——
+    // 页码 / 缩略图选中 / 信息浮层对应「已显示」的图（m_displayedPath），
+    // 请求中的目标（m_currentPath）超过 200ms 未出画面时在页码旁显示等待提示；
+    // 预览或全图一落地即撤。失败就地持久显示文件名与原因，换图/重试即清。
+    void startLoadWaitTimer();
+    void updateLoadWait();
+    void showLoadStatus(const QString &text, bool error);
+    void hideLoadStatus();
+    void positionLoadStatus();
+
+private:
     // 动作系统：所有 QAction 只创建一次，右键菜单 / 工具栏下拉菜单共用
     void applyNativeFrameStyles();   // Win11：补回 DWM 帧（描边/阴影/圆角）
     // 置顶真值只认原生 WS_EX_TOPMOST：运行期切换走 applyTopmost 的原生切带，
@@ -413,6 +424,13 @@ private:
     QString m_lastLoadError;
     QString m_lastShownPath;   // 上一次完整上屏的路径，用于判断是否触发翻页过渡
     QString m_dragPreviewPath; // 最近一次滑块跟手预览的路径（它的全图落地不算翻页）
+    // 连续翻页加载反馈：m_displayedPath = 当前画布实际显示的图（预览或全图），
+    // 页码 / 缩略图选中 / 信息浮层全部对应它；m_currentPath 是请求中的目标。
+    QString m_displayedPath;
+    int m_displayedIndex = -1;
+    bool m_loadFailed = false;      // 目标图最终打开失败：状态保留到换图/重试
+    QTimer *m_loadWaitTimer = nullptr;   // 200ms 未出画面 → 页码旁等待提示
+    QLabel *m_loadStatus = nullptr;      // 浮动状态标签（页码旁 / 空状态共用文案）
     QImage m_sourceImage;      // 文件原始像素，不做任何旋转/翻转/效果（「不旋转」的基准）
     QImage m_currentImage;
     QImage m_originalImage;

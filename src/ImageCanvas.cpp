@@ -481,9 +481,18 @@ void ImageCanvas::setImageShadowEligible(bool eligible)
     viewport()->update();
 }
 
+void ImageCanvas::setShowTransparency(bool on)
+{
+    if (m_showTransparency == on) {
+        return;
+    }
+    m_showTransparency = on;
+    viewport()->update();
+}
+
 // 棋盘 tile：2×2 格（TileEdge 逻辑像素）按当前 DPR 预渲染。格边落在整数
 // 逻辑像素上，100%/125%/150% DPR 下都是整数物理像素——不会半像素发虚。
-void ImageCanvas::rebuildCheckerTile()
+void ImageCanvas::rebuildCheckerTile(bool indicator)
 {
     const qreal dpr = devicePixelRatioF();
     const bool light = UiStyle::isLight();
@@ -491,10 +500,15 @@ void ImageCanvas::rebuildCheckerTile()
     const int cell = UiStyle::canvas::GridCell;
     QPixmap tile(qRound(edge * dpr), qRound(edge * dpr));
     tile.setDevicePixelRatio(dpr);
-    tile.fill(UiStyle::canvas::checkerA(light));
+    // 指示棋盘（纯色模式的透明区域提示）与全画布棋盘两阶不同：深色
+    // #343434/#424424 vs #141414/#202020（果核参考实测）。
+    tile.fill(indicator ? UiStyle::canvas::indicatorA(light)
+                        : UiStyle::canvas::checkerA(light));
     QPainter p(&tile);
-    p.fillRect(0, 0, cell, cell, UiStyle::canvas::checkerB(light));
-    p.fillRect(cell, cell, cell, cell, UiStyle::canvas::checkerB(light));
+    p.fillRect(0, 0, cell, cell, indicator ? UiStyle::canvas::indicatorB(light)
+                                           : UiStyle::canvas::checkerB(light));
+    p.fillRect(cell, cell, cell, cell, indicator ? UiStyle::canvas::indicatorB(light)
+                                                 : UiStyle::canvas::checkerB(light));
     p.end();
     m_checkerTile = tile;
     m_tileDpr = dpr;
@@ -536,12 +550,17 @@ void ImageCanvas::setBackgroundImage(const QImage &image)
 void ImageCanvas::drawBackground(QPainter *painter, const QRectF &rect)
 {
     const bool light = UiStyle::isLight();
-    if (m_backdrop == int(UiStyle::canvas::Backdrop::Solid)) {
-        // 纯色：直接铺满可见场景区（rect 即当前视口对应的场景范围）。
-        painter->fillRect(rect, UiStyle::canvas::solid(light));
-    } else {
-        // 棋盘：tile 固定在视口逻辑坐标——切到设备坐标平铺，相位锚定视口
-        // 左上角，缩放/平移/旋转图片时格子不动、不随图片放大（§3.8.2）。
+    const bool checkerMode = m_backdrop != int(UiStyle::canvas::Backdrop::Solid);
+    // 图片外接框（场景→视口）：指示棋盘与阴影环都以它为界。
+    QRectF projected;
+    const bool hasImage = m_item != nullptr;
+    if (hasImage) {
+        const QRectF sceneRect = m_item->mapRectToScene(m_item->boundingRect());
+        projected = mapFromScene(sceneRect).boundingRect();
+    }
+    if (checkerMode) {
+        // 棋盘铺满整个视口：tile 固定在视口逻辑坐标——切到设备坐标平铺，
+        // 相位锚定视口左上角，缩放/平移/旋转图片时格子不动（§3.8.2）。
         if (m_checkerTile.isNull() || m_tileDpr != devicePixelRatioF()) {
             rebuildCheckerTile();
         }
@@ -549,41 +568,54 @@ void ImageCanvas::drawBackground(QPainter *painter, const QRectF &rect)
         painter->resetTransform();
         painter->drawTiledPixmap(viewport()->rect(), m_checkerTile);
         painter->restore();
+    } else {
+        painter->fillRect(rect, UiStyle::canvas::solid(light));
     }
-    // 旧「背景图」能力（第 18 期下线）：有图时画在棋盘/纯色之上、图像之下。
     if (!m_backgroundImage.isNull()) {
         painter->drawImage(rect, m_backgroundImage);
     }
-    // 透明图像阴影（§3.8.3）：画在背景之上、图片 item 之下（背景绘制层先于
-    // 全部 item），只对开关开 + 非 GIF（eligible）+ 当前 pixmap 真有 Alpha 的
-    // 图生效——不透明图片开关开着也不画。跟随图片的场景外接框在视口坐标
-    // 绘制，模糊半径固定在屏幕空间，不随缩放变粗变细。
-    if (m_shadowOn && m_shadowEligible && m_item
-        && m_item->pixmap().hasAlphaChannel()) {
-        const QRectF sceneRect = m_item->mapRectToScene(m_item->boundingRect());
-        const QRectF projected = mapFromScene(sceneRect).boundingRect();
-        if (!projected.isEmpty() && viewport()->rect().intersects(projected.toRect())) {
-            const int step = 16;   // 缓存步进：缩放过程不至于每帧重模糊
-            const QSize key(qRound(projected.width() / step) * step,
-                            qRound(projected.height() / step) * step);
-            const bool lightNow = UiStyle::isLight();
-            if (m_shadowCache.isNull() || m_shadowCacheLight != lightNow
-                || QSize(key) != m_shadowCacheRect.size().toSize()) {
-                rebuildShadowCache(QRectF(QPointF(), QSizeF(key)), lightNow);
-            }
-            const int margin = UiStyle::canvas::shadowMargin(lightNow);
-            const int dy = UiStyle::canvas::shadowDy(lightNow);
-            const QRectF dst(projected.left() - margin, projected.top() - margin + dy,
-                             key.width() + margin * 2.0, key.height() + margin * 2.0);
-            painter->save();
-            painter->resetTransform();
-            painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
-            painter->drawImage(dst, m_shadowCache);
-            painter->restore();
+    // 「显示透明区域」：纯色模式下在图片矩形内为透明像素铺指示棋盘；
+    // 棋盘模式下全画布棋盘已经连续透出，无需叠加（与果核参考一致）。
+    // 指示棋盘同样固定在视口逻辑坐标。
+    if (!checkerMode && m_showTransparency && hasImage
+        && m_item->pixmap().hasAlphaChannel() && !projected.isEmpty()) {
+        if (m_checkerTile.isNull() || m_tileDpr != devicePixelRatioF()) {
+            rebuildCheckerTile(true);   // 指示棋盘 tile（比画布棋盘亮一档）
         }
+        painter->save();
+        painter->resetTransform();
+        painter->setClipRect(projected.toRect());
+        painter->drawTiledPixmap(viewport()->rect(), m_checkerTile);
+        painter->restore();
+    }
+    // 图片阴影（§3.8.3 返工）：沿图片最外层矩形一圈的克制投影——绘制时
+    // 剪除矩形内部（只在边界外圈可见），严禁形成覆盖透明区域的大块底板。
+    if (m_shadowOn && m_shadowEligible && hasImage
+        && m_item->pixmap().hasAlphaChannel() && !projected.isEmpty()
+        && viewport()->rect().intersects(projected.toRect())) {
+        const int step = 16;
+        const QSize key(qRound(projected.width() / step) * step,
+                        qRound(projected.height() / step) * step);
+        const bool lightNow = UiStyle::isLight();
+        if (m_shadowCache.isNull() || m_shadowCacheLight != lightNow
+            || QSize(key) != m_shadowCacheRect.size().toSize()) {
+            rebuildShadowCache(QRectF(QPointF(), QSizeF(key)), lightNow);
+        }
+        const int margin = UiStyle::canvas::shadowMargin(lightNow);
+        const int dy = UiStyle::canvas::shadowDy(lightNow);
+        const QRectF dst(projected.left() - margin, projected.top() - margin + dy,
+                         key.width() + margin * 2.0, key.height() + margin * 2.0);
+        painter->save();
+        painter->resetTransform();
+        painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
+        // 剪除图片矩形内部：阴影只在边界外圈可见（果核「在图片边缘加一圈阴影」）
+        QRegion outside(viewport()->rect());
+        outside = outside.subtracted(QRegion(projected.toRect()));
+        painter->setClipRegion(outside);
+        painter->drawImage(dst, m_shadowCache);
+        painter->restore();
     }
 }
-
 void ImageCanvas::setBorderColor(const QColor &color)
 {
     if (m_borderColor == color) {

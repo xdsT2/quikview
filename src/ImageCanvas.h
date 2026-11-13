@@ -74,6 +74,10 @@ public:
     // 与模糊半径；只属于屏幕预览层，导出链路不走画布绘制，天然隔离。
     void setImageShadowEnabled(bool on);
     void setImageShadowEligible(bool eligible);
+    // 「显示透明区域」（UI-001 §3.8 返工三控件之二）：开启时纯色模式下在
+    // 图片矩形内为透明像素铺指示棋盘；关闭时透明像素直接透出全画布背景。
+    // 棋盘模式下全画布棋盘本身连续透出，该开关视觉上无差异（与果核一致）。
+    void setShowTransparency(bool on);
     // 空图恢复纯色。图片按可见场景区拉伸铺满，画在图像下方、纯色之上；
     // 不进入 QGraphicsScene，不参与缩放/旋转。暂无 UI 入口（第 18 期下线），能力保留。
     void setBackgroundImage(const QImage &image);
@@ -141,7 +145,7 @@ protected:
     // 背景图（设置页「更改默认背景图片」）画在纯色之上、图像之下
     void drawBackground(QPainter *painter, const QRectF &rect) override;
     // §3.8 棋盘 tile（按 DPR 预渲染）与透明图像阴影缓存（低分辨率预模糊）
-    void rebuildCheckerTile();
+    void rebuildCheckerTile(bool indicator = false);
     void rebuildShadowCache(const QRectF &projected, bool light);
     // 翻页过渡画在场景最上层而不是 paintEvent 里另起 QPainter：后者与
     // QWidget::grab 的渲染画笔画到同一 viewport 会冲突（截图抓不到过渡）。
@@ -214,7 +218,8 @@ private:
     // UI-001 §3.8：全画布背景材质 + 透明图像阴影（颜色都从 UiStyle::canvas::
     // 按当前主题现取，不缓存 QColor，主题切换后重绘即生效）
     int m_backdrop = 0;                 // UiStyle::canvas::Backdrop（0=棋盘 1=纯色）
-    bool m_shadowOn = false;            // 「透明图像阴影」开关（默认关）
+    bool m_showTransparency = true;     // 「显示透明区域」开关（默认开）
+    bool m_shadowOn = false;            // 「图片阴影」开关（默认关）
     bool m_shadowEligible = false;      // 当前图非 GIF（MainWindow 按路径判定）
     QPixmap m_checkerTile;              // 棋盘 tile（按 DPR 预渲染，保证边缘清晰）
     qreal m_tileDpr = 0.0;              // tile 对应的 devicePixelRatio（变了就重铺）

@@ -283,27 +283,34 @@ inline constexpr int ShadowDy   = 5;
 inline constexpr int BackdropBlur = 20;  // 背后模糊
 } // namespace hud
 
-// —— 全画布背景 + 透明图像阴影（UI-001 §3.8 最终裁决，2026-11-13）——
-// 用户只选材质（棋盘/纯色），颜色随应用深浅主题自动决定（isLight()）；
-// 棋盘/纯色由 ImageCanvas 绘制层铺满整个视口（先画背景再画图片），严禁烘焙
-// 进 QImage。棋盘 tile 固定在视口逻辑坐标，不随图片缩放/平移/旋转。
-// 两阶灰度取自用户参考图实测（§3.7.C 标定值沿用）：浅 #EBEBEB/#F5F5F5、
-// 深 #141414/#202020；纯色 #F7F7F7 / #1A1A1A。
-// 旧 canvas:: 四模式令牌（DarkSolid/LightSolid/DarkGrid/LightGrid，§3.7）
-// 已废弃删除，禁止再引入第三种背景或手动颜色选择。
+// —— 全画布背景 + 显示透明区域 + 图片阴影（UI-001 §3.8 返工标定，2026-11-14）——
+// 三控件：画布背景（棋盘/纯色）、显示透明区域（开关）、图片阴影（开关）。
+// 颜色随应用深浅主题自动决定（isLight()）；绘制层先铺全画布背景，再按
+// 「显示透明区域」在图片矩形内铺指示棋盘（仅纯色模式下需要——棋盘模式下
+// 全画布棋盘本身连续透出），再画图片外圈克制的边框投影（剪除矩形内部，
+// 严禁形成覆盖透明区域的大块底板），最后画原始带 Alpha 图片。
+// 数值标定自用户提供的果核看图参考图（派单/证据/UI-001-M05-参考图/）：
+// 深色画布纯色 #292929、内嵌指示棋盘 #343434/#424242、全画布棋盘
+// #141414/#202020（均 8px 方格）。浅色无参考图，按同构对比外推并在回执注明。
 namespace canvas {
 enum class Backdrop { Checker = 0, Solid = 1 };
 inline constexpr int GridCell = 8;   // 方格边长（逻辑像素）
 inline constexpr int TileEdge = GridCell * 2;
+// 全画布棋盘（棋盘模式）
 inline QColor checkerA(bool light) { return light ? QColor(0xeb, 0xeb, 0xeb) : QColor(0x14, 0x14, 0x14); }
 inline QColor checkerB(bool light) { return light ? QColor(0xf5, 0xf5, 0xf5) : QColor(0x20, 0x20, 0x20); }
-inline QColor solid(bool light)    { return light ? QColor(0xf7, 0xf7, 0xf7) : QColor(0x1a, 0x1a, 0x1a); }
-// 透明图像阴影：仅屏幕预览层（不进复制/打印/批量转换/另存为/导出），
-// 颜色/透明度/模糊半径随主题；不做黑色硬边或伪卡片底。
-inline QColor  shadowColor(bool light)  { return light ? QColor(0, 0, 0, 42) : QColor(0, 0, 0, 110); }
-inline int     shadowBlur(bool light)   { return light ? 16 : 18; }        // 逻辑像素
-inline int     shadowDy(bool light)     { return light ? 4 : 4; }
-inline int     shadowMargin(bool light) { return light ? 24 : 28; }        // 源矩形外扩，容模糊扩散
+// 全画布纯色
+inline QColor solid(bool light)    { return light ? QColor(0xf7, 0xf7, 0xf7) : QColor(0x29, 0x29, 0x29); }
+// 「显示透明区域」指示棋盘：仅纯色模式下画在图片矩形内，比画布亮一档
+// （深色）以读出透明范围；浅色同构反向。
+inline QColor indicatorA(bool light) { return light ? QColor(0xd9, 0xd9, 0xd9) : QColor(0x34, 0x34, 0x34); }
+inline QColor indicatorB(bool light) { return light ? QColor(0xe4, 0xe4, 0xe4) : QColor(0x42, 0x42, 0x42); }
+// 图片阴影：沿图片最外层矩形一圈的克制投影（绘制时剪除矩形内部），
+// 只为看清边界，不是卡片底；不进复制/打印/批量转换/另存为/导出。
+inline QColor shadowColor(bool light)  { return light ? QColor(0, 0, 0, 40) : QColor(0, 0, 0, 70); }
+inline int    shadowBlur(bool light)   { return light ? 12 : 14; }   // 逻辑像素
+inline int    shadowDy(bool light)     { return light ? 2 : 2; }
+inline int    shadowMargin(bool light) { return light ? 24 : 26; }   // 源矩形外扩，容模糊扩散
 } // namespace canvas
 
 // —— 尺寸令牌 ——

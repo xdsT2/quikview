@@ -36,6 +36,10 @@ public:
     // 路径直接忽略。真正的「前后各一张」调度在 MainWindow（300ms 无输入才调）。
     void preload(const QString &path);
     bool isIdle() const;    // 待解队列、在飞全图、预读缓冲都空 —— 可以开始预读
+    // 指定路径是否还有未完成的全图任务（待解队列 / 在飞 / 预读升级中）。
+    // 连续翻页加载反馈用：等待提示只在目标仍 pending 时展示；旧任务失败的
+    // loadFailed 若路径已被重新请求（新任务在路上），用同一查询判定不覆盖。
+    bool isFullPending(const QString &path) const;
     // 拖动滑杆的跟手预览：缩放解码（previewSize 级），结果只进拖动预览缓存。
     // 与 FIFO 队列 / 预读三路互不干扰；同一时刻至多 1 个在飞，位置再变就
     // 丢掉旧结果改解最新位置（latest-wins 只在本通道成立）。

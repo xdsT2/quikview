@@ -2457,6 +2457,16 @@ EmptyState::EmptyState(QWidget *parent)
     setAttribute(Qt::WA_NoSystemBackground);
 }
 
+void EmptyState::setStatus(const QString &text, bool isError)
+{
+    if (m_status == text && m_statusError == isError) {
+        return;
+    }
+    m_status = text;
+    m_statusError = isError;
+    update();
+}
+
 QRect EmptyState::primaryRect() const
 {
     const int y = (height() - 340) / 2;
@@ -2494,6 +2504,14 @@ void EmptyState::paintEvent(QPaintEvent *)
                QStringLiteral("把图片拖到这里，或从电脑中选择一张图片"));
     p.drawText(QRect(0, top + 154, width(), 22), Qt::AlignCenter,
                QStringLiteral("也可以直接打开整个文件夹"));
+    // 加载/失败状态行（连续翻页派单 §二）：仅首次打开（画布无上一张）时可见，
+    // 等待用中性灰，失败用警示色，不挤占按钮与快捷键提示的布局位。
+    if (!m_status.isEmpty()) {
+        p.setFont(uiFont(12, QFont::Medium));
+        p.setPen(m_statusError ? QColor(QStringLiteral("#e07060"))
+                               : QColor(QString::fromLatin1(UiStyle::pick("#8a8f96", "#5a5f66"))));
+        p.drawText(QRect(0, top + 176, width(), 20), Qt::AlignCenter, m_status);
+    }
 
     const QRect primary = primaryRect();
     const QRect secondary = secondaryRect();
