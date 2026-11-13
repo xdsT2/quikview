@@ -2,6 +2,8 @@
 
 [← 返回 README](../README.md)
 
+> 本页图集基于 **QuikView 0.5.0** 界面（2026-11-13 重拍）。
+
 以下截图全部由 **QuikView 自身渲染**（`--screenshot` 走 Qt 内部绘制，不是系统抓屏），
 所以不受显示器 DPI 缩放影响，和你在屏幕上看到的一致。
 
@@ -23,10 +25,11 @@ when the pointer leaves — the image always gets the whole window.
 
 ## 2. 缩略图浏览 · Thumbnail browser
 
-此图为旧版左侧缩略图。开发版已改为底部横向胶片栏，按可见范围异步生成缩略图，点击即切换。
+底部横向胶片栏：按可见范围异步生成缩略图，保留照片比例，支持滚轮浏览；点击切换时当前项高亮并自动居中，开合不推动主图与控制栏。
 
-Vertical thumbnail rail on the left, generated asynchronously. Click to switch; a folder with
-hundreds of files will not block the UI.
+A horizontal filmstrip along the bottom: thumbnails are generated asynchronously for the visible
+range, keep their aspect ratio, and scroll with the wheel. Clicking one highlights and centers it;
+opening or closing the strip never shifts the image or the control island.
 
 ![缩略图浏览](screenshots/02-thumbnails.webp)
 
@@ -59,10 +62,10 @@ For photo books, comics and scans: two pages side by side at spread width, one k
 
 ## 5. 1:1 看像素 · 100% pixel view
 
-切到实际大小，一张 2800×1867 的原图按像素铺满窗口，噪点和星点都看得见，不是插值糊出来的。
+点底部缩放胶囊切到 100%，照片按原始像素显示，树叶纹理和噪点都不被插值抹掉。
 
-Switch to actual size: a 2800×1867 original laid out pixel for pixel — noise and stars stay
-visible instead of being smoothed away.
+Tap the zoom capsule to switch to 100%: the photo is shown pixel for pixel, so fine texture and
+grain stay visible instead of being smoothed away.
 
 ![100% 原图](screenshots/05-zoom.webp)
 
@@ -103,10 +106,11 @@ Originals are kept by default.
 
 ## 9. 设置 · Settings
 
-左侧十个分类，右侧就地生效的选项：一般、浏览、图像处理、格式关联、键盘、鼠标、书签、上下文菜单、杂项、语言。
+左侧十一个分类，右侧就地生效的选项：一般、浏览、外观、图像处理、格式关联、键盘、鼠标、书签、上下文菜单、杂项、语言（另有「关于 QuikView」入口）。
 
-Ten categories on the left, options on the right: general, browsing, image processing, file
-associations, keyboard, mouse, bookmarks, context menu, misc, language.
+Eleven categories on the left, options on the right: general, browsing, appearance, image
+processing, file associations, keyboard, mouse, bookmarks, context menu, misc, language
+(plus an About entry).
 
 ![设置](screenshots/09-settings.webp)
 
@@ -124,8 +128,10 @@ Nothing open? Drop a file in, pick one, or open a whole folder.
 
 ## 关于示例照片 · About the sample photos
 
-截图里的风光照来自 [Unsplash](https://unsplash.com/license)（Unsplash License，可免费使用）。
-它们**只出现在截图里**，不随程序分发，也不在仓库的其它位置出现。EXIF 字段为演示用。
+截图里的照片来自 [Unsplash](https://unsplash.com/license)（Unsplash License，可免费使用、无需署名），
+照片 ID 与授权记录见 [ATTRIBUTION.md](ATTRIBUTION.md) 第 6 节。
+它们**只出现在截图里**，不随程序分发，也不在仓库的其它位置出现。
 
-The landscape photos are from [Unsplash](https://unsplash.com/license) and appear **only inside
-these screenshots**; they are not shipped with the program. EXIF values are for demonstration.
+The photos come from [Unsplash](https://unsplash.com/license) under the Unsplash License;
+photo IDs and the attribution record are in section 6 of [ATTRIBUTION.md](ATTRIBUTION.md).
+They appear **only inside these screenshots** and are not shipped with the program.

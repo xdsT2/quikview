@@ -102,9 +102,16 @@ python tools\03_gen_skin.py --check   # 全量校验，不写盘
 
 ## 6. README 截图里的示例照片
 
-`docs/screenshots/` 下的截图使用了几张风光照片作为画面内容，来源为
-[Unsplash](https://unsplash.com/license)（Unsplash License，可免费商用、无需署名）。
-它们**只出现在截图位图中**，不随程序分发，仓库其它位置也没有原图。
-EXIF 字段（相机 / 镜头 / 光圈 / ISO / GPS）是为演示界面而写入的示意值。
+`docs/screenshots/` 下的截图使用来自 [Unsplash](https://unsplash.com/license) 的照片作为画面内容
+（Unsplash License，可免费使用、无需署名）。0.5.0 图集使用的照片 ID：
 
-README 里的界面截图由程序自身 `--screenshot` 渲染，不含任何第三方界面像素。
+- `photo-1500530855697-b586d89ba3ee`（荒漠公路）
+- `photo-1441974231531-c6227db76b6e`（森林）
+- `photo-1470252649378-9c29740c9fa8`（日出）
+- `photo-1501785888041-af3ef285b470`（湖泊）
+- `photo-1469474968028-56623f02e42e`（山谷）
+- `photo-1519681393784-d120267933ba`（星空）
+
+它们**只出现在截图位图中**，不随程序分发，仓库其它位置也没有原图。
+界面截图由程序自身 `--screenshot` 渲染，不含任何第三方界面像素。
+如界面中出现 EXIF 字段，均为演示用示意值。
