@@ -27,6 +27,7 @@
 #include <QVBoxLayout>
 
 #include "Config.h"
+#include "HeifLoader.h"
 #include "UiStyle.h"
 
 namespace {
@@ -493,6 +494,23 @@ void BatchConvertDialog::buildUi()
 }
 
 // ---------------------------------------------------------------------------
+// 批量输入解码：QImageReader 优先（JPEG/PNG/WebP 等原生路径原样保留），
+// HEIC/AVIF/HEIF/HIF 由 QImageReader 兜底给主程序同款 libheif 解码
+// （loadHeifImage，方向由 heif_decode_image 在解码层应用 irot/imir，
+// 与看图路径一致）。两路都失败返回空图，由调用方计失败。
+// ---------------------------------------------------------------------------
+QImage readBatchInput(const QString &path, bool autoTransform)
+{
+    QImageReader reader(path);
+    reader.setAutoTransform(autoTransform);
+    QImage img = reader.read();
+    if (!img.isNull()) {
+        return img;
+    }
+    return loadHeifImage(path, nullptr);
+}
+
+// ---------------------------------------------------------------------------
 // 首图尺寸 / 预览 / 文件名示例
 // ---------------------------------------------------------------------------
 void BatchConvertDialog::loadSourceInfo()
@@ -501,7 +519,11 @@ void BatchConvertDialog::loadSourceInfo()
     m_srcH = 0;
     if (!m_files.isEmpty()) {
         QImageReader reader(m_files.first());
-        const QSize sz = reader.size();
+        QSize sz = reader.size();
+        if (!sz.isValid()) {
+            // HEIC/AVIF 系：QImageReader 读不出尺寸，libheif 全量解码后取值
+            sz = readBatchInput(m_files.first(), true).size();
+        }
         if (sz.isValid()) {
             m_srcW = sz.width();
             m_srcH = sz.height();
@@ -526,10 +548,18 @@ void BatchConvertDialog::refreshPreview()
     QImageReader reader(path);
     reader.setAutoTransform(true);
     const QSize orig = reader.size();
+    QImage img;
     if (orig.isValid()) {
         reader.setScaledSize(orig.scaled(QSize(kLeftW, kPreviewH), Qt::KeepAspectRatioByExpanding));
+        img = reader.read();
+    } else {
+        // HEIC/AVIF 系：reader 出不了图，libheif 全量解码后自行缩到预览框
+        img = readBatchInput(path, true);
+        if (!img.isNull()) {
+            img = img.scaled(QSize(kLeftW, kPreviewH),
+                             Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+        }
     }
-    const QImage img = reader.read();
     if (img.isNull()) {
         m_preview->setNote(tr("无法预览"));
         return;
@@ -690,9 +720,10 @@ void BatchConvertDialog::onConvert()
         const QString src = m_files.at(i);
         m_progressCount->setText(QStringLiteral("%1 / %2").arg(i + 1).arg(m_files.size()));
 
-        QImageReader reader(src);
-        reader.setAutoTransform(rotateIndex == 4);
-        QImage img = reader.read();
+        // 坏 HEIC/AVIF：reader 与 libheif 两路都失败 → img 空 → 计失败，
+        // 后续文件照常处理；autoTransform 仅对 reader 生效（HEIC 方向由
+        // libheif 解码层应用，与看图一致）。
+        QImage img = readBatchInput(src, rotateIndex == 4);
         if (img.isNull()) {
             ++failed;
             m_progress->setValue(i + 1);
