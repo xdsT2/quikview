@@ -102,7 +102,13 @@ inline constexpr const char *ChromeBorder = "#3a3c40";  // 无边框窗口描边
 inline constexpr const char *DialogBorder = "#4a4c51";  // 对话框外描边
 
 // —— 控件 / 文字辅助角色（同上，避免界面代码再出现裸色值）——
-inline constexpr const char *NavText          = "#bfc3c8";  // 导航项常态文字
+inline constexpr const char *NavText          = "#bfc3c8";  // Media filmstrip stays neutral over both dark and bright photographs.
+inline QColor filmstripSurface() { return QColor(31, 31, 31, 229); }
+inline QColor filmstripEdge()    { return QColor(255, 255, 255, 48); }
+inline QColor filmstripInset()   { return QColor(19, 19, 19); }
+inline QColor filmstripOutline() { return QColor(Qt::white); }
+
+// 导航项常态文字
 inline constexpr const char *HeadText         = "#9ca2aa";  // 表头文字
 inline constexpr const char *HintText         = "#9aa0a6";  // 页内提示文字
 inline constexpr const char *SubtleText       = "#b9bec5";  // 弱正文
@@ -158,6 +164,105 @@ inline const char *setGroupLine() { return pick("#3c4046", "#dce1e6"); }
 inline const char *setRowHover()  { return pick("#33373e", "#e6edf2"); }
 inline const char *setRowTag()    { return pick("#aab0b7", "#545e69"); }
 
+// —— 设置 › 一般 v2 母版定稿（2026-11-11）——
+// 唯一色值来源：管理/QuikView-一般页-母版定稿/颜色与尺寸标注.md。
+// 上一版（一般-Qt实现定稿.md / #24262B 蓝灰系 / #83BBFF / 蓝色开关）已作废，
+// 旧值一律不再使用。本组是新增语义角色：上面所有既有令牌取值不动，其他
+// 界面 / 其他十个设置页零回归。深色为中性石墨黑，禁止任何蓝灰或蓝紫背景。
+// 实装口径：QSS 用 const char*，自绘（导航图标底板、开关轨道）用 QColor。
+namespace fluent {
+inline const char *titleBarBg()  { return pick("#1a1b1d", "#f3f3f3"); }
+inline const char *navBg()       { return pick("#1c1d1f", "#edeeee"); }
+inline const char *contentBg()   { return pick("#252628", "#f7f7f7"); }
+inline const char *cardBg()      { return pick("#303133", "#ffffff"); }
+inline const char *cardLine()    { return pick("#414244", "#dcdcdf"); }
+inline const char *rowLine()     { return pick("#3e3f41", "#e6e6e8"); }
+inline const char *frameLine()   { return pick("#3f4042", "#d0d0d3"); }
+inline const char *text()        { return pick("#f4f4f4", "#202124"); }
+inline const char *desc()        { return pick("#a5a7ac", "#616367"); }
+inline const char *navSelected() { return "#1688f8"; }   // 深浅同色，明亮纯蓝整行选中
+inline const char *navSelText()  { return pick("#ffffff", "#071625"); }
+inline const char *focus()       { return "#1688f8"; }   // 键盘焦点环
+inline const char *hover()       { return pick("#2c2e30", "#e4e4e6"); }
+inline const char *controlBg()   { return pick("#3b3c3e", "#f0f0f1"); }
+inline const char *controlLine() { return pick("#4c4d50", "#d5d5d8"); }
+inline const char *switchOn()    { return "#32d66b"; }   // 开启：绿色，深浅同色
+inline const char *switchOff()   { return pick("#65676c", "#797c81"); }
+inline const char *switchKnob()  { return pick("#f8f8f8", "#ffffff"); }
+inline const char *switchOnEdge(){ return "#218941"; }   // 浅色开启轨道 1px 内描边
+inline const char *disabled()    { return pick("#a5a7ac", "#616367"); }
+// 状态色（规格 §颜色与状态真实性）：浅色 #246B3B / #92480B 在白色卡片上
+// 6.48:1 / 6.66:1、在 #F7F7F7 上 6.05:1 / 6.22:1，均达到 4.5:1；状态同时有文字。
+inline const char *statusOk()    { return pick("#7fc47f", "#246b3b"); }
+inline const char *statusWarn()  { return pick("#d6a04a", "#92480b"); }
+// 冲突：深色红条 #382C2D 底 + #FFB4B0 字，浅色 #FDECEC 底 + #A12625 字。
+inline const char *error()       { return pick("#ffb4b0", "#a12625"); }
+inline const char *dangerBg()    { return pick("#382c2d", "#fdecec"); }
+inline const char *dangerLine()  { return pick("#5a3a3c", "#f3c9c7"); }
+inline const char *dangerIconText() { return pick("#1a1b1d", "#ffffff"); }
+inline const char *neutralIcon() { return "#69717c"; }
+
+inline QColor accentColor()     { return color(navSelected()); }
+inline QColor navSelTextColor() { return color(navSelText()); }
+inline QColor textColor()       { return color(text()); }
+inline QColor descColor()       { return color(desc()); }
+inline QColor borderColor()     { return color(controlLine()); }
+inline QColor cardBgColor()     { return color(cardBg()); }
+inline QColor hoverColor()      { return color(hover()); }
+inline QColor switchOnColor()   { return color(switchOn()); }
+inline QColor switchOffColor()  { return color(switchOff()); }
+inline QColor knobColor()       { return color(switchKnob()); }
+inline QColor switchEdgeColor() { return color(switchOnEdge()); }
+inline QColor statusOkColor()   { return color(statusOk()); }
+inline QColor statusWarnColor() { return color(statusWarn()); }
+
+// 11 个分类图标底板色：高饱和彩色，两套主题复用同一组，不蒙灰（硬验收点 4）。
+// 顺序必须与 addPage 调用顺序一致。
+inline QColor categoryColor(int index)
+{
+    static const char *colors[] = {
+        "#298ffc", "#7655f5", "#08aabb", "#f49b0b", "#1ab851", "#5964ee",
+        "#e9527d", "#e97d22", "#69717c", "#9b55e8", "#089be3"
+    };
+    return color(colors[(index >= 0 && index < 11) ? index : 8]);
+}
+} // namespace fluent
+
+// —— 图片信息 HUD 材质（Tab-HUD 设计定稿 2026-11-13）——
+// HUD 是固定深色材质，不随主题翻转；颜色只在这里登记，绘制在 MetadataPanel。
+// 底 #212121@91%（磨砂开=背板采样真实模糊），无模糊路径回退 #242424 实底；
+// 边界 1px 白 16%，键 #C3C3C3 / 值 #F4F4F4 / 刻度 #BDBDBD，焦点环 #1688f8。
+namespace hud {
+inline constexpr int Radius      = 12;
+inline constexpr int PadH        = 13;   // 水平内边距
+inline constexpr int PadTop      = 9;
+inline constexpr int PadBottom   = 11;
+inline constexpr int TitleH      = 30;
+inline constexpr int ToolBtn     = 28;   // 复制/关闭热区 28×28
+inline constexpr int KeyCol      = 76;   // 键列
+inline constexpr int KeyValGap   = 8;    // 列间
+inline constexpr int RowH        = 18;   // 行框
+inline constexpr int RowGap      = 2;
+inline constexpr int SepH        = 9;    // 组间隔（4+1px 细分隔+4）
+inline constexpr int WidthBase   = 314;  // 基准宽
+inline constexpr int WidthNormal = 340;  // 常规上限
+inline constexpr int WidthMax    = 440;  // 确需扩宽上限
+inline QColor plateTint()   { return QColor(33, 33, 33, 232); }      // #212121 @91%
+inline QColor plateSolid()  { return QColor(0x24, 0x24, 0x24); }     // 无模糊回退实底
+inline QColor border()      { return QColor(255, 255, 255, 41); }    // 1px 白 16%
+inline QColor keyText()     { return QColor(0xc3, 0xc3, 0xc3); }
+inline QColor valText()     { return QColor(0xf4, 0xf4, 0xf4); }
+inline QColor tickText()    { return QColor(0xbd, 0xbd, 0xbd); }
+inline QColor chartPlate()  { return QColor(0x1a, 0x1b, 0x1d); }     // 直方图井底
+inline QColor chartLine()   { return QColor(255, 255, 255, 23); }    // 井边 9%
+inline QColor chartBar()    { return QColor(0xb0, 0xb0, 0xb0); }     // 中性灰柱
+inline QColor focusRing()   { return QColor(0x16, 0x88, 0xf8); }     // 键盘焦点环（蓝）
+inline QColor shadow()      { return QColor(0, 0, 0, 84); }          // 阴影黑 33%
+inline constexpr int ShadowBlur = 18;
+inline constexpr int ShadowDy   = 5;
+inline constexpr int BackdropBlur = 20;  // 背后模糊
+} // namespace hud
+
 // —— 尺寸令牌 ——
 inline constexpr int RadiusDialog = 10;
 inline constexpr int RadiusCard   = 9;
@@ -168,7 +273,8 @@ inline constexpr int TitleBarH    = 43;
 inline constexpr int NavWidth     = 204;
 inline constexpr int FooterH      = 62;
 inline constexpr int InfoPanelW   = 344;
-// 胶囊拨动开关（外观页主题区/材质区、键盘页启用列）：轨道 40×20、圆角 10，
+// 旧版胶囊拨动开关：轨道 40×20、圆角 10；Fluent mini switch 在
+// PillToggle 内按实际 30×16 轨道高度计算 8px 半径，不复用本常量。
 // 滑块 12（2026-11-09 由 16 改 12，对齐 WinUI 3 ToggleSwitch 的滑块/轨道比例）、
 // 内边距 2、焦点环外扩 2。已在设计规范 §3 控件尺寸登记。
 inline constexpr int SwitchTrackW = 40;
@@ -194,8 +300,8 @@ QDialog { background: %1; color: #f2f2f2; }
 QWidget { color: #f2f2f2; }
 
 QMenu { background: #27292d; color: #e0e2e5; border: 1px solid #50535a;
-        border-radius: 8px; padding: 6px; }
-QMenu::item { height: 25px; padding: 0 18px 0 24px; border-radius: 5px; font-size: 12px; }
+        border-radius: 9px; padding: 5px; }
+QMenu::item { height: 28px; padding: 0 18px 0 24px; border-radius: 6px; font-size: 12px; }
 QMenu::item:selected { background: #3c4046; }
 QMenu::item:disabled { color: #6b7078; }
 QMenu::separator { height: 1px; background: rgba(255,255,255,0.085); margin: 4px 7px; }
@@ -310,8 +416,8 @@ QDialog { background: #f2f3f5; color: #1b1b1b; }
 QWidget { color: #1b1b1b; }
 
 QMenu { background: #ffffff; color: #1b1b1b; border: 1px solid #d0d0d0;
-        border-radius: 8px; padding: 6px; }
-QMenu::item { height: 25px; padding: 0 18px 0 24px; border-radius: 5px; font-size: 12px; }
+        border-radius: 9px; padding: 5px; }
+QMenu::item { height: 28px; padding: 0 18px 0 24px; border-radius: 6px; font-size: 12px; }
 QMenu::item:selected { background: #cde8f7; }
 QMenu::item:disabled { color: #a0a0a0; }
 QMenu::separator { height: 1px; background: rgba(0,0,0,0.085); margin: 4px 7px; }
@@ -469,33 +575,45 @@ QPushButton#closeBtn:hover { background: #c42b1c; color: #ffffff; }
    .arg(QLatin1String(NavBg));
 }
 
-// 图片信息浮层（左上覆盖层，对齐原型 .info-overlay）
-// 2026-11-03 深夜修订：定稿「深色半透明底 + 内容自适应 + 有值才显示 + 长值完整换行」。
-// 22:05 那版「完全透明无边框」在白图/黑图上文字不可读，已废止——底板必须回来。
+// 图片信息 HUD（左上覆盖层，Tab-HUD 设计定稿 2026-11-13）
+// HUD 是固定深色材质：亮暗主题、亮暗画布上同一套底色与文字色（设计稿 01–03
+// 三张图均为深色 HUD）。底色/文字/边界由 HudBackdrop 自绘 + hudQss() 共同出，
+// panelQss() 只保留图层面板（与 HUD 同形态但跟随主题的白/深卡片）。
+inline QString hudQss()
+{
+    return QStringLiteral(R"(
+QWidget#infoPanel { background: transparent; }
+/* 全局 QLabel 的 12px 会覆盖 setFont()，小字体档位改用动态属性选择器
+   （MetadataPanel 重建行时写入 smallFont 属性）。 */
+QLabel#infoTitle { color: #f4f4f4; }
+QLabel#infoKey { color: #c3c3c3; }
+QLabel#infoVal { color: #f4f4f4; }
+QLabel#infoVal[strong="true"] { font-weight: 600; }
+QLabel#infoKey[smallFont="true"], QLabel#infoVal[smallFont="true"] { font-size: 10px; }
+/* 复制/关闭 28x28 热区按钮为 paintEvent 自绘（悬停底/焦点环自绘），
+   QSS 只负责抵消全局 QPushButton 的 min-height/padding。 */
+QPushButton#hudToolBtn { min-height: 0; max-height: 28px; min-width: 28px;
+    max-width: 28px; padding: 0; background: transparent; border: 0; }
+/* 地图入口：中性文字链接（设计定稿：不用强调蓝），下划线由字体属性出 */
+QPushButton#mapLink { background: transparent; border: 0; padding: 0;
+    text-align: left; font-size: 12px; color: #e3e3e3; }
+QPushButton#mapLink:hover { color: #ffffff; }
+QPushButton#mapLink[kbdFocus="true"] { border: 1px solid #1688f8; border-radius: 4px; }
+QPushButton#histToggle { background: transparent; border: 0; padding: 0;
+    text-align: left; font-size: 12px; font-weight: 600; color: #f4f4f4; }
+QPushButton#histToggle:hover { color: #ffffff; }
+QPushButton#histToggle[kbdFocus="true"] { border: 1px solid #1688f8; border-radius: 4px; }
+QFrame#hudSep { background: rgba(255,255,255,0.12); border: 0; max-height: 1px; }
+)");
+}
+
+// 信息面板（图层面板共用形态）：跟随主题的卡片底。
 inline QString panelQss()
 {
     if (isLight()) {
         return QStringLiteral(R"(
-/* 浅色浮层：不透明纯白卡片。alpha 0.92 的白压在饱和色照片上会被染色
-   （实测压红条 (246,226,227)、压绿条 (225,247,227) = 彩色玻璃感），
-   浅色下必须完全不透明，靠 1px 描边立边界（2026-11-05）。 */
-QWidget#infoPanel { background: #ffffff;
-    border: 1px solid #dfe0e2; border-radius: 8px; }
 QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; border: 0; }
-/* 全局 QLabel 的 12px 会覆盖 setFont()，小字体档位改用动态属性选择器
-   （MetadataPanel 重建行时写入 smallFont 属性）。 */
-QLabel#infoKey { color: #5f6368; }
-QLabel#infoVal { color: #1b1b1b; }
-QLabel#infoKey[smallFont="true"], QLabel#infoVal[smallFont="true"] { font-size: 10px; }
-QPushButton#infoRoundBtn { min-height: 0; max-height: 22px; min-width: 22px;
-    max-width: 22px; padding: 0; background: transparent; border: 0; }
-QPushButton#mapLink { background: transparent; border: 0; padding: 0;
-    text-align: left; font-size: 12px; color: #0b6f9f; }
-QPushButton#mapLink:hover { color: #0a608c; }
-QPushButton#histToggle { background: transparent; border: 0; padding: 0;
-    text-align: left; font-size: 12px; color: #5f6368; }
-QPushButton#histToggle:hover { color: #1b1b1b; }
-/* 图层面板：与 infoPanel 同一套白卡片 + 1px 描边，浅色下必须完全不透明。
+/* 图层面板：白卡片 + 1px 描边，浅色下必须完全不透明。
    所有按钮显式 min-height:0 / padding 抵消全局 QPushButton 的 30px 底高。 */
 QWidget#layerPanel { background: rgba(255,255,255,0.90); border: 1px solid #dfe0e2; border-radius: 8px; }
 QLabel#panelTitle { color: #1b1b1b; font-size: 13px; font-weight: 600; }
@@ -520,25 +638,8 @@ QLabel#layerHint { color: #5f6368; font-size: 11px; background: rgba(0,0,0,0.04)
 )");
     }
     return QStringLiteral(R"(
-/* 深色半透明底板：白图/黑图/复杂纹理上都可读；1px 低对比细边勾出边界，
-   8px 圆角对齐原型 .info-overlay；不加投影（叠加在图片上会显脏）。 */
-QWidget#infoPanel { background: rgba(28,29,31,0.88);
-    border: 1px solid rgba(255,255,255,0.10); border-radius: 8px; }
 QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; border: 0; }
-QLabel#infoKey { color: #9ba0a5; }
-QLabel#infoVal { color: #e9eaec; }
-QLabel#infoKey[smallFont="true"], QLabel#infoVal[smallFont="true"] { font-size: 10px; }
-/* 浮层左上角的关闭/复制圆钮：paintEvent 自绘圆形，QSS 只负责抵消全局
-   QPushButton 的 min-height/padding（否则 22x22 被撑成 22x32 纵椭圆） */
-QPushButton#infoRoundBtn { min-height: 0; max-height: 22px; min-width: 22px;
-    max-width: 22px; padding: 0; background: transparent; border: 0; }
-QPushButton#mapLink { background: transparent; border: 0; padding: 0;
-    text-align: left; font-size: 12px; color: #55c0f0; }
-QPushButton#mapLink:hover { color: #72caf1; }
-QPushButton#histToggle { background: transparent; border: 0; padding: 0;
-    text-align: left; font-size: 12px; color: #9ba0a5; }
-QPushButton#histToggle:hover { color: #e9eaec; }
-/* 图层面板：与 infoPanel 同一套深色半透明底板（白图上也可读），1px 细边。 */
+/* 图层面板：深色半透明底板（白图上也可读），1px 细边。 */
 QWidget#layerPanel { background: rgba(28,29,31,0.88);
     border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; }
 QLabel#panelTitle { color: #e9eaec; font-size: 13px; font-weight: 600; }

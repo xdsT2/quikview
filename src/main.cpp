@@ -214,9 +214,10 @@ int main(int argc, char *argv[])
                           || parser.isSet(smokeOpt) || parser.isSet(shotOpt)
                           || parser.isSet(shotUiOpt) || parser.isSet(shotDelayOpt)
                           || parser.isSet(checkUpdateOpt);
-    // 单实例开关（设置页「不允许有多个实例」，inverted：config/allow_multiple_instances）。
-    // 勾选 = 单实例（默认，键为 false）；取消 = 允许多开。关闭时 serverKey 留空，
-    // 下方 `if (!serverKey.isEmpty())` 分支天然不监听、不转发。调试参数继续绕过单实例。
+    // 单实例开关（设置页「不允许多个实例」，inverted：config/allow_multiple_instances）。
+    // 默认键为 true = 允许多开（2026-11-12 定稿）；用户勾上该开关才写 false 启用单实例。
+    // 关闭时 serverKey 留空，下方 `if (!serverKey.isEmpty())` 分支天然不监听、不转发。
+    // 调试参数继续绕过单实例。
     const bool singleInstance = !Config::instance().allowMultipleInstances();
     QString serverKey;
     if (!debugRun && singleInstance) {
@@ -276,7 +277,7 @@ int main(int argc, char *argv[])
     // 检查更新：结果提示条由 UpdateNotifier 统一负责（手动/自动共用）。
     new UpdateNotifier(&window, &window);
 
-    // 自动检查默认关；勾上「启动时检查更新」后延迟 5s 再发，绝不阻塞启动路径。
+    // 自动检查默认开（2026-11-12 定稿）；启动 5s 后再发，绝不阻塞启动路径，24h 限频。
     if (Config::instance().checkUpdatesOnStartup()) {
         QTimer::singleShot(5000, &window, []() {
             qDebug() << "[update] startup auto check (delayed 5s)";

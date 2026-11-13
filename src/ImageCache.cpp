@@ -290,14 +290,22 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize)
         QImageReader reader(path);
         reader.setAutoTransform(true);
         QImage img = reader.read();
+        QString readerError;
+        if (img.isNull()) {
+            const QByteArray formats = QImageReader::supportedImageFormats().join(',');
+            readerError = QStringLiteral("QImageReader: %1; format=%2; supported=%3")
+                              .arg(reader.errorString(),
+                                   QString::fromLatin1(reader.format()),
+                                   QString::fromLatin1(formats));
+        }
         // QImageReader 不认 RAW：全尺寸解码也留在本后台线程，避免回主线程
         // 同步解把窗口卡住（「不打开 RAW」时跳过，交给 onLoadFailed 提示）。
         if (img.isNull() && rawFile && !Config::instance().noRawLoad()) {
             QString rawErr;
             img = loadRawImage(path, &rawErr, Config::instance().hdrTonemap());
         }
-        QMetaObject::invokeMethod(this, [this, path, img]() {
-            finishFullDecode(path, img);
+        QMetaObject::invokeMethod(this, [this, path, img, readerError]() {
+            finishFullDecode(path, img, readerError);
         }, Qt::QueuedConnection);
     });
 }
@@ -390,10 +398,9 @@ void ImageCache::requestThumbnail(const QString &path, const QSize &size)
         m_thumbInFlight.remove(key);
         const QImage img = watcher->result();
         watcher->deleteLater();
-        if (!img.isNull()) {
+        if (!img.isNull())
             m_thumbCache.insert(key, new QImage(img));
-            emit thumbnailReady(path, img);
-        }
+        emit thumbnailReady(path, img);
     });
     watcher->setFuture(future);
 }

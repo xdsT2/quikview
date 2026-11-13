@@ -47,6 +47,7 @@ public:
 signals:
     void fullReady(const QString &path, const QImage &image, bool preview);
     void dragPreviewReady(const QString &path, const QImage &image);
+    // A null image reports a failed preview decode.
     void thumbnailReady(const QString &path, const QImage &image);
     void loadFailed(const QString &path, const QString &error);
 

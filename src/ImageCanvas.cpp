@@ -1,6 +1,7 @@
 #include "ImageCanvas.h"
 #include "UiStyle.h"
 
+#include <QApplication>
 #include <QGraphicsOpacityEffect>
 #include <QGraphicsPixmapItem>
 #include <QGraphicsRectItem>
@@ -349,6 +350,16 @@ ImageCanvas::ImageCanvas(QWidget *parent)
         m_resizeBurst = false;
         doRefreshSampling();
     });
+
+    // 中央单击待判：间隔到了还没等到双击，就把暂存的动作真正派发出去。
+    m_pendingActionTimer.setSingleShot(true);
+    connect(&m_pendingActionTimer, &QTimer::timeout, this, [this]() {
+        const QString act = m_pendingAction;
+        m_pendingAction.clear();
+        if (!act.isEmpty()) {
+            emit mouseActionRequested(act);
+        }
+    });
 }
 
 void ImageCanvas::setLogoVisible(bool on)
@@ -429,6 +440,15 @@ void ImageCanvas::setPixmapAnimated(const QPixmap &pixmap, int mode, bool fitAft
         setPixmap(pixmap, fitAfter);
         return;
     }
+    // 连发直切：上一次过渡没走完又来换页 = 用户在连按/快滚，取消淡化直接切，
+    // 不排队、不重启，避免拖影与积压。
+    if (m_transAnim && m_transAnim->state() == QAbstractAnimation::Running) {
+        m_transAnim->stop();
+        m_transProgress = 1.0;
+        m_transPixmap = QPixmap();
+        setPixmap(pixmap, fitAfter);
+        return;
+    }
     m_transPixmap = m_item->pixmap();
     m_transSceneRect = scene()->sceneRect();
     m_transMode = mode;
@@ -450,7 +470,7 @@ void ImageCanvas::setPixmapAnimated(const QPixmap &pixmap, int mode, bool fitAft
     m_transAnim->stop();
     m_transAnim->setStartValue(0.0);
     m_transAnim->setEndValue(1.0);
-    m_transAnim->setDuration(140);   // 硬约束：≤150ms，避免翻页排队积压
+    m_transAnim->setDuration(100);   // 单次切换 90–110ms 交叉淡化；连发已被上面的直切拦截
     m_transAnim->start();
 }
 
@@ -1072,6 +1092,10 @@ void ImageCanvas::mousePressEvent(QMouseEvent *event)
         m_midPressClock.restart();
         m_midPressTracked = m_item != nullptr && !m_cropMode;
         setCursor(Qt::ClosedHandCursor);
+        if (!m_panSignalActive) {
+            m_panSignalActive = true;
+            emit panStateChanged(true);
+        }
         event->accept();
         return;
     }
@@ -1130,6 +1154,13 @@ void ImageCanvas::mouseMoveEvent(QMouseEvent *event)
             viewport()->setCursor(Qt::ClosedHandCursor);
         }
         m_pressTracked = false;
+        // 拖动取消中央单击待判动作，避免拖完平移又翻一页。
+        m_pendingActionTimer.stop();
+        m_pendingAction.clear();
+        if (!m_panSignalActive) {
+            m_panSignalActive = true;
+            emit panStateChanged(true);
+        }
     }
     QGraphicsView::mouseMoveEvent(event);
 }
@@ -1144,6 +1175,10 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent *event)
     if (event->button() == Qt::MiddleButton && m_panning) {
         m_panning = false;
         unsetCursor();
+        if (m_panSignalActive) {
+            m_panSignalActive = false;
+            emit panStateChanged(false);
+        }
         // 单击判定与左键箭头带同一套阈值：<3px、<300ms。拖动超过 3px 仍只是平移。
         const bool isClick = m_midPressTracked
                              && m_midPressClock.isValid()
@@ -1158,6 +1193,10 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent *event)
     }
     // 箭头带内的「点击」翻页：左键 + 位移 <3px + 按压 <300ms。先让基类把
     // ScrollHandDrag 收干净，再发信号（loadAsync 异步，不会在事件里重入画布）。
+    if (event->button() == Qt::LeftButton && m_panSignalActive) {
+        m_panSignalActive = false;
+        emit panStateChanged(false);
+    }
     if (event->button() == Qt::LeftButton && m_pressTracked) {
         m_pressTracked = false;
         const bool isClick = m_pressClock.isValid() && m_pressClock.elapsed() < 300
@@ -1170,7 +1209,15 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent *event)
         const QString leftAct = Config::instance().mouseLeftAction();
         if (isClick && delta == 0 && leftAct != QLatin1String("none")
             && leftAct != QLatin1String("pan")) {
-            emit mouseActionRequested(leftAct);
+            // 双击最大化开启时，中央单击暂存动作等系统双击间隔：若紧接着是中央双击，
+            // mouseDoubleClickEvent 会取消待判改走最大化，避免一次双击既翻一页又最大化。
+            // 侧边热区（delta!=0 不进此分支）与「双击最大化关闭」时保持即时派发。
+            if (m_dblClickMaximize) {
+                m_pendingAction = leftAct;
+                m_pendingActionTimer.start(QApplication::doubleClickInterval());
+            } else {
+                emit mouseActionRequested(leftAct);
+            }
             return;
         }
         // 两侧单击翻页受设置控制（键 "config/mouse/click_side_pageturn"）：
@@ -1198,6 +1245,10 @@ void ImageCanvas::mouseDoubleClickEvent(QMouseEvent *event)
         return;
     }
     if (event->button() == Qt::LeftButton && m_dblClickMaximize) {
+        // 中央双击：取消第一次单击暂存的动作（否则第一次 release 已派发翻页），
+        // 只走最大化。待判定时器若还在跑，timeout 时 m_pendingAction 已清空，不会再发。
+        m_pendingActionTimer.stop();
+        m_pendingAction.clear();
         emit doubleClickRequested();
         event->accept();
         return;

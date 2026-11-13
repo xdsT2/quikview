@@ -13,6 +13,7 @@ class QAbstractButton;
 class QCheckBox;
 class QComboBox;
 class QEvent;
+class QFrame;
 class QHBoxLayout;
 class QKeyEvent;
 class QKeySequenceEdit;
@@ -21,7 +22,10 @@ class QLineEdit;
 class QMouseEvent;
 class QPaintEvent;
 class QPushButton;
+class QResizeEvent;
+class QSpacerItem;
 class QSpinBox;
+class InputModeWatcher;
 class PillToggle;
 class QStackedWidget;
 class QVBoxLayout;
@@ -44,6 +48,12 @@ class SettingsDialog : public QDialog
     Q_OBJECT
 public:
     explicit SettingsDialog(QWidget *parent = nullptr);
+    ~SettingsDialog() override;
+
+    // 输入来源追踪（v2 焦点可见性）：鼠标按下即切指针模式、清掉所有 kbFocus；
+    // 键盘按键切键盘模式，只给当前焦点控件加环。公开供内部过滤器与本类共享。
+    bool keyboardInputMode() const;
+    void refreshFocusVisibility();
 
     // —— 键盘自定义验收探针（--smoke keyconflict / keyreset，非交互路径）——
     // probeKeyConflict：把「删除」行热键改成 Ctrl+P（撞固定动作「打印」）走真实
@@ -51,9 +61,14 @@ public:
     // probeResetDefaults：点 footer「恢复默认」并自动确认，走 onReset 同一条链路。
     void probeKeyConflict();
     void probeResetDefaults();
+    // probeOpenCombo：切到第 page 页并展开其中第 index 个可见下拉，用于
+    // 「设置里的下拉展开时主顶栏是否被误唤出」的截图验收；同时把各下拉的
+    // 序号/当前值写到 Temp/settings-combos.txt，避免靠猜索引取错控件。
+    void probeOpenCombo(int page, int index);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
     void showEvent(QShowEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
@@ -87,6 +102,14 @@ private:
     // —— 页面骨架 ——
     QWidget *addPage(const QString &title, const QString &desc);
     void selectPage(int index);
+    // 按当前窗口宽度算「一般」页内容列的左右边界：最大 660，超出时居中；
+    // 其余页回到 0 边距（column 自带 28 内边距），与改前一致。
+    void updateContentColumnWidth();
+    // 一般页页头「标题—说明—内容」间距：标准 8+8，紧凑 6+6；其余页 13/15。
+    void updateGeneralHeaderSpacing();
+    // v2 紧凑档（窗口宽 < 1000）：左栏 180、导航行 34 / 行距 2、标题 40 /
+    // 底栏 43、组间距 10、行高约 40。标准档恢复 211/36/4/41/44/15/49。
+    void applyCompactLayout(bool compact);
 
     // —— 十一个页面 ——
     void buildGeneralPage(QWidget *page);
@@ -107,6 +130,12 @@ private:
     QWidget *beginSection(QWidget *page, const QString &title, int topGap = -1);
     // 组卡片本体（beginSection 内部创建，行 / 分隔线都追加到这里）。
     QWidget *groupCard(QWidget *section) const;
+    // 统一页节奏：首组 12 / 组间 20、行高 42、右侧控件列整页同宽并右对齐、
+    // 分组标题提级 13px/600。九页在各自 builder 末尾调用一次。
+    // 负数参数 = 沿用 kPage* 默认值；「一般」样板传定稿的 22/14/44/160，
+    // 其他页取值与调用方式一律不变（在途的九页节奏保持原状）。
+    void applyPageRhythm(QWidget *page, int firstGap = -1, int groupGap = -1,
+                         int rowH = -1, int ctlW = -1);
     struct SettingRowParts {
         QWidget *row = nullptr;
         QLabel *label = nullptr;
@@ -123,6 +152,8 @@ private:
                         const QString &desc = QString());
     QCheckBox *addCheck(QWidget *section, const QString &text, const char *key,
                         bool inverted, bool def);
+    // v2 pop-up：互斥值字段（当前值 + 下箭头 + 勾选 + 禁用原因）。
+    QComboBox *makePopupCombo(QWidget *parent);
     QComboBox *addComboRow(QWidget *section, const QString &label, const QString &desc,
                            const char *key, const QString &def,
                            const QList<QPair<QString, QString>> &options,
@@ -218,6 +249,11 @@ private:
     QString keyboardConflicts();
     void clearKeyConflicts();
     void setKeyRowConflict(int index, bool on);   // 整行高亮（QSS 动态属性）
+    // 实时冲突反馈：红条文案 + 保存按钮可用性 + 行内「冲突」标记。
+    void refreshKeyConflictBanner();
+    // 录入态：页首说明与行内「正在录入」跟随焦点切换。
+    void refreshKeyEditingState();
+    void setKeyHintMode(bool editing);
 
     QList<QWidget *> m_pages;              // 各页内容 widget（QScrollArea 的 widget）
     QList<QAbstractButton *> m_tabs;       // 左侧 navItem
@@ -225,6 +261,23 @@ private:
     QStringList m_pageDescs;
     QStackedWidget *m_stack = nullptr;
     QVBoxLayout *m_navLayout = nullptr;
+    // 「一般」样板外壳：只有 index 0 把内容列限到 748 并居中、隐藏页头分隔线、
+    // 页标题与卡片左缘对齐；切到其他页时逐项还原，保证其余十页零变化。
+    QWidget *m_contentColumn = nullptr;
+    QVBoxLayout *m_contentLay = nullptr;
+    QFrame *m_headLine = nullptr;
+    QSpacerItem *m_headGapTop = nullptr;     // 页头说明与分隔线之间（一般页收窄）
+    QSpacerItem *m_headGapBottom = nullptr;  // 分隔线与内容之间
+    QSpacerItem *m_footerGap = nullptr;      // 底栏提示与卡片左缘对齐的弹性间隔
+    // v2 紧凑档需要按窗口宽度改这些外壳尺寸
+    QWidget *m_navRail = nullptr;
+    QWidget *m_titleBar = nullptr;
+    QWidget *m_footer = nullptr;
+    QPushButton *m_btnAbout = nullptr;
+    bool m_compact = false;
+    // 输入来源追踪：只有键盘导航才让控件显示焦点环（v2 焦点规则）。
+    friend class InputModeWatcher;
+    InputModeWatcher *m_inputMode = nullptr;
     QLabel *m_pageTitle = nullptr;
     QLabel *m_pageDesc = nullptr;
     QPushButton *m_btnReset = nullptr;
@@ -244,13 +297,10 @@ private:
     // 外观页（第 18 期）：主题三件套——不进绑定表，saveAppearance() 手工落盘，
     // 因为 config/theme 是三态字符串（dark/light/system），不是布尔/枚举绑定能表达的。
     // 2026-11-06：改为胶囊拨动开关，「深色模式」更名为「浅色模式」（浅色开 = light）。
-    PillToggle *m_followSystem = nullptr;  // 「跟随系统」（→ theme=system）
-    PillToggle *m_lightToggle = nullptr;   // 「浅色模式」（跟随系统时禁用）
+    // 界面主题：单一 pop-up 字段，值 system / light / dark（2026-11-11 修订）。
+    QComboBox *m_themeCombo = nullptr;
     PillToggle *m_blurMaterial = nullptr;  // 「磨砂材质」ui/blur_material（④ 接线生效）
-    QLabel *m_followLabel = nullptr;
-    QLabel *m_followDesc = nullptr;
-    QLabel *m_lightLabel = nullptr;
-    QLabel *m_lightDesc = nullptr;
+
 
     // —— 主题即时应用 ——
     // 主题是复合控件（跟随 + 浅色两个开关映射同一 config/theme），不走
@@ -283,8 +333,14 @@ private:
         QString action;
         QString defHotkey;                // 出厂键位（PortableText，与 MainWindow 一致）
         QString label;                    // 动作显示名（冲突提示用）
+        QLabel *stateLab = nullptr;       // 键帽右侧「正在录入 / 冲突」行内状态
     };
     QList<KeyRow> m_keyRows;
+    // 键盘页三态（2026-11-11 修订）：页首说明随录入切换、冲突红条常驻可读，
+    // 有冲突时「保存设置」不可用；解决后自动复原。
+    QLabel *m_keyHint = nullptr;
+    QWidget *m_keyBanner = nullptr;
+    QLabel *m_keyBannerText = nullptr;
     struct MouseRow {                     // 鼠标页按键动作行（同样避免悬空指针）
         QComboBox *combo;
         QString key;

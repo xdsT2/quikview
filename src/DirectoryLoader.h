@@ -55,5 +55,5 @@ private:
     int m_index = -1;
     int m_sort = 0;
     bool m_sortDesc = false;
-    QString m_edgeAction = QStringLiteral("stop");
+    QString m_edgeAction = QStringLiteral("first");   // 与 Config::edgeAction() 缺省一致（2026-11-12 定稿）
 };

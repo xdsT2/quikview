@@ -121,6 +121,8 @@ signals:
     // 左键在松手且判定为「点击」时派发（拖动平移不受影响）。
     // action 取 SettingsDialog 的动作表（next / prev / zoom_in / ...）。
     void mouseActionRequested(const QString &action);
+    // 画布平移（左键拖动 / 中键拖动）起止：底部控制岛据此弱化，不隐藏。
+    void panStateChanged(bool panning);
 
 protected:
     // 视口 1px 内沿边框：基类画完图像后直接描一圈，与 scene 缩放/平移无关
@@ -212,7 +214,13 @@ private:
     QElapsedTimer m_midPressClock;
     QPoint m_midPressPos;
     bool m_midPressTracked = false;
+    bool m_panSignalActive = false;   // 已发 panStateChanged(true)，保证成对发出 false
     bool m_dblClickMaximize = false;    // 双击最大化开关（applyRuntimeSettings 下发）
+    // 中央单击「待判」：当左键映射为翻页类动作且双击最大化开启时，中央单击不立即派发，
+    // 暂存动作并等系统双击间隔；若间隔内收到中央双击则取消待判改走最大化，避免一次双击
+    // 既翻一页又最大化。侧边热区与「双击最大化关闭」时仍即时派发，不延迟。
+    QTimer m_pendingActionTimer;
+    QString m_pendingAction;
     class SideArrow;
     SideArrow *m_arrowPrev = nullptr;   // 悬停带内 160ms 淡入，纯视觉不接鼠标
     SideArrow *m_arrowNext = nullptr;

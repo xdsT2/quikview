@@ -1,12 +1,18 @@
 #pragma once
 
+#include <QCache>
+#include <QElapsedTimer>
+#include <QHash>
+#include <QImage>
+#include <QSet>
+#include <QStringList>
+#include <QVector>
 #include <QWidget>
 
 class ImageCache;
-class QListWidget;
+class QTimer;
+class QVariantAnimation;
 
-// 缩略图浏览器：左侧停靠面板（宽 160、高度随卡片数量），
-// 每张图固定在 128×128 方形预览区内等比完整显示，文件名在下方。
 class ThumbnailBrowser : public QWidget
 {
     Q_OBJECT
@@ -15,16 +21,59 @@ public:
 
     void setFiles(const QStringList &files, int currentIndex);
     void setCurrent(int index);
-    // 面板按卡片数量取高：3 张就只包到 3 张，超出可用高度再由调用方封顶并滚动。
-    int preferredHeight() const;
+    void setExpanded(bool expanded);
+    bool isExpanded() const { return m_expanded; }
+    void place(int availableWidth, int bottom);
+    int currentIndex() const { return m_current; }
+    bool currentInView() const;
 
 signals:
     void activateImage(int index);
 
-private:
-    void onThumbReady(const QString &path, const QImage &image);
+protected:
+    void paintEvent(QPaintEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void leaveEvent(QEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
+    bool event(QEvent *event) override;
 
-    QListWidget *m_list = nullptr;
-    ImageCache *m_cache = nullptr;
+private:
+    void rebuildPositions();
+    void updateGeometryAndScroll();
+    void schedulePreviews();
+    void requestVisible();
+    void onThumbReady(const QString &path, const QImage &image);
+    void startCenterAnimation();
+    int centerScrollTarget() const;
+    int indexAt(int contentX) const;
+    int maxScroll() const;
+    QRect tileRect(int index) const;
+
+    ImageCache *m_cache;
+    QVariantAnimation *m_reveal;
+    QVariantAnimation *m_center = nullptr;   // 切图自动居中（180ms，滚轮/点击/键入即断）
+    QTimer *m_fadeTimer = nullptr;           // 逐格淡入 / 描边交叉淡化期间推进重绘
+    QElapsedTimer m_paintClock;
+    QHash<int, qint64> m_tileFade;           // index → 异步缩略图淡入起始时刻
     QStringList m_files;
+    QVector<QSize> m_sizes;
+    QVector<int> m_positions;
+    QCache<int, QImage> m_images{48};
+    QHash<QString, int> m_pending;
+    QSet<int> m_failed;
+    int m_availableWidth = 0;
+    int m_bottom = 0;
+    int m_previewHeight = 72;
+    int m_scroll = 0;
+    int m_current = -1;
+    int m_prevCurrent = -1;                  // 描边交叉淡化的旧选中
+    qint64 m_ringSwapMs = 0;                 // 选中切换时刻（m_paintClock 时基）
+    int m_pressed = -1;
+    int m_hover = -1;
+    bool m_expanded = false;
+    bool m_updateQueued = false;
+    bool m_positionsDirty = false;
+    bool m_centerCurrent = false;
 };
