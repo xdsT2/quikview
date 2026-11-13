@@ -1651,7 +1651,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     buildKeyboardPage(addPage(tr("键盘"), QString()));
     buildMousePage(addPage(tr("鼠标"), tr("左/右/X/Y 与滚轮的按键映射可自定义；中键平移、双击最大化可用。")));
     buildBookmarkPage(addPage(tr("书签"), tr("自动保存开关与书签数量上限。")));
-    buildContextMenuPage(addPage(tr("上下文菜单"), tr("右键菜单与资源管理器缩略图随安装包注册、卸载时移除；本页仅作状态说明。")));
+    buildContextMenuPage(addPage(tr("上下文菜单"), tr("右键菜单各项开关与资源管理器缩略图状态；注册由安装包处理，卸载时移除。")));
     buildEtcPage(addPage(tr("杂项"), tr("图片文件夹、外部编辑器与 RAW 打开策略。")));
     buildLangPage(addPage(tr("语言"), tr("选择界面语言并管理语言文件。")));
 
@@ -2836,10 +2836,13 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
                 tr("铺满整个画布视口，颜色随应用深浅主题自动变化"),
                 "imageproc/canvas_bg", QStringLiteral("checker"),
                 { { "checker", tr("棋盘") }, { "solid", tr("纯色") } }, kGenComboW);
-    addSwitchRow(sec, tr("透明图像阴影"),
-                 tr("仅对带透明通道的 32 位图片生效：按图片外接矩形在图片下方绘制轻量投影；仅屏幕预览，不进入复制、打印、批量转换与另存为"),
+    addSwitchRow(sec, tr("显示透明区域"),
+                 tr("开启后，纯色背景下图片的透明区域显示棋盘格；关闭后透明像素直接透出画布背景"),
+                 "imageproc/show_transparency", false, true);
+    addSwitchRow(sec, tr("图片阴影"),
+                 tr("在图片边缘加一圈阴影，浅色背景下的浅色图片也能看清边界；仅屏幕预览，不进入复制、打印、批量转换与另存为"),
                  "imageproc/canvas_shadow", false, false);
-    // 两项都即时预览：写盘由 comboBind / chkBind 的即时路径统一走，这里只
+    // 三控件都即时预览：写盘由 comboBind / chkBind 的即时路径统一走，这里只
     // 补运行态下发（applyLiveSetting 直达画布，模态设置页开着也能看到效果）。
     for (const ComboBind &b : m_comboBinds) {
         if (qstrcmp(b.key, "imageproc/canvas_bg") != 0)
@@ -2853,13 +2856,15 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
         });
     }
     for (const ChkBind &b : m_chkBinds) {
-        if (qstrcmp(b.key, "imageproc/canvas_shadow") != 0)
+        if (qstrcmp(b.key, "imageproc/show_transparency") != 0
+            && qstrcmp(b.key, "imageproc/canvas_shadow") != 0)
             continue;
-        connect(b.cb, &QCheckBox::toggled, this, [this, b](bool on) {
+        const QString key = QString::fromLatin1(b.key);
+        connect(b.cb, &QCheckBox::toggled, this, [this, key](bool on) {
             if (m_loading)
                 return;
             if (MainWindow *w = qobject_cast<MainWindow *>(parentWidget()))
-                w->applyLiveSetting(QStringLiteral("imageproc/canvas_shadow"), on, nullptr);
+                w->applyLiveSetting(key, on, nullptr);
         });
     }
 
@@ -3303,6 +3308,32 @@ void SettingsDialog::buildBookmarkPage(QWidget *page)
 // 8. 上下文菜单
 // ===========================================================================
 
+// 验收探针（--smoke settingsctx:<leaf>）：切到上下文菜单页并点击指定开关。
+// 点击走 PillToggle::toggled → writeValues 真实写盘链路，等价鼠标点击。
+// 导航/点击都延迟到事件循环稳定后（与 settingspage: 探针同节奏）。
+void SettingsDialog::probeCtxToggle(const QString &leaf)
+{
+    QTimer::singleShot(400, this, [this, leaf]() {
+        const auto navs = findChildren<QPushButton *>(QStringLiteral("navItem"));
+        for (QPushButton *b : navs) {
+            if (b->text().contains(tr("上下文菜单"))) {
+                b->click();
+                break;
+            }
+        }
+        QTimer::singleShot(400, this, [this, leaf]() {
+            const QString want = QStringLiteral("ctxmenu.") + leaf;
+            const auto toggles = findChildren<PillToggle *>();
+            for (PillToggle *t : toggles) {
+                if (t->accessibleName() == want) {
+                    t->click();
+                    return;
+                }
+            }
+        });
+    });
+}
+
 void SettingsDialog::buildContextMenuPage(QWidget *page)
 {
     // 上下文菜单派单（2026-11-13）：注册探测四态 + 把设置页接到真实右键行为。
@@ -3391,76 +3422,95 @@ void SettingsDialog::buildContextMenuPage(QWidget *page)
     // —— 开关区：仅当右键菜单处理器注册到本安装时可操作 ——
     const bool menuUsable = menu.state == ShellRegistered;
     sec = beginSection(page, tr("右键菜单开关"));
-    auto ctxToggle = [this, menuUsable](
-                         QWidget *section, const QString &label, const QString &desc,
-                         const char *leaf, QLabel **descOut) -> PillToggle * {
-        ToggleRow row = addToggleRow(section, label, desc, label);
-        if (descOut && row.desc)
-            *descOut = row.desc;
-        if (!row.toggle)
-            return nullptr;
-        const QString key = QStringLiteral("config/ctxmenu/") + QLatin1String(leaf);
-        row.toggle->setChecked(
-            Config::instance().settings().value(key, true).toBool());
-        connect(row.toggle, &PillToggle::toggled, this,
-                [this, row, key, leaf](bool on) mutable {
-            const bool previous =
-                Config::instance().settings().value(key, true).toBool();
-            QString err;
-            const QList<QPair<QString, QVariant>> vals = {
-                { QString::fromLatin1(leaf), on }
-            };
-            if (writeValues(vals, false, &err))
-                return;
-            // 写入失败：显示原因并恢复到实际值（内存已由 writeValues 回滚）
-            const bool actual =
-                Config::instance().settings().value(key, true).toBool();
+    struct CtxToggleRow {
+        SettingsDialog::ToggleRow row;
+        const char *leaf;
+    };
+    auto ctxToggle = [this](QWidget *section, const QString &label,
+                            const QString &desc, const char *leaf) -> CtxToggleRow {
+        SettingsDialog::ToggleRow row =
+            addToggleRow(section, label, desc, label);
+        if (row.toggle) {
+            const QString key = QStringLiteral("config/ctxmenu/") + QLatin1String(leaf);
             if (row.toggle) {
-                QSignalBlocker blocker(row.toggle);
-                row.toggle->setChecked(actual);
+                row.toggle->setChecked(
+                    Config::instance().settings().value(key, true).toBool());
+                // 验收探针锚点：smoke settingsctx:<leaf> 按这个名字点开关
+                row.toggle->setAccessibleName(QStringLiteral("ctxmenu.") + QLatin1String(leaf));
             }
-            QMessageBox::warning(this, tr("上下文菜单"),
-                                 tr("写入失败：%1\n已恢复到当前实际值。").arg(err));
-        });
-        return row.toggle;
+            connect(row.toggle, &PillToggle::toggled, this,
+                    [this, row, key, leaf](bool on) mutable {
+                QString err;
+                const QList<QPair<QString, QVariant>> vals = {
+                    { QString::fromLatin1(leaf), on }
+                };
+                if (writeValues(vals, false, &err))
+                    return;
+                // 写入失败：显示原因并恢复到实际值（内存已由 writeValues 回滚）
+                const bool actual =
+                    Config::instance().settings().value(key, true).toBool();
+                if (row.toggle) {
+                    QSignalBlocker blocker(row.toggle);
+                    row.toggle->setChecked(actual);
+                }
+                QMessageBox::warning(this, tr("上下文菜单"),
+                                     tr("写入失败：%1\n已恢复到当前实际值。").arg(err));
+            });
+        }
+        return { row, leaf };
     };
 
-    PillToggle *master = ctxToggle(
+    const CtxToggleRow masterRow = ctxToggle(
         sec, tr("在资源管理器右键菜单中显示 QuikView"),
         tr("关闭后下次右键不插入 QuikView 菜单项；开启恢复各细项的原有选择"),
-        "use_shell_menu", nullptr);
-    PillToggle *tBrowse = ctxToggle(
+        "use_shell_menu");
+    const CtxToggleRow browseRow = ctxToggle(
         sec, tr("用 QuikView 浏览图片"), tr("命令行：quikview.exe \"文件\""),
-        "show_browse", nullptr);
-    PillToggle *tConvert = ctxToggle(
+        "show_browse");
+    const CtxToggleRow convertRow = ctxToggle(
         sec, tr("用 QuikView 转换图片"), tr("命令行：quikview.exe --batch \"文件\""),
-        "show_convert", nullptr);
-    PillToggle *tPreview = ctxToggle(
+        "show_convert");
+    const CtxToggleRow previewRow = ctxToggle(
         sec, tr("菜单内预览"),
         tr("右键菜单顶部显示 ≤256px 缩略图，解码超时自动省略"),
-        "show_preview", nullptr);
-    PillToggle *tInfo = ctxToggle(
+        "show_preview");
+    const CtxToggleRow infoRow = ctxToggle(
         sec, tr("图片信息"), tr("浏览项右侧显示 宽 × 高 · 文件大小"),
-        "show_info", nullptr);
-    PillToggle *tIcon = ctxToggle(
+        "show_info");
+    const CtxToggleRow iconRow = ctxToggle(
         sec, tr("软件图标"), tr("菜单项左侧的内嵌 QuikView 图标"),
-        "show_icon", nullptr);
+        "show_icon");
 
-    // 联动：总开关或注册态不可用时，细项灰显（保留各自勾选状态）
-    const auto applyUsable = [menuUsable, master, tBrowse, tConvert, tPreview,
-                              tInfo, tIcon]() {
-        const bool masterOn = master && master->isChecked();
+    // 联动与整行灰显：注册态不可用 → 整行灰显；总开关关闭 → 细项行灰显
+    // （勾选状态保留，恢复后各自生效）
+    const auto applyUsable = [menuUsable, masterRow, browseRow, convertRow,
+                              previewRow, infoRow, iconRow]() {
+        const bool masterOn = masterRow.row.toggle && masterRow.row.toggle->isChecked();
         const bool subUsable = menuUsable && masterOn;
-        for (PillToggle *t : { tBrowse, tConvert, tPreview, tInfo, tIcon }) {
-            if (t)
-                t->setEnabled(subUsable);
-        }
-        if (master)
-            master->setEnabled(menuUsable);
+        auto applyRow = [](const CtxToggleRow &r, bool usable) {
+            if (!r.row.toggle)
+                return;
+            r.row.toggle->setEnabled(usable);
+            r.row.row->setEnabled(true);   // 命中过滤器自身判 isEnabled，行不禁用
+            // QSS 的 rowLabel 颜色会盖掉禁用调色板：灰显必须显式写样式
+            const QString grey = QStringLiteral(
+                "color:%1;").arg(QLatin1String(UiStyle::fluent::disabled()));
+            if (r.row.label)
+                r.row.label->setStyleSheet(usable ? QString() : grey);
+            if (r.row.desc)
+                r.row.desc->setStyleSheet(usable ? QString() : grey);
+        };
+        applyRow(masterRow, menuUsable);
+        applyRow(browseRow, subUsable);
+        applyRow(convertRow, subUsable);
+        applyRow(previewRow, subUsable);
+        applyRow(infoRow, subUsable);
+        applyRow(iconRow, subUsable);
     };
     applyUsable();
-    if (master) {
-        connect(master, &PillToggle::toggled, this, applyUsable);
+    if (masterRow.row.toggle) {
+        connect(masterRow.row.toggle, &PillToggle::toggled, this,
+                [applyUsable]() { applyUsable(); });
     }
 
     // 不可操作的原因说明（诚实化：灰显必须配原因）
