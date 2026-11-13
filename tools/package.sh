@@ -127,7 +127,7 @@ REQUIRED=(
     imageformats/qjpeg.dll imageformats/qgif.dll imageformats/qico.dll
     imageformats/qwebp.dll imageformats/qtiff.dll imageformats/qicns.dll
     imageformats/qmng.dll imageformats/qtga.dll imageformats/qwbmp.dll
-    libheif.dll libraw-25.dll
+    libheif.dll
 )
 BAD=0
 for r in "${REQUIRED[@]}"; do
@@ -136,6 +136,12 @@ for r in "${REQUIRED[@]}"; do
         BAD=1
     fi
 done
+# libraw 的 DLL 名带 ABI 号（libraw-23 / libraw-25 …），MSYS2 版本漂移就会变，
+# 与开头「不写死清单」的设计一致，按前缀检查而不是钉死某个数字。
+if ! find "$STAGE" -maxdepth 1 -name 'libraw-*.dll' -print -quit | grep -q .; then
+    echo "  自检缺文件：libraw-*.dll" >&2
+    BAD=1
+fi
 [ "$BAD" = "0" ] || { echo "自检失败，中止" >&2; exit 1; }
 
 # 可选冒烟：SAMPLE=/path/to/img 时验证 staging 里的 exe 能自渲染
