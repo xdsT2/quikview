@@ -136,4 +136,87 @@ if(WIN32)
     target_compile_definitions(quikview PRIVATE _WIN32_WINNT=0x0A00 WINVER=0x0A00)
     # 翻页音效（pageturn_wav）走 winmm PlaySound（MainWindow.cpp 运行时合成 WAV）
     target_link_libraries(quikview PRIVATE winmm)
+
+    # 开发构建也必须可直接运行：把 Qt 图像格式插件稳定部署到 exe 同级目录。
+    # 发行 staging 仍由 tools/package.sh 负责完整依赖闭包；这里明确排除 qjp2，
+    # 保持 jasper 崩溃规避策略一致。
+    #
+    # 位置必须是 <exe>/imageformats：Qt 6 在 Windows 上从 applicationDirPath
+    # 直接找分类子目录（windeployqt 产出的也是这个布局）。放到
+    # <exe>/plugins/imageformats 不会被加载，表现为「目录建立了但图像不上屏」。
+    #
+    # 来源分两处：官方 Qt 只带 jpeg/gif/ico，其余格式从同版本（6.11.2）MSYS2
+    # Qt6 插件目录补齐 —— 两者 ABI 相同，实测可加载。
+    get_filename_component(QUIKVIEW_QT_PREFIX "${Qt6_DIR}/../../.." ABSOLUTE)
+    get_filename_component(QUIKVIEW_COMPILER_BIN "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    get_filename_component(QUIKVIEW_COMPILER_PREFIX "${QUIKVIEW_COMPILER_BIN}/.." ABSOLUTE)
+    set(QUIKVIEW_IMAGEFORMAT_DIRS
+        "${QUIKVIEW_QT_PREFIX}/plugins/imageformats"
+        "${QUIKVIEW_QT_PREFIX}/share/qt6/plugins/imageformats"
+        "${QUIKVIEW_COMPILER_PREFIX}/share/qt6/plugins/imageformats")
+    set(QUIKVIEW_IMAGEFORMAT_PLUGINS
+        qjpeg.dll qgif.dll qico.dll qwebp.dll qtiff.dll
+        qicns.dll qmng.dll qtga.dll qwbmp.dll)
+    foreach(_plugin IN LISTS QUIKVIEW_IMAGEFORMAT_PLUGINS)
+        unset(_plugin_source CACHE)
+        find_file(_plugin_source NAMES "${_plugin}"
+            PATHS ${QUIKVIEW_IMAGEFORMAT_DIRS} NO_DEFAULT_PATH)
+        if(NOT _plugin_source)
+            message(FATAL_ERROR "Qt image format plugin missing: ${_plugin}; searched ${QUIKVIEW_IMAGEFORMAT_DIRS}")
+        endif()
+        add_custom_command(TARGET quikview POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:quikview>/imageformats"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${_plugin_source}"
+                    "$<TARGET_FILE_DIR:quikview>/imageformats/${_plugin}"
+            VERBATIM)
+    endforeach()
+
+    # 插件自身的动态依赖也要跟着部署：MSYS2 的 qtiff 链接 libtiff-6.dll，
+    # 只复制插件不复制依赖时，QImageReader 根本注册不上 TIFF handler，
+    # 表现仍是「打不开」且没有任何提示。这些 DLL 不在 quikview.exe 的导入表
+    # 里，现有构建目录的依赖闭包覆盖不到，所以单独列清单。
+    # 缺文件时只告警：换一套不带这些插件的 Qt 时不该阻断整个构建。
+    set(QUIKVIEW_IMAGEFORMAT_RUNTIME_DLLS
+        libtiff-6.dll libjpeg-8.dll libwebp-7.dll libdeflate.dll
+        libjbig-0.dll libLerc.dll liblzma-5.dll zlib1.dll libzstd.dll)
+    foreach(_dll IN LISTS QUIKVIEW_IMAGEFORMAT_RUNTIME_DLLS)
+        unset(_dll_source CACHE)
+        find_file(_dll_source NAMES "${_dll}"
+            PATHS "${QUIKVIEW_COMPILER_PREFIX}/bin" "${QUIKVIEW_QT_PREFIX}/bin"
+            NO_DEFAULT_PATH)
+        if(_dll_source)
+            add_custom_command(TARGET quikview POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        "${_dll_source}"
+                        "$<TARGET_FILE_DIR:quikview>/${_dll}"
+                VERBATIM)
+        else()
+            message(WARNING "Qt image plugin runtime dependency missing: ${_dll}")
+        endif()
+    endforeach()
+endif()
+
+# ===========================================================================
+# 显隐回归（CTest）：弹出菜单与上下悬浮铬件的隔离
+# ---------------------------------------------------------------------------
+# 用例表在 tests/chrome_popup_cases.cmake；执行器在 tests/chrome_popup_isolation.cmake。
+# 每个用例启动一次真实程序，用 --smoke 命令驱动显隐状态机，断言 report 落盘的
+# dock / top / popup 等状态字段（不靠截图判定）。用例间工作目录、临时配置互相隔离。
+include(CTest)
+if(BUILD_TESTING)
+    include("${CMAKE_CURRENT_SOURCE_DIR}/tests/chrome_popup_cases.cmake")
+    foreach(_chrome_case IN LISTS QUIKVIEW_CHROME_CASES)
+        add_test(NAME chrome_popup.${_chrome_case}
+            COMMAND "${CMAKE_COMMAND}"
+                    "-DQUIKVIEW_EXE=$<TARGET_FILE:quikview>"
+                    "-DQUIKVIEW_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
+                    "-DQUIKVIEW_WORK_ROOT=${CMAKE_CURRENT_BINARY_DIR}/ctest-chrome-popup"
+                    "-DQUIKVIEW_CASE=${_chrome_case}"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/chrome_popup_isolation.cmake")
+        set_tests_properties(chrome_popup.${_chrome_case} PROPERTIES
+            TIMEOUT 180
+            RUN_SERIAL TRUE
+            LABELS "chrome;popup;visibility")
+    endforeach()
 endif()
