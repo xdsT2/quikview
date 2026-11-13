@@ -9,7 +9,7 @@ QuikView 是一款开源的 Windows 看图器，支持目录翻页、双页阅�
 
 > **Windows x64 下载** · 到[最新发布页](https://github.com/xdsT2/quikview/releases/latest)选择安装版或便携 ZIP。便携版解压即可运行，无需另装 Qt。
 
-> **0.4.1** 改善了设置页布局和浅色主题，主题等设置可即时应用。资源管理器集成新增右键预览和图片信息，并可显示带内嵌缩略图的 PSD / PSB 文件。详见 [版本说明](https://github.com/xdsT2/quikview/releases/tag/v0.4.1)。
+> **0.5.0** 新增缩放胶囊、PSD 图层面板与图片信息 HUD，缩略图改为底部横向胶片栏；设置界面 11 页统一排版，修复 HDR 入口误导、JPG 等格式打不开、侧边双击误最大化等问题。详见 [版本说明](https://github.com/xdsT2/quikview/releases/tag/v0.5.0)。
 
 ![QuikView 主窗口：顶部栏与底部控制胶囊浮在照片上](docs/screenshots/01-main.webp)
 
