@@ -232,9 +232,11 @@ int iGet(const char *key, int def)
 }
 
 // ---------------------------------------------------------------------------
-// 壳扩展状态（2026-11-11 修订）：只有 CLSID 的 InprocServer32 真指向本机
-// quikthumb.dll，才允许在设置页写「已注册」；仅文件存在时只能写「已检测到
-// 壳扩展文件」。避免仅凭 DLL 落盘就谎报注册成功。
+// 壳扩展注册探测（2026-11-13 修订，上下文菜单派单 §3）：
+// 右键命令处理器与 WebP/PSD/PSB 缩略图分开检查；核对 InprocServer32 的完整
+// DLL 路径（不再只比文件名），区分 未安装 / 未注册 / 指向其他安装 / 当前
+// 安装已注册。右键命令核对 64 与 32 位两个视图（安装器把 quikthumb.dll 写
+// 64 位视图、quikthumb32.dll 写 WOW6432Node）。
 // ---------------------------------------------------------------------------
 bool shellExtDllPresent()
 {
@@ -242,26 +244,135 @@ bool shellExtDllPresent()
                              + QStringLiteral("/quikthumb.dll"));
 }
 
-bool shellExtRegistered()
+namespace {
+
+enum ShellRegState {
+    ShellNotInstalled,   // 本机没有可用的注册记录，本安装也没有壳扩展文件
+    ShellNotRegistered,  // 本安装带壳扩展文件，但注册表没有指向它的记录
+    ShellOtherInstall,   // 注册表指向另一处安装的 quikthumb*.dll
+    ShellRegistered      // 注册表指向本安装的 DLL（当前安装已注册）
+};
+
+struct ShellComponent {
+    ShellRegState state = ShellNotInstalled;
+    QString boundPath;   // 注册表当前指向的 DLL（「指向其他安装」详情展示用）
+};
+
+// 归一化路径比较（分隔符与大小写不敏感）
+bool qvSamePath(const QString &a, const QString &b)
 {
-    if (!shellExtDllPresent())
-        return false;
-    // 两个 COM 类：缩略图提供程序与上下文菜单（shell-ext/src/guids.h）。
-    static const char *kGuids[] = {
-        "{D8A1C4E2-7B35-4F69-92A4-5C6D7E8F1A2B}",   // CLSID_QuikThumbProvider
-        "{C9FFAFAD-7C1C-4CCC-A37C-A075ED1F27AF}",   // CLSID_QuikContextMenu
+    const QString na = QDir::fromNativeSeparators(a).trimmed();
+    const QString nb = QDir::fromNativeSeparators(b).trimmed();
+    return !na.isEmpty() && na.compare(nb, Qt::CaseInsensitive) == 0;
+}
+
+// 读注册表键的默认值。keyPath 形如
+// HKEY_LOCAL_MACHINE\Software\Classes\...\InprocServer32；32 位视图用
+// 字面 WOW6432Node 路径（64 位进程直接可读）。先查 HKLM 再查 HKCU
+//（regsvr32 /i 按用户注册时写 HKCU）。
+QString qvRegDefault(const QString &keyPath)
+{
+    const QString roots[] = {
+        QStringLiteral("HKEY_LOCAL_MACHINE"),
+        QStringLiteral("HKEY_CURRENT_USER"),
     };
-    for (const char *guid : kGuids) {
-        QSettings reg(QStringLiteral("HKEY_CLASSES_ROOT\\CLSID\\%1\\InprocServer32")
-                          .arg(QLatin1String(guid)),
+    for (const QString &root : roots) {
+        QSettings reg(root + QLatin1Char('\\') + keyPath,
                       QSettings::NativeFormat);
-        const QString path = reg.value(QStringLiteral(".")).toString();
-        if (path.isEmpty())
-            return false;
-        if (!path.endsWith(QStringLiteral("quikthumb.dll"), Qt::CaseInsensitive))
-            return false;
+        const QString v = reg.value(QStringLiteral(".")).toString();
+        if (!v.isEmpty())
+            return v;
     }
-    return true;
+    return QString();
+}
+
+// 由「注册表指向的 DLL 路径 + 本安装 DLL 是否在」推导四态
+ShellRegState qvStateFromPath(const QString &bound, const QString &ourDll,
+                              bool dllFilePresent)
+{
+    if (bound.isEmpty())
+        return dllFilePresent ? ShellNotRegistered : ShellNotInstalled;
+    if (qvSamePath(bound, ourDll))
+        return ShellRegistered;
+    if (bound.contains(QStringLiteral("quikthumb"), Qt::CaseInsensitive))
+        return ShellOtherInstall;
+    return dllFilePresent ? ShellNotRegistered : ShellNotInstalled;
+}
+
+} // namespace
+
+// 右键命令处理器注册态：handler 键 + 64/32 位 CLSID 的 InprocServer32 全部
+// 指向本安装才算「已注册」；任一指向别处即为「指向其他安装」；位数不全为
+// 「部分注册」。partial 返回 true 时 state 是 Registered 但位数不全。
+static ShellComponent probeShellMenu()
+{
+    ShellComponent out;
+    const QString appDir = QCoreApplication::applicationDirPath();
+    const bool dll64 = QFileInfo::exists(appDir + QStringLiteral("/quikthumb.dll"));
+    const bool dll32 = QFileInfo::exists(appDir + QStringLiteral("/quikthumb32.dll"));
+
+    // handler 键（注册表只认指向的 CLSID，键本身 64/32 位共享一份）
+    const QString handler =
+        qvRegDefault(QStringLiteral(
+            "Software\\Classes\\*\\shellex\\ContextMenuHandlers\\QuikView"));
+    const bool handlerBound =
+        handler.compare(QStringLiteral("{C9FFAFAD-7C1C-4CCC-A37C-A075ED1F27AF}"),
+                        Qt::CaseInsensitive) == 0;
+
+    const QString clsid64 = qvRegDefault(QStringLiteral(
+        "Software\\Classes\\CLSID\\{C9FFAFAD-7C1C-4CCC-A37C-A075ED1F27AF}\\InprocServer32"));
+    const QString clsid32 = qvRegDefault(QStringLiteral(
+        "Software\\Classes\\WOW6432Node\\CLSID\\{C9FFAFAD-7C1C-4CCC-A37C-A075ED1F27AF}\\InprocServer32"));
+
+    const ShellRegState s64 =
+        (handlerBound ? qvStateFromPath(clsid64, appDir + QStringLiteral("/quikthumb.dll"), dll64)
+                      : (dll64 ? ShellNotRegistered : ShellNotInstalled));
+    const ShellRegState s32 =
+        (handlerBound ? qvStateFromPath(clsid32, appDir + QStringLiteral("/quikthumb32.dll"), dll32)
+                      : (dll32 ? ShellNotRegistered : ShellNotInstalled));
+
+    // 综合位数：任一指向别处 → 其他安装；两者都已注册 → 已注册（位数全）；
+    // 只有一边 → 部分注册（state=Registered + partial 标记由位数比较得出）
+    if (s64 == ShellOtherInstall || s32 == ShellOtherInstall) {
+        out.state = ShellOtherInstall;
+        out.boundPath = s64 == ShellOtherInstall ? clsid64 : clsid32;
+        return out;
+    }
+    const bool ok64 = s64 == ShellRegistered;
+    const bool ok32 = s32 == ShellRegistered;
+    if (ok64 && ok32) {
+        out.state = ShellRegistered;
+        out.boundPath = QStringLiteral("64+32");
+    } else if (ok64 || ok32) {
+        out.state = ShellRegistered;   // 部分注册：boundPath 记录已绑定位数
+        out.boundPath = ok64 ? QStringLiteral("64") : QStringLiteral("32");
+    } else {
+        out.state = (dll64 || dll32) ? ShellNotRegistered : ShellNotInstalled;
+    }
+    return out;
+}
+
+// 文件缩略图注册态（.ext\ShellEx\{类别} → 缩略图 CLSID → 本安装 DLL）
+static ShellComponent probeShellThumb(const QString &ext)
+{
+    ShellComponent out;
+    const QString appDir = QCoreApplication::applicationDirPath();
+    const bool dll64 = QFileInfo::exists(appDir + QStringLiteral("/quikthumb.dll"));
+    const QString bound = qvRegDefault(QStringLiteral(
+        "Software\\Classes\\%1\\ShellEx\\{e357fccd-a995-4576-b01f-234630154e96}")
+                                           .arg(ext));
+    const bool boundToUs =
+        bound.compare(QStringLiteral("{D8A1C4E2-7B35-4F69-92A4-5C6D7E8F1A2B}"),
+                      Qt::CaseInsensitive) == 0;
+    const QString clsid = boundToUs
+        ? qvRegDefault(QStringLiteral(
+            "Software\\Classes\\CLSID\\{D8A1C4E2-7B35-4F69-92A4-5C6D7E8F1A2B}\\InprocServer32"))
+        : bound;
+    out.state = qvStateFromPath(clsid,
+                                appDir + QStringLiteral("/quikthumb.dll"),
+                                dll64);
+    out.boundPath = clsid;
+    return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -2718,16 +2829,39 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
                  "imageproc/preview_mode", false, true);
 
     sec = beginSection(page, tr("透明背景"));
-    addComboRow(sec, tr("为 GIF 图片使用透明背景"), tr("打开 GIF 时按所选方式铺底"),
-                "imageproc/gif_transparent", QStringLiteral("0"),
-                { { "0", tr("默认 GIF 调色板") }, { "1", tr("白色背景") },
-                  { "2", tr("黑色背景") },
-                  { "3", tr("中灰背景（自定义取色待实现）") } });
-    addComboRow(sec, tr("为 32 位图片使用透明背景"),
-                tr("带透明通道的图片按所选方式铺底"),
-                "imageproc/img32_transparent", QStringLiteral("0"),
-                { { "0", tr("网格背景") }, { "1", tr("白色背景") },
-                  { "2", tr("黑色背景") }, { "3", tr("深色网格") } });
+    // UI-001 §3.8：画布背景只有「棋盘 / 纯色」二选一，颜色自动跟随应用深浅
+    // 主题（不再暴露网格/白/黑/深网格四项与 GIF 背景下拉）；背景由绘制层
+    // 铺满整个画布视口，不烘焙进图像，导出链路保持原始透明信息。
+    addComboRow(sec, tr("画布背景"),
+                tr("铺满整个画布视口，颜色随应用深浅主题自动变化"),
+                "imageproc/canvas_bg", QStringLiteral("checker"),
+                { { "checker", tr("棋盘") }, { "solid", tr("纯色") } }, kGenComboW);
+    addSwitchRow(sec, tr("透明图像阴影"),
+                 tr("仅对带透明通道的 32 位图片生效：按图片外接矩形在图片下方绘制轻量投影；仅屏幕预览，不进入复制、打印、批量转换与另存为"),
+                 "imageproc/canvas_shadow", false, false);
+    // 两项都即时预览：写盘由 comboBind / chkBind 的即时路径统一走，这里只
+    // 补运行态下发（applyLiveSetting 直达画布，模态设置页开着也能看到效果）。
+    for (const ComboBind &b : m_comboBinds) {
+        if (qstrcmp(b.key, "imageproc/canvas_bg") != 0)
+            continue;
+        connect(b.combo, &QComboBox::currentIndexChanged, this, [this, b]() {
+            if (m_loading)
+                return;
+            if (MainWindow *w = qobject_cast<MainWindow *>(parentWidget()))
+                w->applyLiveSetting(QStringLiteral("imageproc/canvas_bg"),
+                                    b.combo->currentData().toString(), nullptr);
+        });
+    }
+    for (const ChkBind &b : m_chkBinds) {
+        if (qstrcmp(b.key, "imageproc/canvas_shadow") != 0)
+            continue;
+        connect(b.cb, &QCheckBox::toggled, this, [this, b](bool on) {
+            if (m_loading)
+                return;
+            if (MainWindow *w = qobject_cast<MainWindow *>(parentWidget()))
+                w->applyLiveSetting(QStringLiteral("imageproc/canvas_shadow"), on, nullptr);
+        });
+    }
 
     sec = beginSection(page, tr("翻页效果"));
     addComboRow(sec, tr("翻页效果"), tr("下一次翻页时播放所选过渡"),
@@ -2750,8 +2884,9 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
         row->setCursor(Qt::ArrowCursor);
         row->setToolTip(tr("Qt6 光栅后端不支持显示器色彩管理，暂不可用"));
     }
-    addHint(sec, tr("「自定义颜色」档暂无取色器，实际按中灰铺底；"
-                    "透明背景与翻页效果在下次打开图片 / 翻页时生效。"));
+    addHint(sec, tr("画布背景铺满整个画布视口，颜色随应用深浅主题自动变化，切换主题即时生效；"
+                    "棋盘格固定在屏幕坐标，不随图片缩放和平移。透明图像阴影只在屏幕预览层绘制，"
+                    "复制、打印、批量转换与另存为始终保留图片原始透明信息。"));
     applyPageRhythm(page);
 }
 
@@ -3170,11 +3305,13 @@ void SettingsDialog::buildBookmarkPage(QWidget *page)
 
 void SettingsDialog::buildContextMenuPage(QWidget *page)
 {
-    // 状态真实性（2026-11-11 修订）：DLL 存在只说「已检测到壳扩展文件」；
-    // 只有 CLSID 的 InProcServer32 指向本机 DLL 才写「已注册」。PSD/PSB 的
-    // 缩略图能力按实际解码器显示为部分支持，并说明无内嵌 JPEG 时的回退。
-    const bool dllPresent = shellExtDllPresent();
-    const bool registered = shellExtRegistered();
+    // 上下文菜单派单（2026-11-13）：注册探测四态 + 把设置页接到真实右键行为。
+    // 偏好写 config/ctxmenu/*（与壳扩展读同一份按用户 config.ini），下次右键
+    // 弹出时生效；写入失败显示原因并恢复实际值。安装/注册仍由安装器处理，
+    // 便携版或注册无效时控制项不可操作并说明原因。
+    const char *kOk = UiStyle::fluent::statusOk();
+    const char *kWarn = UiStyle::fluent::statusWarn();
+    const char *kMuted = UiStyle::fluent::desc();
 
     auto addStatusRow = [this](QWidget *section, const QString &label,
                                const QString &detail, const QString &state,
@@ -3189,45 +3326,179 @@ void SettingsDialog::buildContextMenuPage(QWidget *page)
         value->setToolTip(detail.isEmpty() ? state : detail);
         parts.controls->addWidget(value, 0, Qt::AlignVCenter);
     };
-    const char *kOk = UiStyle::fluent::statusOk();
-    const char *kWarn = UiStyle::fluent::statusWarn();
-    const char *kMuted = UiStyle::fluent::desc();
 
-    // 注册态：已注册 → 绿色「已注册」；仅文件在 → 提醒色「已检测到壳扩展文件」。
-    const QString menuState = registered ? tr("已注册")
-                                         : (dllPresent ? tr("已检测到壳扩展文件")
-                                                       : tr("未检测到壳扩展"));
-    const char *menuColor = registered ? kOk : kWarn;
+    // —— 注册探测：右键命令（64+32 位）与 WebP/PSD/PSB 缩略图分开 ——
+    const ShellComponent menu = probeShellMenu();
+    const ShellComponent thumbWebp = probeShellThumb(QStringLiteral(".webp"));
+    const ShellComponent thumbPsd = probeShellThumb(QStringLiteral(".psd"));
+    const ShellComponent thumbPsb = probeShellThumb(QStringLiteral(".psb"));
 
-    QWidget *sec = beginSection(page, tr("上下文菜单设定"));
-    // 本版壳扩展真实提供两个菜单项（浏览 / 转换），其余为规划或自绘能力，
-    // 不能因为 DLL 在就写成已注册。
-    addStatusRow(sec, tr("在资源管理器中使用上下文菜单"), QString(), menuState, menuColor);
-    addStatusRow(sec, tr("用 QuikView 转换图片"), QString(), menuState, menuColor);
-    addStatusRow(sec, tr("用 QuikView 浏览图片"), QString(), menuState, menuColor);
-    addStatusRow(sec, tr("上下文菜单预览"),
-                 tr("已实现自绘缩略图（≤256 px）"), tr("待资源管理器验收"), kMuted);
-    addStatusRow(sec, tr("显示图片信息"),
-                 tr("宽 × 高 · 文件大小"), tr("已支持"), kOk);
-    addStatusRow(sec, tr("显示软件图标"),
-                 tr("壳扩展内嵌资源图标"), tr("已支持"), kOk);
-    if (!dllPresent)
-        addHint(sec, tr("未检测到壳扩展文件，重新运行安装包可修复。"));
-    else if (!registered)
-        addHint(sec, tr("已检测到壳扩展文件，但系统里还没有注册记录。"
-                        "运行安装包或以管理员身份注册后，这里会显示「已注册」。"));
+    auto stateView = [](ShellRegState s, bool partial32) -> QPair<QString, const char *> {
+        switch (s) {
+        case ShellRegistered:
+            return { partial32 ? QCoreApplication::translate("SettingsDialog", "已注册（仅 64 位，32 位视图未绑定）")
+                               : QCoreApplication::translate("SettingsDialog", "当前安装已注册"),
+                     partial32 ? UiStyle::fluent::statusWarn() : UiStyle::fluent::statusOk() };
+        case ShellOtherInstall:
+            return { QCoreApplication::translate("SettingsDialog", "指向其他安装"),
+                     UiStyle::fluent::statusWarn() };
+        case ShellNotRegistered:
+            return { QCoreApplication::translate("SettingsDialog", "未注册"),
+                     UiStyle::fluent::desc() };
+        case ShellNotInstalled:
+        default:
+            return { QCoreApplication::translate("SettingsDialog", "未安装"),
+                     UiStyle::fluent::desc() };
+        }
+    };
 
+    QWidget *sec = beginSection(page, tr("注册状态"));
+    {
+        const bool partial64 = menu.state == ShellRegistered
+                               && menu.boundPath == QStringLiteral("64");
+        auto view = stateView(menu.state, partial64);
+        addStatusRow(sec, tr("右键菜单处理器"),
+                     menu.state == ShellOtherInstall
+                         ? tr("当前指向：%1").arg(menu.boundPath)
+                         : tr("64/32 位扩展的 CLSID 与处理器绑定"),
+                     view.first, view.second);
+    }
+    {
+        auto view = stateView(thumbWebp.state, false);
+        addStatusRow(sec, tr("WebP 缩略图"),
+                     thumbWebp.state == ShellOtherInstall
+                         ? tr("当前指向：%1").arg(thumbWebp.boundPath)
+                         : tr("由壳扩展解码生成"),
+                     view.first, view.second);
+    }
+    {
+        auto view = stateView(thumbPsd.state, false);
+        addStatusRow(sec, tr("PSD 缩略图"),
+                     thumbPsd.state == ShellOtherInstall
+                         ? tr("当前指向：%1").arg(thumbPsd.boundPath)
+                         : tr("缺少内嵌 JPEG 时回退默认图标"),
+                     view.first, view.second);
+    }
+    {
+        auto view = stateView(thumbPsb.state, false);
+        addStatusRow(sec, tr("PSB 缩略图"),
+                     thumbPsb.state == ShellOtherInstall
+                         ? tr("当前指向：%1").arg(thumbPsb.boundPath)
+                         : tr("缺少内嵌 JPEG 时回退默认图标"),
+                     view.first, view.second);
+    }
+
+    // —— 开关区：仅当右键菜单处理器注册到本安装时可操作 ——
+    const bool menuUsable = menu.state == ShellRegistered;
+    sec = beginSection(page, tr("右键菜单开关"));
+    auto ctxToggle = [this, menuUsable](
+                         QWidget *section, const QString &label, const QString &desc,
+                         const char *leaf, QLabel **descOut) -> PillToggle * {
+        ToggleRow row = addToggleRow(section, label, desc, label);
+        if (descOut && row.desc)
+            *descOut = row.desc;
+        if (!row.toggle)
+            return nullptr;
+        const QString key = QStringLiteral("config/ctxmenu/") + QLatin1String(leaf);
+        row.toggle->setChecked(
+            Config::instance().settings().value(key, true).toBool());
+        connect(row.toggle, &PillToggle::toggled, this,
+                [this, row, key, leaf](bool on) mutable {
+            const bool previous =
+                Config::instance().settings().value(key, true).toBool();
+            QString err;
+            const QList<QPair<QString, QVariant>> vals = {
+                { QString::fromLatin1(leaf), on }
+            };
+            if (writeValues(vals, false, &err))
+                return;
+            // 写入失败：显示原因并恢复到实际值（内存已由 writeValues 回滚）
+            const bool actual =
+                Config::instance().settings().value(key, true).toBool();
+            if (row.toggle) {
+                QSignalBlocker blocker(row.toggle);
+                row.toggle->setChecked(actual);
+            }
+            QMessageBox::warning(this, tr("上下文菜单"),
+                                 tr("写入失败：%1\n已恢复到当前实际值。").arg(err));
+        });
+        return row.toggle;
+    };
+
+    PillToggle *master = ctxToggle(
+        sec, tr("在资源管理器右键菜单中显示 QuikView"),
+        tr("关闭后下次右键不插入 QuikView 菜单项；开启恢复各细项的原有选择"),
+        "use_shell_menu", nullptr);
+    PillToggle *tBrowse = ctxToggle(
+        sec, tr("用 QuikView 浏览图片"), tr("命令行：quikview.exe \"文件\""),
+        "show_browse", nullptr);
+    PillToggle *tConvert = ctxToggle(
+        sec, tr("用 QuikView 转换图片"), tr("命令行：quikview.exe --batch \"文件\""),
+        "show_convert", nullptr);
+    PillToggle *tPreview = ctxToggle(
+        sec, tr("菜单内预览"),
+        tr("右键菜单顶部显示 ≤256px 缩略图，解码超时自动省略"),
+        "show_preview", nullptr);
+    PillToggle *tInfo = ctxToggle(
+        sec, tr("图片信息"), tr("浏览项右侧显示 宽 × 高 · 文件大小"),
+        "show_info", nullptr);
+    PillToggle *tIcon = ctxToggle(
+        sec, tr("软件图标"), tr("菜单项左侧的内嵌 QuikView 图标"),
+        "show_icon", nullptr);
+
+    // 联动：总开关或注册态不可用时，细项灰显（保留各自勾选状态）
+    const auto applyUsable = [menuUsable, master, tBrowse, tConvert, tPreview,
+                              tInfo, tIcon]() {
+        const bool masterOn = master && master->isChecked();
+        const bool subUsable = menuUsable && masterOn;
+        for (PillToggle *t : { tBrowse, tConvert, tPreview, tInfo, tIcon }) {
+            if (t)
+                t->setEnabled(subUsable);
+        }
+        if (master)
+            master->setEnabled(menuUsable);
+    };
+    applyUsable();
+    if (master) {
+        connect(master, &PillToggle::toggled, this, applyUsable);
+    }
+
+    // 不可操作的原因说明（诚实化：灰显必须配原因）
+    if (menu.state == ShellOtherInstall) {
+        addHint(sec, tr("本机的右键菜单处理器指向另一处安装（%1）。"
+                        "运行安装包覆盖安装到该目录，或卸载该安装后重装，"
+                        "才能在这里控制右键菜单。")
+                    .arg(menu.boundPath));
+    } else if (!shellExtDllPresent()) {
+        addHint(sec, tr("未检测到壳扩展文件（quikthumb.dll）。"
+                        "运行安装包可修复；便携版不带安装器注册，右键菜单不可用。"));
+    } else if (!menuUsable) {
+        addHint(sec, tr("壳扩展文件存在，但右键菜单处理器未注册到本安装。"
+                        "运行安装包覆盖安装即可完成注册。"));
+    }
+    addHint(sec, tr("改动即时写入本机用户配置，资源管理器下一次弹出右键菜单时"
+                    "生效，无需重装或管理员权限；若菜单未变化，重启资源管理器。"
+                    "浏览、转换与预览全部关闭时不插入空分隔线。"));
+
+    // —— 资源管理器缩略图状态（按实际注册探测，不再写死）——
     sec = beginSection(page, tr("资源管理器缩略图"));
-    addStatusRow(sec, tr("WebP"), tr("Qt 解码器直接生成缩略图"),
-                 tr("壳扩展提供"), kOk);
-    addStatusRow(sec, tr("PSD"), tr("缺少内嵌 JPEG 时显示默认图标"),
-                 tr("部分支持"), kWarn);
-    addStatusRow(sec, tr("PSB"), tr("缺少内嵌 JPEG 时显示默认图标"),
-                 tr("部分支持"), kWarn);
-
+    {
+        auto view = stateView(thumbWebp.state, false);
+        addStatusRow(sec, tr("WebP 缩略图"), tr("由壳扩展解码生成"),
+                     view.first, view.second);
+        auto psdView = stateView(thumbPsd.state, false);
+        addStatusRow(sec, tr("PSD 缩略图"), tr("缺少内嵌 JPEG 时回退默认图标"),
+                     psdView.first, psdView.second);
+        auto psbView = stateView(thumbPsb.state, false);
+        addStatusRow(sec, tr("PSB 缩略图"), tr("缺少内嵌 JPEG 时回退默认图标"),
+                     psbView.first, psbView.second);
+    }
     addHint(sec, tr("这些入口由 QuikView 壳扩展在资源管理器中提供，"
-                    "不是应用内图片右键菜单的功能开关；"
-                    "安装 / 卸载安装包时自动注册 / 移除。"));
+                    "不是应用内图片右键菜单的功能开关；安装 / 卸载安装包时"
+                    "自动注册 / 移除。菜单开关不会改变文件默认打开方式与"
+                    "这里的缩略图注册。"));
+    addHint(sec, tr("资源管理器独立预览窗格为后续交付项：旧 shell/ 有实现，"
+                    "尚未接入当前安装包。"));
     applyPageRhythm(page);
 }
 

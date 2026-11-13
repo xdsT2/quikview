@@ -27,6 +27,70 @@
 
 namespace {
 
+// —— UI-001 §3.8.3 透明图像阴影的软边工具 ——
+// 对 ARGB32_Premultiplied 图做 3 遍盒式模糊（只动 alpha，RGB 恒黑）。阴影源
+// 永远是「图片外接矩形」填充，不做逐像素 Alpha 描摹——复杂透明形状不会脏边。
+void boxBlurAlpha(QImage &img, int radius)
+{
+    if (radius <= 0 || img.isNull()) {
+        return;
+    }
+    const int w = img.width();
+    const int h = img.height();
+    std::vector<quint8> a(size_t(w) * h);
+    std::vector<quint8> tmp(size_t(w) * h);
+    for (int y = 0; y < h; ++y) {
+        const uchar *sl = img.scanLine(y);
+        for (int x = 0; x < w; ++x) {
+            a[size_t(y) * w + x] = sl[size_t(x) * 4 + 3];
+        }
+    }
+    const auto passH = [&](std::vector<quint8> &src, std::vector<quint8> &dst) {
+        for (int y = 0; y < h; ++y) {
+            const int base = y * w;
+            quint32 sum = 0;
+            for (int x = -radius; x <= radius; ++x) {
+                sum += src[base + qBound(0, x, w - 1)];
+            }
+            const quint32 denom = quint32(radius * 2 + 1);
+            for (int x = 0; x < w; ++x) {
+                dst[base + x] = quint8(sum / denom);
+                const int out = qBound(0, x - radius, w - 1);
+                const int in = qBound(0, x + radius + 1, w - 1);
+                sum += quint32(src[base + in]) - quint32(src[base + out]);
+            }
+        }
+    };
+    const auto passV = [&](std::vector<quint8> &src, std::vector<quint8> &dst) {
+        for (int x = 0; x < w; ++x) {
+            quint32 sum = 0;
+            for (int y = -radius; y <= radius; ++y) {
+                sum += src[size_t(qBound(0, y, h - 1)) * w + x];
+            }
+            const quint32 denom = quint32(radius * 2 + 1);
+            for (int y = 0; y < h; ++y) {
+                dst[size_t(y) * w + x] = quint8(sum / denom);
+                const int out = qBound(0, y - radius, h - 1);
+                const int in = qBound(0, y + radius + 1, h - 1);
+                sum += quint32(src[size_t(in) * w + x]) - quint32(src[size_t(out) * w + x]);
+            }
+        }
+    };
+    passH(a, tmp);
+    passV(tmp, a);
+    passH(a, tmp);
+    passV(tmp, a);
+    passH(a, tmp);
+    passV(tmp, a);
+    for (int y = 0; y < h; ++y) {
+        uchar *sl = img.scanLine(y);
+        for (int x = 0; x < w; ++x) {
+            sl[size_t(x) * 4 + 3] = a[size_t(y) * w + x];
+        }
+    }
+}
+
+} // namespace
 
 // 分离式 Lanczos3 重采样：先水平后垂直，两个方向各 3-lobe 窗口。
 // 只用于「缩小显示」——原版把 Lanczos 标成「慢，高品质」，正是因为它比
@@ -223,8 +287,6 @@ QPixmap makePlaceholderMark(int S, const QColor &color)
     return pm;
 }
 
-} // namespace
-
 // ---------------------------------------------------------------------------
 // 侧边翻页箭头（原型 .side-nav：48x88 命中区视觉、30px 白色雪佛龙、贴边 6px、
 // 垂直居中）。纯视觉：WA_TransparentForMouseEvents，命中判定在画布上；
@@ -384,6 +446,83 @@ void ImageCanvas::setBackgroundColor(const QColor &color)
     viewport()->update();
 }
 
+// UI-001 §3.8：全画布棋盘/纯色。kind 同值重调也重取令牌色——主题切换后
+// MainWindow 会重调它，颜色必须跟着 isLight() 走。底 stylesheet 同步成
+// 纯色令牌：stylesheet 优先级高于 backgroundBrush，resize 露底的瞬间
+// 也不能闪出旧的深灰。
+void ImageCanvas::setCanvasBackdrop(int kind)
+{
+    m_backdrop = (kind == int(UiStyle::canvas::Backdrop::Solid)) ? 1 : 0;
+    const QColor base = UiStyle::canvas::solid(UiStyle::isLight());
+    m_backgroundColor = base;
+    setBackgroundBrush(base);
+    setStyleSheet(QStringLiteral("QGraphicsView{background:%1;border:0;}")
+                      .arg(base.name()));
+    m_checkerTile = QPixmap();   // 强制按当前主题/DPR 重铺 tile
+    m_tileDpr = 0.0;
+    viewport()->update();
+}
+
+void ImageCanvas::setImageShadowEnabled(bool on)
+{
+    if (m_shadowOn == on) {
+        return;
+    }
+    m_shadowOn = on;
+    viewport()->update();
+}
+
+void ImageCanvas::setImageShadowEligible(bool eligible)
+{
+    if (m_shadowEligible == eligible) {
+        return;
+    }
+    m_shadowEligible = eligible;
+    viewport()->update();
+}
+
+// 棋盘 tile：2×2 格（TileEdge 逻辑像素）按当前 DPR 预渲染。格边落在整数
+// 逻辑像素上，100%/125%/150% DPR 下都是整数物理像素——不会半像素发虚。
+void ImageCanvas::rebuildCheckerTile()
+{
+    const qreal dpr = devicePixelRatioF();
+    const bool light = UiStyle::isLight();
+    const int edge = UiStyle::canvas::TileEdge;
+    const int cell = UiStyle::canvas::GridCell;
+    QPixmap tile(qRound(edge * dpr), qRound(edge * dpr));
+    tile.setDevicePixelRatio(dpr);
+    tile.fill(UiStyle::canvas::checkerA(light));
+    QPainter p(&tile);
+    p.fillRect(0, 0, cell, cell, UiStyle::canvas::checkerB(light));
+    p.fillRect(cell, cell, cell, cell, UiStyle::canvas::checkerB(light));
+    p.end();
+    m_checkerTile = tile;
+    m_tileDpr = dpr;
+}
+
+// 阴影缓存：以「图片外接框投影到视口」的尺寸为键（16px 步进量化，缩放过程
+// 不至于每帧重建），低分辨率渲染 + 3 遍盒式模糊，绘制时平滑放大到实际尺寸。
+void ImageCanvas::rebuildShadowCache(const QRectF &projected, bool light)
+{
+    const int margin = UiStyle::canvas::shadowMargin(light);
+    const int blur = UiStyle::canvas::shadowBlur(light);
+    const QSize logical(qRound(projected.width()), qRound(projected.height()));
+    const QSize total(logical.width() + margin * 2, logical.height() + margin * 2);
+    const qreal s = qMin(1.0, 360.0 / qreal(qMax(total.width(), total.height())));
+    QImage src(qRound(total.width() * s), qRound(total.height() * s),
+               QImage::Format_ARGB32_Premultiplied);
+    src.fill(0);
+    QPainter p(&src);
+    p.fillRect(QRectF(margin * s, margin * s,
+                      logical.width() * s, logical.height() * s),
+               UiStyle::canvas::shadowColor(light));
+    p.end();
+    boxBlurAlpha(src, qMax(1, qRound(blur * s)));
+    m_shadowCache = src;
+    m_shadowCacheRect = QRectF(QPointF(), QSizeF(logical));
+    m_shadowCacheLight = light;
+}
+
 void ImageCanvas::setBackgroundImage(const QImage &image)
 {
     // QImage 隐式共享，路径没变时赋值几乎零成本；这里不比较内容。
@@ -396,12 +535,53 @@ void ImageCanvas::setBackgroundImage(const QImage &image)
 
 void ImageCanvas::drawBackground(QPainter *painter, const QRectF &rect)
 {
-    QGraphicsView::drawBackground(painter, rect);   // 先铺纯色
-    if (m_backgroundImage.isNull()) {
-        return;
+    const bool light = UiStyle::isLight();
+    if (m_backdrop == int(UiStyle::canvas::Backdrop::Solid)) {
+        // 纯色：直接铺满可见场景区（rect 即当前视口对应的场景范围）。
+        painter->fillRect(rect, UiStyle::canvas::solid(light));
+    } else {
+        // 棋盘：tile 固定在视口逻辑坐标——切到设备坐标平铺，相位锚定视口
+        // 左上角，缩放/平移/旋转图片时格子不动、不随图片放大（§3.8.2）。
+        if (m_checkerTile.isNull() || m_tileDpr != devicePixelRatioF()) {
+            rebuildCheckerTile();
+        }
+        painter->save();
+        painter->resetTransform();
+        painter->drawTiledPixmap(viewport()->rect(), m_checkerTile);
+        painter->restore();
     }
-    // rect 是当前可见场景区：按它拉伸等于「铺满视口」，且滚动/缩放时不露边。
-    painter->drawImage(rect, m_backgroundImage);
+    // 旧「背景图」能力（第 18 期下线）：有图时画在棋盘/纯色之上、图像之下。
+    if (!m_backgroundImage.isNull()) {
+        painter->drawImage(rect, m_backgroundImage);
+    }
+    // 透明图像阴影（§3.8.3）：画在背景之上、图片 item 之下（背景绘制层先于
+    // 全部 item），只对开关开 + 非 GIF（eligible）+ 当前 pixmap 真有 Alpha 的
+    // 图生效——不透明图片开关开着也不画。跟随图片的场景外接框在视口坐标
+    // 绘制，模糊半径固定在屏幕空间，不随缩放变粗变细。
+    if (m_shadowOn && m_shadowEligible && m_item
+        && m_item->pixmap().hasAlphaChannel()) {
+        const QRectF sceneRect = m_item->mapRectToScene(m_item->boundingRect());
+        const QRectF projected = mapFromScene(sceneRect).boundingRect();
+        if (!projected.isEmpty() && viewport()->rect().intersects(projected.toRect())) {
+            const int step = 16;   // 缓存步进：缩放过程不至于每帧重模糊
+            const QSize key(qRound(projected.width() / step) * step,
+                            qRound(projected.height() / step) * step);
+            const bool lightNow = UiStyle::isLight();
+            if (m_shadowCache.isNull() || m_shadowCacheLight != lightNow
+                || QSize(key) != m_shadowCacheRect.size().toSize()) {
+                rebuildShadowCache(QRectF(QPointF(), QSizeF(key)), lightNow);
+            }
+            const int margin = UiStyle::canvas::shadowMargin(lightNow);
+            const int dy = UiStyle::canvas::shadowDy(lightNow);
+            const QRectF dst(projected.left() - margin, projected.top() - margin + dy,
+                             key.width() + margin * 2.0, key.height() + margin * 2.0);
+            painter->save();
+            painter->resetTransform();
+            painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
+            painter->drawImage(dst, m_shadowCache);
+            painter->restore();
+        }
+    }
 }
 
 void ImageCanvas::setBorderColor(const QColor &color)

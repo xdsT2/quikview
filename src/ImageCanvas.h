@@ -63,6 +63,17 @@ public:
     // 的 stylesheet 优先级高于 brush，只改一处画布底色不会变。
     // —— 第 18 期起暂无 UI 入口（下线），能力保留 ——
     void setBackgroundColor(const QColor &color);
+    // —— UI-001 §3.8 全画布背景（M-05）：棋盘/纯色二选一，颜色随主题 ——
+    // kind 取 UiStyle::canvas::Backdrop；铺满整个视口（绘制层先画背景再画
+    // 图片），棋盘 tile 固定在视口逻辑坐标，不随缩放/平移变化。同值重调
+    // 也会按当前主题重取令牌色并重绘（主题切换后 MainWindow 调它刷新）。
+    void setCanvasBackdrop(int kind);
+    // 透明图像阴影（UI-001 §3.8.3）：开关默认关，仅对带 Alpha 的 32 位透明
+    // 图片生效（eligible 由 MainWindow 按当前图是否为 GIF 判定，GIF 恒不画）。
+    // 阴影按图片最外层矩形（场景外接框）在图片下方绘制，主题令牌决定颜色
+    // 与模糊半径；只属于屏幕预览层，导出链路不走画布绘制，天然隔离。
+    void setImageShadowEnabled(bool on);
+    void setImageShadowEligible(bool eligible);
     // 空图恢复纯色。图片按可见场景区拉伸铺满，画在图像下方、纯色之上；
     // 不进入 QGraphicsScene，不参与缩放/旋转。暂无 UI 入口（第 18 期下线），能力保留。
     void setBackgroundImage(const QImage &image);
@@ -129,6 +140,9 @@ protected:
     void paintEvent(QPaintEvent *event) override;
     // 背景图（设置页「更改默认背景图片」）画在纯色之上、图像之下
     void drawBackground(QPainter *painter, const QRectF &rect) override;
+    // §3.8 棋盘 tile（按 DPR 预渲染）与透明图像阴影缓存（低分辨率预模糊）
+    void rebuildCheckerTile();
+    void rebuildShadowCache(const QRectF &projected, bool light);
     // 翻页过渡画在场景最上层而不是 paintEvent 里另起 QPainter：后者与
     // QWidget::grab 的渲染画笔画到同一 viewport 会冲突（截图抓不到过渡）。
     void drawForeground(QPainter *painter, const QRectF &rect) override;
@@ -197,6 +211,16 @@ private:
     bool m_sideArrowsEnabled = true;   // 侧边箭头开关（关=不显示但仍可点）
     QColor m_backgroundColor;    // 画布底色（brush 与 stylesheet 同步维护）
     QColor m_borderColor;        // 视口内沿描边色，无效值=不画
+    // UI-001 §3.8：全画布背景材质 + 透明图像阴影（颜色都从 UiStyle::canvas::
+    // 按当前主题现取，不缓存 QColor，主题切换后重绘即生效）
+    int m_backdrop = 0;                 // UiStyle::canvas::Backdrop（0=棋盘 1=纯色）
+    bool m_shadowOn = false;            // 「透明图像阴影」开关（默认关）
+    bool m_shadowEligible = false;      // 当前图非 GIF（MainWindow 按路径判定）
+    QPixmap m_checkerTile;              // 棋盘 tile（按 DPR 预渲染，保证边缘清晰）
+    qreal m_tileDpr = 0.0;              // tile 对应的 devicePixelRatio（变了就重铺）
+    QImage m_shadowCache;               // 预模糊的阴影图（外扩 margin，含主题 alpha）
+    QRectF m_shadowCacheRect;           // 缓存对应的场景外接框
+    bool m_shadowCacheLight = false;    // 缓存生成时的主题（变了就重建）
     int m_interp = InterpBicubic;
     QPixmap m_sourcePixmap;      // 未经 Lanczos 预处理的原图，缩放变化时按它重算
     QSize m_samplingSize;        // 上次 Lanczos 重采样的目标像素尺寸（相同就跳过重算）

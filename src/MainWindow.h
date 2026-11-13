@@ -157,10 +157,10 @@ private slots:
     void stopAnimation();
     void animationTick();
     void showAnimFrame(const QImage &img);
-    // GIF 透明区域底色：0 不铺底 / 1 白 / 2 黑 / 3 固定自定义色（#808080）
+    // GIF 透明区域底色：0 不铺底 / 1 白 / 2 黑 / 3 固定自定义色（#808080）。
+    // UI-001 §3.8 起仅内部兼容读取（设置页不再暴露下拉）；32 位透明图的
+    // 画布背景/阴影改由 ImageCanvas 绘制层负责（applyImage32Backdrop 已删）。
     QImage applyGifBackdrop(const QImage &img) const;
-    // 32 位图（带 alpha，非 GIF）底色：0 网格 / 1 白 / 2 黑 / 3 深色网格
-    QImage applyImage32Backdrop(const QImage &img) const;
     // 异步加载
     void onFullReady(const QString &path, const QImage &image, bool preview);
     // 拖动滑杆跟手预览（只换画布与标题，索引/元数据等松手后由 jumpTo 走全图）

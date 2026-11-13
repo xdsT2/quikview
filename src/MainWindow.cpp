@@ -2141,9 +2141,13 @@ void MainWindow::applyRuntimeSettings()
     // 程序退出时在析构里还原。
     applyScreensaverPrevention(cfg.disableScreensaver());
 
-    // 画布外观按用户 2026-11-03 决定固定：纯色 CanvasBg、无边框、无背景图。
-    // 设置入口已在第 18 期移除；ImageCanvas 的 setter 保留，恢复时只需接回 UI。
-    m_canvas->setBackgroundColor(UiStyle::canvasBg());
+    // 全画布背景（UI-001 §3.8）：棋盘/纯色二选一，颜色随主题令牌；透明图像
+    // 阴影开关默认关。背景铺满整个画布视口（绘制层），不再有全局纯色 CanvasBg。
+    m_canvas->setCanvasBackdrop(Config::instance().canvasBackdrop()
+                                    == QLatin1String("solid")
+                                ? int(UiStyle::canvas::Backdrop::Solid)
+                                : int(UiStyle::canvas::Backdrop::Checker));
+    m_canvas->setImageShadowEnabled(cfg.canvasShadow());
     m_canvas->setBorderColor(QColor(Qt::transparent));
     m_canvas->setBackgroundImage(QImage());
     // 设置页的「不显示侧边箭头」是反选（inverted），存的就是 show_side_arrow 本身：
@@ -2498,17 +2502,21 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     m_gamma = 1.0;
     // GIF 透明底色（键 "config/imageproc/gif_transparent"）只影响上屏的那一份，
     // m_sourceImage 保留带 alpha 的原始像素，旋转/翻转仍从原始派生。
+    // UI-001 §3.8：非 GIF 的 32 位透明图不再烘焙任何衬底——画布背景/阴影
+    // 全部由 ImageCanvas 绘制层负责（棋盘/纯色铺满视口 + 可选阴影），显示
+    // 的 m_currentImage 保留原始 Alpha，复制/打印/批量转换/另存为因此天然
+    // 不带画布背景（§3.8.5 导出链路隔离）。
     const bool gifPath = QFileInfo(path).suffix().compare(QLatin1String("gif"),
                                                          Qt::CaseInsensitive) == 0;
     QImage display = base;
     if (gifPath) {
         display = applyGifBackdrop(base);
-    } else if (base.hasAlphaChannel()) {
-        // 32 位 PNG/WebP/TIFF 等：按 img32_transparent 铺底（默认网格）。
-        display = applyImage32Backdrop(base);
     }
     m_currentImage = display;
     m_originalImage = display;
+    // 透明图像阴影资格（§3.8.3）：GIF 恒不参与；非 GIF 的 32 位 alpha 图由
+    // 画布按 pixmap 实际 alpha 再判一次。旋转/翻转/效果重绘沿用同一资格。
+    m_canvas->setImageShadowEligible(!gifPath);
     m_effect = 0;
     if (actEffectNone) {
         actEffectNone->setChecked(true);
@@ -4143,35 +4151,6 @@ QImage MainWindow::applyGifBackdrop(const QImage &img) const
     return out;
 }
 
-QImage MainWindow::applyImage32Backdrop(const QImage &img) const
-{
-    if (!img.hasAlphaChannel()) {
-        return img;
-    }
-    const int mode = Config::instance().img32Transparent();
-    QImage out(img.size(), QImage::Format_ARGB32_Premultiplied);
-    QPainter p(&out);
-    if (mode == 1 || mode == 2) {
-        out.fill(mode == 1 ? QColor(Qt::white) : QColor(Qt::black));
-    } else {
-        // 0 浅色网格 / 3 深色网格：16px 平铺块，图像坐标系固定 8px 方格。
-        // 贴图在图像空间铺，缩放时随图整体放大缩小，不会每帧重算导致抖动。
-        const QColor a = (mode == 0) ? QColor(0xF0, 0xF0, 0xF0) : QColor(0x30, 0x30, 0x30);
-        const QColor b = (mode == 0) ? QColor(0xC8, 0xC8, 0xC8) : QColor(0x24, 0x24, 0x24);
-        QImage tile(16, 16, QImage::Format_RGB32);
-        tile.fill(a);
-        {
-            QPainter tp(&tile);
-            tp.fillRect(QRect(0, 0, 8, 8), b);
-            tp.fillRect(QRect(8, 8, 8, 8), b);
-        }
-        p.fillRect(out.rect(), QBrush(tile));
-    }
-    p.drawImage(0, 0, img);
-    p.end();
-    return out;
-}
-
 void MainWindow::startAnimation()
 {
     if (m_animPlaying || !m_frames || !m_frames->hasFrames() || !m_frames->animatable()) {
@@ -5143,6 +5122,22 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         return true;
     }
 
+    if (key == QLatin1String("imageproc/canvas_bg")) {
+        // UI-001 §3.8：画布背景材质即时预览（棋盘/纯色），颜色随当前主题令牌。
+        if (m_canvas)
+            m_canvas->setCanvasBackdrop(value.toString() == QLatin1String("solid")
+                                            ? int(UiStyle::canvas::Backdrop::Solid)
+                                            : int(UiStyle::canvas::Backdrop::Checker));
+        return true;
+    }
+
+    if (key == QLatin1String("imageproc/canvas_shadow")) {
+        // 透明图像阴影即时预览：只切屏幕预览层，不触碰任何导出路径。
+        if (m_canvas)
+            m_canvas->setImageShadowEnabled(value.toBool());
+        return true;
+    }
+
     if (error)
         *error = tr("未知的即时设置项：%1").arg(key);
     return false;
@@ -5151,7 +5146,10 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
 void MainWindow::refreshThemeSurfaces()
 {
     if (m_canvas)
-        m_canvas->setBackgroundColor(UiStyle::canvasBg());
+        m_canvas->setCanvasBackdrop(Config::instance().canvasBackdrop()
+                                        == QLatin1String("solid")
+                                    ? int(UiStyle::canvas::Backdrop::Solid)
+                                    : int(UiStyle::canvas::Backdrop::Checker));
     if (m_metadata)
         m_metadata->refreshThemeStyle();
     if (m_layerPanel)

@@ -317,16 +317,39 @@ bool Config::imageIcc() const
 
 int Config::gifTransparent() const
 {
-    // 「为 GIF 图片使用透明背景」：0 默认调色板（不铺底）/ 1 白 / 2 黑 / 3 自定义。
-    // 消费点 MainWindow::applyGifBackdrop（仅 GIF 路径）。
+    // GIF 解码兼容底色（0 默认调色板 / 1 白 / 2 黑 / 3 中灰），消费点
+    // MainWindow::applyGifBackdrop（仅 GIF 路径）。UI-001 §3.8.1 起不再在
+    // 设置页暴露该下拉，仅内部兼容读取；不新增 GIF 网格/自定义取色。
     return qBound(0, m_settings.value(QStringLiteral("config/imageproc/gif_transparent"), 0).toInt(), 3);
 }
 
-int Config::img32Transparent() const
+QString Config::canvasBackdrop() const
 {
-    // 「为32位图片使用透明背景」：0 网格 / 1 白 / 2 黑 / 3 深色网格。
-    // 消费点 MainWindow::applyImage32Backdrop（非 GIF 的带 alpha 图）。
-    return qBound(0, m_settings.value(QStringLiteral("config/imageproc/img32_transparent"), 0).toInt(), 3);
+    // 全画布背景材质（UI-001 §3.8）："checker"（棋盘）| "solid"（纯色），
+    // 颜色由主题令牌决定，用户不再单选黑白。旧值一次性迁移：
+    // img32_transparent 0（网格）/3（深色网格）→ checker，1（白）/2（黑）→
+    // solid，未知值回落 checker；迁移打标记，重复启动不二次覆盖用户后续
+    // 选择（§3.8.4）。旧键保留不删，供降级回退旧版本使用。
+    if (!m_settings.value(QStringLiteral("config/imageproc/canvas_bg_migrated"), false).toBool()) {
+        // 迁移写在 const 读口里：QSettings 本就是可变缓存句柄，const_cast
+        // 只为保持全部消费点签名不变（一次性，之后走普通读取）。
+        auto &s = const_cast<QSettings &>(m_settings);
+        const int legacy = s.value(QStringLiteral("config/imageproc/img32_transparent"), 0).toInt();
+        const QString migrated = (legacy == 1 || legacy == 2)
+                                     ? QStringLiteral("solid") : QStringLiteral("checker");
+        s.setValue(QStringLiteral("config/imageproc/canvas_bg"), migrated);
+        s.setValue(QStringLiteral("config/imageproc/canvas_bg_migrated"), true);
+    }
+    const QString v = m_settings.value(QStringLiteral("config/imageproc/canvas_bg"),
+                                       QStringLiteral("checker")).toString();
+    return v == QLatin1String("solid") ? QStringLiteral("solid") : QStringLiteral("checker");
+}
+
+bool Config::canvasShadow() const
+{
+    // 「透明图像阴影」（UI-001 §3.8.3）：旧用户与全新安装均默认 false，
+    // 避免升级后突然改变图片观感。
+    return m_settings.value(QStringLiteral("config/imageproc/canvas_shadow"), false).toBool();
 }
 
 int Config::pageTurnFx() const

@@ -150,7 +150,8 @@ inline QColor footerBg()    { return color(pick("#222326", "#ececee")); }
 inline QColor navBg()       { return color(pick("#1e1f22", "#e9eaec")); }
 inline QColor titleBg()     { return color(pick("#25262a", "#f0f1f3")); }
 inline QColor chromeBg()    { return color(pick("#161719", "#f3f4f6")); }
-inline QColor canvasBg()  { return color(pick("#202020", "#f0f0f0")); }
+// canvasBg 旧画布纯色已随 UI-001 §3.8 删除：全画布背景改由 canvas:: 令牌
+//（棋盘/纯色，随主题）在 ImageCanvas 绘制层负责，不再有全局纯色画布底。
 // 导航项常态文字/图标色：深色 #bfc3c8；浅色必须压到 #4a4d51（对导航底 6.9:1），
 // 直接用深色常量会在浅色下掉到 1.47:1（实测）。
 inline QColor navText()    { return color(pick("#bfc3c8", "#4a4d51")); }
@@ -282,31 +283,27 @@ inline constexpr int ShadowDy   = 5;
 inline constexpr int BackdropBlur = 20;  // 背后模糊
 } // namespace hud
 
-// —— 透明画布衬底（UI-001 §3.7，2026-11-13）——
-// 四种模式由用户主动选择，不随应用深浅主题切换。格子在屏幕坐标固定边长，
-// 缩放/平移时格子不随图片放大（M-05 在 ImageCanvas 绘制层铺底）。
-// 两阶灰度实测自用户参考图：浅色 #EBEBEB/#F5F5F5，深色 #141414/#202020。
+// —— 全画布背景 + 透明图像阴影（UI-001 §3.8 最终裁决，2026-11-13）——
+// 用户只选材质（棋盘/纯色），颜色随应用深浅主题自动决定（isLight()）；
+// 棋盘/纯色由 ImageCanvas 绘制层铺满整个视口（先画背景再画图片），严禁烘焙
+// 进 QImage。棋盘 tile 固定在视口逻辑坐标，不随图片缩放/平移/旋转。
+// 两阶灰度取自用户参考图实测（§3.7.C 标定值沿用）：浅 #EBEBEB/#F5F5F5、
+// 深 #141414/#202020；纯色 #F7F7F7 / #1A1A1A。
+// 旧 canvas:: 四模式令牌（DarkSolid/LightSolid/DarkGrid/LightGrid，§3.7）
+// 已废弃删除，禁止再引入第三种背景或手动颜色选择。
 namespace canvas {
-enum class Backdrop { DarkSolid = 0, LightSolid = 1, DarkGrid = 2, LightGrid = 3 };
+enum class Backdrop { Checker = 0, Solid = 1 };
 inline constexpr int GridCell = 8;   // 方格边长（逻辑像素）
 inline constexpr int TileEdge = GridCell * 2;
-inline QColor solid(Backdrop b)
-{
-    switch (b) {
-    case Backdrop::DarkSolid:  return QColor(0x1a, 0x1a, 0x1a);
-    case Backdrop::LightSolid: return QColor(0xf7, 0xf7, 0xf7);
-    case Backdrop::DarkGrid:   return QColor(0x14, 0x14, 0x14);
-    default:                   return QColor(0xeb, 0xeb, 0xeb);
-    }
-}
-inline QColor gridA(Backdrop b)
-{
-    return b == Backdrop::DarkGrid ? QColor(0x14, 0x14, 0x14) : QColor(0xeb, 0xeb, 0xeb);
-}
-inline QColor gridB(Backdrop b)
-{
-    return b == Backdrop::DarkGrid ? QColor(0x20, 0x20, 0x20) : QColor(0xf5, 0xf5, 0xf5);
-}
+inline QColor checkerA(bool light) { return light ? QColor(0xeb, 0xeb, 0xeb) : QColor(0x14, 0x14, 0x14); }
+inline QColor checkerB(bool light) { return light ? QColor(0xf5, 0xf5, 0xf5) : QColor(0x20, 0x20, 0x20); }
+inline QColor solid(bool light)    { return light ? QColor(0xf7, 0xf7, 0xf7) : QColor(0x1a, 0x1a, 0x1a); }
+// 透明图像阴影：仅屏幕预览层（不进复制/打印/批量转换/另存为/导出），
+// 颜色/透明度/模糊半径随主题；不做黑色硬边或伪卡片底。
+inline QColor  shadowColor(bool light)  { return light ? QColor(0, 0, 0, 42) : QColor(0, 0, 0, 110); }
+inline int     shadowBlur(bool light)   { return light ? 16 : 18; }        // 逻辑像素
+inline int     shadowDy(bool light)     { return light ? 4 : 4; }
+inline int     shadowMargin(bool light) { return light ? 24 : 28; }        // 源矩形外扩，容模糊扩散
 } // namespace canvas
 
 // —— 尺寸令牌 ——
