@@ -103,10 +103,12 @@ inline constexpr const char *DialogBorder = "#4a4c51";  // 对话框外描边
 
 // —— 控件 / 文字辅助角色（同上，避免界面代码再出现裸色值）——
 inline constexpr const char *NavText          = "#bfc3c8";  // Media filmstrip stays neutral over both dark and bright photographs.
-inline QColor filmstripSurface() { return QColor(31, 31, 31, 229); }
-inline QColor filmstripEdge()    { return QColor(255, 255, 255, 48); }
-inline QColor filmstripInset()   { return QColor(19, 19, 19); }
-inline QColor filmstripOutline() { return QColor(Qt::white); }
+inline QColor filmstripSurface() { return isLight() ? QColor(255, 255, 255, 232) : QColor(31, 31, 31, 229); }
+inline QColor filmstripEdge()    { return isLight() ? QColor(0, 0, 0, 40) : QColor(255, 255, 255, 48); }
+inline QColor filmstripInset()   { return isLight() ? QColor(0xf2, 0xf3, 0xf5) : QColor(19, 19, 19); }
+// 描边同时承担「选中环」「悬停环」和「无法预览」文字，浅色下压成近黑中性色；
+// 选中环换强调蓝在 M-05 用独立函数引入，避免把失败文案也染蓝。
+inline QColor filmstripOutline() { return isLight() ? QColor(0x1b, 0x1b, 0x1c) : QColor(Qt::white); }
 
 // 导航项常态文字
 inline constexpr const char *HeadText         = "#9ca2aa";  // 表头文字
@@ -155,6 +157,23 @@ inline QColor navText()    { return color(pick("#bfc3c8", "#4a4d51")); }
 // 链接文字：浅色下 #55c0f0 对白只有 1.99:1，必须压到 #0b6f9f（5.55:1）。
 // 与浮层 mapLink 同一取值，两处别各改各的。
 inline QColor linkText()   { return color(pick("#55c0f0", "#0b6f9f")); }
+
+// —— 浮动表面 / 文字分层（UI-001 §3.1，2026-11-13）——
+// 菜单、下拉、提示、弹层、面板统一从这里取值，界面代码不再写裸色。
+// 深色沿用既有石墨阶（色值逐字节不变，保证深色零回归）；浅色改走 Fluent 浅色阶，
+// 不再用「纯白 + 中灰描边」的旧兜底，也不再用 #CDE8F7 这类偏青高亮。
+inline const char *surfaceMenu()   { return pick("#242528", "#ffffff"); }
+inline const char *surfaceSoft()   { return pick("#2a2c30", "#fafafb"); }
+inline const char *menuLine()      { return pick("rgba(255,255,255,0.14)", "rgba(0,0,0,0.14)"); }
+inline const char *menuText()      { return pick("#f2f2f2", "#1b1b1c"); }
+inline const char *menuHover()     { return pick("#35383e", "#f0f1f3"); }
+inline const char *menuDisabled()  { return pick("#6f747a", "#8c9096"); }
+inline const char *menuSeparator() { return pick("rgba(255,255,255,0.085)", "rgba(0,0,0,0.08)"); }
+inline const char *tipBg()         { return pick("#2a2c30", "#ffffff"); }
+inline const char *tipText()       { return pick("#e6e8ea", "#1b1b1c"); }
+// 唯一交互蓝：键盘焦点环、菜单/列表选中、开关与锁定底。深浅同色，不再出现第二套蓝。
+inline QColor interactive()     { return color("#1688f8"); }
+inline QColor interactiveSoft() { return isLight() ? QColor(22,136,248,31) : QColor(22,136,248,36); }
 
 // —— 设置页排版统一（2026-11-07）——
 // 分组卡片底/描边、整行悬停底、只读状态标签文字。浅色分组底比内容白面板
@@ -247,21 +266,48 @@ inline constexpr int SepH        = 9;    // 组间隔（4+1px 细分隔+4）
 inline constexpr int WidthBase   = 314;  // 基准宽
 inline constexpr int WidthNormal = 340;  // 常规上限
 inline constexpr int WidthMax    = 440;  // 确需扩宽上限
-inline QColor plateTint()   { return QColor(33, 33, 33, 232); }      // #212121 @91%
-inline QColor plateSolid()  { return QColor(0x24, 0x24, 0x24); }     // 无模糊回退实底
-inline QColor border()      { return QColor(255, 255, 255, 41); }    // 1px 白 16%
-inline QColor keyText()     { return QColor(0xc3, 0xc3, 0xc3); }
-inline QColor valText()     { return QColor(0xf4, 0xf4, 0xf4); }
-inline QColor tickText()    { return QColor(0xbd, 0xbd, 0xbd); }
-inline QColor chartPlate()  { return QColor(0x1a, 0x1b, 0x1d); }     // 直方图井底
-inline QColor chartLine()   { return QColor(255, 255, 255, 23); }    // 井边 9%
-inline QColor chartBar()    { return QColor(0xb0, 0xb0, 0xb0); }     // 中性灰柱
-inline QColor focusRing()   { return QColor(0x16, 0x88, 0xf8); }     // 键盘焦点环（蓝）
-inline QColor shadow()      { return QColor(0, 0, 0, 84); }          // 阴影黑 33%
+inline QColor plateTint()   { return isLight() ? QColor(255, 255, 255, 232) : QColor(33, 33, 33, 232); }
+inline QColor plateSolid()  { return isLight() ? QColor(0xfa, 0xfa, 0xfb) : QColor(0x24, 0x24, 0x24); }
+inline QColor border()      { return isLight() ? QColor(0, 0, 0, 36) : QColor(255, 255, 255, 41); }
+inline QColor keyText()     { return isLight() ? QColor(0x5f, 0x63, 0x68) : QColor(0xc3, 0xc3, 0xc3); }
+inline QColor valText()     { return isLight() ? QColor(0x1b, 0x1b, 0x1c) : QColor(0xf4, 0xf4, 0xf4); }
+inline QColor tickText()    { return isLight() ? QColor(0x6b, 0x70, 0x75) : QColor(0xbd, 0xbd, 0xbd); }
+inline QColor chartPlate()  { return isLight() ? QColor(0xff, 0xff, 0xff) : QColor(0x1a, 0x1b, 0x1d); }
+inline QColor chartLine()   { return isLight() ? QColor(0, 0, 0, 23) : QColor(255, 255, 255, 23); }
+inline QColor chartBar()    { return isLight() ? QColor(0xa0, 0xa0, 0xa0) : QColor(0xb0, 0xb0, 0xb0); }
+inline QColor focusRing()   { return QColor(0x16, 0x88, 0xf8); }     // 键盘焦点环（蓝，深浅同色）
+inline QColor shadow()      { return isLight() ? QColor(0, 0, 0, 46) : QColor(0, 0, 0, 84); }
 inline constexpr int ShadowBlur = 18;
 inline constexpr int ShadowDy   = 5;
 inline constexpr int BackdropBlur = 20;  // 背后模糊
 } // namespace hud
+
+// —— 透明画布衬底（UI-001 §3.7，2026-11-13）——
+// 四种模式由用户主动选择，不随应用深浅主题切换。格子在屏幕坐标固定边长，
+// 缩放/平移时格子不随图片放大（M-05 在 ImageCanvas 绘制层铺底）。
+// 两阶灰度实测自用户参考图：浅色 #EBEBEB/#F5F5F5，深色 #141414/#202020。
+namespace canvas {
+enum class Backdrop { DarkSolid = 0, LightSolid = 1, DarkGrid = 2, LightGrid = 3 };
+inline constexpr int GridCell = 8;   // 方格边长（逻辑像素）
+inline constexpr int TileEdge = GridCell * 2;
+inline QColor solid(Backdrop b)
+{
+    switch (b) {
+    case Backdrop::DarkSolid:  return QColor(0x1a, 0x1a, 0x1a);
+    case Backdrop::LightSolid: return QColor(0xf7, 0xf7, 0xf7);
+    case Backdrop::DarkGrid:   return QColor(0x14, 0x14, 0x14);
+    default:                   return QColor(0xeb, 0xeb, 0xeb);
+    }
+}
+inline QColor gridA(Backdrop b)
+{
+    return b == Backdrop::DarkGrid ? QColor(0x14, 0x14, 0x14) : QColor(0xeb, 0xeb, 0xeb);
+}
+inline QColor gridB(Backdrop b)
+{
+    return b == Backdrop::DarkGrid ? QColor(0x20, 0x20, 0x20) : QColor(0xf5, 0xf5, 0xf5);
+}
+} // namespace canvas
 
 // —— 尺寸令牌 ——
 inline constexpr int RadiusDialog = 10;
@@ -292,6 +338,33 @@ inline QFont font(int px = 12)
     return f;
 }
 
+// QSS 令牌替换：把 @name@ 换成当前主题取值。统一入口，避免各样式串
+// 各自 .arg() 后序号错位，也避免再往 QSS 里写裸色值。
+inline QString resolveQss(QString qss)
+{
+    struct Pair { const char *key; const char *val; };
+    const Pair map[] = {
+        { "@menuBg@",         surfaceMenu() },
+        { "@menuLine@",       menuLine() },
+        { "@menuText@",       menuText() },
+        { "@menuHover@",      menuHover() },
+        { "@menuDisabled@",   menuDisabled() },
+        { "@menuSep@",        menuSeparator() },
+        { "@tipBg@",          tipBg() },
+        { "@tipText@",        tipText() },
+        { "@hudTitle@",       pick("#f4f4f4", "#1b1b1c") },
+        { "@hudKey@",         pick("#c3c3c3", "#5f6368") },
+        { "@hudVal@",         pick("#f4f4f4", "#1b1b1c") },
+        { "@hudLink@",        pick("#e3e3e3", "#3a3f45") },
+        { "@hudLinkHover@",   pick("#ffffff", "#101113") },
+        { "@hudSep@",         pick("rgba(255,255,255,0.12)", "rgba(0,0,0,0.12)") },
+    };
+    for (const auto &e : map) {
+        qss.replace(QLatin1String(e.key), QLatin1String(e.val));
+    }
+    return qss;
+}
+
 // 应用级：菜单、提示、滚动条、对话框底座。由 Theme::apply 安装；按主题出两套。
 inline QString darkAppQss()
 {
@@ -299,12 +372,12 @@ inline QString darkAppQss()
 QDialog { background: %1; color: #f2f2f2; }
 QWidget { color: #f2f2f2; }
 
-QMenu { background: #27292d; color: #e0e2e5; border: 1px solid #50535a;
-        border-radius: 9px; padding: 5px; }
-QMenu::item { height: 28px; padding: 0 18px 0 24px; border-radius: 6px; font-size: 12px; }
-QMenu::item:selected { background: #3c4046; }
-QMenu::item:disabled { color: #6b7078; }
-QMenu::separator { height: 1px; background: rgba(255,255,255,0.085); margin: 4px 7px; }
+QMenu { background: @menuBg@; color: @menuText@; border: 1px solid @menuLine@;
+        border-radius: 8px; padding: 4px; }
+QMenu::item { height: 30px; padding: 0 18px 0 26px; border-radius: 6px; font-size: 12px; }
+QMenu::item:selected { background: @menuHover@; }
+QMenu::item:disabled { color: @menuDisabled@; }
+QMenu::separator { height: 1px; background: @menuSep@; margin: 4px 7px; }
 QMenu::icon { left: 8px; }
 /* 勾选列：Qt 原生对勾偏小且颜色不受控，改用自带浅色对勾（深色菜单底） */
 QMenu::indicator { width: 14px; height: 14px; left: 6px; }
@@ -312,7 +385,7 @@ QMenu::indicator:checked { image: url(:/ui/check-light.png); }
 QMenu::right-arrow { width: 12px; height: 12px; right: 8px;
                      image: url(:/ui/chevron-right.png); }
 
-QToolTip { background: #2a2c30; color: #e6e8ea; border: 1px solid rgba(255,255,255,0.14);
+QToolTip { background: @tipBg@; color: @tipText@; border: 1px solid @menuLine@;
            border-radius: 6px; padding: 6px 8px; }
 
 QScrollBar:vertical { background: transparent; width: 10px; margin: 2px; }
@@ -338,9 +411,9 @@ QComboBox:hover { border-color: #686d75; }
 QComboBox:focus { border-color: #55c0f0; }
 QComboBox::drop-down { border: 0; width: 22px; }
 QComboBox::down-arrow { image: url(:/ui/chevron-down.png); width: 12px; height: 12px; }
-QComboBox QAbstractItemView { background: #27292d; color: #e0e2e5; border: 1px solid #50535a;
-    border-radius: 6px; padding: 4px; outline: 0; selection-background-color: #3c4046;
-    selection-color: #ffffff; }
+QComboBox QAbstractItemView { background: @menuBg@; color: @menuText@; border: 1px solid @menuLine@;
+    border-radius: 8px; padding: 4px; outline: 0; selection-background-color: @menuHover@;
+    selection-color: @menuText@; }
 
 QCheckBox { color: #d0d2d5; font-size: 12px; spacing: 9px; }
 QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #696e75;
@@ -401,10 +474,10 @@ QTabBar::tab:hover { color: #ffffff; }
     // 磨砂材质开：菜单给半透明底，剩下的交给 DWM 合成（polishMenu 里设 Acrylic）；
     // 关：保持纯色，避免「半透明但没模糊」的糊字。
     if (blurMaterial()) {
-        qss.replace(QStringLiteral("QMenu { background: #27292d;"),
+        qss.replace(QStringLiteral("QMenu { background: @menuBg@;"),
                     QStringLiteral("QMenu { background: rgba(39,41,45,0.82);"));
     }
-    return qss;
+    return resolveQss(qss);
 }
 
 // 浅色应用级：与深色同构（选择器一一对应），只换色值与对勾图标。
@@ -415,19 +488,19 @@ inline QString lightAppQss()
 QDialog { background: #f2f3f5; color: #1b1b1b; }
 QWidget { color: #1b1b1b; }
 
-QMenu { background: #ffffff; color: #1b1b1b; border: 1px solid #d0d0d0;
-        border-radius: 9px; padding: 5px; }
-QMenu::item { height: 28px; padding: 0 18px 0 24px; border-radius: 6px; font-size: 12px; }
-QMenu::item:selected { background: #cde8f7; }
-QMenu::item:disabled { color: #a0a0a0; }
-QMenu::separator { height: 1px; background: rgba(0,0,0,0.085); margin: 4px 7px; }
+QMenu { background: @menuBg@; color: @menuText@; border: 1px solid @menuLine@;
+        border-radius: 8px; padding: 4px; }
+QMenu::item { height: 30px; padding: 0 18px 0 26px; border-radius: 6px; font-size: 12px; }
+QMenu::item:selected { background: @menuHover@; color: @menuText@; }
+QMenu::item:disabled { color: @menuDisabled@; }
+QMenu::separator { height: 1px; background: @menuSep@; margin: 4px 7px; }
 QMenu::icon { left: 8px; }
 QMenu::indicator { width: 14px; height: 14px; left: 6px; }
 QMenu::indicator:checked { image: url(:/ui/check.png); }
 QMenu::right-arrow { width: 12px; height: 12px; right: 8px;
                      image: url(:/ui/chevron-right.png); }
 
-QToolTip { background: #ffffff; color: #1b1b1b; border: 1px solid rgba(0,0,0,0.14);
+QToolTip { background: @tipBg@; color: @tipText@; border: 1px solid @menuLine@;
            border-radius: 6px; padding: 6px 8px; }
 
 QScrollBar:vertical { background: transparent; width: 10px; margin: 2px; }
@@ -453,9 +526,9 @@ QComboBox:hover { border-color: #6b6b6b; }
 QComboBox:focus { border-color: #1689bd; }
 QComboBox::drop-down { border: 0; width: 22px; }
 QComboBox::down-arrow { image: url(:/ui/chevron-down.png); width: 12px; height: 12px; }
-QComboBox QAbstractItemView { background: #ffffff; color: #1b1b1b; border: 1px solid #d0d0d0;
-    border-radius: 6px; padding: 4px; outline: 0; selection-background-color: #cde8f7;
-    selection-color: #1b1b1b; }
+QComboBox QAbstractItemView { background: @menuBg@; color: @menuText@; border: 1px solid @menuLine@;
+    border-radius: 8px; padding: 4px; outline: 0; selection-background-color: @menuHover@;
+    selection-color: @menuText@; }
 
 QCheckBox { color: #202124; font-size: 12px; spacing: 9px; }
 QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #8a8a8a;
@@ -477,13 +550,50 @@ QPushButton { background: #fbfbfb; color: #1b1b1b; border: 1px solid #8a8a8a;
 QPushButton:hover { background: #f0f0f0; border-color: #6b6b6b; }
 QPushButton:pressed { background: #e6e6e6; }
 QPushButton:disabled { color: #a0a0a0; border-color: #d0d0d0; background: #f5f5f5; }
+
+/* 以下 19 条补齐深色块已有、浅色块此前缺失的选择器（UI-001 §2.1）。
+   不补会退回 Qt 默认外观，与周围 Fluent 控件出现两套设计语言。 */
+QSpinBox, QDoubleSpinBox { background: #ffffff; color: #1b1b1b; border: 1px solid #8a8a8a;
+    border-radius: 5px; padding: 0 4px 0 8px; font-size: 12px; min-height: 26px; }
+QSpinBox::up-button, QSpinBox::down-button { width: 15px; border: 0; background: transparent; }
+QSpinBox::up-arrow, QSpinBox::down-arrow { width: 9px; height: 9px; }
+
+QSlider::groove:horizontal { height: 3px; background: #c9ccd1; border-radius: 3px; }
+QSlider::sub-page:horizontal { background: #1688f8; border-radius: 3px; }
+QSlider::handle:horizontal { width: 11px; height: 11px; margin: -4px 0;
+    border-radius: 6px; background: #ffffff; border: 1px solid #8a8a8a; }
+
+QProgressBar { background: #e4e6e8; border: 0; border-radius: 4px; height: 5px;
+    text-align: center; color: transparent; }
+QProgressBar::chunk { background: #1688f8; border-radius: 4px; }
+
+QGroupBox { border: 1px solid rgba(0,0,0,0.08); border-radius: 7px;
+    margin-top: 14px; padding: 12px 10px 10px; font-size: 12px; color: #1b1b1c; }
+QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; }
+
+QLabel { color: #1b1b1b; font-size: 12px; }
+
+QTreeWidget, QTreeView, QListView, QTableWidget { background: #ffffff; color: #202124;
+    border: 1px solid rgba(0,0,0,0.08); border-radius: 6px;
+    alternate-background-color: #f7f8f9; selection-background-color: rgba(22,136,248,0.14);
+    selection-color: #101113; }
+QTreeView::item:hover, QListView::item:hover, QTableWidget::item:hover { background: #f0f1f3; }
+QTreeView::item:selected, QListView::item:selected, QTableWidget::item:selected {
+    background: rgba(22,136,248,0.14); color: #101113; }
+QHeaderView::section { background: #f2f3f5; color: #5f6368; border: 0;
+    border-bottom: 1px solid rgba(0,0,0,0.08); padding: 5px 8px; font-size: 11px; }
+QTabWidget::pane { border: 0; }
+QTabBar::tab { background: transparent; color: #6b7075; padding: 7px 13px;
+    border-bottom: 2px solid transparent; font-size: 12px; }
+QTabBar::tab:selected { color: #1688f8; border-bottom-color: #1688f8; }
+QTabBar::tab:hover { color: #1b1b1b; }
 )");
     // 磨砂开：白菜单半透明，DWM 合成交给 polishMenu。
     if (blurMaterial()) {
-        qss.replace(QStringLiteral("QMenu { background: #ffffff;"),
+        qss.replace(QStringLiteral("QMenu { background: @menuBg@;"),
                     QStringLiteral("QMenu { background: rgba(255,255,255,0.82);"));
     }
-    return qss;
+    return resolveQss(qss);
 }
 
 inline QString appQss() { return isLight() ? lightAppQss() : darkAppQss(); }
@@ -576,18 +686,19 @@ QPushButton#closeBtn:hover { background: #c42b1c; color: #ffffff; }
 }
 
 // 图片信息 HUD（左上覆盖层，Tab-HUD 设计定稿 2026-11-13）
-// HUD 是固定深色材质：亮暗主题、亮暗画布上同一套底色与文字色（设计稿 01–03
-// 三张图均为深色 HUD）。底色/文字/边界由 HudBackdrop 自绘 + hudQss() 共同出，
+// 2026-11-13 按 UI-001 §3.3 改为跟随主题：深色沿用 #212121@91% 材质不变，
+// 浅色给 #FFFFFF@91% + 中性描边，避免浅色画布角落突然压一块深板。
+// 底色/文字/边界由 HudBackdrop 自绘（hud::）+ hudQss() 共同出，
 // panelQss() 只保留图层面板（与 HUD 同形态但跟随主题的白/深卡片）。
 inline QString hudQss()
 {
-    return QStringLiteral(R"(
+    return resolveQss(QStringLiteral(R"(
 QWidget#infoPanel { background: transparent; }
 /* 全局 QLabel 的 12px 会覆盖 setFont()，小字体档位改用动态属性选择器
    （MetadataPanel 重建行时写入 smallFont 属性）。 */
-QLabel#infoTitle { color: #f4f4f4; }
-QLabel#infoKey { color: #c3c3c3; }
-QLabel#infoVal { color: #f4f4f4; }
+QLabel#infoTitle { color: @hudVal@; }
+QLabel#infoKey { color: @hudKey@; }
+QLabel#infoVal { color: @hudVal@; }
 QLabel#infoVal[strong="true"] { font-weight: 600; }
 QLabel#infoKey[smallFont="true"], QLabel#infoVal[smallFont="true"] { font-size: 10px; }
 /* 复制/关闭 28x28 热区按钮为 paintEvent 自绘（悬停底/焦点环自绘），
@@ -596,15 +707,15 @@ QPushButton#hudToolBtn { min-height: 0; max-height: 28px; min-width: 28px;
     max-width: 28px; padding: 0; background: transparent; border: 0; }
 /* 地图入口：中性文字链接（设计定稿：不用强调蓝），下划线由字体属性出 */
 QPushButton#mapLink { background: transparent; border: 0; padding: 0;
-    text-align: left; font-size: 12px; color: #e3e3e3; }
-QPushButton#mapLink:hover { color: #ffffff; }
+    text-align: left; font-size: 12px; color: @hudLink@; }
+QPushButton#mapLink:hover { color: @hudLinkHover@; }
 QPushButton#mapLink[kbdFocus="true"] { border: 1px solid #1688f8; border-radius: 4px; }
 QPushButton#histToggle { background: transparent; border: 0; padding: 0;
-    text-align: left; font-size: 12px; font-weight: 600; color: #f4f4f4; }
-QPushButton#histToggle:hover { color: #ffffff; }
+    text-align: left; font-size: 12px; font-weight: 600; color: @hudVal@; }
+QPushButton#histToggle:hover { color: @hudLinkHover@; }
 QPushButton#histToggle[kbdFocus="true"] { border: 1px solid #1688f8; border-radius: 4px; }
-QFrame#hudSep { background: rgba(255,255,255,0.12); border: 0; max-height: 1px; }
-)");
+QFrame#hudSep { background: @hudSep@; border: 0; max-height: 1px; }
+)"));
 }
 
 // 信息面板（图层面板共用形态）：跟随主题的卡片底。
