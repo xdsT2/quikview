@@ -47,9 +47,19 @@ cp "$REPO_ROOT/resources/quikview.ico" "$STAGE/"
 # 壳扩展 DLL（shell-ext/ 独立工程产物）：随包分发；安装器按 SEC_SHELL 节注册，
 # zip 用户可用 shell-ext/scripts/*.ps1 手动注册。属于产品组件，缺了直接中止。
 [ -f "$REPO_ROOT/build-shell64/quikthumb.dll" ] || { echo "缺 build-shell64/quikthumb.dll：先构建 64 位壳扩展（见 shell-ext/README.md）" >&2; exit 1; }
-[ -f "$REPO_ROOT/build-shell32/quikthumb.dll" ] || { echo "缺 build-shell32/quikthumb.dll：先构建 32 位壳扩展（见 shell-ext/README.md）" >&2; exit 1; }
 cp "$REPO_ROOT/build-shell64/quikthumb.dll" "$STAGE/"
-cp "$REPO_ROOT/build-shell32/quikthumb.dll" "$STAGE/quikthumb32.dll"
+# 32 位壳扩展需要 MSVC x86（见 shell-ext/README.md）。GitHub Actions 的 Windows
+# runner 没有 Visual Studio 实例，CI 只能做构建烟测：显式设置
+# QUIKVIEW_CI_SKIP_SHELL32=1 才允许跳过这一枚 DLL，并打警告。
+# 正式发布包（tools/package-installer.sh）不得设置该变量，两枚 DLL 必须齐备。
+if [ -f "$REPO_ROOT/build-shell32/quikthumb.dll" ]; then
+    cp "$REPO_ROOT/build-shell32/quikthumb.dll" "$STAGE/quikthumb32.dll"
+elif [ "${QUIKVIEW_CI_SKIP_SHELL32:-0}" = "1" ]; then
+    echo "  跳过 32 位壳扩展 DLL（CI 构建烟测；正式发布包不得设置此变量）" >&2
+else
+    echo "缺 build-shell32/quikthumb.dll：先构建 32 位壳扩展（见 shell-ext/README.md）" >&2
+    exit 1
+fi
 
 echo "[2/6] windeployqt（Qt 运行时 + 插件）"
 windeployqt --release --no-translations --no-opengl-sw \

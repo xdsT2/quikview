@@ -63,23 +63,20 @@ jobs:
           ls -lh build/quikview.exe
 
       # tools/package.sh 要求两枚壳扩展 DLL 在位（属产品组件，缺了直接中止）。
-      # 64 位走 MinGW，32 位按 shell-ext/README.md 走 MSVC x86；两个工程都会把
-      # quikthumb.dll 拷到各自构建目录根部，正好是打包脚本查找的位置。
+      # 64 位走 MinGW；32 位按 shell-ext/README.md 需要 MSVC x86，而本 runner
+      # 没有 Visual Studio 实例，CI 只能做构建烟测，故用显式变量跳过这一枚 DLL。
+      # 正式发布包由本地 tools/package-installer.sh 生成，两枚 DLL 都必须齐备。
       - name: 构建 64 位壳扩展（MinGW）
         run: |
           cmake -S shell-ext -B build-shell64 -G Ninja -DCMAKE_BUILD_TYPE=Release
           cmake --build build-shell64
 
-      - name: 构建 32 位壳扩展（MSVC x86）
-        shell: pwsh
-        run: |
-          cmake -S shell-ext -B build-shell32 -G "Visual Studio 17 2022" -A Win32
-          cmake --build build-shell32 --config Release
-
       # 打包成可分发 zip 供下载验证（不进 release；发布走正式流程另行触发）
       # tools/package.sh：干净 staging + windeployqt + objdump 依赖闭包 + 自检，
       # 并剔除 qjp2/libjasper（该插件打开 .jp2 会触发 Jasper 断言）
       - name: 打包
+        env:
+          QUIKVIEW_CI_SKIP_SHELL32: "1"
         run: bash tools/package.sh build dist
 
       - name: 上传构建产物
