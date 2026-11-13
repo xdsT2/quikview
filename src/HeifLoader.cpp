@@ -99,7 +99,9 @@ QImage toneMapRgb16LeToRgb888(const uint8_t *data, size_t stride, int w, int h)
 
 QImage loadHeifImage(const QString &path, QString *errorOut, bool toneMapSdr)
 {
-    const QByteArray local = QFileInfo(path).absoluteFilePath().toLocal8Bit();
+    // libheif 1.23（MSYS2 构建）按 UTF-8 解释 char* 路径：toLocal8Bit（GBK）
+    // 在中文目录下必然打不开文件（实测 .heic 同样受害）。统一转 UTF-8。
+    const QByteArray local = QFileInfo(path).absoluteFilePath().toUtf8();
 
     heif_context *ctx = heif_context_alloc();
     if (!ctx) {
