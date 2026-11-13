@@ -41,8 +41,8 @@
 | 模块 | 行数 | 职责 |
 |---|---|---|
 | `SettingsDialog` | 2375 + 234 | 设置页九类选项，含快捷键自定义与冲突检测 |
-| `MetadataPanel` | 657 + 84 | EXIF / GPS / 直方图面板（`Tab` 呼出） |
-| `ThumbnailBrowser` | 122 + 30 | 左侧缩略图栏，异步生成 |
+| `MetadataPanel` | 1208 + 135 | 图片信息 HUD：标题栏 + 键值栅格 + 可折叠直方图（`Tab` 呼出）；画布采样磨砂背板与开关动效，实装 Tab-HUD 2026-11-13 定稿 |
+| `ThumbnailBrowser` | — | 底部胶片栏，绘制并异步解码可见项 |
 | `BatchConvertDialog` | 772 + 82 | 批量格式转换 |
 
 **基础设施**

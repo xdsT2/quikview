@@ -25,7 +25,7 @@ QuikView 是一款开源的 Windows 看图器，支持目录翻页、双页阅�
 | 浏览与查看 | 效果与配置 |
 |:--:|:--:|
 | [![缩略图浏览](docs/screenshots/02-thumbnails.webp)](docs/SCREENSHOTS.md) | [![图片信息](docs/screenshots/03-info.webp)](docs/SCREENSHOTS.md) |
-| **缩略图浏览**<br>左侧竖排，异步生成，不卡界面 | **图片信息**<br>EXIF / GPS / 直方图，`Tab` 呼出 |
+| **缩略图浏览**<br>底部横排，按需异步生成 | **图片信息**<br>EXIF / GPS / 直方图，`Tab` 呼出 |
 | [![双页阅览](docs/screenshots/04-spread.webp)](docs/SCREENSHOTS.md) | [![图像效果](docs/screenshots/06-effects.webp)](docs/SCREENSHOTS.md) |
 | **双页阅览**<br>画册、漫画并排看 | **图像效果**<br>反色 / Gamma / 旋转 / 插值 |
 | [![右键菜单](docs/screenshots/07-context-menu.webp)](docs/SCREENSHOTS.md) | [![设置](docs/screenshots/09-settings.webp)](docs/SCREENSHOTS.md) |
@@ -43,7 +43,7 @@ QuikView 是一款开源的 Windows 看图器，支持目录翻页、双页阅�
 
 **浏览**
 - 目录序列切换（方向键 / 翻页 / 空格）
-- 左侧缩略图浏览器（异步缩略图）
+- 底部横向胶片栏（异步缩略图）
 - 动画 GIF / 多页 TIFF 逐帧浏览（Ctrl+←/→）
 - 收藏夹 + 最近打开
 

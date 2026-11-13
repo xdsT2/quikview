@@ -23,7 +23,7 @@ when the pointer leaves — the image always gets the whole window.
 
 ## 2. 缩略图浏览 · Thumbnail browser
 
-左侧竖排缩略图，异步生成，点一下就换。文件夹里有几百张也不会卡住界面。
+此图为旧版左侧缩略图。开发版已改为底部横向胶片栏，按可见范围异步生成缩略图，点击即切换。
 
 Vertical thumbnail rail on the left, generated asynchronously. Click to switch; a folder with
 hundreds of files will not block the UI.

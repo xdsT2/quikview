@@ -31,7 +31,7 @@ full size.
 | Browsing & viewing | Effects & configuration |
 |:--:|:--:|
 | [![Thumbnail browser](docs/screenshots/02-thumbnails.webp)](docs/SCREENSHOTS.md) | [![Image info](docs/screenshots/03-info.webp)](docs/SCREENSHOTS.md) |
-| **Thumbnail browser**<br>Vertical rail, decoded async, never blocks | **Image info**<br>EXIF / GPS / histogram on `Tab` |
+| **Thumbnail browser**<br>Bottom filmstrip with on-demand previews | **Image info**<br>EXIF / GPS / histogram on `Tab` |
 | [![Double-page spread](docs/screenshots/04-spread.webp)](docs/SCREENSHOTS.md) | [![Image effects](docs/screenshots/06-effects.webp)](docs/SCREENSHOTS.md) |
 | **Double-page spread**<br>Photo books and comics side by side | **Image effects**<br>Invert / gamma / rotate / resampling |
 | [![Context menu](docs/screenshots/07-context-menu.webp)](docs/SCREENSHOTS.md) | [![Settings](docs/screenshots/09-settings.webp)](docs/SCREENSHOTS.md) |
@@ -50,7 +50,7 @@ full size.
 **Browsing**
 
 - Directory sequence navigation (arrow keys / Page Up-Down / Space)
-- Thumbnail browser panel on the left, thumbnails decoded asynchronously
+- Bottom filmstrip with asynchronously decoded thumbnails
 - Animated GIF and multi-page TIFF frame stepping (Ctrl+←/→)
 - Favorites and recent files
 
