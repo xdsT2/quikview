@@ -2440,9 +2440,12 @@ void StatusOverlay::paintEvent(QPaintEvent *)
         p.drawText(infoRect.translated(0, 1), Qt::AlignVCenter | Qt::AlignLeft, m_info);
         p.drawText(counterRect.translated(0, 1), Qt::AlignVCenter | Qt::AlignRight, m_counter);
     }
-    p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#797d82", "#868a8f"))));
+    // 左下信息与右下序号同用次要文字令牌 muted（深 #92979e / 浅 #6b7075）。
+    // 改前是两处各写一档更暗的灰（#797d82/#85898e 族），10px 小字实测对比度
+    // 深色 4.45:1、浅色 3.19:1（Temp/panel-unify-20261114/before 实测），
+    // 用户把两角看成「空白」；规范 §5 的 4.5:1 目标按令牌口径达成。
+    p.setPen(UiStyle::muted());
     p.drawText(infoRect, Qt::AlignVCenter | Qt::AlignLeft, m_info);
-    p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#85898e", "#7a7e83"))));
     p.drawText(counterRect, Qt::AlignVCenter | Qt::AlignRight, m_counter);
 }
 
