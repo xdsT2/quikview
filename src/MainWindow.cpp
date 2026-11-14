@@ -2049,13 +2049,23 @@ QMenu *MainWindow::buildContextMenu()
 
     auto vis = [&cfg](const char *id) { return cfg.appMenuVisible(QLatin1String(id)); };
 
+    // —— 顶部快捷区（解冻增量 2026-11-14）：与正文共用同一 QAction 实例 ——
+    // 固定顺序：打开图片、打开文件夹、复制到剪贴板、图片信息、删除；
+    // 每项由同一个可见性开关同时控制两个入口，五项默认开。文字行按正文
+    // 顺序创建，快捷区在末尾按设计固定顺序组装。
+    QAction *quickOpenImage = nullptr;
+    QAction *quickOpenFolder = nullptr;
+    QAction *quickCopy = nullptr;
+    QAction *quickInfo = nullptr;
+    QAction *quickDelete = nullptr;
+
     // —— 打开与定位 ——
     beforeItem();
     if (vis("open_image")) {
-        cmdId(menu, "open_image", QStringLiteral("F2"), [this]() { onOpen(); });
+        quickOpenImage = cmdId(menu, "open_image", QStringLiteral("F2"), [this]() { onOpen(); });
     }
     if (vis("open_folder")) {
-        cmdId(menu, "open_folder", QStringLiteral("F"), [this]() { onOpenFolder(); });
+        quickOpenFolder = cmdId(menu, "open_folder", QStringLiteral("F"), [this]() { onOpenFolder(); });
     }
     if (vis("select_image")) {
         cmdId(menu, "select_image", QStringLiteral("Enter"), [this]() { onPageSelect(); });
@@ -2083,13 +2093,15 @@ QMenu *MainWindow::buildContextMenu()
         });
         decorate(a, "info", AppMenu::label(QLatin1String("image_info")),
                  QStringLiteral("Tab"), false, false);
+        quickInfo = a;
     }
     if (vis("copy_clipboard") && cfg.contextCopy()) {
-        // 双重门槛：本页开关 + 已有剪贴板入口设置（规格：同时遵循已有入口设置）
+        // 双重门槛：本页开关 + 已有剪贴板入口设置（规格：同时作用于快捷区与文字项）
         beforeItem();
         menu->addAction(actCopyToClipboard);
         decorate(actCopyToClipboard, "copy", QString(), QStringLiteral("Ctrl+C"), false, false);
         actCopyToClipboard->setEnabled(hasImage);
+        quickCopy = actCopyToClipboard;
     }
     if (vis("always_on_top")) {
         beforeItem();
@@ -2257,10 +2269,11 @@ QMenu *MainWindow::buildContextMenu()
     beforeItem();
     if (vis("delete_file")) {
         // 无图禁用（设计 06）；危险行样式（图标危险色、悬停低饱和危险底），
-        // 删除确认仍走 onDeleteFile 的既有规则
+        // 删除确认仍走 onDeleteFile 的既有规则；快捷区最右，前有短分隔
         menu->addAction(actDelete);
         decorate(actDelete, "trash", QString(), QStringLiteral("Del"), false, true);
         actDelete->setEnabled(hasImage);
+        quickDelete = actDelete;
     }
     pendingSep = true;
 
@@ -2279,6 +2292,25 @@ QMenu *MainWindow::buildContextMenu()
     if (vis("quit")) {
         cmdId(menu, "quit", QStringLiteral("X"), [this]() { close(); });
     }
+
+    // 快捷区按设计固定顺序组装；五项全隐藏时整行与下方分隔一并省略
+    QList<QAction *> quick;
+    if (quickOpenImage) {
+        quick << quickOpenImage;
+    }
+    if (quickOpenFolder) {
+        quick << quickOpenFolder;
+    }
+    if (quickCopy) {
+        quick << quickCopy;
+    }
+    if (quickInfo) {
+        quick << quickInfo;
+    }
+    if (quickDelete) {
+        quick << quickDelete;
+    }
+    menu->setQuickActions(quick);
 
     UiStyle::polishMenu(menu);
     return menu;
@@ -3503,12 +3535,19 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             }
         }
     }
-    // ctxmenufocus:<path> —— 弹出菜单并把键盘焦点行设到 path（如 6 或 8.2，
-    // 路径语义与 ctxmenu-report 的索引一致），截图验收 2px 蓝色焦点内框。
+    // ctxmenufocus:<path> —— 弹出菜单并把键盘焦点行设到 path（如 6、8.2 或
+    // q3 = 快捷区第 3 个按钮），截图验收 2px 蓝色焦点内框（正文/快捷区）。
     else if (c.startsWith(QLatin1String("ctxmenufocus:"))) {
         const QString path = c.mid(13);
-        QMenu *menu = buildContextMenu();
-        QMenu *cur = menu;
+        auto *menu = qobject_cast<CtxMenu *>(buildContextMenu());
+        if (path.startsWith(QLatin1Char('q'))) {
+            menu->popup(mapToGlobal(QPoint(width() / 2 - 120, height() / 3)));
+            QTimer::singleShot(200, menu, [menu, n = path.mid(1).toInt()]() {
+                menu->setQuickFocus(n);
+                menu->update();
+            });
+        } else {
+            QMenu *cur = menu;
         const QStringList idxs = path.split(u'.');
         bool ok = true;
         for (int i = 0; ok && i + 1 < idxs.size(); ++i) {
@@ -3524,6 +3563,7 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             cur->popup(mapToGlobal(QPoint(width() / 2 - 120, height() / 3)));
             cur->setActiveAction(cur->actions().at(last));
         }
+        }
     }
     // ctxhoverdel —— 弹出菜单并把光标移到「删除」行上，截图验收危险行
     // （图标危险色 + 低饱和危险悬停底、文字保持中性）。
@@ -3536,6 +3576,73 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                 break;
             }
         }
+    }
+    // ctxquickhover:<n> —— 弹出菜单并把**真实光标**移到快捷区第 n 个按钮上，
+    // 截图验收普通悬停（12）与删除悬停（15，Tooltip 同帧可见）。
+    else if (c.startsWith(QLatin1String("ctxquickhover:"))) {
+        auto *menu = qobject_cast<CtxMenu *>(buildContextMenu());
+        menu->popup(mapToGlobal(QPoint(width() / 2 - 120, height() / 3)));
+        QTimer::singleShot(200, menu, [menu, n = c.mid(14).toInt()]() {
+            if (n >= 0 && n < menu->quickActions().size()) {
+                QCursor::setPos(menu->mapToGlobal(menu->quickButtonRect(n).center()));
+            }
+        });
+    }
+    // ctxquickdel —— 快捷区删除悬停（= ctxquickhover:<最后一个>，15 状态图）。
+    else if (c == QLatin1String("ctxquickdel")) {
+        auto *menu = qobject_cast<CtxMenu *>(buildContextMenu());
+        menu->popup(mapToGlobal(QPoint(width() / 2 - 120, height() / 3)));
+        QTimer::singleShot(200, menu, [menu]() {
+            const int n = menu->quickActions().size() - 1;
+            if (n >= 0) {
+                QCursor::setPos(menu->mapToGlobal(menu->quickButtonRect(n).center()));
+            }
+        });
+    }
+    // ctxquickpress:<n> —— 弹出菜单并对快捷区第 n 个按钮注入真实鼠标按下
+    // （不释放），截图验收按下态（14，深 #171819 / 浅 #DCDDE1）。
+    else if (c.startsWith(QLatin1String("ctxquickpress:"))) {
+        auto *menu = qobject_cast<CtxMenu *>(buildContextMenu());
+        menu->popup(mapToGlobal(QPoint(width() / 2 - 120, height() / 3)));
+        QTimer::singleShot(200, menu, [menu, n = c.mid(14).toInt()]() {
+            if (n >= 0 && n < menu->quickActions().size()) {
+                const QPoint local = menu->quickButtonRect(n).center();
+                QApplication::sendEvent(menu, new QMouseEvent(
+                    QEvent::MouseButtonPress, local, menu->mapToGlobal(local),
+                    Qt::LeftButton, Qt::LeftButton, Qt::NoModifier));
+            }
+        });
+    }
+    // ctxquickclick:<n> —— 与鼠标释放同一条触发路径触发快捷区第 n 个按钮
+    // （QAction::trigger + 关闭菜单），验收「从顶部触发同一命令」。
+    else if (c.startsWith(QLatin1String("ctxquickclick:"))) {
+        auto *menu = qobject_cast<CtxMenu *>(buildContextMenu());
+        menu->popup(mapToGlobal(QPoint(width() / 2 - 120, height() / 3)));
+        QTimer::singleShot(200, menu, [menu, n = c.mid(14).toInt()]() {
+            menu->triggerQuick(n);
+        });
+    }
+    // ctxmenuenter:<path> —— 弹出菜单、焦点落到 path（如 5 或 q3），再注入
+    // 回车走 QMenu 原生激活，验收「从下方触发同一命令」。
+    else if (c.startsWith(QLatin1String("ctxmenuenter:"))) {
+        const QString path = c.mid(13);
+        auto *menu = qobject_cast<CtxMenu *>(buildContextMenu());
+        menu->popup(mapToGlobal(QPoint(width() / 2 - 120, height() / 3)));
+        QTimer::singleShot(200, menu, [menu, path]() {
+            if (path.startsWith(QLatin1Char('q'))) {
+                menu->setQuickFocus(path.mid(1).toInt());
+            } else {
+                const int k = path.toInt();
+                const QList<QAction *> acts = menu->actions();
+                if (k >= 0 && k < acts.size()) {
+                    menu->setActiveAction(acts.at(k));
+                }
+            }
+            QTimer::singleShot(150, menu, [menu]() {
+                QApplication::postEvent(menu, new QKeyEvent(
+                    QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier));
+            });
+        });
     }
     // opendialog:<file> —— 「文件 → 打开」链路的验收探针。
     // 原生 Windows 对话框无法在无桌面交互的会话里脚本化，这里用同一个
@@ -4015,6 +4122,26 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                 };
             dump(menu, 0, QString());
             ts << "commands=" << seq << '\n';
+            // 顶部快捷区（解冻增量 2026-11-14）：按钮与正文共用 QAction，
+            // 这里导出每个按钮的绑定动作/可用/勾选/几何，供同步断言。
+            if (auto *root = qobject_cast<CtxMenu *>(menu); root && root->hasQuickArea()) {
+                const QList<QAction *> quickActs = root->quickActions();
+                ts << "quick=" << quickActs.size() << '\n';
+                for (int i = 0; i < quickActs.size(); ++i) {
+                    QAction *qa = quickActs.at(i);
+                    const QRect gr = root->quickButtonRect(i);
+                    const QString label = qa->property(CtxMenu::kLabelProp).isValid()
+                                              ? qa->property(CtxMenu::kLabelProp).toString()
+                                              : qa->text().section(QLatin1Char('\t'), 0, 0);
+                    ts << 'q' << i << '\t' << label
+                       << "\tenabled=" << (qa->isEnabled() ? 1 : 0)
+                       << "\tchecked=" << (qa->isCheckable() && qa->isChecked() ? 1 : 0)
+                       << "\tgeom=" << gr.x() << ',' << gr.y() << ','
+                       << gr.width() << ',' << gr.height() << '\n';
+                }
+            } else {
+                ts << "quick=0\n";
+            }
         }
         menu->popup(mapToGlobal(QPoint(width() / 2 - 120, height() / 3)));
     }

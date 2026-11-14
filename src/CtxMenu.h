@@ -1,6 +1,8 @@
 #pragma once
 
 #include <QMenu>
+#include <QRect>
+#include <QVector>
 
 // 应用内右键菜单的自绘层（右键菜单派单 2026-11-14「全量配置修订」）。
 // ---------------------------------------------------------------------------
@@ -32,11 +34,43 @@ public:
     // 顶层最小宽 256 / 子菜单最小宽 238（规格）；更宽按最长标签+快捷键列扩。
     void setMinWidth(int w);
 
+    // —— 顶部快捷区（解冻增量 2026-11-14）——
+    // 与正文共用同一批 QAction 实例（快捷键/可用/勾选/回调全部同步，本类只
+    // 提供图标按钮入口，不复制行为实现）。非空时在本菜单顶部保留 44px 布局
+    // 空间（按钮区 2+32+5=39px + 1px 分隔 + 4px 间距），并自管悬停/按下/
+    // 键盘焦点/触发/Tooltip；全部隐藏时不调用本函数，整行与下方分隔一并省略。
+    void setQuickActions(const QList<QAction *> &acts);
+    bool hasQuickArea() const { return !m_quick.isEmpty(); }
+    // 探针支持：把键盘焦点放到快捷区第 idx 个可用按钮（-1 清除）。
+    void setQuickFocus(int idx) { m_quickFocus = idx; }
+    // 探针支持：快捷区按钮矩形（菜单坐标）与绑定动作。
+    QRect quickButtonRect(int idx) const;
+    QList<QAction *> quickActions() const { return m_quick; }
+    // 与鼠标释放同一条触发路径（QAction::trigger + 关闭菜单）；公开给冒烟
+    // 探针模拟「从顶部触发」，不绕过任何行为实现。
+    void triggerQuick(int idx);
+
     QSize sizeHint() const override;
 
 protected:
     void paintEvent(QPaintEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
+    bool event(QEvent *event) override;
 
 private:
+    // 快捷区几何：按钮矩形（删除前短分隔占位）、短分隔 x、下方分隔线 y。
+    // 锚点取首条正文行的 actionGeometry（QSS padding 不进 contentsMargins，
+    // 以正文行布局为唯一真源，保证绘制/命中/正文三者严格一致）。
+    void quickGeometry(QVector<QRect> *buttons, int *sepX, int *sepBelowY) const;
+    int quickBodyTop() const;
+    int quickIndexAt(const QPoint &pos) const;
+
     int m_minWidth = 0;
+    QList<QAction *> m_quick;        // 顶部快捷区绑定的真实动作（顺序=固定顺序）
+    int m_quickHover = -1;           // 悬停按钮下标
+    int m_quickPressed = -1;         // 按下按钮下标
+    int m_quickFocus = -1;           // 键盘焦点按钮下标
 };
