@@ -28,343 +28,14 @@
 #include <QtMath>
 
 #include "ExifParser.h"
+#include "HudShell.h"
 #include "UiStyle.h"
-
-#ifdef Q_OS_WIN
-#  include <windows.h>   // SPI_GETCLIENTAREAANIMATION（减少动效检测）
-#endif
 
 using namespace UiStyle;   // 令牌直取：UiStyle::hud::xxx 以 hud::xxx 书写
 
-// ---------------------------------------------------------------------------
-// 盒式模糊：分离横向/纵向滑窗求和。passes=3 时近似高斯，半径取设计值的 1/2。
-// RGB32（背板采样，3 通道）与 ARGB32_Premultiplied（阴影轮廓，含 alpha 通道）
-// 都支持；premultiplied 各通道独立模糊仍满足预乘约束。小尺寸图都够快。
-// ---------------------------------------------------------------------------
-namespace {
-
-void boxBlurPass(const QImage &src, QImage &dst, int radius, bool horizontal)
-{
-    const int w = src.width();
-    const int h = src.height();
-    const int outer = horizontal ? h : w;
-    const int inner = horizontal ? w : h;
-    const int channels = src.format() == QImage::Format_ARGB32_Premultiplied ? 4 : 3;
-    for (int o = 0; o < outer; ++o) {
-        int sums[4] = {0, 0, 0, 0};
-        for (int i = -radius; i <= radius; ++i) {
-            const int x = qBound(0, i, inner - 1);
-            const uchar *px = horizontal ? src.constScanLine(o) + x * 4
-                                         : src.constScanLine(x) + o * 4;
-            for (int c = 0; c < channels; ++c) {
-                sums[c] += px[c];
-            }
-        }
-        for (int i = 0; i < inner; ++i) {
-            uchar *out = horizontal ? dst.scanLine(o) + i * 4
-                                    : dst.scanLine(i) + o * 4;
-            for (int c = 0; c < channels; ++c) {
-                out[c] = uchar(sums[c] / (radius * 2 + 1));
-            }
-            if (channels == 3) {
-                out[3] = 255;
-            }
-            const int addPos = qBound(0, i + radius + 1, inner - 1);
-            const int subPos = qBound(0, i - radius, inner - 1);
-            const uchar *add = horizontal ? src.constScanLine(o) + addPos * 4
-                                          : src.constScanLine(addPos) + o * 4;
-            const uchar *sub = horizontal ? src.constScanLine(o) + subPos * 4
-                                          : src.constScanLine(subPos) + o * 4;
-            for (int c = 0; c < channels; ++c) {
-                sums[c] += add[c] - sub[c];
-            }
-        }
-    }
-}
-
-QImage blurImage(const QImage &input, int radius, int passes)
-{
-    if (input.isNull() || radius <= 0) {
-        return input;
-    }
-    const bool premultiplied = input.format() == QImage::Format_ARGB32_Premultiplied;
-    QImage a = premultiplied ? input : input.convertToFormat(QImage::Format_RGB32);
-    QImage b(a.size(), a.format());
-    for (int p = 0; p < passes; ++p) {
-        boxBlurPass(a, b, radius, true);
-        boxBlurPass(b, a, radius, false);
-    }
-    return a;
-}
-
-} // namespace
-
-// ---------------------------------------------------------------------------
-// HUD 背板：面板最底层的子部件，画圆角底板 + 边界。
-// 磨砂材质开（UiStyle::blurMaterial，即设置页「磨砂材质（右键菜单与信息浮层）」）
-// 时对画布视口做区域渲染 → 盒式模糊 ≈20px → 再叠 #212121@91% 染色，亮暗画布
-// 上都有设计稿的材质感；关/采样不可用时回退 #242424 实底（不退回蓝灰蓝紫）。
-// 采样在事件循环里异步做（画布每次 Paint 只标记脏 + 120ms 节流），paintEvent
-// 里绝不递归 render；GIF 连续帧重绘自动合并成 ~8 次/秒的重采样。
-// ---------------------------------------------------------------------------
-class HudBackdrop : public QWidget
-{
-public:
-    explicit HudBackdrop(QWidget *parent) : QWidget(parent)
-    {
-        m_resampleTimer.setSingleShot(true);
-        m_resampleTimer.setInterval(120);
-        connect(&m_resampleTimer, &QTimer::timeout, this, &HudBackdrop::resample);
-        setAttribute(Qt::WA_NoSystemBackground, true);
-    }
-
-    void setSource(QWidget *src)
-    {
-        if (m_source) {
-            m_source->removeEventFilter(this);
-        }
-        m_source = src;
-        if (m_source) {
-            m_source->installEventFilter(this);
-        }
-        invalidate();
-    }
-
-    void invalidate()
-    {
-        m_dirty = true;
-        if (!m_resampleTimer.isActive()) {
-            m_resampleTimer.start();
-        }
-    }
-
-protected:
-    bool eventFilter(QObject *watched, QEvent *event) override
-    {
-        if (watched == m_source && event->type() == QEvent::Paint) {
-            invalidate();   // 画布换图/缩放/平移/动画帧都经 Paint 事件到这里
-        }
-        return QWidget::eventFilter(watched, event);
-    }
-
-    void paintEvent(QPaintEvent *) override
-    {
-        QPainter p(this);
-        p.setRenderHint(QPainter::Antialiasing, true);
-        const QRectF rc = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
-        QPainterPath clip;
-        clip.addRoundedRect(rc, hud::Radius, hud::Radius);
-
-        p.save();
-        p.setClipPath(clip);
-        p.fillRect(rect(), hud::plateSolid());
-        if (!m_blurred.isNull()) {
-            // 采样图带 DPR，drawImage 按逻辑尺寸落位；面板超出画布的部分保持实底
-            p.setRenderHint(QPainter::SmoothPixmapTransform, true);
-            p.drawImage(QPointF(m_sampleOffset), m_blurred);
-        }
-        p.fillRect(rect(), hud::plateTint());
-        p.restore();
-
-        p.setPen(QPen(hud::border(), 1));
-        p.setBrush(Qt::NoBrush);
-        p.drawPath(clip);
-    }
-
-private:
-    void resample()
-    {
-        m_dirty = false;
-        if (!UiStyle::blurMaterial() || !m_source || !isVisible() || !m_source->isVisible()) {
-            return;
-        }
-        // 面板矩形（兄弟部件，经共同顶层窗口换算）→ 视口坐标，取交集防越界
-        QWidget *win = m_source->window();
-        const QPoint panelTl = mapTo(win, QPoint(0, 0));
-        const QPoint srcTl = m_source->mapFrom(win, panelTl);
-        QRect src(QRect(srcTl, size()).intersected(m_source->rect()));
-        if (src.isEmpty()) {
-            m_blurred = QImage();
-            update();
-            return;
-        }
-        const qreal dpr = devicePixelRatioF();
-        QImage sample(int(src.width() * dpr) + 1, int(src.height() * dpr) + 1,
-                      QImage::Format_RGB32);
-        sample.setDevicePixelRatio(dpr);
-        sample.fill(QColor(0x20, 0x20, 0x20));
-        QPainter sp(&sample);
-        m_source->render(&sp, QPoint(0, 0), QRegion(src));
-        sp.end();
-
-        // 模糊半径按 DPR 放大，视觉上保持 ~20 逻辑像素
-        m_blurred = blurImage(sample, qMax(2, qRound(hud::BackdropBlur * dpr / 2.0)), 3);
-        m_sampleOffset = src.topLeft() - srcTl;
-        update();
-    }
-
-    QTimer m_resampleTimer;
-    QPointer<QWidget> m_source;
-    QImage m_blurred;
-    QPoint m_sampleOffset;
-    bool m_dirty = false;
-};
-
-// ---------------------------------------------------------------------------
-// HUD 常驻特效：静息只画缓存投影（向下 5 / 模糊 18 / 黑 33%）；开启动效期间
-// progress 0→1 同步淡入，并以左上为原点从 0.99 缩放回 1。关闭淡出只动 progress。
-// 投影由圆角矩形轮廓模糊而来（面板形状固定，尺寸变了才重建一次）。
-// ---------------------------------------------------------------------------
-class HudEffect : public QGraphicsEffect
-{
-public:
-    explicit HudEffect(QObject *parent = nullptr) : QGraphicsEffect(parent) {}
-
-    void setProgress(qreal v)
-    {
-        m_progress = qBound(0.0, v, 1.0);
-        update();
-    }
-    qreal progress() const { return m_progress; }
-    void setScaleOn(bool on) { m_scaleOn = on; }
-    void invalidateShadow() { m_shadow = QImage(); update(); }
-
-protected:
-    QRectF boundingRectFor(const QRectF &r) const override
-    {
-        const qreal pad = hud::ShadowBlur + 2;
-        return r.adjusted(-pad, -pad, pad, pad + hud::ShadowDy);
-    }
-
-    void draw(QPainter *painter) override
-    {
-        const QRectF src = sourceBoundingRect();
-        if (src.isEmpty()) {
-            return;
-        }
-        rebuildShadow(src, painter);
-        painter->save();
-        painter->setOpacity(m_progress);
-        if (!m_shadow.isNull()) {
-            // 投影轮廓比面板大一圈 pad，落位时对齐面板顶点再向下偏移
-            painter->drawImage(QPointF(src.left() - m_pad, src.top() - m_pad + hud::ShadowDy),
-                               m_shadow);
-        }
-        if (m_scaleOn && m_progress < 1.0) {
-            const qreal s = 0.99 + 0.01 * m_progress;
-            painter->translate(src.topLeft());
-            painter->scale(s, s);
-            painter->translate(-src.topLeft());
-        }
-        drawSource(painter);
-        painter->restore();
-    }
-
-private:
-    void rebuildShadow(const QRectF &src, QPainter *painter)
-    {
-        const qreal dpr = painter->device() ? painter->device()->devicePixelRatioF() : 1.0;
-        const qreal keyW = src.width() * 1000.0 + dpr;
-        const qreal keyH = src.height() * 1000.0 + dpr;
-        if (!m_shadow.isNull() && keyW == m_keyW && keyH == m_keyH) {
-            return;
-        }
-        m_keyW = keyW;
-        m_keyH = keyH;
-        m_pad = int(qCeil(hud::ShadowBlur * dpr)) + 2;
-        QImage silhouette(int(src.width() * dpr) + m_pad * 2, int(src.height() * dpr) + m_pad * 2,
-                          QImage::Format_ARGB32_Premultiplied);
-        silhouette.setDevicePixelRatio(dpr);
-        silhouette.fill(Qt::transparent);
-        {
-            QPainter sp(&silhouette);
-            sp.setRenderHint(QPainter::Antialiasing, true);
-            const QRectF panelRect(m_pad, m_pad, src.width() * dpr, src.height() * dpr);
-            QPainterPath path;
-            path.addRoundedRect(panelRect, hud::Radius * dpr, hud::Radius * dpr);
-            sp.fillPath(path, QColor(0, 0, 0));
-        }
-        // 盒式模糊作用在 ARGB32_Premultiplied 的 alpha 上；三遍近高斯
-        m_shadow = blurImage(silhouette, qMax(2, qRound(hud::ShadowBlur * dpr / 2.0)), 3);
-        // 黑色 33%：轮廓 alpha 压到峰值 33%，RGB 归零（premultiplied 黑）。
-        uchar *bits = m_shadow.bits();
-        for (int i = 0; i < m_shadow.sizeInBytes(); i += 4) {
-            bits[i + 0] = 0;
-            bits[i + 1] = 0;
-            bits[i + 2] = 0;
-            bits[i + 3] = uchar(bits[i + 3] * 0.33);
-        }
-    }
-
-    QImage m_shadow;
-    qreal m_keyW = -1;
-    qreal m_keyH = -1;
-    qreal m_progress = 1.0;
-    bool m_scaleOn = false;
-    int m_pad = 0;
-};
-
-// ---------------------------------------------------------------------------
-// 标题栏 28×28 热区按钮（复制 / 关闭）：自绘悬停底、按下加深与键盘焦点环。
-// 焦点环只在键盘导航（Tab/Backtab/Shortcut 焦点原因）时出现，见
-// MetadataPanel::updateFocusProperty；鼠标点击不取焦点（TabFocus 策略），
-// 画布焦点得以保留。
-// ---------------------------------------------------------------------------
-class HudToolButton : public QPushButton
-{
-public:
-    enum Glyph { Close, Copy };
-
-    HudToolButton(Glyph glyph, const QString &tip, QWidget *parent = nullptr)
-        : QPushButton(parent), m_glyph(glyph)
-    {
-        setObjectName(QStringLiteral("hudToolBtn"));
-        setFixedSize(hud::ToolBtn, hud::ToolBtn);
-        setToolTip(tip);
-        setCursor(Qt::PointingHandCursor);
-        setFocusPolicy(Qt::TabFocus);
-    }
-
-protected:
-    void paintEvent(QPaintEvent *) override
-    {
-        QPainter p(this);
-        p.setRenderHint(QPainter::Antialiasing, true);
-        const QRectF rc = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
-        if (isDown() || underMouse()) {
-            QPainterPath bg;
-            bg.addRoundedRect(rc, 6, 6);
-            p.fillPath(bg, QColor(255, 255, 255, isDown() ? 34 : 18));
-        }
-        if (property("kbdFocus").toBool()) {
-            QPainterPath ring;
-            ring.addRoundedRect(rc, 6, 6);
-            p.setPen(QPen(hud::focusRing(), 1.5));
-            p.setBrush(Qt::NoBrush);
-            p.drawPath(ring);
-        }
-
-        QColor ink = underMouse() || isDown() ? hud::valText() : QColor(0xc9, 0xc9, 0xc9);
-        QPen pen(ink, 1.5);
-        pen.setCapStyle(Qt::RoundCap);
-        pen.setJoinStyle(Qt::RoundJoin);
-        p.setPen(pen);
-        p.setBrush(Qt::NoBrush);
-
-        const QPointF c = rect().center();
-        if (m_glyph == Close) {
-            p.drawLine(c + QPointF(-4.5, -4.5), c + QPointF(4.5, 4.5));
-            p.drawLine(c + QPointF(4.5, -4.5), c + QPointF(-4.5, 4.5));
-        } else {
-            // 两张叠纸（沿用旧复制图标语义）：后纸在右上，前纸在左下
-            p.drawRoundedRect(QRectF(c.x() - 5.5, c.y() - 2.0, 7.5, 8.0), 1.5, 1.5);
-            p.drawRoundedRect(QRectF(c.x() - 2.0, c.y() - 6.0, 7.5, 8.0), 1.5, 1.5);
-        }
-    }
-
-private:
-    Glyph m_glyph;
-};
+// 背板（HudBackdrop）/ 投影特效（HudEffect）/ 28×28 标题栏按钮（HudToolButton）
+// 与开合动效在 HudShell.h/.cpp：信息浮层与图层浮层共用同一套外壳标准
+//（派单 2026-11-14「浮层标准统一」）。
 
 // ---------------------------------------------------------------------------
 // 可换行值标签：值列不省略，长文件名/长 GPS 允许 WrapAnywhere 折成多行读全；
@@ -1058,45 +729,8 @@ void MetadataPanel::renderHistogram(const QImage &image)
 }
 
 // ---------------------------------------------------------------------------
-// 显隐语义与动效
+// 显隐语义与动效（开/关动画与图层浮层共用 HudShell 同一套）
 // ---------------------------------------------------------------------------
-
-bool MetadataPanel::reduceMotion()
-{
-#ifdef Q_OS_WIN
-    BOOL enabled = TRUE;
-    if (SystemParametersInfo(SPI_GETCLIENTAREAANIMATION, 0, &enabled, 0) && !enabled) {
-        return true;   // 系统「减少动效」开启：直接切换，不播缩放/淡入
-    }
-#endif
-    return false;
-}
-
-void MetadataPanel::startOpenAnimation()
-{
-    if (!m_effect || reduceMotion()) {
-        return;
-    }
-    // 开 110ms：透明度 0→1 + 缩放 0.99→1（原点左上），无平移/上抬/弹跳
-    auto *anim = new QVariantAnimation(this);
-    anim->setDuration(110);
-    anim->setStartValue(0.0);
-    anim->setEndValue(1.0);
-    anim->setEasingCurve(QEasingCurve::OutCubic);
-    connect(anim, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
-        if (m_effect) {
-            m_effect->setScaleOn(true);
-            m_effect->setProgress(v.toDouble());
-        }
-    });
-    connect(anim, &QVariantAnimation::finished, this, [this]() {
-        if (m_effect) {
-            m_effect->setScaleOn(false);
-            m_effect->setProgress(1.0);
-        }
-    });
-    anim->start(QAbstractAnimation::DeleteWhenStopped);
-}
 
 void MetadataPanel::showHud()
 {
@@ -1111,41 +745,15 @@ void MetadataPanel::dismiss()
     }
     m_closing = true;   // 先立旗：closed() 连锁的 setChecked(false) 再进 dismiss 会早退
     emit closed();
-    if (reduceMotion() || !m_effect) {
-        m_closing = false;
-        setVisible(false);
-        return;
-    }
-    // 关 85ms：仅淡出，无位移
-    auto *anim = new QVariantAnimation(this);
-    anim->setDuration(85);
-    anim->setStartValue(1.0);
-    anim->setEndValue(0.0);
-    anim->setEasingCurve(QEasingCurve::Linear);
-    connect(anim, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
-        if (m_effect) {
-            m_effect->setScaleOn(false);
-            m_effect->setProgress(v.toDouble());
-        }
-    });
-    connect(anim, &QVariantAnimation::finished, this, [this]() {
-        m_closing = false;
-        setVisible(false);
-        if (m_effect) {
-            m_effect->setProgress(1.0);   // 复位，下次 showEvent 重新播开启动效
-        }
-    });
-    anim->start(QAbstractAnimation::DeleteWhenStopped);
+    // 关 85ms：仅淡出，无位移；完成（含减少动效直切）时复位 closing 旗
+    hudAnimateDismiss(this, m_effect, [this]() { m_closing = false; });
 }
 
 void MetadataPanel::hideNow()
 {
     const bool wasVisible = isVisible();
     m_closing = false;
-    for (auto *anim : findChildren<QVariantAnimation *>()) {
-        anim->stop();
-        anim->deleteLater();
-    }
+    hudStopAnimations(this);
     if (m_effect) {
         m_effect->setScaleOn(false);
         m_effect->setProgress(1.0);
@@ -1167,7 +775,7 @@ void MetadataPanel::showEvent(QShowEvent *event)
     if (m_backdrop) {
         m_backdrop->invalidate();   // 面板位置/画布内容都可能变了
     }
-    startOpenAnimation();
+    hudAnimateShow(this, m_effect);
 }
 
 void MetadataPanel::resizeEvent(QResizeEvent *event)

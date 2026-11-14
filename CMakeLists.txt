@@ -48,6 +48,8 @@ add_executable(quikview WIN32
     src/HeifLoader.h
     src/MetadataPanel.cpp
     src/MetadataPanel.h
+    src/HudShell.cpp
+    src/HudShell.h
     src/ExifParser.cpp
     src/ExifParser.h
     src/Wallpaper.cpp

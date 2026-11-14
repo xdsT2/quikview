@@ -27,6 +27,8 @@ set(_smoke "${${_prefix}_SMOKE}")
 set(_exp1 "${${_prefix}_EXPECT1}")
 set(_exp2 "${${_prefix}_EXPECT2}")
 set(_extra_files "${${_prefix}_FILES}")
+# 可选 PSD 夹具（相对源码根，须版本管理内）：图层浮层类用例用它做被打开文件。
+set(_psd "${${_prefix}_PSD}")
 
 set(_case_dir "${QUIKVIEW_WORK_ROOT}/${QUIKVIEW_CASE}")
 file(MAKE_DIRECTORY "${_case_dir}/images")
@@ -43,6 +45,18 @@ list(GET _fixture_images 0 _first_image)
 get_filename_component(_image_name "${_first_image}" NAME)
 set(_image "${_case_dir}/images/${_image_name}")
 file(TO_NATIVE_PATH "${_image}" _image_native)
+
+# PSD 用例：被打开文件换成声明的分层 PSD（仍复制进用例目录，保持独占工作区）。
+set(_open_native "${_image_native}")
+if(_psd)
+    set(_psd_src "${QUIKVIEW_SOURCE_DIR}/${_psd}")
+    if(NOT EXISTS "${_psd_src}")
+        message(FATAL_ERROR "PSD 夹具缺失：${_psd_src}")
+    endif()
+    file(COPY "${_psd_src}" DESTINATION "${_case_dir}")
+    get_filename_component(_psd_name "${_psd_src}" NAME)
+    file(TO_NATIVE_PATH "${_case_dir}/${_psd_name}" _open_native)
+endif()
 
 if(CMAKE_HOST_WIN32)
     set(_path_sep ";")
@@ -111,7 +125,7 @@ function(qv_try attempt)
     # 经 PowerShell Start-Process 以正常显示状态启动即可复现真实交互环境。
     if(CMAKE_HOST_WIN32)
         set(_ps_exe "${QUIKVIEW_EXE}")
-        set(_ps_image "${_image_native}")
+        set(_ps_image "${_open_native}")
         set(_ps_smoke "${_smoke}")
         set(_ps_shot "${_shot_native}")
         set(_ps_dir "${_dir}")
@@ -133,7 +147,7 @@ function(qv_try attempt)
             TIMEOUT 60)
     else()
         execute_process(
-            COMMAND "${QUIKVIEW_EXE}" "${_image_native}"
+            COMMAND "${QUIKVIEW_EXE}" "${_open_native}"
                     --smoke "${_smoke}"
                     --screenshot "${_shot_native}"
                     --shot-delay "${_shot_delay}"

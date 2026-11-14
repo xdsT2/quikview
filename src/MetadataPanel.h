@@ -101,8 +101,6 @@ private:
     void finishLayout();   // 组装完 grid 后算宽度/行高
     void updateHeights();   // 确定性总高：键值 grid + 标题栏 + 直方图逐项求和
     void renderHistogram(const QImage &image);
-    void startOpenAnimation();
-    static bool reduceMotion();
     void updateFocusProperty(QObject *watched, QEvent *event);
 
     QStringList m_copyLines;     // 与界面行序一致的「键: 值」文本（组间为空行）

@@ -34,6 +34,7 @@ set(QUIKVIEW_CHROME_CASES
     filmstrip_context_menu
     hud_tab_toggle
     hud_esc_priority
+    hud_layer_esc_priority
     hud_deactivate
     hud_hist_fold_persist
     ctxmenu_default_grouping
@@ -162,6 +163,17 @@ quikview_chrome_case(hud_hist_fold_persist
     "hover:540:400,info,histtoggle,report,next,report"
     "hud=1;hudfold=1;menuhud=1"
     "hud=1;hudfold=1;menuhud=1")
+
+# ===========================================================================
+# PSD 图层浮层（浮层标准统一 2026-11-14）：全屏打开图层浮层后，第一次 Esc 只
+# 收起浮层（layers=1→0）且窗口保持全屏（winstate=8→8）——改前 Esc 会直接退出
+# 全屏。用例夹具用版本管理内的分层 PSD（走 _PSD 通道，见 isolation 脚本）。
+# ===========================================================================
+quikview_chrome_case(hud_layer_esc_priority
+    "hover:540:400,fullscreen,layers,report,esc,report"
+    "layers=1;hud=0;winstate=4"
+    "layers=0;hud=0;winstate=4")
+set(QV_CASE_hud_layer_esc_priority_PSD "shell-ext/testdata/test-thumb.psd")
 
 # ===========================================================================
 # 应用内右键菜单（2026-11-14 全量配置修订）：三层收纳结构回归

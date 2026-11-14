@@ -11,6 +11,7 @@
 #include <QSizePolicy>
 #include <QVBoxLayout>
 
+#include "HudShell.h"
 #include "UiStyle.h"
 
 namespace {
@@ -149,26 +150,35 @@ LayerPanel::LayerPanel(QWidget *parent)
     : QWidget(parent)
 {
     setObjectName(QStringLiteral("layerPanel"));
-    setAttribute(Qt::WA_StyledBackground, true);   // 否则 QWidget 不按 QSS 绘制底板
     setFixedWidth(248);
     setStyleSheet(UiStyle::panelQss());
 
+    // 外壳与信息浮层同源（HudShell）：磨砂底板 + 缓存投影 + 12px 圆角 +
+    // 1px 边界。底板由 HudBackdrop 自绘，本体透明，QSS 只管内容行与文字。
+    m_backdrop = new HudBackdrop(this);
+    m_backdrop->setGeometry(rect());
+    m_backdrop->lower();
+
     auto *root = new QVBoxLayout(this);
-    root->setContentsMargins(8, 6, 8, 8);
+    root->setContentsMargins(UiStyle::hud::PadH, UiStyle::hud::PadTop,
+                             UiStyle::hud::PadH, UiStyle::hud::PadBottom);
     root->setSpacing(4);
 
+    // —— 标题栏（30px）：「图层」左，关闭 28×28 热区右（信息浮层同款）——
     auto *header = new QWidget(this);
     header->setObjectName(QStringLiteral("layerPanelHead"));
+    header->setFixedHeight(UiStyle::hud::TitleH);
     auto *hl = new QHBoxLayout(header);
-    hl->setContentsMargins(6, 0, 0, 2);
+    hl->setContentsMargins(0, 0, 0, 0);
+    hl->setSpacing(2);
     auto *title = new QLabel(tr("图层"), header);
     title->setObjectName(QStringLiteral("panelTitle"));
+    QFont titleFont = UiStyle::font(14);
+    titleFont.setWeight(QFont::DemiBold);
+    title->setFont(titleFont);
     hl->addWidget(title);
     hl->addStretch(1);
-    auto *close = new QPushButton(QStringLiteral("✕"), header);
-    close->setObjectName(QStringLiteral("layerPanelClose"));
-    close->setFixedSize(24, 24);
-    close->setCursor(Qt::PointingHandCursor);
+    auto *close = new HudToolButton(HudToolButton::Close, tr("关闭 (Tab)"), header);
     connect(close, &QPushButton::clicked, this, &LayerPanel::closeRequested);
     hl->addWidget(close);
     root->addWidget(header);
@@ -197,6 +207,62 @@ LayerPanel::LayerPanel(QWidget *parent)
     m_hint->setContentsMargins(8, 6, 8, 6);
     m_hint->hide();
     root->addWidget(m_hint);
+
+    // 常驻特效：静息只画缓存投影（信息浮层同款，下 5 / 模糊 18 / 黑 33%）
+    m_effect = new HudEffect(this);
+    setGraphicsEffect(m_effect);
+}
+
+void LayerPanel::setBackdropSource(QWidget *canvasViewport)
+{
+    if (m_backdrop) {
+        m_backdrop->setSource(canvasViewport);
+    }
+}
+
+void LayerPanel::showHud()
+{
+    m_closing = false;
+    setVisible(true);
+    raise();
+}
+
+void LayerPanel::dismiss()
+{
+    if (m_closing || !isVisible()) {
+        return;
+    }
+    m_closing = true;
+    hudAnimateDismiss(this, m_effect, [this]() { m_closing = false; });
+}
+
+void LayerPanel::hideNow()
+{
+    m_closing = false;
+    hudStopAnimations(this);
+    if (m_effect) {
+        m_effect->setScaleOn(false);
+        m_effect->setProgress(1.0);
+    }
+    setVisible(false);
+}
+
+void LayerPanel::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+    if (m_backdrop) {
+        m_backdrop->invalidate();   // 面板位置/画布内容都可能变了
+    }
+    hudAnimateShow(this, m_effect);
+}
+
+void LayerPanel::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    if (m_backdrop) {
+        m_backdrop->setGeometry(rect());
+        m_backdrop->invalidate();
+    }
 }
 
 QVector<int> LayerPanel::visibleLayerIndexes() const
@@ -245,8 +311,10 @@ QVector<int> LayerPanel::visibleLayerIndexes() const
 int LayerPanel::preferredHeight() const
 {
     // 与 rebuild() 共用同一份可见行判定，不再复制一遍折叠逻辑。
+    // 固定开销 = PadTop9 + 标题栏30 + 间距4 + 整图32 + 间距4 + PadBottom11 = 90
+    //（外壳统一后与信息浮层同款内边距；简化提示行另加 ~44）。
     const int rows = visibleLayerIndexes().size();
-    int h = 84 + rows * 34 + (m_simplified ? 44 : 0);
+    int h = 90 + rows * 34 + (m_simplified ? 44 : 0);
     return qBound(180, h, 620);
 }
 
