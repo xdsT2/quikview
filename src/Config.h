@@ -111,6 +111,14 @@ public:
     // 上下文菜单
     bool contextCopy() const;          // 复制到剪贴板启用
 
+    // 应用内右键菜单可见性（键 config/appmenu/<id>；目录与默认值唯一来源是
+    // MenuCatalog.h）。缺键 = 首次安装 / 旧配置 / 恢复默认，一律按目录默认表出值。
+    // 只保存父级总开关与可配置的一级单命令开关；末级子命令随父项整体显隐。
+    bool appMenuVisible(const QString &id) const;
+    // 「恢复默认菜单」：清掉全部 config/appmenu/* 键（只重置上下文菜单可见性，
+    // 不动浏览模式、快捷键、图像效果等其他设置）。
+    void resetAppMenuVisibility();
+
     // 收藏与最近打开
     QStringList favorites() const;
     QStringList recentFiles() const;

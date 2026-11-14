@@ -69,6 +69,14 @@ public:
     // settingsctx:<leaf>）。与真实鼠标点击同一条 PillToggle::toggled →
     // writeValues 链路，供资源管理器右键验收驱动设置页开关。
     void probeCtxToggle(const QString &leaf);
+    // 应用内右键菜单可见性探针（--smoke appmenu:<id>[,<id>…] / appmenureset）：
+    // 切到上下文菜单页后依次点击可见性开关（accessibleName = appmenu.<id>）
+    // 或「恢复默认菜单」按钮，供「父关子灰 / 恢复默认」状态截图与回归验证。
+    void probeAppMenuToggle(const QString &ids);
+    void probeAppMenuReset();
+    // probeAppMenuPageGrab(out)：切到上下文菜单页后把整页内容渲染落盘
+    // （grab 不受滚动视口裁剪，长图一次拿全）。
+    void probeAppMenuPageGrab(const QString &out);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -125,6 +133,11 @@ private:
     void buildMousePage(QWidget *page);
     void buildBookmarkPage(QWidget *page);
     void buildContextMenuPage(QWidget *page);
+    // 上下文菜单页的应用内右键菜单可见性区（2026-11-14 全量配置修订）：
+    // 打开与定位 / 常用动作 / 任务菜单 / 图像处理 / 文件操作 / 危险操作 / 应用
+    // 七段 + 列表开头的「恢复默认菜单」；资源管理器集成只读区仍由
+    // buildContextMenuPage 照原有字段排在末尾。
+    void buildAppMenuSections(QWidget *page);
     void buildEtcPage(QWidget *page);
     void buildLangPage(QWidget *page);
 

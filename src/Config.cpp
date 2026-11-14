@@ -1,5 +1,7 @@
 #include "Config.h"
 
+#include "MenuCatalog.h"
+
 #include <new>
 
 #include <QCoreApplication>
@@ -470,6 +472,30 @@ bool Config::sortDescending() const
 bool Config::contextCopy() const
 {
     return m_settings.value(QStringLiteral("config/context_copy"), true).toBool();
+}
+
+bool Config::appMenuVisible(const QString &id) const
+{
+    // 缺键（首次安装 / 旧配置 / 恢复默认）一律按 MenuCatalog 默认表出值；
+    // 未知 id 视为不可见，避免拼错的键意外展开整组命令。
+    const AppMenu::Node *node = AppMenu::find(id);
+    if (!node) {
+        return false;
+    }
+    const QString key = QStringLiteral("config/appmenu/") + id;
+    if (!m_settings.contains(key)) {
+        return node->defOn;
+    }
+    return m_settings.value(key, node->defOn).toBool();
+}
+
+void Config::resetAppMenuVisibility()
+{
+    // 恢复默认菜单 = 清键回到目录默认表；只重置上下文菜单可见性，
+    // 浏览模式、快捷键、图像效果等其他设置一律不动。
+    // remove 整组：嵌套子键一次清掉，也不受 ini 转义残键的影响。
+    m_settings.remove(QStringLiteral("config/appmenu"));
+    m_settings.sync();
 }
 
 bool Config::checkUpdatesOnStartup() const

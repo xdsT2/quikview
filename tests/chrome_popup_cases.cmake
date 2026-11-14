@@ -36,6 +36,7 @@ set(QUIKVIEW_CHROME_CASES
     hud_esc_priority
     hud_deactivate
     hud_hist_fold_persist
+    ctxmenu_default_grouping
 )
 
 # 合成光标固定在窗口中央（1080x815），既不在顶栏 76px 热区，也不在底部 124px 热区。
@@ -161,3 +162,15 @@ quikview_chrome_case(hud_hist_fold_persist
     "hover:540:400,info,histtoggle,report,next,report"
     "hud=1;hudfold=1;menuhud=1"
     "hud=1;hudfold=1;menuhud=1")
+
+# ===========================================================================
+# 应用内右键菜单（2026-11-14 全量配置修订）：三层收纳结构回归
+# ===========================================================================
+
+# 菜单必须真的弹出且不是顶栏菜单；结构报告（Temp/ctxmenu-report.txt）递归
+# 导出首层与各层子菜单的标签/勾选/单选/可用态与几何，逐项验收用它断言。
+quikview_chrome_case(ctxmenu_default_grouping
+    "hover:540:400,ctxmenu,report"
+    "popup=1;popuptop=0;dock=0;dockvis=0;dockop=0.00;top=0"
+    ""
+    "Temp/ctxmenu-report.txt")

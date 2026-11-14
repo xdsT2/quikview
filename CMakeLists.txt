@@ -58,6 +58,11 @@ add_executable(quikview WIN32
     src/PillToggle.h
     src/Chrome.cpp
     src/Chrome.h
+    src/CtxMenu.cpp
+    src/CtxMenu.h
+    src/MenuIcons.cpp
+    src/MenuIcons.h
+    src/MenuCatalog.h
     src/BatchConvertDialog.cpp
     src/BatchConvertDialog.h
     src/GammaDialog.cpp
