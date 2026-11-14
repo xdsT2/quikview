@@ -9,7 +9,7 @@ QuikView is an open-source Windows image viewer with folder navigation, two-page
 
 > **Windows x64 downloads** · Choose the installer or portable ZIP from the [latest release](https://github.com/xdsT2/quikview/releases/latest). Extract and run the portable version without installing Qt.
 
-> **0.5.0** adds a zoom capsule, a PSD layer panel, and a redesigned image-info HUD; thumbnails now use a horizontal filmstrip, all 11 settings pages share one layout, and fixes cover the misleading HDR toggle, formats failing to open, and side double-click maximizing the window. See the [release notes](https://github.com/xdsT2/quikview/releases/tag/v0.5.0).
+> **0.5.1** adds an image-loading indicator and configurable Explorer context-menu entries, opens .heif/.hif directly and accepts HEIC/AVIF input in batch conversion; the canvas background now offers checker/solid modes with transparency indication and an image shadow, and UI color tokens are unified. Also fixes HEIF decoding in non-ASCII folders and stale shell-extension DLLs after an upgrade. See the [release notes](https://github.com/xdsT2/quikview/releases/tag/v0.5.1).
 
 ![QuikView main window: top strip and bottom control capsule floating over the photo](docs/screenshots/01-main.webp)
 
