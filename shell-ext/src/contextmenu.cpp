@@ -136,9 +136,11 @@ void FormatSize(ULONGLONG bytes, wchar_t* out, int cch) {
 
 QuikContextMenu::QuikContextMenu()
     : m_ref(1), m_hasFile(false),
-      m_iconBmp(nullptr), m_thumbBmp(nullptr), m_thumbW(0), m_thumbH(0) {
+      m_iconBmp(nullptr), m_thumbBmp(nullptr), m_thumbW(0), m_thumbH(0),
+      m_visibleCount(0) {
     m_file[0] = L'\0';
     m_infoText[0] = L'\0';
+    m_idMap[0] = m_idMap[1] = m_idMap[2] = -1;
     DllAddLock();
 }
 
@@ -218,8 +220,27 @@ STDMETHODIMP QuikContextMenu::QueryContextMenu(HMENU hmenu, UINT indexMenu,
                                                UINT uFlags) {
     try {
         if (!hmenu) return E_INVALIDARG;
+        // 同实例重复弹菜单：上一轮的位图/文案/ID 表必须清零，否则偏好切换后
+        // 残留旧产物（实测 info 关了还带尺寸后缀、图标关了还挂位图）
+        ReleaseBitmaps();
+        m_iconBmp = nullptr;
+        m_thumbBmp = nullptr;
+        m_thumbW = m_thumbH = 0;
+        m_infoText[0] = L'\0';
+        m_idMap[0] = m_idMap[1] = m_idMap[2] = -1;
+        m_visibleCount = 0;
         if ((uFlags & CMF_DEFAULTONLY) || !m_hasFile ||
             !HasSupportedExt(m_file)) {
+            return MAKE_HRESULT(SEVERITY_SUCCESS, 0, 0);
+        }
+
+        // —— 菜单偏好：每次现读（设置页改动在下一次弹菜单生效，无需重装）——
+        const QuikMenuPrefs prefs = QuikLoadMenuPrefs();
+        if (!prefs.master) {
+            return MAKE_HRESULT(SEVERITY_SUCCESS, 0, 0);
+        }
+        // 三条可用入口全关时：不插分隔线、不占命令 ID，直接返回
+        if (!prefs.browse && !prefs.convert && !prefs.preview) {
             return MAKE_HRESULT(SEVERITY_SUCCESS, 0, 0);
         }
         if (idCmdFirst + CMD_COUNT > idCmdLast) {
@@ -228,37 +249,41 @@ STDMETHODIMP QuikContextMenu::QueryContextMenu(HMENU hmenu, UINT indexMenu,
 
         const ULONGLONG t0 = GetTickCount64();
 
-        // —— B1：菜单项小图标（资源内嵌，不加载 exe）——
-        HICON hIcon = LoadIconW(DllGetModule(), MAKEINTRESOURCEW(101));
-        m_iconBmp = IconToBitmap(hIcon, 32, 32);
+        // —— B1：菜单项小图标（资源内嵌，不加载 exe；show_icon 关时省略）——
+        if (prefs.icon) {
+            HICON hIcon = LoadIconW(DllGetModule(), MAKEINTRESOURCEW(101));
+            m_iconBmp = IconToBitmap(hIcon, 32, 32);
+        }
 
-        // —— B2：单选图「宽×高 · 文件大小」——
-        if (IWICImagingFactory* fac = WicFactory()) {
-            ComPtr<IWICBitmapDecoder> decoder;
-            if (SUCCEEDED(fac->CreateDecoderFromFilename(
-                        m_file, nullptr, GENERIC_READ,
-                        WICDecodeMetadataCacheOnDemand, &decoder))) {
-                ComPtr<IWICBitmapFrameDecode> frame;
-                if (SUCCEEDED(decoder->GetFrame(0, &frame))) {
-                    UINT w = 0, h = 0;
-                    if (SUCCEEDED(frame->GetSize(&w, &h)) && w && h) {
-                        LARGE_INTEGER sz = {};
-                        HANDLE hf = CreateFileW(m_file, GENERIC_READ, FILE_SHARE_READ,
-                                                nullptr, OPEN_EXISTING, 0, nullptr);
-                        if (hf != INVALID_HANDLE_VALUE) {
-                            GetFileSizeEx(hf, &sz);
-                            CloseHandle(hf);
+        // —— B2：单选图「宽×高 · 文件大小」（show_info 关时跳过解码）——
+        if (prefs.info) {
+            if (IWICImagingFactory* fac = WicFactory()) {
+                ComPtr<IWICBitmapDecoder> decoder;
+                if (SUCCEEDED(fac->CreateDecoderFromFilename(
+                            m_file, nullptr, GENERIC_READ,
+                            WICDecodeMetadataCacheOnDemand, &decoder))) {
+                    ComPtr<IWICBitmapFrameDecode> frame;
+                    if (SUCCEEDED(decoder->GetFrame(0, &frame))) {
+                        UINT w = 0, h = 0;
+                        if (SUCCEEDED(frame->GetSize(&w, &h)) && w && h) {
+                            LARGE_INTEGER sz = {};
+                            HANDLE hf = CreateFileW(m_file, GENERIC_READ, FILE_SHARE_READ,
+                                                    nullptr, OPEN_EXISTING, 0, nullptr);
+                            if (hf != INVALID_HANDLE_VALUE) {
+                                GetFileSizeEx(hf, &sz);
+                                CloseHandle(hf);
+                            }
+                            wchar_t sizeStr[48] = {};
+                            FormatSize(sz.QuadPart, sizeStr, _countof(sizeStr));
+                            wsprintfW(m_infoText, L"%u×%u · %s", w, h, sizeStr);
                         }
-                        wchar_t sizeStr[48] = {};
-                        FormatSize(sz.QuadPart, sizeStr, _countof(sizeStr));
-                        wsprintfW(m_infoText, L"%u×%u · %s", w, h, sizeStr);
                     }
                 }
             }
         }
 
-        // —— B3：自绘缩略图（≤256px，超 50ms 预算就放弃）——
-        if (GetTickCount64() - t0 <= kDecodeBudgetMs) {
+        // —— B3：自绘缩略图（≤256px，超 50ms 预算就放弃；show_preview 关时跳过）——
+        if (prefs.preview && GetTickCount64() - t0 <= kDecodeBudgetMs) {
             if (IWICImagingFactory* fac = WicFactory()) {
                 ComPtr<IWICBitmapDecoder> decoder;
                 if (SUCCEEDED(fac->CreateDecoderFromFilename(
@@ -316,6 +341,24 @@ STDMETHODIMP QuikContextMenu::QueryContextMenu(HMENU hmenu, UINT indexMenu,
         }
         if (!m_thumbBmp) { m_thumbW = m_thumbH = 0; }
 
+        // 实际插入集合：预览项还取决于解码是否成功（预算超时不出）
+        const bool showThumb = prefs.preview && m_thumbBmp != nullptr;
+        if (!prefs.browse && !prefs.convert && !showThumb) {
+            return MAKE_HRESULT(SEVERITY_SUCCESS, 0, 0);
+        }
+
+        // 命令 ID 按优先序（浏览 → 转换 → 预览）连续分配：缺省全开时与
+        // 0.5.0 的 ID 布局一致（浏览 0 / 转换 1 / 预览 2）；跳过某项时
+        // 后续 ID 前移，不留空洞（空洞会与同菜单的其他壳扩展撞 ID）
+        m_visibleCount = 0;
+        for (int c = 0; c < CMD_COUNT; ++c) m_idMap[c] = -1;
+        for (int c = 0; c < CMD_COUNT; ++c) {
+            const bool on = (c == CMD_BROWSE) ? prefs.browse
+                          : (c == CMD_CONVERT) ? prefs.convert
+                                               : showThumb;
+            if (on) m_idMap[c] = m_visibleCount++;
+        }
+
         MENUITEMINFOW mi = {};
         mi.cbSize = sizeof(mi);
         mi.fMask = MIIM_FTYPE;
@@ -324,13 +367,13 @@ STDMETHODIMP QuikContextMenu::QueryContextMenu(HMENU hmenu, UINT indexMenu,
         int pos = indexMenu + 1;
 
         // 自绘缩略图项（成功才加）
-        if (m_thumbBmp) {
+        if (showThumb) {
             mi = {};
             mi.cbSize = sizeof(mi);
             mi.fMask = MIIM_ID | MIIM_TYPE | MIIM_STATE | MIIM_DATA;
             mi.fType = MFT_OWNERDRAW;
             mi.fState = MFS_ENABLED;
-            mi.wID = idCmdFirst + CMD_THUMB;
+            mi.wID = idCmdFirst + m_idMap[CMD_THUMB];
             mi.dwTypeData = const_cast<LPWSTR>(kMenuThumb);
             InsertMenuItemW(hmenu, pos++, TRUE, &mi);
         }
@@ -343,22 +386,32 @@ STDMETHODIMP QuikContextMenu::QueryContextMenu(HMENU hmenu, UINT indexMenu,
             lstrcpynW(browseText, kMenuBrowse, _countof(browseText));
         }
 
-        const wchar_t* items[2] = { browseText, kMenuConvert };
-        for (int i = 0; i < 2; ++i) {
+        if (prefs.browse) {
             mi = {};
             mi.cbSize = sizeof(mi);
             mi.fMask = MIIM_ID | MIIM_FTYPE | MIIM_STATE | MIIM_STRING | MIIM_BITMAP;
             mi.fType = MFT_STRING;
             mi.fState = MFS_ENABLED;
-            mi.wID = idCmdFirst + (i == 0 ? CMD_BROWSE : CMD_CONVERT);
+            mi.wID = idCmdFirst + m_idMap[CMD_BROWSE];
             mi.hbmpItem = m_iconBmp;
-            mi.dwTypeData = const_cast<LPWSTR>(items[i]);
-            mi.cch = (UINT)lstrlenW(items[i]);
+            mi.dwTypeData = const_cast<LPWSTR>(browseText);
+            mi.cch = (UINT)lstrlenW(browseText);
+            InsertMenuItemW(hmenu, pos++, TRUE, &mi);
+        }
+        if (prefs.convert) {
+            mi = {};
+            mi.cbSize = sizeof(mi);
+            mi.fMask = MIIM_ID | MIIM_FTYPE | MIIM_STATE | MIIM_STRING | MIIM_BITMAP;
+            mi.fType = MFT_STRING;
+            mi.fState = MFS_ENABLED;
+            mi.wID = idCmdFirst + m_idMap[CMD_CONVERT];
+            mi.hbmpItem = m_iconBmp;
+            mi.dwTypeData = const_cast<LPWSTR>(kMenuConvert);
+            mi.cch = (UINT)lstrlenW(kMenuConvert);
             InsertMenuItemW(hmenu, pos++, TRUE, &mi);
         }
 
-        const UINT count = (m_thumbBmp ? 3u : 2u);
-        return MAKE_HRESULT(SEVERITY_SUCCESS, 0, count);
+        return MAKE_HRESULT(SEVERITY_SUCCESS, 0, (UINT)m_visibleCount);
     } catch (...) {
         return E_FAIL;
     }
@@ -397,6 +450,32 @@ STDMETHODIMP QuikContextMenu::HandleMenuMsg(UINT uMsg, WPARAM, LPARAM lParam) {
     }
 }
 
+// 可见项命令表：偏移 → CMD_*。偏移按 QueryContextMenu 里的优先序
+// （浏览 → 转换 → 预览）连续分配；越界返回 -1。
+int QuikContextMenu::CmdAtOffset(UINT offset) const {
+    if (m_visibleCount <= 0) {
+        // 尚未 QueryContextMenu（Explorer 契约外；selftest 直发 InvokeCommand）：
+        // 按当前偏好推默认映射（预览项按偏好算，不验解码成败）
+        const QuikMenuPrefs prefs = QuikLoadMenuPrefs();
+        int used = 0;
+        for (int c = 0; c < CMD_COUNT; ++c) {
+            const bool on = (c == CMD_BROWSE) ? prefs.browse
+                          : (c == CMD_CONVERT) ? prefs.convert
+                                               : prefs.preview;
+            if (on) {
+                if (used == (int)offset) return c;
+                ++used;
+            }
+        }
+        return -1;
+    }
+    if (offset >= (UINT)m_visibleCount) return -1;
+    for (int c = 0; c < CMD_COUNT; ++c) {
+        if (m_idMap[c] == (int)offset) return c;
+    }
+    return -1;
+}
+
 STDMETHODIMP QuikContextMenu::InvokeCommand(LPCMINVOKECOMMANDINFO pici) {
     try {
         if (!pici) return E_INVALIDARG;
@@ -410,9 +489,12 @@ STDMETHODIMP QuikContextMenu::InvokeCommand(LPCMINVOKECOMMANDINFO pici) {
             if (lstrcmpiW(verbW, kVerbBrowseW) == 0) cmd = CMD_BROWSE;
             else if (lstrcmpiW(verbW, kVerbConvertW) == 0) cmd = CMD_CONVERT;
         } else if (pici->lpVerb == nullptr) {
-            cmd = CMD_BROWSE;
+            // 默认动词 = 第一个可见项（优先序最前）；仅预览可见时点按 = 浏览
+            const int at = CmdAtOffset(0);
+            if (at == CMD_BROWSE || at == CMD_CONVERT) cmd = at;
+            else if (at == CMD_THUMB) cmd = CMD_BROWSE;
         } else if (IS_INTRESOURCE(pici->lpVerb)) {
-            cmd = LOWORD((UINT_PTR)pici->lpVerb);
+            cmd = CmdAtOffset(LOWORD((UINT_PTR)pici->lpVerb));
         } else {
             if (lstrcmpiA(pici->lpVerb, kVerbBrowseA) == 0) cmd = CMD_BROWSE;
             else if (lstrcmpiA(pici->lpVerb, kVerbConvertA) == 0) cmd = CMD_CONVERT;
@@ -429,18 +511,21 @@ STDMETHODIMP QuikContextMenu::GetCommandString(UINT_PTR idCmd, UINT uType,
                                                 UINT*, CHAR* pszName,
                                                 UINT cchMax) {
     try {
-        if (idCmd >= CMD_COUNT) return E_INVALIDARG;
-        if (uType == GCS_VALIDATEA || uType == GCS_VALIDATEW) return S_OK;
-        if (idCmd == CMD_THUMB) return E_NOTIMPL;   // 自绘项无动词
+        const int cmd = CmdAtOffset((UINT)idCmd);
+        if (uType == GCS_VALIDATEA || uType == GCS_VALIDATEW) {
+            return cmd >= 0 ? S_OK : E_FAIL;
+        }
+        if (cmd < 0) return E_INVALIDARG;
+        if (cmd == CMD_THUMB) return E_NOTIMPL;   // 自绘项无动词
         if (uType == GCS_VERBW) {
             const wchar_t* verb =
-                (idCmd == CMD_BROWSE) ? kVerbBrowseW : kVerbConvertW;
+                (cmd == CMD_BROWSE) ? kVerbBrowseW : kVerbConvertW;
             if (!pszName || cchMax < (UINT)lstrlenW(verb) + 1) return E_FAIL;
             lstrcpynW((LPWSTR)pszName, verb, (int)cchMax);
             return S_OK;
         }
         if (uType == GCS_VERBA) {
-            const char* verb = (idCmd == CMD_BROWSE) ? kVerbBrowseA : kVerbConvertA;
+            const char* verb = (cmd == CMD_BROWSE) ? kVerbBrowseA : kVerbConvertA;
             if (!pszName || cchMax < (UINT)lstrlenA(verb) + 1) return E_FAIL;
             lstrcpynA(pszName, verb, (int)cchMax);
             return S_OK;

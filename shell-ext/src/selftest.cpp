@@ -239,6 +239,13 @@ void DumpMark(const char* tag, HRESULT hr, const std::wstring& m,
            (int)(m.find(L"second.png") != std::wstring::npos));
 }
 
+// 偏好用例助手：写临时 config.ini 的 [config] ctxmenu\<name>=<value>。
+// 与 Qt QSettings IniFormat 的落盘形态一致（键内 '/' 转义成 '\'）。
+bool WriteCtxCfg(const wchar_t* ini, const wchar_t* name, const wchar_t* value) {
+    const std::wstring key = std::wstring(L"ctxmenu\\") + name;
+    return WritePrivateProfileStringW(L"config", key.c_str(), value, ini) != 0;
+}
+
 }   // namespace
 
 int main(int argc, char** argv) {
@@ -720,6 +727,201 @@ int main(int argc, char** argv) {
             CTX(ok, "ctx-17 B3 自绘缩略图项接口 IContextMenu2 可用");
         } else {
             CtxFail("ctx-17 B3 自绘接口（建实例失败）");
+        }
+
+        // ===== 菜单偏好（设置页 ctxmenu/*，Qt 写 config.ini、DLL 每次现读）=====
+        // 每例写一份临时 ini + 指定 QUIKVIEW_CONFIG_PATH，再走 QueryContextMenu。
+        // 预览项是否出现取决于解码预算，用例对它做宽容断言；其余项为确定性断言。
+        {
+            // ini 放 dllDir（借标记文件路径取目录），用完即删
+            wchar_t iniPath[MAX_PATH] = {};
+            {
+                std::wstring dir = wMark;
+                const size_t bs = dir.find_last_of(L'\\');
+                if (bs != std::wstring::npos) dir.resize(bs);
+                wsprintfW(iniPath, L"%s\\ctx_prefs.ini", dir.c_str());
+            }
+            DeleteFileW(iniPath);
+
+            // ctx-18：总开关关 → 右键完全不注入（无分隔线、无菜单项）
+            WriteCtxCfg(iniPath, L"use_shell_menu", L"0");
+            SetEnvironmentVariableW(L"QUIKVIEW_CONFIG_PATH", iniPath);
+            if (ctx) {
+                HMENU menu = CreatePopupMenu();
+                hr = ctx->QueryContextMenu(menu, 0, 1, 0x7FFF, CMF_NORMAL);
+                const bool ok = HRESULT_CODE(hr) == 0 &&
+                                GetMenuItemCount(menu) == 0;
+                DestroyMenu(menu);
+                CTX(ok, "ctx-18 总开关关：完全不注入（无分隔线）");
+            } else {
+                CtxFail("ctx-18 总开关关（建实例失败）");
+            }
+
+            // ctx-19：缺键 = 默认（空 ini，0.5.0 体验原样）
+            DeleteFileW(iniPath);   // 存在但无 ctxmenu 键
+            SetEnvironmentVariableW(L"QUIKVIEW_CONFIG_PATH", iniPath);
+            if (ctx) {
+                HMENU menu = CreatePopupMenu();
+                hr = ctx->QueryContextMenu(menu, 0, 1, 0x7FFF, CMF_NORMAL);
+                bool ok = (hr & 0xFFFF) >= 2, sep = false, browse = false,
+                     convert = false;
+                const int cnt = GetMenuItemCount(menu);
+                for (UINT pos = 0; pos < (UINT)cnt; ++pos) {
+                    wchar_t t[192] = {};
+                    MENUITEMINFOW mii = {};
+                    mii.cbSize = sizeof(mii);
+                    mii.fMask = MIIM_FTYPE | MIIM_STRING;
+                    mii.dwTypeData = t;
+                    mii.cch = 191;
+                    if (!GetMenuItemInfoW(menu, pos, TRUE, &mii)) continue;
+                    if (mii.fType == MFT_SEPARATOR) sep = true;
+                    if (wcsstr(t, L"浏览")) browse = true;
+                    if (wcsstr(t, L"转换")) convert = true;
+                }
+                ok = ok && sep && browse && convert;
+                DestroyMenu(menu);
+                CTX(ok, "ctx-19 缺键沿用默认：分隔线+浏览+转换");
+            } else {
+                CtxFail("ctx-19 缺键默认（建实例失败）");
+            }
+
+            // ctx-20：转换关 → 只剩浏览（±预览），无「转换」
+            WriteCtxCfg(iniPath, L"show_convert", L"0");
+            if (ctx) {
+                HMENU menu = CreatePopupMenu();
+                ctx->QueryContextMenu(menu, 0, 1, 0x7FFF, CMF_NORMAL);
+                bool browse = false, convert = false;
+                const int cnt = GetMenuItemCount(menu);
+                for (UINT pos = 0; pos < (UINT)cnt; ++pos) {
+                    wchar_t t[192] = {};
+                    GetMenuStringW(menu, pos, t, 192, MF_BYPOSITION);
+                    if (wcsstr(t, L"浏览")) browse = true;
+                    if (wcsstr(t, L"转换")) convert = true;
+                }
+                DestroyMenu(menu);
+                CTX(browse && !convert, "ctx-20 转换关：无「转换」项");
+            } else {
+                CtxFail("ctx-20 转换关（建实例失败）");
+            }
+
+            // ctx-21：浏览关 → 只剩转换（±预览），无「浏览」
+            WriteCtxCfg(iniPath, L"show_convert", L"1");
+            WriteCtxCfg(iniPath, L"show_browse", L"0");
+            if (ctx) {
+                HMENU menu = CreatePopupMenu();
+                ctx->QueryContextMenu(menu, 0, 1, 0x7FFF, CMF_NORMAL);
+                bool browse = false, convert = false;
+                const int cnt = GetMenuItemCount(menu);
+                for (UINT pos = 0; pos < (UINT)cnt; ++pos) {
+                    wchar_t t[192] = {};
+                    GetMenuStringW(menu, pos, t, 192, MF_BYPOSITION);
+                    if (wcsstr(t, L"浏览")) browse = true;
+                    if (wcsstr(t, L"转换")) convert = true;
+                }
+                DestroyMenu(menu);
+                CTX(!browse && convert, "ctx-21 浏览关：无「浏览」项");
+            } else {
+                CtxFail("ctx-21 浏览关（建实例失败）");
+            }
+
+            // ctx-22：浏览关时的 ID 重映射——偏移 0 应是转换动词（不留空洞）
+            if (ctx) {
+                wchar_t wverb[64] = {};
+                hr = ctx->GetCommandString(0, GCS_VERBW, nullptr, (CHAR*)wverb, 64);
+                CTX(SUCCEEDED(hr) && wcscmp(wverb, L"QuikView.Convert") == 0,
+                    "ctx-22 浏览关时偏移 0 重映射为转换");
+            } else {
+                CtxFail("ctx-22 ID 重映射（建实例失败）");
+            }
+
+            // ctx-23：预览关 → 无自绘缩略图项（确定性：项数=3 分隔+浏览+转换）
+            WriteCtxCfg(iniPath, L"show_browse", L"1");
+            WriteCtxCfg(iniPath, L"show_preview", L"0");
+            if (ctx) {
+                HMENU menu = CreatePopupMenu();
+                hr = ctx->QueryContextMenu(menu, 0, 1, 0x7FFF, CMF_NORMAL);
+                int ownerdraw = 0;
+                const int cnt = GetMenuItemCount(menu);
+                for (UINT pos = 0; pos < (UINT)cnt; ++pos) {
+                    MENUITEMINFOW mii = {};
+                    mii.cbSize = sizeof(mii);
+                    mii.fMask = MIIM_FTYPE;
+                    if (GetMenuItemInfoW(menu, pos, TRUE, &mii) &&
+                        (mii.fType & MFT_OWNERDRAW) != 0) {
+                        ++ownerdraw;
+                    }
+                }
+                DestroyMenu(menu);
+                // 命令数=2（浏览+转换），菜单项=3（含分隔线）
+                CTX(HRESULT_CODE(hr) == 2 && cnt == 3 && ownerdraw == 0,
+                    "ctx-23 预览关：无自绘项（分隔线+浏览+转换）");
+            } else {
+                CtxFail("ctx-23 预览关（建实例失败）");
+            }
+
+            // ctx-24：信息关 → 浏览项文案无「宽×高 · 大小」（无 \t）
+            WriteCtxCfg(iniPath, L"show_info", L"0");
+            if (ctx) {
+                HMENU menu = CreatePopupMenu();
+                ctx->QueryContextMenu(menu, 0, 1, 0x7FFF, CMF_NORMAL);
+                bool browse = false, hasTab = false;
+                const int cnt = GetMenuItemCount(menu);
+                for (UINT pos = 0; pos < (UINT)cnt; ++pos) {
+                    wchar_t t[192] = {};
+                    GetMenuStringW(menu, pos, t, 192, MF_BYPOSITION);
+                    if (wcsstr(t, L"浏览")) {
+                        browse = true;
+                        hasTab = wcschr(t, L'\t') != nullptr;
+                    }
+                }
+                DestroyMenu(menu);
+                CTX(browse && !hasTab, "ctx-24 信息关：浏览项不带尺寸/大小");
+            } else {
+                CtxFail("ctx-24 信息关（建实例失败）");
+            }
+
+            // ctx-25：图标关 → 文本项均无 MIIM_BITMAP
+            WriteCtxCfg(iniPath, L"show_info", L"1");
+            WriteCtxCfg(iniPath, L"show_icon", L"0");
+            if (ctx) {
+                HMENU menu = CreatePopupMenu();
+                ctx->QueryContextMenu(menu, 0, 1, 0x7FFF, CMF_NORMAL);
+                int withBitmap = 0;
+                const int cnt = GetMenuItemCount(menu);
+                for (UINT pos = 0; pos < (UINT)cnt; ++pos) {
+                    MENUITEMINFOW mii = {};
+                    mii.cbSize = sizeof(mii);
+                    mii.fMask = MIIM_FTYPE | MIIM_BITMAP;
+                    if (GetMenuItemInfoW(menu, pos, TRUE, &mii) &&
+                        mii.hbmpItem && (mii.fType & MFT_SEPARATOR) == 0) {
+                        ++withBitmap;
+                    }
+                }
+                DestroyMenu(menu);
+                CTX(withBitmap == 0, "ctx-25 图标关：菜单项无位图");
+            } else {
+                CtxFail("ctx-25 图标关（建实例失败）");
+            }
+
+            // ctx-26：浏览/转换/预览全关 → 不插空分隔线，一个项都不占
+            WriteCtxCfg(iniPath, L"show_icon", L"1");
+            WriteCtxCfg(iniPath, L"show_browse", L"0");
+            WriteCtxCfg(iniPath, L"show_convert", L"0");
+            WriteCtxCfg(iniPath, L"show_preview", L"0");
+            if (ctx) {
+                HMENU menu = CreatePopupMenu();
+                hr = ctx->QueryContextMenu(menu, 0, 1, 0x7FFF, CMF_NORMAL);
+                const bool ok = HRESULT_CODE(hr) == 0 &&
+                                GetMenuItemCount(menu) == 0;
+                DestroyMenu(menu);
+                CTX(ok, "ctx-26 三入口全关：不插空分隔线");
+            } else {
+                CtxFail("ctx-26 全关（建实例失败）");
+            }
+
+            // 恢复缺省（清配置指针），默认体验用例已覆盖
+            DeleteFileW(iniPath);
+            SetEnvironmentVariableW(L"QUIKVIEW_CONFIG_PATH", nullptr);
         }
 
         if (ctxTxt) ctxTxt->Release();

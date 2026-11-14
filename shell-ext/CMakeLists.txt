@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_library(quikthumb SHARED
     src/guids.cpp
     src/module.cpp
+    src/prefs.cpp
     src/thumbnail.cpp
     src/contextmenu.cpp
     quikview.rc)
@@ -17,7 +18,8 @@ target_include_directories(quikthumb PRIVATE src)
 target_compile_definitions(quikthumb PRIVATE
     UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX WINVER=0x0601 _WIN32_WINNT=0x0601)
 # windowscodecs：MSVC 下 WIC 的 GUID 走导入库（MinGW 由 initguid 实例化，双保险）
-target_link_libraries(quikthumb PRIVATE ole32 advapi32 gdi32 user32 uuid windowscodecs)
+# shell32：prefs.cpp 的 SHGetFolderPathW（%LOCALAPPDATA% 定位）
+target_link_libraries(quikthumb PRIVATE ole32 advapi32 gdi32 user32 shell32 uuid windowscodecs)
 
 # thumb_selftest 的 quikview.exe 替身：InvokeCommand 用例真启动一个进程并核对
 # 命令行（写标记文件）。GUI 子系统不弹窗；EXCLUDE_FROM_ALL，非交付物。
