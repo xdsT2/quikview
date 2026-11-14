@@ -3937,7 +3937,9 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                // 连续翻页加载反馈（派单 2026-11-14）：探针据此断言等待/失败态
                << " disp=" << QFileInfo(m_displayedPath).fileName()
                << " cur=" << QFileInfo(m_currentPath).fileName()
-               << " wait=" << (m_loadStatus && m_loadStatus->isVisible() ? 1 : 0)
+               << " loadstate=" << (m_loadFailed ? "failed"
+                                   : (m_loadStatus && m_loadStatus->isVisible()
+                                          ? "waiting" : "off"))
                << " loadfail=" << (m_loadFailed ? 1 : 0)
                << " gam=" << QString::number(m_gamma, 'f', 2)
                << " stretch=" << (m_canvas && m_canvas->stretchSmall() ? 1 : 0)

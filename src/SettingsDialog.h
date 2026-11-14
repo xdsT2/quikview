@@ -65,6 +65,10 @@ public:
     // 「设置里的下拉展开时主顶栏是否被误唤出」的截图验收；同时把各下拉的
     // 序号/当前值写到 Temp/settings-combos.txt，避免靠猜索引取错控件。
     void probeOpenCombo(int page, int index);
+    // probeCtxToggle：切到上下文菜单页并点击 ctxmenu.<leaf> 开关（--smoke
+    // settingsctx:<leaf>）。与真实鼠标点击同一条 PillToggle::toggled →
+    // writeValues 链路，供资源管理器右键验收驱动设置页开关。
+    void probeCtxToggle(const QString &leaf);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
