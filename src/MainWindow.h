@@ -27,6 +27,7 @@ class QLabel;
 class QPushButton;
 class QTimer;
 class QMenu;
+class CtxMenu;
 class QMouseEvent;
 class QResizeEvent;
 class QKeyEvent;
@@ -193,10 +194,10 @@ private:
     void createActions();
     QMenu *buildContextMenu();
     QMenu *buildBrowseMenu();
-    QMenu *buildSlideshowMenu();
+    QMenu *buildSlideshowMenu(CtxMenu *parentMenu = nullptr);
     QMenu *buildBookmarkMenu();
     QMenu *buildEditMenu();
-    QMenu *buildCopytoMenu();
+    QMenu *buildCopytoMenu(CtxMenu *parentMenu = nullptr);
     QMenu *buildSystemMenu();
     // 三横菜单：完整一级信息架构（文件 / 幻灯片 / 书签 / 编辑与转换 / 复制到 /
     // 浏览与显示 / 参数 / 窗口与应用 / 危险操作）。每次弹出重建，勾选态取真实运行态。

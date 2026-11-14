@@ -113,6 +113,28 @@ bool isTopBarPopup(QWidget *popup)
     return false;
 }
 
+CtxMenu *makeHamburgerMenu(QWidget *parent, int minWidth)
+{
+    auto *menu = new CtxMenu(parent, CtxMenu::Presentation::OriginalActions);
+    menu->setMinWidth(minWidth);
+    UiStyle::polishMenu(menu);
+    return menu;
+}
+
+CtxMenu *addHamburgerSubmenu(CtxMenu *parent, const QString &title, const char *icon)
+{
+    auto *menu = makeHamburgerMenu(parent, 238);
+    menu->setTitle(title);
+    parent->setActionIcon(parent->addMenu(menu), icon);
+    return menu;
+}
+
+void addHamburgerAction(CtxMenu *menu, QAction *action, const char *icon)
+{
+    menu->addAction(action);
+    menu->setActionIcon(action, icon);
+}
+
 // 双页拼图：两页等高并排，高度取较高的一页，另一页按比例放大，
 // 避免跨页出现深色竖缝。左←右（漫画式）由调用方调换左右顺序。
 QImage composeSpread(const QImage &left, const QImage &right)
@@ -268,6 +290,8 @@ MainWindow::MainWindow(QWidget *parent)
     // PSD 图层：工具栏一级入口（仅 PSD 可见）+ 右侧浮层面板。
     m_layerPanel = new LayerPanel(this);
     m_layerPanel->hide();
+    // 面板背板磨砂采样源 = 画布视口（外壳与信息 HUD 同源，磨砂关时走实底）
+    m_layerPanel->setBackdropSource(m_canvas->viewport());
     connect(m_layerPanel, &LayerPanel::contentChanged, this, &MainWindow::applyChromeLayout);
     connect(m_layerPanel, &LayerPanel::closeRequested, this, &MainWindow::togglePsdLayers);
     connect(m_layerPanel, &LayerPanel::compositeSelected, this, [this]() {
@@ -1615,14 +1639,17 @@ QMenu *MainWindow::buildBrowseMenu()
 }
 
 // 幻灯片放映：停止放映 + 1~9 秒（Ctrl+1~9）+ 10/15/20/25/30/60/90 秒 + 循环 + 随机（19 项）
-QMenu *MainWindow::buildSlideshowMenu()
+QMenu *MainWindow::buildSlideshowMenu(CtxMenu *parentMenu)
 {
-    auto *menu = new QMenu(this);
-    addCheckableItem(menu, tr("停止放映"), QStringLiteral("Ctrl+0"), !m_slideshow, [this]() {
+    auto *styled = parentMenu ? makeHamburgerMenu(parentMenu, 238) : nullptr;
+    QMenu *menu = styled ? styled : new QMenu(this);
+    QAction *stop = addCheckableItem(menu, tr("停止放映"), QStringLiteral("Ctrl+0"), !m_slideshow, [this]() {
         if (m_slideshow) {
             actSlideshow->setChecked(false);
         }
     });
+    if (styled)
+        styled->setActionIcon(stop, "stop");
 
     // 间隔秒数：同一时间只有一个勾选（真实值来自 config/slideshow_interval_ms）
     auto *intervalGroup = new QActionGroup(menu);
@@ -1698,12 +1725,13 @@ QMenu *MainWindow::buildEditMenu()
 }
 
 // 复制到：图片文件夹 1 / 2、移动到 1、路径定义、打开文件夹 1（5 项）
-QMenu *MainWindow::buildCopytoMenu()
+QMenu *MainWindow::buildCopytoMenu(CtxMenu *parentMenu)
 {
-    auto *menu = new QMenu(this);
-    auto transferTo = [this, menu](const QString &label, const QString &shortcut,
+    auto *styled = parentMenu ? makeHamburgerMenu(parentMenu, 238) : nullptr;
+    QMenu *menu = styled ? styled : new QMenu(this);
+    auto transferTo = [this, menu, styled](const QString &label, const QString &shortcut,
                                    const QString &key, bool moveFile) {
-        addMenuItem(menu, label, shortcut, [this, key, moveFile]() {
+        QAction *action = addMenuItem(menu, label, shortcut, [this, key, moveFile]() {
             const QString dir = Config::instance().settings().value(key).toString();
             if (dir.isEmpty()) {
                 m_toast->showMessage(tr("请先在 设置 → 杂项 中配置图片文件夹"));
@@ -1727,6 +1755,8 @@ QMenu *MainWindow::buildCopytoMenu()
                 m_toast->showMessage(tr("已复制到：%1").arg(dest));
             }
         });
+        if (styled)
+            styled->setActionIcon(action, moveFile ? "folder-next" : "copy");
     };
     transferTo(tr("复制到 图片文件夹 1"), QStringLiteral("Insert"),
                QStringLiteral("config/etc/photo_folder_1"), false);
@@ -1735,8 +1765,8 @@ QMenu *MainWindow::buildCopytoMenu()
     transferTo(tr("移动到 图片文件夹 1"), QString(),
                QStringLiteral("config/etc/photo_folder_1"), true);
     menu->addSeparator();
-    addMenuItem(menu, tr("图片文件夹 路径定义"), QString(), [this]() { onSettings(); });
-    addMenuItem(menu, tr("打开 图片文件夹 1"), QString(), [this]() {
+    QAction *paths = addMenuItem(menu, tr("图片文件夹 路径定义"), QString(), [this]() { onSettings(); });
+    QAction *openFolder = addMenuItem(menu, tr("打开 图片文件夹 1"), QString(), [this]() {
         const QString dir = Config::instance().settings()
                                 .value(QStringLiteral("config/etc/photo_folder_1")).toString();
         if (dir.isEmpty() || !QFileInfo::exists(dir)) {
@@ -1745,6 +1775,14 @@ QMenu *MainWindow::buildCopytoMenu()
         }
         QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
     });
+    if (styled) {
+        styled->setActionIcon(paths, "sliders");
+        styled->setActionIcon(openFolder, "folder-open");
+        if (Config::instance().contextCopy()) {
+            styled->addSeparator();
+            addHamburgerAction(styled, actCopyToClipboard, "copy");
+        }
+    }
     UiStyle::polishMenu(menu);
     return menu;
 }
@@ -1777,70 +1815,66 @@ QMenu *MainWindow::buildSystemMenu()
 // 顶栏下拉与三横菜单共用同一批 QAction / 槽，不复制业务逻辑。
 QMenu *MainWindow::buildHamburgerMenu()
 {
-    auto *menu = new QMenu(this);
+    auto *menu = makeHamburgerMenu(this, 256);
 
     // —— 文件 ——
-    menu->addAction(actOpen);
-    menu->addAction(actOpenFolder);
-    menu->addAction(actSaveAs);
+    addHamburgerAction(menu, actOpen, "image");
+    addHamburgerAction(menu, actOpenFolder, "folder-open");
+    addHamburgerAction(menu, actSaveAs, "save");
     menu->addSeparator();
 
     // —— 幻灯片播放 › ——
-    QMenu *slideshow = buildSlideshowMenu();
+    QMenu *slideshow = buildSlideshowMenu(menu);
     slideshow->setTitle(tr("幻灯片播放"));
-    menu->addMenu(slideshow);
+    menu->setActionIcon(menu->addMenu(slideshow), "play");
 
     // —— 书签 › ——
-    QMenu *bookmark = menu->addMenu(tr("书签"));
+    auto *bookmark = addHamburgerSubmenu(menu, tr("书签"), "bookmark");
     const bool fav = !m_currentPath.isEmpty()
                      && Config::instance().favorites().contains(m_currentPath);
-    addCheckableItem(bookmark, fav ? tr("取消当前书签") : tr("添加当前书签"),
-                     QStringLiteral("B"), fav, [this]() { onToggleFavorite(); });
-    addMenuItem(bookmark, tr("编辑书签"), QStringLiteral("F3"), [this]() { onEditBookmarks(); });
+    bookmark->setActionIcon(addCheckableItem(bookmark, fav ? tr("取消当前书签") : tr("添加当前书签"),
+                     QStringLiteral("B"), fav, [this]() { onToggleFavorite(); }), "bookmark");
+    bookmark->setActionIcon(addMenuItem(bookmark, tr("编辑书签"), QStringLiteral("F3"),
+                                       [this]() { onEditBookmarks(); }), "pencil");
     bookmark->addSeparator();
-    addMenuItem(bookmark, tr("删除所有书签"), QString(), [this]() {
+    bookmark->setActionIcon(addMenuItem(bookmark, tr("删除所有书签"), QString(), [this]() {
         Config::instance().settings().setValue(QStringLiteral("favorites"), QStringList());
         refreshLibraryMenus();
         m_toast->showMessage(tr("已删除所有书签"));
-    });
-    addMenuItem(bookmark, tr("书签设置"), QString(), [this]() { onSettings(); });
-    UiStyle::polishMenu(bookmark);
+    }), "trash");
+    bookmark->setActionIcon(addMenuItem(bookmark, tr("书签设置"), QString(),
+                                       [this]() { onSettings(); }), "sliders");
 
     // —— 编辑与转换 › ——
-    QMenu *edit = menu->addMenu(tr("编辑与转换"));
-    edit->addAction(actCrop);
-    edit->addAction(actResize);
+    auto *edit = addHamburgerSubmenu(menu, tr("编辑与转换"), "pencil");
+    addHamburgerAction(edit, actCrop, "crop");
+    addHamburgerAction(edit, actResize, "size");
     edit->addSeparator();
     actNegative->setChecked(m_negative);
-    edit->addAction(actNegative);
-    edit->addAction(actGamma);
-    edit->addAction(actFlipV);
-    edit->addAction(actFlipH);
+    addHamburgerAction(edit, actNegative, "invert");
+    addHamburgerAction(edit, actGamma, "eq");
+    addHamburgerAction(edit, actFlipV, "flip-v");
+    addHamburgerAction(edit, actFlipH, "flip-h");
     edit->addSeparator();
-    addMenuItem(edit, tr("转换图片 (旋转/裁剪)"), QStringLiteral("Ctrl+T"),
-                [this]() { onBatchConvert(); });
-    edit->addAction(actWallpaper);
-    edit->addAction(actPrint);
-    edit->addAction(actOpenWithEditor);
-    UiStyle::polishMenu(edit);
+    edit->setActionIcon(addMenuItem(edit, tr("转换图片 (旋转/裁剪)"), QStringLiteral("Ctrl+T"),
+                                   [this]() { onBatchConvert(); }), "imageproc");
+    addHamburgerAction(edit, actWallpaper, "monitor");
+    addHamburgerAction(edit, actPrint, "printer");
+    addHamburgerAction(edit, actOpenWithEditor, "pencil");
 
     // —— 复制到 › ——
-    QMenu *copyto = buildCopytoMenu();
+    QMenu *copyto = buildCopytoMenu(menu);
     copyto->setTitle(tr("复制到"));
-    if (Config::instance().contextCopy()) {
-        copyto->addSeparator();
-        copyto->addAction(actCopyToClipboard);
-    }
-    menu->addMenu(copyto);
+    menu->setActionIcon(menu->addMenu(copyto), "copy-more");
     menu->addSeparator();
 
     // —— 浏览与显示 › ——
-    QMenu *view = menu->addMenu(tr("浏览与显示"));
+    auto *view = addHamburgerSubmenu(menu, tr("浏览与显示"), "browse");
     addCheckableItem(view, tr("缩略图"), QString(),
                      m_browser && m_browser->isExpanded(), [this]() { toggleBrowserPanel(); });
     view->addSeparator();
-    view->addAction(actPrev);
-    view->addAction(actNext);
+    addHamburgerAction(view, actPrev, "chev-left");
+    addHamburgerAction(view, actNext, "chev-right");
     addMenuItem(view, tr("首张图片"), QStringLiteral("Home"), [this]() { onFirst(); });
     addMenuItem(view, tr("末尾图片"), QStringLiteral("End"), [this]() { onLast(); });
     addMenuItem(view, tr("向下 10 张图片"), QStringLiteral("Ctrl+PageDown"),
@@ -1854,34 +1888,33 @@ QMenu *MainWindow::buildHamburgerMenu()
     addMenuItem(view, tr("下一个文件夹"), QStringLiteral("]"), [this]() { onNextFolder(); });
     addMenuItem(view, tr("上一个文件夹"), QStringLiteral("["), [this]() { onPrevFolder(); });
     view->addSeparator();
-    view->addAction(actPrevFrame);
-    view->addAction(actNextFrame);
-    addCheckableItem(view, tr("EXIF 信息"), QStringLiteral("Tab"),
+    addHamburgerAction(view, actPrevFrame, "chev-left");
+    addHamburgerAction(view, actNextFrame, "chev-right");
+    view->setActionIcon(addCheckableItem(view, tr("EXIF 信息"), QStringLiteral("Tab"),
                      m_metadata && m_metadata->isVisible(), [this]() {
         actToggleMeta->setChecked(!(m_metadata && m_metadata->isVisible()));
-    });
+    }), "info");
     QAction *layers = addCheckableItem(view, tr("图层"), QString(),
                                        m_layerPanel && m_layerPanel->isVisible(),
                                        [this]() { togglePsdLayers(); });
     layers->setEnabled(m_psdDoc.valid());
+    view->setActionIcon(layers, "layers");
     addMenuItem(view, tr("全屏"), QStringLiteral("F11"), [this]() { toggleFullscreen(); });
-    UiStyle::polishMenu(view);
 
     // —— 浏览与显示的参数 › ——
-    QMenu *params = menu->addMenu(tr("浏览与显示的参数"));
+    auto *params = addHamburgerSubmenu(menu, tr("浏览与显示的参数"), "sliders");
 
-    QMenu *show = params->addMenu(tr("浏览方式"));
+    auto *show = addHamburgerSubmenu(params, tr("浏览方式"), "view");
     syncViewModeActions();
-    show->addAction(actActualSize);
-    show->addAction(actFit);
-    show->addAction(actFitWidth);
-    show->addAction(actTwoL2R);
-    show->addAction(actTwoR2L);
+    addHamburgerAction(show, actActualSize, "frame");
+    addHamburgerAction(show, actFit, "fit-window");
+    addHamburgerAction(show, actFitWidth, "fit-width");
+    addHamburgerAction(show, actTwoL2R, "book");
+    addHamburgerAction(show, actTwoR2L, "book");
     actStretchSmall->setChecked(Config::instance().stretchSmall());
-    show->addAction(actStretchSmall);
-    UiStyle::polishMenu(show);
+    addHamburgerAction(show, actStretchSmall, "size");
 
-    QMenu *zoom = params->addMenu(tr("缩放"));
+    auto *zoom = addHamburgerSubmenu(params, tr("缩放"), "zoom");
     addMenuItem(zoom, tr("放大"), QStringLiteral("+"), [this]() { onZoomIn(); });
     addMenuItem(zoom, tr("缩小"), QStringLiteral("−"), [this]() { onZoomOut(); });
     addMenuItem(zoom, tr("100%"), QString(), [this]() { setZoomMode(0); });
@@ -1896,72 +1929,65 @@ QMenu *MainWindow::buildHamburgerMenu()
         }
     });
     actZoomLock->setChecked(m_zoomLocked);
-    zoom->addAction(actZoomLock);
-    UiStyle::polishMenu(zoom);
+    addHamburgerAction(zoom, actZoomLock, "lock");
 
-    QMenu *rot = params->addMenu(tr("旋转"));
+    auto *rot = addHamburgerSubmenu(params, tr("旋转"), "rotate");
     addCheckableItem(rot, tr("不旋转"), QStringLiteral("Alt+Up"),
                      m_netRotation == 0 && !m_flipH && !m_flipV, [this]() { resetGeometry(); });
-    rot->addAction(actRotateLeft);
-    rot->addAction(actRotateRight);
+    addHamburgerAction(rot, actRotateLeft, "rotate");
+    addHamburgerAction(rot, actRotateRight, "rotate-cw");
     addMenuItem(rot, tr("旋转 180°"), QStringLiteral("Alt+Down"), [this]() { rotateImage(180); });
-    UiStyle::polishMenu(rot);
 
-    QMenu *sort = params->addMenu(tr("排序方式"));
+    auto *sort = addHamburgerSubmenu(params, tr("排序方式"), "sort");
     const int sortMode = Config::instance().sortMode();
     actSortName->setChecked(sortMode == 0);
     actSortTime->setChecked(sortMode == 1);
     actSortSize->setChecked(sortMode == 2);
     actSortType->setChecked(sortMode == 3);
     actSortDesc->setChecked(Config::instance().sortDescending());
-    sort->addAction(actSortName);
-    sort->addAction(actSortTime);
-    sort->addAction(actSortSize);
-    sort->addAction(actSortType);
+    addHamburgerAction(sort, actSortName, "text");
+    addHamburgerAction(sort, actSortTime, "clock");
+    addHamburgerAction(sort, actSortSize, "size");
+    addHamburgerAction(sort, actSortType, "tag");
     sort->addSeparator();
-    sort->addAction(actSortDesc);
-    UiStyle::polishMenu(sort);
+    addHamburgerAction(sort, actSortDesc, "sort-desc");
 
-    QMenu *fx = params->addMenu(tr("显示效果"));
-    fx->addAction(actEffectNone);
-    fx->addAction(actEffectSoften);
-    fx->addAction(actEffectSharpen);
-    UiStyle::polishMenu(fx);
+    auto *fx = addHamburgerSubmenu(params, tr("显示效果"), "transition");
+    addHamburgerAction(fx, actEffectNone, "minus");
+    addHamburgerAction(fx, actEffectSoften, "transition");
+    addHamburgerAction(fx, actEffectSharpen, "sparkle");
 
-    QMenu *interp = params->addMenu(tr("插值算法"));
+    auto *interp = addHamburgerSubmenu(params, tr("插值算法"), "interp");
     actInterpFast->setChecked(m_interpMode == 0);
     actInterpSmooth->setChecked(m_interpMode == 1);
     actInterpLanczos->setChecked(m_interpMode == 2);
-    interp->addAction(actInterpFast);
-    interp->addAction(actInterpSmooth);
-    interp->addAction(actInterpLanczos);
-    UiStyle::polishMenu(interp);
+    addHamburgerAction(interp, actInterpFast, "interp");
+    addHamburgerAction(interp, actInterpSmooth, "interp");
+    addHamburgerAction(interp, actInterpLanczos, "interp");
 
     // HDR 色调映射入口已移除（批次 1）：开关只对部分高位深图生效却提示
     // 「HDR 已开启」，与实际不符；Config::hdrTonemap() 恒 false，旧配置不激活。
-    UiStyle::polishMenu(params);
     menu->addSeparator();
 
     // —— 窗口与应用 ——
     syncThemeActions();
-    menu->addAction(actDark);
-    addCheckableItem(menu, tr("保持顶部工具栏显示"), QString(), m_topLocked,
-                     [this]() { toggleTopLock(); });
-    addCheckableItem(menu, tr("保持底部控制栏显示"), QString(), m_dockLocked,
-                     [this]() { toggleDockLock(); });
+    addHamburgerAction(menu, actDark, "moon");
+    menu->setActionIcon(addCheckableItem(menu, tr("保持顶部工具栏显示"), QString(), m_topLocked,
+                                       [this]() { toggleTopLock(); }), "lock");
+    menu->setActionIcon(addCheckableItem(menu, tr("保持底部控制栏显示"), QString(), m_dockLocked,
+                                       [this]() { toggleDockLock(); }), "lock");
     actAlwaysOnTop->setChecked(actualTopmost());
-    menu->addAction(actAlwaysOnTop);
+    addHamburgerAction(menu, actAlwaysOnTop, "pin");
     menu->addSeparator();
-    menu->addAction(actSettings);
-    menu->addAction(actAbout);
+    addHamburgerAction(menu, actSettings, "sliders");
+    addHamburgerAction(menu, actAbout, "info");
     menu->addSeparator();
 
     // —— 危险操作 ——
-    menu->addAction(actDelete);
+    addHamburgerAction(menu, actDelete, "trash");
     menu->addSeparator();
-    menu->addAction(actQuit);
+    addHamburgerAction(menu, actQuit, "logout");
 
-    UiStyle::polishMenu(menu);
     return menu;
 }
 
@@ -2565,7 +2591,7 @@ void MainWindow::setupPsdDocument(const QString &path)
     m_psdPreviewIndex = -1;
     m_topBar->setLayerState(m_psdDoc.valid(), false);
     if (m_layerPanel) {
-        m_layerPanel->hide();
+        m_layerPanel->hideNow();   // 换文档直接隐藏（无动画），停掉在途开合动效
         m_layerPanel->setDocument(m_psdDoc, m_psdVisible, -1, false);
     }
 }
@@ -2577,7 +2603,7 @@ void MainWindow::clearPsdDocument()
     m_psdVisible.clear();
     m_psdPreviewIndex = -1;
     m_topBar->setLayerState(false, false);
-    if (m_layerPanel) m_layerPanel->hide();
+    if (m_layerPanel) m_layerPanel->hideNow();
 }
 
 bool MainWindow::psdSimplified() const
@@ -2595,12 +2621,18 @@ void MainWindow::togglePsdLayers()
 {
     if (!m_psdDoc.valid())
         return;
-    const bool open = !m_layerPanel->isVisible();
-    m_layerPanel->setVisible(open);
-    m_topBar->setLayerState(true, open);
-    if (!open && m_psdPreviewIndex >= 0) {
-        m_psdPreviewIndex = -1;
-        refreshPsdView();
+    // 关闭动画进行中不算「还开着」，否则连点会被 85ms 窗口吞掉一次切换。
+    const bool open = !(m_layerPanel->isVisible() && !m_layerPanel->isClosing());
+    if (open) {
+        m_layerPanel->showHud();   // 显示 + 110ms 开启动效（HudShell，与信息 HUD 同款）
+        m_topBar->setLayerState(true, true);
+    } else {
+        m_topBar->setLayerState(true, false);
+        if (m_psdPreviewIndex >= 0) {
+            m_psdPreviewIndex = -1;
+            refreshPsdView();
+        }
+        m_layerPanel->dismiss();   // 85ms 淡出（HudShell，与信息 HUD 同款）
     }
     applyChromeLayout();
 }
@@ -4398,6 +4430,16 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                                            .arg(m_metadata->width())
                                            .arg(m_metadata->height())
                                      : QStringLiteral("-"))
+               // 图层浮层状态机（浮层标准统一回归断言用）：与 hud= 同口径，
+               // 关闭动画 85ms 窗口内不算可见；layergeo= 浮层几何 x,y,w,h
+               << " layers=" << (m_layerPanel && m_layerPanel->isVisible()
+                                         && !m_layerPanel->isClosing() ? 1 : 0)
+               << " layergeo=" << (m_layerPanel && m_layerPanel->isVisible()
+                                       ? QStringLiteral("%1,%2,%3,%4").arg(m_layerPanel->x())
+                                             .arg(m_layerPanel->y())
+                                             .arg(m_layerPanel->width())
+                                             .arg(m_layerPanel->height())
+                                       : QStringLiteral("-"))
                << " dpr=" << devicePixelRatioF()
                << " maximized=" << (isMaximized() ? 1 : 0)
                << " winstate=" << static_cast<int>(windowState())
@@ -5964,6 +6006,13 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
         // 优先于裁剪/全屏/退出）；HUD 隐藏后的 Esc 才走原有规则。
         if (m_metadata && m_metadata->isVisible()) {
             m_metadata->dismiss();
+            event->accept();
+            return;
+        }
+        // 图层浮层同规则（浮层标准统一 2026-11-14）：打开时第一次 Esc 只收起
+        // 浮层并消费该键，不再直接退出全屏/退出程序。
+        if (m_layerPanel && m_layerPanel->isVisible() && !m_layerPanel->isClosing()) {
+            togglePsdLayers();
             event->accept();
             return;
         }

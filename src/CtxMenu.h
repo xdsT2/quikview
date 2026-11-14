@@ -1,10 +1,11 @@
 #pragma once
 
+#include <QHash>
 #include <QMenu>
 #include <QRect>
 #include <QVector>
 
-// 应用内右键菜单的自绘层（右键菜单派单 2026-11-14「全量配置修订」）。
+// 应用内右键菜单与顶栏三横菜单共用的自绘层。
 // ---------------------------------------------------------------------------
 // 只接管绘制与尺寸，导航/级联/快捷键/Esc 仍走 QMenu 原生行为：
 //   - 行高 30px、菜单圆角 10px、行圆角 6px、分隔线上下各 4px（几何仍由
@@ -21,7 +22,10 @@ class CtxMenu : public QMenu
     Q_OBJECT
 
 public:
-    explicit CtxMenu(QWidget *parent = nullptr);
+    enum class Presentation { ContextMenu, OriginalActions };
+    explicit CtxMenu(QWidget *parent = nullptr,
+                     Presentation presentation = Presentation::ContextMenu);
+    void setActionIcon(const QAction *action, const char *iconId);
 
     // QAction 动态属性键（组装方写入，paintEvent 读取）
     static constexpr const char *kIconProp     = "appmenu.icon";     // MenuIcons id
@@ -61,6 +65,9 @@ protected:
     bool event(QEvent *event) override;
 
 private:
+    QString displayLabel(const QAction *action) const;
+    QString displayShortcut(const QAction *action) const;
+    bool hasShortcutColumn(const QList<QAction *> &actions) const;
     // 快捷区几何：按钮矩形（删除前短分隔占位）、短分隔 x、下方分隔线 y。
     // 锚点取首条正文行的 actionGeometry（QSS padding 不进 contentsMargins，
     // 以正文行布局为唯一真源，保证绘制/命中/正文三者严格一致）。
@@ -68,6 +75,8 @@ private:
     int quickBodyTop() const;
     int quickIndexAt(const QPoint &pos) const;
 
+    Presentation m_presentation;
+    QHash<const QAction *, QString> m_actionIcons;
     int m_minWidth = 0;
     QList<QAction *> m_quick;        // 顶部快捷区绑定的真实动作（顺序=固定顺序）
     int m_quickHover = -1;           // 悬停按钮下标

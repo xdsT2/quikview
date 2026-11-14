@@ -7,6 +7,7 @@
 #include "MenuIcons.h"
 #include "UiStyle.h"
 
+#include <QActionGroup>
 #include <QHelpEvent>
 #include <QKeyEvent>
 #include <QMouseEvent>
@@ -62,54 +63,10 @@ QString propText(const QAction *a, const char *key)
     return v.isValid() ? v.toString() : QString();
 }
 
-// 显示标签：appmenu.label 优先，否则取 text 中 \t 前段。
-QString displayLabel(const QAction *a)
-{
-    const QString custom = propText(a, CtxMenu::kLabelProp);
-    if (!custom.isEmpty()) {
-        return custom;
-    }
-    QString t = a->text();
-    const int tab = t.indexOf(QLatin1Char('\t'));
-    if (tab >= 0) {
-        t.truncate(tab);
-    }
-    return t;
-}
-
-// 显示快捷键：appmenu.shortcut 优先，否则 \t 后段，否则动作主键的本地写法。
-QString displayShortcut(const QAction *a)
-{
-    const QString custom = propText(a, CtxMenu::kShortcutProp);
-    if (!custom.isEmpty()) {
-        return custom;
-    }
-    const QString t = a->text();
-    const int tab = t.indexOf(QLatin1Char('\t'));
-    if (tab >= 0) {
-        return t.mid(tab + 1);
-    }
-    if (!a->shortcut().isEmpty()) {
-        return a->shortcut().toString(QKeySequence::NativeText);
-    }
-    return QString();
-}
-
 bool hasFlag(const QAction *a, const char *key)
 {
     const QVariant v = a->property(key);
     return v.isValid() && v.toBool();
-}
-
-// 菜单里是否出现级联箭头/快捷键列（按列统一：只要有一行有，整列预留）。
-bool anyShortcut(const QList<QAction *> &acts)
-{
-    for (const QAction *a : acts) {
-        if (!a->isSeparator() && !displayShortcut(a).isEmpty()) {
-            return true;
-        }
-    }
-    return false;
 }
 
 bool anySubmenu(const QList<QAction *> &acts)
@@ -154,11 +111,47 @@ void drawLock(QPainter &p, const QPointF &center, const QColor &c)
 
 } // namespace
 
-CtxMenu::CtxMenu(QWidget *parent)
-    : QMenu(parent)
+CtxMenu::CtxMenu(QWidget *parent, Presentation presentation)
+    : QMenu(parent), m_presentation(presentation)
 {
     // 标签 13px：菜单尺寸与绘制同源（QSS 的 12px 不再作用于本菜单的排版）。
     setFont(UiStyle::font(13));
+}
+
+void CtxMenu::setActionIcon(const QAction *action, const char *iconId)
+{
+    m_actionIcons.insert(action, QString::fromLatin1(iconId));
+}
+
+QString CtxMenu::displayLabel(const QAction *action) const
+{
+    if (m_presentation == Presentation::ContextMenu) {
+        const QString label = propText(action, kLabelProp);
+        if (!label.isEmpty())
+            return label;
+    }
+    return action->text().section(QLatin1Char('\t'), 0, 0);
+}
+
+QString CtxMenu::displayShortcut(const QAction *action) const
+{
+    if (m_presentation == Presentation::ContextMenu) {
+        const QString shortcut = propText(action, kShortcutProp);
+        if (!shortcut.isEmpty())
+            return shortcut;
+    }
+    const QString text = action->text();
+    const qsizetype tab = text.indexOf(QLatin1Char('\t'));
+    return tab >= 0 ? text.mid(tab + 1) : action->shortcut().toString(QKeySequence::NativeText);
+}
+
+bool CtxMenu::hasShortcutColumn(const QList<QAction *> &acts) const
+{
+    for (const QAction *action : acts) {
+        if (!action->isSeparator() && !displayShortcut(action).isEmpty())
+            return true;
+    }
+    return false;
 }
 
 void CtxMenu::setMinWidth(int w)
@@ -437,7 +430,7 @@ QSize CtxMenu::sizeHint() const
     const QFontMetrics fmL(fLabel);
     const QFontMetrics fmS(fShort);
 
-    const bool shortcutCol = anyShortcut(acts);
+    const bool shortcutCol = hasShortcutColumn(acts);
     const bool arrowCol = anySubmenu(acts);
     int content = 0;
     for (const QAction *a : acts) {
@@ -487,7 +480,7 @@ void CtxMenu::paintEvent(QPaintEvent *event)
     const QFont fShort = UiStyle::font(11);
     const QFontMetrics fmL(fLabel);
     const QFontMetrics fmS(fShort);
-    const bool shortcutCol = anyShortcut(acts);
+    const bool shortcutCol = hasShortcutColumn(acts);
     const bool arrowCol = anySubmenu(acts);
     const QColor colText = QColor(UiStyle::menuText());
     const QColor colDisabled = QColor(UiStyle::menuDisabled());
@@ -582,7 +575,9 @@ void CtxMenu::paintEvent(QPaintEvent *event)
         }
 
         const bool enabled = a->isEnabled();
-        const bool danger = hasFlag(a, kDangerProp);
+        const bool context = m_presentation == Presentation::ContextMenu;
+        const QString iconId = context ? propText(a, kIconProp) : m_actionIcons.value(a);
+        const bool danger = context ? hasFlag(a, kDangerProp) : iconId == QLatin1String("trash");
         const bool hovered = row.contains(cursor);
         const bool focused = (a == activeAction());
         const bool dangerHover = danger && hovered;
@@ -630,7 +625,6 @@ void CtxMenu::paintEvent(QPaintEvent *event)
         }
 
         // 图标（危险行固定危险色；禁用灰；正常主文色）
-        const QString iconId = propText(a, kIconProp);
         if (!iconId.isEmpty()) {
             const QColor ic = !enabled ? colDisabled
                             : danger   ? dangerIconColor()
@@ -641,15 +635,14 @@ void CtxMenu::paintEvent(QPaintEvent *event)
         // 标签（危险行文字保持中性主文色，规格 §视觉与交互）
         p.setFont(fLabel);
         p.setPen(enabled ? colText : colDisabled);
-        QRectF labelRect(x, row.top(), 0, row.height());
         int labelAvail = int(row.width());
         if (shortcutCol) {
             labelAvail = int(shortcutLeft - x - 6);
         }
         p.drawText(QRectF(x, row.top(), labelAvail, row.height()),
-                   Qt::AlignVCenter | Qt::AlignLeft, label);
+                   Qt::AlignVCenter | Qt::AlignLeft | (context ? 0 : Qt::TextShowMnemonic), label);
         x += fmL.horizontalAdvance(label);
-        if (hasFlag(a, kLockProp)) {
+        if (context && hasFlag(a, kLockProp)) {
             drawLock(p, QPointF(x + 8, row.center().y()), shortcutColor());
         }
 
@@ -657,8 +650,9 @@ void CtxMenu::paintEvent(QPaintEvent *event)
         //（无快捷键列时贴右缘）
         if (a->isCheckable() && a->isChecked()) {
             const qreal markX = shortcutCol && shortcutLeft > 0 ? shortcutLeft - 6 : shortcutRight - 10;
-            drawCheck(p, QPointF(markX, row.center().y()),
-                      enabled ? colText : colDisabled, hasFlag(a, kRadioProp));
+            const bool radio = context ? hasFlag(a, kRadioProp)
+                                       : a->actionGroup() && a->actionGroup()->isExclusive();
+            drawCheck(p, QPointF(markX, row.center().y()), enabled ? colText : colDisabled, radio);
         }
 
         // 快捷键（11px 右对齐）

@@ -1,7 +1,6 @@
 // 中性线性图标实现（右键菜单派单 2026-11-14）。
 // 全部用 QPainterPath 直线/圆弧画在 16px 网格上；线宽 1.45、圆角端点，
-// 与设计图（全量配置修订 01–11）的细线图标对齐。新增图标先在 MenuCatalog.h
-// 的 kNodes 里登记 id，再在这里补一个 case。
+// 与设计图（全量配置修订 01–11）的细线图标对齐。
 
 #include "MenuIcons.h"
 
@@ -123,7 +122,9 @@ bool paint(QPainter &p, const QString &id, const QRectF &rect, const QColor &col
         QStringLiteral("folder"), QStringLiteral("monitor"), QStringLiteral("copy-more"),
         QStringLiteral("folder-copy"), QStringLiteral("open-with"), QStringLiteral("pencil"),
         QStringLiteral("printer"), QStringLiteral("trash"), QStringLiteral("sliders"),
-        QStringLiteral("x"), QStringLiteral("logout"),
+        QStringLiteral("x"), QStringLiteral("logout"), QStringLiteral("save"),
+        QStringLiteral("play"), QStringLiteral("stop"), QStringLiteral("bookmark"),
+        QStringLiteral("crop"), QStringLiteral("moon"), QStringLiteral("layers"),
     };
     if (!kKnown.contains(id)) {
         return false;
@@ -356,6 +357,30 @@ bool paint(QPainter &p, const QString &id, const QRectF &rect, const QColor &col
     } else if (id == QLatin1String("x")) {
         stroke(p, g.line(3.4, 3.4, 12.6, 12.6), color);
         stroke(p, g.line(12.6, 3.4, 3.4, 12.6), color);
+    } else if (id == QLatin1String("save")) {
+        stroke(p, g.poly({{2, 2}, {11.5, 2}, {14, 4.5}, {14, 14}, {2, 14}}, true), color);
+        stroke(p, g.poly({{5, 2}, {5, 5.5}, {10.5, 5.5}, {10.5, 2}}), color);
+        stroke(p, g.poly({{5, 14}, {5, 9}, {11, 9}, {11, 14}}), color);
+    } else if (id == QLatin1String("play")) {
+        stroke(p, g.poly({{4.5, 2.5}, {13, 8}, {4.5, 13.5}}, true), color);
+    } else if (id == QLatin1String("stop")) {
+        stroke(p, g.rrect(QRectF(3, 3, 10, 10), 1.5), color);
+    } else if (id == QLatin1String("bookmark")) {
+        stroke(p, g.poly({{4, 2}, {12, 2}, {12, 14}, {8, 10.5}, {4, 14}}, true), color);
+    } else if (id == QLatin1String("crop")) {
+        stroke(p, g.poly({{4.5, 1.5}, {4.5, 11.5}, {14.5, 11.5}}), color);
+        stroke(p, g.poly({{1.5, 4.5}, {11.5, 4.5}, {11.5, 14.5}}), color);
+    } else if (id == QLatin1String("moon")) {
+        QPainterPath moon;
+        moon.moveTo(8.5, 2);
+        moon.cubicTo(5.5, 7.3, 9.2, 11.9, 14, 9.4);
+        moon.cubicTo(12.7, 14.8, 5.4, 15.2, 2.8, 10.7);
+        moon.cubicTo(0.5, 6.7, 3.5, 2, 8.5, 2);
+        stroke(p, moon, color);
+    } else if (id == QLatin1String("layers")) {
+        stroke(p, g.poly({{1.5, 5.5}, {8, 2}, {14.5, 5.5}, {8, 9}}, true), color);
+        stroke(p, g.poly({{1.5, 8.5}, {8, 12}, {14.5, 8.5}}), color);
+        stroke(p, g.poly({{1.5, 11.5}, {8, 15}, {14.5, 11.5}}), color);
     } else if (id == QLatin1String("logout")) {
         stroke(p, g.poly({{7.0, 2.0}, {2.5, 2.0}, {2.5, 14.0}, {7.0, 14.0}}), color);
         stroke(p, g.line(6.5, 8.0, 13.5, 8.0), color);
