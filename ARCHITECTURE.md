@@ -41,7 +41,9 @@
 | 模块 | 行数 | 职责 |
 |---|---|---|
 | `SettingsDialog` | 2375 + 234 | 设置页九类选项，含快捷键自定义与冲突检测 |
-| `MetadataPanel` | 1208 + 135 | 图片信息 HUD：标题栏 + 键值栅格 + 可折叠直方图（`Tab` 呼出）；画布采样磨砂背板与开关动效，实装 Tab-HUD 2026-11-13 定稿 |
+| `MetadataPanel` | 816 + 133 | 图片信息 HUD：标题栏 + 键值栅格 + 可折叠直方图（`Tab` 呼出）；实装 Tab-HUD 2026-11-13 定稿 |
+| `HudShell` | 383 + 102 | 画布浮层共用外壳（2026-11-14 浮层标准统一）：磨砂底板 `HudBackdrop`、缓存投影 `HudEffect`、28×28 标题栏按钮 `HudToolButton` 与 110/85ms 开合动效，信息浮层与图层面板共用 |
+| `LayerPanel` | 404 + 75 | PSD 图层面板：右侧浮层，整图 / 图层预览 / 分组折叠 / 独立眼睛显隐；外壳走 `HudShell`，Esc 优先收起 |
 | `ThumbnailBrowser` | — | 底部胶片栏，绘制并异步解码可见项 |
 | `CtxMenu` / `MenuCatalog.h` / `MenuIcons` | 1411 | 应用内右键菜单：三层收纳目录、全量可见性配置（`config/appmenu/*`）、顶部五图标快捷区与中性线性图标自绘（0.5.1） |
 | `BatchConvertDialog` | 772 + 82 | 批量格式转换 |
