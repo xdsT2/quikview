@@ -3733,8 +3733,8 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                 { QStringLiteral("appearance"), 2 }, { QStringLiteral("image"), 3 },
                 { QStringLiteral("assoc"), 4 },      { QStringLiteral("keyboard"), 5 },
                 { QStringLiteral("mouse"), 6 },      { QStringLiteral("bookmark"), 7 },
-                { QStringLiteral("context"), 8 },    { QStringLiteral("misc"), 9 },
-                { QStringLiteral("language"), 10 },
+                { QStringLiteral("context"), 8 },    { QStringLiteral("rightclick"), 9 },
+                { QStringLiteral("misc"), 10 },      { QStringLiteral("language"), 11 },
             };
             bool numeric = false;
             const int n = key.toInt(&numeric);

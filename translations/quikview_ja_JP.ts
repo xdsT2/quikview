@@ -1944,6 +1944,14 @@
         <translation>自動保存の切り替えとブックマークの上限数。</translation>
     </message>
     <message>
+        <source>上下文菜单</source>
+        <translation>コンテキストメニュー</translation>
+    </message>
+    <message>
+        <source>选择应用内右键菜单显示的项目，每个子菜单用一个开关控制整组命令。</source>
+        <translation>アプリ内コンテキストメニューに表示する項目を選択します。各スイッチでサブメニュー全体を制御します。</translation>
+    </message>
+    <message>
         <source>右键菜单</source>
         <translation>右クリックメニュー</translation>
     </message>

@@ -1121,13 +1121,13 @@ private:
     bool m_wasEditing = false;
 };
 
-// 11 个页签的图标（顺序必须与 addPage 调用顺序一致；漏项会让其后全部错一格）
+// 12 个页签的图标（顺序必须与 addPage 调用顺序一致；漏项会让其后全部错一格）
 NavGlyph navGlyphFor(int index)
 {
     static const NavGlyph glyphs[] = { NavGlyph::Gear,  NavGlyph::Eye,    NavGlyph::Image,
                                        NavGlyph::Doc,   NavGlyph::Link,   NavGlyph::Keyboard,
-                                       NavGlyph::Mouse, NavGlyph::Bookmark, NavGlyph::ContextMenu,
-                                       NavGlyph::More,  NavGlyph::Globe };
+                                       NavGlyph::Mouse, NavGlyph::Bookmark, NavGlyph::Menu,
+                                       NavGlyph::ContextMenu, NavGlyph::More, NavGlyph::Globe };
     return (index >= 0 && index < int(sizeof(glyphs) / sizeof(glyphs[0])))
                ? glyphs[index]
                : NavGlyph::Menu;
@@ -1677,7 +1677,10 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     buildKeyboardPage(addPage(tr("键盘"), QString()));
     buildMousePage(addPage(tr("鼠标"), tr("左/右/X/Y 与滚轮的按键映射可自定义；中键平移、双击最大化可用。")));
     buildBookmarkPage(addPage(tr("书签"), tr("自动保存开关与书签数量上限。")));
-    buildContextMenuPage(addPage(tr("右键菜单"), tr("自定义 QuikView 内的右键菜单与顶部快捷操作。")));
+    buildContextMenuPage(addPage(tr("上下文菜单"), tr("选择应用内右键菜单显示的项目，每个子菜单用一个开关控制整组命令。")));
+    // 右键菜单页：本轮只落导航项、图标与页头文案，与「上下文菜单」页的既有设置项
+    // 不重叠；具体设置项另行设计后再接入。
+    addPage(tr("右键菜单"), tr("自定义 QuikView 内的右键菜单与顶部快捷操作。"));
     buildEtcPage(addPage(tr("杂项"), tr("图片文件夹、外部编辑器与 RAW 打开策略。")));
     buildLangPage(addPage(tr("语言"), tr("选择界面语言并管理语言文件。")));
 

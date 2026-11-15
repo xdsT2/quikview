@@ -236,15 +236,15 @@ inline QColor switchEdgeColor() { return color(switchOnEdge()); }
 inline QColor statusOkColor()   { return color(statusOk()); }
 inline QColor statusWarnColor() { return color(statusWarn()); }
 
-// 11 个分类图标底板色：高饱和彩色，两套主题复用同一组，不蒙灰（硬验收点 4）。
+// 12 个分类图标底板色：高饱和彩色，两套主题复用同一组，不蒙灰（硬验收点 4）。
 // 顺序必须与 addPage 调用顺序一致。
 inline QColor categoryColor(int index)
 {
     static const char *colors[] = {
         "#298ffc", "#7655f5", "#08aabb", "#f49b0b", "#1ab851", "#5964ee",
-        "#e9527d", "#e97d22", "#00806c", "#9b55e8", "#089be3"
+        "#e9527d", "#e97d22", "#69717c", "#00806c", "#9b55e8", "#089be3"
     };
-    return color(colors[(index >= 0 && index < 11) ? index : 8]);
+    return color(colors[(index >= 0 && index < 12) ? index : 8]);
 }
 } // namespace fluent
 

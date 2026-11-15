@@ -1944,6 +1944,14 @@
         <translation>自動儲存開關與書籤數量上限。</translation>
     </message>
     <message>
+        <source>上下文菜单</source>
+        <translation>快顯選單</translation>
+    </message>
+    <message>
+        <source>选择应用内右键菜单显示的项目，每个子菜单用一个开关控制整组命令。</source>
+        <translation>選擇應用程式內右鍵選單顯示的項目，每個子選單用一個開關控制整組命令。</translation>
+    </message>
+    <message>
         <source>右键菜单</source>
         <translation>右鍵選單</translation>
     </message>

@@ -1944,8 +1944,16 @@
         <translation>Auto-save toggle and bookmark capacity limit.</translation>
     </message>
     <message>
-        <source>右键菜单</source>
+        <source>上下文菜单</source>
         <translation>Context Menu</translation>
+    </message>
+    <message>
+        <source>选择应用内右键菜单显示的项目，每个子菜单用一个开关控制整组命令。</source>
+        <translation>Choose which items the in-app context menu shows; each toggle controls a whole submenu group.</translation>
+    </message>
+    <message>
+        <source>右键菜单</source>
+        <translation>Right-click Menu</translation>
     </message>
     <message>
         <source>自定义 QuikView 内的右键菜单与顶部快捷操作。</source>

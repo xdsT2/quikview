@@ -1944,12 +1944,20 @@
         <translation>Interrupteur d'enregistrement automatique et limite du nombre de marque-pages.</translation>
     </message>
     <message>
-        <source>右键菜单</source>
+        <source>上下文菜单</source>
         <translation>Menu contextuel</translation>
     </message>
     <message>
+        <source>选择应用内右键菜单显示的项目，每个子菜单用一个开关控制整组命令。</source>
+        <translation>Choisissez les éléments montrés par le menu contextuel de l'application ; chaque interrupteur contrôle tout un sous-menu.</translation>
+    </message>
+    <message>
+        <source>右键菜单</source>
+        <translation>Menu clic droit</translation>
+    </message>
+    <message>
         <source>自定义 QuikView 内的右键菜单与顶部快捷操作。</source>
-        <translation>Personnalisez le menu contextuel et les actions rapides du haut dans QuikView.</translation>
+        <translation>Personnalisez le menu clic droit et les actions rapides du haut dans QuikView.</translation>
     </message>
     <message>
         <source>杂项</source>

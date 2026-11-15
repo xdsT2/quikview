@@ -106,11 +106,11 @@ Originals are kept by default.
 
 ## 9. 设置 · Settings
 
-左侧十一个分类，右侧就地生效的选项：一般、浏览、外观、图像处理、格式关联、键盘、鼠标、书签、右键菜单、杂项、语言（另有「关于 QuikView」入口）。
+左侧十二个分类，右侧就地生效的选项：一般、浏览、外观、图像处理、格式关联、键盘、鼠标、书签、上下文菜单、右键菜单、杂项、语言（另有「关于 QuikView」入口）。
 
-Eleven categories on the left, options on the right: general, browsing, appearance, image
-processing, file associations, keyboard, mouse, bookmarks, context menu, misc, language
-(plus an About entry).
+Twelve categories on the left, options on the right: general, browsing, appearance, image
+processing, file associations, keyboard, mouse, bookmarks, context menu, right-click menu,
+misc, language (plus an About entry).
 
 ![设置](screenshots/09-settings.webp)
 
