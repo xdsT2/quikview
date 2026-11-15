@@ -54,5 +54,6 @@ Git Bash 下 `/D...` 参数会被 MSYS 当成路径改写，需 `MSYS2_ARG_CONV_
 - 安装器将 QuikView 登记为 PSD 的可选打开程序，并在勾选资源管理器集成时注册 PSD/PSB 内嵌缩略图处理器；不会静默抢占系统默认应用。
 - 程序翻译在编译期嵌入资源 `:/i18n`，payload 无需 `.qm` 文件。
 - `usp10.dll` 为系统组件，无需收集。
+- 安装 / 升级 / 卸载**不会结束或重启 `explorer.exe`**：升级时先把 `quikthumb.dll` / `quikthumb32.dll` 改名成 `.bak` 让出路径再写入新版，删不掉的文件用 `Delete /REBOOTOK` 延后清理；只调用一次 `SHChangeNotify(SHCNE_ASSOCCHANGED)` 通知 Shell 刷新。0.5.2 及以前「先 taskkill 强杀、装完再由提权进程 Exec 拉起」的做法已撤销——那会造成安装后桌面黑屏、需手动重启资源管理器。
 - 安装器未做代码签名，SmartScreen 会提示「更多信息 → 仍要运行」。
 - 产物命名 `quikview-<版本>-win64.zip` / `QuikView-<版本>-setup.exe`，挂到 GitHub Release。
