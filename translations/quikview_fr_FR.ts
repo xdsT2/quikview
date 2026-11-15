@@ -1956,8 +1956,8 @@
         <translation>Menu clic droit du lecteur</translation>
     </message>
     <message>
-        <source>自定义 QuikView 内的右键菜单与顶部快捷操作。</source>
-        <translation>Personnalisez le menu clic droit et les actions rapides du haut dans QuikView.</translation>
+        <source>自定义 QuikView 查看器内的右键菜单与顶部快捷操作。</source>
+        <translation>Personnalisez le menu clic droit et les actions rapides du haut dans la visionneuse QuikView.</translation>
     </message>
     <message>
         <source>杂项</source>

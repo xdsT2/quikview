@@ -1956,8 +1956,8 @@
         <translation>Viewer Right-click Menu</translation>
     </message>
     <message>
-        <source>自定义 QuikView 内的右键菜单与顶部快捷操作。</source>
-        <translation>Customize the right-click menu and top quick actions in QuikView.</translation>
+        <source>自定义 QuikView 查看器内的右键菜单与顶部快捷操作。</source>
+        <translation>Customize the right-click menu and top quick actions in the QuikView viewer.</translation>
     </message>
     <message>
         <source>杂项</source>

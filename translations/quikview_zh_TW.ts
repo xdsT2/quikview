@@ -1956,8 +1956,8 @@
         <translation>檢視器右鍵選單</translation>
     </message>
     <message>
-        <source>自定义 QuikView 内的右键菜单与顶部快捷操作。</source>
-        <translation>自訂 QuikView 內的右鍵選單與頂端快速操作。</translation>
+        <source>自定义 QuikView 查看器内的右键菜单与顶部快捷操作。</source>
+        <translation>自訂 QuikView 檢視器內的右鍵選單與頂端快速操作。</translation>
     </message>
     <message>
         <source>杂项</source>

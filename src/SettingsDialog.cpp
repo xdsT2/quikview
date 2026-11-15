@@ -47,6 +47,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 #include <functional>
+#include <algorithm>
 #include <cmath>
 #include <shobjidl.h>
 #ifdef Q_OS_WIN
@@ -1686,7 +1687,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     buildContextMenuPage(addPage(tr("上下文菜单"), tr("资源管理器集成的注册状态与右键菜单开关。")));
     // 查看器右键菜单：QuikView 内的右键菜单（原「上下文菜单」页上半部整体搬过来），
     // 资源管理器集成/注册/壳扩展开关仍留在「上下文菜单」页。
-    buildAppMenuSections(addPage(tr("查看器右键菜单"), tr("自定义 QuikView 内的右键菜单与顶部快捷操作。")));
+    buildAppMenuSections(addPage(tr("查看器右键菜单"), tr("自定义 QuikView 查看器内的右键菜单与顶部快捷操作。")));
     buildEtcPage(addPage(tr("杂项"), tr("图片文件夹、外部编辑器与 RAW 打开策略。")));
     buildLangPage(addPage(tr("语言"), tr("选择界面语言并管理语言文件。")));
 
@@ -1996,30 +1997,66 @@ void SettingsDialog::resizeEvent(QResizeEvent *event)
 // ===========================================================================
 
 // ---------------------------------------------------------------------------
-// 可折叠分组头：标题沿用 sectionTitle 样式与同一条左边线，右侧自绘 chevron，
-// 整行可点。chevron 颜色每次重绘现取，主题切换不会残留旧色。
-// 供「查看器右键菜单」这类分组多、行数长的页面使用，默认全部收起。
+// 可折叠分组头：分组图标 + 名称 + 状态摘要 + 右侧 chevron，整行可点。
+// 标题沿用 sectionTitle 的样式与左边线（图标落在同一 11px 起始位）；chevron
+// 与摘要颜色每次重绘现取，切换主题不残留旧色。键盘 Tab 进入、Enter／Space
+// 展开收起、↑／↓ 在同页分组间移动。默认收起——页面长时不铺满整屏。
 // ---------------------------------------------------------------------------
 class SectionHeader : public QWidget
 {
 public:
-    SectionHeader(const QString &title, QWidget *parent, std::function<void(bool)> onToggle)
+    SectionHeader(const QString &title, const QString &iconName, QWidget *parent,
+                  std::function<void(bool)> onToggle)
         : QWidget(parent), m_onToggle(std::move(onToggle))
     {
         setCursor(Qt::PointingHandCursor);
+        setFocusPolicy(Qt::StrongFocus);
+        setMinimumHeight(26);
+
         auto *h = new QHBoxLayout(this);
-        h->setContentsMargins(0, 0, 0, 0);
-        h->setSpacing(0);
+        h->setContentsMargins(kRowPadX, 0, kRowPadX, 0);
+        h->setSpacing(8);
+
+        if (!iconName.isEmpty()) {
+            auto *icon = new QLabel(this);
+            icon->setFixedSize(16, 16);
+            icon->setPixmap(MenuIcons::pixmap(iconName, UiStyle::fluent::textColor(), 16));
+            h->addWidget(icon, 0, Qt::AlignVCenter);
+        }
+
         auto *t = new QLabel(title, this);
         t->setObjectName(QStringLiteral("sectionTitle"));
+        // 左边线由 header 的 11px 内边距承担，applyPageRhythm 不再二次缩进。
+        t->setProperty("collapseHead", true);
         h->addWidget(t, 0, Qt::AlignVCenter);
         h->addStretch(1);
+
+        m_summary = new QLabel(this);
+        m_summary->setVisible(false);
+        h->addWidget(m_summary, 0, Qt::AlignVCenter);
+    }
+
+    // 状态摘要：已开启 / 总数；全开绿、全关灰、部分橙（与开关态同源）。
+    void setSummary(int on, int total)
+    {
+        if (total <= 0) {
+            m_summary->setVisible(false);
+            return;
+        }
+        m_summary->setVisible(true);
+        m_summary->setText(QStringLiteral("%1/%2").arg(on).arg(total));
+        const QColor c = (on == total) ? UiStyle::fluent::statusOkColor()
+                        : (on == 0)    ? UiStyle::fluent::descColor()
+                                       : UiStyle::fluent::statusWarnColor();
+        m_summary->setStyleSheet(QStringLiteral("font-size:11px;color:%1;")
+                                     .arg(c.name(QColor::HexRgb)));
     }
 
 protected:
     void mousePressEvent(QMouseEvent *e) override
     {
         if (e->button() == Qt::LeftButton) {
+            setFocus(Qt::MouseFocusReason);
             e->accept();
             return;
         }
@@ -2028,19 +2065,41 @@ protected:
     void mouseReleaseEvent(QMouseEvent *e) override
     {
         if (e->button() == Qt::LeftButton && rect().contains(e->position().toPoint())) {
-            m_expanded = !m_expanded;
-            update();
-            if (m_onToggle)
-                m_onToggle(m_expanded);
+            setExpanded(!m_expanded);
             e->accept();
             return;
         }
         QWidget::mouseReleaseEvent(e);
     }
+    void keyPressEvent(QKeyEvent *e) override
+    {
+        switch (e->key()) {
+        case Qt::Key_Return:
+        case Qt::Key_Enter:
+        case Qt::Key_Space:
+            setExpanded(!m_expanded);
+            e->accept();
+            return;
+        case Qt::Key_Down:
+        case Qt::Key_Up:
+            moveFocus(e->key() == Qt::Key_Down ? 1 : -1);
+            e->accept();
+            return;
+        default:
+            break;
+        }
+        QWidget::keyPressEvent(e);
+    }
     void paintEvent(QPaintEvent *) override
     {
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing, true);
+        if (hasFocus()) {
+            // 键盘焦点：2px 强调色内框，与勾选/开关态互不干扰。
+            p.setPen(QPen(QColor(QStringLiteral("#1688f8")), 2));
+            p.setBrush(Qt::NoBrush);
+            p.drawRoundedRect(QRectF(rect()).adjusted(1, 1, -1, -1), 6, 6);
+        }
         p.setPen(QPen(UiStyle::fluent::descColor(), 1.4, Qt::SolidLine,
                       Qt::RoundCap, Qt::RoundJoin));
         p.translate(width() - kRowPadX - 5.0, height() / 2.0);
@@ -2051,11 +2110,37 @@ protected:
     }
 
 private:
+    void setExpanded(bool on)
+    {
+        if (m_expanded == on)
+            return;
+        m_expanded = on;
+        update();
+        if (m_onToggle)
+            m_onToggle(m_expanded);
+    }
+    void moveFocus(int delta)
+    {
+        QWidget *page = parentWidget() ? parentWidget()->parentWidget() : nullptr;
+        if (!page)
+            return;
+        QList<QWidget *> heads = page->findChildren<QWidget *>(QStringLiteral("sectionHeader"));
+        std::sort(heads.begin(), heads.end(), [page](QWidget *a, QWidget *b) {
+            return a->mapTo(page, QPoint()).y() < b->mapTo(page, QPoint()).y();
+        });
+        const int i = heads.indexOf(this);
+        const int n = i + delta;
+        if (i >= 0 && n >= 0 && n < heads.size())
+            heads.at(n)->setFocus(Qt::TabFocusReason);
+    }
+
+    QLabel *m_summary = nullptr;
     bool m_expanded = false;
     std::function<void(bool)> m_onToggle;
 };
 
-QWidget *SettingsDialog::beginCollapsibleSection(QWidget *page, const QString &title, int topGap)
+QWidget *SettingsDialog::beginCollapsibleSection(QWidget *page, const QString &title,
+                                                 const QString &iconName, int topGap)
 {
     auto *pageLay = qobject_cast<QVBoxLayout *>(page->layout());
     if (!pageLay)
@@ -2073,11 +2158,13 @@ QWidget *SettingsDialog::beginCollapsibleSection(QWidget *page, const QString &t
     cardLay->setContentsMargins(0, 0, 0, 0);
     cardLay->setSpacing(0);
 
-    auto *head = new SectionHeader(title, sec, [card](bool on) { card->setVisible(on); });
+    auto *head = new SectionHeader(title, iconName, sec,
+                                   [card](bool on) { card->setVisible(on); });
+    head->setObjectName(QStringLiteral("sectionHeader"));
     v->addWidget(head);
     v->addSpacing(6);
     v->addWidget(card);
-    // 智能折叠：一进页只看到分组标题，点标题才展开该组；状态不写配置。
+    // 默认收起：一进页只看到分组标题，点哪组开哪组；折叠状态不写配置。
     card->setVisible(false);
 
     pageLay->addWidget(sec);
@@ -2203,7 +2290,10 @@ void SettingsDialog::applyPageRhythm(QWidget *page, int firstGap, int groupGap,
 
     for (QLabel *t : page->findChildren<QLabel *>(QStringLiteral("sectionTitle"))) {
         t->setProperty("variant", QStringLiteral("page"));
-        t->setContentsMargins(kGenRowPadX, 0, 0, 0);
+        // 折叠头的标题已经落在 header 的 11px 内边距上（前面还有分组图标），
+        // 再套一次左边距会和图标错位。
+        if (!t->property("collapseHead").toBool())
+            t->setContentsMargins(kGenRowPadX, 0, 0, 0);
     }
     for (QLabel *n : page->findChildren<QLabel *>(QStringLiteral("setNote")))
         n->setContentsMargins(kGenRowPadX, 8, kGenRowPadX, 9);
@@ -3714,21 +3804,41 @@ void SettingsDialog::buildAppMenuSections(QWidget *page)
         pageLay->addWidget(resetHost);
     }
 
+    // 折叠标题的状态摘要：每组统计"已开启 / 总数"，开关一变就刷新（规格 §智能折叠）。
+    struct SumGroup {
+        QWidget *head;
+        int from;
+        int to;
+    };
+    QVector<SumGroup> sumGroups;
+    auto addSum = [&sumGroups, &allRows](QWidget *section, int from) {
+        sumGroups.append({ section->findChild<QWidget *>(QStringLiteral("sectionHeader")),
+                           from, allRows.size() });
+    };
+
     // —— 打开与定位 ——
-    QWidget *sec = beginCollapsibleSection(page, AppMenu::sectionTitle(QStringLiteral("open")));
+    int rowFrom = allRows.size();
+    QWidget *sec = beginCollapsibleSection(page, AppMenu::sectionTitle(QStringLiteral("open")),
+                                           QStringLiteral("folder-open"));
     for (const char *id : { "open_image", "open_folder", "select_image", "locate_file" }) {
         bindToggle(addSwitchRow(sec, id, AppMenu::Single, "", QString(), true));
     }
+    addSum(sec, rowFrom);
 
     // —— 常用动作 ——
-    sec = beginCollapsibleSection(page, AppMenu::sectionTitle(QStringLiteral("common")));
+    rowFrom = allRows.size();
+    sec = beginCollapsibleSection(page, AppMenu::sectionTitle(QStringLiteral("common")),
+                                  QStringLiteral("info"));
     bindToggle(addSwitchRow(sec, "image_info", AppMenu::Single, "", QString(), true));
     bindToggle(addSwitchRow(sec, "copy_clipboard", AppMenu::Single, "",
                             tr("同时遵循已有的剪贴板入口设置。"), true));
     bindToggle(addSwitchRow(sec, "always_on_top", AppMenu::Single, "", QString(), true));
+    addSum(sec, rowFrom);
 
     // —— 任务菜单（浏览与显示 / 图像处理 / 文件操作 三组及其子树）——
-    sec = beginCollapsibleSection(page, AppMenu::sectionTitle(QStringLiteral("task")));
+    rowFrom = allRows.size();
+    sec = beginCollapsibleSection(page, AppMenu::sectionTitle(QStringLiteral("task")),
+                                  QStringLiteral("browse"));
     bindToggle(addSwitchRow(sec, "group_browse", AppMenu::Group, "", QString(), true));
     bindToggle(addSwitchRow(sec, "parent_nav", AppMenu::Parent, "group_browse",
                             tr("前后跳转、随机浏览及切换文件夹。"), true));
@@ -3780,13 +3890,19 @@ void SettingsDialog::buildAppMenuSections(QWidget *page)
     bindToggle(addSwitchRow(sec, "parent_openwith", AppMenu::Parent, "group_file", QString(), true));
     addChildRow(sec, "open_editor", "group_file", "parent_openwith");
     addChildRow(sec, "print", "group_file", "");           // 固定行，随分组显隐
+    addSum(sec, rowFrom);
 
     // —— 危险操作 ——
-    sec = beginCollapsibleSection(page, AppMenu::sectionTitle(QStringLiteral("danger")));
+    rowFrom = allRows.size();
+    sec = beginCollapsibleSection(page, AppMenu::sectionTitle(QStringLiteral("danger")),
+                                  QStringLiteral("trash"));
     bindToggle(addSwitchRow(sec, "delete_file", AppMenu::Single, "", QString(), true));
+    addSum(sec, rowFrom);
 
     // —— 应用（设置… 固定显示：锁标记 + 说明，无开关）——
-    sec = beginCollapsibleSection(page, AppMenu::sectionTitle(QStringLiteral("app")));
+    rowFrom = allRows.size();
+    sec = beginCollapsibleSection(page, AppMenu::sectionTitle(QStringLiteral("app")),
+                                  QStringLiteral("sliders"));
     const AppRow settingsRow = addSwitchRow(sec, "settings", AppMenu::Fixed, "",
                                             tr("固定入口，可从右键菜单返回此页。"), false);
     {
@@ -3809,12 +3925,13 @@ void SettingsDialog::buildAppMenuSections(QWidget *page)
     bindToggle(addSwitchRow(sec, "about", AppMenu::Single, "", QString(), true));
     bindToggle(addSwitchRow(sec, "close_window", AppMenu::Single, "", QString(), true));
     bindToggle(addSwitchRow(sec, "quit", AppMenu::Single, "", QString(), true));
+    addSum(sec, rowFrom);
 
     // —— 状态联动：行清单已齐，按值捕获进 connect（存活到对话框销毁）——
     // 规则（规格 §可见性与安全入口）：Parent 行可操作 = 所属组开；
     // Group/Single 行恒可操作；子行可见 = 组开 且 所属 Parent 开；
     // 组内固定行 = 组开。
-    auto refresh = [allRows, allChildren, tintIcon, greyText]() {
+    auto refresh = [allRows, allChildren, tintIcon, greyText, sumGroups]() {
         auto isOn = [allRows](const QString &id) -> bool {
             for (const AppRow &r : allRows) {
                 if (r.id == id) {
@@ -3843,6 +3960,20 @@ void SettingsDialog::buildAppMenuSections(QWidget *page)
             }
             tintIcon(c.icon, c.iconId, on);
             greyText(c.name, on);
+        }
+        // 折叠标题的状态摘要：每组「已开启项 / 有开关的项」
+        for (const SumGroup &g : sumGroups) {
+            int on = 0;
+            int total = 0;
+            for (int i = g.from; i < g.to && i < allRows.size(); ++i) {
+                if (allRows[i].toggle) {
+                    ++total;
+                    if (allRows[i].toggle->isChecked())
+                        ++on;
+                }
+            }
+            if (auto *h = static_cast<SectionHeader *>(g.head))
+                h->setSummary(on, total);
         }
     };
     // 初始着色（开关初值在 bindToggle 里已按缺键默认表设置）

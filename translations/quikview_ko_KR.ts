@@ -1956,8 +1956,8 @@
         <translation>뷰어 오른쪽 클릭 메뉴</translation>
     </message>
     <message>
-        <source>自定义 QuikView 内的右键菜单与顶部快捷操作。</source>
-        <translation>QuikView 내 오른쪽 클릭 메뉴와 상단 빠른 작업을 사용자 지정합니다.</translation>
+        <source>自定义 QuikView 查看器内的右键菜单与顶部快捷操作。</source>
+        <translation>QuikView 뷰어 내 오른쪽 클릭 메뉴와 상단 빠른 작업을 사용자 지정합니다.</translation>
     </message>
     <message>
         <source>杂项</source>

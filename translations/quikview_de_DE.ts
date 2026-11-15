@@ -1956,8 +1956,8 @@
         <translation>Viewer-Kontextmenü</translation>
     </message>
     <message>
-        <source>自定义 QuikView 内的右键菜单与顶部快捷操作。</source>
-        <translation>Rechtsklickmenü und obere Schnellaktionen in QuikView anpassen.</translation>
+        <source>自定义 QuikView 查看器内的右键菜单与顶部快捷操作。</source>
+        <translation>Rechtsklickmenü und obere Schnellaktionen im QuikView-Viewer anpassen.</translation>
     </message>
     <message>
         <source>杂项</source>

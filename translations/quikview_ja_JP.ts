@@ -1956,8 +1956,8 @@
         <translation>ビューアーの右クリックメニュー</translation>
     </message>
     <message>
-        <source>自定义 QuikView 内的右键菜单与顶部快捷操作。</source>
-        <translation>QuikView 内の右クリックメニューと上部のクイック操作をカスタマイズします。</translation>
+        <source>自定义 QuikView 查看器内的右键菜单与顶部快捷操作。</source>
+        <translation>QuikView ビューアー内の右クリックメニューと上部のクイック操作をカスタマイズします。</translation>
     </message>
     <message>
         <source>杂项</source>
