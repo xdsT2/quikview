@@ -2135,7 +2135,7 @@ private:
     }
 
     QLabel *m_summary = nullptr;
-    bool m_expanded = false;
+    bool m_expanded = true;   // 默认展开：折叠只用于手动收纳，不隐藏内容
     std::function<void(bool)> m_onToggle;
 };
 
@@ -2164,8 +2164,7 @@ QWidget *SettingsDialog::beginCollapsibleSection(QWidget *page, const QString &t
     v->addWidget(head);
     v->addSpacing(6);
     v->addWidget(card);
-    // 默认收起：一进页只看到分组标题，点哪组开哪组；折叠状态不写配置。
-    card->setVisible(false);
+    // 默认展开（折叠只是手动收纳）；标题初始 chevron 与卡片可见状态一致。
 
     pageLay->addWidget(sec);
     return sec;
