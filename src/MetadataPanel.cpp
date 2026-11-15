@@ -33,6 +33,36 @@
 
 using namespace UiStyle;   // 令牌直取：UiStyle::hud::xxx 以 hud::xxx 书写
 
+// ---------------------------------------------------------------------------
+// EXIF 标签显示名翻译（多语言派单 2026-11-15）。
+// ExifParser 产出的 tags 以中文标签为键，MetadataPanel 分组查找也按中文键匹配
+// ——键是数据面标识，保持中文不译；下面仅在「显示」时经 translate 查译文，
+// 无译文的键原样返回。NOOP 表只为 lupdate/提取器提供提取点，运行时不查它。
+// ---------------------------------------------------------------------------
+QString exifDisplayLabel(const QString &key)
+{
+    return QCoreApplication::translate("MetadataPanel", key.toUtf8().constData());
+}
+
+const struct { const char *key; } kExifLabelSources[] = {
+    { QT_TRANSLATE_NOOP("MetadataPanel", "相机制造商") },
+    { QT_TRANSLATE_NOOP("MetadataPanel", "相机型号") },
+    { QT_TRANSLATE_NOOP("MetadataPanel", "镜头") },
+    { QT_TRANSLATE_NOOP("MetadataPanel", "软件") },
+    { QT_TRANSLATE_NOOP("MetadataPanel", "作者") },
+    { QT_TRANSLATE_NOOP("MetadataPanel", "版权") },
+    { QT_TRANSLATE_NOOP("MetadataPanel", "拍摄时间") },
+    { QT_TRANSLATE_NOOP("MetadataPanel", "ISO") },
+    { QT_TRANSLATE_NOOP("MetadataPanel", "曝光时间") },
+    { QT_TRANSLATE_NOOP("MetadataPanel", "光圈") },
+    { QT_TRANSLATE_NOOP("MetadataPanel", "焦距") },
+    { QT_TRANSLATE_NOOP("MetadataPanel", "曝光补偿") },
+    { QT_TRANSLATE_NOOP("MetadataPanel", "GPS 纬度") },
+    { QT_TRANSLATE_NOOP("MetadataPanel", "GPS 经度") },
+    { QT_TRANSLATE_NOOP("MetadataPanel", "宽度") },
+    { QT_TRANSLATE_NOOP("MetadataPanel", "高度") },
+};
+
 // 背板（HudBackdrop）/ 投影特效（HudEffect）/ 28×28 标题栏按钮（HudToolButton）
 // 与开合动效在 HudShell.h/.cpp：信息浮层与图层浮层共用同一套外壳标准
 //（派单 2026-11-14「浮层标准统一」）。
@@ -518,7 +548,7 @@ void MetadataPanel::showImage(const QString &path, const QImage &image)
         QList<MetadataPanel::Row> rows;
         for (const QString &key : group.second) {
             if (rest.contains(key)) {
-                rows.append({ key, rest.take(key) });
+                rows.append({ exifDisplayLabel(key), rest.take(key) });
             }
         }
         if (!rows.isEmpty()) {
@@ -559,7 +589,7 @@ void MetadataPanel::showImage(const QString &path, const QImage &image)
         }
         QList<MetadataPanel::Row> other;
         for (auto it = rest.constBegin(); it != rest.constEnd(); ++it) {
-            other.append({ it.key(), it.value() });
+            other.append({ exifDisplayLabel(it.key()), it.value() });
         }
         addGroup(other);
         exifRows = true;

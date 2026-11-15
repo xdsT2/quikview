@@ -2499,14 +2499,14 @@ void EmptyState::paintEvent(QPaintEvent *)
     p.setFont(uiFont(22, QFont::Medium));
     p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#f3f3f3", "#3a3a3a"))));
     p.drawText(QRect(0, top + 94, width(), 30), Qt::AlignCenter,
-               QStringLiteral("开始查看图片"));
+               tr("开始查看图片"));
 
     p.setFont(uiFont(13));
     p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#999999", "#666666"))));
     p.drawText(QRect(0, top + 132, width(), 22), Qt::AlignCenter,
-               QStringLiteral("把图片拖到这里，或从电脑中选择一张图片"));
+               tr("把图片拖到这里，或从电脑中选择一张图片"));
     p.drawText(QRect(0, top + 154, width(), 22), Qt::AlignCenter,
-               QStringLiteral("也可以直接打开整个文件夹"));
+               tr("也可以直接打开整个文件夹"));
     // 加载/失败状态行（连续翻页派单 §二）：仅首次打开（画布无上一张）时可见，
     // 等待用中性灰，失败用警示色，不挤占按钮与快捷键提示的布局位。
     if (!m_status.isEmpty()) {
@@ -2529,7 +2529,7 @@ void EmptyState::paintEvent(QPaintEvent *)
     p.setFont(uiFont(12, QFont::DemiBold));
     p.setPen(QColor(Qt::white));
     p.drawText(QRect(primary.x() + 40, primary.y(), primary.width() - 44, primary.height()),
-               Qt::AlignVCenter | Qt::AlignLeft, QStringLiteral("打开图片"));
+               Qt::AlignVCenter | Qt::AlignLeft, tr("打开图片"));
 
     p.setPen(QPen(QColor(QString::fromLatin1(UiStyle::pick("#4a4c50", "#b5b5b5"))), 1));
     if (m_hover == 1) {
@@ -2540,7 +2540,7 @@ void EmptyState::paintEvent(QPaintEvent *)
     p.drawRoundedRect(QRectF(secondary).adjusted(0.5, 0.5, -0.5, -0.5), 6, 6);
     p.setFont(uiFont(12));
     p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#d9dadd", "#242628"))));
-    p.drawText(secondary, Qt::AlignCenter, QStringLiteral("选择文件夹"));
+    p.drawText(secondary, Qt::AlignCenter, tr("选择文件夹"));
 
     // 快捷键提示
     struct KbdGroup {
@@ -2548,9 +2548,9 @@ void EmptyState::paintEvent(QPaintEvent *)
         QString label;
     };
     const QVector<KbdGroup> groups = {
-        { { QStringLiteral("F2") }, QStringLiteral("打开图片") },
-        { { QStringLiteral("F11") }, QStringLiteral("全屏查看") },
-        { { QStringLiteral("F5") }, QStringLiteral("设置") },
+        { { QStringLiteral("F2") }, tr("打开图片") },
+        { { QStringLiteral("F11") }, tr("全屏查看") },
+        { { QStringLiteral("F5") }, tr("设置") },
     };
     const QFont keyFont = uiFont(11);
     const QFont labelFont = uiFont(12);

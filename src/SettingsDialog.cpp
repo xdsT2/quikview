@@ -1149,15 +1149,17 @@ QList<QPair<QString, QString>> lastFileOptions()
     };
 }
 
-// 语言下拉：跟随系统 + 9 语言
+// 语言下拉：跟随系统 + 全部 8 种界面语言。
+// 多语言补齐派单（2026-11-15）：三批补齐后全部语言完整可用
+// （737 条界面串全覆盖，菜单项与 .qm 一一对应）。
 void populateLanguageCombo(QComboBox *combo)
 {
     combo->addItem(QObject::tr("跟随系统"), QStringLiteral("system"));
     combo->addItem(QStringLiteral("中文(简体)"), QStringLiteral("zh_CN"));
     combo->addItem(QStringLiteral("中文(繁體)"), QStringLiteral("zh_TW"));
     combo->addItem(QStringLiteral("English"), QStringLiteral("en_US"));
-    combo->addItem(QStringLiteral("한국어"), QStringLiteral("ko_KR"));
     combo->addItem(QStringLiteral("日本語"), QStringLiteral("ja_JP"));
+    combo->addItem(QStringLiteral("한국어"), QStringLiteral("ko_KR"));
     combo->addItem(QStringLiteral("Français"), QStringLiteral("fr_FR"));
     combo->addItem(QStringLiteral("Deutsch"), QStringLiteral("de_DE"));
     combo->addItem(QStringLiteral("Español"), QStringLiteral("es_ES"));

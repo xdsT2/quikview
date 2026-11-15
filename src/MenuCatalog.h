@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QCoreApplication>
 #include <QString>
 
 // 应用内右键菜单目录（右键菜单派单 2026-11-14「全量配置修订」专用）。
@@ -123,90 +124,100 @@ inline bool defaultOn(const QString &id)
 
 // 节点显示名：末级子命令按设计图文案；父项/分组/一级命令由组装方给定
 // （菜单/设置页都用同一份，避免两处文案漂移）。
+// 多语言派单（2026-11-15）：原为硬编码 QStringLiteral，界面切语言后右键菜单
+// 仍是中文。改为 QT_TRANSLATE_NOOP 表 + QCoreApplication::translate 查表，
+// 简中行为不变（translate 无译文时原样返回），菜单/设置页共用同一份文案。
+inline const char *labelSource(const QString &id)
+{
+    if (id == QLatin1String("nav_next"))          return QT_TRANSLATE_NOOP("AppMenu", "下一张");
+    if (id == QLatin1String("nav_prev"))          return QT_TRANSLATE_NOOP("AppMenu", "上一张");
+    if (id == QLatin1String("nav_first"))         return QT_TRANSLATE_NOOP("AppMenu", "首张图片");
+    if (id == QLatin1String("nav_last"))          return QT_TRANSLATE_NOOP("AppMenu", "末尾图片");
+    if (id == QLatin1String("nav_next10"))        return QT_TRANSLATE_NOOP("AppMenu", "向下 10 张图片");
+    if (id == QLatin1String("nav_prev10"))        return QT_TRANSLATE_NOOP("AppMenu", "向上 10 张图片");
+    if (id == QLatin1String("nav_rand_back"))     return QT_TRANSLATE_NOOP("AppMenu", "向后随机转到某张图片");
+    if (id == QLatin1String("nav_rand_fwd"))      return QT_TRANSLATE_NOOP("AppMenu", "向前随机转到某张图片");
+    if (id == QLatin1String("nav_folder_next"))   return QT_TRANSLATE_NOOP("AppMenu", "下一个文件夹");
+    if (id == QLatin1String("nav_folder_prev"))   return QT_TRANSLATE_NOOP("AppMenu", "上一个文件夹");
+    if (id == QLatin1String("sort_name"))         return QT_TRANSLATE_NOOP("AppMenu", "按名称");
+    if (id == QLatin1String("sort_time"))         return QT_TRANSLATE_NOOP("AppMenu", "按时间");
+    if (id == QLatin1String("sort_size"))         return QT_TRANSLATE_NOOP("AppMenu", "按大小");
+    if (id == QLatin1String("sort_type"))         return QT_TRANSLATE_NOOP("AppMenu", "按类型");
+    if (id == QLatin1String("sort_desc"))         return QT_TRANSLATE_NOOP("AppMenu", "降序");
+    if (id == QLatin1String("view_actual"))       return QT_TRANSLATE_NOOP("AppMenu", "实际大小");
+    if (id == QLatin1String("view_fit"))          return QT_TRANSLATE_NOOP("AppMenu", "适合窗口");
+    if (id == QLatin1String("view_fitwidth"))     return QT_TRANSLATE_NOOP("AppMenu", "适合宽度");
+    if (id == QLatin1String("view_two_l2r"))      return QT_TRANSLATE_NOOP("AppMenu", "智能双页 (左至右)");
+    if (id == QLatin1String("view_two_r2l"))      return QT_TRANSLATE_NOOP("AppMenu", "智能双页 (右至左)");
+    if (id == QLatin1String("zoom_in"))           return QT_TRANSLATE_NOOP("AppMenu", "放大");
+    if (id == QLatin1String("zoom_out"))          return QT_TRANSLATE_NOOP("AppMenu", "缩小");
+    if (id == QLatin1String("zoom_lock"))         return QT_TRANSLATE_NOOP("AppMenu", "锁定缩放");
+    if (id == QLatin1String("zoom_100"))          return QT_TRANSLATE_NOOP("AppMenu", "100%");
+    if (id == QLatin1String("zoom_in1"))          return QT_TRANSLATE_NOOP("AppMenu", "放大 (1%)");
+    if (id == QLatin1String("zoom_out1"))         return QT_TRANSLATE_NOOP("AppMenu", "缩小 (1%)");
+    if (id == QLatin1String("interp_bilinear"))   return QT_TRANSLATE_NOOP("AppMenu", "Bilinear 插值 (快)");
+    if (id == QLatin1String("interp_bicubic"))    return QT_TRANSLATE_NOOP("AppMenu", "Bicubic 插值 (慢，高品质)");
+    if (id == QLatin1String("interp_lanczos"))    return QT_TRANSLATE_NOOP("AppMenu", "Lanczos 插值 (慢，高品质)");
+    if (id == QLatin1String("fx_negative"))       return QT_TRANSLATE_NOOP("AppMenu", "反色");
+    if (id == QLatin1String("fx_gamma"))          return QT_TRANSLATE_NOOP("AppMenu", "Gamma");
+    if (id == QLatin1String("fx_flipv"))          return QT_TRANSLATE_NOOP("AppMenu", "垂直翻转");
+    if (id == QLatin1String("fx_fliph"))          return QT_TRANSLATE_NOOP("AppMenu", "水平翻转");
+    if (id == QLatin1String("rot_none"))          return QT_TRANSLATE_NOOP("AppMenu", "不旋转");
+    if (id == QLatin1String("rot_left"))          return QT_TRANSLATE_NOOP("AppMenu", "逆时针 90°");
+    if (id == QLatin1String("rot_right"))         return QT_TRANSLATE_NOOP("AppMenu", "顺时针 90°");
+    if (id == QLatin1String("rot_180"))           return QT_TRANSLATE_NOOP("AppMenu", "旋转 180°");
+    if (id == QLatin1String("fx_none"))           return QT_TRANSLATE_NOOP("AppMenu", "无");
+    if (id == QLatin1String("fx_soften"))         return QT_TRANSLATE_NOOP("AppMenu", "减淡");
+    if (id == QLatin1String("fx_sharpen"))        return QT_TRANSLATE_NOOP("AppMenu", "减淡 + 锐化");
+    if (id == QLatin1String("copy_folder"))       return QT_TRANSLATE_NOOP("AppMenu", "复制到图片文件夹");
+    if (id == QLatin1String("open_editor"))       return QT_TRANSLATE_NOOP("AppMenu", "用图像编辑器打开");
+    // 父项 / 分组 / 一级命令
+    if (id == QLatin1String("open_image"))        return QT_TRANSLATE_NOOP("AppMenu", "打开图片…");
+    if (id == QLatin1String("open_folder"))       return QT_TRANSLATE_NOOP("AppMenu", "打开文件夹…");
+    if (id == QLatin1String("select_image"))      return QT_TRANSLATE_NOOP("AppMenu", "选择图片…");
+    if (id == QLatin1String("locate_file"))       return QT_TRANSLATE_NOOP("AppMenu", "定位文件…");
+    if (id == QLatin1String("image_info"))        return QT_TRANSLATE_NOOP("AppMenu", "图片信息");
+    if (id == QLatin1String("copy_clipboard"))    return QT_TRANSLATE_NOOP("AppMenu", "复制到剪贴板");
+    if (id == QLatin1String("always_on_top"))     return QT_TRANSLATE_NOOP("AppMenu", "窗口置顶");
+    if (id == QLatin1String("group_browse"))      return QT_TRANSLATE_NOOP("AppMenu", "浏览与显示");
+    if (id == QLatin1String("parent_nav"))        return QT_TRANSLATE_NOOP("AppMenu", "浏览导航");
+    if (id == QLatin1String("parent_sort"))       return QT_TRANSLATE_NOOP("AppMenu", "排序方式");
+    if (id == QLatin1String("parent_view"))       return QT_TRANSLATE_NOOP("AppMenu", "浏览方式");
+    if (id == QLatin1String("parent_zoom"))       return QT_TRANSLATE_NOOP("AppMenu", "缩放工具");
+    if (id == QLatin1String("group_image"))       return QT_TRANSLATE_NOOP("AppMenu", "图像处理");
+    if (id == QLatin1String("parent_interp"))     return QT_TRANSLATE_NOOP("AppMenu", "插值算法");
+    if (id == QLatin1String("parent_fx"))         return QT_TRANSLATE_NOOP("AppMenu", "图片效果");
+    if (id == QLatin1String("parent_rotate"))     return QT_TRANSLATE_NOOP("AppMenu", "图像旋转");
+    if (id == QLatin1String("parent_transition")) return QT_TRANSLATE_NOOP("AppMenu", "过渡效果");
+    if (id == QLatin1String("group_file"))        return QT_TRANSLATE_NOOP("AppMenu", "文件操作");
+    if (id == QLatin1String("wallpaper"))         return QT_TRANSLATE_NOOP("AppMenu", "设为桌面壁纸…");
+    if (id == QLatin1String("parent_copymore"))   return QT_TRANSLATE_NOOP("AppMenu", "复制更多");
+    if (id == QLatin1String("parent_openwith"))   return QT_TRANSLATE_NOOP("AppMenu", "打开方式");
+    if (id == QLatin1String("print"))             return QT_TRANSLATE_NOOP("AppMenu", "打印…");
+    if (id == QLatin1String("delete_file"))       return QT_TRANSLATE_NOOP("AppMenu", "删除");
+    if (id == QLatin1String("settings"))          return QT_TRANSLATE_NOOP("AppMenu", "设置…");
+    if (id == QLatin1String("about"))             return QT_TRANSLATE_NOOP("AppMenu", "关于 QuikView");
+    if (id == QLatin1String("close_window"))      return QT_TRANSLATE_NOOP("AppMenu", "关闭窗口");
+    if (id == QLatin1String("quit"))              return QT_TRANSLATE_NOOP("AppMenu", "退出");
+    return nullptr;
+}
+
 inline QString label(const QString &id)
 {
-    // 末级子命令（Leaf）+ 固定命令的文案集中在这里，菜单与设置页共用。
-    if (id == QLatin1String("nav_next"))          return QStringLiteral("下一张");
-    if (id == QLatin1String("nav_prev"))          return QStringLiteral("上一张");
-    if (id == QLatin1String("nav_first"))         return QStringLiteral("首张图片");
-    if (id == QLatin1String("nav_last"))          return QStringLiteral("末尾图片");
-    if (id == QLatin1String("nav_next10"))        return QStringLiteral("向下 10 张图片");
-    if (id == QLatin1String("nav_prev10"))        return QStringLiteral("向上 10 张图片");
-    if (id == QLatin1String("nav_rand_back"))     return QStringLiteral("向后随机转到某张图片");
-    if (id == QLatin1String("nav_rand_fwd"))      return QStringLiteral("向前随机转到某张图片");
-    if (id == QLatin1String("nav_folder_next"))   return QStringLiteral("下一个文件夹");
-    if (id == QLatin1String("nav_folder_prev"))   return QStringLiteral("上一个文件夹");
-    if (id == QLatin1String("sort_name"))         return QStringLiteral("按名称");
-    if (id == QLatin1String("sort_time"))         return QStringLiteral("按时间");
-    if (id == QLatin1String("sort_size"))         return QStringLiteral("按大小");
-    if (id == QLatin1String("sort_type"))         return QStringLiteral("按类型");
-    if (id == QLatin1String("sort_desc"))         return QStringLiteral("降序");
-    if (id == QLatin1String("view_actual"))       return QStringLiteral("实际大小");
-    if (id == QLatin1String("view_fit"))          return QStringLiteral("适合窗口");
-    if (id == QLatin1String("view_fitwidth"))     return QStringLiteral("适合宽度");
-    if (id == QLatin1String("view_two_l2r"))      return QStringLiteral("智能双页 (左至右)");
-    if (id == QLatin1String("view_two_r2l"))      return QStringLiteral("智能双页 (右至左)");
-    if (id == QLatin1String("zoom_in"))           return QStringLiteral("放大");
-    if (id == QLatin1String("zoom_out"))          return QStringLiteral("缩小");
-    if (id == QLatin1String("zoom_lock"))         return QStringLiteral("锁定缩放");
-    if (id == QLatin1String("zoom_100"))          return QStringLiteral("100%");
-    if (id == QLatin1String("zoom_in1"))          return QStringLiteral("放大 (1%)");
-    if (id == QLatin1String("zoom_out1"))         return QStringLiteral("缩小 (1%)");
-    if (id == QLatin1String("interp_bilinear"))   return QStringLiteral("Bilinear 插值 (快)");
-    if (id == QLatin1String("interp_bicubic"))    return QStringLiteral("Bicubic 插值 (慢，高品质)");
-    if (id == QLatin1String("interp_lanczos"))    return QStringLiteral("Lanczos 插值 (慢，高品质)");
-    if (id == QLatin1String("fx_negative"))       return QStringLiteral("反色");
-    if (id == QLatin1String("fx_gamma"))          return QStringLiteral("Gamma");
-    if (id == QLatin1String("fx_flipv"))          return QStringLiteral("垂直翻转");
-    if (id == QLatin1String("fx_fliph"))          return QStringLiteral("水平翻转");
-    if (id == QLatin1String("rot_none"))          return QStringLiteral("不旋转");
-    if (id == QLatin1String("rot_left"))          return QStringLiteral("逆时针 90°");
-    if (id == QLatin1String("rot_right"))         return QStringLiteral("顺时针 90°");
-    if (id == QLatin1String("rot_180"))           return QStringLiteral("旋转 180°");
-    if (id == QLatin1String("fx_none"))           return QStringLiteral("无");
-    if (id == QLatin1String("fx_soften"))         return QStringLiteral("减淡");
-    if (id == QLatin1String("fx_sharpen"))        return QStringLiteral("减淡 + 锐化");
-    if (id == QLatin1String("copy_folder"))       return QStringLiteral("复制到图片文件夹");
-    if (id == QLatin1String("open_editor"))       return QStringLiteral("用图像编辑器打开");
-    // 父项 / 分组 / 一级命令
-    if (id == QLatin1String("open_image"))        return QStringLiteral("打开图片…");
-    if (id == QLatin1String("open_folder"))       return QStringLiteral("打开文件夹…");
-    if (id == QLatin1String("select_image"))      return QStringLiteral("选择图片…");
-    if (id == QLatin1String("locate_file"))       return QStringLiteral("定位文件…");
-    if (id == QLatin1String("image_info"))        return QStringLiteral("图片信息");
-    if (id == QLatin1String("copy_clipboard"))    return QStringLiteral("复制到剪贴板");
-    if (id == QLatin1String("always_on_top"))     return QStringLiteral("窗口置顶");
-    if (id == QLatin1String("group_browse"))      return QStringLiteral("浏览与显示");
-    if (id == QLatin1String("parent_nav"))        return QStringLiteral("浏览导航");
-    if (id == QLatin1String("parent_sort"))       return QStringLiteral("排序方式");
-    if (id == QLatin1String("parent_view"))       return QStringLiteral("浏览方式");
-    if (id == QLatin1String("parent_zoom"))       return QStringLiteral("缩放工具");
-    if (id == QLatin1String("group_image"))       return QStringLiteral("图像处理");
-    if (id == QLatin1String("parent_interp"))     return QStringLiteral("插值算法");
-    if (id == QLatin1String("parent_fx"))         return QStringLiteral("图片效果");
-    if (id == QLatin1String("parent_rotate"))     return QStringLiteral("图像旋转");
-    if (id == QLatin1String("parent_transition")) return QStringLiteral("过渡效果");
-    if (id == QLatin1String("group_file"))        return QStringLiteral("文件操作");
-    if (id == QLatin1String("wallpaper"))         return QStringLiteral("设为桌面壁纸…");
-    if (id == QLatin1String("parent_copymore"))   return QStringLiteral("复制更多");
-    if (id == QLatin1String("parent_openwith"))   return QStringLiteral("打开方式");
-    if (id == QLatin1String("print"))             return QStringLiteral("打印…");
-    if (id == QLatin1String("delete_file"))       return QStringLiteral("删除");
-    if (id == QLatin1String("settings"))          return QStringLiteral("设置…");
-    if (id == QLatin1String("about"))             return QStringLiteral("关于 QuikView");
-    if (id == QLatin1String("close_window"))      return QStringLiteral("关闭窗口");
-    if (id == QLatin1String("quit"))              return QStringLiteral("退出");
+    if (const char *src = labelSource(id)) {
+        return QCoreApplication::translate("AppMenu", src);
+    }
     return id;
 }
 
 // 设置页分组标题（按顶层节点顺序分段；仅设置页用）。
 inline QString sectionTitle(const QString &sectionId)
 {
-    if (sectionId == QLatin1String("open"))   return QStringLiteral("打开与定位");
-    if (sectionId == QLatin1String("common")) return QStringLiteral("常用动作");
-    if (sectionId == QLatin1String("task"))   return QStringLiteral("任务菜单");
-    if (sectionId == QLatin1String("danger")) return QStringLiteral("危险操作");
-    if (sectionId == QLatin1String("app"))    return QStringLiteral("应用");
+    if (sectionId == QLatin1String("open"))   return QCoreApplication::translate("AppMenu", QT_TRANSLATE_NOOP("AppMenu", "打开与定位"));
+    if (sectionId == QLatin1String("common")) return QCoreApplication::translate("AppMenu", QT_TRANSLATE_NOOP("AppMenu", "常用动作"));
+    if (sectionId == QLatin1String("task"))   return QCoreApplication::translate("AppMenu", QT_TRANSLATE_NOOP("AppMenu", "任务菜单"));
+    if (sectionId == QLatin1String("danger")) return QCoreApplication::translate("AppMenu", QT_TRANSLATE_NOOP("AppMenu", "危险操作"));
+    if (sectionId == QLatin1String("app"))    return QCoreApplication::translate("AppMenu", QT_TRANSLATE_NOOP("AppMenu", "应用"));
     return sectionId;
 }
 

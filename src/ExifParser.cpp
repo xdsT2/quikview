@@ -1,5 +1,6 @@
 #include "ExifParser.h"
 
+#include <QCoreApplication>
 #include <QFile>
 #include <QtEndian>
 
@@ -152,8 +153,11 @@ ExifParser::Result ExifParser::parse(const QString &filePath)
                 if (type == 5 && cnt == 1) {
                     const int off = tiff + static_cast<int>(valField);
                     const quint32 num = rd.u32(off), den = rd.u32(off + 4);
-                    value = (den != 0 && num < den) ? QStringLiteral("1/%1 秒").arg(den / num)
-                                                     : QStringLiteral("%1 秒").arg(den ? double(num) / den : 0.0);
+                    // 标签键（label）是 MetadataPanel 分组查找的键，保持中文不译；
+                    // 值模板是显示串，随界面语言翻译。
+                    value = (den != 0 && num < den)
+                                ? QCoreApplication::translate("ExifParser", "1/%1 秒").arg(den / num)
+                                : QCoreApplication::translate("ExifParser", "%1 秒").arg(den ? double(num) / den : 0.0);
                 }
                 break;
             }

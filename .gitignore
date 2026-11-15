@@ -58,3 +58,6 @@ shot*.png
 dist/
 staging/
 pkg.log
+
+# 翻译构建产物：qt_add_translations 在源目录旁生成 .qm，不入库
+translations/*.qm
