@@ -1997,20 +1997,18 @@ void SettingsDialog::resizeEvent(QResizeEvent *event)
 // ===========================================================================
 
 // ---------------------------------------------------------------------------
-// 可折叠分组头：分组图标 + 名称 + 状态摘要 + 右侧 chevron，整行可点。
-// 标题沿用 sectionTitle 的样式与左边线（图标落在同一 11px 起始位）；chevron
-// 与摘要颜色每次重绘现取，切换主题不残留旧色。键盘 Tab 进入、Enter／Space
-// 展开收起、↑／↓ 在同页分组间移动。默认收起——页面长时不铺满整屏。
+// 分组头：分组图标 + 名称 + 状态摘要。
+// 折叠交互已按用户实测反馈停用（点标题会误收起），卡片始终展开，这里只保留
+// 标题行本身——不响应鼠标、不给焦点、不画 chevron。将来若要恢复折叠，在
+// mouseReleaseEvent 里接回切换即可。标题沿用 sectionTitle 的样式与左边线，
+// 图标落在同一 11px 起始位。
 // ---------------------------------------------------------------------------
 class SectionHeader : public QWidget
 {
 public:
-    SectionHeader(const QString &title, const QString &iconName, QWidget *parent,
-                  std::function<void(bool)> onToggle)
-        : QWidget(parent), m_onToggle(std::move(onToggle))
+    SectionHeader(const QString &title, const QString &iconName, QWidget *parent)
+        : QWidget(parent)
     {
-        setCursor(Qt::PointingHandCursor);
-        setFocusPolicy(Qt::StrongFocus);
         setMinimumHeight(26);
 
         auto *h = new QHBoxLayout(this);
@@ -2052,91 +2050,8 @@ public:
                                      .arg(c.name(QColor::HexRgb)));
     }
 
-protected:
-    void mousePressEvent(QMouseEvent *e) override
-    {
-        if (e->button() == Qt::LeftButton) {
-            setFocus(Qt::MouseFocusReason);
-            e->accept();
-            return;
-        }
-        QWidget::mousePressEvent(e);
-    }
-    void mouseReleaseEvent(QMouseEvent *e) override
-    {
-        if (e->button() == Qt::LeftButton && rect().contains(e->position().toPoint())) {
-            setExpanded(!m_expanded);
-            e->accept();
-            return;
-        }
-        QWidget::mouseReleaseEvent(e);
-    }
-    void keyPressEvent(QKeyEvent *e) override
-    {
-        switch (e->key()) {
-        case Qt::Key_Return:
-        case Qt::Key_Enter:
-        case Qt::Key_Space:
-            setExpanded(!m_expanded);
-            e->accept();
-            return;
-        case Qt::Key_Down:
-        case Qt::Key_Up:
-            moveFocus(e->key() == Qt::Key_Down ? 1 : -1);
-            e->accept();
-            return;
-        default:
-            break;
-        }
-        QWidget::keyPressEvent(e);
-    }
-    void paintEvent(QPaintEvent *) override
-    {
-        QPainter p(this);
-        p.setRenderHint(QPainter::Antialiasing, true);
-        if (hasFocus()) {
-            // 键盘焦点：2px 强调色内框，与勾选/开关态互不干扰。
-            p.setPen(QPen(QColor(QStringLiteral("#1688f8")), 2));
-            p.setBrush(Qt::NoBrush);
-            p.drawRoundedRect(QRectF(rect()).adjusted(1, 1, -1, -1), 6, 6);
-        }
-        p.setPen(QPen(UiStyle::fluent::descColor(), 1.4, Qt::SolidLine,
-                      Qt::RoundCap, Qt::RoundJoin));
-        p.translate(width() - kRowPadX - 5.0, height() / 2.0);
-        if (m_expanded)
-            p.rotate(90);
-        p.drawLine(QPointF(-1.8, -3.0), QPointF(1.6, 0.0));
-        p.drawLine(QPointF(1.6, 0.0), QPointF(-1.8, 3.0));
-    }
-
 private:
-    void setExpanded(bool on)
-    {
-        if (m_expanded == on)
-            return;
-        m_expanded = on;
-        update();
-        if (m_onToggle)
-            m_onToggle(m_expanded);
-    }
-    void moveFocus(int delta)
-    {
-        QWidget *page = parentWidget() ? parentWidget()->parentWidget() : nullptr;
-        if (!page)
-            return;
-        QList<QWidget *> heads = page->findChildren<QWidget *>(QStringLiteral("sectionHeader"));
-        std::sort(heads.begin(), heads.end(), [page](QWidget *a, QWidget *b) {
-            return a->mapTo(page, QPoint()).y() < b->mapTo(page, QPoint()).y();
-        });
-        const int i = heads.indexOf(this);
-        const int n = i + delta;
-        if (i >= 0 && n >= 0 && n < heads.size())
-            heads.at(n)->setFocus(Qt::TabFocusReason);
-    }
-
     QLabel *m_summary = nullptr;
-    bool m_expanded = true;   // 默认展开：折叠只用于手动收纳，不隐藏内容
-    std::function<void(bool)> m_onToggle;
 };
 
 QWidget *SettingsDialog::beginCollapsibleSection(QWidget *page, const QString &title,
@@ -2158,13 +2073,12 @@ QWidget *SettingsDialog::beginCollapsibleSection(QWidget *page, const QString &t
     cardLay->setContentsMargins(0, 0, 0, 0);
     cardLay->setSpacing(0);
 
-    auto *head = new SectionHeader(title, iconName, sec,
-                                   [card](bool on) { card->setVisible(on); });
+    auto *head = new SectionHeader(title, iconName, sec);
     head->setObjectName(QStringLiteral("sectionHeader"));
     v->addWidget(head);
     v->addSpacing(6);
     v->addWidget(card);
-    // 默认展开（折叠只是手动收纳）；标题初始 chevron 与卡片可见状态一致。
+    // 卡片常显：折叠交互已停用，标题行只承载图标与摘要，点它不会收起内容。
 
     pageLay->addWidget(sec);
     return sec;

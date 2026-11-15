@@ -148,8 +148,8 @@ private:
     // beginSection：分组标题 + 卡片壳；标题与行文案共享同一条左边线。
     // topGap < 0 时用全局默认 kGroupTop；一般页样板传 24 拉开分组层次。
     QWidget *beginSection(QWidget *page, const QString &title, int topGap = -1);
-    // 可折叠分组：标题行 = 分组图标 + 名称 + 状态摘要 + 展开箭头，整行可点、
-    // 默认展开（折叠只用于手动收纳），供行数多的页面用。iconName 为空则不显示图标。
+    // 带图标与状态摘要的分组头（查看器右键菜单页用）：图标 + 名称 + 已开启/总数。
+    // 折叠交互已停用（用户实测反馈点标题会误收），卡片始终展开；iconName 为空则不显示图标。
     // 返回的分组壳与 beginSection 同构，groupCard() 仍能找到卡片。
     QWidget *beginCollapsibleSection(QWidget *page, const QString &title,
                                      const QString &iconName = QString(), int topGap = -1);
