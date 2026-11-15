@@ -242,7 +242,7 @@ inline QColor categoryColor(int index)
 {
     static const char *colors[] = {
         "#298ffc", "#7655f5", "#08aabb", "#f49b0b", "#1ab851", "#5964ee",
-        "#e9527d", "#e97d22", "#69717c", "#9b55e8", "#089be3"
+        "#e9527d", "#e97d22", "#00806c", "#9b55e8", "#089be3"
     };
     return color(colors[(index >= 0 && index < 11) ? index : 8]);
 }

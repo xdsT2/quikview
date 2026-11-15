@@ -3716,6 +3716,10 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         auto *dlg = new SettingsDialog(this);
         dlg->setAttribute(Qt::WA_DeleteOnClose);
         dlg->show();
+        // 探针要能被 --screenshot-ui 截到：该模式在没有弹窗/模态框时按 activeWindow
+        // 取图，而主窗口此刻已激活，非模态对话框不会自动抢焦点，会截成主窗口。
+        dlg->raise();
+        dlg->activateWindow();
         QTimer::singleShot(400, dlg, [dlg, key]() {
             QList<QPushButton *> navs;
             const auto btns = dlg->findChildren<QPushButton *>(QStringLiteral("navItem"));

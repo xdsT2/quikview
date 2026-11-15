@@ -708,7 +708,7 @@ private:
 // 导航图标：不依赖 Qt6::Svg（本机无 qsvg 插件），用 QPainter 画 16px 线性几何图形，
 // 颜色跟随按钮状态（选中=强调青 / 悬停=白 / 常态 NavText），与文字间距 9px。
 // ---------------------------------------------------------------------------
-enum class NavGlyph { Gear, Eye, Image, Doc, Link, Keyboard, Mouse, Bookmark, Menu, More, Globe, Info };
+enum class NavGlyph { Gear, Eye, Image, Doc, Link, Keyboard, Mouse, Bookmark, ContextMenu, Menu, More, Globe, Info };
 
 void paintNavGlyph(QPainter &p, NavGlyph glyph, const QRect &box, const QColor &color)
 {
@@ -802,6 +802,28 @@ void paintNavGlyph(QPainter &p, NavGlyph glyph, const QRect &box, const QColor &
         b.lineTo(x + 3.4, y + h - 0.6);
         b.closeSubpath();
         p.drawPath(b);
+        break;
+    }
+    case NavGlyph::ContextMenu: {
+        // 右键菜单：两行带圆点的列表 + 右下斜向指针。设计稿给的是 22×22 底板坐标
+        // （名义工作区 16px 居中，偏移 3），这里按 -3 映射进 16px 图标框，线宽 1.4 不变。
+        const qreal bx = box.x() - 3.0;
+        const qreal by = box.y() - 3.0;
+        p.drawLine(QPointF(bx + 8.1, by + 6.7), QPointF(bx + 15.6, by + 6.7));
+        p.drawLine(QPointF(bx + 8.1, by + 10.2), QPointF(bx + 10.9, by + 10.2));
+        QPainterPath cur;
+        cur.moveTo(bx + 12.9, by + 10.5);
+        cur.lineTo(bx + 12.9, by + 17.5);
+        cur.lineTo(bx + 14.8, by + 15.7);
+        cur.lineTo(bx + 15.9, by + 17.8);
+        cur.lineTo(bx + 17.2, by + 17.1);
+        cur.lineTo(bx + 16.1, by + 15.0);
+        cur.lineTo(bx + 18.5, by + 15.0);
+        cur.closeSubpath();
+        p.drawPath(cur);
+        p.setBrush(color);
+        p.drawEllipse(QPointF(bx + 5.5, by + 6.7), 0.75, 0.75);
+        p.drawEllipse(QPointF(bx + 5.5, by + 10.2), 0.75, 0.75);
         break;
     }
     case NavGlyph::Menu: {
@@ -1104,7 +1126,7 @@ NavGlyph navGlyphFor(int index)
 {
     static const NavGlyph glyphs[] = { NavGlyph::Gear,  NavGlyph::Eye,    NavGlyph::Image,
                                        NavGlyph::Doc,   NavGlyph::Link,   NavGlyph::Keyboard,
-                                       NavGlyph::Mouse, NavGlyph::Bookmark, NavGlyph::Menu,
+                                       NavGlyph::Mouse, NavGlyph::Bookmark, NavGlyph::ContextMenu,
                                        NavGlyph::More,  NavGlyph::Globe };
     return (index >= 0 && index < int(sizeof(glyphs) / sizeof(glyphs[0])))
                ? glyphs[index]
@@ -1655,7 +1677,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     buildKeyboardPage(addPage(tr("键盘"), QString()));
     buildMousePage(addPage(tr("鼠标"), tr("左/右/X/Y 与滚轮的按键映射可自定义；中键平移、双击最大化可用。")));
     buildBookmarkPage(addPage(tr("书签"), tr("自动保存开关与书签数量上限。")));
-    buildContextMenuPage(addPage(tr("上下文菜单"), tr("选择应用内右键菜单显示的项目，每个子菜单用一个开关控制整组命令。")));
+    buildContextMenuPage(addPage(tr("右键菜单"), tr("自定义 QuikView 内的右键菜单与顶部快捷操作。")));
     buildEtcPage(addPage(tr("杂项"), tr("图片文件夹、外部编辑器与 RAW 打开策略。")));
     buildLangPage(addPage(tr("语言"), tr("选择界面语言并管理语言文件。")));
 

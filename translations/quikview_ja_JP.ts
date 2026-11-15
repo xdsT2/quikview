@@ -1944,12 +1944,12 @@
         <translation>自動保存の切り替えとブックマークの上限数。</translation>
     </message>
     <message>
-        <source>上下文菜单</source>
-        <translation>コンテキストメニュー</translation>
+        <source>右键菜单</source>
+        <translation>右クリックメニュー</translation>
     </message>
     <message>
-        <source>选择应用内右键菜单显示的项目，每个子菜单用一个开关控制整组命令。</source>
-        <translation>アプリ内コンテキストメニューに表示する項目を選択します。各スイッチでサブメニュー全体を制御します。</translation>
+        <source>自定义 QuikView 内的右键菜单与顶部快捷操作。</source>
+        <translation>QuikView 内の右クリックメニューと上部のクイック操作をカスタマイズします。</translation>
     </message>
     <message>
         <source>杂项</source>
