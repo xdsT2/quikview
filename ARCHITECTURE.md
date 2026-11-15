@@ -1,6 +1,6 @@
 # QuikView 架构
 
-> 当前版本 **0.5.1**（2026-11-14 发布）。本文按 `src/` 实际代码写，改动后请同步。
+> 开发版本 **0.5.2**（待发布）；线上最新正式版 **0.5.0**（2026-11-13）。`0.5.1` 从未发布、已跳过。本文按 `src/` 实际代码写，改动后请同步。
 > 视觉与交互规范另见 [docs/design/QUIKVIEW-DESIGN.md](docs/design/QUIKVIEW-DESIGN.md)。
 
 ## 模块划分
@@ -45,7 +45,7 @@
 | `HudShell` | 383 + 102 | 画布浮层共用外壳（2026-11-14 浮层标准统一）：磨砂底板 `HudBackdrop`、缓存投影 `HudEffect`、28×28 标题栏按钮 `HudToolButton` 与 110/85ms 开合动效，信息浮层与图层面板共用 |
 | `LayerPanel` | 404 + 75 | PSD 图层面板：右侧浮层，整图 / 图层预览 / 分组折叠 / 独立眼睛显隐；外壳走 `HudShell`，Esc 优先收起 |
 | `ThumbnailBrowser` | — | 底部胶片栏，绘制并异步解码可见项 |
-| `CtxMenu` / `MenuCatalog.h` / `MenuIcons` | 1411 | 应用内右键菜单：三层收纳目录、全量可见性配置（`config/appmenu/*`）、顶部五图标快捷区与中性线性图标自绘（0.5.1） |
+| `CtxMenu` / `MenuCatalog.h` / `MenuIcons` | 1411 | 应用内右键菜单：三层收纳目录、全量可见性配置（`config/appmenu/*`）、顶部五图标快捷区与中性线性图标自绘（0.5.2 批次） |
 | `BatchConvertDialog` | 772 + 82 | 批量格式转换 |
 
 **基础设施**

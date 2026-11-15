@@ -611,6 +611,40 @@
     </message>
 </context>
 <context>
+    <name>HeifLoader</name>
+    <message>
+        <source>libheif 上下文分配失败</source>
+        <translation>Allocation du contexte libheif impossible</translation>
+    </message>
+    <message>
+        <source>libheif 读取失败：%1</source>
+        <translation>Lecture libheif impossible : %1</translation>
+    </message>
+    <message>
+        <source>libheif 获取主图像失败：%1</source>
+        <translation>Image principale libheif indisponible : %1</translation>
+    </message>
+    <message>
+        <source>libheif 解码失败：%1</source>
+        <translation>Décodage libheif impossible : %1</translation>
+    </message>
+    <message>
+        <source>libheif 取像素平面失败</source>
+        <translation>Plan de pixels libheif indisponible</translation>
+    </message>
+    <message>
+        <source>libheif 图像尺寸无效</source>
+        <translation>Taille d'image libheif invalide</translation>
+    </message>
+</context>
+<context>
+    <name>ImageCache</name>
+    <message>
+        <source>无法解码</source>
+        <translation>Décodage impossible</translation>
+    </message>
+</context>
+<context>
     <name>KeySeqStateFilter</name>
     <message>
         <source>按下组合键…</source>
@@ -1599,6 +1633,81 @@
     </message>
 </context>
 <context>
+    <name>PsdLoader</name>
+    <message>
+        <source>无法打开 PSD 文件</source>
+        <translation>Ouverture du PSD impossible</translation>
+    </message>
+    <message>
+        <source>不是有效的 PSD/PSB 文件</source>
+        <translation>Fichier PSD/PSB non valide</translation>
+    </message>
+    <message>
+        <source>PSD 画布尺寸异常</source>
+        <translation>Taille de canevas PSD invalide</translation>
+    </message>
+    <message>
+        <source>ZIP 压缩的 PSD 暂不支持（已隔离第三方解析器的挂起路径）</source>
+        <translation>PSD ZIP non géré (blocage tiers isolé)</translation>
+    </message>
+    <message>
+        <source>ZIP / ZIP+Prediction 未接入，文件未修改</source>
+        <translation>ZIP / ZIP+Prediction non géré ; fichier inchangé</translation>
+    </message>
+    <message>
+        <source>仅 RGB 色彩模式可显示（当前 mode=%1）</source>
+        <translation>Mode RGB seul (mode=%1)</translation>
+    </message>
+    <message>
+        <source>%1bit 像素已降采样为 8bit 显示</source>
+        <translation>Pixels %1bit réduits à 8bit</translation>
+    </message>
+    <message>
+        <source>缺少可用的原始合成预览（保存 PSD 时请开启「最大兼容」）</source>
+        <translation>Aucun aperçu composite (activer « Compatibilité max » à l'enregistrement)</translation>
+    </message>
+    <message>
+        <source>图层 %1</source>
+        <translation>Calque %1</translation>
+    </message>
+    <message>
+        <source>混合模式 %1 未在简化合成中还原</source>
+        <translation>Fusion %1 non reproduite (composition simplifiée)</translation>
+    </message>
+    <message>
+        <source>；蒙版未应用</source>
+        <translation>; masque non appliqué</translation>
+    </message>
+    <message>
+        <source>；智能对象未展开</source>
+        <translation>; objet dynamique non développé</translation>
+    </message>
+    <message>
+        <source>；分组边界，无可预览像素</source>
+        <translation>; limite de groupe, aucun pixel à prévisualiser</translation>
+    </message>
+    <message>
+        <source>；无独立像素或色彩模式不支持</source>
+        <translation>; aucun pixel propre ou mode non pris en charge</translation>
+    </message>
+    <message>
+        <source>；图层像素解码失败</source>
+        <translation>; décodage des pixels du calque impossible</translation>
+    </message>
+    <message>
+        <source>%1 个图层为非 normal 混合，简化合成不还原</source>
+        <translation>%1 calques en fusion non normale, non reproduits</translation>
+    </message>
+    <message>
+        <source>%1 个图层带蒙版，简化合成不应用</source>
+        <translation>%1 calques avec masque, non appliqués</translation>
+    </message>
+    <message>
+        <source>%1 个图层无独立像素（分组边界 / 调整层）</source>
+        <translation>%1 calques sans pixels propres (groupe / réglage)</translation>
+    </message>
+</context>
+<context>
     <name>QObject</name>
     <message>
         <source>打开</source>
@@ -1715,6 +1824,29 @@
     <message>
         <source>前往下载</source>
         <translation>Aller au téléchargement</translation>
+    </message>
+</context>
+<context>
+    <name>RawImageLoader</name>
+    <message>
+        <source>libraw 打开失败</source>
+        <translation>Ouverture libraw impossible</translation>
+    </message>
+    <message>
+        <source>libraw 解包失败</source>
+        <translation>Décompactage libraw impossible</translation>
+    </message>
+    <message>
+        <source>libraw 处理失败</source>
+        <translation>Traitement libraw impossible</translation>
+    </message>
+    <message>
+        <source>libraw 内存图像生成失败</source>
+        <translation>Image mémoire libraw impossible</translation>
+    </message>
+    <message>
+        <source>不支持的位深 %1</source>
+        <translation>Profondeur de bits non gérée %1</translation>
     </message>
 </context>
 <context>
@@ -3016,6 +3148,17 @@ Valeur d'origine restaurée ; rien n'a été écrit dans la configuration.</tran
     <message>
         <source>检查失败，请检查网络</source>
         <translation>Vérification échouée — vérifiez le réseau</translation>
+    </message>
+</context>
+<context>
+    <name>Wallpaper</name>
+    <message>
+        <source>SystemParametersInfo 失败 (GetLastError=%1)</source>
+        <translation>Échec SystemParametersInfo (GetLastError=%1)</translation>
+    </message>
+    <message>
+        <source>设壁纸仅支持 Windows</source>
+        <translation>Fond d'écran : Windows uniquement</translation>
     </message>
 </context>
 <context>

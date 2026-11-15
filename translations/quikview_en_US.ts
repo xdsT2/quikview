@@ -611,6 +611,40 @@
     </message>
 </context>
 <context>
+    <name>HeifLoader</name>
+    <message>
+        <source>libheif 上下文分配失败</source>
+        <translation>libheif context allocation failed</translation>
+    </message>
+    <message>
+        <source>libheif 读取失败：%1</source>
+        <translation>libheif read failed: %1</translation>
+    </message>
+    <message>
+        <source>libheif 获取主图像失败：%1</source>
+        <translation>libheif primary image handle failed: %1</translation>
+    </message>
+    <message>
+        <source>libheif 解码失败：%1</source>
+        <translation>libheif decode failed: %1</translation>
+    </message>
+    <message>
+        <source>libheif 取像素平面失败</source>
+        <translation>libheif pixel plane unavailable</translation>
+    </message>
+    <message>
+        <source>libheif 图像尺寸无效</source>
+        <translation>Invalid libheif image size</translation>
+    </message>
+</context>
+<context>
+    <name>ImageCache</name>
+    <message>
+        <source>无法解码</source>
+        <translation>Unable to decode</translation>
+    </message>
+</context>
+<context>
     <name>KeySeqStateFilter</name>
     <message>
         <source>按下组合键…</source>
@@ -1599,6 +1633,81 @@
     </message>
 </context>
 <context>
+    <name>PsdLoader</name>
+    <message>
+        <source>无法打开 PSD 文件</source>
+        <translation>Cannot open PSD file</translation>
+    </message>
+    <message>
+        <source>不是有效的 PSD/PSB 文件</source>
+        <translation>Not a valid PSD/PSB file</translation>
+    </message>
+    <message>
+        <source>PSD 画布尺寸异常</source>
+        <translation>Invalid PSD canvas size</translation>
+    </message>
+    <message>
+        <source>ZIP 压缩的 PSD 暂不支持（已隔离第三方解析器的挂起路径）</source>
+        <translation>ZIP-compressed PSD not supported (hang path isolated)</translation>
+    </message>
+    <message>
+        <source>ZIP / ZIP+Prediction 未接入，文件未修改</source>
+        <translation>ZIP / ZIP+Prediction not wired up; file unchanged</translation>
+    </message>
+    <message>
+        <source>仅 RGB 色彩模式可显示（当前 mode=%1）</source>
+        <translation>RGB mode only (current mode=%1)</translation>
+    </message>
+    <message>
+        <source>%1bit 像素已降采样为 8bit 显示</source>
+        <translation>%1-bit pixels downsampled to 8-bit</translation>
+    </message>
+    <message>
+        <source>缺少可用的原始合成预览（保存 PSD 时请开启「最大兼容」）</source>
+        <translation>No usable composite preview (enable "Maximize Compatibility" when saving)</translation>
+    </message>
+    <message>
+        <source>图层 %1</source>
+        <translation>Layer %1</translation>
+    </message>
+    <message>
+        <source>混合模式 %1 未在简化合成中还原</source>
+        <translation>Blend mode %1 not reproduced in simplified compositing</translation>
+    </message>
+    <message>
+        <source>；蒙版未应用</source>
+        <translation>; mask not applied</translation>
+    </message>
+    <message>
+        <source>；智能对象未展开</source>
+        <translation>; smart object not expanded</translation>
+    </message>
+    <message>
+        <source>；分组边界，无可预览像素</source>
+        <translation>; group boundary, no preview pixels</translation>
+    </message>
+    <message>
+        <source>；无独立像素或色彩模式不支持</source>
+        <translation>; no independent pixels or unsupported color mode</translation>
+    </message>
+    <message>
+        <source>；图层像素解码失败</source>
+        <translation>; layer pixel decode failed</translation>
+    </message>
+    <message>
+        <source>%1 个图层为非 normal 混合，简化合成不还原</source>
+        <translation>%1 layers use non-normal blending; not reproduced</translation>
+    </message>
+    <message>
+        <source>%1 个图层带蒙版，简化合成不应用</source>
+        <translation>%1 layers have masks; not applied</translation>
+    </message>
+    <message>
+        <source>%1 个图层无独立像素（分组边界 / 调整层）</source>
+        <translation>%1 layers lack independent pixels (group / adjustment)</translation>
+    </message>
+</context>
+<context>
     <name>QObject</name>
     <message>
         <source>打开</source>
@@ -1715,6 +1824,29 @@
     <message>
         <source>前往下载</source>
         <translation>Go to Download</translation>
+    </message>
+</context>
+<context>
+    <name>RawImageLoader</name>
+    <message>
+        <source>libraw 打开失败</source>
+        <translation>libraw open failed</translation>
+    </message>
+    <message>
+        <source>libraw 解包失败</source>
+        <translation>libraw unpack failed</translation>
+    </message>
+    <message>
+        <source>libraw 处理失败</source>
+        <translation>libraw processing failed</translation>
+    </message>
+    <message>
+        <source>libraw 内存图像生成失败</source>
+        <translation>libraw memory image failed</translation>
+    </message>
+    <message>
+        <source>不支持的位深 %1</source>
+        <translation>Unsupported bit depth %1</translation>
     </message>
 </context>
 <context>
@@ -3016,6 +3148,17 @@ Restored the original value; nothing was written to the config.</translation>
     <message>
         <source>检查失败，请检查网络</source>
         <translation>Check failed — check your network</translation>
+    </message>
+</context>
+<context>
+    <name>Wallpaper</name>
+    <message>
+        <source>SystemParametersInfo 失败 (GetLastError=%1)</source>
+        <translation>SystemParametersInfo failed (GetLastError=%1)</translation>
+    </message>
+    <message>
+        <source>设壁纸仅支持 Windows</source>
+        <translation>Wallpaper is Windows-only</translation>
     </message>
 </context>
 <context>

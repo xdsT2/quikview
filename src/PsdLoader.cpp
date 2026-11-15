@@ -1,4 +1,5 @@
 #include "PsdLoader.h"
+#include <QCoreApplication>
 
 #include <QFileInfo>
 #include <QFile>
@@ -87,13 +88,13 @@ PsdDocument load(const QString &path, bool withLayerPixels)
     psd::NativeFile file(&allocator);
     const std::wstring nativePath = path.toStdWString();
     if (!file.OpenRead(nativePath.c_str())) {
-        out.error = QStringLiteral("无法打开 PSD 文件");
+        out.error = QCoreApplication::translate("PsdLoader", "无法打开 PSD 文件");
         return out;
     }
     psd::Document *doc = psd::CreateDocument(&file, &allocator);
     if (!doc) {
         file.Close();
-        out.error = QStringLiteral("不是有效的 PSD/PSB 文件");
+        out.error = QCoreApplication::translate("PsdLoader", "不是有效的 PSD/PSB 文件");
         return out;
     }
 
@@ -106,7 +107,7 @@ PsdDocument load(const QString &path, bool withLayerPixels)
     if (w <= 0 || h <= 0) {
         psd::DestroyDocument(doc, &allocator);
         file.Close();
-        out.error = QStringLiteral("PSD 画布尺寸异常");
+        out.error = QCoreApplication::translate("PsdLoader", "PSD 画布尺寸异常");
         return out;
     }
     // 前置隔离：psd_sdk 的 ParseLayerMaskSection 在 ZIP 压缩的层结构上会死循环
@@ -130,8 +131,8 @@ PsdDocument load(const QString &path, bool withLayerPixels)
                 const quint16 comp = (quint16(uchar(d.at(q))) << 8)
                                      | quint16(uchar(d.at(q + 1)));
                 if (comp == 2 || comp == 3) {
-                    out.error = QStringLiteral("ZIP 压缩的 PSD 暂不支持（已隔离第三方解析器的挂起路径）");
-                    out.limitations << QStringLiteral("ZIP / ZIP+Prediction 未接入，文件未修改");
+                    out.error = QCoreApplication::translate("PsdLoader", "ZIP 压缩的 PSD 暂不支持（已隔离第三方解析器的挂起路径）");
+                    out.limitations << QCoreApplication::translate("PsdLoader", "ZIP / ZIP+Prediction 未接入，文件未修改");
                     psd::DestroyDocument(doc, &allocator);
                     file.Close();
                     return out;
@@ -141,9 +142,9 @@ PsdDocument load(const QString &path, bool withLayerPixels)
     }
 
     if (!rgb)
-        out.limitations << QStringLiteral("仅 RGB 色彩模式可显示（当前 mode=%1）").arg(int(doc->colorMode));
+        out.limitations << QCoreApplication::translate("PsdLoader", "仅 RGB 色彩模式可显示（当前 mode=%1）").arg(int(doc->colorMode));
     if (bits != 8)
-        out.limitations << QStringLiteral("%1bit 像素已降采样为 8bit 显示").arg(bits);
+        out.limitations << QCoreApplication::translate("PsdLoader", "%1bit 像素已降采样为 8bit 显示").arg(bits);
 
     // ---- 原始合成预览（Image Data 段 / Section 5）----
     // 派单要求「真实 PSD 整图仍用可用的原始合成预览」：只用 Photoshop 保存的
@@ -160,7 +161,7 @@ PsdDocument load(const QString &path, bool withLayerPixels)
         }
         psd::DestroyImageDataSection(section, &allocator);
         if (out.composite.isNull())
-            out.error = QStringLiteral("缺少可用的原始合成预览（保存 PSD 时请开启「最大兼容」）");
+            out.error = QCoreApplication::translate("PsdLoader", "缺少可用的原始合成预览（保存 PSD 时请开启「最大兼容」）");
     }
 
     // ---- 图层树与单层像素 ----
@@ -184,7 +185,7 @@ PsdDocument load(const QString &path, bool withLayerPixels)
             const QString ascii = QString::fromUtf8(L->name.c_str());
             layer.name = !uni.isEmpty() ? uni
                        : !ascii.isEmpty() ? ascii
-                       : QStringLiteral("图层 %1").arg(i + 1);
+                       : QCoreApplication::translate("PsdLoader", "图层 %1").arg(i + 1);
 
             // psd_sdk 已建立 parent 链，用它得到分组深度，比 lsct 推导更准
             int depth = 0;
@@ -194,21 +195,21 @@ PsdDocument load(const QString &path, bool withLayerPixels)
 
             if (psd::blendMode::KeyToEnum(L->blendModeKey) != psd::blendMode::NORMAL) {
                 ++nonNormal;
-                layer.limitation = QStringLiteral("混合模式 %1 未在简化合成中还原").arg(layer.blendKey);
+                layer.limitation = QCoreApplication::translate("PsdLoader", "混合模式 %1 未在简化合成中还原").arg(layer.blendKey);
             }
             if (L->layerMask || L->vectorMask) {
                 ++masked;
-                layer.limitation += QStringLiteral("；蒙版未应用");
+                layer.limitation += QCoreApplication::translate("PsdLoader", "；蒙版未应用");
             }
             if (L->smartObject)
-                layer.limitation += QStringLiteral("；智能对象未展开");
+                layer.limitation += QCoreApplication::translate("PsdLoader", "；智能对象未展开");
 
             const bool groupMarker = (L->type != psd::layerType::ANY);
             if (groupMarker || lw <= 0 || lh <= 0 || !rgb) {
                 layer.previewable = false;
                 layer.limitation += groupMarker
-                    ? QStringLiteral("；分组边界，无可预览像素")
-                    : QStringLiteral("；无独立像素或色彩模式不支持");
+                    ? QCoreApplication::translate("PsdLoader", "；分组边界，无可预览像素")
+                    : QCoreApplication::translate("PsdLoader", "；无独立像素或色彩模式不支持");
                 ++noPixel;
             } else if (withLayerPixels) {
                 psd::ExtractLayer(doc, &file, &allocator, L);
@@ -227,7 +228,7 @@ PsdDocument load(const QString &path, bool withLayerPixels)
                     layer.image = makeImage(lw, lh, r, g, b, a, sampleBytes, a != nullptr);
                 if (layer.image.isNull()) {
                     layer.previewable = false;
-                    layer.limitation += QStringLiteral("；图层像素解码失败");
+                    layer.limitation += QCoreApplication::translate("PsdLoader", "；图层像素解码失败");
                     ++noPixel;
                 }
             } else {
@@ -236,11 +237,11 @@ PsdDocument load(const QString &path, bool withLayerPixels)
             out.layers.append(layer);
         }
         if (nonNormal)
-            out.limitations << QStringLiteral("%1 个图层为非 normal 混合，简化合成不还原").arg(nonNormal);
+            out.limitations << QCoreApplication::translate("PsdLoader", "%1 个图层为非 normal 混合，简化合成不还原").arg(nonNormal);
         if (masked)
-            out.limitations << QStringLiteral("%1 个图层带蒙版，简化合成不应用").arg(masked);
+            out.limitations << QCoreApplication::translate("PsdLoader", "%1 个图层带蒙版，简化合成不应用").arg(masked);
         if (noPixel)
-            out.limitations << QStringLiteral("%1 个图层无独立像素（分组边界 / 调整层）").arg(noPixel);
+            out.limitations << QCoreApplication::translate("PsdLoader", "%1 个图层无独立像素（分组边界 / 调整层）").arg(noPixel);
         psd::DestroyLayerMaskSection(lms, &allocator);
     }
     psd::DestroyDocument(doc, &allocator);

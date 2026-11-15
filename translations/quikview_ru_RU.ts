@@ -611,6 +611,40 @@
     </message>
 </context>
 <context>
+    <name>HeifLoader</name>
+    <message>
+        <source>libheif 上下文分配失败</source>
+        <translation>Не удалось выделить контекст libheif</translation>
+    </message>
+    <message>
+        <source>libheif 读取失败：%1</source>
+        <translation>Ошибка чтения libheif: %1</translation>
+    </message>
+    <message>
+        <source>libheif 获取主图像失败：%1</source>
+        <translation>Не удалось получить основное изображение libheif: %1</translation>
+    </message>
+    <message>
+        <source>libheif 解码失败：%1</source>
+        <translation>Ошибка декодирования libheif: %1</translation>
+    </message>
+    <message>
+        <source>libheif 取像素平面失败</source>
+        <translation>Не удалось получить пиксельную плоскость libheif</translation>
+    </message>
+    <message>
+        <source>libheif 图像尺寸无效</source>
+        <translation>Недопустимый размер изображения libheif</translation>
+    </message>
+</context>
+<context>
+    <name>ImageCache</name>
+    <message>
+        <source>无法解码</source>
+        <translation>Не удалось декодировать</translation>
+    </message>
+</context>
+<context>
     <name>KeySeqStateFilter</name>
     <message>
         <source>按下组合键…</source>
@@ -1599,6 +1633,81 @@
     </message>
 </context>
 <context>
+    <name>PsdLoader</name>
+    <message>
+        <source>无法打开 PSD 文件</source>
+        <translation>Не удалось открыть PSD-файл</translation>
+    </message>
+    <message>
+        <source>不是有效的 PSD/PSB 文件</source>
+        <translation>Недопустимый файл PSD/PSB</translation>
+    </message>
+    <message>
+        <source>PSD 画布尺寸异常</source>
+        <translation>Недопустимый размер холста PSD</translation>
+    </message>
+    <message>
+        <source>ZIP 压缩的 PSD 暂不支持（已隔离第三方解析器的挂起路径）</source>
+        <translation>PSD с ZIP не поддерживается (путь зависания изолирован)</translation>
+    </message>
+    <message>
+        <source>ZIP / ZIP+Prediction 未接入，文件未修改</source>
+        <translation>ZIP / ZIP+Prediction не подключён; файл не изменён</translation>
+    </message>
+    <message>
+        <source>仅 RGB 色彩模式可显示（当前 mode=%1）</source>
+        <translation>Только режим RGB (mode=%1)</translation>
+    </message>
+    <message>
+        <source>%1bit 像素已降采样为 8bit 显示</source>
+        <translation>Пиксели %1bit понижены до 8bit</translation>
+    </message>
+    <message>
+        <source>缺少可用的原始合成预览（保存 PSD 时请开启「最大兼容」）</source>
+        <translation>Нет композитного превью (включите «Макс. совместимость» при сохранении)</translation>
+    </message>
+    <message>
+        <source>图层 %1</source>
+        <translation>Слой %1</translation>
+    </message>
+    <message>
+        <source>混合模式 %1 未在简化合成中还原</source>
+        <translation>Смешивание %1 не восстановлено (упрощённая композиция)</translation>
+    </message>
+    <message>
+        <source>；蒙版未应用</source>
+        <translation>; маска не применена</translation>
+    </message>
+    <message>
+        <source>；智能对象未展开</source>
+        <translation>; смарт-объект не развёрнут</translation>
+    </message>
+    <message>
+        <source>；分组边界，无可预览像素</source>
+        <translation>; граница группы, нет пикселей для превью</translation>
+    </message>
+    <message>
+        <source>；无独立像素或色彩模式不支持</source>
+        <translation>; нет своих пикселей или режим не поддерживается</translation>
+    </message>
+    <message>
+        <source>；图层像素解码失败</source>
+        <translation>; не удалось декодировать пиксели слоя</translation>
+    </message>
+    <message>
+        <source>%1 个图层为非 normal 混合，简化合成不还原</source>
+        <translation>%1 слоёв с не-normal смешиванием не восстановлены</translation>
+    </message>
+    <message>
+        <source>%1 个图层带蒙版，简化合成不应用</source>
+        <translation>%1 слоёв с маской, маски не применены</translation>
+    </message>
+    <message>
+        <source>%1 个图层无独立像素（分组边界 / 调整层）</source>
+        <translation>%1 слоёв без своих пикселей (группа / корректирующий слой)</translation>
+    </message>
+</context>
+<context>
     <name>QObject</name>
     <message>
         <source>打开</source>
@@ -1715,6 +1824,29 @@
     <message>
         <source>前往下载</source>
         <translation>К загрузке</translation>
+    </message>
+</context>
+<context>
+    <name>RawImageLoader</name>
+    <message>
+        <source>libraw 打开失败</source>
+        <translation>Не удалось открыть libraw</translation>
+    </message>
+    <message>
+        <source>libraw 解包失败</source>
+        <translation>Ошибка распаковки libraw</translation>
+    </message>
+    <message>
+        <source>libraw 处理失败</source>
+        <translation>Ошибка обработки libraw</translation>
+    </message>
+    <message>
+        <source>libraw 内存图像生成失败</source>
+        <translation>Не удалось создать изображение в памяти libraw</translation>
+    </message>
+    <message>
+        <source>不支持的位深 %1</source>
+        <translation>Неподдерживаемая разрядность %1</translation>
     </message>
 </context>
 <context>
@@ -3016,6 +3148,17 @@ https://github.com/xdsT2/quikview</translation>
     <message>
         <source>检查失败，请检查网络</source>
         <translation>Проверка не удалась — проверьте сеть</translation>
+    </message>
+</context>
+<context>
+    <name>Wallpaper</name>
+    <message>
+        <source>SystemParametersInfo 失败 (GetLastError=%1)</source>
+        <translation>Ошибка SystemParametersInfo (GetLastError=%1)</translation>
+    </message>
+    <message>
+        <source>设壁纸仅支持 Windows</source>
+        <translation>Обои только для Windows</translation>
     </message>
 </context>
 <context>

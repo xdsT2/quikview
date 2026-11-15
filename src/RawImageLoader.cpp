@@ -1,4 +1,5 @@
 #include "RawImageLoader.h"
+#include <QCoreApplication>
 
 #include "ToneMap.h"
 
@@ -82,16 +83,16 @@ QImage loadRawImage(const QString &path, QString *errorOut, bool toneMapSdr)
 
     LibRaw raw;
     if (raw.open_file(local.constData()) != LIBRAW_SUCCESS) {
-        if (errorOut) *errorOut = QStringLiteral("libraw 打开失败");
+        if (errorOut) *errorOut = QCoreApplication::translate("RawImageLoader", "libraw 打开失败");
         return QImage();
     }
     if (raw.unpack() != LIBRAW_SUCCESS) {
-        if (errorOut) *errorOut = QStringLiteral("libraw 解包失败");
+        if (errorOut) *errorOut = QCoreApplication::translate("RawImageLoader", "libraw 解包失败");
         raw.recycle();
         return QImage();
     }
     if (raw.dcraw_process() != LIBRAW_SUCCESS) {
-        if (errorOut) *errorOut = QStringLiteral("libraw 处理失败");
+        if (errorOut) *errorOut = QCoreApplication::translate("RawImageLoader", "libraw 处理失败");
         raw.recycle();
         return QImage();
     }
@@ -99,7 +100,7 @@ QImage loadRawImage(const QString &path, QString *errorOut, bool toneMapSdr)
     int err = 0;
     libraw_processed_image_t *proc = raw.dcraw_make_mem_image(&err);
     if (proc == nullptr || err != LIBRAW_SUCCESS) {
-        if (errorOut) *errorOut = QStringLiteral("libraw 内存图像生成失败");
+        if (errorOut) *errorOut = QCoreApplication::translate("RawImageLoader", "libraw 内存图像生成失败");
         raw.recycle();
         return QImage();
     }
@@ -133,7 +134,7 @@ QImage loadRawImage(const QString &path, QString *errorOut, bool toneMapSdr)
             }
         }
     } else {
-        if (errorOut) *errorOut = QStringLiteral("不支持的位深 %1").arg(bits);
+        if (errorOut) *errorOut = QCoreApplication::translate("RawImageLoader", "不支持的位深 %1").arg(bits);
     }
 
     LibRaw::dcraw_clear_mem(proc);

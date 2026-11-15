@@ -1,4 +1,5 @@
 #include "ImageCache.h"
+#include <QCoreApplication>
 
 #include <QFutureWatcher>
 #include <QImage>
@@ -329,7 +330,7 @@ void ImageCache::finishFullDecode(const QString &path, const QImage &img,
     const bool drop = m_dropInFlightResult;
     m_dropInFlightResult = false;
     if (img.isNull()) {
-        emit loadFailed(path, error.isEmpty() ? QStringLiteral("无法解码") : error);
+        emit loadFailed(path, error.isEmpty() ? QCoreApplication::translate("ImageCache", "无法解码") : error);
     } else {
         insertFull(path, img);
         if (!drop) {

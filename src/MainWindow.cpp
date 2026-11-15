@@ -3708,32 +3708,33 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         dlg->probeOpenCombo(a.value(0).toInt(), a.value(1).toInt());
     }
     // 视觉回归探针：打开设置并切到指定页（settingspage:<序号>，0=一般）。
-    // 不新增 SettingsDialog 接口——导航项就是带 objectName 的 QPushButton，点它等价于用户点击。
-    // 「关于」按钮也挂 navItem，按文案排除后再取第 N 个，顺序与页面注册顺序一致。
+    // 语言无关定位（P1-4）：页面导航项都是 checkable 的 #navItem，「关于 QuikView」
+    // 按钮不 checkable，据此排除，与文案/语言无关；页用数字索引定位，ASCII 别名
+    // 映射到固定索引，不再按中文子串（非简中下会失效）匹配。
     else if (c.startsWith(QLatin1String("settingspage:"))) {
         const QString key = c.mid(13).trimmed();
-        // 允许 ASCII 别名（appearance = 外观），避免命令行中文编码在不同 shell 下失真
-        const QString want = (key == QLatin1String("appearance"))
-                                 ? QString::fromUtf8("\xE5\xA4\x96\xE8\xA7\x82")
-                                 : key;
         auto *dlg = new SettingsDialog(this);
         dlg->setAttribute(Qt::WA_DeleteOnClose);
         dlg->show();
-        QTimer::singleShot(400, dlg, [dlg, want]() {
+        QTimer::singleShot(400, dlg, [dlg, key]() {
             QList<QPushButton *> navs;
             const auto btns = dlg->findChildren<QPushButton *>(QStringLiteral("navItem"));
             for (QPushButton *b : btns) {
-                if (!b->text().contains(QStringLiteral("关于"))) {
+                if (b->isCheckable()) {
                     navs.append(b);
                 }
             }
-            for (QPushButton *b : navs) {
-                if (!want.isEmpty() && b->text().contains(want)) {
-                    b->click();
-                    return;
-                }
-            }
-            const int index = want.toInt();
+            static const QHash<QString, int> kAliases = {
+                { QStringLiteral("general"), 0 },    { QStringLiteral("browse"), 1 },
+                { QStringLiteral("appearance"), 2 }, { QStringLiteral("image"), 3 },
+                { QStringLiteral("assoc"), 4 },      { QStringLiteral("keyboard"), 5 },
+                { QStringLiteral("mouse"), 6 },      { QStringLiteral("bookmark"), 7 },
+                { QStringLiteral("context"), 8 },    { QStringLiteral("misc"), 9 },
+                { QStringLiteral("language"), 10 },
+            };
+            bool numeric = false;
+            const int n = key.toInt(&numeric);
+            const int index = numeric ? n : kAliases.value(key, -1);
             if (index >= 0 && index < navs.size()) {
                 navs.at(index)->click();
             }
@@ -3791,12 +3792,17 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         dlg->setAttribute(Qt::WA_DeleteOnClose);
         dlg->show();
         QTimer::singleShot(1500, dlg, [dlg]() {
+            // 语言无关：键盘页固定为第 5 个 checkable 导航项（原按「键盘」文案定位）。
             const auto btns = dlg->findChildren<QPushButton *>(QStringLiteral("navItem"));
+            QList<QPushButton *> navs;
             for (QPushButton *b : btns) {
-                if (b->text().contains(QString::fromUtf8("\xE9\x94\xAE\xE7\x9B\x98"))) {
-                    b->click();   // 「键盘」
-                    break;
+                if (b->isCheckable()) {
+                    navs.append(b);
                 }
+            }
+            constexpr int kKeyboardPage = 5;
+            if (kKeyboardPage < navs.size()) {
+                navs.at(kKeyboardPage)->click();
             }
             QTimer::singleShot(900, dlg, [dlg]() {
                 QFile f(QStringLiteral("Temp/keyboard-layout-20261105/geom.txt"));
@@ -4244,15 +4250,11 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             out = c.mid(sep + 1);
         }
         QMenu *menu = buildContextMenu();
-        // 菜单改为三层收纳后「浏览导航」嵌在「浏览与显示」里：递归查找含文件夹
-        // 命令的子菜单（这两项是展示型命令，快捷键只是文本，只能按文案定位）。
-        QMenu *nav = findSubmenuDeep(menu->actions(), [](QMenu *m) {
-            for (QAction *sub : m->actions()) {
-                if (sub->text().contains(QStringLiteral("文件夹"))) {
-                    return true;
-                }
-            }
-            return false;
+        // 语言无关：按 action 对象定位「浏览导航」子菜单（原按「文件夹」文案子串，
+        // 非简中下会失效）。与 viewmenu 探针同一手法。
+        QMenu *nav = findSubmenuDeep(menu->actions(), [this](QMenu *m) {
+            return m->actions().contains(actNextFolder)
+                || m->actions().contains(actPrevFolder);
         });
         if (nav) {
             nav->popup(mapToGlobal(QPoint(width() / 2 - 120, height() / 3)));

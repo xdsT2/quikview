@@ -611,6 +611,40 @@
     </message>
 </context>
 <context>
+    <name>HeifLoader</name>
+    <message>
+        <source>libheif 上下文分配失败</source>
+        <translation>libheif コンテキストの確保に失敗</translation>
+    </message>
+    <message>
+        <source>libheif 读取失败：%1</source>
+        <translation>libheif 読み込みに失敗：%1</translation>
+    </message>
+    <message>
+        <source>libheif 获取主图像失败：%1</source>
+        <translation>libheif 主画像の取得に失敗：%1</translation>
+    </message>
+    <message>
+        <source>libheif 解码失败：%1</source>
+        <translation>libheif デコードに失敗：%1</translation>
+    </message>
+    <message>
+        <source>libheif 取像素平面失败</source>
+        <translation>libheif ピクセルプレーンの取得に失敗</translation>
+    </message>
+    <message>
+        <source>libheif 图像尺寸无效</source>
+        <translation>libheif 画像サイズが不正です</translation>
+    </message>
+</context>
+<context>
+    <name>ImageCache</name>
+    <message>
+        <source>无法解码</source>
+        <translation>デコードできません</translation>
+    </message>
+</context>
+<context>
     <name>KeySeqStateFilter</name>
     <message>
         <source>按下组合键…</source>
@@ -1599,6 +1633,81 @@
     </message>
 </context>
 <context>
+    <name>PsdLoader</name>
+    <message>
+        <source>无法打开 PSD 文件</source>
+        <translation>PSD ファイルを開けません</translation>
+    </message>
+    <message>
+        <source>不是有效的 PSD/PSB 文件</source>
+        <translation>有効な PSD/PSB ファイルではありません</translation>
+    </message>
+    <message>
+        <source>PSD 画布尺寸异常</source>
+        <translation>PSD のキャンバスサイズが不正です</translation>
+    </message>
+    <message>
+        <source>ZIP 压缩的 PSD 暂不支持（已隔离第三方解析器的挂起路径）</source>
+        <translation>ZIP 圧縮の PSD は未対応です（ハング経路を隔離済み）</translation>
+    </message>
+    <message>
+        <source>ZIP / ZIP+Prediction 未接入，文件未修改</source>
+        <translation>ZIP / ZIP+Prediction は未接続、ファイルは未変更</translation>
+    </message>
+    <message>
+        <source>仅 RGB 色彩模式可显示（当前 mode=%1）</source>
+        <translation>RGB カラーモードのみ表示可能（現在 mode=%1）</translation>
+    </message>
+    <message>
+        <source>%1bit 像素已降采样为 8bit 显示</source>
+        <translation>%1bit ピクセルを 8bit にダウンサンプリングして表示</translation>
+    </message>
+    <message>
+        <source>缺少可用的原始合成预览（保存 PSD 时请开启「最大兼容」）</source>
+        <translation>元の合成プレビューがありません（保存時に「最大互換」を有効に）</translation>
+    </message>
+    <message>
+        <source>图层 %1</source>
+        <translation>レイヤー %1</translation>
+    </message>
+    <message>
+        <source>混合模式 %1 未在简化合成中还原</source>
+        <translation>描画モード %1 は簡略合成で再現されません</translation>
+    </message>
+    <message>
+        <source>；蒙版未应用</source>
+        <translation>；マスク未適用</translation>
+    </message>
+    <message>
+        <source>；智能对象未展开</source>
+        <translation>；スマートオブジェクト未展開</translation>
+    </message>
+    <message>
+        <source>；分组边界，无可预览像素</source>
+        <translation>；グループ境界、プレビュー可能なピクセルなし</translation>
+    </message>
+    <message>
+        <source>；无独立像素或色彩模式不支持</source>
+        <translation>；独立ピクセルなし、またはカラーモード非対応</translation>
+    </message>
+    <message>
+        <source>；图层像素解码失败</source>
+        <translation>；レイヤーピクセルのデコードに失敗</translation>
+    </message>
+    <message>
+        <source>%1 个图层为非 normal 混合，简化合成不还原</source>
+        <translation>%1 個のレイヤーが非 normal 描画モード、簡略合成では再現されません</translation>
+    </message>
+    <message>
+        <source>%1 个图层带蒙版，简化合成不应用</source>
+        <translation>%1 個のレイヤーにマスクあり、簡略合成では適用されません</translation>
+    </message>
+    <message>
+        <source>%1 个图层无独立像素（分组边界 / 调整层）</source>
+        <translation>%1 個のレイヤーに独立ピクセルがありません（グループ境界 / 調整レイヤー）</translation>
+    </message>
+</context>
+<context>
     <name>QObject</name>
     <message>
         <source>打开</source>
@@ -1715,6 +1824,29 @@
     <message>
         <source>前往下载</source>
         <translation>ダウンロードへ</translation>
+    </message>
+</context>
+<context>
+    <name>RawImageLoader</name>
+    <message>
+        <source>libraw 打开失败</source>
+        <translation>libraw を開けません</translation>
+    </message>
+    <message>
+        <source>libraw 解包失败</source>
+        <translation>libraw の展開に失敗</translation>
+    </message>
+    <message>
+        <source>libraw 处理失败</source>
+        <translation>libraw の処理に失敗</translation>
+    </message>
+    <message>
+        <source>libraw 内存图像生成失败</source>
+        <translation>libraw メモリ画像の生成に失敗</translation>
+    </message>
+    <message>
+        <source>不支持的位深 %1</source>
+        <translation>未対応のビット深度 %1</translation>
     </message>
 </context>
 <context>
@@ -3016,6 +3148,17 @@ https://github.com/xdsT2/quikview</translation>
     <message>
         <source>检查失败，请检查网络</source>
         <translation>確認に失敗しました。ネットワークを確認してください</translation>
+    </message>
+</context>
+<context>
+    <name>Wallpaper</name>
+    <message>
+        <source>SystemParametersInfo 失败 (GetLastError=%1)</source>
+        <translation>SystemParametersInfo に失敗 (GetLastError=%1)</translation>
+    </message>
+    <message>
+        <source>设壁纸仅支持 Windows</source>
+        <translation>壁紙設定は Windows のみ対応</translation>
     </message>
 </context>
 <context>

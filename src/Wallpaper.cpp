@@ -1,4 +1,5 @@
 #include "Wallpaper.h"
+#include <QCoreApplication>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -13,12 +14,12 @@ bool setDesktopWallpaper(const QString &imagePath, QString *errorOut)
         reinterpret_cast<void *>(const_cast<wchar_t *>(reinterpret_cast<const wchar_t *>(imagePath.utf16()))),
         SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
     if (!ok && errorOut) {
-        *errorOut = QStringLiteral("SystemParametersInfo 失败 (GetLastError=%1)").arg(GetLastError());
+        *errorOut = QCoreApplication::translate("Wallpaper", "SystemParametersInfo 失败 (GetLastError=%1)").arg(GetLastError());
     }
     return ok != 0;
 #else
     Q_UNUSED(imagePath);
-    if (errorOut) *errorOut = QStringLiteral("设壁纸仅支持 Windows");
+    if (errorOut) *errorOut = QCoreApplication::translate("Wallpaper", "设壁纸仅支持 Windows");
     return false;
 #endif
 }
