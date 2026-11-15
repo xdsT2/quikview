@@ -1948,12 +1948,12 @@
         <translation>Menú contextual</translation>
     </message>
     <message>
-        <source>选择应用内右键菜单显示的项目，每个子菜单用一个开关控制整组命令。</source>
-        <translation>Elige qué elementos muestra el menú contextual de la aplicación; cada interruptor controla todo un submenú.</translation>
+        <source>资源管理器集成的注册状态与右键菜单开关。</source>
+        <translation>Estado de registro e interruptores del menú contextual de la integración con el Explorador.</translation>
     </message>
     <message>
-        <source>右键菜单</source>
-        <translation>Menú de clic derecho</translation>
+        <source>查看器右键菜单</source>
+        <translation>Menú de clic derecho del visor</translation>
     </message>
     <message>
         <source>自定义 QuikView 内的右键菜单与顶部快捷操作。</source>

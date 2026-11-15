@@ -49,6 +49,12 @@
 #include <functional>
 #include <cmath>
 #include <shobjidl.h>
+#ifdef Q_OS_WIN
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
+#  include <windows.h>
+#endif
 
 #include "Config.h"
 #include "MainWindow.h"
@@ -1677,10 +1683,10 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     buildKeyboardPage(addPage(tr("键盘"), QString()));
     buildMousePage(addPage(tr("鼠标"), tr("左/右/X/Y 与滚轮的按键映射可自定义；中键平移、双击最大化可用。")));
     buildBookmarkPage(addPage(tr("书签"), tr("自动保存开关与书签数量上限。")));
-    buildContextMenuPage(addPage(tr("上下文菜单"), tr("选择应用内右键菜单显示的项目，每个子菜单用一个开关控制整组命令。")));
-    // 右键菜单页：本轮只落导航项、图标与页头文案，与「上下文菜单」页的既有设置项
-    // 不重叠；具体设置项另行设计后再接入。
-    addPage(tr("右键菜单"), tr("自定义 QuikView 内的右键菜单与顶部快捷操作。"));
+    buildContextMenuPage(addPage(tr("上下文菜单"), tr("资源管理器集成的注册状态与右键菜单开关。")));
+    // 查看器右键菜单：QuikView 内的右键菜单（原「上下文菜单」页上半部整体搬过来），
+    // 资源管理器集成/注册/壳扩展开关仍留在「上下文菜单」页。
+    buildAppMenuSections(addPage(tr("查看器右键菜单"), tr("自定义 QuikView 内的右键菜单与顶部快捷操作。")));
     buildEtcPage(addPage(tr("杂项"), tr("图片文件夹、外部编辑器与 RAW 打开策略。")));
     buildLangPage(addPage(tr("语言"), tr("选择界面语言并管理语言文件。")));
 
@@ -1988,6 +1994,95 @@ void SettingsDialog::resizeEvent(QResizeEvent *event)
 // ===========================================================================
 // 控件工厂
 // ===========================================================================
+
+// ---------------------------------------------------------------------------
+// 可折叠分组头：标题沿用 sectionTitle 样式与同一条左边线，右侧自绘 chevron，
+// 整行可点。chevron 颜色每次重绘现取，主题切换不会残留旧色。
+// 供「查看器右键菜单」这类分组多、行数长的页面使用，默认全部收起。
+// ---------------------------------------------------------------------------
+class SectionHeader : public QWidget
+{
+public:
+    SectionHeader(const QString &title, QWidget *parent, std::function<void(bool)> onToggle)
+        : QWidget(parent), m_onToggle(std::move(onToggle))
+    {
+        setCursor(Qt::PointingHandCursor);
+        auto *h = new QHBoxLayout(this);
+        h->setContentsMargins(0, 0, 0, 0);
+        h->setSpacing(0);
+        auto *t = new QLabel(title, this);
+        t->setObjectName(QStringLiteral("sectionTitle"));
+        h->addWidget(t, 0, Qt::AlignVCenter);
+        h->addStretch(1);
+    }
+
+protected:
+    void mousePressEvent(QMouseEvent *e) override
+    {
+        if (e->button() == Qt::LeftButton) {
+            e->accept();
+            return;
+        }
+        QWidget::mousePressEvent(e);
+    }
+    void mouseReleaseEvent(QMouseEvent *e) override
+    {
+        if (e->button() == Qt::LeftButton && rect().contains(e->position().toPoint())) {
+            m_expanded = !m_expanded;
+            update();
+            if (m_onToggle)
+                m_onToggle(m_expanded);
+            e->accept();
+            return;
+        }
+        QWidget::mouseReleaseEvent(e);
+    }
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setPen(QPen(UiStyle::fluent::descColor(), 1.4, Qt::SolidLine,
+                      Qt::RoundCap, Qt::RoundJoin));
+        p.translate(width() - kRowPadX - 5.0, height() / 2.0);
+        if (m_expanded)
+            p.rotate(90);
+        p.drawLine(QPointF(-1.8, -3.0), QPointF(1.6, 0.0));
+        p.drawLine(QPointF(1.6, 0.0), QPointF(-1.8, 3.0));
+    }
+
+private:
+    bool m_expanded = false;
+    std::function<void(bool)> m_onToggle;
+};
+
+QWidget *SettingsDialog::beginCollapsibleSection(QWidget *page, const QString &title, int topGap)
+{
+    auto *pageLay = qobject_cast<QVBoxLayout *>(page->layout());
+    if (!pageLay)
+        return page;
+
+    auto *sec = new QWidget(page);
+    sec->setObjectName(QStringLiteral("pageSection"));
+    auto *v = new QVBoxLayout(sec);
+    v->setContentsMargins(0, topGap >= 0 ? topGap : kGroupTop, 0, 0);
+    v->setSpacing(0);
+
+    auto *card = new QFrame(sec);
+    card->setObjectName(QStringLiteral("setGroup"));
+    auto *cardLay = new QVBoxLayout(card);
+    cardLay->setContentsMargins(0, 0, 0, 0);
+    cardLay->setSpacing(0);
+
+    auto *head = new SectionHeader(title, sec, [card](bool on) { card->setVisible(on); });
+    v->addWidget(head);
+    v->addSpacing(6);
+    v->addWidget(card);
+    // 智能折叠：一进页只看到分组标题，点标题才展开该组；状态不写配置。
+    card->setVisible(false);
+
+    pageLay->addWidget(sec);
+    return sec;
+}
 
 QWidget *SettingsDialog::beginSection(QWidget *page, const QString &title, int topGap)
 {
@@ -3620,20 +3715,20 @@ void SettingsDialog::buildAppMenuSections(QWidget *page)
     }
 
     // —— 打开与定位 ——
-    QWidget *sec = beginSection(page, AppMenu::sectionTitle(QStringLiteral("open")));
+    QWidget *sec = beginCollapsibleSection(page, AppMenu::sectionTitle(QStringLiteral("open")));
     for (const char *id : { "open_image", "open_folder", "select_image", "locate_file" }) {
         bindToggle(addSwitchRow(sec, id, AppMenu::Single, "", QString(), true));
     }
 
     // —— 常用动作 ——
-    sec = beginSection(page, AppMenu::sectionTitle(QStringLiteral("common")));
+    sec = beginCollapsibleSection(page, AppMenu::sectionTitle(QStringLiteral("common")));
     bindToggle(addSwitchRow(sec, "image_info", AppMenu::Single, "", QString(), true));
     bindToggle(addSwitchRow(sec, "copy_clipboard", AppMenu::Single, "",
                             tr("同时遵循已有的剪贴板入口设置。"), true));
     bindToggle(addSwitchRow(sec, "always_on_top", AppMenu::Single, "", QString(), true));
 
     // —— 任务菜单（浏览与显示 / 图像处理 / 文件操作 三组及其子树）——
-    sec = beginSection(page, AppMenu::sectionTitle(QStringLiteral("task")));
+    sec = beginCollapsibleSection(page, AppMenu::sectionTitle(QStringLiteral("task")));
     bindToggle(addSwitchRow(sec, "group_browse", AppMenu::Group, "", QString(), true));
     bindToggle(addSwitchRow(sec, "parent_nav", AppMenu::Parent, "group_browse",
                             tr("前后跳转、随机浏览及切换文件夹。"), true));
@@ -3687,11 +3782,11 @@ void SettingsDialog::buildAppMenuSections(QWidget *page)
     addChildRow(sec, "print", "group_file", "");           // 固定行，随分组显隐
 
     // —— 危险操作 ——
-    sec = beginSection(page, AppMenu::sectionTitle(QStringLiteral("danger")));
+    sec = beginCollapsibleSection(page, AppMenu::sectionTitle(QStringLiteral("danger")));
     bindToggle(addSwitchRow(sec, "delete_file", AppMenu::Single, "", QString(), true));
 
     // —— 应用（设置… 固定显示：锁标记 + 说明，无开关）——
-    sec = beginSection(page, AppMenu::sectionTitle(QStringLiteral("app")));
+    sec = beginCollapsibleSection(page, AppMenu::sectionTitle(QStringLiteral("app")));
     const AppRow settingsRow = addSwitchRow(sec, "settings", AppMenu::Fixed, "",
                                             tr("固定入口，可从右键菜单返回此页。"), false);
     {
@@ -3775,8 +3870,8 @@ void SettingsDialog::buildAppMenuSections(QWidget *page)
 
 void SettingsDialog::buildContextMenuPage(QWidget *page)
 {
-    // 上半部：应用内右键菜单的可见性配置（2026-11-14 全量配置修订）。
-    buildAppMenuSections(page);
+    // QuikView 内的右键菜单（恢复默认菜单 / 打开与定位 / 常用动作 / 任务菜单 /
+    // 危险操作 / 应用）已整体搬到「查看器右键菜单」页，本页只留资源管理器集成。
 
     // —— 资源管理器集成（照原有字段呈现的只读区；位置按设计标注在末尾）——
     QWidget *secShell = beginSection(page, tr("资源管理器集成"));
@@ -5095,6 +5190,51 @@ void SettingsDialog::mouseReleaseEvent(QMouseEvent *event)
 {
     m_dragging = false;
     QDialog::mouseReleaseEvent(event);
+}
+
+bool SettingsDialog::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
+{
+    // 无边框窗口没有系统边框，靠 WM_NCHITTEST 把四边/四角交回系统处理：
+    // 光标形状与拖动改大小都由 Windows 原生完成，Qt 只接收 WM_SIZE 重排布局。
+    // 6px 以内算边框（含四角），其余仍走客户区，标题栏拖动不受影响。
+    if (eventType == QByteArrayLiteral("windows_generic_MSG")) {
+        auto *msg = static_cast<MSG *>(message);
+        if (msg && msg->message == WM_NCHITTEST) {
+            const int gx = static_cast<short>(msg->lParam & 0xffff);
+            const int gy = static_cast<short>((msg->lParam >> 16) & 0xffff);
+            const QPoint gp(gx, gy);
+            const qreal dpr = devicePixelRatioF();
+            const QRect g = geometry();
+            const QPointF local = QPointF(gp) / dpr - QPointF(g.topLeft());
+            constexpr int kEdge = 6;
+            const bool left = local.x() < kEdge;
+            const bool right = local.x() > g.width() - kEdge;
+            const bool top = local.y() < kEdge;
+            const bool bottom = local.y() > g.height() - kEdge;
+            int ht = 0;
+            if (top && left)
+                ht = HTTOPLEFT;
+            else if (top && right)
+                ht = HTTOPRIGHT;
+            else if (bottom && left)
+                ht = HTBOTTOMLEFT;
+            else if (bottom && right)
+                ht = HTBOTTOMRIGHT;
+            else if (left)
+                ht = HTLEFT;
+            else if (right)
+                ht = HTRIGHT;
+            else if (top)
+                ht = HTTOP;
+            else if (bottom)
+                ht = HTBOTTOM;
+            if (ht != 0) {
+                *result = ht;
+                return true;
+            }
+        }
+    }
+    return QDialog::nativeEvent(eventType, message, result);
 }
 
 void SettingsDialog::keyPressEvent(QKeyEvent *event)

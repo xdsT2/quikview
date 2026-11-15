@@ -1948,12 +1948,12 @@
         <translation>상황에 맞는 메뉴</translation>
     </message>
     <message>
-        <source>选择应用内右键菜单显示的项目，每个子菜单用一个开关控制整组命令。</source>
-        <translation>앱 내 오른쪽 클릭 메뉴에 표시할 항목을 선택합니다. 각 스위치가 하위 메뉴 전체를 제어합니다.</translation>
+        <source>资源管理器集成的注册状态与右键菜单开关。</source>
+        <translation>탐색기 통합의 등록 상태와 오른쪽 클릭 메뉴 스위치.</translation>
     </message>
     <message>
-        <source>右键菜单</source>
-        <translation>오른쪽 클릭 메뉴</translation>
+        <source>查看器右键菜单</source>
+        <translation>뷰어 오른쪽 클릭 메뉴</translation>
     </message>
     <message>
         <source>自定义 QuikView 内的右键菜单与顶部快捷操作。</source>

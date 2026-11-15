@@ -86,6 +86,9 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
+    // 无边框窗口的边缘缩放：在非客户区命中测试里把四边/四角交回系统处理，
+    // 光标与拖动改大小都由 Windows 原生完成（Qt 只负责后续布局重排）。
+    bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
     void reject() override;
     // 所有关闭保存路径（保存按钮、Enter、默认按钮）的唯一入口：
     // 先校验再写盘，校验失败不关闭窗口（P0-1）。
@@ -145,6 +148,9 @@ private:
     // beginSection：分组标题 + 卡片壳；标题与行文案共享同一条左边线。
     // topGap < 0 时用全局默认 kGroupTop；一般页样板传 24 拉开分组层次。
     QWidget *beginSection(QWidget *page, const QString &title, int topGap = -1);
+    // 可折叠分组：标题整行可点、默认收起（智能折叠），供行数多的页面用。
+    // 返回的分组壳与 beginSection 同构，groupCard() 仍能找到卡片。
+    QWidget *beginCollapsibleSection(QWidget *page, const QString &title, int topGap = -1);
     // 组卡片本体（beginSection 内部创建，行 / 分隔线都追加到这里）。
     QWidget *groupCard(QWidget *section) const;
     // 统一页节奏：首组 12 / 组间 20、行高 42、右侧控件列整页同宽并右对齐、

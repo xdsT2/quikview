@@ -1948,12 +1948,12 @@
         <translation>コンテキストメニュー</translation>
     </message>
     <message>
-        <source>选择应用内右键菜单显示的项目，每个子菜单用一个开关控制整组命令。</source>
-        <translation>アプリ内コンテキストメニューに表示する項目を選択します。各スイッチでサブメニュー全体を制御します。</translation>
+        <source>资源管理器集成的注册状态与右键菜单开关。</source>
+        <translation>エクスプローラー連携の登録状態と右クリックメニューのスイッチ。</translation>
     </message>
     <message>
-        <source>右键菜单</source>
-        <translation>右クリックメニュー</translation>
+        <source>查看器右键菜单</source>
+        <translation>ビューアーの右クリックメニュー</translation>
     </message>
     <message>
         <source>自定义 QuikView 内的右键菜单与顶部快捷操作。</source>
