@@ -9,7 +9,7 @@ QuikView is an open-source Windows image viewer with folder navigation, two-page
 
 > **Windows x64 downloads** · Choose the installer or portable ZIP from the [latest release](https://github.com/xdsT2/quikview/releases/latest). Extract and run the portable version without installing Qt.
 
-> **0.5.3** adds a searchable outline, live preview, and group toggles to the viewer context menu settings. The installer keeps Explorer running during installation and upgrades to prevent a black desktop. See the [release notes](https://github.com/xdsT2/quikview/releases/tag/v0.5.3).
+> **0.5.3** is about staying responsive: zooming, fast page turns, and opening large folders no longer block the UI thread — first zoom frame 77.7 ms → 1.6 ms, last wheel burst to a crisp frame 228 ms → 30 ms, and jumping to a slow image then a fast one 104 ms → 2.6 ms. The settings window opens in 18 ms instead of 142 ms, and switching themes while it is open drops from 0.9–1.2 s to about 0.1 s. It also adds a searchable outline, live preview, and group toggles to the viewer context menu settings. The installer keeps Explorer running during install and upgrades to prevent a black desktop. See the [release notes](https://github.com/xdsT2/quikview/releases/tag/v0.5.3).
 
 ![QuikView main window: top strip and bottom control capsule floating over the photo](docs/screenshots/01-main.webp)
 
