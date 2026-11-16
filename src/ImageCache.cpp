@@ -17,6 +17,9 @@ ImageCache::ImageCache(QObject *parent)
     setFullCacheLimit(Config::instance().cacheSizeMb());   // 原图缓存上限（MB，读配置）
     m_thumbCache.setMaxCost(64 * 1024 * 1024);   // 缩略图缓存上限 ~64MB
     m_dragCache.setMaxCost(64 * 1024 * 1024);    // 拖动预览（缩放到视口）上限 64MB：24 张目录回拖也要命中
+    // 全图解码专用池：最多 2 条并行 = 在飞的旧任务 + 抢占式新目标各一条。
+    // 这是「线程数按实测有上限」的落点：再快也不允许无限并发抢 CPU。
+    m_decodePool.setMaxThreadCount(2);
 }
 
 void ImageCache::setFullCacheLimit(int mb)
@@ -29,13 +32,18 @@ QImage ImageCache::cachedFull(const QString &path) const
     return m_fullCache.contains(path) ? *m_fullCache.object(path) : QImage();
 }
 
-void ImageCache::requestFull(const QString &path, const QSize &previewSize)
+void ImageCache::requestFull(const QString &path, const QSize &previewSize, bool preempt)
 {
     m_previewSize = previewSize;
+    if (preempt) {
+        // 显式跳转：进入新代次。此刻之前提交的所有结果只入缓存、不再上屏。
+        ++m_generation;
+    }
     if (path == m_preloadPath) {
         // 预读正在解这一页：升级为「要上屏」，解完直接按序发出，不另起任务
         // （否则同一页两个解码，先到的可能是后一页，画面会回跳）
         m_preloadPromote = true;
+        m_preloadGeneration = m_generation;   // 认领为当前代次，结果可上屏
         return;
     }
     if (path == m_dragInFlight) {
@@ -45,13 +53,15 @@ void ImageCache::requestFull(const QString &path, const QSize &previewSize)
     // 有真实请求介入：拖动预览不再抢屏（旧落点的在飞结果只进缓存）
     m_dragMuted = true;
     m_dragPending.clear();
-    if (m_fullInFlight.contains(path)) {
+    // 当前代次正在解同一张才复用在飞结果；旧代次的同路径必须重新提交，
+    // 否则它解完会被代次检查拦下，画面永远等不到。
+    if (m_fullInFlight.contains(path) && m_fullInFlight.value(path) == m_generation) {
         return;   // 正在解
     }
     if (m_queue.contains(path)) {
         return;   // 已在队列
     }
-    const bool busy = !m_fullInFlight.isEmpty() || !m_queue.isEmpty();
+    const bool busy = hasCurrentGenWork() || !m_queue.isEmpty();
     if (m_fullCache.contains(path) && !busy) {
         // 空闲时缓存命中直接上屏；忙时也必须排队，否则会插队破坏
         // 「emit 顺序 == requestFull 调用顺序」
@@ -74,8 +84,9 @@ void ImageCache::requestFull(const QString &path, const QSize &previewSize)
             break;   // 理论到不了：在飞至多 1 个 < 队列上限
         }
     }
-    // 预读在飞时先排着：等它结束再按序放行，保证「预读→真要」不越序
-    if (m_fullInFlight.isEmpty() && m_preloadPath.isEmpty()) {
+    // 只要没有「当前代次」的工作在跑就立刻启动。旧代次在飞不阻塞新目标：
+    // 它的结果会被代次检查丢弃，新目标与它并行解码（池上限 2 保证不失控）。
+    if (!hasCurrentGenWork()) {
         startNext();
     }
 }
@@ -109,7 +120,8 @@ void ImageCache::startNextPreload()
     }
     const QString path = m_preloadQueue.takeFirst();
     m_preloadPath = path;
-    QtConcurrent::run([this, path]() {
+    m_preloadGeneration = m_generation;
+    QtConcurrent::run(&m_decodePool, [this, path]() {
         QImage img;
         if (PsdLoader::isPsdPath(path)) {
             img = PsdLoader::load(path, false).composite;
@@ -231,30 +243,55 @@ void ImageCache::startDragDecode()
 
 void ImageCache::startNext()
 {
-    while (!m_queue.isEmpty() && m_fullInFlight.isEmpty()) {
+    while (!m_queue.isEmpty() && !hasCurrentGenWork()) {
         const QString path = m_queue.takeFirst();
         if (m_fullCache.contains(path)) {
             // 排队期间被缓存命中（如先前的解码完成入缓存）：按序直接上屏
             emit fullReady(path, *m_fullCache.object(path), false);
             continue;
         }
-        startFullDecode(path, m_previewSize);
+        startFullDecode(path, m_previewSize, m_generation);
         return;
     }
 }
 
-void ImageCache::startFullDecode(const QString &path, const QSize &previewSize)
+// 「当前代次是否还有活」：旧代次的在飞任务不算，它们的输出已注定被丢弃。
+// 单飞语义只对同代次成立——连按（同代）仍然逐张排队，跳转（换代）允许并行。
+bool ImageCache::hasCurrentGenWork() const
 {
-    m_fullInFlight.insert(path);
-    QtConcurrent::run([this, path, previewSize]() {
+    for (auto it = m_fullInFlight.constBegin(); it != m_fullInFlight.constEnd(); ++it) {
+        if (it.value() == m_generation) {
+            return true;
+        }
+    }
+    return !m_preloadPath.isEmpty() && m_preloadGeneration == m_generation;
+}
+
+// 快帧/RAW 缩略图在后台线程解出，回主线程前先核对代次：过期结果一律丢弃，
+// 否则跳走后旧图的快帧会盖在新目标上（全图有 finishFullDecode 拦，快帧原本没有）。
+void ImageCache::emitPreview(const QString &path, const QImage &img, quint64 generation)
+{
+    QMetaObject::invokeMethod(this, [this, path, img, generation]() {
+        if (generation != m_generation) {
+            return;
+        }
+        emit fullReady(path, img, true);
+    }, Qt::QueuedConnection);
+}
+
+void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
+                                 quint64 generation)
+{
+    m_fullInFlight.insert(path, generation);
+    QtConcurrent::run(&m_decodePool, [this, path, previewSize, generation]() {
         // PSD 走 PsdLoader（QImageReader 无 PSD 插件）：用文件自带的原始合成预览，
         // 不逐层重合成，避免用近似结果冒充原文件效果。
         if (PsdLoader::isPsdPath(path)) {
             const PsdDocument psdDoc = PsdLoader::load(path, false);
             const QImage img = psdDoc.composite;
             const QString err = psdDoc.error;   // 例如「ZIP 压缩的 PSD 暂不支持」
-            QMetaObject::invokeMethod(this, [this, path, img, err]() {
-                finishFullDecode(path, img, err);
+            QMetaObject::invokeMethod(this, [this, path, img, err, generation]() {
+                finishFullDecode(path, img, generation, err);
             }, Qt::QueuedConnection);
             return;
         }
@@ -265,7 +302,7 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize)
         if (rawFile && Config::instance().rawThumbnail() && !Config::instance().noRawLoad()) {
             const QImage thumb = loadRawThumbnail(path);
             if (!thumb.isNull()) {
-                emit fullReady(path, thumb, true);
+                emitPreview(path, thumb, generation);
             }
         }
         // 快帧先上屏：JPEG 走 DCT 缩放（12MP 约 10-20ms）、PNG 等同样支持
@@ -291,7 +328,7 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize)
                     const QImage prev = fast.read();
                     // 个别插件谎报支持 ScaledSize：读回尺寸不符就当没有快帧
                     if (!prev.isNull() && prev.size() == scaled) {
-                        emit fullReady(path, prev, true);
+                        emitPreview(path, prev, generation);
                     }
                 }
             }
@@ -313,27 +350,40 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize)
             QString rawErr;
             img = loadRawImage(path, &rawErr, Config::instance().hdrTonemap());
         }
-        QMetaObject::invokeMethod(this, [this, path, img, readerError]() {
-            finishFullDecode(path, img, readerError);
+        QMetaObject::invokeMethod(this, [this, path, img, readerError, generation]() {
+            finishFullDecode(path, img, generation, readerError);
         }, Qt::QueuedConnection);
     });
 }
 
 void ImageCache::finishFullDecode(const QString &path, const QImage &img,
-                                       const QString &error)
+                                       quint64 generation, const QString &error)
 {
     // clearFull() 会在开关 HDR 时清空在飞集合：被清任务的结果到这里静默丢弃
     if (!m_fullInFlight.contains(path)) {
         return;
     }
+    // 同一路径已被新代次重新提交（快速反向回到上一张）：这条旧结果不动状态，
+    // 只把解码成果塞进缓存，等新代次那条回来再上屏。
+    if (m_fullInFlight.value(path) != generation) {
+        if (!img.isNull()) {
+            insertFull(path, img);
+        }
+        return;
+    }
     m_fullInFlight.remove(path);
-    const bool drop = m_dropInFlightResult;
-    m_dropInFlightResult = false;
+    // 唯一的上屏判据：结果仍属于当前代次。显式跳转在 cancelPending 里自增代次，
+    // 「跳走后旧图才解完」自然被拦下；不再依赖会被多次跳转互相覆盖的布尔标志。
+    const bool stale = (generation != m_generation);
     if (img.isNull()) {
-        emit loadFailed(path, error.isEmpty() ? QCoreApplication::translate("ImageCache", "无法解码") : error);
+        if (!stale) {
+            emit loadFailed(path, error.isEmpty()
+                                       ? QCoreApplication::translate("ImageCache", "无法解码")
+                                       : error);
+        }
     } else {
         insertFull(path, img);
-        if (!drop) {
+        if (!stale) {
             // FIFO：按入队顺序无条件上屏（显式跳转的在飞旧结果除外）
             emit fullReady(path, img, false);
         }
@@ -347,15 +397,17 @@ void ImageCache::finishFullDecode(const QString &path, const QImage &img,
 
 void ImageCache::cancelPending()
 {
+    // 进入新代次：在飞任务拦不住（QtConcurrent 不可取消），但结果到达时会因
+    // 代次不符只入缓存不上屏。用代次替代单个布尔标志，连续跳转不会互相覆盖
+    // （A→B→A 往返也能正确区分「哪一代的 A」）。
+    ++m_generation;
     m_queue.clear();
-    // 旧页面的邻居预读在新位置已经没意义：待预读清掉；在飞那个只进缓存不上屏
+    // 旧页面的邻居预读在新位置已经没意义：待预读清掉
     m_preloadQueue.clear();
     m_preloadPromote = false;
     // 拖动预览的旧落点同理：在飞结果只入缓存，别把松手后的新页面盖回去
     m_dragPending.clear();
     m_dragMuted = true;
-    // 在飞的那个拦不住了（QtConcurrent 不可取消），结果到达时只进缓存不上屏
-    m_dropInFlightResult = !m_fullInFlight.isEmpty();
 }
 
 void ImageCache::requestThumbnail(const QString &path, const QSize &size)
@@ -423,15 +475,16 @@ void ImageCache::clear()
 void ImageCache::clearFull()
 {
     m_fullInFlight.clear();
+    ++m_generation;   // 已清掉的任务即使回来也不再被认作当前结果
     m_fullCache.clear();
     m_queue.clear();
     m_preloadQueue.clear();
     m_preloadPath.clear();
+    m_preloadGeneration = 0;
     m_preloadPromote = false;
     m_dragCache.clear();
     m_dragInFlight.clear();
     m_dragPending.clear();
     m_dragPromote = false;
     m_dragMuted = false;
-    m_dropInFlightResult = false;
 }
