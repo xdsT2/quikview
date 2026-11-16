@@ -1,6 +1,7 @@
 #include "DirectoryLoader.h"
 
 #include "Config.h"
+#include "PerfProbe.h"
 
 #include <QCollator>
 #include <QCoreApplication>
@@ -102,25 +103,33 @@ QList<DirectoryLoader::Group> DirectoryLoader::imageGroups()
     return out;
 }
 
-bool DirectoryLoader::open(const QString &filePath)
+// 后台可调用的纯函数：整个扫描/排序/过滤过程不触碰 DirectoryLoader 成员。
+// 注意：QCollator、QFileInfo 都是可重入的，工作线程内自建即用是安全的。
+DirectoryLoader::Index DirectoryLoader::buildIndex(const QString &filePath, int sort,
+                                                   bool sortDesc, bool skipRawWhenJpg)
 {
+    Index out;
     const QFileInfo fi(filePath);
     if (!fi.exists()) {
-        return false;
+        return out;
     }
+    out.found = true;
     const QDir dir = fi.dir();
+    PerfProbe::mark(PerfProbe::currentSeq(), "scan-start", "");
     QFileInfoList infos = dir.entryInfoList(imageExtensions(),
                                              QDir::Files | QDir::Readable);
+    PerfProbe::mark(PerfProbe::currentSeq(), "scan-done",
+                    QByteArray::number(infos.size()).constData());
 
     // 排序：键（名称/时间/大小/类型）+ 方向（升/降），对照原版排序方式 4+1 项。
     // 名称用 QCollator（LocaleAware）；类型 = 扩展名分组、组内按名称。
     QCollator collator;
     collator.setCaseSensitivity(Qt::CaseInsensitive);
-    const bool asc = !m_sortDesc;
+    const bool asc = !sortDesc;
     std::sort(infos.begin(), infos.end(),
-              [this, &collator, asc](const QFileInfo &a, const QFileInfo &b) {
+              [sort, &collator, asc](const QFileInfo &a, const QFileInfo &b) {
         int r = 0;
-        switch (m_sort) {
+        switch (sort) {
         case 1:   // 修改时间
             r = (a.lastModified() == b.lastModified()) ? 0
                 : (a.lastModified() < b.lastModified() ? -1 : 1);
@@ -141,24 +150,25 @@ bool DirectoryLoader::open(const QString &filePath)
         }
         return asc ? (r < 0) : (r > 0);
     });
+    PerfProbe::mark(PerfProbe::currentSeq(), "sort-done", "");
 
-    const QString canonical = QFileInfo(filePath).absoluteFilePath();
+    const QString canonical = fi.absoluteFilePath();
 
     // 「打开 JPEG 时不同时打开同名 RAW」（键 "config/etc/skip_raw_when_jpg"）：
     // a.jpg + a.nef 同目录时只留 JPEG。仅在当前打开的是 JPEG 时过滤；直接打开
     // .nef 时保留全量列表，否则用户双击 RAW 会被自己的过滤规则挡在门外。
-    if (Config::instance().skipRawWhenJpg()) {
-        const QString curSuffix = QFileInfo(canonical).suffix().toLower();
+    if (skipRawWhenJpg) {
+        const QString curSuffix = fi.suffix().toLower();
         const bool curIsJpg = (curSuffix == QLatin1String("jpg")
                                || curSuffix == QLatin1String("jpeg")
                                || curSuffix == QLatin1String("jfif"));
         if (curIsJpg) {
             QSet<QString> jpgStems;
-            for (const QFileInfo &fi : infos) {
-                const QString s = fi.suffix().toLower();
+            for (const QFileInfo &info : infos) {
+                const QString s = info.suffix().toLower();
                 if (s == QLatin1String("jpg") || s == QLatin1String("jpeg")
                     || s == QLatin1String("jfif")) {
-                    jpgStems.insert(fi.completeBaseName().toLower());
+                    jpgStems.insert(info.completeBaseName().toLower());
                 }
             }
             static const QStringList kRawExts = {
@@ -167,22 +177,35 @@ bool DirectoryLoader::open(const QString &filePath)
                 QStringLiteral("raf"), QStringLiteral("pef"), QStringLiteral("raw")
             };
             infos.erase(std::remove_if(infos.begin(), infos.end(),
-                                       [&jpgStems](const QFileInfo &fi) {
-                const QString s = fi.suffix().toLower();
+                                       [&jpgStems](const QFileInfo &info) {
+                const QString s = info.suffix().toLower();
                 return kRawExts.contains(s)
-                       && jpgStems.contains(fi.completeBaseName().toLower());
+                       && jpgStems.contains(info.completeBaseName().toLower());
             }), infos.end());
         }
     }
 
-    m_files.clear();
-    m_files.reserve(infos.size());
+    PerfProbe::mark(PerfProbe::currentSeq(), "filter-done", "");
+    out.files.reserve(infos.size());
     for (const QFileInfo &info : infos) {
-        m_files << info.absoluteFilePath();
+        out.files << info.absoluteFilePath();
     }
+    out.anchor = out.files.indexOf(canonical);
+    return out;
+}
 
-    m_index = m_files.indexOf(canonical);
+bool DirectoryLoader::applyIndex(const Index &idx)
+{
+    m_files = idx.files;
+    m_index = idx.anchor;
     return m_index >= 0;
+}
+
+bool DirectoryLoader::open(const QString &filePath)
+{
+    const Index idx = buildIndex(filePath, m_sort, m_sortDesc,
+                                 Config::instance().skipRawWhenJpg());
+    return applyIndex(idx);
 }
 
 QString DirectoryLoader::current() const

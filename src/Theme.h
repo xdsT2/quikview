@@ -5,7 +5,10 @@
 #include <QPalette>
 #include <QString>
 #include <QStyleHints>
+#include <QDialog>
 #include <QWidget>
+
+#include <cstdlib>
 
 #include "UiStyle.h"
 #include "ThemeProbe.h"
@@ -37,35 +40,47 @@ inline Mode resolveMode(const QString &theme)
     return Mode::Dark;
 }
 
-inline void applyDark(QApplication &app)
+// 换肤落点（2026-11-16 性能修复）：
+//  - 常规（设置页未开）：把 appQss() 装到 QApplication 上，一次性覆盖所有窗口，
+//    含菜单/提示/下拉这些临时顶层。实测约 4ms。
+//  - 设置页打开时：只装到主窗口。设置页是主窗口的子窗口，会跟着一起换，
+//    但不再走 qApp 级全量传播——实测设置页开着时 qApp 级要 0.9~1.2s，
+//    主窗口级约 0.1s。真正的全局表在设置页关闭后补装，那时只要 4ms。
+// 参数 scope 为空表示装到 QApplication。
+inline void applyAppSheet(QWidget *scope)
 {
-    UiStyle::setScheme(UiStyle::Scheme::Dark);
-    // 原生绘制的部件（勾选符、滚动条箭头、菜单边框）跟随调色板
-    QPalette p;
-    p.setColor(QPalette::Window, QColor(0x23, 0x24, 0x27));
-    p.setColor(QPalette::WindowText, UiStyle::text());
-    p.setColor(QPalette::Base, QColor(0x1e, 0x20, 0x23));
-    p.setColor(QPalette::AlternateBase, QColor(0x22, 0x24, 0x27));
-    p.setColor(QPalette::Text, UiStyle::body());
-    p.setColor(QPalette::Button, QColor(0x30, 0x32, 0x37));
-    p.setColor(QPalette::ButtonText, UiStyle::body());
-    p.setColor(QPalette::Highlight, UiStyle::accent());
-    p.setColor(QPalette::HighlightedText, QColor(0x09, 0x21, 0x2c));
-    p.setColor(QPalette::ToolTipBase, QColor(0x2a, 0x2c, 0x30));
-    p.setColor(QPalette::ToolTipText, QColor(0xe6, 0xe8, 0xea));
-    p.setColor(QPalette::Disabled, QPalette::Text, QColor(0x6b, 0x70, 0x78));
-    p.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(0x6b, 0x70, 0x78));
-    p.setColor(QPalette::Disabled, QPalette::WindowText, QColor(0x6b, 0x70, 0x78));
-    app.setPalette(p);
-
-    ThemeProbe::mark(ThemeProbe::currentSeq(), "dark-palette-done", "");
-    app.setStyleSheet(UiStyle::appQss());
-    ThemeProbe::mark(ThemeProbe::currentSeq(), "dark-qss-done", "");
+    const QString qss = UiStyle::appQss();
+    if (scope)
+        scope->setStyleSheet(qss);
+    else
+        qApp->setStyleSheet(qss);
 }
 
-// 浅色：2026-11-04 起为真实现。调色板 + UiStyle::appQss()（内部按 Scheme 出浅色 QSS）。
-inline void applyLight(QApplication &app)
+// 只切调色板与令牌方案，不重装样式表（「同色切换」与「延后全局表」用）。
+inline void applyPalette(QApplication &app, Mode mode)
 {
+    if (mode == Mode::Dark) {
+        UiStyle::setScheme(UiStyle::Scheme::Dark);
+        // 原生绘制的部件（勾选符、滚动条箭头、菜单边框）跟随调色板
+        QPalette p;
+        p.setColor(QPalette::Window, QColor(0x23, 0x24, 0x27));
+        p.setColor(QPalette::WindowText, UiStyle::text());
+        p.setColor(QPalette::Base, QColor(0x1e, 0x20, 0x23));
+        p.setColor(QPalette::AlternateBase, QColor(0x22, 0x24, 0x27));
+        p.setColor(QPalette::Text, UiStyle::body());
+        p.setColor(QPalette::Button, QColor(0x30, 0x32, 0x37));
+        p.setColor(QPalette::ButtonText, UiStyle::body());
+        p.setColor(QPalette::Highlight, UiStyle::accent());
+        p.setColor(QPalette::HighlightedText, QColor(0x09, 0x21, 0x2c));
+        p.setColor(QPalette::ToolTipBase, QColor(0x2a, 0x2c, 0x30));
+        p.setColor(QPalette::ToolTipText, QColor(0xe6, 0xe8, 0xea));
+        p.setColor(QPalette::Disabled, QPalette::Text, QColor(0x6b, 0x70, 0x78));
+        p.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(0x6b, 0x70, 0x78));
+        p.setColor(QPalette::Disabled, QPalette::WindowText, QColor(0x6b, 0x70, 0x78));
+        app.setPalette(p);
+        ThemeProbe::mark(ThemeProbe::currentSeq(), "dark-palette-done", "");
+        return;
+    }
     UiStyle::setScheme(UiStyle::Scheme::Light);
     QPalette p;
     p.setColor(QPalette::Window, QColor(0xf2, 0xf3, 0xf5));
@@ -83,13 +98,10 @@ inline void applyLight(QApplication &app)
     p.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(0xa0, 0xa0, 0xa0));
     p.setColor(QPalette::Disabled, QPalette::WindowText, QColor(0xa0, 0xa0, 0xa0));
     app.setPalette(p);
-
     ThemeProbe::mark(ThemeProbe::currentSeq(), "light-palette-done", "");
-    app.setStyleSheet(UiStyle::appQss());
-    ThemeProbe::mark(ThemeProbe::currentSeq(), "light-qss-done", "");
 }
 
-inline void apply(QApplication &app, Mode mode)
+inline void apply(QApplication &app, Mode mode, QWidget *scope = nullptr)
 {
     // 换肤前收起全部弹出层（菜单、组合框下拉等）：QSS 换肤不会重绘已经弹出
     // 的窗口，留着会半新半旧；代价是弹出层被关闭，属可接受的一次性打断。
@@ -103,22 +115,18 @@ inline void apply(QApplication &app, Mode mode)
     }
     ThemeProbe::mark(ThemeProbe::currentSeq(), "global-popups-closed", "");
 
-
-    if (mode == Mode::Dark) {
-        applyDark(app);
-    } else {
-        applyLight(app);
-    }
+    applyPalette(app, mode);
+    applyAppSheet(scope);
     ThemeProbe::mark(ThemeProbe::currentSeq(), "global-applied",
                      mode == Mode::Dark ? "dark" : "light");
 }
 
 // 便捷入口：按 config/theme 的字符串解析并应用。所有调用点统一走这里，
 // 同时记录取值，供 installSystemWatcher 判断「跟随系统」是否启用。
-inline void applySetting(QApplication &app, const QString &theme)
+inline void applySetting(QApplication &app, const QString &theme, QWidget *scope = nullptr)
 {
     currentSetting() = theme;
-    apply(app, resolveMode(theme));
+    apply(app, resolveMode(theme), scope);
 }
 
 // 「跟随系统」：监听 Windows 深浅色切换（Qt 6.5+ colorSchemeChanged）。

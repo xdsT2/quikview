@@ -61,6 +61,9 @@ public:
     void openSettings() { onSettings(); }   // 调试/自动化：直接打开设置对话框
     void setZoomMode(int mode);             // 调试/自动化 + 菜单共用：0原始/1适合窗口/2适合宽度
     void runSmokeCommand(const QString &cmd); // 调试/自动化：--smoke 单命令驱动（P0 冒烟）
+    // 换肤落点：设置页开着时只装到主窗口（设置页是它的子窗口，跟着一起换），
+    // 避免 qApp 级全量 repolish；设置页关闭销毁后再补装全局表。
+    QWidget *themeScopeForLiveChange() const;
     // Tab 语义单点（真实快捷键与 --smoke tab 共用）：PSD→图层面板，普通图→信息 HUD
     void onTabPressed();
     // 应用激活状态变化（changeEvent 与 --smoke deactivate 共用）：失活收起信息 HUD
@@ -423,6 +426,9 @@ private:
     bool m_firstImage = true;
 
     QString m_currentPath;
+    // 大文件夹首图响应：目录索引后台化后的代次令牌。每次 openFile 自增，
+    // 旧索引/旧首图结果回来时发现 token 不匹配就丢弃，绝不覆盖当前画面与导航。
+    quint64 m_openGeneration = 0;
     // 最近一次解码失败的原因（QImageReader::errorString + 当时支持的格式列表）。
     // --smoke loadreport 会把它落到 Temp/load-report.txt：加载失败不能只剩一张空白
     // 画布，验收时必须能读出「为什么失败」。

@@ -1,4 +1,5 @@
 #include "ImageCanvas.h"
+#include "PerfProbe.h"
 #include "UiStyle.h"
 
 #include <QApplication>
@@ -734,6 +735,7 @@ void ImageCanvas::setPixmapAnimated(const QPixmap &pixmap, int mode, bool fitAft
 
 void ImageCanvas::paintEvent(QPaintEvent *event)
 {
+    PerfProbe::firstPaint();
     QGraphicsView::paintEvent(event);
     // 边框画在视口 1px 内沿：位置只和视口尺寸有关（与 scene 的缩放/平移无关），
     // 所以每次重绘现算，不缓存任何几何。m_borderColor 无效时等于「不画边框」。

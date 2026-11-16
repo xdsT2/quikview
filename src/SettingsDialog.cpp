@@ -19,6 +19,8 @@
 #include <QFrame>
 #include <QGridLayout>
 #include <QElapsedTimer>
+
+#include <cstdio>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QKeySequenceEdit>
@@ -1582,6 +1584,34 @@ QPushButton#btnPrimary:disabled { color: @GenDisabled@; border-color: @GenCtrlLi
 
 } // namespace
 
+namespace {
+
+// 设置窗构建分段计时（验收探针）：QUIKVIEW_SETTINGS_PROBE=<path> 时每次构建
+// 追加一行 "stage,ms"。未设置环境变量时每个打点只做一次静态判断，零开销。
+inline QElapsedTimer &probeClock()
+{
+    static QElapsedTimer t;
+    static bool started = false;
+    if (!started) {
+        t.start();
+        started = true;
+    }
+    return t;
+}
+
+void probeMark(const char *stage, qint64 us)
+{
+    static const QByteArray probePath = qgetenv("QUIKVIEW_SETTINGS_PROBE");
+    if (probePath.isEmpty())
+        return;
+    if (FILE *f = std::fopen(probePath.constData(), "a")) {
+        std::fprintf(f, "%s,%.1f\n", stage, us / 1000.0);
+        std::fclose(f);
+    }
+}
+
+} // namespace
+
 // ===========================================================================
 // 构造：深色三栏骨架 + 逐页构建
 // ===========================================================================
@@ -1589,6 +1619,10 @@ QPushButton#btnPrimary:disabled { color: @GenDisabled@; border-color: @GenCtrlLi
 SettingsDialog::SettingsDialog(QWidget *parent)
     : QDialog(parent)
 {
+    const auto mark = [](const char *stage) {
+        probeMark(stage, probeClock().nsecsElapsed() / 1000);
+    };
+    mark("ctor-start");
     setWindowTitle(tr("设置"));
     setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
     setAttribute(Qt::WA_TranslucentBackground, true);
@@ -1744,37 +1778,43 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     root->addWidget(body, 1);
 
     // —— 页面（每页一个 QScrollArea，内容 widget 存 m_pages）——
+    // 首屏只建「一般」页：其余页登记构建器，首次进入（或首次搜索）时才构建。
+    // 2026-11-16 实测：12 页同步构建占开窗 169ms 中约 160ms，延后后首屏回到个位数毫秒。
     buildGeneralPage(addPage(tr("一般"), tr("管理窗口行为、操作反馈、更新和首尾翻页。")));
-    buildViewPage(addPage(tr("浏览"), tr("缩放状态、侧边箭头与悬浮提示等浏览显示设置；画布底色已固定。")));
-    buildAppearancePage(addPage(tr("外观"), tr("主题与材质。跟随系统时由 Windows 的深浅色设置决定。")));
-    buildImageProcPage(addPage(tr("图像处理"), tr("透明背景、插值算法、翻页效果与 ICC 色彩管理；监视器 ICC 受 Qt6 限制暂不可用。")));
-    buildAssocPage(addPage(tr("格式关联"),
-                           tr("查看 QuikView 可打开的格式，并在 Windows 中选择默认应用。")));
+    m_pageBuilt[0] = true;
+    addLazyPage(tr("浏览"), tr("缩放状态、侧边箭头与悬浮提示等浏览显示设置；画布底色已固定。"),
+                &SettingsDialog::buildViewPage);
+    addLazyPage(tr("外观"), tr("主题与材质。跟随系统时由 Windows 的深浅色设置决定。"),
+                &SettingsDialog::buildAppearancePage);
+    addLazyPage(tr("图像处理"), tr("透明背景、插值算法、翻页效果与 ICC 色彩管理；监视器 ICC 受 Qt6 限制暂不可用。"),
+                &SettingsDialog::buildImageProcPage);
+    addLazyPage(tr("格式关联"),
+                tr("查看 QuikView 可打开的格式，并在 Windows 中选择默认应用。"),
+                &SettingsDialog::buildAssocPage);
     // 键盘页不显示 pageDesc：页首说明由 m_keyHint 承担（默认/录入两态切换），
     // 避免标题下出现两条近似文案（设计图 04/05 只有一行）。
-    buildKeyboardPage(addPage(tr("键盘"), QString()));
-    buildMousePage(addPage(tr("鼠标"), tr("左/右/X/Y 与滚轮的按键映射可自定义；中键平移、双击最大化可用。")));
-    buildBookmarkPage(addPage(tr("书签"), tr("自动保存开关与书签数量上限。")));
-    buildContextMenuPage(addPage(tr("上下文菜单"), tr("资源管理器集成的注册状态与右键菜单开关。")));
+    addLazyPage(tr("键盘"), QString(), &SettingsDialog::buildKeyboardPage);
+    addLazyPage(tr("鼠标"), tr("左/右/X/Y 与滚轮的按键映射可自定义；中键平移、双击最大化可用。"),
+                &SettingsDialog::buildMousePage);
+    addLazyPage(tr("书签"), tr("自动保存开关与书签数量上限。"), &SettingsDialog::buildBookmarkPage);
+    // 上下文菜单页要查资源管理器注册状态（四次注册表探测），放首屏最不划算。
+    addLazyPage(tr("上下文菜单"), tr("资源管理器集成的注册状态与右键菜单开关。"),
+                &SettingsDialog::buildContextMenuPage);
     // 查看器右键菜单：QuikView 内的右键菜单（原「上下文菜单」页上半部整体搬过来），
     // 资源管理器集成/注册/壳扩展开关仍留在「上下文菜单」页。
-    buildAppMenuSections(addPage(tr("查看器右键菜单"), tr("自定义 QuikView 查看器内的右键菜单与顶部快捷操作。")));
-    buildEtcPage(addPage(tr("杂项"), tr("图片文件夹、外部编辑器与 RAW 打开策略。")));
-    buildLangPage(addPage(tr("语言"), tr("选择界面语言并管理语言文件。")));
+    m_appMenuPage = addLazyPage(tr("查看器右键菜单"),
+                                tr("自定义 QuikView 查看器内的右键菜单与顶部快捷操作。"),
+                                &SettingsDialog::buildAppMenuSections);
+    // 索引在构造期就定位：列宽/页头动作位等判断不依赖该页是否已构建。
+    m_appMenuPageIndex = m_pages.indexOf(m_appMenuPage);
+    addLazyPage(tr("杂项"), tr("图片文件夹、外部编辑器与 RAW 打开策略。"), &SettingsDialog::buildEtcPage);
+    addLazyPage(tr("语言"), tr("选择界面语言并管理语言文件。"), &SettingsDialog::buildLangPage);
 
     // 页面内容不足一屏时，多余空间落在末尾弹簧上（否则各 section 会被均匀拉开）。
-    // 键盘页例外：它用单一表格滚动区，表格本身 stretch 吃满剩余高度，再加弹簧
-    // 会把表格压成半屏（2026-11-11 修订）。
-    for (int i = 0; i < m_pages.size(); ++i) {
-        if (i == 5)
-            continue;
-        // 查看器右键菜单页同理：大纲列表自己是一个滚动区，要 stretch 吃满高度；
-        // 尾部再加弹簧会与它平分剩余空间，列表只占半屏、下面空一截（2026-11-16）。
-        if (i == m_appMenuPageIndex)
-            continue;
-        if (auto *pv = qobject_cast<QVBoxLayout *>(m_pages[i]->layout()))
-            pv->addStretch(1);
-    }
+    // 弹簧必须在页面内容构建之后加（延后构建的页在 ensurePageBuilt 里补），
+    // 否则先加的弹簧会把后建的内容顶到底部。首屏只有「一般」页需要。
+    finishPageLayout(0);
+    mark("pages");
 
     // 导航底部：分隔 + 关于
     m_navLayout->addStretch(1);
@@ -1846,14 +1886,23 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     root->addWidget(footer);
 
     // 同页下拉统一宽度（按最长选项）+ 搜索索引；再回填配置与待保存基线。
-    for (QWidget *p : m_pages)
-        levelComboWidths(p);
+    for (int i = 0; i < m_pages.size(); ++i) {
+        if (m_pageBuilt.value(i))
+            levelComboWidths(m_pages.at(i));
+    }
     buildSearchIndex();
-    connect(m_search, &QLineEdit::textChanged, this,
-            [this](const QString &text) { filterNavigation(text); });
+    connect(m_search, &QLineEdit::textChanged, this, [this](const QString &text) {
+        // 搜索要匹配全部页文案；未构建的页没有控件可匹配，首次搜索时一次性补齐。
+        // 这是用户主动操作，付一次构建耗时换「搜得到」。
+        if (!text.trimmed().isEmpty())
+            ensureAllPagesBuilt();
+        filterNavigation(text);
+    });
 
     loadFromConfig();
+    mark("load-config");
     selectPage(0);
+    mark("select-page0");
     capturePendingBaseline();
     updatePendingNote();
     // 即时项在加载完控件后再接信号：避免开窗时的 setChecked 触发一次写盘。
@@ -1862,6 +1911,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     // 全部控件建完后再放开一次：QDialog 默认会把布局最小高写成窗口最小高，
     // 导致 900×660 窄窗被撑到 716。放最后确保覆盖默认约束。
     layout()->setSizeConstraint(QLayout::SetNoConstraint);
+    mark("ctor-end");
 
     // v2 焦点可见性：应用级追踪最近一次输入来源。窗口首次打开没有主动键盘
     // 输入，全部控件保持无环；Tab 之后才由 kbFocus 属性点亮当前焦点控件。
@@ -1918,6 +1968,8 @@ QWidget *SettingsDialog::addPage(const QString &title, const QString &desc)
     m_pages.append(page);
     m_pageTitles.append(title);
     m_pageDescs.append(desc);
+    m_pageBuilders.append(std::function<void()>());
+    m_pageBuilt.append(false);
 
     auto *btn = new NavItemButton(title, navGlyphFor(index), m_navLayout->parentWidget(),
                                   false, index);
@@ -1932,10 +1984,83 @@ QWidget *SettingsDialog::addPage(const QString &title, const QString &desc)
     return page;
 }
 
+QWidget *SettingsDialog::addLazyPage(const QString &title, const QString &desc,
+                                    void (SettingsDialog::*builder)(QWidget *))
+{
+    QWidget *page = addPage(title, desc);
+    const int index = m_pages.size() - 1;
+    m_pageBuilders[index] = [this, builder, page]() { (this->*builder)(page); };
+    return page;
+}
+
+void SettingsDialog::finishPageLayout(int index)
+{
+    if (index < 0 || index >= m_pages.size())
+        return;
+    if (index == 5)
+        return;
+    // 查看器右键菜单页同理：大纲列表自己是一个滚动区，要 stretch 吃满高度；
+    // 尾部再加弹簧会与它平分剩余空间，列表只占半屏、下面空一截（2026-11-16）。
+    if (index == m_appMenuPageIndex)
+        return;
+    if (auto *pv = qobject_cast<QVBoxLayout *>(m_pages.at(index)->layout()))
+        pv->addStretch(1);
+}
+
+void SettingsDialog::ensurePageBuilt(int index)
+{
+    if (index < 0 || index >= m_pages.size())
+        return;
+    if (m_pageBuilt.value(index, true))   // 已建或越界：直接返回
+        return;
+    m_pageBuilt[index] = true;
+
+    // 记录本次新增绑定的起点：构建后只回填/连接这一段，避免覆盖其它页的
+    // 在编草稿（热键 / 语言是待保存项，重放会把手上的改动抹掉）。
+    const int chkFrom = m_chkBinds.size();
+    const int comboFrom = m_comboBinds.size();
+    const int keyFrom = m_keyRows.size();
+    const int mouseFrom = m_mouseRows.size();
+    const int liveFrom = m_liveChecks.size();
+
+    QElapsedTimer pageTimer;
+    pageTimer.start();
+    if (m_pageBuilders.at(index))
+        m_pageBuilders.at(index)();
+
+    QWidget *page = m_pages.at(index);
+    loadBindingsFromConfig(chkFrom, comboFrom, keyFrom, mouseFrom);
+    loadPageWidgets(page);
+    levelComboWidths(page);
+    finishPageLayout(index);
+    rebuildPageSearchIndex(index);
+    connectLiveChecks(liveFrom);
+    connectInstantSignals(chkFrom, comboFrom, keyFrom, mouseFrom);
+    connectPageWidgets(page);
+    capturePendingBaseline(keyFrom);
+    if (m_compact)
+        applyCompactMetricsToPage(page);   // 窄窗后建的页也要落到紧凑档
+    updatePendingNote();
+    updateContentColumnWidth();
+    probeMark((QByteArrayLiteral("page") + QByteArray::number(index)).constData(),
+              pageTimer.nsecsElapsed() / 1000);
+}
+
+void SettingsDialog::ensureAllPagesBuilt()
+{
+    if (m_allPagesBuilt)
+        return;
+    m_allPagesBuilt = true;
+    for (int i = 0; i < m_pages.size(); ++i)
+        ensurePageBuilt(i);
+    buildSearchIndex();
+}
+
 void SettingsDialog::selectPage(int index)
 {
     if (index < 0 || index >= m_pages.size())
         return;
+    ensurePageBuilt(index);   // 延后构建：首次进入该页时才建内容
     const bool wasKeyboard = m_stack->currentIndex() == 5;
     m_stack->setCurrentIndex(index);
     m_pageTitle->setText(m_pageTitles.at(index));
@@ -2053,8 +2178,22 @@ void SettingsDialog::applyCompactLayout(bool compact)
         return;
     m_compact = compact;
 
-    // 所有页：组间距与行高按档位收放（字号与控件尺寸不变）。
-    for (QWidget *page : m_pages) {
+    // 所有已构建页：组间距与行高按档位收放（字号与控件尺寸不变）。
+    // 未构建的页在 ensurePageBuilt() 里按 m_compact 补一次。
+    for (int i = 0; i < m_pages.size(); ++i) {
+        if (m_pageBuilt.value(i))
+            applyCompactMetricsToPage(m_pages.at(i));
+    }
+    updateGeneralHeaderSpacing();
+    updateContentColumnWidth();
+}
+
+void SettingsDialog::applyCompactMetricsToPage(QWidget *page)
+{
+    if (!page)
+        return;
+    const bool compact = m_compact;
+    {
         int index = 0;
         if (auto *lay = page->layout()) {
             for (int i = 0; i < lay->count(); ++i) {
@@ -2084,8 +2223,6 @@ void SettingsDialog::applyCompactLayout(bool compact)
             }
         }
     }
-    updateGeneralHeaderSpacing();
-    updateContentColumnWidth();
 }
 
 QSize SettingsDialog::minimumSizeHint() const
@@ -3107,7 +3244,9 @@ void SettingsDialog::applyPendingTheme(int serial)
         m_themeAppliedSetting = want;
         m_themeAppliedMode = themeMode(want);
         m_themeLast = want;
+        ThemeProbe::mark(ThemeProbe::currentSeq(), "dlg-style-start", "");
         refreshDialogStyle();
+        ThemeProbe::mark(ThemeProbe::currentSeq(), "dlg-style-done", "");
         // 主题是即时项：切换成功即写盘，关闭窗口（含「不保存」）也保留。
         applyInstantValue(QStringLiteral("theme"), want);
         ThemeProbe::mark(ThemeProbe::currentSeq(), "settings-done",
@@ -4791,6 +4930,31 @@ void SettingsDialog::setAppMenuRunState(const AppMenuRunState &state)
 
 // 由 Config::appMenuVisible（生效可见性 = 本项 × 各级祖先总开关）生成两级模型，
 // 顺序与 MainWindow::buildContextMenu 一致：五段之间插分段线，空段整段省略。
+void SettingsDialog::probeVisitAllPages()
+{
+    // 延后构建的验收探针：按导航顺序逐页切一次，日志里每页一条
+    // "visit<下标>,<毫秒>"（含构建 + 回填 + 布局），供外部脚本算首次打开耗时。
+    const QString shotDir = qEnvironmentVariable("QUIKVIEW_SETTINGS_PAGES_DIR");
+    for (int i = 0; i < m_pages.size(); ++i) {
+        QElapsedTimer t;
+        t.start();
+        selectPage(i);
+        probeMark((QByteArrayLiteral("visit") + QByteArray::number(i)).constData(),
+                  t.nsecsElapsed() / 1000);
+        if (!shotDir.isEmpty()) {
+            // 自渲染取证（QWidget::grab，不经屏幕合成）：每页一张整窗图。
+            grab().save(shotDir + QStringLiteral("/page%1.png").arg(i));
+        }
+    }
+}
+
+void SettingsDialog::probeSearch(const QString &text)
+{
+    // 走真实链路：setText → textChanged → ensureAllPagesBuilt + filterNavigation。
+    if (m_search)
+        m_search->setText(text);
+}
+
 void SettingsDialog::refreshAppMenuPreview(bool relayout)
 {
     Q_UNUSED(relayout);
@@ -5358,19 +5522,29 @@ void SettingsDialog::buildLangPage(QWidget *page)
 
 void SettingsDialog::loadFromConfig()
 {
+    loadBindingsFromConfig(0, 0, 0, 0);
+    loadPageWidgets(nullptr);
+}
+
+void SettingsDialog::loadBindingsFromConfig(int chkFrom, int comboFrom, int keyFrom,
+                                            int mouseFrom)
+{
     m_loading = true;
-    for (const ChkBind &b : m_chkBinds) {
+    for (int i = qMax(0, chkFrom); i < m_chkBinds.size(); ++i) {
+        const ChkBind &b = m_chkBinds.at(i);
         const bool v = bGet(b.key, b.def);
         b.cb->setChecked(b.inverted ? !v : v);
     }
-    for (const ComboBind &b : m_comboBinds) {
+    for (int i = qMax(0, comboFrom); i < m_comboBinds.size(); ++i) {
+        const ComboBind &b = m_comboBinds.at(i);
         const int idx = b.combo->findData(sGet(b.key, b.def));
         b.combo->setCurrentIndex(idx >= 0 ? idx : 0);
     }
     // 旧配置 edge_action="ask"：「询问」档灰显（无实现），运行态已由
     // Config::edgeAction() 折算为「停止」，下拉显示同步折算，不再呈现
     // 「选着一个灰项」；配置原值保留，翻页批次 2 交付后按新定义启用。
-    for (const ComboBind &b : m_comboBinds) {
+    for (int i = qMax(0, comboFrom); i < m_comboBinds.size(); ++i) {
+        const ComboBind &b = m_comboBinds.at(i);
         if (qstrcmp(b.key, "edge_action") != 0
             || sGet(b.key, b.def) != QLatin1String("ask"))
             continue;
@@ -5378,9 +5552,8 @@ void SettingsDialog::loadFromConfig()
         if (stopIdx >= 0)
             b.combo->setCurrentIndex(stopIdx);
     }
-    if (m_cacheSize)
-        m_cacheSize->setValue(iGet("imageproc/cache_size_mb", 300));
-    for (const KeyRow &r : m_keyRows) {
+    for (int i = qMax(0, keyFrom); i < m_keyRows.size(); ++i) {
+        const KeyRow &r = m_keyRows.at(i);
         // 出厂无单键的动作（幻灯片 / 裁剪）默认不启用，避免「勾着但热键为空」；
         // 已有配置仍以用户落盘值为准（P2 / D4）。
         const bool enabledByDefault = !r.defHotkey.isEmpty();
@@ -5392,7 +5565,8 @@ void SettingsDialog::loadFromConfig()
         // 「操作」列只读：不再回读 keyboard/<action>_action（历史上被改绑过的配置
         // 会在下次保存时按固定动作覆写回去）。
     }
-    for (const MouseRow &r : m_mouseRows) {
+    for (int i = qMax(0, mouseFrom); i < m_mouseRows.size(); ++i) {
+        const MouseRow &r = m_mouseRows.at(i);
         const QString stored = sGet(r.key.toLatin1().constData(), r.def);
         int idx = r.combo->findData(stored);
         // 旧配置里的不可执行档位（灰显项）按运行态安全值「无操作」显示：
@@ -5407,24 +5581,36 @@ void SettingsDialog::loadFromConfig()
         }
         r.combo->setCurrentIndex(idx >= 0 ? idx : 0);
     }
-    if (m_maxBookmarks) {
+    m_loading = false;
+}
+
+void SettingsDialog::loadPageWidgets(QWidget *page)
+{
+    // 页专属控件不进绑定表；page 非空时只回填这一页拥有的那几个。
+    const auto owns = [page](QWidget *w) {
+        return w && (!page || page == w || page->isAncestorOf(w));
+    };
+    m_loading = true;
+    if (owns(m_cacheSize))
+        m_cacheSize->setValue(iGet("imageproc/cache_size_mb", 300));
+    if (owns(m_maxBookmarks)) {
         const int idx = m_maxBookmarks->findData(iGet("bookmark/max_bookmarks", 50));
         m_maxBookmarks->setCurrentIndex(idx >= 0 ? idx : 3);
     }
-    if (m_photoFolder1)
+    if (owns(m_photoFolder1))
         m_photoFolder1->setText(sGet("etc/photo_folder_1"));
-    if (m_photoFolder2)
+    if (owns(m_photoFolder2))
         m_photoFolder2->setText(sGet("etc/photo_folder_2"));
-    if (m_editorPath)
+    if (owns(m_editorPath))
         m_editorPath->setText(sGet("etc/image_editor"));
-    if (m_language) {
+    if (owns(m_language)) {
         const int idx = m_language->findData(sGet("language", QStringLiteral("system")));
         m_language->setCurrentIndex(idx >= 0 ? idx : 0);
     }
     // 外观页两件套不进绑定表，单独回读（历史 theme 三值 → 跟随 + 浅色两开关）。
-    if (m_themeCombo)
+    if (owns(m_themeCombo))
         syncThemeControls(sGet("theme", QStringLiteral("dark")));
-    if (m_blurMaterial)
+    if (owns(m_blurMaterial))
         m_blurMaterial->setChecked(bGet("ui/blur_material", false));
     m_loading = false;
 }
@@ -5578,7 +5764,8 @@ void SettingsDialog::writeBridgeKeys()
         writeValues(changes, true, nullptr);   // 兼容桥随即时项一起重试，不丢推导值
 }
 
-void SettingsDialog::connectInstantSignals()
+void SettingsDialog::connectInstantSignals(int chkFrom, int comboFrom, int keyFrom,
+                                           int mouseFrom)
 {
     const auto isLive = [this](QCheckBox *cb) {
         for (const LiveCheck &item : m_liveChecks) {
@@ -5587,7 +5774,8 @@ void SettingsDialog::connectInstantSignals()
         }
         return false;
     };
-    for (const ChkBind &b : m_chkBinds) {
+    for (int i = qMax(0, chkFrom); i < m_chkBinds.size(); ++i) {
+        const ChkBind &b = m_chkBinds.at(i);
         if (isLive(b.cb))
             continue;   // 即时预览项由 applyLiveCheck 统一下发 + 写盘
         connect(b.cb, &QCheckBox::toggled, this, [this, b](bool on) {
@@ -5596,19 +5784,16 @@ void SettingsDialog::connectInstantSignals()
             updatePendingNote();
         });
     }
-    for (const ComboBind &b : m_comboBinds) {
+    for (int i = qMax(0, comboFrom); i < m_comboBinds.size(); ++i) {
+        const ComboBind &b = m_comboBinds.at(i);
         connect(b.combo, &QComboBox::currentIndexChanged, this, [this, b]() {
             applyInstantValue(QString::fromLatin1(b.key),
                               b.combo->currentData().toString());
             writeBridgeKeys();
         });
     }
-    if (m_cacheSize) {
-        connect(m_cacheSize, &QSpinBox::valueChanged, this, [this](int v) {
-            applyInstantValue(QStringLiteral("imageproc/cache_size_mb"), v);
-        });
-    }
-    for (const MouseRow &r : m_mouseRows) {
+    for (int i = qMax(0, mouseFrom); i < m_mouseRows.size(); ++i) {
+        const MouseRow &r = m_mouseRows.at(i);
         auto *combo = r.combo;
         const QString key = r.key;
         connect(combo, &QComboBox::currentIndexChanged, this, [this, key, combo]() {
@@ -5616,39 +5801,10 @@ void SettingsDialog::connectInstantSignals()
             writeBridgeKeys();
         });
     }
-    if (m_maxBookmarks) {
-        connect(m_maxBookmarks, &QComboBox::currentIndexChanged, this, [this]() {
-            applyInstantValue(QStringLiteral("bookmark/max_bookmarks"),
-                              m_maxBookmarks->currentData().toInt());
-        });
-    }
-    if (m_photoFolder1) {
-        connect(m_photoFolder1, &QLineEdit::editingFinished, this, [this]() {
-            applyInstantValue(QStringLiteral("etc/photo_folder_1"), m_photoFolder1->text());
-        });
-    }
-    if (m_photoFolder2) {
-        connect(m_photoFolder2, &QLineEdit::editingFinished, this, [this]() {
-            applyInstantValue(QStringLiteral("etc/photo_folder_2"), m_photoFolder2->text());
-        });
-    }
-    if (m_editorPath) {
-        connect(m_editorPath, &QLineEdit::editingFinished, this, [this]() {
-            applyInstantValue(QStringLiteral("etc/image_editor"), m_editorPath->text());
-        });
-    }
-    if (m_blurMaterial) {
-        connect(m_blurMaterial, &QCheckBox::toggled, this, [this](bool on) {
-            if (m_loading)
-                return;
-            applyInstantValue(QStringLiteral("ui/blur_material"), on);
-            UiStyle::setBlurMaterial(on);
-            refreshDialogStyle();
-        });
-    }
     // 热键改绑 / 语言只更新待保存计数，不写盘；「启用」是即时项：
     // 先写配置，再在切换点让 MainWindow 重装热键表（不能等对话框关闭）。
-    for (const KeyRow &r : m_keyRows) {
+    for (int i = qMax(0, keyFrom); i < m_keyRows.size(); ++i) {
+        const KeyRow &r = m_keyRows.at(i);
         const QString action = r.action;
         QCheckBox *cb = r.cb;
         connect(cb, &QCheckBox::toggled, this, [this, action, cb](bool on) {
@@ -5675,17 +5831,62 @@ void SettingsDialog::connectInstantSignals()
             updatePendingNote();
         });
     }
-    if (m_language) {
+}
+
+void SettingsDialog::connectPageWidgets(QWidget *page)
+{
+    // 页专属控件不进绑定表：在该页首次构建时连一次，只连这一页拥有的。
+    const auto owns = [page](QWidget *w) {
+        return w && (!page || page == w || page->isAncestorOf(w));
+    };
+    if (owns(m_cacheSize)) {
+        connect(m_cacheSize, &QSpinBox::valueChanged, this, [this](int v) {
+            applyInstantValue(QStringLiteral("imageproc/cache_size_mb"), v);
+        });
+    }
+    if (owns(m_maxBookmarks)) {
+        connect(m_maxBookmarks, &QComboBox::currentIndexChanged, this, [this]() {
+            applyInstantValue(QStringLiteral("bookmark/max_bookmarks"),
+                              m_maxBookmarks->currentData().toInt());
+        });
+    }
+    if (owns(m_photoFolder1)) {
+        connect(m_photoFolder1, &QLineEdit::editingFinished, this, [this]() {
+            applyInstantValue(QStringLiteral("etc/photo_folder_1"), m_photoFolder1->text());
+        });
+    }
+    if (owns(m_photoFolder2)) {
+        connect(m_photoFolder2, &QLineEdit::editingFinished, this, [this]() {
+            applyInstantValue(QStringLiteral("etc/photo_folder_2"), m_photoFolder2->text());
+        });
+    }
+    if (owns(m_editorPath)) {
+        connect(m_editorPath, &QLineEdit::editingFinished, this, [this]() {
+            applyInstantValue(QStringLiteral("etc/image_editor"), m_editorPath->text());
+        });
+    }
+    if (owns(m_blurMaterial)) {
+        connect(m_blurMaterial, &QCheckBox::toggled, this, [this](bool on) {
+            if (m_loading)
+                return;
+            applyInstantValue(QStringLiteral("ui/blur_material"), on);
+            UiStyle::setBlurMaterial(on);
+            refreshDialogStyle();
+        });
+    }
+    if (owns(m_language)) {
         connect(m_language, &QComboBox::currentIndexChanged, this, [this]() {
             updatePendingNote();
         });
     }
 }
 
-void SettingsDialog::capturePendingBaseline()
+void SettingsDialog::capturePendingBaseline(int keyFrom)
 {
-    m_keyBaseline.clear();
-    for (const KeyRow &r : m_keyRows) {
+    if (keyFrom <= 0)
+        m_keyBaseline.clear();
+    for (int i = qMax(0, keyFrom); i < m_keyRows.size(); ++i) {
+        const KeyRow &r = m_keyRows.at(i);
         m_keyBaseline.insert(r.action,
                              r.edit->keySequence().toString(QKeySequence::PortableText));
     }
@@ -5727,7 +5928,19 @@ void SettingsDialog::updatePendingNote()
 void SettingsDialog::buildSearchIndex()
 {
     m_pageSearchIndex.clear();
-    for (QWidget *page : m_pages) {
+    m_pageSearchIndex.resize(m_pages.size());
+    for (int i = 0; i < m_pages.size(); ++i)
+        rebuildPageSearchIndex(i);
+}
+
+void SettingsDialog::rebuildPageSearchIndex(int index)
+{
+    if (index < 0 || index >= m_pages.size())
+        return;
+    if (m_pageSearchIndex.size() < m_pages.size())
+        m_pageSearchIndex.resize(m_pages.size());
+    {
+        QWidget *page = m_pages.at(index);
         QStringList parts;
         for (QLabel *lab : page->findChildren<QLabel *>()) {
             const QString name = lab->objectName();
@@ -5746,7 +5959,7 @@ void SettingsDialog::buildSearchIndex()
         }
         for (QPushButton *btn : page->findChildren<QPushButton *>())
             parts << btn->text();
-        m_pageSearchIndex << parts.join(QStringLiteral(" ")).toLower();
+        m_pageSearchIndex[index] = parts.join(QStringLiteral(" ")).toLower();
     }
 }
 
@@ -5783,9 +5996,9 @@ void SettingsDialog::filterNavigation(const QString &text)
 // SET-02 即时预览会话
 // ---------------------------------------------------------------------------
 
-void SettingsDialog::connectLiveChecks()
+void SettingsDialog::connectLiveChecks(int from)
 {
-    for (int i = 0; i < m_liveChecks.size(); ++i) {
+    for (int i = qMax(0, from); i < m_liveChecks.size(); ++i) {
         LiveCheck &item = m_liveChecks[i];
         item.lastValue = item.inverted ? !item.cb->isChecked() : item.cb->isChecked();
         connect(item.cb, &QCheckBox::toggled, this, [this, i](bool on) {
@@ -5887,6 +6100,9 @@ void SettingsDialog::onReset()
                                         QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
     if (r != QMessageBox::Yes)
         return;
+    // 恢复默认要覆盖所有页：延后构建的页尚未建控件，先补齐再回填，
+    // 否则「重置后进某个没打开过的页，还是旧值」。
+    ensureAllPagesBuilt();
     QSettings &s = Config::instance().settings();
     s.beginGroup(QStringLiteral("config"));
     s.remove(QStringLiteral(""));
@@ -6256,6 +6472,7 @@ void SettingsDialog::showEvent(QShowEvent *event)
     QDialog::showEvent(event);
     if (m_centered)
         return;
+    probeMark("shown", probeClock().nsecsElapsed() / 1000);
     m_centered = true;
     QWidget *host = parentWidget() ? parentWidget()->window() : nullptr;
     if (!host)

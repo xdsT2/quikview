@@ -1,4 +1,5 @@
 #include "ImageCache.h"
+#include "PerfProbe.h"
 #include <QCoreApplication>
 
 #include <QFutureWatcher>
@@ -238,6 +239,7 @@ void ImageCache::startNext()
             emit fullReady(path, *m_fullCache.object(path), false);
             continue;
         }
+        PerfProbe::mark(PerfProbe::currentSeq(), "decode-start", "");
         startFullDecode(path, m_previewSize);
         return;
     }
@@ -327,6 +329,7 @@ void ImageCache::finishFullDecode(const QString &path, const QImage &img,
         return;
     }
     m_fullInFlight.remove(path);
+    PerfProbe::mark(PerfProbe::currentSeq(), "decode-full", "");
     const bool drop = m_dropInFlightResult;
     m_dropInFlightResult = false;
     if (img.isNull()) {

@@ -8,6 +8,21 @@ class DirectoryLoader
 public:
     DirectoryLoader() = default;
 
+    // 后台建索引的结果：不碰成员，可在工作线程构造，回到主线程 apply。
+    struct Index
+    {
+        QStringList files;
+        int anchor = -1;     // filePath 在 files 中的位置；-1 = 不在清单
+        bool found = false;  // 文件本身存在
+    };
+
+    // 纯函数：扫描 + 排序 + JPEG/RAW 过滤，不写任何成员（供后台线程调用）。
+    static Index buildIndex(const QString &filePath, int sort, bool sortDesc,
+                            bool skipRawWhenJpg);
+
+    // 用后台结果更新本实例。返回是否可导航（与 open 的返回值一致）。
+    bool applyIndex(const Index &idx);
+
     // 以 filePath 为锚点，扫描其所在目录，返回是否成功建立序列
     bool open(const QString &filePath);
 

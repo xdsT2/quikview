@@ -1,5 +1,11 @@
 #include "MainWindow.h"
 
+#include "PerfProbe.h"
+#include "ThemeProbe.h"
+
+#include <QFutureWatcher>
+#include <QtConcurrent/QtConcurrent>
+
 #include <QAction>
 #include <QActionGroup>
 #include <QApplication>
@@ -1269,7 +1275,7 @@ void MainWindow::createActions()
         const QString mode = on ? QStringLiteral("dark") : QStringLiteral("light");
         ThemeProbe::begin("menu-select", mode.toUtf8().constData());
         Config::instance().settings().setValue(QStringLiteral("config/theme"), mode);
-        Theme::applySetting(*qApp, mode);
+        Theme::applySetting(*qApp, mode, themeScopeForLiveChange());
         // 局部 QSS 表面（画布底色 / 信息浮层）不跟着 appQss 走，菜单直接切换时
         // 也要补一次，否则会停在旧主题。
         refreshThemeSurfaces();
@@ -2525,27 +2531,73 @@ void MainWindow::toggleAlwaysOnTop()
 
 void MainWindow::openFile(const QString &path)
 {
-    if (!m_dir->open(path)) {
+    PerfProbe::begin("file", path.toUtf8().constData());
+
+    // 文件必须先存在：错误文件走原有提示路径，不启动解码/索引。
+    const QFileInfo fi(path);
+    if (!fi.exists()) {
         m_toast->showMessage(tr("无法读取文件：") + path);
         return;
     }
-    m_browser->setFiles(m_dir->files(), m_dir->index());
-    m_currentPath = m_dir->current();
-    // 自动保存当前图片路径为书签（键 "config/bookmark/auto_bookmark"）：
-    // 只在「打开」路径触发（翻页走 loadAsync，不经过这里），已收藏则不重复写。
+    const QString canonical = fi.absoluteFilePath();
+
+    // 代次 +1：本次打开之后到达的任何旧索引/旧画面都属于上一任务。
+    const quint64 gen = ++m_openGeneration;
+    m_currentPath = canonical;
+
+    // ① 首图优先：先发解码请求（内部会 cancelPending 丢弃上一任务的在飞结果），
+    //    不等目录扫描。大目录里这一步原本排在 10ms+ 的枚举排序之后。
+    PerfProbe::mark(PerfProbe::currentSeq(), "request-sent", "");
+    jumpTo(canonical);
+
+    // 自动保存当前图片路径为书签/最近记录——与原路径同一时机（打开即记），
+    // 只依赖明确选中的这一张，不依赖目录索引是否完成。
     const bool autoFav = Config::instance().autoBookmark()
-                         && !m_currentPath.isEmpty()
-                         && !Config::instance().favorites().contains(m_currentPath);
+                         && !canonical.isEmpty()
+                         && !Config::instance().favorites().contains(canonical);
     if (autoFav) {
-        Config::instance().toggleFavorite(m_currentPath);
+        Config::instance().toggleFavorite(canonical);
     }
     if (Config::instance().rememberBrowsedFolders()) {
-        Config::instance().addRecentFile(m_currentPath);
+        Config::instance().addRecentFile(canonical);
         refreshLibraryMenus();
     } else if (autoFav) {
-        refreshLibraryMenus();   // 未记忆文件夹时书签菜单也要刷新
+        refreshLibraryMenus();
     }
-    jumpTo(m_currentPath);
+
+    // ② 目录索引后台化：扫描/排序/过滤放到线程池，结果带 gen 回到主线程。
+    //    主线程此刻空闲，首图得以在扫描完成前就解码上屏。
+    const int sortMode = m_dir->sort();
+    const bool sortDesc = m_dir->sortDescending();
+    const bool skipRaw = Config::instance().skipRawWhenJpg();
+    auto *watcher = new QFutureWatcher<DirectoryLoader::Index>(this);
+    connect(watcher, &QFutureWatcher<DirectoryLoader::Index>::finished, this,
+            [this, watcher, gen, canonical]() {
+        const DirectoryLoader::Index idx = watcher->result();
+        watcher->deleteLater();
+        // 旧任务：索引已完成但用户又打开了别的图/目录，直接丢弃。
+        if (gen != m_openGeneration) {
+            return;
+        }
+        const bool ok = m_dir->applyIndex(idx);
+        PerfProbe::mark(PerfProbe::currentSeq(), "index-ready", "");
+        m_browser->setFiles(m_dir->files(), m_dir->index());
+        PerfProbe::mark(PerfProbe::currentSeq(), "filmstrip-set", "");
+        if (ok) {
+            // 首图可能先于索引上屏：此时按路径校正它的页码与缩略图选中项。
+            const int shown = m_dir->files().indexOf(m_displayedPath);
+            if (shown >= 0) {
+                m_displayedIndex = shown;
+                m_control->setPage(shown + 1, m_dir->count());
+                m_browser->setCurrent(shown);
+            }
+            preloadNeighbors();
+        } else {
+            m_toast->showMessage(tr("无法读取文件：") + canonical);
+        }
+    });
+    watcher->setFuture(QtConcurrent::run(DirectoryLoader::buildIndex,
+                                         canonical, sortMode, sortDesc, skipRaw));
 }
 
 // 打开文件并按图调窗：仅「启动带文件 / 文件→打开」两条路径使用。
@@ -2868,6 +2920,8 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     // 连按中途的快帧：只换画布与标题顶住体感。源图/效果/元数据/动图等簿记
     // 等全图到了走完整流程，避免快帧（缩放解码的小图）污染旋转/Gamma 基准。
     if (preview) {
+        PerfProbe::markImageShown();
+        PerfProbe::mark(PerfProbe::currentSeq(), "show-preview", "");
         m_canvas->setPixmap(QPixmap::fromImage(image));
         setWindowTitle(QFileInfo(path).fileName() + QStringLiteral(" - QuikView"));
         m_topBar->setTitle(QFileInfo(path).fileName());
@@ -2956,6 +3010,8 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     const bool pageTurn = !fromDragPreview && !m_lastShownPath.isEmpty()
                           && m_lastShownPath != path;
     m_lastShownPath = path;
+    PerfProbe::markImageShown();
+    PerfProbe::mark(PerfProbe::currentSeq(), "show-full", "");
     // 减少动效：切图直接完成，只保留选中描边等颜色/文字状态反馈。
     if (pageTurn && pageFx > 0 && !m_zoomLocked && !Chrome::reducedMotion()) {
         m_canvas->setPixmapAnimated(QPixmap::fromImage(display), pageFx, /*fitAfter=*/false);
@@ -3467,7 +3523,7 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         const QString mode = c.mid(6);
         ThemeProbe::begin("menu-select", mode.toUtf8().constData());
         Config::instance().settings().setValue(QStringLiteral("config/theme"), mode);
-        Theme::applySetting(*qApp, mode);
+        Theme::applySetting(*qApp, mode, themeScopeForLiveChange());
         refreshThemeSurfaces();
         if (m_topBar) m_topBar->update();
         if (m_control) m_control->update();
@@ -3551,6 +3607,12 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             QCursor::setPos(a.at(0).toInt(), a.at(1).toInt());
         }
     }
+    // openpath:<绝对路径> —— 直接走 openFile（大文件夹首图响应竞态验收用）。
+    // 冒烟命令间隔 1.3s，足以让上一张的后台索引在飞；连开两张验证旧索引
+    // 不覆盖当前画面，索引完成后页码/胶片栏仍指向最后打开的那张。
+    else if (c.startsWith(QLatin1String("openpath:"))) {
+        openFile(c.mid(9));
+    }
     // —— 二级界面（截图冒烟用，非模态打开以便截到窗口本身）——
     else if (c == QLatin1String("settings")) {
         auto *dlg = new SettingsDialog(this);
@@ -3613,6 +3675,23 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         pushAppMenuRunState(dlg);
         dlg->show();
         dlg->probeAppMenuWindow(arg, w, h, scrollTo, steps);
+    }
+    // settingssearch:<text> —— 打开设置并在搜索框输入文字（验证首次搜索补建全部页）。
+    else if (c.startsWith(QLatin1String("settingssearch:"))) {
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        pushAppMenuRunState(dlg);
+        dlg->show();
+        const QString text = c.mid(15);
+        QTimer::singleShot(400, dlg, [dlg, text]() { dlg->probeSearch(text); });
+    }
+    // settingspages —— 打开设置并逐页切一遍（延后构建的每页首开耗时取证）。
+    else if (c == QLatin1String("settingspages")) {
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        pushAppMenuRunState(dlg);
+        dlg->show();
+        QTimer::singleShot(400, dlg, [dlg]() { dlg->probeVisitAllPages(); });
     }
     // ctxsub:<out>:<id> —— 按目录 id 抓取对应子菜单渲染图（grab，不经屏幕）；
     // 如 ctxsub:Temp\sort-sub.png:parent_sort。子菜单不存在（父关）时不落盘。
@@ -5890,7 +5969,7 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
                 *error = tr("未知的主题值：%1").arg(theme);
             return false;
         }
-        Theme::applySetting(*qApp, theme);
+        Theme::applySetting(*qApp, theme, themeScopeForLiveChange());
         syncThemeActions();          // 菜单勾选 + 局部表面刷新
         return true;
     }
@@ -5923,9 +6002,19 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
     return false;
 }
 
-void MainWindow::refreshThemeSurfaces()
+// 设置页开着时，把换肤范围收窄到主窗口：qApp 级 setStyleSheet 会对整个应用
+// 做一次全量 repolish，设置页那棵大树让这段从 ~4ms 涨到 0.9~1.2s；主窗口级
+// 只 repolish 自己这棵树（设置页作为子窗口跟着一起换），实测约 0.1s。
+// 真正的 qApp 全局表在设置页销毁后补装（见 openSettings 里的 destroyed 连接），
+// 那时应用里只剩主窗口，代价回落到几毫秒。
+QWidget *MainWindow::themeScopeForLiveChange() const
 {
-    for (auto *dialog : findChildren<SettingsDialog *>())
+    return (m_settingsDlg && m_settingsDlg->isVisible()) ? const_cast<MainWindow *>(this)
+                                                         : nullptr;
+}
+
+void MainWindow::refreshThemeSurfaces()
+{    for (auto *dialog : findChildren<SettingsDialog *>())
         dialog->syncAppliedTheme(Theme::currentSetting());
     if (m_canvas)
         m_canvas->setCanvasBackdrop(Config::instance().canvasBackdrop()
@@ -6052,6 +6141,18 @@ void MainWindow::onSettings()
     // 关闭（accept / reject / 点 ×）后统一收尾；destroyed 保证点 × 走的 close()
     // 也不会漏掉运行态重放。
     connect(dlg, &QDialog::finished, this, [this]() { finishSettings(); });
+    // 预览期主窗口挂着自己的局部样式表（见 themeScopeForLiveChange），全局表则
+    // 停在换肤前的旧值。设置页销毁后：清掉主窗局部表，按最终配置补装一次 qApp
+    // 全局表——此时设置页那棵树已不在，代价回落到几毫秒；否则菜单、提示等
+    // 独立顶层窗口会停在旧主题。
+    connect(dlg, &QObject::destroyed, this, [this]() {
+        ThemeProbe::mark(ThemeProbe::currentSeq(), "close-clear-start", "");
+        setStyleSheet(QString());
+        ThemeProbe::mark(ThemeProbe::currentSeq(), "close-clear-done", "");
+        Theme::applySetting(*qApp, Config::instance().theme());
+        ThemeProbe::mark(ThemeProbe::currentSeq(), "close-global-done", "");
+        syncThemeActions();
+    });
     dlg->show();
 }
 
@@ -6067,14 +6168,12 @@ void MainWindow::finishSettings()
     // 设置页可能改了主题（三档）；按当前取值重新解析应用（system 时随系统）。
     // 磨砂开关要先落进 UiStyle，否则 appQss() 里菜单底还是旧的不透明度。
     const QString theme = Config::instance().theme();
-    const bool blur = Config::instance().blurMaterial();
-    const bool light = Theme::resolveMode(theme) == Theme::Mode::Light;
-    const bool styleChanged = UiStyle::isLight() != light || UiStyle::blurMaterial() != blur;
-    UiStyle::setBlurMaterial(blur);
-    if (styleChanged)
-        Theme::applySetting(*qApp, theme);
-    else
-        Theme::currentSetting() = theme;
+    // 换肤本身已由预览链路按新令牌做完；这里只把令牌开关与来源值对齐。
+    // 真正的 qApp 全局表补齐放到设置页销毁之后（onSettings 里的 destroyed 连接）：
+    // 此刻设置页那棵树还在，qApp 级 setStyleSheet 要 0.9~1.2s，会表现成
+    // 「关设置页卡一下」。销毁后再装，代价回落到几毫秒。
+    UiStyle::setBlurMaterial(Config::instance().blurMaterial());
+    Theme::currentSetting() = theme;
     syncThemeActions();   // 菜单勾选态跟着新主题走
     m_slideshowTimer->setInterval(Config::instance().slideshowIntervalMs());
     applyRuntimeSettings();

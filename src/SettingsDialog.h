@@ -85,6 +85,10 @@ public:
     void probeAppMenuPageGrab(const QString &out);
     // 大纲视图整窗截图（--smoke appmenushot:<out>:<W>x<H>）：切到本页后可指定
     // 窗口尺寸，抓整个设置窗（含侧栏、页头、页脚），用于设计对照与缩放验收。
+    // 验收探针：逐页 selectPage 一次，记录每页「首次打开」端到端耗时。
+    void probeVisitAllPages();
+    // 验收探针：把文字写进搜索框（触发「首次搜索补齐全部页」路径）。
+    void probeSearch(const QString &text);
     void probeAppMenuWindow(const QString &out, int w = 0, int h = 0,
                             const QString &scrollTo = QString(),
                             const QString &steps = QString());
@@ -151,6 +155,15 @@ private:
 
     // —— 页面骨架 ——
     QWidget *addPage(const QString &title, const QString &desc);
+    // 延后构建：只建页壳 + 导航项，页面内容登记构建器，首次进入（或首次搜索）
+    // 时才真正创建。2026-11-16 实测 12 页同步构建约占设置窗开窗 169ms 中的
+    // 160ms；延后后首屏回到个位数毫秒，代价是首次进入该页要付一次构建耗时。
+    QWidget *addLazyPage(const QString &title, const QString &desc,
+                         void (SettingsDialog::*builder)(QWidget *));
+    void ensurePageBuilt(int index);
+    void ensureAllPagesBuilt();
+    // 页内容建完后补尾部弹簧（键盘页与查看器右键菜单页例外，见实现）。
+    void finishPageLayout(int index);
     void selectPage(int index);
     // 按当前窗口宽度算「一般」页内容列的左右边界：最大 660，超出时居中；
     // 其余页回到 0 边距（column 自带 28 内边距），与改前一致。
@@ -160,6 +173,8 @@ private:
     // v2 紧凑档（窗口宽 < 1000）：左栏 180、导航行 34 / 行距 2、标题 40 /
     // 底栏 43、组间距 10、行高约 40。标准档恢复 211/36/4/41/44/15/49。
     void applyCompactLayout(bool compact);
+    // 只把紧凑/标准档的组间距与行高落到单页（延后构建的页建完时补一次）。
+    void applyCompactMetricsToPage(QWidget *page);
 
     // —— 十一个页面 ——
     void buildGeneralPage(QWidget *page);
@@ -250,6 +265,11 @@ private:
                                       int minWidth = 0);
 
     void loadFromConfig();
+    // 只回填指定区间的绑定（延后构建的页建完时补一次，不覆盖其它页的用户草稿）。
+    void loadBindingsFromConfig(int chkFrom, int comboFrom, int keyFrom, int mouseFrom);
+    // 回填页专属控件（缓存大小/书签上限/文件夹/编辑器/语言/主题/磨砂）。
+    // page 非空时只回填该页拥有的控件。
+    void loadPageWidgets(QWidget *page);
 
     // —— 唯一写盘入口（2026-11-07 关闭流程统一）——
     // 即时项、兼容桥键、关闭时的按变更键提交都经 writeValues：
@@ -269,14 +289,19 @@ private:
     // —— 即时写盘（普通项默认路径）——
     // 控件变更立刻写 config + 同步写兼容桥键；运行态在可下发项上由设置页
     // 即时调用 MainWindow::applyLiveSetting，其余按配置在下一次操作生效。
-    void connectInstantSignals();
+    void connectInstantSignals(int chkFrom = 0, int comboFrom = 0, int keyFrom = 0,
+                               int mouseFrom = 0);
+    // 页专属控件（缓存大小/书签上限/文件夹/编辑器/磨砂/语言）的连接；
+    // 只连该页拥有的，且在该页首次构建时调用一次。
+    void connectPageWidgets(QWidget *page);
     bool applyInstantValue(const QString &key, const QVariant &value);
     void writeBridgeKeys();
     bool m_loading = false;
 
     // —— 待保存项（热键改绑 / 界面语言）——
     QStringList pendingChangeNames() const;
-    void capturePendingBaseline();
+    // keyFrom>0 时只补登记新增热键行的基线，不动已有草稿的判定。
+    void capturePendingBaseline(int keyFrom = 0);
     void updatePendingNote();
     QLabel *m_footerNote = nullptr;
     QHash<QString, QString> m_keyBaseline;   // action → PortableText（进入设置时）
@@ -287,6 +312,7 @@ private:
     QLabel *m_searchEmpty = nullptr;
     QStringList m_pageSearchIndex;   // 每页可匹配文字（小写）
     void buildSearchIndex();
+    void rebuildPageSearchIndex(int index);
     void filterNavigation(const QString &text);
     void selectFirstVisiblePage();
 
@@ -299,7 +325,7 @@ private:
         bool inverted;
         bool lastValue;         // 最近一次成功下发的值（幂等 / 失败回退）
     };
-    void connectLiveChecks();
+    void connectLiveChecks(int from = 0);
     void applyLiveCheck(int index, bool checked);
     QList<LiveCheck> m_liveChecks;
 
@@ -319,6 +345,10 @@ private:
     QList<QAbstractButton *> m_tabs;       // 左侧 navItem
     QStringList m_pageTitles;
     QStringList m_pageDescs;
+    // 延后构建状态：与 m_pages 同下标。只建了壳、未建内容的页为 false。
+    QList<std::function<void()>> m_pageBuilders;
+    QList<bool> m_pageBuilt;
+    bool m_allPagesBuilt = false;
     QStackedWidget *m_stack = nullptr;
     QVBoxLayout *m_navLayout = nullptr;
     // 「一般」样板外壳：只有 index 0 把内容列限到 748 并居中、隐藏页头分隔线、
