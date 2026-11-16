@@ -1,11 +1,13 @@
 #pragma once
 
 #include <QCache>
+#include <QHash>
 #include <QList>
 #include <QObject>
 #include <QSet>
 #include <QSize>
 #include <QString>
+#include <QThreadPool>
 
 class QImage;
 
@@ -27,7 +29,11 @@ public:
     explicit ImageCache(QObject *parent = nullptr);
 
     QImage cachedFull(const QString &path) const;
-    void requestFull(const QString &path, const QSize &previewSize = QSize());
+    // preempt=true：显式跳转（打开/换目录/滑杆落点/缩略图/书签/首尾/快速反向）。
+    // 进入新代次并允许在旧任务仍在解码时立刻启动新目标，旧结果只入缓存不上屏。
+    // preempt=false：顺序翻页，保持 FIFO 单飞、逐张按序上屏（连按体感不变）。
+    void requestFull(const QString &path, const QSize &previewSize = QSize(),
+                     bool preempt = false);
     void requestThumbnail(const QString &path, const QSize &size);
     void clear();
     void clearFull();   // 只清原图缓存（缩略图不受 HDR 开关影响）
@@ -56,24 +62,39 @@ signals:
     void loadFailed(const QString &path, const QString &error);
 
 private:
-    void startFullDecode(const QString &path, const QSize &previewSize);
+    void startFullDecode(const QString &path, const QSize &previewSize, quint64 generation);
     void finishFullDecode(const QString &path, const QImage &img,
-                             const QString &error = QString());
+                             quint64 generation, const QString &error = QString());
     void startNext();
     void startNextPreload();
     void startDragDecode();
     void insertFull(const QString &path, const QImage &img);
+    // 是否有「当前代次」尚未完成的工作（全图在飞 / 预读在飞）。
+    // 只有它才会阻止下一次启动：旧代次的任务已被判定为过期，允许新目标并行解码。
+    bool hasCurrentGenWork() const;
+    // 快帧/RAW 缩略图回主线程上屏；代次不符（已被后续跳转作废）则丢弃。
+    void emitPreview(const QString &path, const QImage &img, quint64 generation);
 
     QCache<QString, QImage> m_fullCache;
     QCache<QString, QImage> m_thumbCache;
-    QSet<QString> m_fullInFlight;
+    // 在飞全图任务：路径 → 提交时的代次。同一路径允许被新代次重新提交
+    // （快速反向回到正在解的上一张），旧任务完成时因代次不符降级为只入缓存。
+    QHash<QString, quint64> m_fullInFlight;
     QSet<QString> m_thumbInFlight;
     QList<QString> m_queue;     // 待解码队列（FIFO，去重，上限 8）
-    bool m_dropInFlightResult = false;  // cancelPending 后在飞结果只进缓存不上屏
+    // 请求代次：每次显式跳转（cancelPending / preempt 请求）自增。解码结果只有
+    // 代次仍等于当前值才允许上屏——替代原来的「一次性布尔标志」，连续多次跳转
+    // 不会互相覆盖（A→B→A 往返靠它区分「哪一代的 A」）。
+    quint64 m_generation = 0;
+    // 全图解码专用线程池：上限 2（旧任务 + 抢占新目标各一条）。不走全局池：
+    // QtConcurrent 默认按逻辑核数并发，连按/预读会把 CPU 打满，抢占时也未必
+    // 立刻拿得到线程。这里的上限就是「线程数按实测有上限」的落点。
+    QThreadPool m_decodePool;
     QSize m_previewSize;        // 快帧目标尺寸（视口像素）
     // 预读：同一时刻也只跑 1 个（与全图解码共用「单飞」），排到的路径放这里。
     QList<QString> m_preloadQueue;
     QString m_preloadPath;
+    quint64 m_preloadGeneration = 0;   // 预读启动时的代次（旧代不阻塞新目标）
     bool m_preloadPromote = false;  // 预读期间该路径被真的要过：解完直接上屏
     // 拖动预览：独立小缓存（缩放图不能混进 m_fullCache，否则落点会停成模糊帧）
     QCache<QString, QImage> m_dragCache;

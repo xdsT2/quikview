@@ -218,7 +218,9 @@ private:
     void applyShortcutConfig();
     // 冒烟取证：14 个可配置动作的当前键位（PortableText，无键记 '-'）。
     QString shortcutsReport() const;
-    void loadAsync(const QString &path);
+    // preempt=true：显式跳转的抢占式加载（允许不等旧任务解完就启动新目标）；
+    // 顺序翻页保持默认 false —— FIFO 逐张上屏，连按体感不变。
+    void loadAsync(const QString &path, bool preempt = false);
     // 空闲预读：翻页停手 300ms 且解码队列空了，向当前页前后各预读 1 张
     void preloadNeighbors();
     // 显式跳转：先清空解码队列再加载（区别于顺序翻页的逐张播放）
@@ -429,6 +431,9 @@ private:
     // 大文件夹首图响应：目录索引后台化后的代次令牌。每次 openFile 自增，
     // 旧索引/旧首图结果回来时发现 token 不匹配就丢弃，绝不覆盖当前画面与导航。
     quint64 m_openGeneration = 0;
+    // 翻图计时探针的输入模式（load/next/prev/…）：只用于 FlipProbe 的 CSV 标注，
+    // 不参与任何业务判断。burst 冒烟命令设置，序列结束后复位。
+    QString m_flipMode = QStringLiteral("load");
     // 最近一次解码失败的原因（QImageReader::errorString + 当时支持的格式列表）。
     // --smoke loadreport 会把它落到 Temp/load-report.txt：加载失败不能只剩一张空白
     // 画布，验收时必须能读出「为什么失败」。

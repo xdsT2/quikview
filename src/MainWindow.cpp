@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 
+#include "FlipProbe.h"
 #include "PerfProbe.h"
 #include "ThemeProbe.h"
 
@@ -2613,15 +2614,18 @@ void MainWindow::openFileFitting(const QString &path)
 void MainWindow::jumpTo(const QString &path)
 {
     m_cache->cancelPending();
-    loadAsync(path);
+    loadAsync(path, /*preempt=*/true);
 }
 
-void MainWindow::loadAsync(const QString &path)
+void MainWindow::loadAsync(const QString &path, bool preempt)
 {
     m_currentPath = path;
     m_frames->clear();
-    // 快帧目标 = 视口像素：连按时先上缩放解码的快帧顶住体感
-    m_cache->requestFull(path, m_canvas ? m_canvas->viewport()->size() : QSize());
+    // 探针：记录「输入时刻」与目标文件名（mode 由 burst 命令设置，默认 load）。
+    FlipProbe::input(QFileInfo(path).fileName(), m_flipMode.toUtf8().constData());
+    // 快帧目标 = 视口像素：连按时先上缩放解码的快帧顶住体感。
+    // preempt=true 时即使旧任务还在解，也立刻在专用池里启动这一张。
+    m_cache->requestFull(path, m_canvas ? m_canvas->viewport()->size() : QSize(), preempt);
     if (m_preloadTimer) {
         m_preloadTimer->start();   // 又有输入：空闲预读重新计时
     }
@@ -2740,6 +2744,14 @@ void MainWindow::refreshPsdView()
 
 void MainWindow::onFullReady(const QString &path, const QImage &image, bool preview)
 {
+    // 探针：只记录「当前目标」的画面。连按时中间过渡帧 path != m_currentPath，
+    // 不计入目标响应，否则测到的是别人的帧而非最终要看的这张。
+    if (path == m_currentPath) {
+        if (preview)
+            FlipProbe::firstFrame(QFileInfo(path).fileName());
+        else
+            FlipProbe::fullFrame(QFileInfo(path).fileName());
+    }
     // PSD：路径变化才装载图层树（快帧不重复解析）；切到普通图片立即收起入口与面板。
     if (!preview) {
         if (PsdLoader::isPsdPath(path)) {
@@ -3337,6 +3349,65 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     else if (c == QLatin1String("last"))       onLast();
     else if (c == QLatin1String("nextfolder")) onNextFolder();
     else if (c == QLatin1String("prevfolder")) onPrevFolder();
+    // burst:<next|prev>:<次数>:<间隔ms> —— 进程内快速连发，模拟按住方向键翻页。
+    // 用冒号分隔：--smoke 本身用逗号拆命令，逗号会把一条 burst 拆成多条。
+    // 走真实 onNext/onPrev 路径（含 loadAsync 的 input 打点），不绕过任何调度逻辑；
+    // 现有 --smoke 每条命令固定 1.3s 间隔，测不出「连按/快速反向」的真实节奏。
+    else if (c.startsWith(QLatin1String("burst:"))) {
+        const QStringList a = c.mid(6).split(QLatin1Char(':'));
+        const QString dir = a.value(0);
+        const int n = a.value(1).toInt();
+        const int gap = a.value(2).toInt();
+        if ((dir == QLatin1String("next") || dir == QLatin1String("prev"))
+            && n > 0 && gap > 0) {
+            m_flipMode = dir;
+            auto *timer = new QTimer(this);
+            auto *count = new int(0);
+            connect(timer, &QTimer::timeout, this, [this, timer, count, dir, n]() {
+                if (*count >= n) {
+                    timer->stop();
+                    timer->deleteLater();
+                    delete count;
+                    m_flipMode = QStringLiteral("load");
+                    return;
+                }
+                ++(*count);
+                if (dir == QLatin1String("prev")) onPrev();
+                else onNext();
+            });
+            timer->start(gap);
+        }
+    }
+    // jseq:<页码1>:<页码2>:…:<间隔ms> —— 进程内连续显式跳转，模拟滑杆落点/首尾/
+    // 快速反向。最后一段是间隔；每步走 jumpTo（cancelPending + loadAsync），
+    // 与真实跳转同一条路径，用来验证「新目标不必等旧任务解完」。
+    else if (c.startsWith(QLatin1String("jseq:"))) {
+        const QStringList a = c.mid(5).split(QLatin1Char(':'));
+        if (a.size() >= 2 && m_dir && m_dir->isValid()) {
+            const int gap = a.last().toInt();
+            const QStringList pages = a.mid(0, a.size() - 1);
+            if (gap > 0 && !pages.isEmpty()) {
+                m_flipMode = QStringLiteral("jump");
+                auto *idx = new int(0);
+                auto *timer = new QTimer(this);
+                connect(timer, &QTimer::timeout, this, [this, timer, idx, pages, gap]() {
+                    if (*idx >= pages.size()) {
+                        timer->stop();
+                        timer->deleteLater();
+                        delete idx;
+                        m_flipMode = QStringLiteral("load");
+                        return;
+                    }
+                    const int p = pages.at((*idx)++).toInt();
+                    if (p >= 1 && p <= m_dir->count()) {
+                        m_dir->setIndex(p - 1);
+                        jumpTo(m_dir->current());
+                    }
+                });
+                timer->start(gap);
+            }
+        }
+    }
     else if (c == QLatin1String("fit"))        setZoomMode(1);
     else if (c == QLatin1String("fitwidth"))   setZoomMode(2);
     else if (c == QLatin1String("actual"))     setZoomMode(0);
