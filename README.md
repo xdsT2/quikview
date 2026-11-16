@@ -9,7 +9,7 @@ QuikView 是一款开源的 Windows 看图器，支持目录翻页、双页阅�
 
 > **Windows x64 下载** · 到[最新发布页](https://github.com/xdsT2/quikview/releases/latest)选择安装版或便携 ZIP。便携版解压即可运行，无需另装 Qt。
 
-> **0.5.2**（2026-11-15 发布） 新增图片加载反馈、应用内右键菜单全量可配置（三层收纳 + 顶部快捷区）与资源管理器右键菜单可配置开关，支持直接打开 .heif/.hif、批量转换 HEIC/AVIF 输入；画布背景改为棋盘/纯色二模式并支持透明区域指示与图片阴影，界面主题令牌统一；修复中文目录 HEIF 解码与覆盖升级时壳扩展 DLL 残留。11-15 起补齐 8 种界面语言完整译文、统一顶部菜单与浮层视觉、修正底栏状态字对比度。**0.5.1 从未发布、已跳过**；本版说明见 [Release Notes](https://github.com/xdsT2/quikview/releases/tag/v0.5.2)。
+> **0.5.3** 将查看器右键菜单设置改为可搜索的大纲，加入实时预览和分组总开关。安装或覆盖升级时保持资源管理器运行，修复桌面黑屏。详见 [发布说明](https://github.com/xdsT2/quikview/releases/tag/v0.5.3)。
 
 ![QuikView 主窗口：顶部栏与底部控制胶囊浮在照片上](docs/screenshots/01-main.webp)
 
