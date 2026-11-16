@@ -6217,12 +6217,17 @@ void MainWindow::onSettings()
     // 全局表——此时设置页那棵树已不在，代价回落到几毫秒；否则菜单、提示等
     // 独立顶层窗口会停在旧主题。
     connect(dlg, &QObject::destroyed, this, [this]() {
-        ThemeProbe::mark(ThemeProbe::currentSeq(), "close-clear-start", "");
-        setStyleSheet(QString());
-        ThemeProbe::mark(ThemeProbe::currentSeq(), "close-clear-done", "");
-        Theme::applySetting(*qApp, Config::instance().theme());
-        ThemeProbe::mark(ThemeProbe::currentSeq(), "close-global-done", "");
-        syncThemeActions();
+        // destroyed 发出时设置页的子控件还没析构，此刻清局部表/装全局表仍要 0.3~0.9s。
+        // 排到下一轮事件循环：整棵树已析构，两步合计回落到毫秒级。清表在前、装表
+        // 在后，同一轮里完成，用户只会看到最终态，不会闪一帧旧配色。
+        QTimer::singleShot(0, this, [this]() {
+            ThemeProbe::mark(ThemeProbe::currentSeq(), "close-clear-start", "");
+            setStyleSheet(QString());
+            ThemeProbe::mark(ThemeProbe::currentSeq(), "close-clear-done", "");
+            Theme::applySetting(*qApp, Config::instance().theme());
+            ThemeProbe::mark(ThemeProbe::currentSeq(), "close-global-done", "");
+            syncThemeActions();
+        });
     });
     dlg->show();
 }
