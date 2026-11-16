@@ -2778,8 +2778,8 @@ Restored to the current actual value.</translation>
         <translation>This machine's shell menu handler points to another installation (%1). Run the installer to overwrite that location, or uninstall it and reinstall, before you can control the shell menu here.</translation>
     </message>
     <message>
-        <source>未检测到壳扩展文件（quikthumb.dll）。运行安装包可修复；便携版不带安装器注册，右键菜单不可用。</source>
-        <translation>The shell extension file (quikthumb.dll) was not found. Running the installer can fix it; the portable build has no installer registration, so the shell menu is unavailable.</translation>
+        <source>未检测到壳扩展文件（quikthumb-*.dll）。运行安装包可修复；便携版不带安装器注册，右键菜单不可用。</source>
+        <translation>The shell extension file (quikthumb-*.dll) was not found. Running the installer can fix it; the portable build has no installer registration, so the shell menu is unavailable.</translation>
     </message>
     <message>
         <source>壳扩展文件存在，但右键菜单处理器未注册到本安装。运行安装包覆盖安装即可完成注册。</source>

@@ -2778,8 +2778,8 @@
         <translation>이 컴퓨터의 셸 메뉴 처리기가 다른 설치(%1)를 가리킵니다. 여기서 셸 메뉴를 제어하려면 설치 관리자로 해당 디렉터리에 덮어쓰기 설치하거나 해당 설치를 제거한 후 다시 설치해야 합니다.</translation>
     </message>
     <message>
-        <source>未检测到壳扩展文件（quikthumb.dll）。运行安装包可修复；便携版不带安装器注册，右键菜单不可用。</source>
-        <translation>셸 확장 파일(quikthumb.dll)을 찾지 못했습니다. 설치 관리자를 실행하면 복구할 수 있습니다. 포터블 버전은 설치 관리자 등록이 없어 셸 메뉴를 사용할 수 없습니다.</translation>
+        <source>未检测到壳扩展文件（quikthumb-*.dll）。运行安装包可修复；便携版不带安装器注册，右键菜单不可用。</source>
+        <translation>셸 확장 파일(quikthumb-*.dll)을 찾지 못했습니다. 설치 관리자를 실행하면 복구할 수 있습니다. 포터블 버전은 설치 관리자 등록이 없어 셸 메뉴를 사용할 수 없습니다.</translation>
     </message>
     <message>
         <source>壳扩展文件存在，但右键菜单处理器未注册到本安装。运行安装包覆盖安装即可完成注册。</source>

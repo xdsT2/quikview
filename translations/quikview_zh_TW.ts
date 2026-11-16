@@ -2778,8 +2778,8 @@
         <translation>本機的右鍵選單處理器指向另一處安裝（%1）。執行安裝套件覆蓋安裝到該目錄，或解除安裝該安裝後重裝，才能在這裡控制右鍵選單。</translation>
     </message>
     <message>
-        <source>未检测到壳扩展文件（quikthumb.dll）。运行安装包可修复；便携版不带安装器注册，右键菜单不可用。</source>
-        <translation>未偵測到殼層擴充檔案（quikthumb.dll）。執行安裝套件可修復；便攜版不帶安裝器註冊，右鍵選單不可用。</translation>
+        <source>未检测到壳扩展文件（quikthumb-*.dll）。运行安装包可修复；便携版不带安装器注册，右键菜单不可用。</source>
+        <translation>未偵測到殼層擴充檔案（quikthumb-*.dll）。執行安裝套件可修復；便攜版不帶安裝器註冊，右鍵選單不可用。</translation>
     </message>
     <message>
         <source>壳扩展文件存在，但右键菜单处理器未注册到本安装。运行安装包覆盖安装即可完成注册。</source>

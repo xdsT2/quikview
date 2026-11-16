@@ -2778,8 +2778,8 @@ Restauré à la valeur réelle courante.</translation>
         <translation>Le gestionnaire de menu shell de cette machine pointe vers une autre installation (%1). Exécutez le paquet d'installation en écrasement sur ce répertoire, ou désinstallez cette installation puis réinstallez, pour contrôler le menu shell ici.</translation>
     </message>
     <message>
-        <source>未检测到壳扩展文件（quikthumb.dll）。运行安装包可修复；便携版不带安装器注册，右键菜单不可用。</source>
-        <translation>Fichier d'extension shell introuvable (quikthumb.dll). Exécuter le paquet d'installation peut le réparer ; la version portable n'a pas d'enregistrement par installateur, le menu shell est indisponible.</translation>
+        <source>未检测到壳扩展文件（quikthumb-*.dll）。运行安装包可修复；便携版不带安装器注册，右键菜单不可用。</source>
+        <translation>Fichier d'extension shell introuvable (quikthumb-*.dll). Exécuter le paquet d'installation peut le réparer ; la version portable n'a pas d'enregistrement par installateur, le menu shell est indisponible.</translation>
     </message>
     <message>
         <source>壳扩展文件存在，但右键菜单处理器未注册到本安装。运行安装包覆盖安装即可完成注册。</source>

@@ -54,6 +54,7 @@ Git Bash 下 `/D...` 参数会被 MSYS 当成路径改写，需 `MSYS2_ARG_CONV_
 - 安装器将 QuikView 登记为 PSD 的可选打开程序，并在勾选资源管理器集成时注册 PSD/PSB 内嵌缩略图处理器；不会静默抢占系统默认应用。
 - 程序翻译在编译期嵌入资源 `:/i18n`，payload 无需 `.qm` 文件。
 - `usp10.dll` 为系统组件，无需收集。
-- 安装 / 升级 / 卸载**不会结束或重启 `explorer.exe`**：升级时先把 `quikthumb.dll` / `quikthumb32.dll` 改名成 `.bak` 让出路径再写入新版，删不掉的文件用 `Delete /REBOOTOK` 延后清理；只调用一次 `SHChangeNotify(SHCNE_ASSOCCHANGED)` 通知 Shell 刷新。0.5.2 及以前「先 taskkill 强杀、装完再由提权进程 Exec 拉起」的做法已撤销——那会造成安装后桌面黑屏、需手动重启资源管理器。
+- 安装 / 升级 / 卸载**不会结束或重启 `explorer.exe`**，也**不会要求重启电脑**：壳扩展 DLL 用带版本号的文件名（`quikthumb-<版本>.dll` / `quikthumb32-<版本>.dll`），升级时新文件是全新路径，旧文件即使仍被资源管理器映射也不冲突，因此不需要「改名让路」，也**一律不用 `Delete /REBOOTOK`**（它删不掉就会置上重启标志，完成页随即变成「需要重启计算机」——0.5.3 那次就是它）。旧命名的 DLL、`.bak` 与更早安装器的重试残留会在安装时尽力删除，删不掉的留到下一次安装或卸载。安装与卸载各只调用一次 `SHChangeNotify(SHCNE_ASSOCCHANGED)` 通知 Shell 刷新。
+- 右键菜单 Handler 自 0.5.4 起**逐扩展名注册**（png/jpg/jpeg/bmp/gif/webp/tif/tiff/psd/psb），不再挂 `*`：任意文件右键都不会再把壳扩展 DLL 注入资源管理器；升级时自动清掉旧的 `*` 注册。0.5.2 及以前「先 taskkill 强杀、装完再由提权进程 Exec 拉起」的做法已撤销——那会造成安装后桌面黑屏、需手动重启资源管理器。
 - 安装器未做代码签名，SmartScreen 会提示「更多信息 → 仍要运行」。
 - 产物命名 `quikview-<版本>-win64.zip` / `QuikView-<版本>-setup.exe`，挂到 GitHub Release。

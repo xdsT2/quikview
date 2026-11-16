@@ -50,6 +50,7 @@
 #include <QStylePainter>
 #include <QTimer>
 #include <QUrl>
+#include <QVersionNumber>
 #include <QVBoxLayout>
 #include <QWidget>
 #include <functional>
@@ -251,13 +252,48 @@ int iGet(const char *key, int def)
 // 壳扩展注册探测（2026-11-13 修订，上下文菜单派单 §3）：
 // 右键命令处理器与 WebP/PSD/PSB 缩略图分开检查；核对 InprocServer32 的完整
 // DLL 路径（不再只比文件名），区分 未安装 / 未注册 / 指向其他安装 / 当前
-// 安装已注册。右键命令核对 64 与 32 位两个视图（安装器把 quikthumb.dll 写
-// 64 位视图、quikthumb32.dll 写 WOW6432Node）。
+// 安装已注册。右键命令核对 64 与 32 位两个视图（安装器把 quikthumb-<ver>.dll
+// 写 64 位视图、quikthumb32-<ver>.dll 写 WOW6432Node；0.5.3 及以前是无版本号
+// 的 quikthumb.dll / quikthumb32.dll，仍按回退分支认）。
 // ---------------------------------------------------------------------------
+// 壳扩展 DLL 定位。0.5.4 起安装的是带版本号的文件名（64 位 quikthumb-<ver>.dll、
+// 32 位 quikthumb32-<ver>.dll）：升级换新文件名，旧文件即使被资源管理器占用
+// 删不掉也会留在目录里，所以同目录可能同时存在多个版本 —— 按版本号取最高
+// 的一份。只有一份带版本号的都没有时，才回退到 0.5.3 及以前的 quikthumb.dll。
+QString qvShellDllInDir(const QString &appDir, bool is32)
+{
+    const QString prefix = is32 ? QStringLiteral("quikthumb32-")
+                                : QStringLiteral("quikthumb-");
+    QString bestName;
+    QVersionNumber bestVer;
+    const QFileInfoList entries = QDir(appDir).entryInfoList(QDir::Files);
+    for (const QFileInfo &fi : entries) {
+        const QString name = fi.fileName();
+        if (!name.startsWith(prefix, Qt::CaseInsensitive)
+            || !name.endsWith(QStringLiteral(".dll"), Qt::CaseInsensitive))
+            continue;
+        const QVersionNumber ver = QVersionNumber::fromString(
+            name.mid(prefix.size(), name.size() - prefix.size() - 4));
+        if (ver.isNull())
+            continue;
+        if (bestName.isEmpty() || QVersionNumber::compare(ver, bestVer) > 0) {
+            bestName = name;
+            bestVer = ver;
+        }
+    }
+    if (!bestName.isEmpty())
+        return appDir + QLatin1Char('/') + bestName;
+    const QString legacy = appDir
+        + (is32 ? QStringLiteral("/quikthumb32.dll")
+                : QStringLiteral("/quikthumb.dll"));
+    return QFileInfo::exists(legacy) ? legacy : QString();
+}
+
 bool shellExtDllPresent()
 {
-    return QFileInfo::exists(QCoreApplication::applicationDirPath()
-                             + QStringLiteral("/quikthumb.dll"));
+    const QString appDir = QCoreApplication::applicationDirPath();
+    return !qvShellDllInDir(appDir, false).isEmpty()
+        || !qvShellDllInDir(appDir, true).isEmpty();
 }
 
 namespace {
@@ -273,6 +309,11 @@ struct ShellComponent {
     ShellRegState state = ShellNotInstalled;
     QString boundPath;   // 注册表当前指向的 DLL（「指向其他安装」详情展示用）
 };
+
+// 右键菜单 Handler 的注册位置。0.5.4 起逐扩展名一份；与 shell-ext/src/module.cpp
+// 的 kSupportedExts 保持一致（菜单本来就只在这些格式上出现）。
+const char *const kShellMenuExts[] = {".png", ".jpg",  ".jpeg", ".bmp", ".gif",
+                                      ".webp", ".tif", ".tiff", ".psd", ".psb"};
 
 // 归一化路径比较（分隔符与大小写不敏感）
 bool qvSamePath(const QString &a, const QString &b)
@@ -302,13 +343,20 @@ QString qvRegDefault(const QString &keyPath)
     return QString();
 }
 
-// 由「注册表指向的 DLL 路径 + 本安装 DLL 是否在」推导四态
+// 由「注册表指向的 DLL 路径 + 本安装 DLL 是否在」推导四态。
+// appDir 用来识别「指向本安装目录里的另一份 quikthumb*.dll」——那是同一套
+// 安装的旧版本号文件（升级后才换成当前版本），仍算本安装已注册，不能误报成
+// 「指向其他安装」。
 ShellRegState qvStateFromPath(const QString &bound, const QString &ourDll,
-                              bool dllFilePresent)
+                              const QString &appDir, bool dllFilePresent)
 {
     if (bound.isEmpty())
         return dllFilePresent ? ShellNotRegistered : ShellNotInstalled;
     if (qvSamePath(bound, ourDll))
+        return ShellRegistered;
+    if (bound.contains(QStringLiteral("quikthumb"), Qt::CaseInsensitive)
+        && qvSamePath(QFileInfo(QDir::fromNativeSeparators(bound)).absolutePath(),
+                      appDir))
         return ShellRegistered;
     if (bound.contains(QStringLiteral("quikthumb"), Qt::CaseInsensitive))
         return ShellOtherInstall;
@@ -324,16 +372,34 @@ static ShellComponent probeShellMenu()
 {
     ShellComponent out;
     const QString appDir = QCoreApplication::applicationDirPath();
-    const bool dll64 = QFileInfo::exists(appDir + QStringLiteral("/quikthumb.dll"));
-    const bool dll32 = QFileInfo::exists(appDir + QStringLiteral("/quikthumb32.dll"));
+    const QString dll64 = qvShellDllInDir(appDir, false);
+    const QString dll32 = qvShellDllInDir(appDir, true);
 
-    // handler 键（注册表只认指向的 CLSID，键本身 64/32 位共享一份）
-    const QString handler =
-        qvRegDefault(QStringLiteral(
-            "Software\\Classes\\*\\shellex\\ContextMenuHandlers\\QuikView"));
-    const bool handlerBound =
-        handler.compare(QStringLiteral("{C9FFAFAD-7C1C-4CCC-A37C-A075ED1F27AF}"),
-                        Qt::CaseInsensitive) == 0;
+    // handler 键：逐扩展名任一份指向本产品即算已注册；再看 0.5.3 及以前的
+    // `*` 宽注册（升级时由安装器清掉，清掉前仍视为已注册）。
+    bool handlerBound = false;
+    for (const char *ext : kShellMenuExts) {
+        const QString key =
+            QStringLiteral("Software\\Classes\\%1\\shellex\\"
+                           "ContextMenuHandlers\\QuikView")
+                .arg(QLatin1String(ext));
+        if (qvRegDefault(key).compare(
+                QStringLiteral("{C9FFAFAD-7C1C-4CCC-A37C-A075ED1F27AF}"),
+                Qt::CaseInsensitive)
+            == 0) {
+            handlerBound = true;
+            break;
+        }
+    }
+    if (!handlerBound) {
+        handlerBound =
+            qvRegDefault(QStringLiteral("Software\\Classes\\*\\shellex\\"
+                                        "ContextMenuHandlers\\QuikView"))
+                .compare(
+                    QStringLiteral("{C9FFAFAD-7C1C-4CCC-A37C-A075ED1F27AF}"),
+                    Qt::CaseInsensitive)
+            == 0;
+    }
 
     const QString clsid64 = qvRegDefault(QStringLiteral(
         "Software\\Classes\\CLSID\\{C9FFAFAD-7C1C-4CCC-A37C-A075ED1F27AF}\\InprocServer32"));
@@ -341,11 +407,11 @@ static ShellComponent probeShellMenu()
         "Software\\Classes\\WOW6432Node\\CLSID\\{C9FFAFAD-7C1C-4CCC-A37C-A075ED1F27AF}\\InprocServer32"));
 
     const ShellRegState s64 =
-        (handlerBound ? qvStateFromPath(clsid64, appDir + QStringLiteral("/quikthumb.dll"), dll64)
-                      : (dll64 ? ShellNotRegistered : ShellNotInstalled));
+        (handlerBound ? qvStateFromPath(clsid64, dll64, appDir, !dll64.isEmpty())
+                      : (dll64.isEmpty() ? ShellNotInstalled : ShellNotRegistered));
     const ShellRegState s32 =
-        (handlerBound ? qvStateFromPath(clsid32, appDir + QStringLiteral("/quikthumb32.dll"), dll32)
-                      : (dll32 ? ShellNotRegistered : ShellNotInstalled));
+        (handlerBound ? qvStateFromPath(clsid32, dll32, appDir, !dll32.isEmpty())
+                      : (dll32.isEmpty() ? ShellNotInstalled : ShellNotRegistered));
 
     // 综合位数：任一指向别处 → 其他安装；两者都已注册 → 已注册（位数全）；
     // 只有一边 → 部分注册（state=Registered + partial 标记由位数比较得出）
@@ -363,7 +429,8 @@ static ShellComponent probeShellMenu()
         out.state = ShellRegistered;   // 部分注册：boundPath 记录已绑定位数
         out.boundPath = ok64 ? QStringLiteral("64") : QStringLiteral("32");
     } else {
-        out.state = (dll64 || dll32) ? ShellNotRegistered : ShellNotInstalled;
+        out.state = (dll64.isEmpty() && dll32.isEmpty()) ? ShellNotInstalled
+                                                         : ShellNotRegistered;
     }
     return out;
 }
@@ -373,7 +440,7 @@ static ShellComponent probeShellThumb(const QString &ext)
 {
     ShellComponent out;
     const QString appDir = QCoreApplication::applicationDirPath();
-    const bool dll64 = QFileInfo::exists(appDir + QStringLiteral("/quikthumb.dll"));
+    const QString dll64 = qvShellDllInDir(appDir, false);
     const QString bound = qvRegDefault(QStringLiteral(
         "Software\\Classes\\%1\\ShellEx\\{e357fccd-a995-4576-b01f-234630154e96}")
                                            .arg(ext));
@@ -384,9 +451,7 @@ static ShellComponent probeShellThumb(const QString &ext)
         ? qvRegDefault(QStringLiteral(
             "Software\\Classes\\CLSID\\{D8A1C4E2-7B35-4F69-92A4-5C6D7E8F1A2B}\\InprocServer32"))
         : bound;
-    out.state = qvStateFromPath(clsid,
-                                appDir + QStringLiteral("/quikthumb.dll"),
-                                dll64);
+    out.state = qvStateFromPath(clsid, dll64, appDir, !dll64.isEmpty());
     out.boundPath = clsid;
     return out;
 }
@@ -5324,7 +5389,7 @@ void SettingsDialog::buildContextMenuPage(QWidget *page)
                         "才能在这里控制右键菜单。")
                     .arg(menu.boundPath));
     } else if (!shellExtDllPresent()) {
-        addHint(sec, tr("未检测到壳扩展文件（quikthumb.dll）。"
+        addHint(sec, tr("未检测到壳扩展文件（quikthumb-*.dll）。"
                         "运行安装包可修复；便携版不带安装器注册，右键菜单不可用。"));
     } else if (!menuUsable) {
         addHint(sec, tr("壳扩展文件存在，但右键菜单处理器未注册到本安装。"

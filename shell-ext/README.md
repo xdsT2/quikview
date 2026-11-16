@@ -89,7 +89,7 @@ png / jpg / jpeg / bmp / gif / webp / tif / tiff（系统 WIC 解码器），
 | 注册表项 | 内容 | 说明 |
 |---|---|---|
 | `HKLM\Software\Classes\<ext>\ShellEx\{e357fccd-…}` | `={缩略图CLSID}` | `.ext` 键为 32/64 共享视图，写一份 |
-| `HKLM\Software\Classes\*\shellex\ContextMenuHandlers\QuikView` | `={上下文菜单CLSID}` | `*` 键为字面键名；64/32 双视图各写一份 |
+| `HKLM\Software\Classes\<ext>\shellex\ContextMenuHandlers\QuikView` | `={上下文菜单CLSID}` | 逐扩展名一份（10 个图片/PSD 扩展）；`.ext` 键为 32/64 共享视图 |
 | `HKLM\Software\Classes\CLSID\{…}\InprocServer32` | 64 位 DLL 路径 | 两个 CLSID 都写；`ThreadingModel=Apartment` |
 | `HKLM\Software\Classes\WOW6432Node\CLSID\{…}\InprocServer32` | 32 位 DLL 路径 | 32 位进程走这里 |
 
@@ -186,16 +186,18 @@ powershell -ExecutionPolicy Bypass -File shell-ext\scripts\Register-QuikThumb.ps
 powershell -ExecutionPolicy Bypass -File shell-ext\scripts\Unregister-QuikThumb.ps1
 ```
 
-- DLL 路径相对脚本位置解析（默认取仓库 `build-shell64\` / `build-shell32\`），
-  可用 `-Dll64` / `-Dll32` 覆盖（如安装后指向 `$INSTDIR\shell-ext\quikthumb.dll`）；
-  32 位 DLL 缺失时仅注册 64 位视图并告警。
+- DLL 路径相对脚本位置解析（默认取仓库 `build-shell64\` / `build-shell32\`，构建产物仍叫
+  `quikthumb.dll`），可用 `-Dll64` / `-Dll32` 覆盖（安装后实际是带版本号的
+  `$INSTDIR\quikthumb-<ver>.dll` / `quikthumb32-<ver>.dll`）；32 位 DLL 缺失时仅注册
+  64 位视图并告警。
 - 生效：重启 `explorer.exe`，或先 `ie4uinit.exe -show` 再刷新视图。
 - 也可 `regsvr32 quikthumb.dll` 自注册——但一次只注册本位数控视图
   （32 位 regsvr32 对 `Software\Classes` 的写自动落在 WOW6432Node），
   推荐用脚本一次注册 64+32 双视图。
-- 脚本只删仍指向本产品 CLSID 的项（含 `*\shellex\ContextMenuHandlers\QuikView`
-  两个视图），别家 Handler 不动；`*` 是字面键名，脚本一律 `-LiteralPath`
-  （否则会被 PowerShell 当通配符展开）。
+- 脚本逐扩展名注册 Handler（与 `module.cpp` 的 `kSupportedExts`、脚本的 `$Exts`
+  一致），并顺手清掉 0.5.3 及以前的 `*\shellex\ContextMenuHandlers\QuikView`；
+  两处都只删仍指向本产品 CLSID 的项，别家 Handler 不动。`*` 是字面键名，脚本对
+  它一律 `-LiteralPath`（否则会被 PowerShell 当通配符展开）。
 
 ## 人工验收清单（阶段 1，注册后进行）
 
@@ -203,10 +205,10 @@ powershell -ExecutionPolicy Bypass -File shell-ext\scripts\Unregister-QuikThumb.
 
 | 判据 | 做法 |
 |---|---|
-| 菜单 | 右键 jpg/png/webp → 出现分隔线 + 两项，点击能打开对应文件 |
+| 菜单 | 右键 jpg/png/webp → 出现分隔线 + 两项，点击能打开对应文件；右键 `.txt` / 文件夹 → **不出现**本产品菜单 |
 | 多选 | 选中 3 张图右键 → 菜单项存在，点击后只处理第一张（本工程策略） |
 | 转换 | 「用 QuikView 转换」等主程序支持 `--batch` 后复测 |
-| 卸载 | 反注册后 `CLSID\{…}`（两 CLSID）与 `ContextMenuHandlers\QuikView` 全部消失，重启资源管理器无残留菜单 |
+| 卸载 | 反注册后 `CLSID\{…}`（两 CLSID）与各扩展下的 `ContextMenuHandlers\QuikView`（含旧 `*`）全部消失，重启资源管理器无残留菜单 |
 | 稳定性 | 反复右键 50 次、打开 20 个文件夹，资源管理器不崩 |
 | 杀软 | 装有安全软件的环境实测一次并记录（交办单硬约束 4） |
 

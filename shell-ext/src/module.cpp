@@ -176,14 +176,12 @@ LONG UnregisterClsids() {
     return ERROR_SUCCESS;
 }
 
-// 上下文菜单 Handler：`*`（全部文件类型）\shellex\ContextMenuHandlers\QuikView
-// 指向上下文菜单 CLSID。注册脚本会显式写 64/32 双视图；regsvr32 只写本位数
-// 默认视图（32 位进程对 Software\Classes 的写落在 WOW6432Node，正合适）。
-LONG RegisterContextMenuHandler() {
-    wchar_t key[256];
-    wsprintfW(key,
-              L"Software\\Classes\\*\\shellex\\ContextMenuHandlers\\%s",
-              kCtxHandlerName);
+// 上下文菜单 Handler：只挂在真正支持的图片扩展名上，逐扩展一份
+// （Software\Classes\.png\shellex\ContextMenuHandlers\QuikView）。
+// 0.5.3 及以前挂在 `*`（全部文件类型）上：等于任意文件右键都要把本 DLL 注入
+// 资源管理器进程，而本 DLL 弹菜单时要做一次 WIC 解码 —— 不值得把 Shell 的
+// 稳定性押在一次解码上。`*` 键在注册时顺手清掉（只删仍指向本产品的）。
+LONG WriteHandlerClsid(const wchar_t* key) {
     HKEY hk = nullptr;
     const LONG rc = RegCreateKeyExW(HKEY_LOCAL_MACHINE, key, 0, nullptr,
                                     REG_OPTION_NON_VOLATILE, KEY_SET_VALUE,
@@ -195,30 +193,59 @@ LONG RegisterContextMenuHandler() {
     return ERROR_SUCCESS;
 }
 
-// 反注册只删仍指向本产品 CLSID 的 Handler 键，别家的 ContextMenuHandlers 不动；
-// WOW6432Node 侧兜底对称清理（键不存在属正常）
-LONG UnregisterContextMenuHandler() {
-    const wchar_t* const kFmtBases[] = {
-        L"Software\\Classes\\*\\shellex\\ContextMenuHandlers\\%s",
-        L"Software\\Classes\\WOW6432Node\\*\\shellex\\ContextMenuHandlers\\%s",
-    };
-    for (const wchar_t* fmt : kFmtBases) {
-        wchar_t key[288];
-        wsprintfW(key, fmt, kCtxHandlerName);
-        HKEY hk = nullptr;
-        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, key, 0, KEY_QUERY_VALUE, &hk) !=
-            ERROR_SUCCESS) {
-            continue;
-        }
-        wchar_t val[64] = {};
-        DWORD cb = sizeof(val);
-        const LONG rc = RegQueryValueExW(hk, nullptr, nullptr, nullptr,
-                                         (BYTE*)val, &cb);
-        RegCloseKey(hk);
-        if (rc == ERROR_SUCCESS && lstrcmpiW(val, kCtxClsidString) == 0) {
-            RegDeleteKeyW(HKEY_LOCAL_MACHINE, key);
-        }
+// 只删仍指向本产品 CLSID 的键；别家同名项、已被别家接管的位置一律不动
+void DeleteHandlerKeyIfOurs(const wchar_t* key) {
+    HKEY hk = nullptr;
+    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, key, 0, KEY_QUERY_VALUE, &hk) !=
+        ERROR_SUCCESS) {
+        return;
     }
+    wchar_t val[64] = {};
+    DWORD cb = sizeof(val);
+    const LONG rc = RegQueryValueExW(hk, nullptr, nullptr, nullptr, (BYTE*)val,
+                                     &cb);
+    RegCloseKey(hk);
+    if (rc == ERROR_SUCCESS && lstrcmpiW(val, kCtxClsidString) == 0) {
+        RegDeleteKeyW(HKEY_LOCAL_MACHINE, key);
+    }
+}
+
+// 0.5.3 及以前的 `*` 宽注册：升级/反注册都清掉（32 位侧 WOW6432Node 兜底）
+void DeleteLegacyWildcardHandler() {
+    wchar_t key[288];
+    wsprintfW(key,
+              L"Software\\Classes\\*\\shellex\\ContextMenuHandlers\\%s",
+              kCtxHandlerName);
+    DeleteHandlerKeyIfOurs(key);
+    wsprintfW(key,
+              L"Software\\Classes\\WOW6432Node\\*\\shellex\\ContextMenuHandlers\\%s",
+              kCtxHandlerName);
+    DeleteHandlerKeyIfOurs(key);
+}
+
+LONG RegisterContextMenuHandler() {
+    LONG firstErr = ERROR_SUCCESS;
+    for (const wchar_t* ext : kSupportedExts) {
+        wchar_t key[288];
+        wsprintfW(key,
+                  L"Software\\Classes\\%s\\shellex\\ContextMenuHandlers\\%s",
+                  ext, kCtxHandlerName);
+        const LONG rc = WriteHandlerClsid(key);
+        if (rc != ERROR_SUCCESS && firstErr == ERROR_SUCCESS) firstErr = rc;
+    }
+    DeleteLegacyWildcardHandler();
+    return firstErr;
+}
+
+LONG UnregisterContextMenuHandler() {
+    for (const wchar_t* ext : kSupportedExts) {
+        wchar_t key[288];
+        wsprintfW(key,
+                  L"Software\\Classes\\%s\\shellex\\ContextMenuHandlers\\%s",
+                  ext, kCtxHandlerName);
+        DeleteHandlerKeyIfOurs(key);
+    }
+    DeleteLegacyWildcardHandler();
     return ERROR_SUCCESS;
 }
 

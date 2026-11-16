@@ -2778,8 +2778,8 @@ Auf den aktuellen Ist-Wert zurückgesetzt.</translation>
         <translation>Der Shellmenü-Handler dieses Rechners zeigt auf eine andere Installation (%1). Führen Sie das Installationspaket dort überschreibend aus oder deinstallieren Sie jene Installation und installieren Sie neu, um das Shellmenü hier zu steuern.</translation>
     </message>
     <message>
-        <source>未检测到壳扩展文件（quikthumb.dll）。运行安装包可修复；便携版不带安装器注册，右键菜单不可用。</source>
-        <translation>Die Shellerweiterungsdatei (quikthumb.dll) wurde nicht gefunden. Das Installationspaket kann das beheben; die portable Version bringt keine Installationsregistrierung mit, das Shellmenü ist nicht verfügbar.</translation>
+        <source>未检测到壳扩展文件（quikthumb-*.dll）。运行安装包可修复；便携版不带安装器注册，右键菜单不可用。</source>
+        <translation>Die Shellerweiterungsdatei (quikthumb-*.dll) wurde nicht gefunden. Das Installationspaket kann das beheben; die portable Version bringt keine Installationsregistrierung mit, das Shellmenü ist nicht verfügbar.</translation>
     </message>
     <message>
         <source>壳扩展文件存在，但右键菜单处理器未注册到本安装。运行安装包覆盖安装即可完成注册。</source>

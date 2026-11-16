@@ -70,14 +70,26 @@ foreach ($view in $views) {
     }
 }
 
-# 3) 上下文菜单 Handler（阶段 1 IContextMenu）：
-#    HKLM\Software\Classes\*\shellex\ContextMenuHandlers\QuikView = $CtxClsid。
-#    `*`（全部文件类型）是字面键名，PowerShell 会把路径里的 * 当通配符，
-#    必须用 -LiteralPath；64/32 双视图都写（32 位进程读 WOW6432Node）。
+# 3) 上下文菜单 Handler（阶段 1 IContextMenu）：逐扩展名注册
+#    HKLM\Software\Classes\<ext>\shellex\ContextMenuHandlers\QuikView = $CtxClsid。
+#    .ext 键为 32/64 共享视图，写一份即可。
+#    0.5.3 及以前挂在 `*`（全部文件类型）上 —— 任意文件右键都会把本 DLL 拉进
+#    资源管理器；这里顺手清掉旧键（只删仍指向本产品 CLSID 的那条）。
+foreach ($ext in $Exts) {
+    $key = "HKLM:\SOFTWARE\Classes\$ext\shellex\ContextMenuHandlers\QuikView"
+    New-Item -Path $key -Force | Out-Null
+    Set-Item -Path $key -Value $CtxClsid
+}
 foreach ($base in @('HKLM:\SOFTWARE\Classes', 'HKLM:\SOFTWARE\Classes\WOW6432Node')) {
-    $key = "$base\*\shellex\ContextMenuHandlers\QuikView"
-    New-Item -LiteralPath $key -Force | Out-Null
-    Set-Item -LiteralPath $key -Value $CtxClsid
+    $legacy = "$base\*\shellex\ContextMenuHandlers\QuikView"
+    if (Test-Path -LiteralPath $legacy) {
+        $val = [string](Get-Item -LiteralPath $legacy).GetValue('')
+        if ($val -ieq $CtxClsid) {
+            Remove-Item -LiteralPath $legacy -Force
+        } else {
+            Write-Warning "$legacy 的值是 '$val'，不是本产品 CLSID，保留不删。"
+        }
+    }
 }
 
 Write-Host ''
@@ -85,6 +97,6 @@ Write-Host '注册完成：'
 Write-Host "  64 位 DLL: $Dll64"
 if ($has32) { Write-Host "  32 位 DLL: $Dll32" }
 Write-Host "  扩展名: $($Exts -join ' ')"
-Write-Host "  上下文菜单: *\shellex\ContextMenuHandlers\QuikView -> $CtxClsid"
+Write-Host "  上下文菜单: 逐扩展名 ($($Exts -join ' ')) -> $CtxClsid"
 Write-Host ''
 Write-Host '生效方法：重启 explorer.exe，或先执行 ie4uinit.exe -show 再刷新。'

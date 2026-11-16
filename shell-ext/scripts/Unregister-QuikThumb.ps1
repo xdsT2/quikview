@@ -34,10 +34,16 @@ foreach ($ext in $Exts) {
     }
 }
 
-# 1b) 上下文菜单 Handler：只删仍指向本产品 CLSID 的 QuikView 键，别家不动。
-#     `*` 是字面键名，PowerShell 会把路径里的 * 当通配符，必须用 -LiteralPath。
+# 1b) 上下文菜单 Handler：逐扩展名（0.5.4 起的注册位置）+ 0.5.3 及以前的
+#     `*` 宽注册，两处都只删仍指向本产品 CLSID 的键，别家不动。
+$HandlerKeys = @()
+foreach ($ext in $Exts) {
+    $HandlerKeys += "HKLM:\SOFTWARE\Classes\$ext\shellex\ContextMenuHandlers\QuikView"
+}
 foreach ($base in @('HKLM:\SOFTWARE\Classes', 'HKLM:\SOFTWARE\Classes\WOW6432Node')) {
-    $key = "$base\*\shellex\ContextMenuHandlers\QuikView"
+    $HandlerKeys += "$base\*\shellex\ContextMenuHandlers\QuikView"
+}
+foreach ($key in $HandlerKeys) {
     if (Test-Path -LiteralPath $key) {
         $val = [string](Get-Item -LiteralPath $key).GetValue('')
         if ($val -ieq $CtxClsid) {

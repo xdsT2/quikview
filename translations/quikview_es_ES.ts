@@ -2778,8 +2778,8 @@ Restaurado al valor real actual.</translation>
         <translation>El controlador del menú del shell de este equipo apunta a otra instalación (%1). Ejecuta el paquete de instalación sobrescribiendo ese directorio, o desinstala esa instalación y reinstala, para poder controlar el menú del shell aquí.</translation>
     </message>
     <message>
-        <source>未检测到壳扩展文件（quikthumb.dll）。运行安装包可修复；便携版不带安装器注册，右键菜单不可用。</source>
-        <translation>No se detectó el archivo de extensión del shell (quikthumb.dll). Ejecutar el paquete de instalación puede repararlo; la versión portable no incluye registro por instalador y el menú del shell no está disponible.</translation>
+        <source>未检测到壳扩展文件（quikthumb-*.dll）。运行安装包可修复；便携版不带安装器注册，右键菜单不可用。</source>
+        <translation>No se detectó el archivo de extensión del shell (quikthumb-*.dll). Ejecutar el paquete de instalación puede repararlo; la versión portable no incluye registro por instalador y el menú del shell no está disponible.</translation>
     </message>
     <message>
         <source>壳扩展文件存在，但右键菜单处理器未注册到本安装。运行安装包覆盖安装即可完成注册。</source>

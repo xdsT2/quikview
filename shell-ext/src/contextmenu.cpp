@@ -89,14 +89,10 @@ private:
     T* m_p;
 };
 
-IWICImagingFactory* WicFactory() {
-    static IWICImagingFactory* s_factory = nullptr;
-    if (!s_factory) {
-        CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER,
-                        IID_IWICImagingFactory, (void**)&s_factory);
-    }
-    return s_factory;
-}
+// WIC 工厂不缓存：IWICImagingFactory 是 apartment 绑定对象，缓存成静态指针
+// 会被资源管理器的另一条线程（缩略图提取、另一个 STA 窗口）拿到，跨套间
+// 调用 WIC 属于未定义行为 —— 一旦崩在 explorer.exe 里，整个桌面跟着没。
+// 改为每次弹菜单现建、返回前释放；创建成本在百微秒量级，远低于一次菜单重绘。
 
 // 把 HICON 画进 32×32 32bpp DIB（菜单 MIIM_BITMAP 用）
 HBITMAP IconToBitmap(HICON hIcon, int w, int h) {
@@ -249,6 +245,11 @@ STDMETHODIMP QuikContextMenu::QueryContextMenu(HMENU hmenu, UINT indexMenu,
 
         const ULONGLONG t0 = GetTickCount64();
 
+        // 本条线程自己的 WIC 工厂（见上文「不缓存」说明）
+        ComPtr<IWICImagingFactory> wicFactory;
+        CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER,
+                         IID_IWICImagingFactory, (void**)&wicFactory);
+
         // —— B1：菜单项小图标（资源内嵌，不加载 exe；show_icon 关时省略）——
         if (prefs.icon) {
             HICON hIcon = LoadIconW(DllGetModule(), MAKEINTRESOURCEW(101));
@@ -257,7 +258,7 @@ STDMETHODIMP QuikContextMenu::QueryContextMenu(HMENU hmenu, UINT indexMenu,
 
         // —— B2：单选图「宽×高 · 文件大小」（show_info 关时跳过解码）——
         if (prefs.info) {
-            if (IWICImagingFactory* fac = WicFactory()) {
+            if (IWICImagingFactory* fac = wicFactory.Get()) {
                 ComPtr<IWICBitmapDecoder> decoder;
                 if (SUCCEEDED(fac->CreateDecoderFromFilename(
                             m_file, nullptr, GENERIC_READ,
@@ -284,7 +285,7 @@ STDMETHODIMP QuikContextMenu::QueryContextMenu(HMENU hmenu, UINT indexMenu,
 
         // —— B3：自绘缩略图（≤256px，超 50ms 预算就放弃；show_preview 关时跳过）——
         if (prefs.preview && GetTickCount64() - t0 <= kDecodeBudgetMs) {
-            if (IWICImagingFactory* fac = WicFactory()) {
+            if (IWICImagingFactory* fac = wicFactory.Get()) {
                 ComPtr<IWICBitmapDecoder> decoder;
                 if (SUCCEEDED(fac->CreateDecoderFromFilename(
                             m_file, nullptr, GENERIC_READ,
