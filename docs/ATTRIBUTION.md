@@ -103,7 +103,7 @@ python tools\03_gen_skin.py --check   # 全量校验，不写盘
 ## 6. README 截图里的示例照片
 
 `docs/screenshots/` 下的截图使用来自 [Unsplash](https://unsplash.com/license) 的照片作为画面内容
-（Unsplash License，可免费使用、无需署名）。0.5.0 图集使用的照片 ID：
+（Unsplash License，可免费使用、无需署名）。README 图集使用的照片 ID（0.5.0 起沿用，0.5.3 重拍仍用这一套）：
 
 - `photo-1500530855697-b586d89ba3ee`（荒漠公路）
 - `photo-1441974231531-c6227db76b6e`（森林）

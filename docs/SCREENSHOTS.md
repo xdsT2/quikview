@@ -2,7 +2,7 @@
 
 [← 返回 README](../README.md)
 
-> 本页图集基于 **QuikView 0.5.0** 界面（2026-11-13 重拍）。
+> 本页图集基于 **QuikView 0.5.3** 界面（2026-11-17 重拍）。
 
 以下截图全部由 **QuikView 自身渲染**（`--screenshot` 走 Qt 内部绘制，不是系统抓屏），
 所以不受显示器 DPI 缩放影响，和你在屏幕上看到的一致。
@@ -84,10 +84,12 @@ Display only — the file on disk is untouched.
 
 ## 7. 右键菜单 · Context menu
 
-按功能分组：打开、滤镜、浏览、缩放旋转、文件操作、设置。每个常用项都标了快捷键。
+顶部是快捷操作条，下面按「打开与定位 / 常用动作 / 任务菜单 / 危险操作 / 应用」分组，每项带快捷键；
+哪一组不要，可以在设置页里单独关掉，关闭的分组不会留下空行。
 
-Grouped by purpose: open, filters, navigation, zoom/rotate, file actions, settings — each with its
-keyboard shortcut on the right.
+A quick-action bar on top, then five groups — open & locate, everyday actions, task menu, dangerous
+operations, app. Each item shows its shortcut. Any group can be switched off in settings, and a closed
+group leaves no empty divider behind.
 
 ![右键菜单](screenshots/07-context-menu.webp)
 
@@ -116,13 +118,26 @@ menu, misc, language (plus an About entry).
 
 ---
 
-## 10. 启动画面 · Start screen
+## 10. 查看器右键菜单（设置页） · Viewer context menu settings
+
+0.5.3 新增的独立设置页：左侧是可折叠的菜单大纲（打开定位、常用、任务菜单、危险操作、应用五组各有总开关），
+右侧是实时预览。顶部搜索框能按菜单项名定位，改动即时写进预览和外层右键菜单。
+
+The settings page added in 0.5.3: a collapsible outline on the left (five groups, each with a master
+switch), a live preview on the right. The search box jumps to a menu item by name, and edits apply
+to the preview and the real context menu immediately.
+
+![查看器右键菜单设置页](screenshots/10-context-menu-settings.webp)
+
+---
+
+## 11. 启动画面 · Start screen
 
 没打开图的时候也不空着：拖进来、选图片、或者直接打开整个文件夹。
 
 Nothing open? Drop a file in, pick one, or open a whole folder.
 
-![启动画面](screenshots/10-start.webp)
+![启动画面](screenshots/11-start.webp)
 
 ---
 

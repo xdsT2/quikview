@@ -30,8 +30,10 @@ QuikView 是一款开源的 Windows 看图器，支持目录翻页、双页阅�
 | **双页阅览**<br>画册、漫画并排看 | **图像效果**<br>反色 / Gamma / 旋转 / 插值 |
 | [![右键菜单](docs/screenshots/07-context-menu.webp)](docs/SCREENSHOTS.md) | [![设置](docs/screenshots/09-settings.webp)](docs/SCREENSHOTS.md) |
 | **右键菜单**<br>按功能分组，标快捷键 | **设置**<br>统一布局，支持深浅主题 |
+| [![查看器右键菜单设置页](docs/screenshots/10-context-menu-settings.webp)](docs/SCREENSHOTS.md) | [![启动画面](docs/screenshots/11-start.webp)](docs/SCREENSHOTS.md) |
+| **查看器右键菜单**<br>大纲 + 实时预览 | **启动画面**<br>拖入、选图或整夹打开 |
 
-**[全部 10 张截图（含说明）→](docs/SCREENSHOTS.md)**
+**[全部 11 张截图（含说明）→](docs/SCREENSHOTS.md)**
 
 
 ## 功能

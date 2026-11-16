@@ -36,8 +36,10 @@ full size.
 | **Double-page spread**<br>Photo books and comics side by side | **Image effects**<br>Invert / gamma / rotate / resampling |
 | [![Context menu](docs/screenshots/07-context-menu.webp)](docs/SCREENSHOTS.md) | [![Settings](docs/screenshots/09-settings.webp)](docs/SCREENSHOTS.md) |
 | **Context menu**<br>Grouped, with shortcuts | **Settings**<br>Consistent layout in light and dark themes |
+| [![Viewer context menu settings](docs/screenshots/10-context-menu-settings.webp)](docs/SCREENSHOTS.md) | [![Start screen](docs/screenshots/11-start.webp)](docs/SCREENSHOTS.md) |
+| **Viewer context menu**<br>Outline plus live preview | **Start screen**<br>Drop a file, pick one, open a folder |
 
-**[All 10 screenshots (with captions) →](docs/SCREENSHOTS.md)**
+**[All 11 screenshots (with captions) →](docs/SCREENSHOTS.md)**
 
 ## Features
 
