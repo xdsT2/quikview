@@ -8,6 +8,7 @@
 #include <QString>
 #include <QStringList>
 #include <QVariantMap>
+#include <functional>
 
 class QAbstractButton;
 class QCheckBox;
@@ -47,6 +48,11 @@ class SettingsDialog : public QDialog
 {
     Q_OBJECT
 public:
+    void syncAppliedTheme(const QString &theme);
+    // 主题切换验收探针（--smoke settheme:<dark|light|system>，非交互路径）：
+    // 直接改主题下拉的 currentIndex，走与鼠标选择相同的 currentIndexChanged
+    // → applyThemePreview 链路，避免鼠标坐标漂移影响延迟采样。
+    void probeTheme(const QString &theme);
     explicit SettingsDialog(QWidget *parent = nullptr);
     ~SettingsDialog() override;
 
@@ -70,16 +76,45 @@ public:
     // writeValues 链路，供资源管理器右键验收驱动设置页开关。
     void probeCtxToggle(const QString &leaf);
     // 应用内右键菜单可见性探针（--smoke appmenu:<id>[,<id>…] / appmenureset）：
-    // 切到上下文菜单页后依次点击可见性开关（accessibleName = appmenu.<id>）
+    // 切到上下文菜单页后依次点击可见性开关（appMenuId）
     // 或「恢复默认菜单」按钮，供「父关子灰 / 恢复默认」状态截图与回归验证。
     void probeAppMenuToggle(const QString &ids);
     void probeAppMenuReset();
     // probeAppMenuPageGrab(out)：切到上下文菜单页后把整页内容渲染落盘
     // （grab 不受滚动视口裁剪，长图一次拿全）。
     void probeAppMenuPageGrab(const QString &out);
+    // 大纲视图整窗截图（--smoke appmenushot:<out>:<W>x<H>）：切到本页后可指定
+    // 窗口尺寸，抓整个设置窗（含侧栏、页头、页脚），用于设计对照与缩放验收。
+    void probeAppMenuWindow(const QString &out, int w = 0, int h = 0,
+                            const QString &scrollTo = QString(),
+                            const QString &steps = QString());
+    // —— 常驻一级预览 + 浮动二级（实装派单 2026-11-16）——
+    // 设置页右侧常驻查看器右键菜单一级预览；二级以独立顶层浮层展开。
+    // 树结构与可见性由本页从 Config+MenuCatalog 实时计算（开关改动立即重建），
+    // 运行态（勾选/互斥单选/禁用/有无图片）由 MainWindow 在打开设置后一次性
+    // 推送快照，避免两处各自维护一份动作真源。
+    struct AppMenuRunState {
+        bool hasImage = false;
+        QHash<QString, bool> checked;   // stable id -> checked（互斥单选 / 布尔勾选）
+        QHash<QString, bool> enabled;   // stable id -> enabled（未登记 = 视命令本身启用）
+        QString currentViewMode;        // actual / fit / fitwidth / spread_l2r / spread_r2l
+        QString currentInterp;          // fast / smooth / lanczos
+        QString currentEffect;          // none / soften / sharpen
+        int sortMode = -1;              // 0..3，-1 表示不适用
+        bool sortDescending = false;
+        bool zoomLocked = false;
+        int netRotation = 0;            // 0/90/180/270
+        bool negative = false;
+        bool flippedH = false;
+        bool flippedV = false;
+        bool alwaysOnTop = false;
+    };
+    void setAppMenuRunState(const AppMenuRunState &state);
+    void refreshAppMenuPreview(bool relayout = true);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
+    QSize minimumSizeHint() const override;
     void resizeEvent(QResizeEvent *event) override;
     void showEvent(QShowEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
@@ -305,6 +340,21 @@ private:
     InputModeWatcher *m_inputMode = nullptr;
     QLabel *m_pageTitle = nullptr;
     QLabel *m_pageDesc = nullptr;
+    // 页头右侧动作位：目前只有「查看器右键菜单」页用（恢复默认菜单），
+    // 其它页为空且隐藏，不改变既有页头排版。
+    QWidget *m_pageActionHost = nullptr;
+    QWidget *m_appMenuPage = nullptr;        // 大纲视图所在页（selectPage 用来切动作位）
+    int m_appMenuPageIndex = -1;             // 该页在 m_pages 的下标（列宽按页放宽用）
+    std::function<void(int)> m_layoutAppMenuOutline;
+    std::function<std::function<void()>()> m_saveAppMenuScroll;
+    std::function<void()> m_refreshAppMenuStyle;
+    QWidget *m_appMenuOutline = nullptr;     // 大纲滚动区容器（搜过定位滚动用）
+
+    // —— 查看器右键菜单 · 常驻一级预览（实装派单 2026-11-16）——
+    // 页面右侧一级预览列 widget（常驻，不随页头按钮开关）。
+    QWidget *m_appMenuPreview = nullptr;         // 预览表面（右侧常驻列）
+    AppMenuRunState m_appMenuRunState;           // MainWindow 推送的运行态快照
+    std::function<void()> m_refreshAppMenuPreviewFn; // 内部刷新（含二级浮层对位）
     QPushButton *m_btnReset = nullptr;
     QPushButton *m_btnOk = nullptr;
 

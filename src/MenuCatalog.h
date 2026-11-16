@@ -2,23 +2,28 @@
 
 #include <QCoreApplication>
 #include <QString>
+#include <QVector>
 
 // 应用内右键菜单目录（右键菜单派单 2026-11-14「全量配置修订」专用）。
 // ---------------------------------------------------------------------------
 // 唯一事实来源：MainWindow::buildContextMenu 组装菜单、SettingsDialog 上下文
 // 菜单页列开关、Config 默认值判定，三处都从这张表取，不允许各自再抄一份。
 //
-// 可见性只保存「父级总开关 + 可配置的一级单命令开关」（键 config/appmenu/<id>）：
-//   - Group  三个外层收纳分组（浏览与显示 / 图像处理 / 文件操作），有总开关；
-//   - Parent 组内具体子菜单，仅父项有总开关，末级子命令随父项整体显隐；
-//   - Single 一级单命令，各有可见性开关；
-//   - Fixed  固定命令（设置… / 设为桌面壁纸… / 打印…），无开关，随所在组显隐；
-//   - Leaf   子菜单里的末级子命令，无自己的开关，列在设置页（名称+图标）。
+// 可见性只保存「有开关的节点」的值（键 config/appmenu/<id>），生效可见性 =
+// 本项开关 × 各级祖先总开关（Config::appMenuVisible 逐级上溯）：
+//   - Section 五个根组（打开与定位 / 常用动作 / 任务菜单 / 危险操作 / 应用），
+//             有总开关；只用于设置页的层级收纳，菜单里不产生额外节点；
+//   - Group   三个外层收纳分组（浏览与显示 / 图像处理 / 文件操作），有总开关；
+//   - Parent  组内具体子菜单，仅父项有总开关，末级子命令随父项整体显隐；
+//   - Single  可独立配置的单命令；
+//   - Fixed   固定命令（设置… / 设为桌面壁纸… / 打印…），无开关，随所在组显隐；
+//   - Leaf    只展示随父入口显示的子菜单命令或执行参数。
+// 单个可配置子项由父开关代表（如「危险操作 → 删除」）。
 // 缺键（首次安装 / 旧配置 / 恢复默认）一律按 defOn 出值。
 // 顺序即本表顺序，第一版无拖拽排序。
 namespace AppMenu {
 
-enum Kind { Single, Group, Parent, Fixed, Leaf };
+enum Kind { Single, Group, Parent, Fixed, Leaf, Section };
 
 struct Node {
     const char *id;      // 配置键 config/appmenu/<id>
@@ -29,17 +34,20 @@ struct Node {
 };
 
 inline const Node kNodes[] = {
-    // —— 打开与定位（一级单命令）——
-    {"open_image",     "image",        Single, true,  ""},
-    {"open_folder",    "folder-open",  Single, true,  ""},
-    {"select_image",   "images",       Single, true,  ""},
-    {"locate_file",    "folder-target",Single, true,  ""},
-    // —— 常用动作（一级单命令）——
-    {"image_info",     "info",         Single, true,  ""},
-    {"copy_clipboard", "copy",         Single, true,  ""},
-    {"always_on_top",  "pin",          Single, true,  ""},
-    // —— 浏览与显示（外层分组，总开关）——
-    {"group_browse",   "browse",       Group,  true,  ""},
+    // —— 打开与定位（根组 + 4 个一级单命令）——
+    {"group_open",     "folder-open",  Section,true,  ""},
+    {"open_image",     "image",        Single, true,  "group_open"},
+    {"open_folder",    "folder-open",  Single, true,  "group_open"},
+    {"select_image",   "images",       Single, true,  "group_open"},
+    {"locate_file",    "folder-target",Single, true,  "group_open"},
+    // —— 常用动作（根组 + 3 个一级单命令）——
+    {"group_common",   "dots",         Section,true,  ""},
+    {"image_info",     "info",         Single, true,  "group_common"},
+    {"copy_clipboard", "copy",         Single, true,  "group_common"},
+    {"always_on_top",  "pin",          Single, true,  "group_common"},
+    // —— 任务菜单（根组；下辖三个收纳分组）——
+    {"group_task",     "grid",         Section,true,  ""},
+    {"group_browse",   "browse",       Group,  true,  "group_task"},
     {"parent_nav",     "nav",          Parent, false, "group_browse"},
     {"nav_next",       "chev-right",   Leaf,   true,  "parent_nav"},
     {"nav_prev",       "chev-left",    Leaf,   true,  "parent_nav"},
@@ -71,7 +79,7 @@ inline const Node kNodes[] = {
     {"zoom_in1",       "zoom-in",      Leaf,   true,  "parent_zoom"},
     {"zoom_out1",      "zoom-out",     Leaf,   true,  "parent_zoom"},
     // —— 图像处理（外层分组，总开关；默认四个子项全关，整组不出现父入口）——
-    {"group_image",    "imageproc",    Group,  true,  ""},
+    {"group_image",    "imageproc",    Group,  true,  "group_task"},
     {"parent_interp",  "interp",       Parent, false, "group_image"},
     {"interp_bilinear","interp",       Leaf,   true,  "parent_interp"},
     {"interp_bicubic", "interp",       Leaf,   true,  "parent_interp"},
@@ -91,19 +99,22 @@ inline const Node kNodes[] = {
     {"fx_soften",      "transition",   Leaf,   true,  "parent_transition"},
     {"fx_sharpen",     "sparkle",      Leaf,   true,  "parent_transition"},
     // —— 文件操作（外层分组，总开关；壁纸/打印为固定行，无开关）——
-    {"group_file",     "folder",       Group,  true,  ""},
+    {"group_file",     "folder",       Group,  true,  "group_task"},
     {"wallpaper",      "monitor",      Fixed,  true,  "group_file"},
     {"parent_copymore","copy-more",    Parent, true,  "group_file"},
     {"copy_folder",    "folder-copy",  Leaf,   true,  "parent_copymore"},
     {"parent_openwith","open-with",    Parent, true,  "group_file"},
     {"open_editor",    "pencil",       Leaf,   true,  "parent_openwith"},
     {"print",          "printer",      Fixed,  true,  "group_file"},
-    // —— 危险操作 / 应用（一级单命令；设置… 固定显示）——
-    {"delete_file",    "trash",        Single, true,  ""},
-    {"settings",       "sliders",      Fixed,  true,  ""},
-    {"about",          "info",         Single, true,  ""},
-    {"close_window",   "x",            Single, true,  ""},
-    {"quit",           "logout",       Single, true,  ""},
+    // —— 危险操作（唯一可配置入口继承父开关）——
+    {"group_danger",   "trash",        Section,true,  ""},
+    {"delete_file",    "trash",        Single,   true,  "group_danger"},
+    // —— 应用（根组 4 项：设置… 固定显示，其余三个各有开关）——
+    {"group_app",      "sliders",      Section,true,  ""},
+    {"settings",       "sliders",      Fixed,  true,  "group_app"},
+    {"about",          "info",         Single, true,  "group_app"},
+    {"close_window",   "x",            Single, true,  "group_app"},
+    {"quit",           "logout",       Single, true,  "group_app"},
 };
 
 inline const Node *find(const QString &id)
@@ -120,6 +131,53 @@ inline bool defaultOn(const QString &id)
 {
     const Node *n = find(id);
     return n ? n->defOn : false;
+}
+
+// 目录语义：固定项和执行参数不参与可见性配置。
+inline bool canConfigure(const Node &n)
+{
+    return n.kind == Single || n.kind == Group || n.kind == Parent || n.kind == Section;
+}
+
+inline QString parentOf(const QString &id)
+{
+    const Node *n = find(id);
+    return n ? QLatin1String(n->parent) : QString();
+}
+
+// 直接子级（按表内顺序）
+inline QVector<const Node *> childrenOf(const QString &id)
+{
+    QVector<const Node *> out;
+    for (const Node &n : kNodes) {
+        if (id.isEmpty()) {
+            if (!n.parent[0]) {
+                out.append(&n);
+            }
+        } else if (QLatin1String(n.parent) == id) {
+            out.append(&n);
+        }
+    }
+    return out;
+}
+
+// 可独立配置的直接子级数量（规格 §开关判定：0 / 1 / ≥2 决定开关层级）。
+// 固定项与末级展示行不计入。
+inline int configurableChildCount(const QString &id)
+{
+    int n = 0;
+    for (const Node *c : childrenOf(id)) {
+        if (canConfigure(*c)) {
+            ++n;
+        }
+    }
+    return n;
+}
+
+inline bool ownsSwitch(const Node &n)
+{
+    return canConfigure(n)
+           && (!n.parent[0] || configurableChildCount(QLatin1String(n.parent)) >= 2);
 }
 
 // 节点显示名：末级子命令按设计图文案；父项/分组/一级命令由组装方给定
@@ -172,6 +230,11 @@ inline const char *labelSource(const QString &id)
     if (id == QLatin1String("copy_folder"))       return QT_TRANSLATE_NOOP("AppMenu", "复制到图片文件夹");
     if (id == QLatin1String("open_editor"))       return QT_TRANSLATE_NOOP("AppMenu", "用图像编辑器打开");
     // 父项 / 分组 / 一级命令
+    if (id == QLatin1String("group_open"))        return QT_TRANSLATE_NOOP("AppMenu", "打开与定位");
+    if (id == QLatin1String("group_common"))      return QT_TRANSLATE_NOOP("AppMenu", "常用动作");
+    if (id == QLatin1String("group_task"))        return QT_TRANSLATE_NOOP("AppMenu", "任务菜单");
+    if (id == QLatin1String("group_danger"))      return QT_TRANSLATE_NOOP("AppMenu", "危险操作");
+    if (id == QLatin1String("group_app"))         return QT_TRANSLATE_NOOP("AppMenu", "应用");
     if (id == QLatin1String("open_image"))        return QT_TRANSLATE_NOOP("AppMenu", "打开图片…");
     if (id == QLatin1String("open_folder"))       return QT_TRANSLATE_NOOP("AppMenu", "打开文件夹…");
     if (id == QLatin1String("select_image"))      return QT_TRANSLATE_NOOP("AppMenu", "选择图片…");
@@ -237,6 +300,59 @@ inline const char *sectionOf(const Node &n)
     if (id == QLatin1String("delete_file"))
         return "danger";
     return "app";
+}
+
+// 显示用快捷键（查看器右键菜单与设置页预览共用同一份；多语言派单 2026-11-15）。
+// 只读、只作显示；真实键位与可用性仍由动作本体/键盘自定义决定。
+// 一级命令的快捷键沿用既有固定槽位语义（open/folder 走出厂主键）。
+inline const char *shortcutSource(const QString &id)
+{
+    if (id == QLatin1String("open_image"))   return "F2";
+    if (id == QLatin1String("open_folder"))  return "F";
+    if (id == QLatin1String("select_image")) return "Enter";
+    if (id == QLatin1String("locate_file"))  return "Ctrl+Enter";
+    if (id == QLatin1String("image_info"))   return "Tab";
+    if (id == QLatin1String("copy_clipboard"))return "Ctrl+C";
+    if (id == QLatin1String("always_on_top"))return "Ctrl+A";
+    if (id == QLatin1String("nav_next"))     return "→";
+    if (id == QLatin1String("nav_prev"))     return "←";
+    if (id == QLatin1String("nav_first"))    return "Home";
+    if (id == QLatin1String("nav_last"))     return "End";
+    if (id == QLatin1String("nav_next10"))   return "Ctrl+PageDown";
+    if (id == QLatin1String("nav_prev10"))   return "Ctrl+PageUp";
+    if (id == QLatin1String("nav_rand_back"))return "Ctrl+Alt+PageDown";
+    if (id == QLatin1String("nav_rand_fwd")) return "Ctrl+Alt+PageUp";
+    if (id == QLatin1String("nav_folder_next")) return "]";
+    if (id == QLatin1String("nav_folder_prev")) return "[";
+    if (id == QLatin1String("zoom_in"))      return "+";
+    if (id == QLatin1String("zoom_out"))     return "−";
+    if (id == QLatin1String("zoom_lock"))    return "Ctrl+K";
+    if (id == QLatin1String("zoom_in1"))     return "Ctrl++";
+    if (id == QLatin1String("zoom_out1"))    return "Ctrl+−";
+    if (id == QLatin1String("fx_gamma"))     return "Ctrl+G";
+    if (id == QLatin1String("fx_flipv"))     return "Ctrl+F";
+    if (id == QLatin1String("fx_fliph"))     return "Ctrl+M";
+    if (id == QLatin1String("fx_negative"))  return "Ctrl+I";
+    if (id == QLatin1String("rot_none"))     return "Alt+Up";
+    if (id == QLatin1String("rot_left"))     return "Alt+Left";
+    if (id == QLatin1String("rot_right"))    return "Alt+Right";
+    if (id == QLatin1String("rot_180"))      return "Alt+Down";
+    if (id == QLatin1String("fx_none"))      return "U";
+    if (id == QLatin1String("fx_soften"))    return "I";
+    if (id == QLatin1String("fx_sharpen"))   return "S";
+    if (id == QLatin1String("copy_folder"))  return "Ins";
+    if (id == QLatin1String("open_editor"))  return "Ctrl+E";
+    if (id == QLatin1String("delete_file"))  return "Delete";
+    return nullptr;
+}
+
+// 预览分组标题（设置页预览列顶部，随内容段生成的接收段名）。
+inline QString shortcut(const QString &id)
+{
+    if (const char *src = shortcutSource(id)) {
+        return QCoreApplication::translate("AppMenu", src);
+    }
+    return {};
 }
 
 } // namespace AppMenu

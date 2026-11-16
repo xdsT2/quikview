@@ -65,6 +65,8 @@ add_executable(quikview WIN32
     src/MenuIcons.cpp
     src/MenuIcons.h
     src/MenuCatalog.h
+    src/AppMenuPreview.cpp
+    src/AppMenuPreview.h
     src/BatchConvertDialog.cpp
     src/BatchConvertDialog.h
     src/GammaDialog.cpp

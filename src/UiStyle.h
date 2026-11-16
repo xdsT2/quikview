@@ -13,6 +13,7 @@
 #include <QColor>
 #include <QFont>
 #include <QMenu>
+#include <QPalette>
 #include <QString>
 
 #if defined(Q_OS_WIN)
@@ -176,6 +177,30 @@ inline const char *tipText()       { return pick("#e6e8ea", "#1b1b1c"); }
 inline QColor interactive()     { return color("#1688f8"); }
 inline QColor interactiveSoft() { return isLight() ? QColor(22,136,248,31) : QColor(22,136,248,36); }
 
+// 嵌套子菜单专用（2026-11-16 用户实机回归）：父 popup 显示中再弹出的 QMenu
+// 走 Qt 嵌套 popup 的 layered 窗口路径，WA_TranslucentBackground 的
+// per-pixel alpha 会整体丢失——实机表现为子菜单整块渲染成黑色实块、
+// 图标/面板全部不可见（CtxMenu::paintEvent 实际执行了，QWidget::grab 自渲染
+// 也正常，只有真实屏幕合成才黑，故须用 grab: 探针抓屏取证）。
+// 嵌套层改用不透明窗口：面板色 paintEvent 自绘，圆角四角露底用
+// autoFillBackground + palette 补成面板色，视觉无缝；磨砂半透明只保留在
+// 顶层菜单（嵌套层暂不支持半透明，回退纯色面板，见 paintEvent 的
+// appmenu.opaque 分支）。
+inline void polishSubmenu(QMenu *menu)
+{
+    if (!menu) {
+        return;
+    }
+    menu->setProperty("appmenu.opaque", true);
+    menu->setAttribute(Qt::WA_TranslucentBackground, false);
+    menu->setWindowFlag(Qt::FramelessWindowHint, true);
+    menu->setWindowFlag(Qt::NoDropShadowWindowHint, true);
+    menu->setAutoFillBackground(true);
+    QPalette pal = menu->palette();
+    pal.setColor(QPalette::Window, QColor(surfaceMenu()));
+    menu->setPalette(pal);
+}
+
 // —— 设置页排版统一（2026-11-07）——
 // 分组卡片底/描边、整行悬停底、只读状态标签文字。浅色分组底比内容白面板
 // 低一档（#f5f7f8），靠 1px 描边勾出组边界；悬停只提亮行，不改变控件尺寸。
@@ -211,6 +236,16 @@ inline const char *switchOff()   { return pick("#65676c", "#797c81"); }
 inline const char *switchKnob()  { return pick("#f8f8f8", "#ffffff"); }
 inline const char *switchOnEdge(){ return "#218941"; }   // 浅色开启轨道 1px 内描边
 inline const char *disabled()    { return pick("#a5a7ac", "#616367"); }
+// 查看器菜单大纲的列表表面、根行和搜索状态。
+inline const char *outlineBg()       { return pick("#252628", "#fdfdfd"); }
+inline const char *outlineLine()     { return pick("#333436", "#e6e6e8"); }
+inline const char *outlineAlt()      { return pick("#2e2f31", "#eeeff0"); }
+inline const char *outlineDisabled() { return pick("#88898e", "#75777b"); }
+inline const char *outlineDisabledTrack() { return pick("#3c3e41", "#dedfe1"); }
+inline const char *outlineDisabledKnob()  { return pick("#909297", "#73777d"); }
+inline const char *outlineDanger()   { return pick("#ff847a", "#c62b22"); }
+inline const char *searchHit()      { return pick("#183954", "#e2effc"); }
+inline const char *searchWord()     { return pick("#26527a", "#bfdcff"); }
 // 状态色（规格 §颜色与状态真实性）：浅色 #246B3B / #92480B 在白色卡片上
 // 6.48:1 / 6.66:1、在 #F7F7F7 上 6.05:1 / 6.22:1，均达到 4.5:1；状态同时有文字。
 inline const char *statusOk()    { return pick("#7fc47f", "#246b3b"); }

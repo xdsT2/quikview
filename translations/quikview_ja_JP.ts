@@ -3049,6 +3049,142 @@ https://github.com/xdsT2/quikview</translation>
         <source>继续编辑</source>
         <translation>編集を続ける</translation>
     </message>
+    <message>
+        <source>%1 个分组</source>
+        <translation>%1 グループ</translation>
+    </message>
+    <message>
+        <source>%1 个项目</source>
+        <translation>%1 項目</translation>
+    </message>
+    <message>
+        <source>%1 项匹配</source>
+        <translation>%1 件一致</translation>
+    </message>
+    <message>
+        <source>%1，%2，展开或收起</source>
+        <translation>%1、%2、展開または折りたたむ</translation>
+    </message>
+    <message>
+        <source>%1，可见性</source>
+        <translation>%1、表示状態</translation>
+    </message>
+    <message>
+        <source>「%1」已关闭</source>
+        <translation>「%1」はオフです</translation>
+    </message>
+    <message>
+        <source>包含前后跳转、随机浏览及切换文件夹。关闭后仍可展开查看命令。</source>
+        <translation>前後の移動、ランダム表示、フォルダーの切り替えを含みます。オフでも展開してコマンドを確認できます。</translation>
+    </message>
+    <message>
+        <source>可见性</source>
+        <translation>表示状態</translation>
+    </message>
+    <message>
+        <source>实时预览</source>
+        <translation>ライブ プレビュー</translation>
+    </message>
+    <message>
+        <source>已展开</source>
+        <translation>展開済み</translation>
+    </message>
+    <message>
+        <source>已收起</source>
+        <translation>折りたたみ</translation>
+    </message>
+    <message>
+        <source>总开关已关闭，可展开查看子项。</source>
+        <translation>マスター スイッチがオフです。展開してサブ項目を表示できます。</translation>
+    </message>
+    <message>
+        <source>查找期间沿匹配路径展开</source>
+        <translation>検索中は一致したパスに沿って展開します</translation>
+    </message>
+    <message>
+        <source>查找菜单项</source>
+        <translation>メニュー項目を検索</translation>
+    </message>
+    <message>
+        <source>查找菜单项…</source>
+        <translation>メニュー項目を検索…</translation>
+    </message>
+    <message>
+        <source>没有匹配的菜单项</source>
+        <translation>一致するメニュー項目がありません</translation>
+    </message>
+    <message>
+        <source>清除查找</source>
+        <translation>検索をクリア</translation>
+    </message>
+    <message>
+        <source>点击菜单项可定位设置。</source>
+        <translation>メニュー項目をクリックすると設定箇所へ移動します。</translation>
+    </message>
+    <message>
+        <source>第 %1 级</source>
+        <translation>レベル %1</translation>
+    </message>
+    <message>
+        <source>菜单项</source>
+        <translation>メニュー項目</translation>
+    </message>
+    <message>
+        <source>说明 / 状态</source>
+        <translation>説明 / 状態</translation>
+    </message>
+    <message>
+        <source>随组显示</source>
+        <translation>グループと共に表示</translation>
+    </message>
+    <message>
+        <source>无法恢复默认菜单，配置未写入。</source>
+        <translation>既定のメニューを復元できませんでした。設定が書き込まれていません。</translation>
+    </message>
+    <message>
+        <source>执行参数，随「复制更多」显隐。</source>
+        <translation>実行パラメーターです。「さらにコピー」と共に表示されます。</translation>
+    </message>
+    <message>
+        <source>执行参数，随「打开方式」显隐。</source>
+        <translation>実行パラメーターです。「開き方」と共に表示されます。</translation>
+    </message>
+    <message>
+        <source>随「危险操作」总开关显示。</source>
+        <translation>「危険な操作」のマスター スイッチと共に表示されます。</translation>
+    </message>
+    <message>
+        <source>随「应用」总开关显示。</source>
+        <translation>「アプリケーション」のマスター スイッチと共に表示されます。</translation>
+    </message>
+    <message>
+        <source>随「文件操作」总开关显示。</source>
+        <translation>「ファイル操作」のマスター スイッチと共に表示されます。</translation>
+    </message>
+    <message>
+        <source>停止</source>
+        <translation>停止</translation>
+    </message>
+    <message>
+        <source>全屏切换</source>
+        <translation>全画面切り替え</translation>
+    </message>
+    <message>
+        <source>关闭窗口</source>
+        <translation>ウィンドウを閉じる</translation>
+    </message>
+    <message>
+        <source>询问</source>
+        <translation>確認</translation>
+    </message>
+    <message>
+        <source>无操作</source>
+        <translation>操作なし</translation>
+    </message>
+    <message>
+        <source>该选项暂未实现，将在后续版本提供。</source>
+        <translation>このオプションはまだ実装されていません。今後のバージョンで提供されます。</translation>
+    </message>
 </context>
 <context>
     <name>ThumbnailBrowser</name>
@@ -3328,6 +3464,13 @@ https://github.com/xdsT2/quikview</translation>
     <message>
         <source>EXIF</source>
         <translation>EXIF</translation>
+    </message>
+</context>
+<context>
+    <name>AppMenuPreview</name>
+    <message>
+        <source>当前没有可显示的菜单项</source>
+        <translation>表示できるメニュー項目がありません。</translation>
     </message>
 </context>
 </TS>

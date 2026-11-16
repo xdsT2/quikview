@@ -125,6 +125,7 @@ bool paint(QPainter &p, const QString &id, const QRectF &rect, const QColor &col
         QStringLiteral("x"), QStringLiteral("logout"), QStringLiteral("save"),
         QStringLiteral("play"), QStringLiteral("stop"), QStringLiteral("bookmark"),
         QStringLiteral("crop"), QStringLiteral("moon"), QStringLiteral("layers"),
+        QStringLiteral("dots"), QStringLiteral("grid"), QStringLiteral("search"),
     };
     if (!kKnown.contains(id)) {
         return false;
@@ -143,6 +144,9 @@ bool paint(QPainter &p, const QString &id, const QRectF &rect, const QColor &col
         stroke(p, g.rrect(QRectF(1.5, 2.5, 13, 11), 2), color);
         stroke(p, g.mountains(QRectF(2, 3, 12, 10)), color);
         fill(p, g.circle(QPointF(10.6, 6.0), 1.15), color);
+    } else if (id == QLatin1String("search")) {
+        stroke(p, g.circle(QPointF(6.8, 6.8), 4.5), color);
+        stroke(p, g.line(10, 10, 14, 14), color);
     } else if (id == QLatin1String("folder-open") || id == QLatin1String("folder")) {
         // 打开文件夹：后板 + 前板外翻；普通文件夹：单层
         if (id == QLatin1String("folder-open")) {
@@ -381,6 +385,23 @@ bool paint(QPainter &p, const QString &id, const QRectF &rect, const QColor &col
         stroke(p, g.poly({{1.5, 5.5}, {8, 2}, {14.5, 5.5}, {8, 9}}, true), color);
         stroke(p, g.poly({{1.5, 8.5}, {8, 12}, {14.5, 8.5}}), color);
         stroke(p, g.poly({{1.5, 11.5}, {8, 15}, {14.5, 11.5}}), color);
+    } else if (id == QLatin1String("folder-copy")) {
+        // 复制到图片文件夹（2026-11-16 开关层级修订补绘）：两层文件夹叠放。
+        // 此前该 id 只在 kKnown 白名单里、没有绘制分支，实际画成空白图标。
+        // 后层用缺角路径表示被压住的那份，前层闭合，整体读作「复制到文件夹」。
+        stroke(p, g.poly({{5.6, 4.4}, {5.6, 2.6}, {9.0, 2.6}, {10.2, 4.0}, {14.4, 4.0}, {14.4, 8.6}}), color);
+        stroke(p, g.poly({{1.6, 13.2}, {1.6, 6.6}, {5.2, 6.6}, {6.4, 8.0}, {11.6, 8.0}, {11.6, 13.2}}, true), color);
+    } else if (id == QLatin1String("dots")) {
+        // 常用动作根组：三点省略号（与子项的 info/copy/pin 区分开，避免同排撞图）
+        fill(p, g.circle(QPointF(3.8, 8.0), 1.05), color);
+        fill(p, g.circle(QPointF(8.0, 8.0), 1.05), color);
+        fill(p, g.circle(QPointF(12.2, 8.0), 1.05), color);
+    } else if (id == QLatin1String("grid")) {
+        // 任务菜单根组：2×2 宫格，与「浏览与显示」的窗口图标区分
+        stroke(p, g.rrect(QRectF(1.8, 1.8, 5.2, 5.2), 1.4), color);
+        stroke(p, g.rrect(QRectF(9.0, 1.8, 5.2, 5.2), 1.4), color);
+        stroke(p, g.rrect(QRectF(1.8, 9.0, 5.2, 5.2), 1.4), color);
+        stroke(p, g.rrect(QRectF(9.0, 9.0, 5.2, 5.2), 1.4), color);
     } else if (id == QLatin1String("logout")) {
         stroke(p, g.poly({{7.0, 2.0}, {2.5, 2.0}, {2.5, 14.0}, {7.0, 14.0}}), color);
         stroke(p, g.line(6.5, 8.0, 13.5, 8.0), color);

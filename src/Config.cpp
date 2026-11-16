@@ -14,6 +14,12 @@ Config::Config(const QString &path)
     : m_configPath(path)
     , m_settings(defaultConfigPath(), QSettings::IniFormat)
 {
+    const QString danger = QStringLiteral("config/appmenu/group_danger");
+    const QString legacyDelete = QStringLiteral("config/appmenu/delete_file");
+    if (!m_settings.contains(danger) && m_settings.contains(legacyDelete)) {
+        m_settings.setValue(danger, m_settings.value(legacyDelete).toBool());
+        m_settings.sync();
+    }
 }
 
 QString Config::defaultConfigPath()
@@ -474,7 +480,7 @@ bool Config::contextCopy() const
     return m_settings.value(QStringLiteral("config/context_copy"), true).toBool();
 }
 
-bool Config::appMenuVisible(const QString &id) const
+bool Config::appMenuOwnVisible(const QString &id) const
 {
     // 缺键（首次安装 / 旧配置 / 恢复默认）一律按 MenuCatalog 默认表出值；
     // 未知 id 视为不可见，避免拼错的键意外展开整组命令。
@@ -483,19 +489,61 @@ bool Config::appMenuVisible(const QString &id) const
         return false;
     }
     const QString key = QStringLiteral("config/appmenu/") + id;
-    if (!m_settings.contains(key)) {
-        return node->defOn;
+    if (m_settings.contains(key)) {
+        return m_settings.value(key, node->defOn).toBool();
     }
-    return m_settings.value(key, node->defOn).toBool();
+    // 迁移（2026-11-16 开关层级修订）：危险操作由根组总开关统一控制，
+    // 「删除」不再单列开关。旧配置里只有 appmenu/delete_file，
+    // 新键缺位时回退读旧值，避免升级后危险操作整组凭空消失或重现。
+    // 旧键不删、不改写，只在缺新键时作为一次来源。
+    if (id == QLatin1String("group_danger")) {
+        const QString legacy = QStringLiteral("config/appmenu/delete_file");
+        if (m_settings.contains(legacy)) {
+            return m_settings.value(legacy, true).toBool();
+        }
+    }
+    return node->defOn;
 }
 
-void Config::resetAppMenuVisibility()
+bool Config::appMenuVisible(const QString &id) const
 {
-    // 恢复默认菜单 = 清键回到目录默认表；只重置上下文菜单可见性，
-    // 浏览模式、快捷键、图像效果等其他设置一律不动。
-    // remove 整组：嵌套子键一次清掉，也不受 ini 转义残键的影响。
-    m_settings.remove(QStringLiteral("config/appmenu"));
+    // 生效可见性：本项（有开关时）与各级祖先总开关全部为开。
+    const AppMenu::Node *node = AppMenu::find(id);
+    if (!node) {
+        return false;
+    }
+    if (AppMenu::ownsSwitch(*node) && !appMenuOwnVisible(id)) {
+        return false;
+    }
+    for (QString p = AppMenu::parentOf(id); !p.isEmpty(); p = AppMenu::parentOf(p)) {
+        if (!appMenuOwnVisible(p)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool Config::resetAppMenuVisibility()
+{
+    if (m_settings.status() != QSettings::NoError) {
+        reopenSettings();
+    }
+    const QString group = QStringLiteral("config/appmenu");
+    m_settings.beginGroup(group);
+    QVariantMap previous;
+    for (const QString &key : m_settings.allKeys()) {
+        previous.insert(key, m_settings.value(key));
+    }
+    m_settings.remove(QString());
     m_settings.sync();
+    const bool saved = m_settings.status() == QSettings::NoError;
+    if (!saved) {
+        for (auto it = previous.cbegin(); it != previous.cend(); ++it) {
+            m_settings.setValue(it.key(), it.value());
+        }
+    }
+    m_settings.endGroup();
+    return saved;
 }
 
 bool Config::checkUpdatesOnStartup() const

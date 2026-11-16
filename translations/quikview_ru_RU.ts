@@ -3049,6 +3049,142 @@ https://github.com/xdsT2/quikview</translation>
         <source>继续编辑</source>
         <translation>Продолжить правку</translation>
     </message>
+    <message>
+        <source>%1 个分组</source>
+        <translation>%1 групп</translation>
+    </message>
+    <message>
+        <source>%1 个项目</source>
+        <translation>%1 элементов</translation>
+    </message>
+    <message>
+        <source>%1 项匹配</source>
+        <translation>%1 совпадений</translation>
+    </message>
+    <message>
+        <source>%1，%2，展开或收起</source>
+        <translation>%1, %2, развернуть или свернуть</translation>
+    </message>
+    <message>
+        <source>%1，可见性</source>
+        <translation>%1, видимость</translation>
+    </message>
+    <message>
+        <source>「%1」已关闭</source>
+        <translation>«%1» отключено</translation>
+    </message>
+    <message>
+        <source>包含前后跳转、随机浏览及切换文件夹。关闭后仍可展开查看命令。</source>
+        <translation>Включает переход вперёд/назад, случайный просмотр и смену папки. Даже при выключенном переключателе можно раскрыть команды.</translation>
+    </message>
+    <message>
+        <source>可见性</source>
+        <translation>Видимость</translation>
+    </message>
+    <message>
+        <source>实时预览</source>
+        <translation>Предпросмотр</translation>
+    </message>
+    <message>
+        <source>已展开</source>
+        <translation>Развёрнуто</translation>
+    </message>
+    <message>
+        <source>已收起</source>
+        <translation>Свёрнуто</translation>
+    </message>
+    <message>
+        <source>总开关已关闭，可展开查看子项。</source>
+        <translation>Главный переключатель выключен; можно раскрыть список, чтобы увидеть подпункты.</translation>
+    </message>
+    <message>
+        <source>查找期间沿匹配路径展开</source>
+        <translation>При поиске раскрывать путь совпадений</translation>
+    </message>
+    <message>
+        <source>查找菜单项</source>
+        <translation>Поиск пунктов меню</translation>
+    </message>
+    <message>
+        <source>查找菜单项…</source>
+        <translation>Поиск пунктов меню…</translation>
+    </message>
+    <message>
+        <source>没有匹配的菜单项</source>
+        <translation>Нет подходящих пунктов меню</translation>
+    </message>
+    <message>
+        <source>清除查找</source>
+        <translation>Очистить поиск</translation>
+    </message>
+    <message>
+        <source>点击菜单项可定位设置。</source>
+        <translation>Нажмите на пункт меню, чтобы перейти к его настройке.</translation>
+    </message>
+    <message>
+        <source>第 %1 级</source>
+        <translation>Уровень %1</translation>
+    </message>
+    <message>
+        <source>菜单项</source>
+        <translation>Пункт меню</translation>
+    </message>
+    <message>
+        <source>说明 / 状态</source>
+        <translation>Описание / состояние</translation>
+    </message>
+    <message>
+        <source>随组显示</source>
+        <translation>Показывается вместе с группой</translation>
+    </message>
+    <message>
+        <source>无法恢复默认菜单，配置未写入。</source>
+        <translation>Не удалось восстановить меню по умолчанию; конфигурация не записана.</translation>
+    </message>
+    <message>
+        <source>执行参数，随「复制更多」显隐。</source>
+        <translation>Параметр выполнения, отображается вместе с «Копировать ещё».</translation>
+    </message>
+    <message>
+        <source>执行参数，随「打开方式」显隐。</source>
+        <translation>Параметр выполнения, отображается вместе с «Открыть с помощью».</translation>
+    </message>
+    <message>
+        <source>随「危险操作」总开关显示。</source>
+        <translation>Отображается вместе с главным переключателем «Опасные действия».</translation>
+    </message>
+    <message>
+        <source>随「应用」总开关显示。</source>
+        <translation>Отображается вместе с главным переключателем «Приложение».</translation>
+    </message>
+    <message>
+        <source>随「文件操作」总开关显示。</source>
+        <translation>Отображается вместе с главным переключателем «Операции с файлами».</translation>
+    </message>
+    <message>
+        <source>停止</source>
+        <translation>Стоп</translation>
+    </message>
+    <message>
+        <source>全屏切换</source>
+        <translation>Переключить полный экран</translation>
+    </message>
+    <message>
+        <source>关闭窗口</source>
+        <translation>Закрыть окно</translation>
+    </message>
+    <message>
+        <source>询问</source>
+        <translation>Спросить</translation>
+    </message>
+    <message>
+        <source>无操作</source>
+        <translation>Нет действия</translation>
+    </message>
+    <message>
+        <source>该选项暂未实现，将在后续版本提供。</source>
+        <translation>Этот параметр пока не реализован; он появится в будущей версии.</translation>
+    </message>
 </context>
 <context>
     <name>ThumbnailBrowser</name>
@@ -3328,6 +3464,13 @@ https://github.com/xdsT2/quikview</translation>
     <message>
         <source>EXIF</source>
         <translation>EXIF</translation>
+    </message>
+</context>
+<context>
+    <name>AppMenuPreview</name>
+    <message>
+        <source>当前没有可显示的菜单项</source>
+        <translation>Нет пунктов меню для отображения.</translation>
     </message>
 </context>
 </TS>

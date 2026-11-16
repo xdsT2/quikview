@@ -558,7 +558,7 @@ void ImageCanvas::drawBackground(QPainter *painter, const QRectF &rect)
         const QRectF sceneRect = m_item->mapRectToScene(m_item->boundingRect());
         projected = mapFromScene(sceneRect).boundingRect();
     }
-    if (checkerMode) {
+    if (checkerMode && hasImage) {
         // 棋盘铺满整个视口：tile 固定在视口逻辑坐标——切到设备坐标平铺，
         // 相位锚定视口左上角，缩放/平移/旋转图片时格子不动（§3.8.2）。
         if (m_checkerTile.isNull() || m_tileDpr != devicePixelRatioF()) {

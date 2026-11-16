@@ -113,11 +113,13 @@ public:
 
     // 应用内右键菜单可见性（键 config/appmenu/<id>；目录与默认值唯一来源是
     // MenuCatalog.h）。缺键 = 首次安装 / 旧配置 / 恢复默认，一律按目录默认表出值。
-    // 只保存父级总开关与可配置的一级单命令开关；末级子命令随父项整体显隐。
+    // appMenuOwnVisible 只读本节点自己那份键；appMenuVisible 返回**生效**可见性
+    // = 本项开关 × 各级祖先总开关（无开关的 Fixed / Leaf 完全由祖先决定）。
+    bool appMenuOwnVisible(const QString &id) const;
     bool appMenuVisible(const QString &id) const;
     // 「恢复默认菜单」：清掉全部 config/appmenu/* 键（只重置上下文菜单可见性，
     // 不动浏览模式、快捷键、图像效果等其他设置）。
-    void resetAppMenuVisibility();
+    bool resetAppMenuVisibility();
 
     // 收藏与最近打开
     QStringList favorites() const;

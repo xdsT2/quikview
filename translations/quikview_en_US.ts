@@ -3049,6 +3049,142 @@ Restored the original value; nothing was written to the config.</translation>
         <source>继续编辑</source>
         <translation>Keep Editing</translation>
     </message>
+    <message>
+        <source>%1 个分组</source>
+        <translation>%1 groups</translation>
+    </message>
+    <message>
+        <source>%1 个项目</source>
+        <translation>%1 items</translation>
+    </message>
+    <message>
+        <source>%1 项匹配</source>
+        <translation>%1 matches</translation>
+    </message>
+    <message>
+        <source>%1，%2，展开或收起</source>
+        <translation>%1, %2, expand or collapse</translation>
+    </message>
+    <message>
+        <source>%1，可见性</source>
+        <translation>%1, visibility</translation>
+    </message>
+    <message>
+        <source>「%1」已关闭</source>
+        <translation>"%1" is off</translation>
+    </message>
+    <message>
+        <source>包含前后跳转、随机浏览及切换文件夹。关闭后仍可展开查看命令。</source>
+        <translation>Includes forward/back navigation, random browsing and folder switching. You can still expand to view the commands when it is off.</translation>
+    </message>
+    <message>
+        <source>可见性</source>
+        <translation>Visibility</translation>
+    </message>
+    <message>
+        <source>实时预览</source>
+        <translation>Live Preview</translation>
+    </message>
+    <message>
+        <source>已展开</source>
+        <translation>Expanded</translation>
+    </message>
+    <message>
+        <source>已收起</source>
+        <translation>Collapsed</translation>
+    </message>
+    <message>
+        <source>总开关已关闭，可展开查看子项。</source>
+        <translation>The master switch is off; you can still expand to view subitems.</translation>
+    </message>
+    <message>
+        <source>查找期间沿匹配路径展开</source>
+        <translation>Expand along the match path while searching</translation>
+    </message>
+    <message>
+        <source>查找菜单项</source>
+        <translation>Find menu items</translation>
+    </message>
+    <message>
+        <source>查找菜单项…</source>
+        <translation>Find menu items…</translation>
+    </message>
+    <message>
+        <source>没有匹配的菜单项</source>
+        <translation>No matching menu items</translation>
+    </message>
+    <message>
+        <source>清除查找</source>
+        <translation>Clear search</translation>
+    </message>
+    <message>
+        <source>点击菜单项可定位设置。</source>
+        <translation>Click a menu item to locate its setting.</translation>
+    </message>
+    <message>
+        <source>第 %1 级</source>
+        <translation>Level %1</translation>
+    </message>
+    <message>
+        <source>菜单项</source>
+        <translation>Menu item</translation>
+    </message>
+    <message>
+        <source>说明 / 状态</source>
+        <translation>Description / status</translation>
+    </message>
+    <message>
+        <source>随组显示</source>
+        <translation>Shown with group</translation>
+    </message>
+    <message>
+        <source>无法恢复默认菜单，配置未写入。</source>
+        <translation>Could not restore the default menu; the configuration was not written.</translation>
+    </message>
+    <message>
+        <source>执行参数，随「复制更多」显隐。</source>
+        <translation>Execution parameter, shown with "Copy More".</translation>
+    </message>
+    <message>
+        <source>执行参数，随「打开方式」显隐。</source>
+        <translation>Execution parameter, shown with "Open With".</translation>
+    </message>
+    <message>
+        <source>随「危险操作」总开关显示。</source>
+        <translation>Shown with the "Dangerous actions" master switch.</translation>
+    </message>
+    <message>
+        <source>随「应用」总开关显示。</source>
+        <translation>Shown with the "Application" master switch.</translation>
+    </message>
+    <message>
+        <source>随「文件操作」总开关显示。</source>
+        <translation>Shown with the "File operations" master switch.</translation>
+    </message>
+    <message>
+        <source>停止</source>
+        <translation>Stop</translation>
+    </message>
+    <message>
+        <source>全屏切换</source>
+        <translation>Toggle fullscreen</translation>
+    </message>
+    <message>
+        <source>关闭窗口</source>
+        <translation>Close window</translation>
+    </message>
+    <message>
+        <source>询问</source>
+        <translation>Ask</translation>
+    </message>
+    <message>
+        <source>无操作</source>
+        <translation>No action</translation>
+    </message>
+    <message>
+        <source>该选项暂未实现，将在后续版本提供。</source>
+        <translation>This option is not implemented yet; it will be available in a future release.</translation>
+    </message>
 </context>
 <context>
     <name>ThumbnailBrowser</name>
@@ -3328,6 +3464,13 @@ Restored the original value; nothing was written to the config.</translation>
     <message>
         <source>EXIF</source>
         <translation>EXIF</translation>
+    </message>
+</context>
+<context>
+    <name>AppMenuPreview</name>
+    <message>
+        <source>当前没有可显示的菜单项</source>
+        <translation>There are no menu items to display.</translation>
     </message>
 </context>
 </TS>

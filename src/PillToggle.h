@@ -24,6 +24,11 @@ public:
     void setFluent(bool on);
     bool fluent() const { return m_fluent; }
 
+    // 大纲视图页面专用放大档：轨道 34×20、滑块 14、命中区 44×28。
+    // 只有「查看器右键菜单」页调用，其它设置页不受影响。
+    void setLargeTrack(bool on);
+    bool largeTrack() const { return m_large; }
+
     // 滑块从当前位置滑到新位置的时长（毫秒）。0 表示不做过渡。
     static int motionDurationMs() { return 120; }
 
@@ -50,6 +55,7 @@ private:
     bool m_pressed = false;
     bool m_userToggle = false;
     bool m_fluent = false;
+    bool m_large = false;
     qreal m_pos = 0.0;   // 0 = 关，1 = 开；过渡中为当前插值位置
     QVariantAnimation *m_motion = nullptr;
 };

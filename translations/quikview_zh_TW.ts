@@ -3049,6 +3049,142 @@ https://github.com/xdsT2/quikview</translation>
         <source>继续编辑</source>
         <translation>繼續編輯</translation>
     </message>
+    <message>
+        <source>%1 个分组</source>
+        <translation>%1 個分組</translation>
+    </message>
+    <message>
+        <source>%1 个项目</source>
+        <translation>%1 個項目</translation>
+    </message>
+    <message>
+        <source>%1 项匹配</source>
+        <translation>%1 項符合</translation>
+    </message>
+    <message>
+        <source>%1，%2，展开或收起</source>
+        <translation>%1，%2，展開或收合</translation>
+    </message>
+    <message>
+        <source>%1，可见性</source>
+        <translation>%1，可見性</translation>
+    </message>
+    <message>
+        <source>「%1」已关闭</source>
+        <translation>「%1」已關閉</translation>
+    </message>
+    <message>
+        <source>包含前后跳转、随机浏览及切换文件夹。关闭后仍可展开查看命令。</source>
+        <translation>包含前後跳轉、隨機瀏覽及切換資料夾。關閉後仍可展開檢視命令。</translation>
+    </message>
+    <message>
+        <source>可见性</source>
+        <translation>可見性</translation>
+    </message>
+    <message>
+        <source>实时预览</source>
+        <translation>即時預覽</translation>
+    </message>
+    <message>
+        <source>已展开</source>
+        <translation>已展開</translation>
+    </message>
+    <message>
+        <source>已收起</source>
+        <translation>已收合</translation>
+    </message>
+    <message>
+        <source>总开关已关闭，可展开查看子项。</source>
+        <translation>總開關已關閉，可展開檢視子項目。</translation>
+    </message>
+    <message>
+        <source>查找期间沿匹配路径展开</source>
+        <translation>搜尋期間沿符合路徑展開</translation>
+    </message>
+    <message>
+        <source>查找菜单项</source>
+        <translation>尋找功能表項目</translation>
+    </message>
+    <message>
+        <source>查找菜单项…</source>
+        <translation>尋找功能表項目…</translation>
+    </message>
+    <message>
+        <source>没有匹配的菜单项</source>
+        <translation>沒有符合的功能表項目</translation>
+    </message>
+    <message>
+        <source>清除查找</source>
+        <translation>清除搜尋</translation>
+    </message>
+    <message>
+        <source>点击菜单项可定位设置。</source>
+        <translation>點擊功能表項目可定位設定。</translation>
+    </message>
+    <message>
+        <source>第 %1 级</source>
+        <translation>第 %1 層</translation>
+    </message>
+    <message>
+        <source>菜单项</source>
+        <translation>功能表項目</translation>
+    </message>
+    <message>
+        <source>说明 / 状态</source>
+        <translation>說明 / 狀態</translation>
+    </message>
+    <message>
+        <source>随组显示</source>
+        <translation>隨群組顯示</translation>
+    </message>
+    <message>
+        <source>无法恢复默认菜单，配置未写入。</source>
+        <translation>無法還原預設功能表，設定未寫入。</translation>
+    </message>
+    <message>
+        <source>执行参数，随「复制更多」显隐。</source>
+        <translation>執行參數，隨「複製更多」顯隱。</translation>
+    </message>
+    <message>
+        <source>执行参数，随「打开方式」显隐。</source>
+        <translation>執行參數，隨「開啟方式」顯隱。</translation>
+    </message>
+    <message>
+        <source>随「危险操作」总开关显示。</source>
+        <translation>隨「危險操作」總開關顯示。</translation>
+    </message>
+    <message>
+        <source>随「应用」总开关显示。</source>
+        <translation>隨「應用程式」總開關顯示。</translation>
+    </message>
+    <message>
+        <source>随「文件操作」总开关显示。</source>
+        <translation>隨「檔案操作」總開關顯示。</translation>
+    </message>
+    <message>
+        <source>停止</source>
+        <translation>停止</translation>
+    </message>
+    <message>
+        <source>全屏切换</source>
+        <translation>全螢幕切換</translation>
+    </message>
+    <message>
+        <source>关闭窗口</source>
+        <translation>關閉視窗</translation>
+    </message>
+    <message>
+        <source>询问</source>
+        <translation>詢問</translation>
+    </message>
+    <message>
+        <source>无操作</source>
+        <translation>無動作</translation>
+    </message>
+    <message>
+        <source>该选项暂未实现，将在后续版本提供。</source>
+        <translation>此選項尚未實作，將於後續版本提供。</translation>
+    </message>
 </context>
 <context>
     <name>ThumbnailBrowser</name>
@@ -3328,6 +3464,13 @@ https://github.com/xdsT2/quikview</translation>
     <message>
         <source>EXIF</source>
         <translation>EXIF</translation>
+    </message>
+</context>
+<context>
+    <name>AppMenuPreview</name>
+    <message>
+        <source>当前没有可显示的菜单项</source>
+        <translation>目前沒有可顯示的功能表項目。</translation>
     </message>
 </context>
 </TS>

@@ -113,17 +113,24 @@ bool isTopBarPopup(QWidget *popup)
     return false;
 }
 
-CtxMenu *makeHamburgerMenu(QWidget *parent, int minWidth)
+CtxMenu *makeHamburgerMenu(QWidget *parent, int minWidth, bool nested = false)
 {
     auto *menu = new CtxMenu(parent, CtxMenu::Presentation::OriginalActions);
     menu->setMinWidth(minWidth);
-    UiStyle::polishMenu(menu);
+    // 嵌套子菜单（父 popup 显示中弹出）不能开 WA_TranslucentBackground：
+    // Qt 嵌套 popup 会丢 per-pixel alpha，整窗渲染成黑块（用户实机回归），
+    // 顶层菜单维持透明圆角路径不变。
+    if (nested) {
+        UiStyle::polishSubmenu(menu);
+    } else {
+        UiStyle::polishMenu(menu);
+    }
     return menu;
 }
 
 CtxMenu *addHamburgerSubmenu(CtxMenu *parent, const QString &title, const char *icon)
 {
-    auto *menu = makeHamburgerMenu(parent, 238);
+    auto *menu = makeHamburgerMenu(parent, 238, /*nested=*/true);
     menu->setTitle(title);
     parent->setActionIcon(parent->addMenu(menu), icon);
     return menu;
@@ -1259,9 +1266,10 @@ void MainWindow::createActions()
     actDark->setCheckable(true);
     connect(actDark, &QAction::toggled, this, [this](bool on) {
         // 菜单点击=显式选择深/浅，退出「跟随系统」。
-        Config::instance().settings().setValue(QStringLiteral("config/theme"),
-                                                on ? QStringLiteral("dark") : QStringLiteral("light"));
-        Theme::applySetting(*qApp, on ? QStringLiteral("dark") : QStringLiteral("light"));
+        const QString mode = on ? QStringLiteral("dark") : QStringLiteral("light");
+        ThemeProbe::begin("menu-select", mode.toUtf8().constData());
+        Config::instance().settings().setValue(QStringLiteral("config/theme"), mode);
+        Theme::applySetting(*qApp, mode);
         // 局部 QSS 表面（画布底色 / 信息浮层）不跟着 appQss 走，菜单直接切换时
         // 也要补一次，否则会停在旧主题。
         refreshThemeSurfaces();
@@ -1641,7 +1649,7 @@ QMenu *MainWindow::buildBrowseMenu()
 // 幻灯片放映：停止放映 + 1~9 秒（Ctrl+1~9）+ 10/15/20/25/30/60/90 秒 + 循环 + 随机（19 项）
 QMenu *MainWindow::buildSlideshowMenu(CtxMenu *parentMenu)
 {
-    auto *styled = parentMenu ? makeHamburgerMenu(parentMenu, 238) : nullptr;
+    auto *styled = parentMenu ? makeHamburgerMenu(parentMenu, 238, /*nested=*/true) : nullptr;
     QMenu *menu = styled ? styled : new QMenu(this);
     QAction *stop = addCheckableItem(menu, tr("停止放映"), QStringLiteral("Ctrl+0"), !m_slideshow, [this]() {
         if (m_slideshow) {
@@ -1727,7 +1735,7 @@ QMenu *MainWindow::buildEditMenu()
 // 复制到：图片文件夹 1 / 2、移动到 1、路径定义、打开文件夹 1（5 项）
 QMenu *MainWindow::buildCopytoMenu(CtxMenu *parentMenu)
 {
-    auto *styled = parentMenu ? makeHamburgerMenu(parentMenu, 238) : nullptr;
+    auto *styled = parentMenu ? makeHamburgerMenu(parentMenu, 238, /*nested=*/true) : nullptr;
     QMenu *menu = styled ? styled : new QMenu(this);
     auto transferTo = [this, menu, styled](const QString &label, const QString &shortcut,
                                    const QString &key, bool moveFile) {
@@ -2052,19 +2060,6 @@ QMenu *MainWindow::buildContextMenu()
         m->setMinWidth(238);
         return m;
     };
-    auto attachSub = [](QMenu *parent, const char *id, CtxMenu *m) -> bool {
-        if (m->actions().isEmpty()) {
-            m->deleteLater();
-            return false;
-        }
-        QAction *ma = parent->addMenu(m);
-        ma->setText(AppMenu::label(QLatin1String(id)));
-        const AppMenu::Node *n = AppMenu::find(QLatin1String(id));
-        ma->setProperty(CtxMenu::kIconProp, QLatin1String(n->icon));
-        ma->setProperty("appmenu.id", QLatin1String(id));   // 探针按目录 id 定位子菜单
-        UiStyle::polishMenu(m);
-        return true;
-    };
     // 复用既有动作（勾选/禁用/键位真实）；radio = 单选点标记
     auto reuse = [decorate](QMenu *m, QAction *a, const char *iconId, const QString &label,
                             const QString &shortcut, bool radio) -> QAction * {
@@ -2086,7 +2081,11 @@ QMenu *MainWindow::buildContextMenu()
     QAction *quickDelete = nullptr;
 
     // —— 打开与定位 ——
-    beforeItem();
+    // 根组 group_open 关掉时整段不出现；只有确实要加行时才落分隔线，
+    // 否则空段会留下两条相邻分隔（开关层级修订后根组可整体关闭，必须防）。
+    if (vis("open_image") || vis("open_folder") || vis("select_image") || vis("locate_file")) {
+        beforeItem();
+    }
     if (vis("open_image")) {
         quickOpenImage = cmdId(menu, "open_image", QStringLiteral("F2"), [this]() { onOpen(); });
     }
@@ -2107,7 +2106,10 @@ QMenu *MainWindow::buildContextMenu()
     pendingSep = true;
 
     // —— 常用动作 ——
-    beforeItem();
+    if (vis("image_info") || vis("always_on_top")
+        || (vis("copy_clipboard") && cfg.contextCopy())) {
+        beforeItem();
+    }
     if (vis("image_info")) {
         // 无图禁用（设计 06-无图禁用）；勾选态 = 信息面板真实可见性
         QAction *a = menu->addAction(QString());
@@ -2138,162 +2140,187 @@ QMenu *MainWindow::buildContextMenu()
     }
     pendingSep = true;
 
-    // —— 收纳分组（浏览与显示 / 图像处理 / 文件操作）——
-    beforeItem();
-    if (vis("group_browse")) {
-        auto *browse = newSub();
-        if (vis("parent_nav")) {
-            auto *nav = newSub();
-            reuse(nav, actNext, "chev-right", AppMenu::label(QLatin1String("nav_next")),
-                  QStringLiteral("→"), false);
-            reuse(nav, actPrev, "chev-left", AppMenu::label(QLatin1String("nav_prev")),
-                  QStringLiteral("←"), false);
-            reuse(nav, actFirst, "chev-left", AppMenu::label(QLatin1String("nav_first")),
-                  QStringLiteral("Home"), false);
-            reuse(nav, actLast, "chev-right", AppMenu::label(QLatin1String("nav_last")),
-                  QStringLiteral("End"), false);
-            reuse(nav, actNext10, "chev-right", AppMenu::label(QLatin1String("nav_next10")),
-                  QStringLiteral("Ctrl+PageDown"), false);
-            reuse(nav, actPrev10, "chev-left", AppMenu::label(QLatin1String("nav_prev10")),
-                  QStringLiteral("Ctrl+PageUp"), false);
-            cmdId(nav, "nav_rand_back", QStringLiteral("Ctrl+Alt+PageDown"),
-                  [this]() { onJumpRandom(true); });
-            cmdId(nav, "nav_rand_fwd", QStringLiteral("Ctrl+Alt+PageUp"),
-                  [this]() { onJumpRandom(false); });
-            reuse(nav, actNextFolder, "folder-next", AppMenu::label(QLatin1String("nav_folder_next")),
-                  QStringLiteral("]"), false);
-            reuse(nav, actPrevFolder, "folder-prev", AppMenu::label(QLatin1String("nav_folder_prev")),
-                  QStringLiteral("["), false);
-            attachSub(browse, "parent_nav", nav);
+    // —— 浏览与显示 · 图像处理 · 文件操作（菜单层级扁平化 2026-11-16）——
+    // 规格《菜单层级扁平化规格》：正式菜单最多两级。以下父入口直接提升到
+    // 一级（排序方式/浏览方式/浏览导航/缩放工具/插值算法/图片效果/图像旋转/
+    // 过渡效果），具体命令作二级；不再出现「浏览与显示 → 排序方式 → 按名称」
+    // 三级链。「复制更多」「打开方式」收纳层取消，「复制到图片文件夹」「用图像
+    // 编辑器打开」直接在文件操作二级直达。文件操作四命令（壁纸/复制/编辑/打印）
+    // 在一个一级入口的二级直接执行。
+    // 三个外层收纳分组（group_browse/group_image/group_file）只在设置大纲里
+    // 作层级收纳，不再在实际菜单产生容器；其总开关仍统管所属各一级入口的整段。
+    auto attachDirect = [menu](CtxMenu *sub, const char *id) {
+        if (sub->actions().isEmpty()) {
+            sub->deleteLater();
+            return;
         }
-        if (vis("parent_sort")) {
-            auto *sort = newSub();
-            const int sortMode = cfg.sortMode();
-            actSortName->setChecked(sortMode == 0);
-            actSortTime->setChecked(sortMode == 1);
-            actSortSize->setChecked(sortMode == 2);
-            actSortType->setChecked(sortMode == 3);
-            reuse(sort, actSortName, "text", AppMenu::label(QLatin1String("sort_name")),
-                  QString(), true);
-            reuse(sort, actSortTime, "clock", AppMenu::label(QLatin1String("sort_time")),
-                  QString(), true);
-            reuse(sort, actSortSize, "size", AppMenu::label(QLatin1String("sort_size")),
-                  QString(), true);
-            reuse(sort, actSortType, "tag", AppMenu::label(QLatin1String("sort_type")),
-                  QString(), true);
-            actSortDesc->setChecked(cfg.sortDescending());
-            reuse(sort, actSortDesc, "sort-desc", AppMenu::label(QLatin1String("sort_desc")),
-                  QString(), false);
-            attachSub(browse, "parent_sort", sort);
+        QAction *ma = menu->addMenu(sub);
+        const AppMenu::Node *n = AppMenu::find(QLatin1String(id));
+        ma->setText(AppMenu::label(QLatin1String(id)));
+        if (n) {
+            ma->setProperty(CtxMenu::kIconProp, QLatin1String(n->icon));
         }
-        if (vis("parent_view")) {
-            auto *show = newSub();
-            syncViewModeActions();
-            reuse(show, actActualSize, "frame", AppMenu::label(QLatin1String("view_actual")),
-                  QString(), true);
-            reuse(show, actFit, "fit-window", AppMenu::label(QLatin1String("view_fit")),
-                  QString(), true);
-            reuse(show, actFitWidth, "fit-width", AppMenu::label(QLatin1String("view_fitwidth")),
-                  QString(), true);
-            reuse(show, actTwoL2R, "book", AppMenu::label(QLatin1String("view_two_l2r")),
-                  QString(), false);
-            reuse(show, actTwoR2L, "book", AppMenu::label(QLatin1String("view_two_r2l")),
-                  QString(), false);
-            attachSub(browse, "parent_view", show);
-        }
-        if (vis("parent_zoom")) {
-            auto *zoom = newSub();
-            cmdId(zoom, "zoom_in", QStringLiteral("+"), [this]() { onZoomIn(); });
-            cmdId(zoom, "zoom_out", QStringLiteral("−"), [this]() { onZoomOut(); });
-            actZoomLock->setChecked(m_zoomLocked);
-            reuse(zoom, actZoomLock, "lock", AppMenu::label(QLatin1String("zoom_lock")),
-                  QStringLiteral("Ctrl+K"), false);
-            cmdId(zoom, "zoom_100", QString(), [this]() { setZoomMode(0); });
-            cmdId(zoom, "zoom_in1", QStringLiteral("Ctrl++"), [this]() {
-                if (!m_currentImage.isNull()) {
-                    m_canvas->setZoom(m_canvas->zoom() + 0.01);
-                }
-            });
-            cmdId(zoom, "zoom_out1", QStringLiteral("Ctrl+−"), [this]() {
-                if (!m_currentImage.isNull()) {
-                    m_canvas->setZoom(m_canvas->zoom() - 0.01);
-                }
-            });
-            attachSub(browse, "parent_zoom", zoom);
-        }
-        attachSub(menu, "group_browse", browse);
+        ma->setProperty("appmenu.id", QLatin1String(id));
+        UiStyle::polishSubmenu(sub);
+    };
+
+    // —— 浏览相关段（一级：浏览导航 / 排序方式 / 浏览方式 / 缩放工具，二级直达）——
+    if (vis("parent_nav") || vis("parent_sort") || vis("parent_view") || vis("parent_zoom")) {
+        beforeItem();
     }
-    if (vis("group_image")) {
-        auto *img = newSub();
-        if (vis("parent_interp")) {
-            auto *interp = newSub();
-            actInterpFast->setChecked(m_interpMode == 0);
-            actInterpSmooth->setChecked(m_interpMode == 1);
-            actInterpLanczos->setChecked(m_interpMode == 2);
-            reuse(interp, actInterpFast, "interp", QString(), QString(), true);
-            reuse(interp, actInterpSmooth, "interp", QString(), QString(), true);
-            reuse(interp, actInterpLanczos, "interp", QString(), QString(), true);
-            attachSub(img, "parent_interp", interp);
-        }
-        if (vis("parent_fx")) {
-            auto *fx = newSub();
-            actNegative->setChecked(m_negative);
-            reuse(fx, actNegative, "invert", QString(), QStringLiteral("Ctrl+I"), false);
-            cmdId(fx, "fx_gamma", QStringLiteral("Ctrl+G"), [this]() { onGamma(); });
-            reuse(fx, actFlipV, "flip-v", QString(), QStringLiteral("Ctrl+F"), false);
-            reuse(fx, actFlipH, "flip-h", QString(), QStringLiteral("Ctrl+M"), false);
-            attachSub(img, "parent_fx", fx);
-        }
-        if (vis("parent_rotate")) {
-            auto *rot = newSub();
-            QAction *aNone = rot->addAction(QString());
-            aNone->setCheckable(true);
-            aNone->setChecked(m_netRotation == 0 && !m_flipH && !m_flipV);
-            QObject::connect(aNone, &QAction::triggered, this, [this]() { resetGeometry(); });
-            decorate(aNone, "image", AppMenu::label(QLatin1String("rot_none")),
-                     QStringLiteral("Alt+Up"), false, false);
-            cmdId(rot, "rot_left", QStringLiteral("Alt+Left"), [this]() { onRotateLeft(); });
-            cmdId(rot, "rot_right", QStringLiteral("Alt+Right"), [this]() { onRotateRight(); });
-            cmdId(rot, "rot_180", QStringLiteral("Alt+Down"), [this]() { rotateImage(180); });
-            attachSub(img, "parent_rotate", rot);
-        }
-        if (vis("parent_transition")) {
-            auto *trans = newSub();
-            // U/I/S 沿用现有处理动作（无/减淡/减淡＋锐化）；映射与翻页动画是
-            // 两条独立路径，见派单规则 6 的映射回报。
-            reuse(trans, actEffectNone, "minus", QString(), QStringLiteral("U"), true);
-            reuse(trans, actEffectSoften, "transition", QString(), QStringLiteral("I"), true);
-            reuse(trans, actEffectSharpen, "sparkle", QString(), QStringLiteral("S"), true);
-            attachSub(img, "parent_transition", trans);
-        }
-        attachSub(menu, "group_image", img);
+    if (vis("parent_nav")) {
+        auto *nav = newSub();
+        reuse(nav, actNext, "chev-right", AppMenu::label(QLatin1String("nav_next")),
+              QStringLiteral("→"), false);
+        reuse(nav, actPrev, "chev-left", AppMenu::label(QLatin1String("nav_prev")),
+              QStringLiteral("←"), false);
+        reuse(nav, actFirst, "chev-left", AppMenu::label(QLatin1String("nav_first")),
+              QStringLiteral("Home"), false);
+        reuse(nav, actLast, "chev-right", AppMenu::label(QLatin1String("nav_last")),
+              QStringLiteral("End"), false);
+        reuse(nav, actNext10, "chev-right", AppMenu::label(QLatin1String("nav_next10")),
+              QStringLiteral("Ctrl+PageDown"), false);
+        reuse(nav, actPrev10, "chev-left", AppMenu::label(QLatin1String("nav_prev10")),
+              QStringLiteral("Ctrl+PageUp"), false);
+        cmdId(nav, "nav_rand_back", QStringLiteral("Ctrl+Alt+PageDown"),
+              [this]() { onJumpRandom(true); });
+        cmdId(nav, "nav_rand_fwd", QStringLiteral("Ctrl+Alt+PageUp"),
+              [this]() { onJumpRandom(false); });
+        reuse(nav, actNextFolder, "folder-next", AppMenu::label(QLatin1String("nav_folder_next")),
+              QStringLiteral("]"), false);
+        reuse(nav, actPrevFolder, "folder-prev", AppMenu::label(QLatin1String("nav_folder_prev")),
+              QStringLiteral("["), false);
+        attachDirect(nav, "parent_nav");
     }
-    if (vis("group_file")) {
+    if (vis("parent_sort")) {
+        auto *sort = newSub();
+        const int sortMode = cfg.sortMode();
+        actSortName->setChecked(sortMode == 0);
+        actSortTime->setChecked(sortMode == 1);
+        actSortSize->setChecked(sortMode == 2);
+        actSortType->setChecked(sortMode == 3);
+        reuse(sort, actSortName, "text", AppMenu::label(QLatin1String("sort_name")),
+              QString(), true);
+        reuse(sort, actSortTime, "clock", AppMenu::label(QLatin1String("sort_time")),
+              QString(), true);
+        reuse(sort, actSortSize, "size", AppMenu::label(QLatin1String("sort_size")),
+              QString(), true);
+        reuse(sort, actSortType, "tag", AppMenu::label(QLatin1String("sort_type")),
+              QString(), true);
+        actSortDesc->setChecked(cfg.sortDescending());
+        reuse(sort, actSortDesc, "sort-desc", AppMenu::label(QLatin1String("sort_desc")),
+              QString(), false);
+        attachDirect(sort, "parent_sort");
+    }
+    if (vis("parent_view")) {
+        auto *show = newSub();
+        syncViewModeActions();
+        reuse(show, actActualSize, "frame", AppMenu::label(QLatin1String("view_actual")),
+              QString(), true);
+        reuse(show, actFit, "fit-window", AppMenu::label(QLatin1String("view_fit")),
+              QString(), true);
+        reuse(show, actFitWidth, "fit-width", AppMenu::label(QLatin1String("view_fitwidth")),
+              QString(), true);
+        reuse(show, actTwoL2R, "book", AppMenu::label(QLatin1String("view_two_l2r")),
+              QString(), false);
+        reuse(show, actTwoR2L, "book", AppMenu::label(QLatin1String("view_two_r2l")),
+              QString(), false);
+        attachDirect(show, "parent_view");
+    }
+    if (vis("parent_zoom")) {
+        auto *zoom = newSub();
+        cmdId(zoom, "zoom_in", QStringLiteral("+"), [this]() { onZoomIn(); });
+        cmdId(zoom, "zoom_out", QStringLiteral("−"), [this]() { onZoomOut(); });
+        actZoomLock->setChecked(m_zoomLocked);
+        reuse(zoom, actZoomLock, "lock", AppMenu::label(QLatin1String("zoom_lock")),
+              QStringLiteral("Ctrl+K"), false);
+        cmdId(zoom, "zoom_100", QString(), [this]() { setZoomMode(0); });
+        cmdId(zoom, "zoom_in1", QStringLiteral("Ctrl++"), [this]() {
+            if (!m_currentImage.isNull()) {
+                m_canvas->setZoom(m_canvas->zoom() + 0.01);
+            }
+        });
+        cmdId(zoom, "zoom_out1", QStringLiteral("Ctrl+−"), [this]() {
+            if (!m_currentImage.isNull()) {
+                m_canvas->setZoom(m_canvas->zoom() - 0.01);
+            }
+        });
+        attachDirect(zoom, "parent_zoom");
+    }
+
+    // —— 图像处理相关段（一级：插值算法 / 图片效果 / 图像旋转 / 过渡效果）——
+    if (vis("parent_interp") || vis("parent_fx") || vis("parent_rotate")
+        || vis("parent_transition")) {
+        beforeItem();
+    }
+    if (vis("parent_interp")) {
+        auto *interp = newSub();
+        actInterpFast->setChecked(m_interpMode == 0);
+        actInterpSmooth->setChecked(m_interpMode == 1);
+        actInterpLanczos->setChecked(m_interpMode == 2);
+        reuse(interp, actInterpFast, "interp", QString(), QString(), true);
+        reuse(interp, actInterpSmooth, "interp", QString(), QString(), true);
+        reuse(interp, actInterpLanczos, "interp", QString(), QString(), true);
+        attachDirect(interp, "parent_interp");
+    }
+    if (vis("parent_fx")) {
+        auto *fx = newSub();
+        actNegative->setChecked(m_negative);
+        reuse(fx, actNegative, "invert", QString(), QStringLiteral("Ctrl+I"), false);
+        cmdId(fx, "fx_gamma", QStringLiteral("Ctrl+G"), [this]() { onGamma(); });
+        reuse(fx, actFlipV, "flip-v", QString(), QStringLiteral("Ctrl+F"), false);
+        reuse(fx, actFlipH, "flip-h", QString(), QStringLiteral("Ctrl+M"), false);
+        attachDirect(fx, "parent_fx");
+    }
+    if (vis("parent_rotate")) {
+        auto *rot = newSub();
+        QAction *aNone = rot->addAction(QString());
+        aNone->setCheckable(true);
+        aNone->setChecked(m_netRotation == 0 && !m_flipH && !m_flipV);
+        QObject::connect(aNone, &QAction::triggered, this, [this]() { resetGeometry(); });
+        decorate(aNone, "image", AppMenu::label(QLatin1String("rot_none")),
+                 QStringLiteral("Alt+Up"), false, false);
+        cmdId(rot, "rot_left", QStringLiteral("Alt+Left"), [this]() { onRotateLeft(); });
+        cmdId(rot, "rot_right", QStringLiteral("Alt+Right"), [this]() { onRotateRight(); });
+        cmdId(rot, "rot_180", QStringLiteral("Alt+Down"), [this]() { rotateImage(180); });
+        attachDirect(rot, "parent_rotate");
+    }
+    if (vis("parent_transition")) {
+        auto *trans = newSub();
+        // U/I/S 沿用现有处理动作（无/减淡/减淡＋锐化）；映射与翻页动画是
+        // 两条独立路径，见派单规则 6 的映射回报。
+        reuse(trans, actEffectNone, "minus", QString(), QStringLiteral("U"), true);
+        reuse(trans, actEffectSoften, "transition", QString(), QStringLiteral("I"), true);
+        reuse(trans, actEffectSharpen, "sparkle", QString(), QStringLiteral("S"), true);
+        attachDirect(trans, "parent_transition");
+    }
+
+    // —— 文件操作段（扁平化 · 方案 B：一个「文件操作」入口，四命令二级直达）——
+    const bool hasFileCmds = vis("parent_copymore") || vis("parent_openwith")
+        || vis("wallpaper") || vis("print");
+    if (hasFileCmds && vis("group_file")) {
+        beforeItem();
         auto *file = newSub();
-        // 固定行（无开关，随分组显隐）
+        // 固定行（无开关，随分组显隐）——设为桌面壁纸、打印
         file->addAction(actWallpaper);
         decorate(actWallpaper, "monitor", QString(), QString(), false, false);
         if (vis("parent_copymore")) {
-            auto *more = newSub();
-            reuse(more, actCopyToFolder, "folder-copy",
+            reuse(file, actCopyToFolder, "folder-copy",
                   AppMenu::label(QLatin1String("copy_folder")), QString(), false);
-            attachSub(file, "parent_copymore", more);
         }
         if (vis("parent_openwith")) {
-            auto *ow = newSub();
-            reuse(ow, actOpenWithEditor, "pencil", QString(), QStringLiteral("Ctrl+E"), false);
-            attachSub(file, "parent_openwith", ow);
+            reuse(file, actOpenWithEditor, "pencil", QString(), QStringLiteral("Ctrl+E"), false);
         }
         file->addAction(actPrint);
         decorate(actPrint, "printer", AppMenu::label(QLatin1String("print")),
                  QString(), false, false);
-        attachSub(menu, "group_file", file);
+        attachDirect(file, "group_file");
     }
     pendingSep = true;
 
-    // —— 危险操作 ——
-    beforeItem();
+    // —— 危险操作（根组总开关控制「删除」行与顶部快捷区删除按钮）——
     if (vis("delete_file")) {
+        beforeItem();
         // 无图禁用（设计 06）；危险行样式（图标危险色、悬停低饱和危险底），
         // 删除确认仍走 onDeleteFile 的既有规则；快捷区最右，前有短分隔
         menu->addAction(actDelete);
@@ -2303,20 +2330,23 @@ QMenu *MainWindow::buildContextMenu()
     }
     pendingSep = true;
 
-    // —— 应用（设置… 固定显示，锁标记说明固定入口）——
-    beforeItem();
-    QAction *settingsItem = cmdId(menu, "settings", QStringLiteral("F5"),
-                                  [this]() { onSettings(); });
-    settingsItem->setProperty(CtxMenu::kLockProp, true);
-    if (vis("about")) {
-        menu->addAction(actAbout);
-        decorate(actAbout, "info", QString(), QStringLiteral("F1"), false, false);
-    }
-    if (vis("close_window")) {
-        cmdId(menu, "close_window", QStringLiteral("F4"), [this]() { close(); });
-    }
-    if (vis("quit")) {
-        cmdId(menu, "quit", QStringLiteral("X"), [this]() { close(); });
+    // —— 应用（根组总开关控制整段；设置… 组内固定显示，锁标记说明固定入口）——
+    // 「应用」关掉时整个应用组退出右键菜单；顶栏进入设置的原入口仍可用。
+    if (vis("settings")) {
+        beforeItem();
+        QAction *settingsItem = cmdId(menu, "settings", QStringLiteral("F5"),
+                                      [this]() { onSettings(); });
+        settingsItem->setProperty(CtxMenu::kLockProp, true);
+        if (vis("about")) {
+            menu->addAction(actAbout);
+            decorate(actAbout, "info", QString(), QStringLiteral("F1"), false, false);
+        }
+        if (vis("close_window")) {
+            cmdId(menu, "close_window", QStringLiteral("F4"), [this]() { close(); });
+        }
+        if (vis("quit")) {
+            cmdId(menu, "quit", QStringLiteral("X"), [this]() { close(); });
+        }
     }
 
     // 快捷区按设计固定顺序组装；五项全隐藏时整行与下方分隔一并省略
@@ -3425,8 +3455,17 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         }
     }
     else if (c == QLatin1String("layers")) { togglePsdLayers(); }
+    else if (c.startsWith(QLatin1String("settheme:"))) {
+        // 设置页入口：确保对话框开着，再走下拉真实信号路径（与鼠标选择同链路）。
+        const QString mode = c.mid(9);
+        if (!m_settingsDlg || !m_settingsDlg->isVisible())
+            onSettings();
+        if (auto *dlg = qobject_cast<SettingsDialog *>(m_settingsDlg.data()))
+            dlg->probeTheme(mode);
+    }
     else if (c.startsWith(QLatin1String("theme:"))) {
         const QString mode = c.mid(6);
+        ThemeProbe::begin("menu-select", mode.toUtf8().constData());
         Config::instance().settings().setValue(QStringLiteral("config/theme"), mode);
         Theme::applySetting(*qApp, mode);
         refreshThemeSurfaces();
@@ -3549,6 +3588,31 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         dlg->setAttribute(Qt::WA_DeleteOnClose);
         dlg->show();
         dlg->probeAppMenuPageGrab(c.mid(12));
+    }
+    // appmenushot:<out>[:<W>x<H>] —— 大纲视图整窗截图（2026-11-16 开关层级
+    // 修订验收）：切到「查看器右键菜单」页，可指定窗口尺寸后抓整个设置窗。
+    else if (c.startsWith(QLatin1String("appmenushot:"))) {
+        const QStringList parts = c.mid(12).split(QLatin1Char('|'));
+        const QString arg = parts.value(0);
+        int w = 0;
+        int h = 0;
+        QString scrollTo;
+        if (parts.size() > 1) {
+            const int x = parts.at(1).indexOf(QLatin1Char('x'));
+            if (x > 0) {
+                w = parts.at(1).left(x).toInt();
+                h = parts.at(1).mid(x + 1).toInt();
+            }
+        }
+        if (parts.size() > 2) {
+            scrollTo = parts.at(2);
+        }
+        const QString steps = parts.size() > 3 ? parts.at(3) : QString();
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        pushAppMenuRunState(dlg);
+        dlg->show();
+        dlg->probeAppMenuWindow(arg, w, h, scrollTo, steps);
     }
     // ctxsub:<out>:<id> —— 按目录 id 抓取对应子菜单渲染图（grab，不经屏幕）；
     // 如 ctxsub:Temp\sort-sub.png:parent_sort。子菜单不存在（父关）时不落盘。
@@ -4242,6 +4306,87 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         });
         if (show) {
             show->popup(mapToGlobal(QPoint(width() / 2 - 120, height() / 3)));
+        }
+    }
+    // 验收探针（2026-11-16 嵌套子菜单黑块复现）：先弹右键主菜单，主菜单
+    // popup 活动中再嵌套弹出「浏览与显示」分组子菜单——与用户实机操作路径
+    // 一致。必须配合 grab:<out.png> 抓真实合成屏幕：--screenshot-ui 的
+    // QWidget::grab 不走 DWM 合成，看不出嵌套 popup 丢 per-pixel alpha 的
+    // 整块黑。定位语言无关：找「其某个子菜单含 actSortName」的分组菜单。
+    else if (c == QLatin1String("groupmenu")) {
+        QMenu *menu = buildContextMenu();
+        QMenu *browse = findSubmenuDeep(menu->actions(), [this](QMenu *m) {
+            for (QAction *a : m->actions()) {
+                if (a->menu() && a->menu()->actions().contains(actSortName)) {
+                    return true;
+                }
+            }
+            return false;
+        });
+        const QPoint base = mapToGlobal(QPoint(width() / 2 - 180, height() / 3));
+        menu->popup(base);
+        if (browse) {
+            QTimer::singleShot(350, browse, [browse, base, menu]() {
+                if (menu->isVisible() && !browse->isVisible()) {
+                    browse->popup(base + QPoint(menu->width() - 8, -6));
+                }
+            });
+        }
+        // 真实屏幕色值采样（嵌套 popup 黑块诊断）：1.2s 后子菜单已稳定，
+        // 抓整屏并采样主/子菜单面板空白处的 RGB 落盘——纯黑 = 未绘制/未合成，
+        // #242528 = 面板色正常（黑块另有来源）。
+        QTimer::singleShot(1200, this, [this, menu, browse]() {
+            QScreen *scr = QGuiApplication::primaryScreen();
+            if (!scr) {
+                return;
+            }
+            const QImage shot = scr->grabWindow(0).toImage();
+            shot.save(QStringLiteral("Temp/ctx-group-screen.png"));
+            QFile f(QStringLiteral("Temp/menu-pixels.txt"));
+            if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                return;
+            }
+            QTextStream ts(&f);
+            ts << "grab=" << shot.width() << "x" << shot.height() << "\n";
+            const QRect gMain = menu->geometry();
+            ts << "mainRect=" << gMain.x() << "," << gMain.y() << " "
+               << gMain.width() << "x" << gMain.height() << "\n";
+            if (gMain.width() > 60) {
+                ts << "mainTopPad=" << QColor(shot.pixelColor(
+                           gMain.left() + 30, gMain.top() + 3)).name() << "\n";
+                ts << "mainPanel=" << QColor(shot.pixelColor(
+                           gMain.left() + 30, gMain.top() + 40)).name() << "\n";
+            }
+            if (browse && browse->isVisible()) {
+                const QRect gSub = browse->geometry();
+                ts << "subRect=" << gSub.x() << "," << gSub.y() << " "
+                   << gSub.width() << "x" << gSub.height() << "\n";
+                ts << "subTopPad=" << QColor(shot.pixelColor(
+                           gSub.left() + gSub.width() / 2, gSub.y() + 2)).name() << "\n";
+                ts << "subBottomPad=" << QColor(shot.pixelColor(
+                           gSub.left() + gSub.width() / 2, gSub.bottom() - 2)).name() << "\n";
+                ts << "subMidLeft=" << QColor(shot.pixelColor(
+                           gSub.left() + 6, gSub.top() + gSub.height() / 2)).name() << "\n";
+            } else {
+                ts << "subVisible=false\n";
+            }
+        });
+    }
+    // cropzoom:<in.png>:<out.png>:<x>:<y>:<w>:<h> —— 截图局部最近邻放大 3x。
+    // 整屏 grab 里的小浮层区域人工看不清，外部图像工具不进验收链路，
+    // 用本探针放大后肉眼对照（前后对照验收嵌套子菜单黑块修复时引入）。
+    else if (c.startsWith(QLatin1String("cropzoom:"))) {
+        const QStringList parts = c.mid(9).split(':');
+        if (parts.size() == 6) {
+            const QImage src(parts.at(0));
+            if (!src.isNull()) {
+                const QRect rect(parts.at(2).toInt(), parts.at(3).toInt(),
+                                 parts.at(4).toInt(), parts.at(5).toInt());
+                src.copy(rect)
+                    .scaled(rect.width() * 3, rect.height() * 3,
+                            Qt::IgnoreAspectRatio, Qt::FastTransformation)
+                    .save(parts.at(1));
+            }
         }
     }
     // 验收探针：把右键菜单的「浏览导航」子菜单**自身**渲染成 png（第 12 期文案验收用）。
@@ -5780,6 +5925,8 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
 
 void MainWindow::refreshThemeSurfaces()
 {
+    for (auto *dialog : findChildren<SettingsDialog *>())
+        dialog->syncAppliedTheme(Theme::currentSetting());
     if (m_canvas)
         m_canvas->setCanvasBackdrop(Config::instance().canvasBackdrop()
                                         == QLatin1String("solid")
@@ -5799,6 +5946,7 @@ void MainWindow::refreshThemeSurfaces()
         m_topBar->update();
     if (m_control)
         m_control->update();
+    ThemeProbe::mark(ThemeProbe::currentSeq(), "surfaces-done", "");
 }
 
 QVariant MainWindow::liveSettingValue(const QString &key) const
@@ -5843,9 +5991,51 @@ void MainWindow::closeEvent(QCloseEvent *event)
     QMainWindow::closeEvent(event);
 }
 
-void MainWindow::onSettings()
+void MainWindow::pushAppMenuRunState(SettingsDialog *dlg)
 {
-    // 已开着就把它提到前面，不叠第二个（F5 连按、菜单重复点击都会走到这里）。
+    if (!dlg) {
+        return;
+    }
+    SettingsDialog::AppMenuRunState s;
+    s.hasImage = !m_currentImage.isNull();
+    s.sortMode = Config::instance().sortMode();
+    s.sortDescending = Config::instance().sortDescending();
+    s.currentViewMode = (m_spreadMode == 3) ? QStringLiteral("spread_l2r")
+                      : (m_spreadMode == 4) ? QStringLiteral("spread_r2l")
+                      : (m_zoomMode == 0)   ? QStringLiteral("actual")
+                      : (m_zoomMode == 1)   ? QStringLiteral("fit")
+                                            : QStringLiteral("fitwidth");
+    s.currentInterp = (m_interpMode == 0) ? QStringLiteral("fast")
+                    : (m_interpMode == 1) ? QStringLiteral("smooth")
+                                          : QStringLiteral("lanczos");
+    s.currentEffect = (m_effect == 0) ? QStringLiteral("none")
+                    : (m_effect == 1) ? QStringLiteral("soften")
+                                      : QStringLiteral("sharpen");
+    s.zoomLocked = m_zoomLocked;
+    s.netRotation = m_netRotation;
+    s.negative = m_negative;
+    s.flippedH = m_flipH;
+    s.flippedV = m_flipV;
+    s.alwaysOnTop = actualTopmost();
+    s.checked.insert(QStringLiteral("always_on_top"), s.alwaysOnTop);
+    s.checked.insert(QStringLiteral("zoom_lock"), s.zoomLocked);
+    s.checked.insert(QStringLiteral("fx_negative"), s.negative);
+    s.checked.insert(QStringLiteral("fx_flipv"), s.flippedV);
+    s.checked.insert(QStringLiteral("fx_fliph"), s.flippedH);
+    s.checked.insert(QStringLiteral("sort_desc"), s.sortDescending);
+    // 依赖当前图片的命令在没有图片时禁用（与真实菜单的可用态同源）
+    for (const char *id : { "nav_next", "nav_prev", "nav_first", "nav_last", "nav_next10",
+                            "nav_prev10", "nav_rand_back", "nav_rand_fwd", "nav_folder_next",
+                            "nav_folder_prev", "zoom_in", "zoom_out", "zoom_in1", "zoom_out1",
+                            "zoom_100", "image_info", "copy_clipboard", "copy_folder",
+                            "open_editor", "delete_file", "wallpaper", "print" }) {
+        s.enabled.insert(QLatin1String(id), s.hasImage);
+    }
+    dlg->setAppMenuRunState(s);
+}
+
+void MainWindow::onSettings()
+{    // 已开着就把它提到前面，不叠第二个（F5 连按、菜单重复点击都会走到这里）。
     if (m_settingsDlg) {
         m_settingsDlg->raise();
         m_settingsDlg->activateWindow();
@@ -5858,6 +6048,7 @@ void MainWindow::onSettings()
     auto *dlg = new SettingsDialog(this);
     dlg->setAttribute(Qt::WA_DeleteOnClose);
     m_settingsDlg = dlg;
+    pushAppMenuRunState(dlg);
     // 关闭（accept / reject / 点 ×）后统一收尾；destroyed 保证点 × 走的 close()
     // 也不会漏掉运行态重放。
     connect(dlg, &QDialog::finished, this, [this]() { finishSettings(); });
@@ -5875,8 +6066,15 @@ void MainWindow::finishSettings()
     m_liveAnimControlOverrideSet = false;
     // 设置页可能改了主题（三档）；按当前取值重新解析应用（system 时随系统）。
     // 磨砂开关要先落进 UiStyle，否则 appQss() 里菜单底还是旧的不透明度。
-    UiStyle::setBlurMaterial(Config::instance().blurMaterial());
-    Theme::applySetting(*qApp, Config::instance().theme());
+    const QString theme = Config::instance().theme();
+    const bool blur = Config::instance().blurMaterial();
+    const bool light = Theme::resolveMode(theme) == Theme::Mode::Light;
+    const bool styleChanged = UiStyle::isLight() != light || UiStyle::blurMaterial() != blur;
+    UiStyle::setBlurMaterial(blur);
+    if (styleChanged)
+        Theme::applySetting(*qApp, theme);
+    else
+        Theme::currentSetting() = theme;
     syncThemeActions();   // 菜单勾选态跟着新主题走
     m_slideshowTimer->setInterval(Config::instance().slideshowIntervalMs());
     applyRuntimeSettings();

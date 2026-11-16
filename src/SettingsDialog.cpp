@@ -1,5 +1,6 @@
 #include "SettingsDialog.h"
 
+#include "AppMenuPreview.h"
 #include "DirectoryLoader.h"
 
 #include <QAbstractButton>
@@ -17,11 +18,13 @@
 #include <QFontMetrics>
 #include <QFrame>
 #include <QGridLayout>
+#include <QElapsedTimer>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QKeySequenceEdit>
 #include <QLabel>
 #include <QLineEdit>
+#include <QPointer>
 #include <QMessageBox>
 #include <QMouseEvent>
 #include <QPalette>
@@ -30,6 +33,7 @@
 #include <QPaintEvent>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QSet>
 #include <QShowEvent>
 #include <QSpinBox>
@@ -48,6 +52,7 @@
 #include <QWidget>
 #include <functional>
 #include <algorithm>
+#include <memory>
 #include <cmath>
 #include <shobjidl.h>
 #ifdef Q_OS_WIN
@@ -160,14 +165,14 @@ private:
 namespace {
 
 // ---------------------------------------------------------------------------
-// 尺寸：所有页共用 920 × 784（窄窗 900 × 660）。
+// 设置窗口标准尺寸 1068 × 784，最小 900 × 660。
 // 其余十页沿用 2026-11-11 的 kPage* 节奏，取值不变。
 // ---------------------------------------------------------------------------
 // 2026-11-12 用户纠偏：窗口随内容收紧（参考 macOS 设置窗口），默认逻辑宽
 // 920（原 1068 让卡片两侧留出大片无用空白），侧栏 208，卡片最大 640，
 // 超出继续拉宽时额外空间均分两侧、卡片不再变宽。实测：卡片 638、左右留白
 // 36/37；125% 下物理 1150 × 980。
-constexpr int kDlgW = 920;
+constexpr int kDlgW = 1068;   // 2026-11-16 开关层级修订：按设计稿恢复到 1068（覆盖 11-12 的 920 定档）
 constexpr int kDlgH = 784;
 // 键盘页只加高到 822（宽同 920）：14 行 + 四分组 + 冲突红条要一屏审阅
 // （规格 §审图索引）。宽度不再单独放宽。
@@ -910,8 +915,12 @@ protected:
         if (isChecked())
             f.setWeight(QFont::DemiBold);
         p.setFont(f);
-        p.setPen(isEnabled() ? UiStyle::fluent::textColor()
-                             : UiStyle::fluent::descColor());
+        QColor labelColor = UiStyle::fluent::textColor();
+        if (!isEnabled())
+            labelColor = UiStyle::fluent::descColor();
+        else if (isChecked())
+            labelColor = UiStyle::fluent::navSelTextColor();
+        p.setPen(labelColor);
         const int gap = 9;
         const int textX = plate.right() + gap;
         p.drawText(QRect(textX, 0, width() - textX - 8, height()),
@@ -1230,6 +1239,9 @@ QString withColorTokens(QString qss)
         // 设置页内部不另存色值。旧版蓝灰色值已全部作废。
         { "@GenTitleBg@",      []{ return UiStyle::fluent::titleBarBg(); } },
         { "@GenNavBg@",        []{ return UiStyle::fluent::navBg(); } },
+        { "@OutlineBg@",       []{ return UiStyle::fluent::outlineBg(); } },
+        { "@OutlineHeader@",   []{ return UiStyle::fluent::outlineAlt(); } },
+        { "@OutlineDisabled@", []{ return UiStyle::fluent::outlineDisabled(); } },
         { "@GenContentBg@",    []{ return UiStyle::fluent::contentBg(); } },
         { "@GenCardBg@",       []{ return UiStyle::fluent::cardBg(); } },
         { "@GenCardLine@",     []{ return UiStyle::fluent::cardLine(); } },
@@ -1271,7 +1283,7 @@ QFrame#formatGroup { background: @GroupBg@; border: 1px solid @Line@;
 QFrame#setGroup { background: @SetGroupBg@; border: 1px solid @SetGroupLine@;
     border-radius: 7px; }
 QWidget#settingRow { background: transparent; }
-QWidget#settingRow:hover { background: @RowHover@; }
+QWidget#settingRow:hover { background: @RowHover@; border-radius: 6px; }
 QWidget#rowControls { background: transparent; }
 QFrame#rowLine { background: @SetGroupLine@; border: 0; max-height: 1px; }
 QLabel#rowDesc { color: @HintText@; font-size: 11px; }
@@ -1408,6 +1420,42 @@ QPushButton#navItem:checked { background: @GenNavSel@; color: @GenOnAccent@;
 QPushButton#navItem[kbFocus="true"]:focus { border: 2px solid @GenAccent@; padding: 0 9px; }
 QPushButton#navItem:disabled { color: @GenDisabled@; }
 
+QLineEdit#appMenuFind {
+    background: @GenCtrlBg@; color: @GenText@;
+    border: 1px solid @GenCtrlLine@; border-radius: 7px;
+    min-height: 30px; max-height: 30px; padding: 0 7px; font-size: 12px;
+}
+QLineEdit#appMenuFind[kbFocus="true"]:focus {
+    border: 2px solid @GenAccent@; padding: 0 6px; min-height: 28px; max-height: 28px;
+}
+QPushButton#btnResetAppMenu {
+    background: @GenCtrlBg@; color: @GenText@; border: 1px solid @GenCtrlLine@;
+    border-radius: 7px; padding: 0 10px; font-size: 12px;
+}
+QPushButton#btnResetAppMenu:hover { background: @GenHover@; }
+QPushButton#btnResetAppMenu[kbFocus="true"]:focus { border: 2px solid @GenAccent@; }
+QFrame#appMenuSurface {
+    background: @OutlineBg@; border: 1px solid @GenCardLine@; border-radius: 9px;
+}
+QWidget#appMenuColumnHeader {
+    background: @OutlineHeader@; border-bottom: 1px solid @GenCardLine@;
+    min-height: 30px; max-height: 30px; border-top-left-radius: 8px; border-top-right-radius: 8px;
+}
+QWidget#appMenuColumnHeader QLabel { color: @GenDesc@; font-size: 12px; font-weight: 600; }
+QScrollArea#appMenuScroll, QScrollArea#appMenuScroll QWidget#qt_scrollarea_viewport {
+    background: transparent; border: 0;
+}
+QScrollArea#appMenuScroll QScrollBar:vertical { width: 10px; margin: 4px 2px; }
+QScrollArea#appMenuScroll QScrollBar::handle:vertical {
+    background: @OutlineDisabled@; border-radius: 2px; margin: 0 3px;
+}
+QScrollArea#appMenuScroll QScrollBar::handle:vertical:disabled { background: transparent; }
+QLabel#appMenuName, QLabel#appMenuBranchName { color: @GenText@; font-size: 13px; }
+QLabel#appMenuBranchName { font-weight: 600; }
+QLabel#appMenuDescription, QLabel#appMenuMatch { color: @GenDesc@; font-size: 11px; }
+QLabel#appMenuName:disabled, QLabel#appMenuBranchName:disabled,
+QLabel#appMenuDescription:disabled { color: @OutlineDisabled@; }
+
 /* 页标题 23/600，说明 11 */
 QLabel#pageTitle { font-size: 23px; font-weight: 600; color: @GenText@; }
 QLabel#pageDesc { font-size: 11px; color: @GenDesc@; }
@@ -1430,7 +1478,9 @@ QFrame#setGroup[fluent="v2"] { background: @GenCardBg@;
 QFrame#rowLine[fluent="v2"] { background: @GenRowLine@;
     margin-left: 14px; margin-right: 14px; }
 QWidget#settingRow[fluent="v2"] { background: transparent; }
-QWidget#settingRow[fluent="v2"]:hover { background: @GenHover@; }
+QWidget#settingRow[fluent="v2"]:hover { background: @GenHover@; border-radius: 10px; }
+QLabel#appMenuPreviewTitle { color: @GenText@; font-size: 15px; font-weight: 600; }
+QLabel#appMenuPreviewHint { color: @GenDesc@; font-size: 11px; }
 QLabel#sectionTitle[fluent="v2"] { font-size: 13px; font-weight: 600;
     color: @GenText@; }
 QLabel#rowLabel[fluent="v2"] { font-size: 13px; color: @GenText@; }
@@ -1552,7 +1602,15 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     setFont(UiStyle::font(12));
     setStyleSheet(UiStyle::dialogQss() + extraQss());
 
-    auto *root = new QVBoxLayout(this);
+    // Qt's Windows geometry check consults height-for-width even with SetNoConstraint.
+    // Scrollable pages can fit in the configured minimum without growing the window.
+    class SettingsLayout : public QVBoxLayout
+    {
+    public:
+        using QVBoxLayout::QVBoxLayout;
+        int minimumHeightForWidth(int) const override { return kDlgMinH; }
+    };
+    auto *root = new SettingsLayout(this);
     root->setContentsMargins(1, 1, 1, 1);
     root->setSpacing(0);
     // 允许窗口缩到 900x660：布局最小高（约 716）不得反向撑住窗口，
@@ -1644,11 +1702,24 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     m_pageTitle->setContentsMargins(11, 0, 0, 0);
     m_pageDesc->setContentsMargins(11, 0, 0, 0);
     auto *headBox = new QWidget(column);
-    auto *hb = new QVBoxLayout(headBox);
+    auto *hb = new QHBoxLayout(headBox);
     hb->setContentsMargins(0, 0, 0, 0);
-    hb->setSpacing(5);
-    hb->addWidget(m_pageTitle);
-    hb->addWidget(m_pageDesc);
+    hb->setSpacing(8);
+    // 标题与副标题纵向排；右侧留一个页专属动作位（「恢复默认菜单」）。
+    // 动作位在其它页隐藏，页头排版与既有页面一致。
+    auto *headText = new QWidget(headBox);
+    auto *ht = new QVBoxLayout(headText);
+    ht->setContentsMargins(0, 0, 0, 0);
+    ht->setSpacing(5);
+    ht->addWidget(m_pageTitle);
+    ht->addWidget(m_pageDesc);
+    hb->addWidget(headText, 1);
+    m_pageActionHost = new QWidget(headBox);
+    auto *ha = new QHBoxLayout(m_pageActionHost);
+    ha->setContentsMargins(0, 0, 0, 0);
+    ha->setSpacing(0);
+    m_pageActionHost->setVisible(false);
+    hb->addWidget(m_pageActionHost, 0, Qt::AlignTop | Qt::AlignRight);
     cvl->addWidget(headBox);
     // 页头分隔线（原型 .qv-page-head 的 border-bottom）。定稿的一般页无此线，
     // 由 selectPage 只在该页隐藏；其余页保持原样。
@@ -1696,6 +1767,10 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     // 会把表格压成半屏（2026-11-11 修订）。
     for (int i = 0; i < m_pages.size(); ++i) {
         if (i == 5)
+            continue;
+        // 查看器右键菜单页同理：大纲列表自己是一个滚动区，要 stretch 吃满高度；
+        // 尾部再加弹簧会与它平分剩余空间，列表只占半屏、下面空一截（2026-11-16）。
+        if (i == m_appMenuPageIndex)
             continue;
         if (auto *pv = qobject_cast<QVBoxLayout *>(m_pages[i]->layout()))
             pv->addStretch(1);
@@ -1861,6 +1936,7 @@ void SettingsDialog::selectPage(int index)
 {
     if (index < 0 || index >= m_pages.size())
         return;
+    const bool wasKeyboard = m_stack->currentIndex() == 5;
     m_stack->setCurrentIndex(index);
     m_pageTitle->setText(m_pageTitles.at(index));
     const QString desc = m_pageDescs.at(index);
@@ -1877,19 +1953,24 @@ void SettingsDialog::selectPage(int index)
     m_pageDesc->setContentsMargins(0, 0, 0, 0);
     updateContentColumnWidth();
 
-    // 键盘页标准画布比其他页高 38px：14 行 + 四分组要一屏审阅。窄窗（≤660）
-    // 不干预，交给表格内单一滚动区；用户手动放大过的高度也不强行压回。
-    if (height() > kDlgMinH + 8) {
-        const int target = (index == 5) ? kDlgKeyboardH : kDlgH;
-        if (height() != target)
-            resize(width(), target);
+    // 页专属动作位（「恢复默认菜单」）只在查看器右键菜单页出现
+    if (m_pageActionHost) {
+        m_pageActionHost->setVisible(m_appMenuPage && m_pages.at(index) == m_appMenuPage);
+    }
+
+    // 只调整标准尺寸，保留用户手动设定的窗口高度。
+    if (index == 5 && !wasKeyboard && height() == kDlgH) {
+        resize(width(), kDlgKeyboardH);
+    } else if (index != 5 && wasKeyboard && height() == kDlgKeyboardH) {
+        resize(width(), kDlgH);
     }
 }
 
 void SettingsDialog::updateGeneralHeaderSpacing()
 {
     // v2：所有页都无页头分隔线；标准档 8+8，紧凑档 6+6。
-    const int gap = m_compact ? kGenCompactHeadGap : 8;
+    const bool outline = m_appMenuPageIndex >= 0 && m_stack->currentIndex() == m_appMenuPageIndex;
+    const int gap = outline && !m_compact ? 9 : m_compact ? kGenCompactHeadGap : 8;
     if (m_headGapTop)
         m_headGapTop->changeSize(0, gap);
     if (m_headGapBottom)
@@ -1905,15 +1986,54 @@ void SettingsDialog::updateContentColumnWidth()
     // 内容列：宽度封顶到 kGenContentMaxW，靠 QBoxLayout 的居中把多出来的
     // 空间均分到两侧（align=AlignHCenter 已在外壳上设好）。窗口继续拉宽时
     // 卡片不变宽，只有两侧留白变大；窗口变窄时列跟着收，不再叠第二层内边距。
-    const int navW = m_compact ? kGenCompactNavW : kNavW;
-    const int padX = m_compact ? kGenCompactPadX : kGenColumnPadX;
-    const int paneW = qMax(0, width() - navW - 1 - 2 * padX);
-    const int colW = qMin(kGenContentMaxW, paneW);
-    if (m_contentColumn) {
-        m_contentColumn->setMinimumWidth(colW);
-        m_contentColumn->setMaximumWidth(colW);
+    const bool outline = m_appMenuPageIndex >= 0 && m_stack->currentIndex() == m_appMenuPageIndex;
+    const int extraWidth = qBound(0, width() - kDlgMinW, kDlgW - kDlgMinW);
+    const int navW = outline
+        ? 188 + (kNavW - 188) * extraWidth / (kDlgW - kDlgMinW)
+        : m_compact ? kGenCompactNavW : kNavW;
+    m_navRail->setFixedWidth(navW);
+    m_titleBar->setFixedHeight(outline || m_compact ? kGenCompactTitleH : kTitleBarH);
+    m_footer->setFixedHeight(outline || m_compact ? kGenCompactFooterH : kFooterH);
+    const bool shortNav = m_compact || height() < 720;
+    const int navRowH = shortNav ? kGenCompactNavRowH : kGenNavRowH;
+    m_navLayout->setSpacing(shortNav ? kGenCompactNavSpacing : kGenNavSpacing);
+    for (QAbstractButton *button : m_tabs) {
+        button->setFixedHeight(navRowH);
     }
-    m_contentLay->setContentsMargins(0, m_compact ? kGenCompactPaneTop : kGenPaneTop, 0, 12);
+    m_btnAbout->setFixedHeight(navRowH);
+    const int padX = m_compact ? kGenCompactPadX : kGenColumnPadX;
+    int colW = qMin(kGenContentMaxW, qMax(0, width() - navW - 1 - 2 * padX));
+    if (outline) {
+        // 在最小窗保留可用列宽，过渡到常规窗的 33px 两侧留白。
+        // 三栏（大纲 + 间隙 24 + 常驻一级预览）放宽到 1160，与图 01 的
+        // 「大纲约 880 / 预览 256」对齐；窄窗先压大纲，预览最后才收窄。
+        const int sideMargins = 42 + 24 * extraWidth / (kDlgW - kDlgMinW);
+        colW = qMin(1160, width() - navW - 2 - sideMargins);
+        constexpr int kPreviewTableGap = 24;
+        constexpr int kTableMinW = 420;
+        int previewW = 256;
+        if (colW - kPreviewTableGap - previewW < kTableMinW) {
+            previewW = qMax(200, colW - kPreviewTableGap - kTableMinW);
+        }
+        if (auto *scroll = m_appMenuPage
+                               ? m_appMenuPage->findChild<QScrollArea *>(
+                                     QStringLiteral("appMenuPreviewScroll"))
+                               : nullptr) {
+            scroll->setFixedWidth(previewW);
+        }
+        if (m_appMenuPreview) {
+            m_appMenuPreview->setMinimumWidth(160);
+        }
+        if (auto *cap = m_appMenuPage ? m_appMenuPage->findChild<QWidget *>(
+                               QStringLiteral("appMenuPreviewCaption"))
+                                      : nullptr) {
+            cap->setVisible(height() >= 720);
+        }
+        m_layoutAppMenuOutline(qMax(240, colW - kPreviewTableGap - previewW));
+    }
+    m_contentColumn->setFixedWidth(colW);
+    m_contentLay->setContentsMargins(0, m_compact ? kGenCompactPaneTop : kGenPaneTop,
+                                    0, outline ? 16 : 12);
 
     // 底栏提示对齐到内容列左缘：footer 左边距 + 恢复默认按钮宽 + 布局间距
     // 是固定量（实测合计 20），其余交给弹性间隔，提示文字起点 = 卡片左缘。
@@ -1932,22 +2052,6 @@ void SettingsDialog::applyCompactLayout(bool compact)
     if (m_compact == compact)
         return;
     m_compact = compact;
-
-    if (m_navRail)
-        m_navRail->setFixedWidth(compact ? kGenCompactNavW : kNavW);
-    if (m_titleBar)
-        m_titleBar->setFixedHeight(compact ? kGenCompactTitleH : kTitleBarH);
-    if (m_footer)
-        m_footer->setFixedHeight(compact ? kGenCompactFooterH : kFooterH);
-    if (m_navLayout)
-        m_navLayout->setSpacing(compact ? kGenCompactNavSpacing : kGenNavSpacing);
-    const int navRowH = compact ? kGenCompactNavRowH : kGenNavRowH;
-    for (QAbstractButton *b : m_tabs) {
-        if (auto *w = qobject_cast<QWidget *>(b))
-            w->setFixedHeight(navRowH);
-    }
-    if (m_btnAbout)
-        m_btnAbout->setFixedHeight(navRowH);
 
     // 所有页：组间距与行高按档位收放（字号与控件尺寸不变）。
     for (QWidget *page : m_pages) {
@@ -1984,12 +2088,23 @@ void SettingsDialog::applyCompactLayout(bool compact)
     updateContentColumnWidth();
 }
 
+QSize SettingsDialog::minimumSizeHint() const
+{
+    return QSize(kDlgMinW, kDlgMinH);
+}
+
 void SettingsDialog::resizeEvent(QResizeEvent *event)
 {
+    const auto restore = m_saveAppMenuScroll && m_appMenuPage->isVisible()
+                             ? m_saveAppMenuScroll() : std::function<void()>();
     QDialog::resizeEvent(event);
     // 窗口大小变化时即时重排：先切标准/紧凑档，再算内容列宽度。
     applyCompactLayout(width() < kGenCompactThreshold);
     updateContentColumnWidth();
+    if (restore) {
+        restore();
+        QTimer::singleShot(0, this, restore);
+    }
 }
 
 // ===========================================================================
@@ -2052,6 +2167,89 @@ public:
 
 private:
     QLabel *m_summary = nullptr;
+};
+
+// ---------------------------------------------------------------------------
+// 父项行末端的展开箭头：指向右 = 子项已收起，指向下 = 已展开。
+// 纯绘制、不接收鼠标（点击交给整行判断），颜色每次重绘现取，深浅色切换不残留。
+// ---------------------------------------------------------------------------
+class RowChevron : public QWidget
+{
+public:
+    explicit RowChevron(QWidget *parent) : QWidget(parent)
+    {
+        setFixedSize(16, 16);
+        setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    }
+    void setExpanded(bool on)
+    {
+        if (m_expanded == on)
+            return;
+        m_expanded = on;
+        setProperty("expanded", on);
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setPen(QPen(UiStyle::fluent::descColor(), 1.4, Qt::SolidLine,
+                      Qt::RoundCap, Qt::RoundJoin));
+        p.translate(width() / 2.0, height() / 2.0);
+        if (m_expanded)
+            p.rotate(90);
+        p.drawLine(QPointF(-1.8, -3.0), QPointF(1.6, 0.0));
+        p.drawLine(QPointF(1.6, 0.0), QPointF(-1.8, 3.0));
+    }
+
+private:
+    bool m_expanded = true;
+};
+
+// ---------------------------------------------------------------------------
+// 行点击转发：父项行本身、标题、说明、图标都不吃鼠标事件，这里统一收左键
+// 单击（按下与抬起位移 ≤4px 才算点击），交给回调切换子项显隐。
+// 开关是子控件且自己接收事件，点开关不会走到这里。
+// ---------------------------------------------------------------------------
+class RowClickRelay : public QObject
+{
+public:
+    RowClickRelay(std::function<void()> onClick, QObject *parent)
+        : QObject(parent), m_onClick(std::move(onClick))
+    {
+    }
+
+protected:
+    bool eventFilter(QObject *, QEvent *e) override
+    {
+        if (e->type() == QEvent::MouseButtonPress) {
+            auto *me = static_cast<QMouseEvent *>(e);
+            if (me->button() == Qt::LeftButton) {
+                m_pressPos = me->position().toPoint();
+                m_pressed = true;
+            }
+            return false;   // 不拦截，行照常收到 hover/重绘
+        }
+        if (e->type() == QEvent::MouseButtonRelease) {
+            auto *me = static_cast<QMouseEvent *>(e);
+            if (m_pressed && me->button() == Qt::LeftButton) {
+                m_pressed = false;
+                if ((me->position().toPoint() - m_pressPos).manhattanLength() <= 4) {
+                    if (m_onClick)
+                        m_onClick();
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+private:
+    std::function<void()> m_onClick;
+    QPoint m_pressPos;
+    bool m_pressed = false;
 };
 
 QWidget *SettingsDialog::beginCollapsibleSection(QWidget *page, const QString &title,
@@ -2816,11 +3014,29 @@ void SettingsDialog::updateThemeControlStates()
     // 保留该入口供既有调用点（加载配置 / 失败回退）复用。
 }
 
+void SettingsDialog::syncAppliedTheme(const QString &theme)
+{
+    if (m_themeApplying)
+        return;
+    if (m_themeDefer)
+        m_themeDefer->stop();
+    ++m_themeSerial;
+    m_themePendingActive = false;
+    m_themePending.clear();
+    syncThemeControls(theme);
+    m_themeAppliedSetting = theme;
+    m_themeAppliedMode = themeMode(theme);
+    refreshDialogStyle();
+}
+
 void SettingsDialog::refreshDialogStyle()
 {
     // 设置页构造时把 dialogQss() 编译进了局部表；主题切换后必须按新令牌重装，
     // 否则设置页（用户正在看的这一面）会停在旧主题。
     setStyleSheet(UiStyle::dialogQss() + extraQss());
+    if (m_refreshAppMenuStyle) {
+        m_refreshAppMenuStyle();
+    }
     update();
 }
 
@@ -2830,6 +3046,7 @@ void SettingsDialog::applyThemePreview()
         return;
 
     const QString want = themeFromControls();
+    ThemeProbe::begin("settings-select", want.toUtf8().constData());
     // 来源状态立即生效：跟随系统的监听条件与禁用态不依赖是否换肤。
     Theme::currentSetting() = want;
     updateThemeControlStates();
@@ -2845,21 +3062,29 @@ void SettingsDialog::applyThemePreview()
         // 等色也写盘：来源从「手选深色」变成「跟随系统」，配色虽未变，
         // 但配置必须保存，否则关窗后来源又跳回去。
         applyInstantValue(QStringLiteral("theme"), want);
+        ThemeProbe::mark(ThemeProbe::currentSeq(), "settings-same-mode-done",
+                         want.toUtf8().constData());
         return;
     }
 
-    // 真正变色：点击回调只排队，重任务等开关圆点过渡走完再执行。整页换肤是
-    // 一次全量重抛光（实测 ~230ms），排在过渡中间会把圆点动画拦腰截断。
+    // 真正变色：点击回调只排队，重任务压到下一次事件循环执行（不在信号栈内
+    // 同步重抛光）。2026-11-16：原来是等 PillToggle 旧胶囊动画 120ms+30ms，
+    // 但主题字段早已改成下拉框、没有圆点动画，这段固定等待是纯延迟；
+    // 快速连续选择仍由 m_themeSerial 保证只落最后一次。
     m_themePending = want;
     m_themePendingActive = true;
     ++m_themeSerial;
+    ThemeProbe::mark(ThemeProbe::currentSeq(), "settings-defer-start",
+                     want.toUtf8().constData());
     if (!m_themeDefer) {
         m_themeDefer = new QTimer(this);
         m_themeDefer->setSingleShot(true);
-        connect(m_themeDefer, &QTimer::timeout, this,
-                [this]() { applyPendingTheme(m_themeSerial); });
+        connect(m_themeDefer, &QTimer::timeout, this, [this]() {
+            ThemeProbe::mark(ThemeProbe::currentSeq(), "settings-defer-fire", "");
+            applyPendingTheme(m_themeSerial);
+        });
     }
-    m_themeDefer->start(PillToggle::motionDurationMs() + 30);
+    m_themeDefer->start(0);   // 仅排到下一事件循环，不再等旧开关动画 150ms
 }
 
 void SettingsDialog::applyPendingTheme(int serial)
@@ -2885,6 +3110,8 @@ void SettingsDialog::applyPendingTheme(int serial)
         refreshDialogStyle();
         // 主题是即时项：切换成功即写盘，关闭窗口（含「不保存」）也保留。
         applyInstantValue(QStringLiteral("theme"), want);
+        ThemeProbe::mark(ThemeProbe::currentSeq(), "settings-done",
+                         want.toUtf8().constData());
     } else {
         // 运行态没变（失败发生在下发入口）；回退到运行态实际值，而不是
         // 用户最后一次点选值，避免「控件显示浅色、界面还是深色」。
@@ -3462,25 +3689,19 @@ void SettingsDialog::probeCtxToggle(const QString &leaf)
 }
 
 // 本任务验收探针（--smoke appmenu:<id>[,<id>…]）：切到上下文菜单页后依次点击
-// 应用内右键菜单可见性开关（accessibleName = appmenu.<id>），驱动「父关子灰 /
+// 应用内右键菜单可见性开关（appMenuId），驱动「父关子灰 /
 // 组关整树灰 / 父开全量」等状态；--smoke appmenureset 点「恢复默认菜单」。
 // 同样走真实 PillToggle::toggled / clicked → 写盘链路。
 void SettingsDialog::probeAppMenuToggle(const QString &ids)
 {
     QTimer::singleShot(400, this, [this, ids]() {
-        const auto navs = findChildren<QPushButton *>(QStringLiteral("navItem"));
-        for (QPushButton *b : navs) {
-            if (b->text().contains(tr("上下文菜单"))) {
-                b->click();
-                break;
-            }
-        }
+        selectPage(m_appMenuPageIndex);
         QTimer::singleShot(400, this, [this, ids]() {
             const QStringList list = ids.split(u',');
             for (const QString &raw : list) {
-                const QString want = QStringLiteral("appmenu.") + raw.trimmed();
+                const QString want = raw.trimmed();
                 for (PillToggle *t : findChildren<PillToggle *>()) {
-                    if (t->accessibleName() == want) {
+                    if (t->property("appMenuId").toString() == want) {
                         t->click();
                         break;
                     }
@@ -3493,13 +3714,7 @@ void SettingsDialog::probeAppMenuToggle(const QString &ids)
 void SettingsDialog::probeAppMenuReset()
 {
     QTimer::singleShot(400, this, [this]() {
-        const auto navs = findChildren<QPushButton *>(QStringLiteral("navItem"));
-        for (QPushButton *b : navs) {
-            if (b->text().contains(tr("上下文菜单"))) {
-                b->click();
-                break;
-            }
-        }
+        selectPage(m_appMenuPageIndex);
         QTimer::singleShot(400, this, [this]() {
             if (auto *btn = findChild<QPushButton *>(QStringLiteral("btnResetAppMenu"))) {
                 btn->click();
@@ -3514,402 +3729,1242 @@ void SettingsDialog::probeAppMenuReset()
 void SettingsDialog::probeAppMenuPageGrab(const QString &out)
 {
     QTimer::singleShot(400, this, [this, out]() {
-        const auto navs = findChildren<QPushButton *>(QStringLiteral("navItem"));
-        for (QPushButton *b : navs) {
-            if (b->text().contains(tr("上下文菜单"))) {
-                b->click();
-                break;
-            }
-        }
+        selectPage(m_appMenuPageIndex);
         QTimer::singleShot(400, this, [this, out]() {
-            if (auto *stack = findChild<QStackedWidget *>()) {
-                for (int i = 0; i < stack->count(); ++i) {
-                    QWidget *pg = stack->widget(i);
-                    if (pg && pg->findChild<QPushButton *>(QStringLiteral("btnResetAppMenu"))) {
-                        // 长图取证：页面包一层 QScrollArea，抓内容控件本体才是
-                        // 完整列表（不受视口裁剪）。页面自身透明（真实界面由
-                        // contentPane 铺底），先铺同色底再叠加渲染结果。
-                        // addPage 的结构：stack 页 = QScrollArea(widgetResizable)，
-                        // 其 widget() 才是完整内容页。
-                        QScrollArea *sa = qobject_cast<QScrollArea *>(pg);
-                        QWidget *content = sa ? sa->widget() : pg;
-                        if (!content) {
-                            content = pg;
+            auto *scroll = qobject_cast<QScrollArea *>(m_appMenuOutline);
+            if (scroll && scroll->widget()) {
+                scroll->widget()->grab().save(out);
+            }
+            QCoreApplication::quit();
+        });
+    });
+}
+
+// probeAppMenuWindow（--smoke appmenushot:<out>[:<W>x<H>]）：切到「查看器右键
+// 菜单」页，可选改窗口尺寸，再抓整个设置窗（侧栏 + 页头 + 大纲 + 页脚）。
+void SettingsDialog::probeAppMenuWindow(const QString &out, int w, int h, const QString &scrollTo,
+                                       const QString &steps)
+{
+    QTimer::singleShot(350, this, [this, out, w, h, scrollTo, steps]() {
+        selectPage(m_appMenuPageIndex);
+        if (w > 0 && h > 0) {
+            resize(w, h);
+        }
+        QTimer::singleShot(600, this, [this, out, scrollTo, steps]() {
+            auto *sc = qobject_cast<QScrollArea *>(m_appMenuOutline);
+            const auto rows = m_appMenuPage->findChildren<QWidget *>(QStringLiteral("appMenuRow"));
+            auto rowById = [&rows](const QString &id) -> QWidget * {
+                for (QWidget *row : rows) {
+                    if (row->property("appMenuId").toString() == id)
+                        return row;
+                }
+                return nullptr;
+            };
+            auto *find = m_appMenuPage->findChild<QLineEdit *>(QStringLiteral("appMenuFind"));
+            QStringList states;
+            auto snapshot = [&, this](const QString &label) {
+                const int top = sc->verticalScrollBar()->value();
+                const QWidget *focus = QApplication::focusWidget();
+                QString focused;
+                QString anchor;
+                for (QWidget *row : rows) {
+                    if (row->isVisible() && anchor.isEmpty() && row->y() + row->height() > top) {
+                        anchor = QStringLiteral("%1@%2")
+                            .arg(row->property("appMenuId").toString()).arg(row->y() - top);
+                    }
+                    if (focus && (focus == row || row->isAncestorOf(focus))) {
+                        focused = row->property("appMenuId").toString();
+                        if (qobject_cast<const PillToggle *>(focus))
+                            focused += QStringLiteral(".switch");
+                        else if (focus->objectName() == QLatin1String("outlineChevron"))
+                            focused += QStringLiteral(".chevron");
+                    }
+                }
+                states << QStringLiteral("%1 size=%2x%3 scroll=%4 anchor=%5 focus=%6 search=%7 query=%8")
+                              .arg(label).arg(width()).arg(height()).arg(top).arg(anchor, focused)
+                              .arg(find->hasFocus() ? 1 : 0).arg(find->text());
+                states << QStringLiteral("  tableWidth=%1 navWidth=%2")
+                              .arg(sc->parentWidget()->width()).arg(m_navRail->width());
+                for (QWidget *row : rows) {
+                    if (!row->isVisible())
+                        continue;
+                    auto *chev = row->findChild<QAbstractButton *>(QStringLiteral("outlineChevron"));
+                    auto *toggle = row->findChild<PillToggle *>();
+                    states << QStringLiteral("  %1 y=%2 h=%3 expanded=%4 switch=%5 enabled=%6 %7")
+                                  .arg(row->property("appMenuId").toString()).arg(row->y()).arg(row->height())
+                                  .arg(chev ? int(chev->isChecked()) : -1)
+                                  .arg(toggle ? int(toggle->isChecked()) : -1)
+                                  .arg(toggle ? int(toggle->isEnabled()) : -1)
+                                  .arg(row->accessibleDescription());
+                }
+            };
+            if (!steps.isEmpty()) {
+                for (const QString &step : steps.split(QLatin1Char(';'))) {
+                    QApplication::processEvents();
+                    if (step.startsWith(QLatin1String("find="))) {
+                        find->setFocus(Qt::ShortcutFocusReason);
+                        find->setText(step.mid(5));
+                    } else if (step == QLatin1String("clear")) {
+                        if (auto *clear = find->findChild<QAction *>(QStringLiteral("appMenuClearSearch")))
+                            clear->trigger();
+                    } else if (step.startsWith(QLatin1String("state="))) {
+                        snapshot(step.mid(6));
+                    } else if (step.startsWith(QLatin1String("size="))) {
+                        const QStringList size = step.mid(5).split(u'x');
+                        resize(size.value(0).toInt(), size.value(1).toInt());
+                    } else if (step.startsWith(QLatin1String("page="))) {
+                        selectPage(step.mid(5).toInt());
+                    } else if (step.startsWith(QLatin1String("theme=")) && m_themeCombo) {
+                        m_themeCombo->setCurrentIndex(m_themeCombo->findData(step.mid(6)));
+                    } else if (step.startsWith(QLatin1String("scroll="))) {
+                        if (QWidget *row = rowById(step.mid(7)))
+                            sc->verticalScrollBar()->setValue(row->y() + 3);
+                    } else if (step.startsWith(QLatin1String("toggle="))) {
+                        const QString id = step.mid(7);
+                        const auto boxes = findChildren<QCheckBox *>();
+                        for (QCheckBox *cb : boxes) {
+                            if (cb->property("appMenuId").toString() == id) {
+                                cb->click();
+                                break;
+                            }
                         }
-                        const QPixmap pm = content->grab();
-                        QImage img(pm.size(), QImage::Format_ARGB32);
-                        img.fill(UiStyle::color(UiStyle::fluent::contentBg()));
-                        QPainter p(&img);
-                        p.drawPixmap(0, 0, pm);
-                        p.end();
-                        img.save(out);
+                    } else if (step.startsWith(QLatin1String("expand="))) {
+                        // 展开指定节点（只点三角），用于取证「六个默认关闭项」
+                        const QString id = step.mid(7);
+                        for (QWidget *w : findChildren<QWidget *>()) {
+                            if (w->property("appMenuId").toString() == id && w->objectName() == QLatin1String("appMenuRow")) {
+                                const auto chevs = w->findChildren<QAbstractButton *>();
+                                for (QAbstractButton *b : chevs) {
+                                    // 只点三角，别落到同一行里的胶囊开关上
+                                    // （OutlineChevron 无 Q_OBJECT，metaObject 是基类的，
+                                    //  只能按 objectName 认）
+                                    if (b->objectName() == QLatin1String("outlineChevron")
+                                        && b->isVisible()) {
+                                        b->click();
+                                        break;
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    } else if (step.startsWith(QLatin1String("focus="))) {
+                        const QStringList target = step.mid(6).split(u'.');
+                        if (target.first() == QLatin1String("search")) {
+                            find->setFocus(Qt::ShortcutFocusReason);
+                        } else if (QWidget *row = rowById(target.first())) {
+                            QWidget *control = row;
+                            if (target.value(1) == QLatin1String("chevron"))
+                                control = row->findChild<QAbstractButton *>(QStringLiteral("outlineChevron"));
+                            else if (target.value(1) == QLatin1String("switch"))
+                                control = row->findChild<PillToggle *>();
+                            if (control)
+                                control->setFocus(Qt::ShortcutFocusReason);
+                        }
+                    } else if (step == QLatin1String("expandall")) {
+                        // 全量节点核对：把所有折叠的三角点开
+                        const auto chevs = findChildren<QAbstractButton *>();
+                        for (QAbstractButton *b : chevs) {
+                            if (b->objectName() == QLatin1String("outlineChevron")
+                                && b->isVisible()
+                                && !b->property("expanded").toBool()) {
+                                b->click();
+                                QApplication::processEvents();
+                            }
+                        }
+                    } else if (step == QLatin1String("save")) {
+                        m_btnOk->click();
+                        QTimer::singleShot(80, qApp, &QCoreApplication::quit);
                         return;
+                    } else if (step == QLatin1String("reset")) {
+                        for (QPushButton *b : findChildren<QPushButton *>()) {
+                            if (b->objectName() == QLatin1String("btnResetAppMenu")) {
+                                b->click();
+                                break;
+                            }
+                        }
+                    } else if (step.startsWith(QLatin1String("preview="))) {
+                        // 打开常驻预览的二级浮层（取证：两级菜单与浮动位置）
+                        if (auto *pv = qobject_cast<AppMenuPreview *>(m_appMenuPreview)) {
+                            pv->setExpanded(step.mid(8));
+                            QApplication::processEvents();
+                        }
+                    } else if (step.startsWith(QLatin1String("wait="))) {
+                        // 等动画/布局落位（开关滑块过渡 120ms）
+                        QElapsedTimer t;
+                        t.start();
+                        const int ms = step.mid(5).toInt();
+                        while (t.elapsed() < ms) {
+                            QApplication::processEvents(QEventLoop::AllEvents, 10);
+                        }
+                    } else if (step.startsWith(QLatin1String("keys="))) {
+                        const auto names = step.mid(5).split(QLatin1Char(' '), Qt::SkipEmptyParts);
+                        for (const QString &n : names) {
+                            int key = 0;
+                            if (n == QLatin1String("Down")) key = Qt::Key_Down;
+                            else if (n == QLatin1String("Up")) key = Qt::Key_Up;
+                            else if (n == QLatin1String("Left")) key = Qt::Key_Left;
+                            else if (n == QLatin1String("Right")) key = Qt::Key_Right;
+                            else if (n == QLatin1String("Enter")) key = Qt::Key_Return;
+                            else if (n == QLatin1String("Escape")) key = Qt::Key_Escape;
+                            else if (n == QLatin1String("Space")) key = Qt::Key_Space;
+                            if (key && QApplication::focusWidget()) {
+                                QKeyEvent ev(QEvent::KeyPress, key, Qt::NoModifier);
+                                QApplication::sendEvent(QApplication::focusWidget(), &ev);
+                                QApplication::processEvents();
+                            }
+                        }
+                    }
+                }
+                QApplication::processEvents();
+            }
+            // 可选：把指定节点滚到可视区（验收「应用」等屏外分组用）
+            if (!scrollTo.isEmpty() && sc) {
+                if (scrollTo == QLatin1String("max")) {
+                    sc->verticalScrollBar()->setValue(sc->verticalScrollBar()->maximum());
+                } else if (scrollTo == QLatin1String("full")) {
+                    // 长图取证：整张大纲表面（不受视口裁剪），供全量节点核对
+                    if (QWidget *surface = sc->widget()) {
+                        QApplication::processEvents();
+                        const QPixmap pm = surface->grab();
+                        QImage img(pm.size(), QImage::Format_ARGB32);
+                        img.fill(UiStyle::color(UiStyle::fluent::cardBg()));
+                        QPainter pp(&img);
+                        pp.drawPixmap(0, 0, pm);
+                        pp.end();
+                        img.save(out);
+                        QTimer::singleShot(60, qApp, &QCoreApplication::quit);
+                        return;
+                    }
+                } else {
+                    for (QWidget *w : findChildren<QWidget *>()) {
+                        if (w->property("appMenuId").toString() == scrollTo && w->objectName() == QLatin1String("appMenuRow")) {
+                            const int y = w->mapTo(sc->widget(), QPoint(0, 0)).y();
+                            sc->verticalScrollBar()->setValue(y);
+                            break;
+                        }
                     }
                 }
             }
+            snapshot(QStringLiteral("final"));
+            QFile report(out + QStringLiteral(".txt"));
+            if (report.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                report.write(states.join(u'\n').toUtf8());
+            }
+            QPixmap base = grab();
+            // 二级浮层是独立顶层窗口，grab() 拍不到：按屏幕坐标叠回同一张图
+            for (QWidget *tl : QApplication::topLevelWidgets()) {
+                if (tl->objectName() != QLatin1String("appMenuPreviewPopup") || !tl->isVisible()) {
+                    continue;
+                }
+                const QPoint off = tl->mapToGlobal(QPoint(0, 0)) - mapToGlobal(QPoint(0, 0));
+                QPainter pp(&base);
+                pp.drawPixmap(off, tl->grab());
+            }
+            base.save(out);
+            QTimer::singleShot(80, qApp, &QCoreApplication::quit);
         });
     });
 }
 
 // ---------------------------------------------------------------------------
-// 上下文菜单页 · 应用内右键菜单可见性区（2026-11-14 全量配置修订）
-// 七段：打开与定位 / 常用动作 / 任务菜单 / 图像处理 / 文件操作 / 危险操作 /
-// 应用；列表开头是「恢复默认菜单」。可见性写 config/appmenu/<id>（目录与
-// 默认表唯一来源 MenuCatalog.h），缺键按默认表出值（首次安装 / 旧配置 /
-// 恢复默认三种情形一致）。父关 → 子项整体灰显，菜单里整组省略；「设置…」
-// 固定显示；顺序固定自 MenuCatalog，第一版无拖拽。
+// 查看器右键菜单页 · 大纲视图与开关层级修订（2026-11-16）
+// 设计基准：管理/QuikView-右键菜单设计-20261114/全量配置修订/大纲视图方案-开关层级修订
+//
+// 结构：页内查找栏 → 固定列头 → 单一大纲表面（圆角 9，内部独立纵向滚动）。
+// 层级：五个根组各有总开关；三角只切设置页展开，开关只切右键菜单可见性。
+// 开关层级（规格 §开关判定）：某父节点「直接子级里可独立配置的入口数」为 0 或 1
+//   时子行不再放开关，只保留父组总开关（危险操作 → 删除即此例）；≥2 时父组总开关
+//   加子项各自开关。枚举值 / 执行参数行恒为只展示。
+// 可见性仍唯一写 config/appmenu/<id>（目录见 MenuCatalog.h）；父关子灰但保原值，
+// 重新开启按原值恢复；展开状态写 ui/appmenu_expanded/<id>，与开关值分开保存。
 // ---------------------------------------------------------------------------
+
+namespace {
+
+constexpr int kOutlineIndent = 18;
+constexpr int kOutlineChevronSize = 24;
+constexpr int kOutlineLeft = 4;
+constexpr int kOutlineRight = 2;
+constexpr int kOutlineScrollWidth = 10;
+constexpr int kOutlineGap = 6;
+
+class OutlineChevron : public QAbstractButton
+{
+public:
+    explicit OutlineChevron(QWidget *parent) : QAbstractButton(parent)
+    {
+        setObjectName(QStringLiteral("outlineChevron"));
+        setFixedSize(kOutlineChevronSize, kOutlineChevronSize);
+        setCursor(Qt::PointingHandCursor);
+        setFocusPolicy(Qt::StrongFocus);
+        setCheckable(true);
+    }
+
+    void setExpanded(bool expanded, const QString &label, bool filtering)
+    {
+        const QSignalBlocker blocker(this);
+        setChecked(expanded);
+        setProperty("expanded", expanded);
+        setAccessibleName(label);
+        setAccessibleDescription(filtering
+            ? SettingsDialog::tr("查找期间沿匹配路径展开")
+            : expanded ? SettingsDialog::tr("已展开") : SettingsDialog::tr("已收起"));
+        setToolTip(accessibleDescription());
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        const QRectF target = QRectF(rect()).adjusted(2, 2, -2, -2);
+        if (underMouse() && isEnabled()) {
+            p.setPen(Qt::NoPen);
+            p.setBrush(UiStyle::fluent::hoverColor());
+            p.drawRoundedRect(target, 4, 4);
+        }
+        if (hasFocus() && property("kbFocus").toBool()) {
+            p.setBrush(Qt::NoBrush);
+            p.setPen(QPen(QColor(UiStyle::fluent::focus()), 2));
+            p.drawRoundedRect(target, 4, 4);
+        }
+        p.translate(width() / 2.0, height() / 2.0);
+        if (isChecked()) {
+            p.rotate(90);
+        }
+        p.setPen(Qt::NoPen);
+        p.setBrush(UiStyle::fluent::descColor());
+        p.drawPolygon(QPolygonF({{-2.5, -4}, {3, 0}, {-2.5, 4}}));
+    }
+
+    // The saved or filtered tree is the source of the checked state.
+    void nextCheckState() override {}
+};
+
+class OutlineRowWidget : public QWidget
+{
+public:
+    explicit OutlineRowWidget(bool root, QWidget *parent) : QWidget(parent), m_root(root)
+    {
+        setAttribute(Qt::WA_Hover);
+        setFocusPolicy(Qt::StrongFocus);
+        setMinimumHeight(root ? 33 : 32);
+    }
+
+    void setMatchHit(bool hit)
+    {
+        m_hit = hit;
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        if (m_root) {
+            p.fillRect(rect(), QColor(UiStyle::fluent::outlineAlt()));
+        }
+        if (m_hit || underMouse()) {
+            p.fillRect(rect(), m_hit ? QColor(UiStyle::fluent::searchHit())
+                                     : UiStyle::fluent::hoverColor());
+        }
+        p.setPen(QColor(UiStyle::fluent::outlineLine()));
+        p.drawLine(0, height() - 1, width(), height() - 1);
+        if (hasFocus() && property("kbFocus").toBool()) {
+            p.setRenderHint(QPainter::Antialiasing);
+            p.setPen(QPen(QColor(UiStyle::fluent::focus()), 2));
+            p.drawRoundedRect(QRectF(rect()).adjusted(3, 2, -3, -2), 5, 5);
+        }
+    }
+
+    void enterEvent(QEnterEvent *e) override { QWidget::enterEvent(e); update(); }
+    void leaveEvent(QEvent *e) override { QWidget::leaveEvent(e); update(); }
+    void focusInEvent(QFocusEvent *e) override { QWidget::focusInEvent(e); update(); }
+    void focusOutEvent(QFocusEvent *e) override { QWidget::focusOutEvent(e); update(); }
+
+private:
+    bool m_root;
+    bool m_hit = false;
+};
+
+class OutlineScroll : public QScrollArea
+{
+public:
+    explicit OutlineScroll(QWidget *parent) : QScrollArea(parent)
+    {
+        setObjectName(QStringLiteral("appMenuScroll"));
+        setWidgetResizable(true);
+        setFrameShape(QFrame::NoFrame);
+        setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+        setFocusPolicy(Qt::NoFocus);
+        viewport()->setAutoFillBackground(false);
+    }
+
+    QSize sizeHint() const override { return {0, 120}; }
+};
+
+struct OutlineRow {
+    QString id;
+    QString parentId;
+    QString label;
+    QString iconId;
+    QString summary;
+    bool group = false;
+    int depth = 0;
+    OutlineRowWidget *row = nullptr;
+    QWidget *nameCell = nullptr;
+    OutlineChevron *chev = nullptr;
+    QLabel *icon = nullptr;
+    QLabel *name = nullptr;
+    QLabel *desc = nullptr;
+    QWidget *fixedStatus = nullptr;
+    PillToggle *toggle = nullptr;
+
+    QWidget *primaryControl() const
+    {
+        if (toggle && toggle->isEnabled()) {
+            return toggle;
+        }
+        if (chev && chev->isEnabled()) {
+            return chev;
+        }
+        return row;
+    }
+};
+
+struct OutlineAnchor {
+    QWidget *row = nullptr;
+    int offset = 0;
+};
+
+QString highlightedOutlineLabel(const QString &label, const QString &query)
+{
+    QString html;
+    qsizetype start = 0;
+    for (qsizetype match = label.indexOf(query, 0, Qt::CaseInsensitive); match >= 0;
+         match = label.indexOf(query, start, Qt::CaseInsensitive)) {
+        html += label.mid(start, match - start).toHtmlEscaped();
+        html += QStringLiteral("<span style=\"background-color:%1;font-weight:600\">%2</span>")
+                    .arg(QLatin1String(UiStyle::fluent::searchWord()),
+                         label.mid(match, query.size()).toHtmlEscaped());
+        start = match + query.size();
+    }
+    return html + label.mid(start).toHtmlEscaped();
+}
+
+struct OutlineState {
+    QVector<OutlineRow> rows;
+    QHash<QString, bool> expanded;
+    QSet<QString> searchPath;
+    QSet<QString> searchAncestors;
+    QString query;
+    QString priorFocusId;
+    QPointer<QWidget> priorFocus;
+    OutlineAnchor priorAnchor;
+    OutlineScroll *scroll = nullptr;
+    QLineEdit *find = nullptr;
+    QLabel *count = nullptr;
+    QLabel *empty = nullptr;
+    QLabel *nameHead = nullptr;
+    QAction *searchIcon = nullptr;
+    QAction *clearSearch = nullptr;
+
+    const OutlineRow *rowFor(const QWidget *widget) const
+    {
+        for (const OutlineRow &item : rows) {
+            if (item.row == widget || (widget && item.row->isAncestorOf(widget))) {
+                return &item;
+            }
+        }
+        return nullptr;
+    }
+
+    bool isExpanded(const QString &id) const
+    {
+        return query.isEmpty() ? expanded.value(id) : searchAncestors.contains(id);
+    }
+
+    OutlineAnchor anchor() const
+    {
+        const int top = scroll->verticalScrollBar()->value();
+        for (const OutlineRow &item : rows) {
+            if (!item.row->isHidden() && item.row->y() + item.row->height() > top) {
+                return {item.row, item.row->y() - top};
+            }
+        }
+        return {};
+    }
+
+    void restoreAnchor(const OutlineAnchor &anchor) const
+    {
+        scroll->widget()->layout()->activate();
+        if (anchor.row && !anchor.row->isHidden()) {
+            scroll->verticalScrollBar()->setValue(anchor.row->y() - anchor.offset);
+        }
+    }
+
+    void updateColumns(int tableWidth) const
+    {
+        const int nameWidth = (tableWidth - 2) * 48 / 100;
+        nameHead->setFixedWidth(nameWidth - 9);
+        for (const OutlineRow &item : rows) {
+            item.nameCell->setFixedWidth(nameWidth - item.depth * kOutlineIndent);
+        }
+    }
+
+    void refresh() const
+    {
+        const Config &config = Config::instance();
+        for (const OutlineRow &item : rows) {
+            bool visible = query.isEmpty() || searchPath.contains(item.id);
+            QString disabledBy;
+            for (QString parent = item.parentId; !parent.isEmpty(); parent = AppMenu::parentOf(parent)) {
+                visible = visible && isExpanded(parent);
+                if (disabledBy.isEmpty() && !config.appMenuOwnVisible(parent)) {
+                    disabledBy = AppMenu::label(parent);
+                }
+            }
+            const bool inactive = !disabledBy.isEmpty();
+            const bool groupOff = item.group && !config.appMenuOwnVisible(item.id);
+            item.desc->setText(groupOff ? SettingsDialog::tr("总开关已关闭，可展开查看子项。")
+                                        : item.summary);
+            const bool hit = !query.isEmpty() && item.label.contains(query, Qt::CaseInsensitive);
+            item.row->setVisible(visible);
+            item.row->setMatchHit(hit);
+            item.name->setTextFormat(hit ? Qt::RichText : Qt::PlainText);
+            item.name->setText(hit ? highlightedOutlineLabel(item.label, query) : item.label);
+            item.name->setEnabled(!inactive);
+            item.desc->setEnabled(!inactive);
+            if (item.fixedStatus) {
+                item.fixedStatus->setEnabled(!inactive);
+                auto *lock = item.fixedStatus->findChild<QLabel *>(QStringLiteral("appMenuFixedLock"));
+                lock->setPixmap(MenuIcons::pixmap(QStringLiteral("lock"),
+                    inactive ? QColor(UiStyle::fluent::outlineDisabled())
+                             : UiStyle::fluent::descColor(), 12));
+            }
+
+            const bool danger = item.id == QLatin1String("delete_file")
+                                || item.id == QLatin1String("group_danger");
+            const QColor iconColor = inactive ? QColor(UiStyle::fluent::outlineDisabled())
+                                     : danger ? QColor(UiStyle::fluent::outlineDanger())
+                                              : UiStyle::fluent::textColor();
+            item.icon->setPixmap(MenuIcons::pixmap(item.iconId, iconColor, 16));
+            const QString level = SettingsDialog::tr("第 %1 级").arg(item.depth + 1);
+            const QString reason = inactive ? SettingsDialog::tr("「%1」已关闭").arg(disabledBy)
+                                            : item.desc->text();
+            item.row->setAccessibleDescription(reason.isEmpty() ? level : level + u'，' + reason);
+            if (item.chev) {
+                item.chev->setExpanded(isExpanded(item.id),
+                    SettingsDialog::tr("%1，%2，展开或收起").arg(item.label, level), !query.isEmpty());
+                item.chev->setEnabled(query.isEmpty());
+            }
+            if (item.toggle) {
+                item.toggle->setEnabled(!inactive);
+                item.toggle->setAccessibleDescription(item.row->accessibleDescription());
+                item.toggle->setToolTip(inactive ? reason : QString());
+            }
+            item.row->setFocusPolicy(item.primaryControl() == item.row
+                                         ? Qt::StrongFocus : Qt::ClickFocus);
+        }
+    }
+};
+
+} // namespace
 
 void SettingsDialog::buildAppMenuSections(QWidget *page)
 {
-    // 开关行（Single/Group/Parent）
-    struct AppRow {
-        QString id;
-        AppMenu::Kind kind = AppMenu::Single;
-        QString parentId;            // Parent 所属组；Group/Single 为空
-        QWidget *row = nullptr;
-        PillToggle *toggle = nullptr;
-        QLabel *label = nullptr;
-        QLabel *desc = nullptr;
-        QLabel *icon = nullptr;
-        QString iconId;
-    };
-    // 末级行（Leaf 子命令 + 组内固定行），无自己的开关，随父级整体灰显
-    struct ChildRow {
-        QWidget *row = nullptr;
-        QLabel *icon = nullptr;
-        QLabel *name = nullptr;
-        QString iconId;
-        QString groupId;             // 所属外层组
-        QString parentSwitchId;      // 所属 Parent（组内固定行为空）
-    };
-    QList<AppRow> allRows;
-    QList<ChildRow> allChildren;
+    m_appMenuPage = page;
+    m_appMenuPageIndex = m_pages.indexOf(page);
+    auto *pageLay = qobject_cast<QVBoxLayout *>(page->layout());
+    const auto st = std::make_shared<OutlineState>();
+    QSettings &settings = Config::instance().settings();
 
-    // 图标着色：正常用 fluent 文字色，灰显用 fluent 禁用色
-    auto tintIcon = [](QLabel *iconLabel, const QString &iconId, bool on) {
-        if (!iconLabel || iconId.isEmpty()) {
-            return;
+    auto descFor = [this](const QString &id, AppMenu::Kind kind) -> QString {
+        if (kind == AppMenu::Section) {
+            const int n = AppMenu::childrenOf(id).size();
+            return id == QLatin1String("group_task") ? tr("%1 个分组").arg(n)
+                                                     : tr("%1 个项目").arg(n);
         }
-        iconLabel->setPixmap(MenuIcons::pixmap(
-            iconId, on ? UiStyle::fluent::textColor()
-                       : UiStyle::color(UiStyle::fluent::disabled())));
-    };
-    auto greyText = [](QLabel *l, bool on) {
-        if (!l) {
-            return;
+        if (id == QLatin1String("copy_clipboard")) {
+            return tr("同时遵循已有的剪贴板入口设置。");
         }
-        l->setStyleSheet(on ? QString()
-                            : QStringLiteral("color:%1;")
-                                  .arg(QLatin1String(UiStyle::fluent::disabled())));
-    };
-
-    // 开关行：设置行最左插 16px 线性图标，右端 PillToggle（即时写盘）
-    auto addSwitchRow = [&](QWidget *section, const char *id, AppMenu::Kind kind,
-                            const char *parentId, const QString &desc,
-                            bool withToggle) -> AppRow {
-        SettingRowParts parts = addSettingRow(section, AppMenu::label(QLatin1String(id)), desc);
-        AppRow r;
-        r.id = QLatin1String(id);
-        r.kind = kind;
-        r.parentId = QLatin1String(parentId);
-        r.row = parts.row;
-        r.label = parts.label;
-        r.desc = parts.desc;
-        r.iconId = AppMenu::find(r.id) ? QLatin1String(AppMenu::find(r.id)->icon) : QString();
-        auto *icon = new QLabel(parts.row);
-        icon->setFixedSize(16, 16);
-        r.icon = icon;
-        if (auto *lay = qobject_cast<QHBoxLayout *>(parts.row->layout())) {
-            lay->insertWidget(0, icon, 0, Qt::AlignVCenter);
+        if (id == QLatin1String("parent_nav")) {
+            return tr("包含前后跳转、随机浏览及切换文件夹。关闭后仍可展开查看命令。");
         }
-        if (withToggle) {
-            auto *t = new PillToggle(parts.row);
-            t->setAccessibleName(QStringLiteral("appmenu.") + r.id);
-            parts.controls->addWidget(t, 0, Qt::AlignVCenter);
-            r.toggle = t;
+        if (id == QLatin1String("parent_zoom")) {
+            return tr("倍率调整、100% 与缩放锁定。");
         }
-        allRows.append(r);
-        return r;
+        if (id == QLatin1String("parent_interp")) {
+            return tr("选择缩放重采样方式。");
+        }
+        if (id == QLatin1String("parent_fx")) {
+            return tr("反色、Gamma 与翻转。");
+        }
+        if (id == QLatin1String("parent_rotate")) {
+            return tr("旋转或恢复图片方向。");
+        }
+        if (id == QLatin1String("parent_transition")) {
+            return tr("显示处理的三个互斥档位。");
+        }
+        if (id == QLatin1String("settings")) {
+            return tr("随「应用」总开关显示。");
+        }
+        if (id == QLatin1String("delete_file")) {
+            return tr("随「危险操作」总开关显示。");
+        }
+        if (id == QLatin1String("wallpaper") || id == QLatin1String("print")) {
+            return tr("随「文件操作」总开关显示。");
+        }
+        if (id == QLatin1String("copy_folder")) {
+            return tr("执行参数，随「复制更多」显隐。");
+        }
+        if (id == QLatin1String("open_editor")) {
+            return tr("执行参数，随「打开方式」显隐。");
+        }
+        return {};
     };
 
-    // 末级行：23px 缩进 + 细线指示 + 图标 + 名称（只列名称和图标，规格 §视觉）
-    auto addChildRow = [&](QWidget *section, const char *id,
-                           const char *groupId, const char *parentSwitchId) {
-        auto *card = groupCard(section);
-        if (!card) {
-            return;
-        }
-        if (auto *cardLay = qobject_cast<QVBoxLayout *>(card->layout())) {
-            if (cardLay->count() > 0) {
-                auto *line = new QFrame(card);
-                line->setObjectName(QStringLiteral("rowLine"));
-                line->setFixedHeight(1);
-                cardLay->addWidget(line);
-            }
-        }
-        auto *row = new QWidget(card);
-        row->setObjectName(QStringLiteral("appmenuChildRow"));
-        row->setAttribute(Qt::WA_Hover, true);
-        row->setMinimumHeight(33);
-        auto *h = new QHBoxLayout(row);
-        h->setContentsMargins(11, 4, kGenRowPadX, 4);
-        h->setSpacing(8);
-        auto *indent = new QFrame(row);
-        indent->setFixedSize(1, 16);
-        indent->setStyleSheet(
-            QStringLiteral("background:%1;").arg(QLatin1String(UiStyle::fluent::rowLine())));
-        h->addWidget(indent);
-        const QString iconId = AppMenu::find(QLatin1String(id))
-                                   ? QLatin1String(AppMenu::find(QLatin1String(id))->icon)
-                                   : QString();
-        auto *icon = new QLabel(row);
-        icon->setFixedSize(16, 16);
-        h->addWidget(icon, 0, Qt::AlignVCenter);
-        auto *name = new QLabel(AppMenu::label(QLatin1String(id)), row);
-        name->setObjectName(QStringLiteral("rowLabel"));
-        h->addWidget(name, 1, Qt::AlignVCenter);
-        row->setAccessibleName(QStringLiteral("appmenuchild.") + QLatin1String(id));
-        if (auto *cardLay = qobject_cast<QVBoxLayout *>(card->layout())) {
-            cardLay->addWidget(row);
-        }
-        allChildren.append({row, icon, name, iconId, QLatin1String(groupId),
-                            QLatin1String(parentSwitchId)});
-    };
+    auto *reset = new QPushButton(tr("恢复默认菜单"), m_pageActionHost);
+    reset->setObjectName(QStringLiteral("btnResetAppMenu"));
+    reset->setFixedHeight(32);
+    reset->setMinimumWidth(118);
+    m_pageActionHost->layout()->addWidget(reset);
 
-    // 开关绑定：缺键按默认表（首次安装/旧配置/恢复默认一致）；写入失败回滚并说明
-    auto bindToggle = [&](const AppRow &r) {
-        if (!r.toggle) {
-            return;
-        }
-        r.toggle->setChecked(Config::instance().appMenuVisible(r.id));
-        const QString key = QStringLiteral("appmenu/") + r.id;
-        const QString full = QStringLiteral("config/") + key;
-        connect(r.toggle, &PillToggle::toggled, this, [this, r, key, full](bool on) {
-            QString err;
-            const QList<QPair<QString, QVariant>> vals = { { key, on } };
-            if (writeValues(vals, false, &err)) {
-                return;
-            }
-            // 写入失败：显示原因并恢复到实际值（内存已由 writeValues 回滚）
-            const bool actual = Config::instance().settings().value(full,
-                AppMenu::defaultOn(r.id)).toBool();
-            if (r.toggle) {
-                const QSignalBlocker blocker(r.toggle);
-                r.toggle->setChecked(actual);
-            }
-            QMessageBox::warning(this, tr("上下文菜单"),
-                                 tr("写入失败：%1\n已恢复到当前实际值。").arg(err));
-        });
-    };
+    auto *findHost = new QWidget(page);
+    auto *findLay = new QHBoxLayout(findHost);
+    findLay->setContentsMargins(0, 0, 0, 14);
+    findLay->setSpacing(16);
+    st->find = new QLineEdit(findHost);
+    st->find->setObjectName(QStringLiteral("appMenuFind"));
+    st->find->setPlaceholderText(tr("查找菜单项…"));
+    st->find->setFixedSize(242, 32);
+    st->find->setAccessibleName(tr("查找菜单项"));
+    st->searchIcon = st->find->addAction(QIcon(), QLineEdit::LeadingPosition);
+    connect(st->searchIcon, &QAction::triggered, st->find,
+            [find = st->find]() { find->setFocus(Qt::MouseFocusReason); });
+    st->clearSearch = st->find->addAction(QIcon(), QLineEdit::TrailingPosition);
+    st->clearSearch->setObjectName(QStringLiteral("appMenuClearSearch"));
+    st->clearSearch->setText(tr("清除查找"));
+    st->clearSearch->setVisible(false);
+    connect(st->clearSearch, &QAction::triggered, st->find, &QLineEdit::clear);
+    st->count = new QLabel(findHost);
+    st->count->setObjectName(QStringLiteral("appMenuMatch"));
+    findLay->addWidget(st->find);
+    findLay->addWidget(st->count);
+    findLay->addStretch();
 
-    // —— 恢复默认菜单（列表开头，右侧对齐；只重置上下文菜单可见性）——
-    auto *resetHost = new QWidget(page);
-    auto *resetLay = new QHBoxLayout(resetHost);
-    resetLay->setContentsMargins(kGenRowPadX, 0, kGenRowPadX, 0);
-    resetLay->addStretch(1);
-    auto *btnResetMenu = new QPushButton(tr("恢复默认菜单"), resetHost);
-    btnResetMenu->setObjectName(QStringLiteral("btnResetAppMenu"));
-    btnResetMenu->setAccessibleName(QStringLiteral("appmenu.reset"));
-    btnResetMenu->setToolTip(tr("重置全部可见性开关；不影响浏览模式、快捷键、图像效果或其他设置"));
-    resetLay->addWidget(btnResetMenu);
-    if (auto *pageLay = qobject_cast<QVBoxLayout *>(page->layout())) {
-        pageLay->addWidget(resetHost);
-    }
+    // 常驻一级预览列（实装派单 2026-11-16）：大纲表与一级预览左右并排。
+    // 1440 时大纲宽由表悬停分配、预览固定 256；1068 收窄时仍保留 256；
+    // 900 最小窗按「限制可用空间」压缩预览宽度（见 refreshPreviewGeometry）。
+    auto *bodySplit = new QWidget(page);
+    auto *bodySplitLay = new QHBoxLayout(bodySplit);
+    bodySplitLay->setContentsMargins(0, 0, 0, 0);
+    bodySplitLay->setSpacing(24);
 
-    // 折叠标题的状态摘要：每组统计"已开启 / 总数"，开关一变就刷新（规格 §智能折叠）。
-    struct SumGroup {
-        QWidget *head;
-        int from;
-        int to;
-    };
-    QVector<SumGroup> sumGroups;
-    auto addSum = [&sumGroups, &allRows](QWidget *section, int from) {
-        sumGroups.append({ section->findChild<QWidget *>(QStringLiteral("sectionHeader")),
-                           from, allRows.size() });
-    };
+    auto *leftCol = new QWidget(bodySplit);
+    auto *leftLay = new QVBoxLayout(leftCol);
+    leftLay->setContentsMargins(0, 0, 0, 0);
+    leftLay->setSpacing(0);
+    leftLay->addWidget(findHost);
+    bodySplitLay->addWidget(leftCol, 1);
 
-    // —— 打开与定位 ——
-    int rowFrom = allRows.size();
-    QWidget *sec = beginCollapsibleSection(page, AppMenu::sectionTitle(QStringLiteral("open")),
-                                           QStringLiteral("folder-open"));
-    for (const char *id : { "open_image", "open_folder", "select_image", "locate_file" }) {
-        bindToggle(addSwitchRow(sec, id, AppMenu::Single, "", QString(), true));
-    }
-    addSum(sec, rowFrom);
+    auto *table = new QFrame(leftCol);
+    table->setObjectName(QStringLiteral("appMenuSurface"));
+    auto *tableLay = new QVBoxLayout(table);
+    tableLay->setContentsMargins(1, 1, 1, 1);
+    tableLay->setSpacing(0);
+    leftLay->addWidget(table, 1);
 
-    // —— 常用动作 ——
-    rowFrom = allRows.size();
-    sec = beginCollapsibleSection(page, AppMenu::sectionTitle(QStringLiteral("common")),
-                                  QStringLiteral("info"));
-    bindToggle(addSwitchRow(sec, "image_info", AppMenu::Single, "", QString(), true));
-    bindToggle(addSwitchRow(sec, "copy_clipboard", AppMenu::Single, "",
-                            tr("同时遵循已有的剪贴板入口设置。"), true));
-    bindToggle(addSwitchRow(sec, "always_on_top", AppMenu::Single, "", QString(), true));
-    addSum(sec, rowFrom);
+    auto *head = new QWidget(table);
+    head->setObjectName(QStringLiteral("appMenuColumnHeader"));
+    head->setFixedHeight(31);
+    tableLay->addWidget(head);
+    auto *headLay = new QHBoxLayout(head);
+    headLay->setContentsMargins(13, 0, kOutlineRight + kOutlineScrollWidth, 1);
+    headLay->setSpacing(kOutlineGap);
+    st->nameHead = new QLabel(tr("菜单项"), head);
+    headLay->addWidget(st->nameHead);
+    headLay->addWidget(new QLabel(tr("说明 / 状态"), head), 1);
+    auto *visibility = new QLabel(tr("可见性"), head);
+    const int controlsWidth = qMax(72, visibility->sizeHint().width());
+    visibility->setFixedWidth(controlsWidth);
+    visibility->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    headLay->addWidget(visibility);
 
-    // —— 任务菜单（浏览与显示 / 图像处理 / 文件操作 三组及其子树）——
-    rowFrom = allRows.size();
-    sec = beginCollapsibleSection(page, AppMenu::sectionTitle(QStringLiteral("task")),
-                                  QStringLiteral("browse"));
-    bindToggle(addSwitchRow(sec, "group_browse", AppMenu::Group, "", QString(), true));
-    bindToggle(addSwitchRow(sec, "parent_nav", AppMenu::Parent, "group_browse",
-                            tr("前后跳转、随机浏览及切换文件夹。"), true));
-    for (const char *id : { "nav_next", "nav_prev", "nav_first", "nav_last",
-                            "nav_next10", "nav_prev10", "nav_rand_back", "nav_rand_fwd",
-                            "nav_folder_next", "nav_folder_prev" }) {
-        addChildRow(sec, id, "group_browse", "parent_nav");
-    }
-    bindToggle(addSwitchRow(sec, "parent_sort", AppMenu::Parent, "group_browse", QString(), true));
-    for (const char *id : { "sort_name", "sort_time", "sort_size", "sort_type", "sort_desc" }) {
-        addChildRow(sec, id, "group_browse", "parent_sort");
-    }
-    bindToggle(addSwitchRow(sec, "parent_view", AppMenu::Parent, "group_browse", QString(), true));
-    for (const char *id : { "view_actual", "view_fit", "view_fitwidth",
-                            "view_two_l2r", "view_two_r2l" }) {
-        addChildRow(sec, id, "group_browse", "parent_view");
-    }
-    bindToggle(addSwitchRow(sec, "parent_zoom", AppMenu::Parent, "group_browse",
-                            tr("倍率调整、100% 与缩放锁定。"), true));
-    for (const char *id : { "zoom_in", "zoom_out", "zoom_lock", "zoom_100",
-                            "zoom_in1", "zoom_out1" }) {
-        addChildRow(sec, id, "group_browse", "parent_zoom");
-    }
-    bindToggle(addSwitchRow(sec, "group_image", AppMenu::Group, "", QString(), true));
-    bindToggle(addSwitchRow(sec, "parent_interp", AppMenu::Parent, "group_image",
-                            tr("选择缩放重采样方式。"), true));
-    for (const char *id : { "interp_bilinear", "interp_bicubic", "interp_lanczos" }) {
-        addChildRow(sec, id, "group_image", "parent_interp");
-    }
-    bindToggle(addSwitchRow(sec, "parent_fx", AppMenu::Parent, "group_image",
-                            tr("反色、Gamma 与翻转。"), true));
-    for (const char *id : { "fx_negative", "fx_gamma", "fx_flipv", "fx_fliph" }) {
-        addChildRow(sec, id, "group_image", "parent_fx");
-    }
-    bindToggle(addSwitchRow(sec, "parent_rotate", AppMenu::Parent, "group_image",
-                            tr("旋转或恢复图片方向。"), true));
-    for (const char *id : { "rot_none", "rot_left", "rot_right", "rot_180" }) {
-        addChildRow(sec, id, "group_image", "parent_rotate");
-    }
-    bindToggle(addSwitchRow(sec, "parent_transition", AppMenu::Parent, "group_image",
-                            tr("显示处理的三个互斥档位。"), true));
-    for (const char *id : { "fx_none", "fx_soften", "fx_sharpen" }) {
-        addChildRow(sec, id, "group_image", "parent_transition");
-    }
-    bindToggle(addSwitchRow(sec, "group_file", AppMenu::Group, "", QString(), true));
-    addChildRow(sec, "wallpaper", "group_file", "");       // 固定行，随分组显隐
-    bindToggle(addSwitchRow(sec, "parent_copymore", AppMenu::Parent, "group_file", QString(), true));
-    addChildRow(sec, "copy_folder", "group_file", "parent_copymore");
-    bindToggle(addSwitchRow(sec, "parent_openwith", AppMenu::Parent, "group_file", QString(), true));
-    addChildRow(sec, "open_editor", "group_file", "parent_openwith");
-    addChildRow(sec, "print", "group_file", "");           // 固定行，随分组显隐
-    addSum(sec, rowFrom);
+    st->scroll = new OutlineScroll(table);
+    m_appMenuOutline = st->scroll;
+    auto *body = new QWidget;
+    auto *bodyLay = new QVBoxLayout(body);
+    bodyLay->setContentsMargins(0, 0, 0, 0);
+    bodyLay->setSpacing(0);
+    st->scroll->setWidget(body);
+    tableLay->addWidget(st->scroll, 1);
 
-    // —— 危险操作 ——
-    rowFrom = allRows.size();
-    sec = beginCollapsibleSection(page, AppMenu::sectionTitle(QStringLiteral("danger")),
-                                  QStringLiteral("trash"));
-    bindToggle(addSwitchRow(sec, "delete_file", AppMenu::Single, "", QString(), true));
-    addSum(sec, rowFrom);
-
-    // —— 应用（设置… 固定显示：锁标记 + 说明，无开关）——
-    rowFrom = allRows.size();
-    sec = beginCollapsibleSection(page, AppMenu::sectionTitle(QStringLiteral("app")),
-                                  QStringLiteral("sliders"));
-    const AppRow settingsRow = addSwitchRow(sec, "settings", AppMenu::Fixed, "",
-                                            tr("固定入口，可从右键菜单返回此页。"), false);
+    // —— 右侧常驻一级预览列 ——
+    auto *previewHost = new QWidget(bodySplit);
+    auto *previewHostLay = new QVBoxLayout(previewHost);
+    previewHostLay->setContentsMargins(0, 0, 0, 0);
+    previewHostLay->setSpacing(6);
     {
-        auto *lockTag = new QLabel(tr("固定显示"), settingsRow.row);
-        lockTag->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        lockTag->setStyleSheet(
-            QStringLiteral("color:%1;font-size:11px;").arg(QLatin1String(UiStyle::fluent::desc())));
-        auto *lockIcon = new QLabel(settingsRow.row);
-        lockIcon->setPixmap(MenuIcons::pixmap(QStringLiteral("lock"),
-                                              UiStyle::color(UiStyle::fluent::desc()), 12));
-        lockIcon->setFixedSize(12, 12);
-        if (auto *ctl = settingsRow.row->findChild<QWidget *>(QStringLiteral("rowControls"))) {
-            if (auto *ctlLay = qobject_cast<QHBoxLayout *>(ctl->layout())) {
-                ctlLay->addWidget(lockIcon, 0, Qt::AlignVCenter);
-                ctlLay->addWidget(lockTag, 0, Qt::AlignVCenter);
-            }
-        }
-        allRows.append(settingsRow);
+        // 右列头（规格 §3.1 / 图 01）：标题 + 一句用法 + 菜单小标题
+        auto *title = new QLabel(tr("实时预览"), previewHost);
+        title->setObjectName(QStringLiteral("appMenuPreviewTitle"));
+        previewHostLay->addWidget(title);
+        auto *hint = new QLabel(tr("点击菜单项可定位设置。"), previewHost);
+        hint->setObjectName(QStringLiteral("appMenuPreviewHint"));
+        hint->setWordWrap(true);
+        previewHostLay->addWidget(hint);
+        // 小标题在短窗口隐藏（900/1068 的高度不足以同时容纳 15 行菜单）
+        auto *captionHost = new QWidget(previewHost);
+        captionHost->setObjectName(QStringLiteral("appMenuPreviewCaption"));
+        auto *captionLay = new QVBoxLayout(captionHost);
+        captionLay->setContentsMargins(0, 0, 0, 0);
+        captionLay->setSpacing(0);
+        captionLay->addSpacing(10);
+        auto *caption = new QLabel(tr("查看器右键菜单"), captionHost);
+        caption->setObjectName(QStringLiteral("appMenuPreviewHint"));
+        captionLay->addWidget(caption);
+        previewHostLay->addWidget(captionHost);
     }
-    bindToggle(addSwitchRow(sec, "about", AppMenu::Single, "", QString(), true));
-    bindToggle(addSwitchRow(sec, "close_window", AppMenu::Single, "", QString(), true));
-    bindToggle(addSwitchRow(sec, "quit", AppMenu::Single, "", QString(), true));
-    addSum(sec, rowFrom);
+    m_appMenuPreview = new AppMenuPreview(previewHost);
+    m_appMenuPreview->setObjectName(QStringLiteral("appMenuPreview"));
+    // 短窗口（900×660）时预览自身滚动，菜单行高与命中区不变
+    auto *previewScroll = new QScrollArea(previewHost);
+    previewScroll->setObjectName(QStringLiteral("appMenuPreviewScroll"));
+    previewScroll->setFrameShape(QFrame::NoFrame);
+    previewScroll->setWidgetResizable(true);
+    previewScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    previewScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    previewScroll->viewport()->setAutoFillBackground(false);
+    previewScroll->setStyleSheet(
+        QStringLiteral("QScrollArea#appMenuPreviewScroll{background:transparent;border:0;}"));
+    previewScroll->setWidget(m_appMenuPreview);
+    previewHostLay->addWidget(previewScroll, 1);
+    bodySplitLay->addWidget(previewHost);
 
-    // —— 状态联动：行清单已齐，按值捕获进 connect（存活到对话框销毁）——
-    // 规则（规格 §可见性与安全入口）：Parent 行可操作 = 所属组开；
-    // Group/Single 行恒可操作；子行可见 = 组开 且 所属 Parent 开；
-    // 组内固定行 = 组开。
-    auto refresh = [allRows, allChildren, tintIcon, greyText, sumGroups]() {
-        auto isOn = [allRows](const QString &id) -> bool {
-            for (const AppRow &r : allRows) {
-                if (r.id == id) {
-                    return r.toggle && r.toggle->isChecked();
-                }
+    pageLay->addWidget(bodySplit, 1);
+
+    auto addRows = [&](auto &&walk, const QString &parentId, int depth) -> void {
+        for (const AppMenu::Node *node : AppMenu::childrenOf(parentId)) {
+            OutlineRow item;
+            item.id = QLatin1String(node->id);
+            item.parentId = parentId;
+            item.label = AppMenu::label(item.id);
+            item.iconId = QLatin1String(node->icon);
+            item.depth = depth;
+            item.group = node->kind == AppMenu::Section || node->kind == AppMenu::Group;
+            item.summary = descFor(item.id, node->kind);
+            item.row = new OutlineRowWidget(depth == 0, body);
+            item.row->setObjectName(QStringLiteral("appMenuRow"));
+            item.row->setProperty("appMenuId", item.id);
+            item.row->setAccessibleName(item.label);
+            auto *layout = new QHBoxLayout(item.row);
+            layout->setContentsMargins(kOutlineLeft + depth * kOutlineIndent, 2, kOutlineRight, 2);
+            layout->setSpacing(kOutlineGap);
+
+            item.nameCell = new QWidget(item.row);
+            auto *nameLay = new QHBoxLayout(item.nameCell);
+            nameLay->setContentsMargins(0, 0, 0, 0);
+            nameLay->setSpacing(4);
+            if (AppMenu::childrenOf(item.id).isEmpty()) {
+                nameLay->addSpacing(kOutlineChevronSize);
+            } else {
+                item.chev = new OutlineChevron(item.nameCell);
+                nameLay->addWidget(item.chev);
+                st->expanded.insert(item.id, settings.value(
+                    QStringLiteral("ui/appmenu_expanded/") + item.id, depth == 0).toBool());
+                connect(item.chev, &QAbstractButton::clicked, this, [st, id = item.id]() {
+                    if (!st->query.isEmpty()) {
+                        return;
+                    }
+                    const bool expanded = !st->isExpanded(id);
+                    st->expanded.insert(id, expanded);
+                    QSettings &settings = Config::instance().settings();
+                    settings.setValue(QStringLiteral("ui/appmenu_expanded/") + id, expanded);
+                    settings.sync();
+                    st->refresh();
+                });
             }
-            return false;
-        };
-        for (const AppRow &r : allRows) {
-            const bool on = (r.kind == AppMenu::Parent) ? isOn(r.parentId) : true;
-            if (r.row) {
-                r.row->setEnabled(on);
+            item.icon = new QLabel(item.nameCell);
+            item.icon->setFixedSize(16, 16);
+            nameLay->addWidget(item.icon);
+            item.name = new QLabel(item.label, item.nameCell);
+            item.name->setObjectName(depth == 0 || node->kind == AppMenu::Group
+                                         ? QStringLiteral("appMenuBranchName")
+                                         : QStringLiteral("appMenuName"));
+            item.name->setWordWrap(true);
+            nameLay->addWidget(item.name, 1);
+            layout->addWidget(item.nameCell);
+
+            item.desc = new QLabel(item.summary, item.row);
+            item.desc->setObjectName(QStringLiteral("appMenuDescription"));
+            item.desc->setWordWrap(true);
+            layout->addWidget(item.desc, 1);
+
+            // Reserve the same column on every row, including fixed commands.
+            auto *control = new QWidget(item.row);
+            auto *controlLay = new QVBoxLayout(control);
+            controlLay->setContentsMargins(0, 0, 0, 0);
+            layout->addWidget(control, 0, Qt::AlignVCenter);
+            if (AppMenu::ownsSwitch(*node)) {
+                item.toggle = new PillToggle(control);
+                item.toggle->setFluent(true);
+                item.toggle->setLargeTrack(true);
+                item.toggle->setProperty("appMenuId", item.id);
+                item.toggle->setAccessibleName(tr("%1，可见性").arg(item.label));
+                item.toggle->setChecked(Config::instance().appMenuOwnVisible(item.id));
+                controlLay->addWidget(item.toggle, 0, Qt::AlignRight);
+                connect(item.toggle, &PillToggle::toggled, this,
+                        [this, st, id = item.id, toggle = item.toggle](bool on) {
+                    QString error;
+                    if (!writeValues({{QStringLiteral("appmenu/") + id, on}}, false, &error)) {
+                        const QSignalBlocker blocker(toggle);
+                        toggle->setChecked(Config::instance().appMenuOwnVisible(id));
+                        QMessageBox::warning(this, tr("查看器右键菜单"), error);
+                    }
+                    st->refresh();
+                    refreshAppMenuPreview(false);
+                });
+            } else if (item.id == QLatin1String("settings")) {
+                auto *status = new QWidget(control);
+                auto *statusLay = new QHBoxLayout(status);
+                statusLay->setContentsMargins(0, 0, 0, 0);
+                statusLay->setSpacing(4);
+                auto *lock = new QLabel(status);
+                lock->setObjectName(QStringLiteral("appMenuFixedLock"));
+                lock->setFixedSize(12, 12);
+                statusLay->addWidget(lock);
+                auto *label = new QLabel(tr("随组显示"), status);
+                label->setObjectName(QStringLiteral("appMenuDescription"));
+                label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+                label->setWordWrap(true);
+                statusLay->addWidget(label, 1);
+                controlLay->addWidget(status);
+                item.fixedStatus = status;
             }
-            if (r.toggle) {
-                r.toggle->setEnabled(on);
-            }
-            tintIcon(r.icon, r.iconId, on);
-            greyText(r.label, on);
-            greyText(r.desc, on);
-        }
-        for (const ChildRow &c : allChildren) {
-            const bool on = isOn(c.groupId)
-                            && (c.parentSwitchId.isEmpty() ? true : isOn(c.parentSwitchId));
-            if (c.row) {
-                c.row->setEnabled(on);
-            }
-            tintIcon(c.icon, c.iconId, on);
-            greyText(c.name, on);
-        }
-        // 折叠标题的状态摘要：每组「已开启项 / 有开关的项」
-        for (const SumGroup &g : sumGroups) {
-            int on = 0;
-            int total = 0;
-            for (int i = g.from; i < g.to && i < allRows.size(); ++i) {
-                if (allRows[i].toggle) {
-                    ++total;
-                    if (allRows[i].toggle->isChecked())
-                        ++on;
-                }
-            }
-            if (auto *h = static_cast<SectionHeader *>(g.head))
-                h->setSummary(on, total);
+
+            control->setFixedWidth(controlsWidth);
+            bodyLay->addWidget(item.row);
+            st->rows.append(item);
+            walk(walk, item.id, depth + 1);
         }
     };
-    // 初始着色（开关初值在 bindToggle 里已按缺键默认表设置）
-    refresh();
+    addRows(addRows, QString(), 0);
 
-    // 恢复默认菜单：清键回默认表 → 开关回到默认 → 灰显即时跟到默认状态
-    connect(btnResetMenu, &QPushButton::clicked, this, [this, allRows, refresh]() {
-        Config::instance().resetAppMenuVisibility();
-        for (const AppRow &r : allRows) {
-            if (r.toggle) {
-                const QSignalBlocker blocker(r.toggle);
-                r.toggle->setChecked(AppMenu::defaultOn(r.id));
+    st->empty = new QLabel(tr("没有匹配的菜单项"), body);
+    st->empty->setObjectName(QStringLiteral("appMenuDescription"));
+    st->empty->setAlignment(Qt::AlignCenter);
+    st->empty->setMinimumHeight(70);
+    st->empty->hide();
+    bodyLay->addWidget(st->empty);
+    bodyLay->addStretch();
+
+    m_layoutAppMenuOutline = [st](int width) { st->updateColumns(width); };
+    m_saveAppMenuScroll = [st]() -> std::function<void()> {
+        const OutlineAnchor anchor = st->anchor();
+        return [st, anchor]() { st->restoreAnchor(anchor); };
+    };
+    m_refreshAppMenuStyle = [st]() {
+        st->searchIcon->setIcon(QIcon(MenuIcons::pixmap(QStringLiteral("search"),
+                                                       UiStyle::fluent::descColor(), 14)));
+        st->clearSearch->setIcon(QIcon(MenuIcons::pixmap(QStringLiteral("x"),
+                                                        UiStyle::fluent::descColor(), 12)));
+        st->refresh();
+    };
+    m_refreshAppMenuStyle();
+    // 预览 → 大纲：展开祖先、滚入视口并聚焦对应行（只定位，不执行命令）
+    if (auto *preview = qobject_cast<AppMenuPreview *>(m_appMenuPreview)) {
+        preview->setLocalizeOutlineFn([st](const QString &id) {
+            // 临时展开祖先以带出目标行：只改内存，不写 INI，不覆盖用户的展开状态
+            for (QString p = AppMenu::parentOf(id); !p.isEmpty(); p = AppMenu::parentOf(p)) {
+                if (!st->expanded.value(p)) {
+                    st->expanded.insert(p, true);
+                }
+            }
+            st->refresh();
+            for (const OutlineRow &item : std::as_const(st->rows)) {
+                if (item.id == id) {
+                    st->scroll->ensureWidgetVisible(item.row, 0, 2);
+                    item.primaryControl()->setFocus(Qt::OtherFocusReason);
+                    break;
+                }
+            }
+        });
+    }
+    refreshAppMenuPreview();
+
+    // Record the exact control before focus moves into the query, even for mouse entry.
+    connect(qApp, &QApplication::focusChanged, page, [this, st](QWidget *old, QWidget *now) {
+        if (st->query.isEmpty() && now == st->find) {
+            if (const OutlineRow *row = st->rowFor(old)) {
+                st->priorFocusId = row->id;
+                st->priorFocus = old;
+            } else {
+                st->priorFocusId.clear();
+                st->priorFocus.clear();
             }
         }
-        refresh();
+        if (const OutlineRow *row = st->rowFor(now); row) {
+            if (keyboardInputMode()) {
+                st->scroll->ensureWidgetVisible(row->row, 0, 2);
+            }
+            // 大纲选中 → 预览对应行轻量定位高亮（分组标题定位其首个可见入口）
+            if (auto *preview = qobject_cast<AppMenuPreview *>(m_appMenuPreview)) {
+                preview->highlightFromOutline(row->id);
+            }
+        }
     });
 
-    // 每次切换开关 → 整页重算灰显
-    for (const AppRow &r : std::as_const(allRows)) {
-        if (r.toggle) {
-            connect(r.toggle, &PillToggle::toggled, this, [refresh]() { refresh(); });
+    connect(st->find, &QLineEdit::textChanged, this, [st](const QString &text) {
+        st->clearSearch->setVisible(!text.isEmpty());
+        const QString query = text.trimmed();
+        if (query == st->query) {
+            return;
+        }
+        if (st->query.isEmpty()) {
+            st->priorAnchor = st->anchor();
+            if (const OutlineRow *row = st->rowFor(QApplication::focusWidget())) {
+                st->priorFocusId = row->id;
+                st->priorFocus = QApplication::focusWidget();
+            }
+        }
+        st->query = query;
+        st->searchPath.clear();
+        st->searchAncestors.clear();
+        int hits = 0;
+        if (!query.isEmpty()) {
+            for (const OutlineRow &item : std::as_const(st->rows)) {
+                if (!item.label.contains(query, Qt::CaseInsensitive)) {
+                    continue;
+                }
+                ++hits;
+                st->searchPath.insert(item.id);
+                for (QString parent = item.parentId; !parent.isEmpty(); parent = AppMenu::parentOf(parent)) {
+                    st->searchPath.insert(parent);
+                    st->searchAncestors.insert(parent);
+                }
+            }
+        }
+        st->count->setText(query.isEmpty() ? QString() : tr("%1 项匹配").arg(hits));
+        st->empty->setVisible(!query.isEmpty() && hits == 0);
+        st->refresh();
+        if (!query.isEmpty()) {
+            st->scroll->verticalScrollBar()->setValue(0);
+            return;
+        }
+
+        const QString priorId = std::exchange(st->priorFocusId, QString());
+        const QPointer<QWidget> prior = std::exchange(st->priorFocus, {});
+        const OutlineAnchor anchor = st->priorAnchor;
+        // Expanding the original tree changes the scroll range after this input event.
+        QTimer::singleShot(0, st->scroll, [st, priorId, prior, anchor]() {
+            if (!st->query.isEmpty()) {
+                return;
+            }
+            for (const OutlineRow &item : std::as_const(st->rows)) {
+                if (item.id == priorId && item.row->isVisible()) {
+                    QWidget *target = prior && prior->isEnabled() ? prior.data() : item.primaryControl();
+                    target->setFocus(Qt::OtherFocusReason);
+                    break;
+                }
+            }
+            st->restoreAnchor(anchor);
+        });
+    });
+
+    connect(reset, &QPushButton::clicked, this, [this, st]() {
+        if (!Config::instance().resetAppMenuVisibility()) {
+            QMessageBox::warning(this, tr("查看器右键菜单"), tr("无法恢复默认菜单，配置未写入。"));
+            return;
+        }
+        for (const OutlineRow &item : std::as_const(st->rows)) {
+            if (item.toggle) {
+                const QSignalBlocker blocker(item.toggle);
+                item.toggle->setChecked(AppMenu::defaultOn(item.id));
+            }
+        }
+        st->refresh();
+        refreshAppMenuPreview(false);
+    });
+
+    struct KeyRelay : QObject {
+        std::function<bool(QWidget *, QKeyEvent *)> handle;
+        bool eventFilter(QObject *object, QEvent *event) override
+        {
+            return event->type() == QEvent::KeyPress
+                   && handle(static_cast<QWidget *>(object), static_cast<QKeyEvent *>(event));
+        }
+    };
+    auto *relay = new KeyRelay;
+    relay->setParent(page);
+    relay->handle = [st](QWidget *widget, QKeyEvent *event) {
+        if (event->key() == Qt::Key_Escape && !st->find->text().isEmpty()) {
+            st->find->clear();
+            return true;
+        }
+
+        QVector<const OutlineRow *> visible;
+        for (const OutlineRow &item : std::as_const(st->rows)) {
+            if (item.row->isVisible()) {
+                visible.append(&item);
+            }
+        }
+        const auto focusRow = [st, &visible](qsizetype index) {
+            if (index >= 0 && index < visible.size()) {
+                const OutlineRow *item = visible.at(index);
+                st->scroll->ensureWidgetVisible(item->row, 0, 2);
+                item->primaryControl()->setFocus(Qt::OtherFocusReason);
+            }
+        };
+        if (widget == st->find) {
+            if (event->key() == Qt::Key_Down && !visible.isEmpty()) {
+                focusRow(0);
+                return true;
+            }
+            return false;
+        }
+        const OutlineRow *current = st->rowFor(widget);
+        const qsizetype index = visible.indexOf(current);
+        if (index < 0) {
+            return false;
+        }
+        switch (event->key()) {
+        case Qt::Key_Up:
+            focusRow(index - 1);
+            return true;
+        case Qt::Key_Down:
+            focusRow(index + 1);
+            return true;
+        case Qt::Key_Right:
+            if (current->chev && current->chev->isEnabled() && !st->isExpanded(current->id)) {
+                current->chev->click();
+            } else if (index + 1 < visible.size() && visible.at(index + 1)->parentId == current->id) {
+                focusRow(index + 1);
+            }
+            return true;
+        case Qt::Key_Left:
+            if (current->chev && current->chev->isEnabled() && st->isExpanded(current->id)) {
+                current->chev->click();
+            } else {
+                for (qsizetype parent = index - 1; parent >= 0; --parent) {
+                    if (visible.at(parent)->id == current->parentId) {
+                        focusRow(parent);
+                        break;
+                    }
+                }
+            }
+            return true;
+        case Qt::Key_Return:
+        case Qt::Key_Enter:
+        case Qt::Key_Space:
+            // Display-only rows consume Enter as well, so it cannot save the dialog.
+            if (!event->isAutoRepeat()) {
+                QWidget *target = widget == current->row ? current->primaryControl() : widget;
+                if (auto *button = qobject_cast<QAbstractButton *>(target); button && button->isEnabled()) {
+                    button->click();
+                }
+            }
+            return true;
+        default:
+            return false;
+        }
+    };
+    st->find->installEventFilter(relay);
+    for (const OutlineRow &item : std::as_const(st->rows)) {
+        item.row->installEventFilter(relay);
+        if (item.chev) {
+            item.chev->installEventFilter(relay);
+        }
+        if (item.toggle) {
+            item.toggle->installEventFilter(relay);
         }
     }
+}
+
+void SettingsDialog::setAppMenuRunState(const AppMenuRunState &state)
+{
+    m_appMenuRunState = state;
+    refreshAppMenuPreview();
+}
+
+// 由 Config::appMenuVisible（生效可见性 = 本项 × 各级祖先总开关）生成两级模型，
+// 顺序与 MainWindow::buildContextMenu 一致：五段之间插分段线，空段整段省略。
+void SettingsDialog::refreshAppMenuPreview(bool relayout)
+{
+    Q_UNUSED(relayout);
+    auto *preview = qobject_cast<AppMenuPreview *>(m_appMenuPreview);
+    if (!preview) {
+        return;
+    }
+    const Config &cfg = Config::instance();
+    const AppMenuRunState &s = m_appMenuRunState;
+
+    auto checkedOf = [&s](const QString &id) {
+        return s.checked.value(id, false);
+    };
+    auto enabledOf = [&s](const QString &id) {
+        return s.enabled.value(id, true);
+    };
+    // 无图时与真实菜单一致：依赖当前图片的命令禁用（预览照常显示，供对照）
+    auto needsImage = [](const QString &id) {
+        static const QSet<QString> kImageCmds = {
+            QStringLiteral("nav_next"), QStringLiteral("nav_prev"), QStringLiteral("nav_first"),
+            QStringLiteral("nav_last"), QStringLiteral("nav_next10"), QStringLiteral("nav_prev10"),
+            QStringLiteral("nav_rand_back"), QStringLiteral("nav_rand_fwd"),
+            QStringLiteral("nav_folder_next"), QStringLiteral("nav_folder_prev"),
+            QStringLiteral("parent_nav"), QStringLiteral("parent_sort"), QStringLiteral("parent_view"),
+            QStringLiteral("parent_zoom"), QStringLiteral("zoom_in"), QStringLiteral("zoom_out"),
+            QStringLiteral("zoom_100"), QStringLiteral("zoom_in1"), QStringLiteral("zoom_out1"),
+            QStringLiteral("parent_interp"), QStringLiteral("parent_fx"), QStringLiteral("parent_rotate"),
+            QStringLiteral("parent_transition"), QStringLiteral("image_info"),
+            QStringLiteral("copy_clipboard"), QStringLiteral("copy_folder"),
+            QStringLiteral("open_editor"), QStringLiteral("delete_file"),
+            QStringLiteral("wallpaper"), QStringLiteral("print"),
+        };
+        return kImageCmds.contains(id);
+    };
+
+    // 运行态：排序 / 浏览方式 / 插值 / 过渡 / 旋转为互斥单选，其余为勾选
+    auto markOf = [&](const QString &id, bool *radio) {
+        *radio = false;
+        const QString view = s.currentViewMode;
+        if (id == QLatin1String("sort_name") || id == QLatin1String("sort_time")
+            || id == QLatin1String("sort_size") || id == QLatin1String("sort_type")) {
+            *radio = true;
+            const int idx = id == QLatin1String("sort_name") ? 0
+                          : id == QLatin1String("sort_time") ? 1
+                          : id == QLatin1String("sort_size") ? 2 : 3;
+            return s.sortMode >= 0 && s.sortMode == idx;
+        }
+        if (id == QLatin1String("view_actual")) { *radio = true; return view == QLatin1String("actual"); }
+        if (id == QLatin1String("view_fit")) { *radio = true; return view == QLatin1String("fit"); }
+        if (id == QLatin1String("view_fitwidth")) { *radio = true; return view == QLatin1String("fitwidth"); }
+        if (id == QLatin1String("view_two_l2r")) { *radio = true; return view == QLatin1String("spread_l2r"); }
+        if (id == QLatin1String("view_two_r2l")) { *radio = true; return view == QLatin1String("spread_r2l"); }
+        if (id == QLatin1String("interp_bilinear")) { *radio = true; return s.currentInterp == QLatin1String("fast"); }
+        if (id == QLatin1String("interp_bicubic")) { *radio = true; return s.currentInterp == QLatin1String("smooth"); }
+        if (id == QLatin1String("interp_lanczos")) { *radio = true; return s.currentInterp == QLatin1String("lanczos"); }
+        if (id == QLatin1String("fx_none")) { *radio = true; return s.currentEffect == QLatin1String("none"); }
+        if (id == QLatin1String("fx_soften")) { *radio = true; return s.currentEffect == QLatin1String("soften"); }
+        if (id == QLatin1String("fx_sharpen")) { *radio = true; return s.currentEffect == QLatin1String("sharpen"); }
+        if (id == QLatin1String("rot_none")) { *radio = true; return s.netRotation == 0 && !s.flippedH && !s.flippedV; }
+        if (id == QLatin1String("rot_left")) { *radio = true; return s.netRotation == 90; }
+        if (id == QLatin1String("rot_right")) { *radio = true; return s.netRotation == 270; }
+        if (id == QLatin1String("rot_180")) { *radio = true; return s.netRotation == 180; }
+        if (id == QLatin1String("sort_desc")) return s.sortDescending;
+        if (id == QLatin1String("always_on_top")) return s.alwaysOnTop;
+        if (id == QLatin1String("zoom_lock")) return s.zoomLocked;
+        if (id == QLatin1String("fx_negative")) return s.negative;
+        if (id == QLatin1String("fx_flipv")) return s.flippedV;
+        if (id == QLatin1String("fx_fliph")) return s.flippedH;
+        return checkedOf(id);
+    };
+
+    auto makeRow = [&](const AppMenu::Node &n, bool group) {
+        AppMenuPreview::Row r;
+        r.id = QLatin1String(n.id);
+        r.label = AppMenu::label(r.id);
+        r.icon = QLatin1String(n.icon);
+        r.shortcut = AppMenu::shortcut(r.id);
+        r.isGroup = group;
+        r.danger = r.id == QLatin1String("delete_file");
+        bool radio = false;
+        const bool on = markOf(r.id, &radio);
+        r.checked = on && !radio;
+        r.radioOn = on && radio;
+        // 互斥组里非当前项画空圈（排序 / 浏览方式 / 插值 / 过渡 / 旋转）
+        r.radioOff = radio && !on;
+        r.enabled = enabledOf(r.id)
+                    && (s.hasImage || !needsImage(r.id));
+        return r;
+    };
+    auto visible = [&cfg](const AppMenu::Node &n) {
+        return AppMenu::canConfigure(n)
+                   ? cfg.appMenuVisible(QLatin1String(n.id))
+                   : cfg.appMenuVisible(AppMenu::parentOf(QLatin1String(n.id)));
+    };
+
+    QVector<AppMenuPreview::Row> level1;
+    QHash<QString, QVector<AppMenuPreview::Row>> children;
+    bool hasContent = false;      // 已有可见入口（决定要不要画分段线）
+    bool segmentStarted = true;   // 当前分段是否已经开始
+
+    auto beginSegment = [&]() {
+        if (hasContent && !segmentStarted) {
+            AppMenuPreview::Row sep;
+            sep.id = QStringLiteral("__sep__");
+            sep.separator = true;
+            sep.enabled = false;
+            level1.append(sep);
+        }
+        segmentStarted = true;
+    };
+    auto addLeaf = [&](const AppMenu::Node &n) {
+        if (!visible(n)) {
+            return;
+        }
+        beginSegment();
+        level1.append(makeRow(n, false));
+        hasContent = true;
+    };
+    auto addMenu = [&](const AppMenu::Node &n) {
+        if (!visible(n)) {
+            return;
+        }
+        QVector<AppMenuPreview::Row> kids;
+        for (const AppMenu::Node *c : AppMenu::childrenOf(QLatin1String(n.id))) {
+            if (!visible(*c)) {
+                continue;
+            }
+            if (c->kind == AppMenu::Parent) {
+                for (const AppMenu::Node *gc : AppMenu::childrenOf(QLatin1String(c->id))) {
+                    if (visible(*gc)) {
+                        kids.append(makeRow(*gc, false));
+                    }
+                }
+            } else {
+                kids.append(makeRow(*c, false));
+            }
+        }
+        if (kids.isEmpty()) {
+            return;
+        }
+        beginSegment();
+        const AppMenuPreview::Row row = makeRow(n, true);
+        level1.append(row);
+        children.insert(row.id, kids);
+        hasContent = true;
+    };
+
+    for (const AppMenu::Node *root : AppMenu::childrenOf(QString())) {
+        if (!cfg.appMenuOwnVisible(QLatin1String(root->id))) {
+            continue;
+        }
+        segmentStarted = false;   // 新的一段：首个可见入口前插分段线
+        for (const AppMenu::Node *n : AppMenu::childrenOf(QLatin1String(root->id))) {
+            if (n->kind == AppMenu::Parent) {
+                addMenu(*n);
+            } else if (n->kind == AppMenu::Group) {
+                if (QLatin1String(n->id) == QLatin1String("group_file")) {
+                    addMenu(*n);   // 文件操作：一级一个入口，二级四命令直达
+                } else {
+                    for (const AppMenu::Node *p : AppMenu::childrenOf(QLatin1String(n->id))) {
+                        if (p->kind == AppMenu::Parent) {
+                            addMenu(*p);
+                        } else {
+                            addLeaf(*p);
+                        }
+                    }
+                }
+            } else {
+                addLeaf(*n);
+            }
+        }
+    }
+
+    preview->setModel(level1, children, preview->expandedId());
 }
 
 void SettingsDialog::buildContextMenuPage(QWidget *page)
@@ -5113,6 +6168,16 @@ QString SettingsDialog::keyboardConflicts()
     return msgs.join(QStringLiteral("\n"));
 }
 
+// —— 主题切换验收探针（--smoke settheme:<mode>）——
+void SettingsDialog::probeTheme(const QString &theme)
+{
+    if (!m_themeCombo)
+        return;
+    const int idx = m_themeCombo->findData(theme);
+    if (idx >= 0 && idx != m_themeCombo->currentIndex())
+        m_themeCombo->setCurrentIndex(idx);   // → currentIndexChanged → applyThemePreview
+}
+
 // —— 验收探针（--smoke keyconflict）——
 void SettingsDialog::probeKeyConflict()
 {
@@ -5243,18 +6308,33 @@ bool SettingsDialog::nativeEvent(const QByteArray &eventType, void *message, qin
     // 6px 以内算边框（含四角），其余仍走客户区，标题栏拖动不受影响。
     if (eventType == QByteArrayLiteral("windows_generic_MSG")) {
         auto *msg = static_cast<MSG *>(message);
+        if (msg && msg->message == WM_GETMINMAXINFO) {
+            MONITORINFO monitor{};
+            monitor.cbSize = sizeof(monitor);
+            if (GetMonitorInfo(MonitorFromWindow(msg->hwnd, MONITOR_DEFAULTTONEAREST), &monitor)) {
+                auto *bounds = reinterpret_cast<MINMAXINFO *>(msg->lParam);
+                const RECT area = monitor.rcWork;
+                const qreal scale = devicePixelRatioF();
+                const int minW = qRound(minimumWidth() * scale);
+                const int minH = qRound(minimumHeight() * scale);
+                bounds->ptMinTrackSize = {minW, minH};
+                bounds->ptMaxTrackSize = {qMax(minW, int(area.right - area.left)),
+                                          qMax(minH, int(area.bottom - area.top))};
+                *result = 0;
+                return true;
+            }
+        }
         if (msg && msg->message == WM_NCHITTEST) {
             const int gx = static_cast<short>(msg->lParam & 0xffff);
             const int gy = static_cast<short>((msg->lParam >> 16) & 0xffff);
-            const QPoint gp(gx, gy);
-            const qreal dpr = devicePixelRatioF();
-            const QRect g = geometry();
-            const QPointF local = QPointF(gp) / dpr - QPointF(g.topLeft());
+            POINT point{gx, gy};
+            ScreenToClient(msg->hwnd, &point);
+            const QPointF local = QPointF(point.x, point.y) / devicePixelRatioF();
             constexpr int kEdge = 6;
             const bool left = local.x() < kEdge;
-            const bool right = local.x() > g.width() - kEdge;
+            const bool right = local.x() >= width() - kEdge;
             const bool top = local.y() < kEdge;
-            const bool bottom = local.y() > g.height() - kEdge;
+            const bool bottom = local.y() >= height() - kEdge;
             int ht = 0;
             if (top && left)
                 ht = HTTOPLEFT;
@@ -5284,6 +6364,14 @@ bool SettingsDialog::nativeEvent(const QByteArray &eventType, void *message, qin
 void SettingsDialog::keyPressEvent(QKeyEvent *event)
 {
     // 搜索框内 Esc 先清搜索；Enter 不做「保存设置」。
+    if (event->key() == Qt::Key_Escape && m_appMenuPage && m_appMenuPage->isVisible()) {
+        auto *find = m_appMenuPage->findChild<QLineEdit *>(QStringLiteral("appMenuFind"));
+        if (find && !find->text().isEmpty()) {
+            find->clear();
+            event->accept();
+            return;
+        }
+    }
     if (m_search && m_search->hasFocus()
         && event->key() == Qt::Key_Escape && !m_search->text().isEmpty()) {
         m_search->clear();

@@ -8,6 +8,7 @@
 #include <QWidget>
 
 #include "UiStyle.h"
+#include "ThemeProbe.h"
 
 // 主题：深色 / 浅色 / 跟随系统（config/theme = "dark" | "light" | "system"）。
 // 深色已改为 QuikView 自有 Win11 视觉（令牌与样式全部来自 UiStyle.h），
@@ -57,7 +58,9 @@ inline void applyDark(QApplication &app)
     p.setColor(QPalette::Disabled, QPalette::WindowText, QColor(0x6b, 0x70, 0x78));
     app.setPalette(p);
 
+    ThemeProbe::mark(ThemeProbe::currentSeq(), "dark-palette-done", "");
     app.setStyleSheet(UiStyle::appQss());
+    ThemeProbe::mark(ThemeProbe::currentSeq(), "dark-qss-done", "");
 }
 
 // 浅色：2026-11-04 起为真实现。调色板 + UiStyle::appQss()（内部按 Scheme 出浅色 QSS）。
@@ -81,7 +84,9 @@ inline void applyLight(QApplication &app)
     p.setColor(QPalette::Disabled, QPalette::WindowText, QColor(0xa0, 0xa0, 0xa0));
     app.setPalette(p);
 
+    ThemeProbe::mark(ThemeProbe::currentSeq(), "light-palette-done", "");
     app.setStyleSheet(UiStyle::appQss());
+    ThemeProbe::mark(ThemeProbe::currentSeq(), "light-qss-done", "");
 }
 
 inline void apply(QApplication &app, Mode mode)
@@ -96,12 +101,16 @@ inline void apply(QApplication &app, Mode mode)
             break;
         popup->close();
     }
+    ThemeProbe::mark(ThemeProbe::currentSeq(), "global-popups-closed", "");
+
 
     if (mode == Mode::Dark) {
         applyDark(app);
     } else {
         applyLight(app);
     }
+    ThemeProbe::mark(ThemeProbe::currentSeq(), "global-applied",
+                     mode == Mode::Dark ? "dark" : "light");
 }
 
 // 便捷入口：按 config/theme 的字符串解析并应用。所有调用点统一走这里，

@@ -17,6 +17,7 @@
 class ImageCanvas;
 class ImageCache;
 class DirectoryLoader;
+class SettingsDialog;
 class MetadataPanel;
 class LayerPanel;
 class ThumbnailBrowser;
@@ -287,6 +288,9 @@ private:
     // QPointer 天然处理「用户点 × 已销毁」的悬空，重复 F5 也能识别已开着的实例。
     QPointer<QDialog> m_settingsDlg;
     void finishSettings();   // 设置关闭后重放运行态（原 exec() 之后的收尾）
+    // 打开设置时把运行态（有图、勾选、互斥当前值、可用性）一次性推给
+    // 「查看器右键菜单」的常驻预览，避免设置页自己维护第二份动作真源。
+    void pushAppMenuRunState(SettingsDialog *dlg);
 
     QAction *actSettings = nullptr;
     QAction *actFavorite = nullptr;

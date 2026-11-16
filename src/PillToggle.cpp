@@ -87,6 +87,17 @@ void PillToggle::setFluent(bool on)
     update();
 }
 
+void PillToggle::setLargeTrack(bool on)
+{
+    // 大纲视图专用放大档（2026-11-16）：轨道 34×20、滑块 14、命中区 44×28。
+    // 只在「查看器右键菜单」页用，其它设置页仍走 30×16 的 mini 档。
+    if (m_large == on)
+        return;
+    m_large = on;
+    updateGeometry();
+    update();
+}
+
 bool PillToggle::fluentMode() const
 {
     return m_fluent || property("fluent").toString() == QLatin1String("v2");
@@ -94,6 +105,8 @@ bool PillToggle::fluentMode() const
 
 QSize PillToggle::sizeHint() const
 {
+    if (m_large)
+        return QSize(44, 28);   // 轨道 34×20 + 2px 环 + 4/5px 外距
     if (fluentMode())
         return QSize(38, 24);   // mini switch：轨道 30×16 + 2px 环 + 2px 外距
     return QSize(UiStyle::SwitchTrackW + 2 * UiStyle::SwitchPad,
@@ -115,10 +128,10 @@ void PillToggle::paintEvent(QPaintEvent *event)
 
     const int pad = UiStyle::SwitchPad;
     // v2 mini switch：轨道 30×16 居中放在 38×24 命中区里（四面留 2px 环位）；
-    // 非 v2 页面维持原 40×20。
-    const int trackW = isFluent ? 30 : UiStyle::SwitchTrackW;
-    const int trackH = isFluent ? 16 : UiStyle::SwitchTrackH;
-    const QRectF track = isFluent
+    // 大纲视图放大档 34×20 / 命中区 44×28；非 v2 页面维持原 40×20。
+    const int trackW = m_large ? 34 : (isFluent ? 30 : UiStyle::SwitchTrackW);
+    const int trackH = m_large ? 20 : (isFluent ? 16 : UiStyle::SwitchTrackH);
+    const QRectF track = (isFluent || m_large)
         ? QRectF((width() - trackW) / 2.0, (height() - trackH) / 2.0, trackW, trackH)
         : QRectF(pad, pad, trackW, trackH);
     const qreal pos = qBound(0.0, m_pos, 1.0);
@@ -142,19 +155,22 @@ void PillToggle::paintEvent(QPaintEvent *event)
 
     // 禁用但仍勾选（跟随系统时显示系统当前模式）必须能看出「开」：
     // 整体降透明度而不是换成灰色轨道，否则滑块位置对了、颜色却像关。
-    if (disabled)
+    if (disabled && m_large) {
+        fill = UiStyle::color(UiStyle::fluent::outlineDisabledTrack());
+        border = fill;
+    } else if (disabled)
         p.setOpacity(0.52);
     else if (m_pressed)
         p.setOpacity(0.88);
 
     p.setPen(QPen(border, 1));
     p.setBrush(fill);
-    const qreal trackRadius = isFluent ? trackH / 2.0 : UiStyle::SwitchRadius;
+    const qreal trackRadius = (isFluent || m_large) ? trackH / 2.0 : UiStyle::SwitchRadius;
     p.drawRoundedRect(track.adjusted(0.5, 0.5, -0.5, -0.5),
                       trackRadius, trackRadius);
 
-    const int knob = isFluent ? 12 : UiStyle::SwitchKnob;
-    const int inset = isFluent ? 2 : UiStyle::SwitchInset;
+    const int knob = m_large ? 14 : (isFluent ? 12 : UiStyle::SwitchKnob);
+    const int inset = (isFluent || m_large) ? (trackH - knob) / 2 : UiStyle::SwitchInset;
     const qreal knobY = track.center().y() - knob / 2.0;
     const qreal knobLeft = track.left() + inset;
     const qreal knobRight = track.right() - inset - knob;
@@ -165,14 +181,16 @@ void PillToggle::paintEvent(QPaintEvent *event)
     p.setPen(Qt::NoPen);
     const QColor knobOff = isFluent ? UiStyle::fluent::knobColor() : UiStyle::muted();
     const QColor knobOn = isFluent ? UiStyle::fluent::knobColor() : UiStyle::panel();
-    p.setBrush(mixColor(knobOff, knobOn, pos));
+    p.setBrush(disabled && m_large
+                   ? UiStyle::color(UiStyle::fluent::outlineDisabledKnob())
+                   : mixColor(knobOff, knobOn, pos));
     p.drawEllipse(QRectF(knobX, knobY, knob, knob));
 
     if (disabled || m_pressed)
         p.setOpacity(1.0);
 
     // 浅色主题开启轨道加 1px 内描边 #218941，增强白色卡片上的边界。
-    if (isFluent && UiStyle::isLight() && pos > 0.5) {
+    if (isFluent && UiStyle::isLight() && pos > 0.5 && !(disabled && m_large)) {
         p.setBrush(Qt::NoBrush);
         p.setPen(QPen(UiStyle::fluent::switchEdgeColor(), 1));
         p.drawRoundedRect(track.adjusted(0.5, 0.5, -0.5, -0.5),

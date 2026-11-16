@@ -171,10 +171,10 @@ void CtxMenu::setQuickActions(const QList<QAction *> &acts)
 {
     m_quick = acts;
     m_quickHover = m_quickPressed = m_quickFocus = -1;
-    if (!acts.isEmpty()) {
-        setStyleSheet(QStringLiteral("QMenu { padding: 4px; padding-top: %1px; }")
-                          .arg(4 + kQuickReserve));
-    }
+    setObjectName(QStringLiteral("ctxQuickMenu"));
+    setStyleSheet(acts.isEmpty() ? QString()
+                                : QStringLiteral("QMenu#ctxQuickMenu { padding-top: %1px; }")
+                                      .arg(4 + kQuickReserve));
 }
 
 int CtxMenu::quickBodyTop() const
@@ -455,6 +455,17 @@ QSize CtxMenu::sizeHint() const
 
     QSize sh = QMenu::sizeHint();
     sh.setWidth(qMax(qMax(sh.width(), m_minWidth), content));
+
+    // Qt 的菜单尺寸会重复计入不对称的顶部内边距。以实际行布局为准，
+    // 在最后一行之后只保留底部内边距和描边。
+    int rowsBottom = 0;
+    for (QAction *action : acts) {
+        const QRect row = actionGeometry(action);
+        if (row.isValid())
+            rowsBottom = qMax(rowsBottom, row.bottom() + 1);
+    }
+    if (rowsBottom > 0)
+        sh.setHeight(rowsBottom + 5);
     return sh;
 }
 
@@ -466,10 +477,15 @@ void CtxMenu::paintEvent(QPaintEvent *event)
 
     // —— 面板：圆角 10 + 1px 边框，两层软影由系统/DWM 承担（NoDropShadowWindowHint
     //     + Acrylic 路径见 UiStyle::polishMenu），这里不再自绘投影。 ——
+    //     嵌套子菜单（UiStyle::polishSubmenu 置 appmenu.opaque）是不透明窗口，
+    //     磨砂半透明色画上去会直接混黑，改用纯色；顶层菜单磨砂开仍走半透明。 ——
     const QRectF frame = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
     QPainterPath bgPath;
     bgPath.addRoundedRect(frame, kMenuRadius, kMenuRadius);
-    p.fillPath(bgPath, menuSurface());
+    const QColor surface = property("appmenu.opaque").toBool()
+                               ? QColor(UiStyle::surfaceMenu())
+                               : menuSurface();
+    p.fillPath(bgPath, surface);
     QPen borderPen(UiStyle::color(UiStyle::menuLine()), 1.0);
     p.setPen(borderPen);
     p.setBrush(Qt::NoBrush);
@@ -586,7 +602,7 @@ void CtxMenu::paintEvent(QPaintEvent *event)
         QColor rowBg;
         if (dangerHover) {
             rowBg = dangerRowBg();
-        } else if (hovered && enabled) {
+        } else if ((hovered || focused) && enabled) {
             rowBg = colHover;
         }
         if (rowBg.isValid()) {
@@ -594,18 +610,6 @@ void CtxMenu::paintEvent(QPaintEvent *event)
             rowPath.addRoundedRect(QRectF(row).adjusted(1, 1, -1, -1), kRowRadius, kRowRadius);
             p.fillPath(rowPath, rowBg);
         }
-        // —— 键盘焦点：2px 蓝色内框（悬停底可与之叠加）——
-        if (focused && enabled) {
-            QPainterPath ring;
-            ring.addRoundedRect(QRectF(row).adjusted(1 + 1.0, 1 + 1.0, -1 - 1.0, -1 - 1.0),
-                                kRowRadius, kRowRadius);
-            QPen ringPen(UiStyle::interactive(), kFocusRing);
-            ringPen.setJoinStyle(Qt::RoundJoin);
-            p.setPen(ringPen);
-            p.setBrush(Qt::NoBrush);
-            p.drawPath(ring);
-        }
-
         // —— 列布局（规格：图标 16 → 8px → 标签 13px → 勾/点列 → 快捷键列(≥76) → 箭头）——
         const qreal iconX = row.left() + kIconPadX;
         const qreal iconY = row.center().y() - kIconSize / 2.0;

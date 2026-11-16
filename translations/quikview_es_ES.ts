@@ -3049,6 +3049,142 @@ Valor original restaurado; nada se escribió en la configuración.</translation>
         <source>继续编辑</source>
         <translation>Seguir editando</translation>
     </message>
+    <message>
+        <source>%1 个分组</source>
+        <translation>%1 grupos</translation>
+    </message>
+    <message>
+        <source>%1 个项目</source>
+        <translation>%1 elementos</translation>
+    </message>
+    <message>
+        <source>%1 项匹配</source>
+        <translation>%1 coincidencias</translation>
+    </message>
+    <message>
+        <source>%1，%2，展开或收起</source>
+        <translation>%1, %2, expandir o contraer</translation>
+    </message>
+    <message>
+        <source>%1，可见性</source>
+        <translation>%1, visibilidad</translation>
+    </message>
+    <message>
+        <source>「%1」已关闭</source>
+        <translation>«%1» está desactivado</translation>
+    </message>
+    <message>
+        <source>包含前后跳转、随机浏览及切换文件夹。关闭后仍可展开查看命令。</source>
+        <translation>Incluye navegación hacia adelante/atrás, exploración aleatoria y cambio de carpeta. Aun desactivado, puede expandirlo para ver los comandos.</translation>
+    </message>
+    <message>
+        <source>可见性</source>
+        <translation>Visibilidad</translation>
+    </message>
+    <message>
+        <source>实时预览</source>
+        <translation>Vista previa en vivo</translation>
+    </message>
+    <message>
+        <source>已展开</source>
+        <translation>Expandido</translation>
+    </message>
+    <message>
+        <source>已收起</source>
+        <translation>Contraído</translation>
+    </message>
+    <message>
+        <source>总开关已关闭，可展开查看子项。</source>
+        <translation>El interruptor principal está desactivado; puede expandir para ver los subelementos.</translation>
+    </message>
+    <message>
+        <source>查找期间沿匹配路径展开</source>
+        <translation>Expandir la ruta coincidente durante la búsqueda</translation>
+    </message>
+    <message>
+        <source>查找菜单项</source>
+        <translation>Buscar elementos del menú</translation>
+    </message>
+    <message>
+        <source>查找菜单项…</source>
+        <translation>Buscar elementos del menú…</translation>
+    </message>
+    <message>
+        <source>没有匹配的菜单项</source>
+        <translation>No hay elementos de menú coincidentes</translation>
+    </message>
+    <message>
+        <source>清除查找</source>
+        <translation>Borrar búsqueda</translation>
+    </message>
+    <message>
+        <source>点击菜单项可定位设置。</source>
+        <translation>Haga clic en un elemento del menú para localizar su ajuste.</translation>
+    </message>
+    <message>
+        <source>第 %1 级</source>
+        <translation>Nivel %1</translation>
+    </message>
+    <message>
+        <source>菜单项</source>
+        <translation>Elemento del menú</translation>
+    </message>
+    <message>
+        <source>说明 / 状态</source>
+        <translation>Descripción / estado</translation>
+    </message>
+    <message>
+        <source>随组显示</source>
+        <translation>Se muestra con el grupo</translation>
+    </message>
+    <message>
+        <source>无法恢复默认菜单，配置未写入。</source>
+        <translation>No se pudo restaurar el menú predeterminado; no se escribió la configuración.</translation>
+    </message>
+    <message>
+        <source>执行参数，随「复制更多」显隐。</source>
+        <translation>Parámetro de ejecución, se muestra con «Copiar más».</translation>
+    </message>
+    <message>
+        <source>执行参数，随「打开方式」显隐。</source>
+        <translation>Parámetro de ejecución, se muestra con «Abrir con».</translation>
+    </message>
+    <message>
+        <source>随「危险操作」总开关显示。</source>
+        <translation>Se muestra con el interruptor principal «Acciones peligrosas».</translation>
+    </message>
+    <message>
+        <source>随「应用」总开关显示。</source>
+        <translation>Se muestra con el interruptor principal «Aplicación».</translation>
+    </message>
+    <message>
+        <source>随「文件操作」总开关显示。</source>
+        <translation>Se muestra con el interruptor principal «Operaciones con archivos».</translation>
+    </message>
+    <message>
+        <source>停止</source>
+        <translation>Detener</translation>
+    </message>
+    <message>
+        <source>全屏切换</source>
+        <translation>Alternar pantalla completa</translation>
+    </message>
+    <message>
+        <source>关闭窗口</source>
+        <translation>Cerrar ventana</translation>
+    </message>
+    <message>
+        <source>询问</source>
+        <translation>Preguntar</translation>
+    </message>
+    <message>
+        <source>无操作</source>
+        <translation>Sin acción</translation>
+    </message>
+    <message>
+        <source>该选项暂未实现，将在后续版本提供。</source>
+        <translation>Esta opción aún no está implementada; estará disponible en una versión futura.</translation>
+    </message>
 </context>
 <context>
     <name>ThumbnailBrowser</name>
@@ -3328,6 +3464,13 @@ Valor original restaurado; nada se escribió en la configuración.</translation>
     <message>
         <source>EXIF</source>
         <translation>EXIF</translation>
+    </message>
+</context>
+<context>
+    <name>AppMenuPreview</name>
+    <message>
+        <source>当前没有可显示的菜单项</source>
+        <translation>No hay elementos de menú que mostrar.</translation>
     </message>
 </context>
 </TS>

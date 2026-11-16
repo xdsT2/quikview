@@ -3049,6 +3049,142 @@ https://github.com/xdsT2/quikview</translation>
         <source>继续编辑</source>
         <translation>계속 편집</translation>
     </message>
+    <message>
+        <source>%1 个分组</source>
+        <translation>%1개 그룹</translation>
+    </message>
+    <message>
+        <source>%1 个项目</source>
+        <translation>%1개 항목</translation>
+    </message>
+    <message>
+        <source>%1 项匹配</source>
+        <translation>%1개 일치</translation>
+    </message>
+    <message>
+        <source>%1，%2，展开或收起</source>
+        <translation>%1, %2, 펼치기 또는 접기</translation>
+    </message>
+    <message>
+        <source>%1，可见性</source>
+        <translation>%1, 표시 여부</translation>
+    </message>
+    <message>
+        <source>「%1」已关闭</source>
+        <translation>「%1」이 꺼져 있습니다</translation>
+    </message>
+    <message>
+        <source>包含前后跳转、随机浏览及切换文件夹。关闭后仍可展开查看命令。</source>
+        <translation>앞뒤 이동, 무작위 탐색, 폴더 전환이 포함됩니다. 꺼진 상태에서도 펼쳐서 명령을 볼 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>可见性</source>
+        <translation>표시 여부</translation>
+    </message>
+    <message>
+        <source>实时预览</source>
+        <translation>실시간 미리보기</translation>
+    </message>
+    <message>
+        <source>已展开</source>
+        <translation>펼침</translation>
+    </message>
+    <message>
+        <source>已收起</source>
+        <translation>접힘</translation>
+    </message>
+    <message>
+        <source>总开关已关闭，可展开查看子项。</source>
+        <translation>마스터 스위치가 꺼져 있습니다. 펼쳐서 하위 항목을 볼 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>查找期间沿匹配路径展开</source>
+        <translation>검색 중 일치 경로를 따라 펼칩니다</translation>
+    </message>
+    <message>
+        <source>查找菜单项</source>
+        <translation>메뉴 항목 찾기</translation>
+    </message>
+    <message>
+        <source>查找菜单项…</source>
+        <translation>메뉴 항목 찾기…</translation>
+    </message>
+    <message>
+        <source>没有匹配的菜单项</source>
+        <translation>일치하는 메뉴 항목이 없습니다</translation>
+    </message>
+    <message>
+        <source>清除查找</source>
+        <translation>검색 지우기</translation>
+    </message>
+    <message>
+        <source>点击菜单项可定位设置。</source>
+        <translation>메뉴 항목을 클릭하면 해당 설정으로 이동합니다.</translation>
+    </message>
+    <message>
+        <source>第 %1 级</source>
+        <translation>%1단계</translation>
+    </message>
+    <message>
+        <source>菜单项</source>
+        <translation>메뉴 항목</translation>
+    </message>
+    <message>
+        <source>说明 / 状态</source>
+        <translation>설명 / 상태</translation>
+    </message>
+    <message>
+        <source>随组显示</source>
+        <translation>그룹과 함께 표시</translation>
+    </message>
+    <message>
+        <source>无法恢复默认菜单，配置未写入。</source>
+        <translation>기본 메뉴를 복원할 수 없습니다. 설정이 기록되지 않았습니다.</translation>
+    </message>
+    <message>
+        <source>执行参数，随「复制更多」显隐。</source>
+        <translation>실행 매개변수입니다. 「추가 복사」와 함께 표시됩니다.</translation>
+    </message>
+    <message>
+        <source>执行参数，随「打开方式」显隐。</source>
+        <translation>실행 매개변수입니다. 「열기 방법」과 함께 표시됩니다.</translation>
+    </message>
+    <message>
+        <source>随「危险操作」总开关显示。</source>
+        <translation>「위험 작업」마스터 스위치와 함께 표시됩니다.</translation>
+    </message>
+    <message>
+        <source>随「应用」总开关显示。</source>
+        <translation>「응용 프로그램」마스터 스위치와 함께 표시됩니다.</translation>
+    </message>
+    <message>
+        <source>随「文件操作」总开关显示。</source>
+        <translation>「파일 작업」마스터 스위치와 함께 표시됩니다.</translation>
+    </message>
+    <message>
+        <source>停止</source>
+        <translation>중지</translation>
+    </message>
+    <message>
+        <source>全屏切换</source>
+        <translation>전체 화면 전환</translation>
+    </message>
+    <message>
+        <source>关闭窗口</source>
+        <translation>창 닫기</translation>
+    </message>
+    <message>
+        <source>询问</source>
+        <translation>묻기</translation>
+    </message>
+    <message>
+        <source>无操作</source>
+        <translation>작업 없음</translation>
+    </message>
+    <message>
+        <source>该选项暂未实现，将在后续版本提供。</source>
+        <translation>이 옵션은 아직 구현되지 않았습니다. 이후 버전에서 제공됩니다.</translation>
+    </message>
 </context>
 <context>
     <name>ThumbnailBrowser</name>
@@ -3328,6 +3464,13 @@ https://github.com/xdsT2/quikview</translation>
     <message>
         <source>EXIF</source>
         <translation>EXIF</translation>
+    </message>
+</context>
+<context>
+    <name>AppMenuPreview</name>
+    <message>
+        <source>当前没有可显示的菜单项</source>
+        <translation>표시할 메뉴 항목이 없습니다.</translation>
     </message>
 </context>
 </TS>
