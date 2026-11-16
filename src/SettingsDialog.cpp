@@ -6452,6 +6452,12 @@ QString SettingsDialog::keyboardConflicts()
 // —— 主题切换验收探针（--smoke settheme:<mode>）——
 void SettingsDialog::probeTheme(const QString &theme)
 {
+    // 外观页自 2026-11-16 起改为延后构建（首次进入才建），而设置页默认停在「一般」。
+    // 探针若直接读 m_themeCombo 会是空指针、静默不执行；这里先按用户真实路径把外观页
+    // 建出来（序号 2 见构造期 addPage 顺序），也让探针只承担「一般 + 外观」两页的树，
+    // 与真实使用者打开设置页后切主题时的现场一致。
+    if (!m_themeCombo)
+        ensurePageBuilt(2);
     if (!m_themeCombo)
         return;
     const int idx = m_themeCombo->findData(theme);
