@@ -9,7 +9,7 @@ QuikView 是一款开源的 Windows 看图器，支持目录翻页、双页阅�
 
 > **Windows x64 下载** · 到[最新发布页](https://github.com/xdsT2/quikview/releases/latest)选择安装版或便携 ZIP。便携版解压即可运行，无需另装 Qt。
 
-> **0.5.3** 主打不卡：缩放、快速翻图、大目录打开都不再压在主线程——缩放首帧 77.7ms → 1.6ms，连发滚轮松手到清晰帧 228ms → 30ms，跳慢图后 30ms 内再跳快图 104ms → 2.6ms；设置窗开窗 142ms → 18ms，设置页开着换主题 0.9~1.2 秒 → 约 0.1 秒。同时把查看器右键菜单设置改为可搜索的大纲，加入实时预览和分组总开关。安装或覆盖升级时保持资源管理器运行，修复桌面黑屏。详见 [发布说明](https://github.com/xdsT2/quikview/releases/tag/v0.5.3)。
+> **0.5.4** 收的是系统集成那段：安装、升级、卸载都不再要求重启计算机——壳扩展 DLL 改用带版本号的文件名，新文件走全新路径，旧文件不再需要「改名让路 + 排队到重启再删」；右键菜单只挂在图片文件上（png/jpg/jpeg/bmp/gif/webp/tif/tiff/psd/psb），对其它文件右键不再把壳扩展加载进资源管理器；关闭设置页不再卡近 1.3 秒（780ms → 207ms）。上一版 0.5.3 的加速仍在：缩放首帧 77.7ms → 1.6ms，连发滚轮松手到清晰帧 228ms → 30ms，设置窗开窗 142ms → 18ms。详见 [发布说明](https://github.com/xdsT2/quikview/releases/tag/v0.5.4)。
 
 ![QuikView 主窗口：顶部栏与底部控制胶囊浮在照片上](docs/screenshots/01-main.webp)
 
