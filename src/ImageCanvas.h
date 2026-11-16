@@ -3,8 +3,10 @@
 #include <QColor>
 #include <QElapsedTimer>
 #include <QGraphicsView>
+#include <QImage>
 #include <QMargins>
 #include <QString>
+#include <QThreadPool>
 #include <QTimer>
 
 class QGraphicsPixmapItem;
@@ -170,10 +172,18 @@ private:
     void keepScenePointAt(const QPointF &scenePt, const QPoint &viewportPt);
     // Lanczos：缩小显示时按目标尺寸重采样一次，用 devicePixelRatio 保持逻辑尺寸
     // 不变（scene 几何、fit/center/归一化锚点全都不受影响），只提高采样质量。
-    // refreshSampling() 带交互态闸门：拖窗口/连续缩放时只记账不计算，
-    // 停止 150ms 后由 m_sampleFlush 调 doRefreshSampling() 补一次。
+    // 重采样本身跑在专用单线程池里（见 SamplingTask），GUI 线程只投任务和应用结果；
+    // refreshSampling() 只对「拖窗口」保留 150ms 收尾闸门。
     void refreshSampling();
     void doRefreshSampling();
+    // 投后台任务 / 校验并应用回来结果 / 让已上屏与在飞结果一起作废。
+    void startPendingSample();
+    void applySampleResult(quint64 generation, QImage result, const QSize &target,
+                           qint64 sourceKey, int interp, bool sharp);
+    void invalidateSampling();
+    // 等后台结果期间顶画面的廉价帧（长边 1600 的快速缩小版，按源图缓存）。
+    QPixmap samplingPreview();
+    class SamplingTask;
     // fit/fitWidth 的纯几何部分（resetTransform+scale+flags+centerOn+emit），
     // 与 fitToWindow()/fitToWidth() 共用；resizeEvent 拖动期只调这里不算采样。
     void fitToWindowGeom();
@@ -228,11 +238,19 @@ private:
     bool m_shadowCacheLight = false;    // 缓存生成时的主题（变了就重建）
     int m_interp = InterpBicubic;
     QPixmap m_sourcePixmap;      // 未经 Lanczos 预处理的原图，缩放变化时按它重算
-    QSize m_samplingSize;        // 上次 Lanczos 重采样的目标像素尺寸（相同就跳过重算）
+    QImage m_sourceImage;        // 与 m_sourcePixmap 同源（隐式共享），后台线程只读重采样
+    QPixmap m_previewPixmap;     // 廉价预览帧：等采样结果时顶画面，避免重绘几十 MP 原图
+    qint64 m_previewSourceKey = 0;   // 预览帧对应的原图 cacheKey（换图就重建）
+    QSize m_samplingSize;        // 已上屏结果的目标像素尺寸（相同就跳过重算）
+    qint64 m_samplingSourceKey = 0;  // 已上屏结果对应的原图 cacheKey
+    int m_samplingInterp = -1;       // 已上屏结果对应的插值档
+    bool m_samplingSharp = false;    // 已上屏结果对应的强锐化态
+    quint64 m_sampleGeneration = 0;  // 每次启动/失效自增，旧任务凭它作废
+    bool m_sampleRunning = false;    // 线程池里是否有任务在跑（单飞）
+    QThreadPool m_samplePool;        // 专用单线程池：重采样不占 GUI 线程，也不抢全局池
     qreal m_zoom = 1.0;
-    // 交互收尾定时器：拖动/连续缩放停止 150ms 后补做一次重采样（单发）
+    // 交互收尾定时器：拖动连续缩放停止 150ms 后补做一次重采样（单发）
     QTimer m_sampleFlush;
-    QElapsedTimer m_lastSampleReq;   // 上一次 refreshSampling 请求时刻（判连续交互）
     // 左键按下记账：松手时「位移 <3px 且 <300ms 且在箭头带内」才算点击翻页，
     // 其余仍是 ScrollHandDrag 拖拽平移
     QElapsedTimer m_pressClock;

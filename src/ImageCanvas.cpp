@@ -2,6 +2,7 @@
 #include "UiStyle.h"
 
 #include <QApplication>
+#include <QCoreApplication>
 #include <QGraphicsOpacityEffect>
 #include <QGraphicsPixmapItem>
 #include <QGraphicsRectItem>
@@ -10,9 +11,12 @@
 #include <QFile>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QMetaObject>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPixmap>
+#include <QRunnable>
+#include <QThreadPool>
 #include <QPropertyAnimation>
 #include <QScrollBar>
 #include <QTextStream>
@@ -268,6 +272,45 @@ QImage applyStrongSharpen(const QImage &src)
     return out;
 }
 
+// 后台重采样任务：只碰按值带过来的 QImage（Qt 隐式共享、只读线程安全），
+// 不碰 QPixmap/QWidget。结果用 queued invokeMethod 回 GUI 线程，由
+// applySampleResult 做全键校验；owner 销毁时 Qt 自动丢弃排队的函子。
+class ImageCanvas::SamplingTask : public QRunnable
+{
+public:
+    SamplingTask(ImageCanvas *owner, QImage src, const QSize &target, bool sharp,
+                 quint64 generation, qint64 sourceKey, int interp)
+        : m_owner(owner), m_src(std::move(src)), m_target(target), m_sharp(sharp),
+          m_generation(generation), m_sourceKey(sourceKey), m_interp(interp)
+    {
+        setAutoDelete(true);
+    }
+
+    void run() override
+    {
+        QImage out = lanczosResample(m_src, m_target);
+        // 强锐化滤镜（C13）：仅 lanczos 缩小插值路径叠加，固定强度 unsharp mask
+        if (m_sharp)
+            out = applyStrongSharpen(out);
+        QMetaObject::invokeMethod(m_owner,
+            [owner = m_owner, gen = m_generation, result = std::move(out),
+             target = m_target, sourceKey = m_sourceKey, interp = m_interp,
+             sharp = m_sharp]() mutable {
+                owner->applySampleResult(gen, std::move(result), target, sourceKey, interp,
+                                         sharp);
+            }, Qt::QueuedConnection);
+    }
+
+private:
+    ImageCanvas *m_owner;
+    QImage m_src;
+    QSize m_target;
+    bool m_sharp;
+    quint64 m_generation;
+    qint64 m_sourceKey;
+    int m_interp;
+};
+
 // 空态标识：同心圆环 + 右下短斜线，与 resources/quikview.ico 同一视觉语汇。
 // 自有几何图形（不使用任何第三方 logo 的构形）。
 QPixmap makePlaceholderMark(int S, const QColor &color)
@@ -404,9 +447,12 @@ ImageCanvas::ImageCanvas(QWidget *parent)
     m_arrowPrev->hide();
     m_arrowNext->hide();
 
-    // 交互收尾：拖窗口边界 / 连续缩放停止 150ms 后补做一次重采样（只补当前 m_zoom）
+    // 交互收尾：拖窗口边界停止 150ms 后补做一次重采样（只补当前 m_zoom）
     m_sampleFlush.setSingleShot(true);
     m_sampleFlush.setInterval(150);
+    // 重采样线程池：单线程即可——同一时刻只允许一个任务在飞，交互期的新请求
+    // 不排队，任务收尾时按「当时的状态」重发一次，天然只算最新一档。
+    m_samplePool.setMaxThreadCount(1);
 
    connect(&m_sampleFlush, &QTimer::timeout, this, [this]() {
         m_resizeBurst = false;
@@ -731,9 +777,10 @@ void ImageCanvas::drawForeground(QPainter *painter, const QRectF &rect)
 void ImageCanvas::setPixmap(const QPixmap &pixmap, bool fitAfter)
 {
     m_sourcePixmap = pixmap;
+    m_sourceImage = pixmap.toImage();   // 隐式共享（raster 后端不复制像素），后台线程只读
     scene()->clear();
     m_item = scene()->addPixmap(pixmap);
-    m_samplingSize = QSize();   // 换图后旧的目标尺寸命中必是假命中（源都换了）
+    invalidateSampling();   // 换图后旧结果必是假命中（源都换了），在飞任务一并作废
     // QGraphicsPixmapItem 默认 FastTransformation——painter 的
     // SmoothPixmapTransform 不覆盖 item 自身采样，缩放必须显式开平滑。
     m_item->setTransformationMode(Qt::SmoothTransformation);
@@ -757,11 +804,12 @@ void ImageCanvas::setPixmapPreservingView(const QPixmap &pixmap, const QPointF &
 {
     const bool hadItem = (m_item != nullptr);
     m_sourcePixmap = pixmap;
+    m_sourceImage = pixmap.toImage();   // 隐式共享，同 setPixmap
     scene()->clear();
     m_item = scene()->addPixmap(pixmap);
     m_item->setTransformationMode(Qt::SmoothTransformation);
     m_rubber = nullptr;
-    m_samplingSize = QSize();   // 换图后旧的目标尺寸命中必是假命中（源都换了）
+    invalidateSampling();   // 换图后旧的目标尺寸命中必是假命中（源都换了）
     resetTransform();
     updateSceneRect();   // 同 setPixmap：防止沿用旧矩形（含可拖 padding）
     if (!hadItem || fitWindow) {
@@ -793,7 +841,8 @@ void ImageCanvas::replacePixmapInPlace(const QPixmap &pixmap)
         return;
     }
     m_sourcePixmap = pixmap;
-    m_samplingSize = QSize();
+    m_sourceImage = pixmap.toImage();   // 隐式共享，同 setPixmap
+    invalidateSampling();
     doRefreshSampling();
 }
 
@@ -877,7 +926,7 @@ void ImageCanvas::setInterpolationMode(int mode)
         m_item->setTransformationMode(mode == InterpBilinear ? Qt::FastTransformation
                                                              : Qt::SmoothTransformation);
     }
-    m_samplingSize = QSize();
+    invalidateSampling();
     refreshSampling();
 }
 
@@ -898,21 +947,32 @@ void ImageCanvas::setStretchSmall(bool on)
 // 塞回 item 并用 devicePixelRatio 把逻辑尺寸还原成原图大小。scene 几何因此完全
 // 不变，fit / centerOn / viewCenterNormalized 全都不用改，只是采样更干净。
 //
-// 交互态闸门：拖窗口边界（m_resizeBurst）或 150ms 内连续缩放时不做同步重采样，
-// m_item 的 SmoothTransformation 顶住画面；交互停止 150ms 后由 m_sampleFlush
-// 调 doRefreshSampling() 补做一次，且只对当前 m_zoom 补一次。
+// 线程模型（2026-11-16）：耗时部分（Lanczos + 强锐化）放专用单线程池，GUI 线程
+// 只做「算目标尺寸 → 投任务」和「校验后 setPixmap」。同一时刻最多一个任务在飞；
+// 交互期的新请求不排队，任务回投时按 图片/尺寸/倍率/插值/锐化 全键复核，对不上
+// 就丢弃并按最新状态补算一次——连发滚轮因此只算首尾几档，中间档一律不落地。
+// 交互闸门只保留拖窗口（m_resizeBurst）：拖动期几何每帧都在变，等收尾再算一次。
 void ImageCanvas::refreshSampling()
 {
     if (!m_item || m_sourcePixmap.isNull()) {
         return;
     }
-    const bool rapid = m_lastSampleReq.isValid() && m_lastSampleReq.elapsed() < 150;
-    m_lastSampleReq.restart();
-    if (rapid || m_resizeBurst) {
-        m_sampleFlush.start();   // 反复 restart：交互停止后 150ms 才会真正触发
+    if (m_resizeBurst) {
+        m_sampleFlush.start();   // 反复 restart：拖动停止后 150ms 才补算一次
         return;
     }
     doRefreshSampling();
+}
+
+// 让「已上屏结果」的记账作废，并让在飞任务的结果过期。换图/切插值/拖窗口
+// 都会走这里；不清这个记账，旧尺寸会命中新状态。
+void ImageCanvas::invalidateSampling()
+{
+    ++m_sampleGeneration;
+    m_samplingSize = QSize();
+    m_samplingSourceKey = 0;
+    m_samplingInterp = -1;
+    m_samplingSharp = false;
 }
 
 void ImageCanvas::doRefreshSampling()
@@ -924,37 +984,142 @@ void ImageCanvas::doRefreshSampling()
     if (isz.width() <= 0.0 || isz.height() <= 0.0) {
         return;
     }
+    const qint64 srcKey = m_sourcePixmap.cacheKey();
+    const bool sharp = Config::instance().strongSharpen();
+    // 放大 / 100% / 非 lanczos：原图直出；在飞结果已不该上屏，一并作废
     if (m_interp != InterpLanczos || m_zoom >= 0.999 || m_zoom <= 0.0) {
-        if (m_item->pixmap().cacheKey() != m_sourcePixmap.cacheKey()) {
+        ++m_sampleGeneration;
+        if (m_item->pixmap().cacheKey() != srcKey) {
             m_item->setPixmap(m_sourcePixmap);
-            m_samplingSize = QSize();
         }
+        m_samplingSize = QSize();
+        m_samplingSourceKey = srcKey;
+        m_samplingInterp = m_interp;
+        m_samplingSharp = sharp;
         return;
     }
     const int tw = qMax(1, qRound(isz.width() * m_zoom));
     const int th = qMax(1, qRound(isz.height() * m_zoom));
-    if (m_samplingSize == QSize(tw, th)) {
-        return;   // 目标尺寸没变，复用上一次的重采样结果
+    if (m_samplingSize == QSize(tw, th) && m_samplingSourceKey == srcKey
+        && m_samplingInterp == m_interp && m_samplingSharp == sharp) {
+        return;   // 已上屏的就是这一档（尺寸/插值/锐化都对得上）
     }
     // 目标像素数过大时直接放弃：单次重采样的耗时与目标面积成正比，
     // 超过 12MP 已经不是「看大图」而是拖 UI 了，交给 GPU 平滑即可。
     if (static_cast<qint64>(tw) * th > 12000000) {
-        if (m_item->pixmap().cacheKey() != m_sourcePixmap.cacheKey()) {
+        ++m_sampleGeneration;
+        if (m_item->pixmap().cacheKey() != srcKey) {
             m_item->setPixmap(m_sourcePixmap);
         }
         m_samplingSize = QSize(tw, th);
+        m_samplingSourceKey = srcKey;
+        m_samplingInterp = m_interp;
+        m_samplingSharp = sharp;
         return;
     }
-    QImage small = lanczosResample(m_sourcePixmap.toImage(), QSize(tw, th));
-    // 强锐化滤镜（C13）：仅 lanczos 缩小插值路径叠加，固定强度 unsharp mask
-    if (Config::instance().strongSharpen()) {
-        small = applyStrongSharpen(small);
+    startPendingSample();
+}
+
+// 等后台结果期间顶画面的廉价帧。几十 MP 的原图每重绘一次就是百毫秒级的主线程
+// 停顿（实测 5760×4320 → 1078×719 平滑绘制 ≈106ms），而快速缩小到长边 1600
+// 只要 ~15ms，之后按目标缩放再画就很便宜。按源图缓存，换图即失效。
+QPixmap ImageCanvas::samplingPreview()
+{
+    if (m_sourcePixmap.isNull()) {
+        return QPixmap();
     }
-    QPixmap pm = QPixmap::fromImage(small);
-    pm.setDevicePixelRatio(static_cast<qreal>(tw) / isz.width());
-    m_item->setPixmap(pm);
-    m_item->setTransformationMode(Qt::SmoothTransformation);
-    m_samplingSize = QSize(tw, th);
+    if (m_previewSourceKey == m_sourcePixmap.cacheKey() && !m_previewPixmap.isNull()) {
+        return m_previewPixmap;
+    }
+    const QSizeF isz = m_sourcePixmap.deviceIndependentSize();
+    if (isz.width() <= 0.0 || isz.height() <= 0.0) {
+        return QPixmap();
+    }
+    const qreal longest = qMax(isz.width(), isz.height());
+    if (longest <= 2400.0) {
+        // 小图本身就是廉价帧，没必要再缩一遍
+        m_previewPixmap = m_sourcePixmap;
+        m_previewSourceKey = m_sourcePixmap.cacheKey();
+        return m_previewPixmap;
+    }
+    const qreal k = 1600.0 / longest;
+    const int pw = qMax(1, qRound(isz.width() * k));
+    const int ph = qMax(1, qRound(isz.height() * k));
+    QImage img = m_sourceImage.scaled(pw, ph, Qt::IgnoreAspectRatio, Qt::FastTransformation);
+    QPixmap pm = QPixmap::fromImage(std::move(img));
+    // DPR 把逻辑尺寸还原成原图大小：预览帧上屏不改变 scene 几何
+    pm.setDevicePixelRatio(static_cast<qreal>(pm.width()) / isz.width());
+    m_previewPixmap = pm;
+    m_previewSourceKey = m_sourcePixmap.cacheKey();
+    return m_previewPixmap;
+}
+
+// 投一个后台任务。已有任务在飞就直接返回：它回投时会按最新状态重发，
+// 所以丢掉这次请求不会丢结果（单飞 + 收尾复核）。
+void ImageCanvas::startPendingSample()
+{
+    if (m_sampleRunning || !m_item || m_sourcePixmap.isNull() || m_sourceImage.isNull()) {
+        return;
+    }
+    const QSizeF isz = m_sourcePixmap.deviceIndependentSize();
+    if (isz.width() <= 0.0 || isz.height() <= 0.0) {
+        return;
+    }
+    if (m_interp != InterpLanczos || m_zoom >= 0.999 || m_zoom <= 0.0) {
+        return;
+    }
+    const QSize target(qMax(1, qRound(isz.width() * m_zoom)),
+                       qMax(1, qRound(isz.height() * m_zoom)));
+    const qint64 srcKey = m_sourcePixmap.cacheKey();
+    const int interp = m_interp;
+    const bool sharp = Config::instance().strongSharpen();
+    if (m_samplingSize == target && m_samplingSourceKey == srcKey
+        && m_samplingInterp == interp && m_samplingSharp == sharp) {
+        return;   // 已经是这一档
+    }
+    if (static_cast<qint64>(target.width()) * target.height() > 12000000) {
+        return;
+    }
+    m_sampleRunning = true;
+    // 结果回来之前，画面上若还是原图，这次重绘就会自己变成一次百毫秒级停顿；
+    // 换成廉价预览帧先把画面顶住（只换 item，不动采样记账）。
+    if (m_item->pixmap().cacheKey() == m_sourcePixmap.cacheKey()) {
+        const QPixmap preview = samplingPreview();
+        if (!preview.isNull()) {
+            m_item->setPixmap(preview);
+        }
+    }
+    const quint64 gen = ++m_sampleGeneration;
+    m_samplePool.start(new SamplingTask(this, m_sourceImage, target, sharp, gen, srcKey, interp));
+}
+
+// 后台结果回投（GUI 线程）。只有「仍是当前这一档」才上屏，否则丢弃——丢弃之后
+// 统一按当时的状态再评估一次，有更新的档就直接开算。
+void ImageCanvas::applySampleResult(quint64 generation, QImage result, const QSize &target,
+                                    qint64 sourceKey, int interp, bool sharp)
+{
+    m_sampleRunning = false;
+    if (m_item && !m_sourcePixmap.isNull() && !result.isNull()) {
+        const QSizeF isz = m_sourcePixmap.deviceIndependentSize();
+        const bool shrinking = m_interp == InterpLanczos && m_zoom > 0.0 && m_zoom < 0.999;
+        const bool sameSource = sourceKey == m_sourcePixmap.cacheKey();
+        const bool sameMode = interp == m_interp && sharp == Config::instance().strongSharpen();
+        const bool sameTarget = isz.width() > 0.0
+            && QSize(qMax(1, qRound(isz.width() * m_zoom)),
+                     qMax(1, qRound(isz.height() * m_zoom))) == target;
+        if (generation == m_sampleGeneration && shrinking && sameSource && sameMode
+            && sameTarget) {
+            QPixmap pm = QPixmap::fromImage(std::move(result));
+            pm.setDevicePixelRatio(static_cast<qreal>(target.width()) / isz.width());
+            m_item->setPixmap(pm);
+            m_item->setTransformationMode(Qt::SmoothTransformation);
+            m_samplingSize = target;
+            m_samplingSourceKey = sourceKey;
+            m_samplingInterp = interp;
+            m_samplingSharp = sharp;
+        }
+    }
+    doRefreshSampling();
 }
 
 void ImageCanvas::setCropMode(bool on)
@@ -1505,11 +1670,11 @@ void ImageCanvas::showEvent(QShowEvent *event)
 void ImageCanvas::resizeEvent(QResizeEvent *event)
 {
     QGraphicsView::resizeEvent(event);
-    // 拖窗口边界：进入 burst 时主动清掉上一次的采样目标尺寸（防止拖回去后
+    // 拖窗口边界：进入 burst 时主动清掉上一次的采样记账（防止拖回去后
     // 拿拖动前的旧尺寸当命中），几何照常每帧算，重采样交给收尾定时器补一次。
     if (!m_resizeBurst) {
         m_resizeBurst = true;
-        m_samplingSize = QSize();
+        invalidateSampling();
     }
     m_sampleFlush.start();
     // 自由拖动 padding 以视口尺寸为基准，视口变了 padding 跟着重算
