@@ -2715,6 +2715,10 @@ void MainWindow::openFile(const QString &path, bool transient)
     }
     const QString canonical = fi.absoluteFilePath();
 
+    // 会话恢复单：成功打开的绝对路径无条件记入会话键——不挂 rememberBrowsedFolders
+    // 开关（会话默认开启、无设置项），与「最近打开」同一处时机、不额外增加写盘点。
+    Config::instance().setSessionLastFile(canonical);
+
     // 代次 +1：本次打开之后到达的任何旧索引/旧画面都属于上一任务。
     const quint64 gen = ++m_openGeneration;
     m_currentPath = canonical;
@@ -2778,6 +2782,28 @@ void MainWindow::openFile(const QString &path, bool transient)
     });
     watcher->setFuture(QtConcurrent::run(DirectoryLoader::buildIndex,
                                          canonical, sortMode, sortDesc, skipRaw));
+}
+
+// —— 会话恢复（config/session_last_file）——
+// 启动后调用一次：路径存在且扩展名在白名单内才打开，否则静默回空态（不弹错、不 toast）。
+// 用 openFile 而非 openFileFitting：会话恢复只回到该文件与目录页位，不改窗口大小。
+void MainWindow::restoreSession()
+{
+    const QString last = Config::instance().sessionLastFile();
+    if (last.isEmpty()) {
+        return;
+    }
+    const QFileInfo fi(last);
+    if (!fi.isFile() || !fi.exists()) {
+        return;   // 文件被删/改名/路径失效 → 保持空态
+    }
+    const QString suffix = fi.suffix().toLower();
+    if (suffix.isEmpty()
+        || !DirectoryLoader::imageExtensions().contains(QStringLiteral("*.") + suffix,
+                                                        Qt::CaseInsensitive)) {
+        return;   // 不支持的扩展名 → 保持空态，不启动解码
+    }
+    openFile(fi.absoluteFilePath());
 }
 
 // —— 窗口几何恢复（纯整数键 + 离屏 clamp）——

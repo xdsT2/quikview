@@ -676,3 +676,14 @@ void Config::setWindowGeometry(int x, int y, int w, int h, bool maximized)
     m_settings.setValue(QStringLiteral("config/win_h"), h);
     m_settings.setValue(QStringLiteral("config/win_maximized"), maximized);
 }
+
+// —— 会话恢复 ——
+QString Config::sessionLastFile() const
+{
+    return m_settings.value(QStringLiteral("config/session_last_file"), QString()).toString();
+}
+
+void Config::setSessionLastFile(const QString &path)
+{
+    m_settings.setValue(QStringLiteral("config/session_last_file"), path);
+}

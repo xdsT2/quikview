@@ -148,6 +148,10 @@ public:
     bool winMaximized() const;
     void setWindowGeometry(int x, int y, int w, int h, bool maximized);
 
+    // 会话恢复：上次查看文件的绝对路径（空串=无会话）。默认开启，不设开关。
+    QString sessionLastFile() const;
+    void setSessionLastFile(const QString &path);
+
     // 遥测：恒 false（M0 直接禁死；未来若做，走 opt-in 并保留本开关）
     bool telemetryEnabled() const { return false; }
 

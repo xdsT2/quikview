@@ -299,6 +299,9 @@ int main(int argc, char *argv[])
     if (!files.isEmpty()) {
         // 命令行带文件启动：按图调窗（设置「根据图片大小调节窗口大小」）
         window.openFileFitting(files.first());
+    } else {
+        // 无命令行文件时才恢复上次会话；命令行显式指定优先于会话恢复。
+        window.restoreSession();
     }
 
     int settleDelay = 2500;   // 无 smoke 命令时的默认截图等待（首图异步加载）
