@@ -73,6 +73,7 @@
 #include "Theme.h"
 #include "UpdateChecker.h"
 #include "UiStyle.h"
+#include "AppIcon.h"
 
 #include <QOperatingSystemVersion>
 
@@ -800,154 +801,37 @@ private:
 };
 
 // ---------------------------------------------------------------------------
-// 导航图标：不依赖 Qt6::Svg（本机无 qsvg 插件），用 QPainter 画 16px 线性几何图形，
-// 颜色跟随按钮状态（选中=强调青 / 悬停=白 / 常态 NavText），与文字间距 9px。
+// 导航图标：语义 id 交给 AppIcon（图标统一派单 2026-11-18）。
+// 历史实现是「不依赖 Qt6::Svg，用 QPainter 画 16px 线性几何图形」；方案 A 落地后
+// 那条限制不成立，手绘分支随之删除，只保留语义映射，避免两套真源。
+// 颜色仍由调用方给（底板上的白色 / 禁用态半透明），与文字间距保持 9px。
 // ---------------------------------------------------------------------------
 enum class NavGlyph { Gear, Eye, Image, Doc, Link, Keyboard, Mouse, Bookmark, ContextMenu, Menu, More, Globe, Info };
 
+// 语义 → AppIcon id。顺序沿用历史枚举，避免调用点大改。
+const char *navGlyphId(NavGlyph glyph)
+{
+    switch (glyph) {
+    case NavGlyph::Gear:        return "settings";        // 一般
+    case NavGlyph::Eye:         return "apps";            // 浏览
+    case NavGlyph::Image:       return "color";           // 外观：配色/主题
+    case NavGlyph::Doc:         return "image-edit";      // 图像处理
+    case NavGlyph::Link:        return "link";            // 格式关联
+    case NavGlyph::Keyboard:    return "keyboard";        // 键盘
+    case NavGlyph::Mouse:       return "cursor";          // 鼠标
+    case NavGlyph::Bookmark:    return "bookmark";        // 书签
+    case NavGlyph::Menu:        return "text-bullet-list";// 上下文菜单
+    case NavGlyph::ContextMenu: return "list-tree";       // 查看器右键菜单（大纲）
+    case NavGlyph::More:        return "options";         // 杂项
+    case NavGlyph::Globe:       return "language";        // 语言
+    case NavGlyph::Info:        return "info";            // 关于
+    }
+    return "settings";
+}
+
 void paintNavGlyph(QPainter &p, NavGlyph glyph, const QRect &box, const QColor &color)
 {
-    p.save();
-    p.setRenderHint(QPainter::Antialiasing, true);
-    QPen pen(color, 1.4);
-    pen.setCapStyle(Qt::RoundCap);
-    pen.setJoinStyle(Qt::RoundJoin);
-    p.setPen(pen);
-    p.setBrush(Qt::NoBrush);
-
-    const qreal x = box.x() + 0.8;
-    const qreal y = box.y() + 0.8;
-    const qreal w = box.width() - 1.6;
-    const qreal h = box.height() - 1.6;
-    const QPointF c = QRectF(box).center();
-
-    switch (glyph) {
-    case NavGlyph::Gear: {
-        p.drawEllipse(c, 4.4, 4.4);
-        p.drawEllipse(c, 1.5, 1.5);
-        constexpr qreal kPi = 3.14159265358979323846;
-        for (int i = 0; i < 8; ++i) {
-            const qreal a = i * kPi / 4.0;
-            const QPointF d(std::cos(a), std::sin(a));
-            p.drawLine(c + d * 4.6, c + d * 6.8);
-        }
-        break;
-    }
-    case NavGlyph::Eye: {
-        QPainterPath path;
-        path.moveTo(x + 0.6, y + h / 2);
-        path.quadTo(x + w / 2, y - 1.2, x + w - 0.6, y + h / 2);
-        path.quadTo(x + w / 2, y + h + 1.2, x + 0.6, y + h / 2);
-        p.drawPath(path);
-        p.setBrush(color);
-        p.drawEllipse(c, 1.7, 1.7);
-        break;
-    }
-    case NavGlyph::Image: {
-        p.drawRoundedRect(QRectF(x + 0.4, y + 1.6, w - 0.8, h - 3.2), 2.2, 2.2);
-        p.drawEllipse(QPointF(x + 4.4, y + 5.4), 1.0, 1.0);
-        QPainterPath m;
-        m.moveTo(x + 1.6, y + h - 2.4);
-        m.lineTo(x + 5.8, y + 7.4);
-        m.lineTo(x + 8.6, y + 10.1);
-        m.lineTo(x + 10.8, y + 8.6);
-        m.lineTo(x + w - 1.6, y + h - 2.4);
-        p.drawPath(m);
-        break;
-    }
-    case NavGlyph::Doc: {
-        QPainterPath d;
-        d.moveTo(x + 2.8, y + 0.8);
-        d.lineTo(x + 9.0, y + 0.8);
-        d.lineTo(x + 12.8, y + 4.6);
-        d.lineTo(x + 12.8, y + h - 0.8);
-        d.lineTo(x + 2.8, y + h - 0.8);
-        d.closeSubpath();
-        p.drawPath(d);
-        p.drawLine(QPointF(x + 9.0, y + 0.8), QPointF(x + 9.0, y + 4.6));
-        p.drawLine(QPointF(x + 9.0, y + 4.6), QPointF(x + 12.8, y + 4.6));
-        p.drawLine(QPointF(x + 5.0, y + 8.0), QPointF(x + 10.6, y + 8.0));
-        p.drawLine(QPointF(x + 5.0, y + 11.0), QPointF(x + 10.6, y + 11.0));
-        break;
-    }
-    case NavGlyph::Link: {
-        // 格式关联：两节相扣的链环（16px 下横排两段胶囊，重叠区自然形成扣接）
-        p.drawRoundedRect(QRectF(x + 0.4, y + 5.2, 8.6, 5.6), 2.8, 2.8);
-        p.drawRoundedRect(QRectF(x + 7.0, y + 5.2, 8.6, 5.6), 2.8, 2.8);
-        break;
-    }
-    case NavGlyph::Keyboard: {
-        p.drawRoundedRect(QRectF(x + 0.6, y + 4.0, w - 1.2, h - 8.0), 1.8, 1.8);
-        for (int i = 0; i < 4; ++i)
-            p.drawPoint(QPointF(x + 4.0 + i * 2.6, y + 7.4));
-        p.drawLine(QPointF(x + 4.6, y + 10.6), QPointF(x + 11.0, y + 10.6));
-        break;
-    }
-    case NavGlyph::Mouse: {
-        p.drawRoundedRect(QRectF(c.x() - 3.8, y + 0.6, 7.6, h - 1.2), 3.8, 3.8);
-        p.drawLine(QPointF(c.x(), y + 0.6), QPointF(c.x(), y + 6.4));
-        break;
-    }
-    case NavGlyph::Bookmark: {
-        QPainterPath b;
-        b.moveTo(x + 3.4, y + 0.8);
-        b.lineTo(x + 12.6, y + 0.8);
-        b.lineTo(x + 12.6, y + h - 0.6);
-        b.lineTo(x + 8.0, y + h - 4.2);
-        b.lineTo(x + 3.4, y + h - 0.6);
-        b.closeSubpath();
-        p.drawPath(b);
-        break;
-    }
-    case NavGlyph::ContextMenu: {
-        // 右键菜单：两行带圆点的列表 + 右下斜向指针。设计稿给的是 22×22 底板坐标
-        // （名义工作区 16px 居中，偏移 3），这里按 -3 映射进 16px 图标框，线宽 1.4 不变。
-        const qreal bx = box.x() - 3.0;
-        const qreal by = box.y() - 3.0;
-        p.drawLine(QPointF(bx + 8.1, by + 6.7), QPointF(bx + 15.6, by + 6.7));
-        p.drawLine(QPointF(bx + 8.1, by + 10.2), QPointF(bx + 10.9, by + 10.2));
-        QPainterPath cur;
-        cur.moveTo(bx + 12.9, by + 10.5);
-        cur.lineTo(bx + 12.9, by + 17.5);
-        cur.lineTo(bx + 14.8, by + 15.7);
-        cur.lineTo(bx + 15.9, by + 17.8);
-        cur.lineTo(bx + 17.2, by + 17.1);
-        cur.lineTo(bx + 16.1, by + 15.0);
-        cur.lineTo(bx + 18.5, by + 15.0);
-        cur.closeSubpath();
-        p.drawPath(cur);
-        p.setBrush(color);
-        p.drawEllipse(QPointF(bx + 5.5, by + 6.7), 0.75, 0.75);
-        p.drawEllipse(QPointF(bx + 5.5, by + 10.2), 0.75, 0.75);
-        break;
-    }
-    case NavGlyph::Menu: {
-        p.drawLine(QPointF(x + 1.4, y + 4.0), QPointF(x + w - 1.4, y + 4.0));
-        p.drawLine(QPointF(x + 1.4, y + h / 2), QPointF(x + w - 1.4, y + h / 2));
-        p.drawLine(QPointF(x + 1.4, y + h - 4.0), QPointF(x + w - 1.4, y + h - 4.0));
-        break;
-    }
-    case NavGlyph::More: {
-        p.setBrush(color);
-        for (int i = 0; i < 3; ++i)
-            p.drawEllipse(QPointF(x + 3.0 + i * 4.8, c.y()), 1.2, 1.2);
-        break;
-    }
-    case NavGlyph::Globe: {
-        p.drawEllipse(QRectF(x + 0.4, y + 0.4, w - 0.8, h - 0.8));
-        p.drawLine(QPointF(x + 0.6, c.y()), QPointF(x + w - 0.6, c.y()));
-        p.drawEllipse(QRectF(x + 3.6, y + 0.4, w - 7.2, h - 0.8));
-        break;
-    }
-    case NavGlyph::Info: {
-        p.drawEllipse(QRectF(x + 0.4, y + 0.4, w - 0.8, h - 0.8));
-        p.drawLine(QPointF(c.x(), y + 7.4), QPointF(c.x(), y + 11.6));
-        p.setBrush(color);
-        p.drawEllipse(QPointF(c.x(), y + 5.0), 0.9, 0.9);
-        break;
-    }
-    }
-    p.restore();
+    AppIcon::paint(p, QLatin1String(navGlyphId(glyph)), QRectF(box), color);
 }
 
 // navItem：QSS 负责背景/边框，图标与文字自绘（图标 16px + 间距 9px + 左内边距 11px）

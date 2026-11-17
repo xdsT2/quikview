@@ -1987,10 +1987,14 @@ QMenu *MainWindow::buildHamburgerMenu()
     // —— 窗口与应用 ——
     syncThemeActions();
     addHamburgerAction(menu, actDark, "moon");
+    // 锁定态与解锁态用两个语义 id（lock / lock-open）：菜单每开一次重建，读到的
+    // 就是当下的状态，避免两行都画成闭合锁、分不出哪个已经锁着。
     menu->setActionIcon(addCheckableItem(menu, tr("保持顶部工具栏显示"), QString(), m_topLocked,
-                                       [this]() { toggleTopLock(); }), "lock");
+                                       [this]() { toggleTopLock(); }),
+                        m_topLocked ? "lock" : "lock-open");
     menu->setActionIcon(addCheckableItem(menu, tr("保持底部控制栏显示"), QString(), m_dockLocked,
-                                       [this]() { toggleDockLock(); }), "lock");
+                                       [this]() { toggleDockLock(); }),
+                        m_dockLocked ? "lock" : "lock-open");
     actAlwaysOnTop->setChecked(actualTopmost());
     addHamburgerAction(menu, actAlwaysOnTop, "pin");
     menu->addSeparator();
