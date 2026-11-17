@@ -76,6 +76,22 @@
 
 #include <QOperatingSystemVersion>
 
+namespace {
+
+// 2026-11-17 注释精简：把原本占第二行的说明搬到整行 tooltip。
+// 传开关 / 下拉 / 行控件都可以：传行控件时 tooltip 就落在行上，传控件时落在它所在的行上。
+// 行高仍由「有没有第二行」决定（applyPageRhythm 的 38 / 44），不改版式。
+void descToRowTip(QWidget *control, const QString &text)
+{
+    if (!control)
+        return;
+    const bool isRow = control->objectName() == QLatin1String("settingRow");
+    QWidget *target = isRow ? control : control->parentWidget();
+    (target ? target : control)->setToolTip(text);
+}
+
+} // namespace
+
 // ---------------------------------------------------------------------------
 // 输入来源追踪（v2 焦点可见性，2026-11-11 修订规格）
 // 鼠标点击控件时不得出现蓝色焦点框，再次点击已聚焦控件也要隐藏；只有
@@ -1845,35 +1861,27 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     // —— 页面（每页一个 QScrollArea，内容 widget 存 m_pages）——
     // 首屏只建「一般」页：其余页登记构建器，首次进入（或首次搜索）时才构建。
     // 2026-11-16 实测：12 页同步构建占开窗 169ms 中约 160ms，延后后首屏回到个位数毫秒。
-    buildGeneralPage(addPage(tr("一般"), tr("管理窗口行为、操作反馈、更新和首尾翻页。")));
+    buildGeneralPage(addPage(tr("一般"), QString()));
     m_pageBuilt[0] = true;
-    addLazyPage(tr("浏览"), tr("缩放状态、侧边箭头与悬浮提示等浏览显示设置；画布底色已固定。"),
-                &SettingsDialog::buildViewPage);
-    addLazyPage(tr("外观"), tr("主题与材质。跟随系统时由 Windows 的深浅色设置决定。"),
-                &SettingsDialog::buildAppearancePage);
-    addLazyPage(tr("图像处理"), tr("透明背景、插值算法、翻页效果与 ICC 色彩管理；监视器 ICC 受 Qt6 限制暂不可用。"),
-                &SettingsDialog::buildImageProcPage);
-    addLazyPage(tr("格式关联"),
-                tr("查看 QuikView 可打开的格式，并在 Windows 中选择默认应用。"),
-                &SettingsDialog::buildAssocPage);
+    addLazyPage(tr("浏览"), QString(), &SettingsDialog::buildViewPage);
+    addLazyPage(tr("外观"), QString(), &SettingsDialog::buildAppearancePage);
+    addLazyPage(tr("图像处理"), QString(), &SettingsDialog::buildImageProcPage);
+    addLazyPage(tr("格式关联"), QString(), &SettingsDialog::buildAssocPage);
     // 键盘页不显示 pageDesc：页首说明由 m_keyHint 承担（默认/录入两态切换），
     // 避免标题下出现两条近似文案（设计图 04/05 只有一行）。
     addLazyPage(tr("键盘"), QString(), &SettingsDialog::buildKeyboardPage);
-    addLazyPage(tr("鼠标"), tr("左/右/X/Y 与滚轮的按键映射可自定义；中键平移、双击最大化可用。"),
-                &SettingsDialog::buildMousePage);
-    addLazyPage(tr("书签"), tr("自动保存开关与书签数量上限。"), &SettingsDialog::buildBookmarkPage);
+    addLazyPage(tr("鼠标"), QString(), &SettingsDialog::buildMousePage);
+    addLazyPage(tr("书签"), QString(), &SettingsDialog::buildBookmarkPage);
     // 上下文菜单页要查资源管理器注册状态（四次注册表探测），放首屏最不划算。
-    addLazyPage(tr("上下文菜单"), tr("资源管理器集成的注册状态与右键菜单开关。"),
-                &SettingsDialog::buildContextMenuPage);
+    addLazyPage(tr("上下文菜单"), QString(), &SettingsDialog::buildContextMenuPage);
     // 查看器右键菜单：QuikView 内的右键菜单（原「上下文菜单」页上半部整体搬过来），
     // 资源管理器集成/注册/壳扩展开关仍留在「上下文菜单」页。
-    m_appMenuPage = addLazyPage(tr("查看器右键菜单"),
-                                tr("自定义 QuikView 查看器内的右键菜单与顶部快捷操作。"),
+    m_appMenuPage = addLazyPage(tr("查看器右键菜单"), QString(),
                                 &SettingsDialog::buildAppMenuSections);
     // 索引在构造期就定位：列宽/页头动作位等判断不依赖该页是否已构建。
     m_appMenuPageIndex = m_pages.indexOf(m_appMenuPage);
-    addLazyPage(tr("杂项"), tr("图片文件夹、外部编辑器与 RAW 打开策略。"), &SettingsDialog::buildEtcPage);
-    addLazyPage(tr("语言"), tr("选择界面语言并管理语言文件。"), &SettingsDialog::buildLangPage);
+    addLazyPage(tr("杂项"), QString(), &SettingsDialog::buildEtcPage);
+    addLazyPage(tr("语言"), QString(), &SettingsDialog::buildLangPage);
 
     // 页面内容不足一屏时，多余空间落在末尾弹簧上（否则各 section 会被均匀拉开）。
     // 弹簧必须在页面内容构建之后加（延后构建的页在 ensurePageBuilt 里补），
@@ -1924,8 +1932,11 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     m_footerGap = new QSpacerItem(240, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
     fl->addSpacerItem(m_footerGap);
 
-    auto *note = new QLabel(tr("普通设置即时生效；热键改绑与界面语言在保存后生效"), footer);
+    // 2026-11-17 注释精简：删除「普通设置即时生效…」这条常驻页脚；页脚平时不说话，
+    // 只在有未保存改动时就地提示（updatePendingNote 保留原语气与位置）。
+    auto *note = new QLabel(QString(), footer);
     note->setObjectName(QStringLiteral("footerNote"));
+    note->hide();
     m_footerNote = note;
     fl->addWidget(note);
     fl->addStretch(1);
@@ -2963,15 +2974,16 @@ QComboBox *SettingsDialog::addComboRowUnavailable(QWidget *section, const QStrin
 
 void SettingsDialog::buildGeneralPage(QWidget *page)
 {
+    // 2026-11-17 注释精简：删掉「下次…时生效」这类机械说明与页面概括副标题；
+    // 重启要求、更新频率仍作为常驻说明保留。行高由有无第二行决定，不改版式。
     // 2026-11-11 v2 母版：页面标记由 addPage 统一打，本页不再单独设置。
     // 样板（2026-11-09）：原来 6 项挤在「窗口与操作」一组里，按用途拆成
     // 「窗口行为」与「操作反馈」两组；页标题 / 说明 / 分组标题成为三级层次。
     // 只调分组与版式，选项、key、生效时机、即时生效绑定一律不动。
     // 2026-11-11：版式部分收进 applyPageRhythm()，九页共用同一套节奏。
     QWidget *sec = beginSection(page, tr("窗口行为"));
-    // 说明贴在行下，生效时机用短句；统一规则只在页脚说一次。
-    addSwitchRow(sec, tr("不保存浏览过的文件夹路径"),
-                 tr("勾选＝不记录最近打开的文件夹；下次打开文件时生效"),
+    // 2026-11-17：不再写「下次…时生效」；只有重启与检查频率留在行下。
+    addSwitchRow(sec, tr("不保存浏览过的文件夹路径"), QString(),
                  "remember_browsed_folders", true, true);
     addSwitchRow(sec, tr("不允许多个实例"), tr("重启 QuikView 后生效"),
                  "allow_multiple_instances", true, true);
@@ -2980,23 +2992,22 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
                                      "always_on_top", false, false);
     // SET-03 小批 A：置顶是二态且运行态可逆（原生 SetWindowPos 切带）。
     m_liveChecks.append({ alwaysOnTop, "always_on_top", false, false });
-    addSwitchRow(sec, tr("按 ESC 退出"), tr("下次按 Esc 时生效"),
+    addSwitchRow(sec, tr("按 ESC 退出"), QString(),
                  "esc_exit", false, true);
 
     sec = beginSection(page, tr("操作反馈"));
-    addSwitchRow(sec, tr("删除文件时确认"), tr("下次删除文件时生效"),
+    addSwitchRow(sec, tr("删除文件时确认"), QString(),
                  "delete_confirm", false, true);
-    addSwitchRow(sec, tr("在边角显示通知信息，而非中心"), tr("下一次通知时生效"),
+    addSwitchRow(sec, tr("在边角显示通知信息，而非中心"), QString(),
                  "notify_corner", false, true);
 
     // —— 检查更新 ——
     // 手动检查不受频控；自动检查默认开（2026-11-12 用户定稿），启动 5s 静默查一次、24h 限频。
     sec = beginSection(page, tr("检查更新"));
-    QHBoxLayout *updateRow = addRow(sec, tr("手动检查"),
-                                    tr("立即连接发布源检查更新"));
+    QHBoxLayout *updateRow = addRow(sec, tr("手动检查"), QString());
     m_checkUpdateBtn = addButton(updateRow->parentWidget(), tr("检查更新"));
     updateRow->addWidget(m_checkUpdateBtn, 0, Qt::AlignVCenter);
-    addSwitchRow(sec, tr("启动时检查更新"), tr("重启后生效；每 24 小时最多一次"),
+    addSwitchRow(sec, tr("启动时检查更新"), tr("重启后生效；每 24 小时最多检查一次"),
                  "check_updates", false, true);
     // v2 母版卡片内不放长说明（避免旧版密集表单感）；原文案保留在分组
     // 提示里，信息不丢失，鼠标悬停即可读到。
@@ -3020,8 +3031,7 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
 
     sec = beginSection(page, tr("首尾翻页"));
     const auto opts = lastFileOptions();
-    auto *edge = addComboRow(sec, tr("到达首尾图片时执行"),
-                             tr("下次到达首尾图片时按所选行为处理"),
+    auto *edge = addComboRow(sec, tr("到达首尾图片时执行"), QString(),
                              "edge_action", QStringLiteral("first"), opts, kGenComboW);
     // 档位诚实化：DirectoryLoader 只实现 first / stop；ask 既没有询问对话框，
     // 在 next/prev 与 advance 两条路径上的回绕行为还不一致，按缺口灰显。
@@ -3077,29 +3087,25 @@ void SettingsDialog::buildViewPage(QWidget *page)
     // 其余仍灰显的键在仓储侧无消费点，保持不可用态。
     QWidget *sec = beginSection(page, tr("导航"));
     // 侧边箭头是真开关：ImageCanvas::setSideArrowsEnabled()。
-    auto *sideArrows = addSwitchRow(sec, tr("显示侧边箭头"),
-                                    tr("鼠标移到画布左右边缘时显示翻页箭头"),
+    auto *sideArrows = addSwitchRow(sec, tr("显示侧边箭头"), QString(),
                                     "view/show_side_arrow", false, true);
     addSwitchRow(sec, tr("记住缩放状态"),
-                 tr("下次打开图片或重启时恢复；当前画面不变"),
+                 tr("下次打开这张图时恢复；当前画面不变"),
                  "view/save_zoom_state", false, false);
 
     sec = beginSection(page, tr("画面信息"));
     addSwitchRow(sec, tr("显示文件名浮层"),
-                 tr("隐藏顶端菜单时，按 Shift+Tab 显隐文件名浮层"),
+                 tr("隐藏顶端菜单时按 Shift+Tab 显隐"),
                  "view/overlay_filename", false, false);
     // SET-04：帧号行由 updateInfoOverlay() 直接重排，模态设置页内也能看到信息行变化。
-    auto *animInfo = addSwitchRow(sec, tr("显示动画帧号"),
-                                  tr("GIF / MNG 底部信息行显示「第 n/N 帧」"),
+    auto *animInfo = addSwitchRow(sec, tr("显示动画帧号"), QString(),
                                   "view/show_anim_control", false, true);
-    auto *zoomInfo = addSwitchRow(sec, tr("显示缩放浮标"),
-                                  tr("缩放时在窗口内显示当前比例"),
+    descToRowTip(animInfo, tr("GIF / MNG 在底部信息行显示「第 n/N 帧」"));
+    auto *zoomInfo = addSwitchRow(sec, tr("显示缩放浮标"), QString(),
                                   "view/show_zoom_control", false, true);
-    addSwitchRow(sec, tr("显示鼠标悬浮提示"),
-                 tr("鼠标停在图片边缘或栏位按钮上时显示说明"),
+    addSwitchRow(sec, tr("显示鼠标悬浮提示"), QString(),
                  "view/show_tooltip", false, true);
-    auto *smallFont = addSwitchRow(sec, tr("用小字体显示 EXIF / 文件信息"),
-                                   tr("信息面板字号更小，可容纳更多字段"),
+    auto *smallFont = addSwitchRow(sec, tr("用小字体显示 EXIF / 文件信息"), QString(),
                                    "view/exif_small_font", false, false);
     // SET-02 样板 + SET-03 小批 A + SET-04 浏览页批次（同一页面，均为二态运行态开关）：
     // addSwitchRow 已把它们加入 m_chkBinds，保存路径照常写同名键。
@@ -3107,7 +3113,8 @@ void SettingsDialog::buildViewPage(QWidget *page)
     m_liveChecks.append({ sideArrows, "view/show_side_arrow", false, false });
     m_liveChecks.append({ zoomInfo, "view/show_zoom_control", false, false });
     m_liveChecks.append({ animInfo, "view/show_anim_control", false, false });
-    addHint(sec, tr("以上显示项切换后立即重排信息面板；关闭设置页后按当前值保留。"));
+    // 2026-11-17 注释精简：原页脚「切换后立即重排信息面板…」删除——这组开关都是即时重排，
+    // 页脚不再重复说一次。
 
     // 「背景」段（背景图 + 路径 + 背景色 + 边框色）已按用户 2026-11-03 决定整段
     // 移除（第 18 期）：画布外观固定，见 MainWindow::applyRuntimeSettings 的注释。
@@ -3129,7 +3136,7 @@ void SettingsDialog::buildAppearancePage(QWidget *page)
     {
         SettingRowParts parts = addSettingRow(
             sec, tr("界面主题"),
-            tr("跟随系统时，随 Windows 深浅色设置切换"));
+            tr("跟随系统时由 Windows 深浅色设置决定"));
         m_themeCombo = makePopupCombo(parts.row);
         m_themeCombo->addItem(tr("跟随系统"), QStringLiteral("system"));
         m_themeCombo->addItem(tr("浅色"), QStringLiteral("light"));
@@ -3171,7 +3178,7 @@ void SettingsDialog::buildAppearancePage(QWidget *page)
     sec = beginSection(page, tr("材质"));
     ToggleRow blurRow = addToggleRow(
         sec, tr("磨砂材质（右键菜单与信息浮层）"),
-        tr("影响右键菜单与信息浮层；Windows 11 效果最佳"),
+        tr("仅作用于右键菜单与信息浮层；Windows 11 效果最佳"),
         tr("磨砂材质"));
     m_blurMaterial = blurRow.toggle;
     m_blurMaterial->setChecked(bGet("ui/blur_material", false));
@@ -3180,7 +3187,6 @@ void SettingsDialog::buildAppearancePage(QWidget *page)
         m_blurMaterial->setEnabled(false);   // 不写回、不落盘，保留用户已有取值
         if (blurRow.desc)
             blurRow.desc->setText(tr("当前系统不支持系统级磨砂，已停用"));
-        blurRow.row->setToolTip(tr("当前系统不支持系统级磨砂，已停用"));
     }
 #endif
     addHint(sec, tr("磨砂材质在 Windows 10 上降级为半透明。"));
@@ -3349,20 +3355,21 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     QWidget *sec = beginSection(page, tr("渲染"));
     // 标签按实测语义：Canvas 的 InterpBilinear 走 FastTransformation（最近邻），
     // 中间档是 GPU 平滑（双线性量级），第三档才是真 Lanczos3 重采样。
-    addComboRow(sec, tr("插值算法"), tr("缩放与减淡重采样时使用"),
+    auto *interpCombo = addComboRow(sec, tr("插值算法"), QString(),
                 "imageproc/interpolate", QStringLiteral("0"),
                 { { "0", tr("最近邻 (快)") }, { "1", tr("平滑 (双线性)") },
                   { "2", tr("Lanczos (锐利)") } });
+    descToRowTip(interpCombo, tr("缩放重采样时使用；最近邻最快，Lanczos 最锐"));
     // 强锐化（C13）：lanczos 缩图路径叠加固定强度 unsharp mask，见 ImageCanvas。
     addSwitchRow(sec, tr("使用强锐化滤镜"),
-                 tr("Lanczos 插值下缩小显示（小于 100%）时叠加锐化"),
+                 tr("Lanczos 且缩小到 100% 以下时生效"),
                  "imageproc/strong_sharpen", false, false);
     addSwitchRow(sec, tr("图片大于窗口时显示图片顶部"),
-                 tr("按「适配宽度」或「实际大小」打开且图片高于窗口时显示顶部"),
+                 tr("适配宽度／实际大小下、图片高于窗口时生效"),
                  "imageproc/align_top_when_large", false, true);
 
     sec = beginSection(page, tr("缓存与载入"));
-    addSwitchRow(sec, tr("缓存下一张图片"), tr("提前解码下一张，翻页更快"),
+    addSwitchRow(sec, tr("缓存下一张图片"), QString(),
                  "imageproc/cache_image", false, true);
     {
         SettingRowParts parts = addSettingRow(sec, tr("缓存大小"),
@@ -3382,21 +3389,21 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
         mb->setObjectName(QStringLiteral("rowUnit"));
         parts.controls->addWidget(mb, 0, Qt::AlignVCenter);
     }
-    addSwitchRow(sec, tr("先显示低品质图片以加速渲染"),
-                 tr("大图先出低清预览，再补全清晰度"),
+    addSwitchRow(sec, tr("先显示低品质图片以加速渲染"), QString(),
                  "imageproc/preview_mode", false, true);
 
     sec = beginSection(page, tr("透明背景"));
     // UI-001 §3.8：画布背景只有「棋盘 / 纯色」二选一，颜色自动跟随应用深浅
     // 主题（不再暴露网格/白/黑/深网格四项与 GIF 背景下拉）；背景由绘制层
     // 铺满整个画布视口，不烘焙进图像，导出链路保持原始透明信息。
-    addComboRow(sec, tr("画布背景"),
-                tr("铺满整个画布视口，颜色随应用深浅主题自动变化"),
+    auto *canvasBgCombo = addComboRow(sec, tr("画布背景"), QString(),
                 "imageproc/canvas_bg", QStringLiteral("checker"),
                 { { "checker", tr("棋盘") }, { "solid", tr("纯色") } }, kGenComboW);
-    addSwitchRow(sec, tr("显示透明区域"),
-                 tr("开启后，纯色背景下图片的透明区域显示棋盘格；关闭后透明像素直接透出画布背景"),
+    descToRowTip(canvasBgCombo, tr("铺满整个画布视口，颜色随深浅主题自动变化，切换主题即时生效"));
+    auto *transparency = addSwitchRow(sec, tr("显示透明区域"),
+                 tr("关闭后透明像素直接透出画布背景"),
                  "imageproc/show_transparency", false, true);
+    descToRowTip(transparency, tr("棋盘格固定在屏幕坐标，不随图片缩放和平移"));
     addSwitchRow(sec, tr("图片阴影"),
                  tr("在图片边缘加一圈阴影，浅色背景下的浅色图片也能看清边界；仅屏幕预览，不进入复制、打印、批量转换与另存为"),
                  "imageproc/canvas_shadow", false, false);
@@ -3427,15 +3434,15 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     }
 
     sec = beginSection(page, tr("翻页效果"));
-    addComboRow(sec, tr("翻页效果"), tr("下一次翻页时播放所选过渡"),
+    addComboRow(sec, tr("翻页效果"), QString(),
                 "imageproc/pageturn_fx", QStringLiteral("1"),
                 { { "0", tr("无") }, { "1", tr("淡入淡出") },
                   { "2", tr("Alpha 滑动") }, { "3", tr("滑动") } });
 
     sec = beginSection(page, tr("色彩管理"));
-    addSwitchRow(sec, tr("使用图片文件的 ICC 设置"),
-                 tr("打开带非 sRGB ICC 的图片时按配置转换上屏"),
+    auto *iccFile = addSwitchRow(sec, tr("使用图片文件的 ICC 设置"), QString(),
                  "imageproc/image_icc", false, true);
+    descToRowTip(iccFile, tr("打开带非 sRGB ICC 的图片时按配置转换上屏"));
     auto *iccMonitor = addSwitchRow(sec, tr("使用监视器的 ICC 设置"),
                                     tr("Qt6 光栅后端不支持显示器色彩管理，暂不可用"),
                                     "imageproc/monitor_icc", false, false);
@@ -3447,9 +3454,8 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
         row->setCursor(Qt::ArrowCursor);
         row->setToolTip(tr("Qt6 光栅后端不支持显示器色彩管理，暂不可用"));
     }
-    addHint(sec, tr("画布背景铺满整个画布视口，颜色随应用深浅主题自动变化，切换主题即时生效；"
-                    "棋盘格固定在屏幕坐标，不随图片缩放和平移。透明图像阴影只在屏幕预览层绘制，"
-                    "复制、打印、批量转换与另存为始终保留图片原始透明信息。"));
+    // 2026-11-17 注释精简：原三段页脚拆到各行 tooltip（画布背景铺满与随主题、
+    // 棋盘格固定屏幕坐标）；「阴影仅屏幕预览」已在图片阴影行的常驻说明里，页脚不再重复。
     applyPageRhythm(page);
 }
 
@@ -3464,7 +3470,6 @@ void SettingsDialog::buildAssocPage(QWidget *page)
     // DirectoryLoader::imageGroups() 的只读支持列表 + 真实系统入口。
     QWidget *sec = beginSection(page, tr("Windows 默认应用"));
     auto *btnDefault = addButton(nullptr, tr("打开默认应用…"));
-    btnDefault->setToolTip(tr("打开 Windows 设置，再按扩展名选择默认应用"));
     auto parts = addSettingRow(sec, tr("在 Windows 中设置文件关联"),
                                tr("打开系统设置，再按扩展名选择默认应用"));
     parts.controls->addWidget(btnDefault, 0, Qt::AlignVCenter);
@@ -3477,8 +3482,8 @@ void SettingsDialog::buildAssocPage(QWidget *page)
                                  tr("无法打开 Windows 默认应用，请从 Windows 设置手动打开。"));
         }
     });
-    addHint(sec, tr("默认打开方式由 Windows 管理，QuikView 不能绕过系统直接改写；"
-                    "若系统里找不到 QuikView，请先运行安装包注册。"));
+    addHint(sec, tr("默认打开方式由 Windows 管理，QuikView 不能直接改写；"
+                    "找不到 QuikView 时先运行安装包注册。"));
 
     // 支持的格式：只读文本，分组与顺序全部来自解码白名单唯一事实来源，
     // 不在设置页另写第二份扩展名列表。
@@ -3491,8 +3496,7 @@ void SettingsDialog::buildAssocPage(QWidget *page)
             exts.append(e.toUpper());
         addSettingRow(sec, g.label, exts.join(QStringLiteral(" · ")));
     }
-    addHint(sec, tr("以上为 QuikView 能直接打开的全部格式；列表只读，"
-                    "新增格式请随程序版本更新。"));
+    addHint(sec, tr("列表只读；新增格式随程序版本更新。"));
     applyPageRhythm(page);
 }
 
@@ -3724,11 +3728,9 @@ void SettingsDialog::buildMousePage(QWidget *page)
     // 两项均已接线：双击最大化/还原走 ImageCanvas::doubleClickRequested →
     // MainWindow 切换窗口；两侧单击翻页走 edgeTurnRequested，且老配置默认值
     // 做过一次性迁移（main.cpp 的 etc/migrated_side_click）。
-    addSwitchRow(sec, tr("双击最大化 / 还原"),
-                 tr("下次双击画布时按新值最大化 / 还原窗口"),
+    addSwitchRow(sec, tr("双击最大化 / 还原"), QString(),
                  "mouse/dblclick_maximize", false, true);
-    addSwitchRow(sec, tr("单击屏幕两侧时翻页"),
-                 tr("下次单击画布两侧箭头区域时按新值翻页"),
+    addSwitchRow(sec, tr("单击屏幕两侧时翻页"), QString(),
                  "mouse/click_side_pageturn", false, false);
 
     sec = beginSection(page, tr("按键映射"));
@@ -3804,7 +3806,7 @@ void SettingsDialog::buildMousePage(QWidget *page)
                 }
             }
         }
-        combo->setToolTip(tr("下次触发该按键时按新映射派发"));
+        // 2026-11-17：与分组页脚同一句话，不再在每个下拉上重复一遍。
         combo->setCursor(Qt::PointingHandCursor);
         combo->setFixedHeight(kComboH);
         combo->setProperty("reqW", 170);
@@ -3817,11 +3819,9 @@ void SettingsDialog::buildMousePage(QWidget *page)
         m_mouseRows.append({ combo, QString::fromUtf8(b.key), QString::fromUtf8(b.def) });
     }
 
-    addHint(sec, tr("「无」保留内置行为：左键拖动平移与边缘单击翻页、右键上下文菜单。"
-                    "滚轮上下共用一个缩放开关，任一方向选「无」会同时停掉双向缩放；"
-                    "中键选「无」会同时停掉拖拽平移与现有的单击全屏。"
-                    "中键只支持「无操作 / 拖拽平移」，滚轮只支持「无操作 / 放大 / 缩小」；"
-                    "其余档位已灰显，属实现缺口。所有映射在下次触发按键时生效。"));
+    addHint(sec, tr("「无」保留内置行为：左键拖拽平移、边缘单击翻页、右键菜单。"
+                    "中键只放行「无操作／拖拽平移」，滚轮只放行「无操作／放大／缩小」，"
+                    "其余档位已灰显；映射在下次触发该按键时生效。"));
     applyPageRhythm(page);
 }
 
@@ -3835,7 +3835,7 @@ void SettingsDialog::buildBookmarkPage(QWidget *page)
     // 自动书签与最大书签数已接通；「多窗口共享」在单实例语义下无实现，
     // 2026-11-04 按视觉基线 P0 删除（原为勾着 + 禁用 + 零写回）。
     addSwitchRow(sec, tr("自动保存当前图片路径为书签"),
-                 tr("打开图片时自动追加一条；翻页不追加"),
+                 tr("翻页不追加"),
                  "bookmark/auto_bookmark", false, false);
     // 「自动记忆当前图片在压缩包中的路径」与「删除已记忆位置」已删：
     // 压缩包浏览未实现，压缩包路径记忆无从产生，两项勾/点了也不会有任何事发生。
@@ -3856,9 +3856,7 @@ void SettingsDialog::buildBookmarkPage(QWidget *page)
     }
     // 已接配置：Config::toggleFavorite 超限时从尾部淘汰最早的书签
     // （键 config/bookmark/max_bookmarks，默认 50，clamp 10..100）。
-    addHint(sec, tr("上限在下次新增书签时读取，已有书签不会在保存瞬间被裁剪。"
-                    "书签记录完整路径，文件移动或重命名后原条目失效；"
-                    "数据保存在本机配置中，不随安装包或账户同步。"));
+    addHint(sec, tr("文件移动或重命名后原条目失效；书签只存本机配置，不随安装包或账户同步。"));
     applyPageRhythm(page);
 }
 
@@ -4485,41 +4483,21 @@ void SettingsDialog::buildAppMenuSections(QWidget *page)
     const auto st = std::make_shared<OutlineState>();
     QSettings &settings = Config::instance().settings();
 
+    // 2026-11-17 注释精简：分组只数个数、父组只罗列子项、叶子只换说法的一律不写说明；
+    // 常驻说明只留三类——父组关闭后的影响、固定项不能关的原因、随某总开关显隐的依赖。
     auto descFor = [this](const QString &id, AppMenu::Kind kind) -> QString {
-        if (kind == AppMenu::Section) {
-            const int n = AppMenu::childrenOf(id).size();
-            return id == QLatin1String("group_task") ? tr("%1 个分组").arg(n)
-                                                     : tr("%1 个项目").arg(n);
-        }
+        if (kind == AppMenu::Section || kind == AppMenu::Group)
+            return {};
+        if (kind == AppMenu::Fixed)
+            return tr("固定项不提供开关；关闭所属分组时一并隐藏。");
         if (id == QLatin1String("copy_clipboard")) {
             return tr("同时遵循已有的剪贴板入口设置。");
         }
         if (id == QLatin1String("parent_nav")) {
-            return tr("包含前后跳转、随机浏览及切换文件夹。关闭后仍可展开查看命令。");
-        }
-        if (id == QLatin1String("parent_zoom")) {
-            return tr("倍率调整、100% 与缩放锁定。");
-        }
-        if (id == QLatin1String("parent_interp")) {
-            return tr("选择缩放重采样方式。");
-        }
-        if (id == QLatin1String("parent_fx")) {
-            return tr("反色、Gamma 与翻转。");
-        }
-        if (id == QLatin1String("parent_rotate")) {
-            return tr("旋转或恢复图片方向。");
-        }
-        if (id == QLatin1String("parent_transition")) {
-            return tr("显示处理的三个互斥档位。");
-        }
-        if (id == QLatin1String("settings")) {
-            return tr("随「应用」总开关显示。");
+            return tr("关闭后仍可展开查看命令。");
         }
         if (id == QLatin1String("delete_file")) {
             return tr("随「危险操作」总开关显示。");
-        }
-        if (id == QLatin1String("wallpaper") || id == QLatin1String("print")) {
-            return tr("随「文件操作」总开关显示。");
         }
         if (id == QLatin1String("copy_folder")) {
             return tr("执行参数，随「复制更多」显隐。");
@@ -5203,7 +5181,8 @@ void SettingsDialog::buildContextMenuPage(QWidget *page)
 
     // —— 资源管理器集成（照原有字段呈现的只读区；位置按设计标注在末尾）——
     QWidget *secShell = beginSection(page, tr("资源管理器集成"));
-    addHint(secShell, tr("沿用现有只读状态区。右键菜单可见性仅应用于 QuikView。"));
+    // 2026-11-17 注释精简：原「沿用现有只读状态区…」属内部话术，删除；
+    // 状态行自身带颜色与文字，读者不会把它当成开关。
 
     // 上下文菜单派单（2026-11-13）：注册探测四态 + 把设置页接到真实右键行为。
     // 偏好写 config/ctxmenu/*（与壳扩展读同一份按用户 config.ini），下次右键
@@ -5213,17 +5192,20 @@ void SettingsDialog::buildContextMenuPage(QWidget *page)
     const char *kWarn = UiStyle::fluent::statusWarn();
     const char *kMuted = UiStyle::fluent::desc();
 
-    auto addStatusRow = [this](QWidget *section, const QString &label,
-                               const QString &detail, const QString &state,
-                               const char *color) {
-        SettingRowParts parts = addSettingRow(section, label, detail);
+    // 2026-11-17 注释精简：状态行只在异常态把「当前指向」写成第二行常驻说明，
+    // 常态与技术细节一律进 tooltip；右侧动态状态值照旧显示。
+    auto addStatusRow = [this](QWidget *section, const QString &label, const QString &visible,
+                               const QString &state, const char *color, const QString &tip) {
+        SettingRowParts parts = addSettingRow(section, label, visible);
         auto *value = new QLabel(state, parts.row);
         value->setObjectName(QStringLiteral("rowTag"));
         value->setWordWrap(false);
         value->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
         value->setStyleSheet(QStringLiteral("color:%1;font-size:11px;")
                                  .arg(QLatin1String(color)));
-        value->setToolTip(detail.isEmpty() ? state : detail);
+        const QString hover = tip.isEmpty() ? (visible.isEmpty() ? state : visible) : tip;
+        value->setToolTip(hover);
+        parts.row->setToolTip(hover);
         parts.controls->addWidget(value, 0, Qt::AlignVCenter);
     };
 
@@ -5260,32 +5242,35 @@ void SettingsDialog::buildContextMenuPage(QWidget *page)
         addStatusRow(sec, tr("右键菜单处理器"),
                      menu.state == ShellOtherInstall
                          ? tr("当前指向：%1").arg(menu.boundPath)
-                         : tr("64/32 位扩展的 CLSID 与处理器绑定"),
-                     view.first, view.second);
+                         : QString(),
+                     view.first, view.second,
+                     tr("64/32 位扩展的 CLSID 与处理器绑定"));
     }
     {
         auto view = stateView(thumbWebp.state, false);
         addStatusRow(sec, tr("WebP 缩略图"),
                      thumbWebp.state == ShellOtherInstall
                          ? tr("当前指向：%1").arg(thumbWebp.boundPath)
-                         : tr("由壳扩展解码生成"),
-                     view.first, view.second);
+                         : QString(),
+                     view.first, view.second, QString());
     }
     {
         auto view = stateView(thumbPsd.state, false);
         addStatusRow(sec, tr("PSD 缩略图"),
                      thumbPsd.state == ShellOtherInstall
                          ? tr("当前指向：%1").arg(thumbPsd.boundPath)
-                         : tr("缺少内嵌 JPEG 时回退默认图标"),
-                     view.first, view.second);
+                         : QString(),
+                     view.first, view.second,
+                     tr("缺少内嵌 JPEG 时回退默认图标"));
     }
     {
         auto view = stateView(thumbPsb.state, false);
         addStatusRow(sec, tr("PSB 缩略图"),
                      thumbPsb.state == ShellOtherInstall
                          ? tr("当前指向：%1").arg(thumbPsb.boundPath)
-                         : tr("缺少内嵌 JPEG 时回退默认图标"),
-                     view.first, view.second);
+                         : QString(),
+                     view.first, view.second,
+                     tr("缺少内嵌 JPEG 时回退默认图标"));
     }
 
     // —— 开关区：仅当右键菜单处理器注册到本安装时可操作 ——
@@ -5331,23 +5316,29 @@ void SettingsDialog::buildContextMenuPage(QWidget *page)
 
     const CtxToggleRow masterRow = ctxToggle(
         sec, tr("在资源管理器右键菜单中显示 QuikView"),
-        tr("关闭后下次右键不插入 QuikView 菜单项；开启恢复各细项的原有选择"),
+        tr("关闭后不再插入菜单项；各细项的选择会保留"),
         "use_shell_menu");
     const CtxToggleRow browseRow = ctxToggle(
-        sec, tr("用 QuikView 浏览图片"), tr("命令行：quikview.exe \"文件\""),
+        sec, tr("用 QuikView 浏览图片"), QString(),
         "show_browse");
+    if (browseRow.row.row)
+        browseRow.row.row->setToolTip(tr("命令行：quikview.exe \"文件\""));
     const CtxToggleRow convertRow = ctxToggle(
-        sec, tr("用 QuikView 转换图片"), tr("命令行：quikview.exe --batch \"文件\""),
+        sec, tr("用 QuikView 转换图片"), QString(),
         "show_convert");
+    if (convertRow.row.row)
+        convertRow.row.row->setToolTip(tr("命令行：quikview.exe --batch \"文件\""));
     const CtxToggleRow previewRow = ctxToggle(
-        sec, tr("菜单内预览"),
-        tr("右键菜单顶部显示 ≤256px 缩略图，解码超时自动省略"),
+        sec, tr("菜单内预览"), QString(),
         "show_preview");
+    if (previewRow.row.row)
+        previewRow.row.row->setToolTip(
+            tr("右键菜单顶部显示 ≤256px 缩略图，解码超时自动省略"));
     const CtxToggleRow infoRow = ctxToggle(
-        sec, tr("图片信息"), tr("浏览项右侧显示 宽 × 高 · 文件大小"),
+        sec, tr("图片信息"), QString(),
         "show_info");
     const CtxToggleRow iconRow = ctxToggle(
-        sec, tr("软件图标"), tr("菜单项左侧的内嵌 QuikView 图标"),
+        sec, tr("软件图标"), QString(),
         "show_icon");
 
     // 联动与整行灰显：注册态不可用 → 整行灰显；总开关关闭 → 细项行灰显
@@ -5395,27 +5386,23 @@ void SettingsDialog::buildContextMenuPage(QWidget *page)
         addHint(sec, tr("壳扩展文件存在，但右键菜单处理器未注册到本安装。"
                         "运行安装包覆盖安装即可完成注册。"));
     }
-    addHint(sec, tr("改动即时写入本机用户配置，资源管理器下一次弹出右键菜单时"
-                    "生效，无需重装或管理员权限；若菜单未变化，重启资源管理器。"
-                    "浏览、转换与预览全部关闭时不插入空分隔线。"));
+    addHint(sec, tr("改动即时写入，下次右键时生效，无需重装或管理员权限；"
+                    "菜单未变化时重启资源管理器。"));
 
     // —— 资源管理器缩略图状态（按实际注册探测，不再写死）——
     sec = beginSection(page, tr("资源管理器缩略图"));
     {
         auto view = stateView(thumbWebp.state, false);
-        addStatusRow(sec, tr("WebP 缩略图"), tr("由壳扩展解码生成"),
-                     view.first, view.second);
+        addStatusRow(sec, tr("WebP 缩略图"), QString(), view.first, view.second, QString());
         auto psdView = stateView(thumbPsd.state, false);
-        addStatusRow(sec, tr("PSD 缩略图"), tr("缺少内嵌 JPEG 时回退默认图标"),
-                     psdView.first, psdView.second);
+        addStatusRow(sec, tr("PSD 缩略图"), QString(), psdView.first, psdView.second,
+                     tr("缺少内嵌 JPEG 时回退默认图标"));
         auto psbView = stateView(thumbPsb.state, false);
-        addStatusRow(sec, tr("PSB 缩略图"), tr("缺少内嵌 JPEG 时回退默认图标"),
-                     psbView.first, psbView.second);
+        addStatusRow(sec, tr("PSB 缩略图"), QString(), psbView.first, psbView.second,
+                     tr("缺少内嵌 JPEG 时回退默认图标"));
     }
-    addHint(sec, tr("这些入口由 QuikView 壳扩展在资源管理器中提供，"
-                    "不是应用内图片右键菜单的功能开关；安装 / 卸载安装包时"
-                    "自动注册 / 移除。菜单开关不会改变文件默认打开方式与"
-                    "这里的缩略图注册。"));
+    addHint(sec, tr("这些入口由壳扩展在资源管理器中提供，安装／卸载安装包时"
+                    "自动注册／移除；与文件默认打开方式无关。"));
     addHint(sec, tr("资源管理器独立预览窗格为后续交付项：旧 shell/ 有实现，"
                     "尚未接入当前安装包。"));
     applyPageRhythm(page);
@@ -5499,26 +5486,24 @@ void SettingsDialog::buildEtcPage(QWidget *page)
     sec = beginSection(page, tr("RAW 图片"));
     // 本批已接线：翻页音效 / 按图调窗 / 禁用屏保 / 不打开 RAW / JPEG 同名过滤 / RAW 缩略图。
     addSwitchRow(sec, tr("不打开 RAW 图片文件"),
-                 tr("下次打开 RAW 时生效"), "etc/no_raw_load", false, false);
+                 QString(), "etc/no_raw_load", false, false);
     addSwitchRow(sec, tr("打开 JPEG 文件时，不打开同名 RAW 文件"),
-                 tr("打开 JPEG 时不再自动带出同名 RAW"),
+                 QString(),
                  "etc/skip_raw_when_jpg", false, true);
     addSwitchRow(sec, tr("打开 RAW 图片文件时，显示已有缩略图"),
-                 tr("打开 RAW 时先显示内嵌缩略图"),
+                 QString(),
                  "etc/raw_thumbnail", false, true);
 
     sec = beginSection(page, tr("窗口与声音"));
-    addSwitchRow(sec, tr("翻页时播放音效"), tr("下次翻页时生效"),
+    addSwitchRow(sec, tr("翻页时播放音效"), QString(),
                  "etc/pageturn_wav", false, false);
-    addSwitchRow(sec, tr("根据图片大小调节窗口大小"),
-                 tr("默认关闭；开启后下次打开图片时生效"),
+    addSwitchRow(sec, tr("根据图片大小调节窗口大小"), QString(),
                  "etc/fit_window_to_image", false, false);
     addSwitchRow(sec, tr("运行 QuikView 时禁用 Windows 屏幕保护程序"),
                  tr("退出 QuikView 后恢复系统屏保设置"),
                  "etc/disable_screensaver", false, false);
 
-    addHint(sec, tr("RAW 选项只影响 RAW 文件的打开方式；勾选「不打开 RAW 图片文件」时，"
-                    "JPEG 旁的 RAW 也不会被自动带出。翻页音效在下次翻页时生效。"));
+    // 2026-11-17 注释精简：原页脚逐句重复三行开关的语义，删除后行内与控件本身已足够。
     applyPageRhythm(page);
 }
 
@@ -5532,7 +5517,7 @@ void SettingsDialog::buildLangPage(QWidget *page)
     {
         SettingRowParts parts = addSettingRow(
             sec, tr("界面语言"),
-            tr("保存后生效；重启 QuikView 后切换界面"));
+            tr("重启 QuikView 后生效"));
         m_language = new QComboBox(parts.row);
         populateLanguageCombo(m_language);
         m_language->setCursor(Qt::PointingHandCursor);
@@ -5544,9 +5529,8 @@ void SettingsDialog::buildLangPage(QWidget *page)
 
     sec = beginSection(page, tr("语言资源"));
     {
-        SettingRowParts parts = addSettingRow(
-            sec, tr("打开语言文件夹"),
-            tr("从 translations 目录加载 .qm 语言文件"));
+        SettingRowParts parts = addSettingRow(sec, tr("打开语言文件夹"), QString());
+        descToRowTip(parts.row, tr("从 translations 目录加载 .qm 语言文件"));
         auto *btn = addButton(nullptr, tr("打开文件夹"));
         parts.controls->addWidget(btn, 0, Qt::AlignVCenter);
         connect(btn, &QPushButton::clicked, this, [this]() {
@@ -5560,9 +5544,7 @@ void SettingsDialog::buildLangPage(QWidget *page)
         });
     }
     {
-        SettingRowParts parts = addSettingRow(
-            sec, tr("下载更多语言"),
-            tr("在浏览器中打开项目页面获取语言包"));
+        SettingRowParts parts = addSettingRow(sec, tr("下载更多语言"), QString());
         auto *btn = addButton(nullptr, tr("下载更多语言"));
         parts.controls->addWidget(btn, 0, Qt::AlignVCenter);
         connect(btn, &QPushButton::clicked, this, [this]() {
@@ -5575,9 +5557,7 @@ void SettingsDialog::buildLangPage(QWidget *page)
             }
         });
     }
-    addHint(sec, tr("语言文件按程序目录下的 translations 加载；"
-                    "两个入口都会离开 QuikView，应用内只报告启动是否成功。"
-                    "语言选择是待保存项：关闭时可选「保存并关闭」，重启后生效。"));
+    addHint(sec, tr("两个入口都会离开 QuikView，应用内只报告启动是否成功。"));
     applyPageRhythm(page);
 }
 
@@ -5978,12 +5958,15 @@ void SettingsDialog::updatePendingNote()
         return;
     const QStringList names = pendingChangeNames();
     if (names.isEmpty()) {
-        m_footerNote->setText(tr("普通设置即时生效；热键改绑与界面语言在保存后生效"));
+        // 2026-11-17：没有待保存项时页脚保持空，不再常驻「即时生效」提示。
+        m_footerNote->clear();
+        m_footerNote->hide();
         return;
     }
     m_footerNote->setText(tr("有 %1 项待保存（%2）；关闭时会询问")
                               .arg(names.size())
                               .arg(names.join(QStringLiteral("、"))));
+    m_footerNote->show();
 }
 
 // ---------------------------------------------------------------------------
@@ -6024,6 +6007,13 @@ void SettingsDialog::rebuildPageSearchIndex(int index)
         }
         for (QPushButton *btn : page->findChildren<QPushButton *>())
             parts << btn->text();
+        // 2026-11-17 注释精简：说明搬进 tooltip 后关键词仍要被搜到，所以把设置行
+        // 及其子控件的 tooltip 一并入索引（页脚 setNote 本就不在索引内）。
+        for (QWidget *row : page->findChildren<QWidget *>(QStringLiteral("settingRow"))) {
+            parts << row->toolTip();
+            for (QWidget *w : row->findChildren<QWidget *>())
+                parts << w->toolTip();
+        }
         m_pageSearchIndex[index] = parts.join(QStringLiteral(" ")).toLower();
     }
 }
