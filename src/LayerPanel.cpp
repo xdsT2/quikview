@@ -11,12 +11,14 @@
 #include <QSizePolicy>
 #include <QVBoxLayout>
 
+#include "AppIcon.h"
 #include "HudShell.h"
 #include "UiStyle.h"
 
 namespace {
 
-// 自绘眼睛按钮：颜色全部走 UiStyle 令牌，跟随深浅主题（不硬编码纯白）。
+// 自绘眼睛按钮：图形走 AppIcon（Fluent），颜色全部走 UiStyle 令牌，跟随深浅主题。
+// 可见/隐藏用 eye、eye_off 两个家族，不再手绘眼睛轮廓（图标派单 2026-11-18）。
 class EyeButton : public QAbstractButton
 {
 public:
@@ -46,26 +48,9 @@ protected:
         }
 
         p.translate(QRectF(rect()).center());
-        p.setPen(QPen(UiStyle::muted(), 1.25, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-        p.setBrush(Qt::NoBrush);
-        QPainterPath eye;
-        if (isChecked()) {
-            eye.moveTo(-7, 0);
-            eye.cubicTo(-3, -5.5, 3, -5.5, 7, 0);
-            eye.cubicTo(3, 5.5, -3, 5.5, -7, 0);
-            eye.closeSubpath();
-            p.drawPath(eye);
-            p.drawEllipse(QPointF(0, 0), 1.7, 1.7);
-        } else {
-            eye.moveTo(-7, 0);
-            eye.cubicTo(-5, -2.7, -3, -4, 0, -4);
-            eye.cubicTo(3, -4, 5, -2.7, 7, 0);
-            eye.cubicTo(6, 1.4, 4.5, 2.5, 3, 3.2);
-            eye.moveTo(-7, 0);
-            eye.cubicTo(-5.5, 2, -4, 3, -2, 3.6);
-            p.drawPath(eye);
-            p.drawLine(QPointF(-5.5, -5.5), QPointF(5.5, 5.5));
-        }
+        // 14×14 逻辑尺寸落在 16px 档资源上，等比缩放，不拉伸。
+        AppIcon::paint(p, isChecked() ? QStringLiteral("eye") : QStringLiteral("eye-off"),
+                       QRectF(-7, -7, 14, 14), UiStyle::muted());
     }
 };
 
@@ -88,21 +73,13 @@ protected:
         p.setRenderHint(QPainter::Antialiasing);
         p.setPen(QPen(UiStyle::muted(), 1.25, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         p.translate(12, height() / 2.0);
-        if (m_collapsed)
-            p.drawPolyline(QPolygonF{QPointF(-2, -3), QPointF(1, 0), QPointF(-2, 3)});
-        else
-            p.drawPolyline(QPolygonF{QPointF(-3, -1), QPointF(0, 2), QPointF(3, -1)});
+        // 展开/折叠：chevron 家族，收起朝右、展开朝下（不再手绘折线）。
+        AppIcon::paint(p, m_collapsed ? QStringLiteral("chevron-right")
+                                      : QStringLiteral("chevron-down"),
+                       QRectF(-6, -6, 12, 12), UiStyle::muted());
 
         p.translate(24, 0);
-        QPainterPath folder;
-        folder.moveTo(-7, 5);
-        folder.lineTo(-7, -5);
-        folder.lineTo(-2, -5);
-        folder.lineTo(0, -3);
-        folder.lineTo(7, -3);
-        folder.lineTo(7, 5);
-        folder.closeSubpath();
-        p.drawPath(folder);
+        AppIcon::paint(p, QStringLiteral("folder"), QRectF(-7, -7, 14, 14), UiStyle::muted());
     }
 
 private:

@@ -1,6 +1,7 @@
 #include "Chrome.h"
 #include "Config.h"
 #include "UiStyle.h"
+#include "AppIcon.h"
 
 #include <QApplication>
 #include <QContextMenuEvent>
@@ -41,11 +42,7 @@
 namespace Chrome {
 namespace {
 
-enum class Icon {
-    Folder, Grid, Play, Bookmark, Edit, Copy, Lock, Unlock, Pin, Layers,
-    Hamburger, More, ChevronDown, Minus, Plus, Left, Right, Fit,
-    Fullscreen, RotateLeft, RotateRight, Picture, MinWindow, MaxWindow, Close
-};
+enum class CaptionGlyph { Minimize, Maximize, Restore, Close };
 
 QFont uiFont(int pixelSize, int weight = QFont::Normal)
 {
@@ -55,13 +52,22 @@ QFont uiFont(int pixelSize, int weight = QFont::Normal)
     return f;
 }
 
-QColor rgba(int r, int g, int b, int a)
+// 顶栏/底岛功能图标统一走 AppIcon（图标派单 2026-11-18）。
+// 这里不再保留 Chrome 自己的图形表：只把语义 id 递过去，缺资源时静默跳过，
+// 不退回手绘，避免出现「手绘版 + SVG 版」两套真源（派单 §4 末段）。
+bool drawIcon(QPainter &p, const char *id, const QRectF &r, const QColor &color,
+              AppIcon::Style style = AppIcon::Style::Regular)
 {
-    return QColor(r, g, b, a);
+    if (r.isEmpty()) {
+        return false;
+    }
+    return AppIcon::paint(p, QLatin1String(id), r, color, style);
 }
 
-void drawIcon(QPainter &p, Icon icon, const QRectF &r, const QColor &color,
-              qreal strokeWidth = 1.55)
+// 仅两处保留自绘：菜单按钮三横线、窗口按钮（最小化/最大化/还原/关闭）。
+// Fluent 精选包没有这两类家族，且窗口按钮属原生窗口外观；两份实现各自唯一，
+// 缺口登记在 管理/QuikView-图标系统-20261118/missing-and-custom.csv。
+void drawHamburger(QPainter &p, const QRectF &r, const QColor &color)
 {
     if (r.isEmpty()) {
         return;
@@ -69,201 +75,52 @@ void drawIcon(QPainter &p, Icon icon, const QRectF &r, const QColor &color,
     p.save();
     p.setRenderHint(QPainter::Antialiasing, true);
     p.translate(r.x(), r.y());
-    const qreal sx = r.width() / 24.0;
-    const qreal sy = r.height() / 24.0;
-    p.scale(sx, sy);
-    QPen pen(color, strokeWidth / qMax(0.01, sx), Qt::SolidLine,
-             Qt::RoundCap, Qt::RoundJoin);
+    const qreal s = r.width() / 24.0;
+    p.scale(s, s);
+    QPen pen(color, 1.55 / qMax(0.01, s), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+    p.setPen(pen);
+    p.drawLine(QPointF(4, 7), QPointF(20, 7));
+    p.drawLine(QPointF(4, 12), QPointF(20, 12));
+    p.drawLine(QPointF(4, 17), QPointF(20, 17));
+    p.restore();
+}
+
+void drawCaptionGlyph(QPainter &p, CaptionGlyph glyph, const QRectF &r, const QColor &color)
+{
+    if (r.isEmpty()) {
+        return;
+    }
+    p.save();
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.translate(r.x(), r.y());
+    const qreal s = qMin(r.width(), r.height()) / 24.0;
+    p.scale(s, s);
+    QPen pen(color, 1.4 / qMax(0.01, s), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
     p.setPen(pen);
     p.setBrush(Qt::NoBrush);
-
-    switch (icon) {
-    case Icon::Folder: {
-        QPainterPath path;
-        path.moveTo(3, 7.5);
-        path.lineTo(3, 18);
-        path.quadTo(3, 20, 5, 20);
-        path.lineTo(19, 20);
-        path.quadTo(21, 20, 21, 18);
-        path.lineTo(21, 8);
-        path.quadTo(21, 6, 19, 6);
-        path.lineTo(12, 6);
-        path.lineTo(9, 4);
-        path.lineTo(5, 4);
-        path.quadTo(3, 4, 3, 6);
-        path.closeSubpath();
-        p.drawPath(path);
-        break;
-    }
-    case Icon::Grid:
-        p.drawRoundedRect(QRectF(4, 4, 6, 6), 1, 1);
-        p.drawRoundedRect(QRectF(14, 4, 6, 6), 1, 1);
-        p.drawRoundedRect(QRectF(4, 14, 6, 6), 1, 1);
-        p.drawRoundedRect(QRectF(14, 14, 6, 6), 1, 1);
-        break;
-    case Icon::Play: {
-        QPainterPath path;
-        path.moveTo(8, 5);
-        path.lineTo(19, 12);
-        path.lineTo(8, 19);
-        path.closeSubpath();
-        p.drawPath(path);
-        break;
-    }
-    case Icon::Bookmark: {
-        QPainterPath path;
-        path.moveTo(6, 4);
-        path.quadTo(6, 2, 8, 2);
-        path.lineTo(16, 2);
-        path.quadTo(18, 2, 18, 4);
-        path.lineTo(18, 22);
-        path.lineTo(12, 18);
-        path.lineTo(6, 22);
-        path.closeSubpath();
-        p.drawPath(path);
-        break;
-    }
-    case Icon::Edit:
-        p.drawLine(QPointF(14, 4), QPointF(20, 10));
-        p.drawLine(QPointF(20, 10), QPointF(9, 21));
-        p.drawLine(QPointF(9, 21), QPointF(3, 21));
-        p.drawLine(QPointF(3, 21), QPointF(3, 15));
-        p.drawLine(QPointF(3, 15), QPointF(14, 4));
-        p.drawLine(QPointF(16, 2), QPointF(22, 8));
-        break;
-    case Icon::Copy:
-        p.drawRoundedRect(QRectF(8, 8, 13, 13), 2, 2);
-        p.drawLine(QPointF(16, 8), QPointF(16, 5));
-        p.drawLine(QPointF(16, 5), QPointF(14, 3));
-        p.drawLine(QPointF(14, 3), QPointF(5, 3));
-        p.drawLine(QPointF(5, 3), QPointF(3, 5));
-        p.drawLine(QPointF(3, 5), QPointF(3, 14));
-        p.drawLine(QPointF(3, 14), QPointF(5, 16));
-        p.drawLine(QPointF(5, 16), QPointF(8, 16));
-        break;
-    case Icon::Lock:
-        p.drawRoundedRect(QRectF(4, 10, 16, 11), 2, 2);
-        p.drawLine(QPointF(8, 10), QPointF(8, 7));
-        p.drawArc(QRectF(8, 3, 8, 8), 0, 180 * 16);
-        p.drawLine(QPointF(16, 7), QPointF(16, 10));
-        break;
-    case Icon::Unlock:
-        // 未锁定：锁梁一端留开口（与闭锁共用锁身/梁/线宽）
-        p.drawRoundedRect(QRectF(4, 10, 16, 11), 2, 2);
-        p.drawLine(QPointF(16, 10), QPointF(16, 7));
-        p.drawArc(QRectF(8, 3, 8, 8), 0, 180 * 16);
-        break;
-    case Icon::Pin: {
-        QPainterPath path;
-        path.moveTo(8, 3);
-        path.lineTo(16, 3);
-        path.lineTo(15, 7);
-        path.lineTo(18.5, 10.5);
-        path.lineTo(18.5, 12);
-        path.lineTo(5.5, 12);
-        path.lineTo(5.5, 10.5);
-        path.lineTo(9, 7);
-        path.closeSubpath();
-        p.drawPath(path);
-        p.drawLine(QPointF(12, 12), QPointF(12, 21));
-        break;
-    }
-    case Icon::Layers: {
-        QPainterPath top;
-        top.moveTo(12, 3);
-        top.lineTo(21, 8);
-        top.lineTo(12, 13);
-        top.lineTo(3, 8);
-        top.closeSubpath();
-        p.drawPath(top);
-        p.drawLine(QPointF(3, 12), QPointF(12, 17));
-        p.drawLine(QPointF(12, 17), QPointF(21, 12));
-        p.drawLine(QPointF(3, 16), QPointF(12, 21));
-        p.drawLine(QPointF(12, 21), QPointF(21, 16));
-        break;
-    }
-    case Icon::Hamburger:
-        p.drawLine(QPointF(4, 7), QPointF(20, 7));
-        p.drawLine(QPointF(4, 12), QPointF(20, 12));
-        p.drawLine(QPointF(4, 17), QPointF(20, 17));
-        break;
-    case Icon::Fullscreen:
-        p.drawLine(QPointF(8, 3), QPointF(3, 3));
-        p.drawLine(QPointF(3, 3), QPointF(3, 8));
-        p.drawLine(QPointF(21, 3), QPointF(16, 3));
-        p.drawLine(QPointF(21, 3), QPointF(21, 8));
-        p.drawLine(QPointF(3, 16), QPointF(3, 21));
-        p.drawLine(QPointF(3, 21), QPointF(8, 21));
-        p.drawLine(QPointF(21, 16), QPointF(21, 21));
-        p.drawLine(QPointF(21, 21), QPointF(16, 21));
-        break;
-    case Icon::More:
-        p.setPen(Qt::NoPen);
-        p.setBrush(color);
-        p.drawEllipse(QPointF(5, 12), 1.1, 1.1);
-        p.drawEllipse(QPointF(12, 12), 1.1, 1.1);
-        p.drawEllipse(QPointF(19, 12), 1.1, 1.1);
-        break;
-    case Icon::ChevronDown:
-        p.drawLine(QPointF(7, 10), QPointF(12, 15));
-        p.drawLine(QPointF(12, 15), QPointF(17, 10));
-        break;
-    case Icon::Minus:
+    switch (glyph) {
+    case CaptionGlyph::Minimize:
         p.drawLine(QPointF(5, 12), QPointF(19, 12));
         break;
-    case Icon::Plus:
-        p.drawLine(QPointF(12, 5), QPointF(12, 19));
-        p.drawLine(QPointF(5, 12), QPointF(19, 12));
-        break;
-    case Icon::Left:
-        p.drawLine(QPointF(15, 5), QPointF(8, 12));
-        p.drawLine(QPointF(8, 12), QPointF(15, 19));
-        break;
-    case Icon::Right:
-        p.drawLine(QPointF(9, 5), QPointF(16, 12));
-        p.drawLine(QPointF(16, 12), QPointF(9, 19));
-        break;
-    case Icon::Fit:
-        p.drawLine(QPointF(8, 3), QPointF(3, 3));
-        p.drawLine(QPointF(3, 3), QPointF(3, 8));
-        p.drawLine(QPointF(21, 3), QPointF(16, 3));
-        p.drawLine(QPointF(21, 3), QPointF(21, 8));
-        p.drawLine(QPointF(3, 16), QPointF(3, 21));
-        p.drawLine(QPointF(3, 21), QPointF(8, 21));
-        p.drawLine(QPointF(21, 16), QPointF(21, 21));
-        p.drawLine(QPointF(21, 21), QPointF(16, 21));
-        break;
-    case Icon::RotateLeft:
-        p.drawArc(QRectF(4, 4, 16, 16), 70 * 16, 260 * 16);
-        p.drawLine(QPointF(4, 4), QPointF(4, 9));
-        p.drawLine(QPointF(4, 4), QPointF(9, 4));
-        break;
-    case Icon::RotateRight:
-        p.drawArc(QRectF(4, 4, 16, 16), 30 * 16, 260 * 16);
-        p.drawLine(QPointF(20, 4), QPointF(20, 9));
-        p.drawLine(QPointF(20, 4), QPointF(15, 4));
-        break;
-    case Icon::Picture:
-        p.drawRoundedRect(QRectF(3, 3, 18, 18), 3, 3);
-        p.drawEllipse(QPointF(8.5, 8.5), 1.5, 1.5);
-        p.drawLine(QPointF(4, 17), QPointF(9, 12));
-        p.drawLine(QPointF(9, 12), QPointF(13, 16));
-        p.drawLine(QPointF(13, 16), QPointF(16, 13));
-        p.drawLine(QPointF(16, 13), QPointF(21, 18));
-        break;
-    case Icon::MinWindow:
-        p.drawLine(QPointF(5, 12), QPointF(19, 12));
-        break;
-    case Icon::MaxWindow:
+    case CaptionGlyph::Maximize:
         p.drawRoundedRect(QRectF(5, 5, 14, 14), 1, 1);
         break;
-    case Icon::Close:
+    case CaptionGlyph::Restore:
+        // 已最大化：两层方框（后层只留右上两笔），与最小化/关闭同一线宽。
+        p.drawRoundedRect(QRectF(4, 8, 12, 12), 1, 1);
+        p.drawLine(QPointF(8, 8), QPointF(8, 4));
+        p.drawLine(QPointF(8, 4), QPointF(20, 4));
+        p.drawLine(QPointF(20, 4), QPointF(20, 16));
+        p.drawLine(QPointF(20, 16), QPointF(16, 16));
+        break;
+    case CaptionGlyph::Close:
         p.drawLine(QPointF(6, 6), QPointF(18, 18));
         p.drawLine(QPointF(18, 6), QPointF(6, 18));
         break;
     }
     p.restore();
 }
+
 
 void setPointerCursor(QWidget *w, bool pointer)
 {
@@ -1249,28 +1106,35 @@ void TopBar::paintEvent(QPaintEvent *)
                                 : QRectF(b.rect.x() + 10, center.y() - iconS / 2, iconS, iconS);
 
         switch (b.action) {
-        case Action::Open: drawIcon(p, Icon::Folder, icon, drawInk); break;
-        case Action::Browse: drawIcon(p, Icon::Grid, icon, drawInk); break;
-        case Action::Slideshow: drawIcon(p, Icon::Play, icon, drawInk); break;
-        case Action::Bookmark: drawIcon(p, Icon::Bookmark, icon, drawInk); break;
-        case Action::Edit: drawIcon(p, Icon::Edit, icon, drawInk); break;
-        case Action::CopyTo: drawIcon(p, Icon::Copy, icon, drawInk); break;
-        case Action::Layers: drawIcon(p, Icon::Layers, icon, drawInk); break;
+        case Action::Open: drawIcon(p, "folder-open", icon, drawInk); break;
+        case Action::Browse: drawIcon(p, "apps", icon, drawInk); break;
+        case Action::Slideshow: drawIcon(p, "play", icon, drawInk); break;
+        case Action::Bookmark: drawIcon(p, "bookmark", icon, drawInk); break;
+        case Action::Edit: drawIcon(p, "image-edit", icon, drawInk); break;
+        case Action::CopyTo: drawIcon(p, "copy", icon, drawInk); break;
+        case Action::Layers: drawIcon(p, "stack", icon, drawInk); break;
         case Action::TopLock:
-            drawIcon(p, m_topLocked ? Icon::Lock : Icon::Unlock, icon,
-                     m_topLocked ? drawInk : drawInk, m_topLocked ? 1.75 : 1.5);
+            // 顶部锁：锁定态用 filled（派单 §5：锁定=持续激活），解锁用 regular。
+            drawIcon(p, m_topLocked ? "lock-closed" : "lock-open", icon, drawInk,
+                     m_topLocked ? AppIcon::Style::Filled : AppIcon::Style::Regular);
             break;
-        case Action::Pin: drawIcon(p, Icon::Pin, icon, drawInk, m_pinned ? 1.8 : 1.55); break;
-        case Action::Menu: drawIcon(p, Icon::Hamburger, icon, drawInk); break;
+        case Action::Pin:
+            drawIcon(p, "pin", icon, drawInk,
+                     m_pinned ? AppIcon::Style::Filled : AppIcon::Style::Regular);
+            break;
+        case Action::Menu: drawHamburger(p, icon, drawInk); break;
         case Action::Minimize:
-            drawIcon(p, Icon::MinWindow, QRectF(center.x() - 7, center.y() - 7, 14, 14), pal.ink, 1.4);
+            drawCaptionGlyph(p, CaptionGlyph::Minimize,
+                             QRectF(center.x() - 7, center.y() - 7, 14, 14), pal.ink);
             break;
         case Action::Maximize:
-            drawIcon(p, window() && window()->isMaximized() ? Icon::MinWindow : Icon::MaxWindow,
-                     QRectF(center.x() - 7, center.y() - 7, 14, 14), pal.ink, 1.4);
+            drawCaptionGlyph(p, window() && window()->isMaximized() ? CaptionGlyph::Restore
+                                                                   : CaptionGlyph::Maximize,
+                             QRectF(center.x() - 7, center.y() - 7, 14, 14), pal.ink);
             break;
         case Action::Close:
-            drawIcon(p, Icon::Close, QRectF(center.x() - 7, center.y() - 7, 14, 14), pal.ink, 1.4);
+            drawCaptionGlyph(p, CaptionGlyph::Close,
+                             QRectF(center.x() - 7, center.y() - 7, 14, 14), pal.ink);
             break;
         default: break;
         }
@@ -1285,8 +1149,8 @@ void TopBar::paintEvent(QPaintEvent *)
                                  b.rect.height());
             p.drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft, b.label);
             if (b.caret) {
-                drawIcon(p, Icon::ChevronDown,
-                         QRectF(b.rect.right() - 16, center.y() - 5, 10, 10), mutedInk, 1.4);
+                drawIcon(p, "chevron-down",
+                         QRectF(b.rect.right() - 16, center.y() - 5, 10, 10), mutedInk);
             }
         }
         endButton(p);
@@ -2013,9 +1877,9 @@ void ControlBar::paintEvent(QPaintEvent *)
                 BtnState stU = st;
                 stU.checked = false;
                 beginButton(p, circleVisual(r), stU, v, pal);
-                drawIcon(p, Icon::Unlock,
+                drawIcon(p, "lock-open",
                          QRectF(center.x() - lockS / 2, center.y() - lockS / 2, lockS, lockS),
-                         buttonInk(stU, pal), 1.7);
+                         buttonInk(stU, pal));
                 endButton(p);
                 p.restore();
             }
@@ -2030,9 +1894,9 @@ void ControlBar::paintEvent(QPaintEvent *)
                 }
                 p.setBrush(blue);
                 p.drawEllipse(vr);
-                drawIcon(p, Icon::Lock,
+                drawIcon(p, "lock-closed",
                          QRectF(center.x() - lockS / 2, center.y() - lockS / 2, lockS, lockS),
-                         QColor(QStringLiteral("#0b1a24")), 1.9);
+                         QColor(QStringLiteral("#0b1a24")), AppIcon::Style::Filled);
                 p.restore();
             }
             continue;
@@ -2047,15 +1911,15 @@ void ControlBar::paintEvent(QPaintEvent *)
         const QRectF navIcon(center.x() - navS / 2, center.y() - navS / 2, navS, navS);
 
         switch (it.action) {
-        case Action::Open: drawIcon(p, Icon::Folder, icon, drawInk, 1.7); break;
-        case Action::List: drawIcon(p, Icon::Grid, icon, drawInk, 1.7); break;
-        case Action::ZoomOut: drawIcon(p, Icon::Minus, icon, drawInk, 1.7); break;
-        case Action::ZoomIn: drawIcon(p, Icon::Plus, icon, drawInk, 1.7); break;
-        case Action::Rotate: drawIcon(p, Icon::RotateLeft, icon, drawInk, 1.7); break;
-        case Action::Fullscreen: drawIcon(p, Icon::Fullscreen, icon, drawInk, 1.7); break;
-        case Action::Prev: drawIcon(p, Icon::Left, navIcon, drawInk, 2.0); break;
-        case Action::Next: drawIcon(p, Icon::Right, navIcon, drawInk, 2.0); break;
-        case Action::Lock: drawIcon(p, Icon::Unlock, icon, drawInk, 1.7); break;
+        case Action::Open: drawIcon(p, "folder-open", icon, drawInk); break;
+        case Action::List: drawIcon(p, "list", icon, drawInk); break;
+        case Action::ZoomOut: drawIcon(p, "subtract", icon, drawInk); break;
+        case Action::ZoomIn: drawIcon(p, "add", icon, drawInk); break;
+        case Action::Rotate: drawIcon(p, "arrow-rotate-counterclockwise", icon, drawInk); break;
+        case Action::Fullscreen: drawIcon(p, "full-screen-maximize", icon, drawInk); break;
+        case Action::Prev: drawIcon(p, "chevron-left", navIcon, drawInk); break;
+        case Action::Next: drawIcon(p, "chevron-right", navIcon, drawInk); break;
+        case Action::Lock: drawIcon(p, "lock-open", icon, drawInk); break;
         default: break;
         }
         endButton(p);
@@ -2492,9 +2356,9 @@ void EmptyState::paintEvent(QPaintEvent *)
     p.setPen(QPen((UiStyle::isLight() ? QColor(0,0,0,31) : QColor(255,255,255,31)), 1));
     p.setBrush(QColor(QString::fromLatin1(UiStyle::pick("#232323", "#f4f4f4"))));
     p.drawRoundedRect(iconRect, 18, 18);
-    drawIcon(p, Icon::Picture,
+    drawIcon(p, "image",
              QRectF(iconRect.center().x() - 17, iconRect.center().y() - 17, 34, 34),
-             QColor(QString::fromLatin1(UiStyle::pick("#bdbdbd", "#444444"))), 1.35);
+             QColor(QString::fromLatin1(UiStyle::pick("#bdbdbd", "#444444"))));
 
     p.setFont(uiFont(22, QFont::Medium));
     p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#f3f3f3", "#3a3a3a"))));
@@ -2523,7 +2387,7 @@ void EmptyState::paintEvent(QPaintEvent *)
     p.setBrush(m_hover == 0 ? QColor(QStringLiteral("#0e7fb5"))
                             : QColor(QStringLiteral("#0b6f9f")));
     p.drawRoundedRect(QRectF(primary).adjusted(0.5, 0.5, -0.5, -0.5), 6, 6);
-    drawIcon(p, Icon::Folder,
+    drawIcon(p, "folder-open",
              QRectF(primary.x() + 18, primary.center().y() - 8, 16, 16),
              QColor(Qt::white));
     p.setFont(uiFont(12, QFont::DemiBold));
