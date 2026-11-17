@@ -51,6 +51,9 @@ public:
     // 开启后目录第一张单独占一页，从第二张起两两拼页。仅影响双页阅览的分页，
     // 单页模式与「上一张/下一张」以外的跳转不受影响。
     bool twoPageCover() const;
+    // 「仅方向键滚动」（键 config/arrow_keys_scroll，默认 false）：开启后 ←/→ 只做
+    // 水平滚动、不再翻页；无滚动行程时不动也不翻页。启动时读取，改 ini 需重启。
+    bool arrowKeysScroll() const;
 
     // 鼠标按键映射（键 config/mouse/btn_*）：值取 SettingsDialog 动作表，
     // "none" = 保留内置行为（左键平移/右键菜单/X、Y 无操作）。

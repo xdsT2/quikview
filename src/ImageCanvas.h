@@ -108,6 +108,10 @@ public:
     // 画面小于视口（适应窗口）时没有可滚动范围，等于不动。
     void scrollVerticallyBy(qreal fraction);
 
+    // ←/→ 同语义的水平版本（「仅方向键滚动」模式用）：按视口宽度比例滚动，
+    // 边界同样交给滚动条钳制；无可滚动行程时不动。
+    void scrollHorizontallyBy(qreal fraction);
+
     // 裁剪模式：进入后左键拖拽画选区，selectionRect() 返回图像像素坐标
     void setCropMode(bool on);
 

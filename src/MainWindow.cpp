@@ -1572,6 +1572,43 @@ const QList<SlotDef> &shortcutSlotDefs()
     };
     return defs;
 }
+
+// 「仅方向键滚动」与键盘自定义的冲突规则：出厂方向键让位给滚动；但用户显式
+// 把「上一张/下一张」改绑到方向键时，以键盘自定义优先（不剥键，仍走翻页）。
+// 判定依据与 applyShortcutConfig 下发时的口径一致：未保存过 _key = 出厂键位。
+bool slotKeepsArrowKey(const Config &cfg, const QString &slot, Qt::Key key)
+{
+    if (!cfg.hasActionKey(slot)) {
+        return false;
+    }
+    if (cfg.actionBinding(slot, slot) != slot) {
+        return false;   // 槽位被挪用给别的动作，说明用户动过这组键
+    }
+    const QKeySequence saved =
+        QKeySequence::fromString(cfg.actionKey(slot), QKeySequence::PortableText);
+    return saved == QKeySequence(key);
+}
+
+void stripFactoryArrow(QHash<QString, QList<QKeySequence>> &perAction,
+                       const Config &cfg, const QString &action,
+                       Qt::Key key, const QString &slot)
+{
+    if (slotKeepsArrowKey(cfg, slot, key)) {
+        return;
+    }
+    auto it = perAction.find(action);
+    if (it == perAction.end()) {
+        return;
+    }
+    QList<QKeySequence> kept;
+    const QKeySequence target(key);
+    for (const QKeySequence &s : it.value()) {
+        if (s != target) {
+            kept.append(s);   // 副键（PageUp/PageDown/Backspace）原样保留
+        }
+    }
+    it.value() = kept;
+}
 } // namespace
 
 void MainWindow::applyShortcutConfig()
@@ -1624,6 +1661,15 @@ void MainWindow::applyShortcutConfig()
         if (!seq.isEmpty() && !keys.contains(seq)) {
             keys.append(seq);
         }
+    }
+    // 「仅方向键滚动」（键 config/arrow_keys_scroll，启动时读取一次）：出厂 ←/→
+    // 不再承担翻页，改由 MainWindow::keyPressEvent 做水平滚动。键盘自定义优先：
+    // 用户显式把 prev/next 改绑到方向键时不剥键。
+    if (cfg.arrowKeysScroll()) {
+        stripFactoryArrow(perAction, cfg, QStringLiteral("prev"), Qt::Key_Left,
+                          QStringLiteral("prev"));
+        stripFactoryArrow(perAction, cfg, QStringLiteral("next"), Qt::Key_Right,
+                          QStringLiteral("next"));
     }
     for (auto it = perAction.constBegin(); it != perAction.constEnd(); ++it) {
         if (QAction *dst = m_actions.value(it.key()))
@@ -5103,6 +5149,26 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << "hasImage=" << (!m_currentImage.isNull()) << "\n";
         }
     }
+    // 浏览行为三小件验收：向画布视口投递一次真实 QKeyEvent（L/R/U/D 或 Left/Right/Up/Down）。
+    // 等价于「该键没有被 QAction 快捷键吃掉」之后的送达路径；键到底还在不在
+    // 快捷键表里由同一次 report 的 keys= 字段证明，两者合起来才是完整断言。
+    else if (c.startsWith(QLatin1String("arrow:"))) {
+        const QString d = c.mid(6).trimmed().toUpper();
+        Qt::Key key = Qt::Key_unknown;
+        if (d == QLatin1String("L") || d == QLatin1String("LEFT")) {
+            key = Qt::Key_Left;
+        } else if (d == QLatin1String("R") || d == QLatin1String("RIGHT")) {
+            key = Qt::Key_Right;
+        } else if (d == QLatin1String("U") || d == QLatin1String("UP")) {
+            key = Qt::Key_Up;
+        } else if (d == QLatin1String("D") || d == QLatin1String("DOWN")) {
+            key = Qt::Key_Down;
+        }
+        if (key != Qt::Key_unknown && m_canvas) {
+            QKeyEvent ev(QEvent::KeyPress, key, Qt::NoModifier);
+            QApplication::sendEvent(m_canvas->viewport(), &ev);
+        }
+    }
 }
 
 // 首尾边界：所有翻页入口（胶囊、菜单、快捷键、滚轮）都走这里，规则只有一份。
@@ -6956,12 +7022,38 @@ void MainWindow::onActivationChanged(bool active)
 void MainWindow::keyPressEvent(QKeyEvent *event)
 {
     switch (event->key()) {
+    case Qt::Key_Left:
+    case Qt::Key_Right:
+        // 「仅方向键滚动」：出厂键位下 ←/→ 已从翻页 QAction 摘除，事件能到这里，
+        // 只做水平滚动。可滚动判据用「图像实际宽度 > 视口宽度」——画布场景带
+        // 留白 padding，滚动条行程在小图上也不为 0，不能用滚动条行程当判据，
+        // 否则图小于视口时仍会平移留白，与「无操作」不符。
+        // 图不大于视口 → 直接不动，也不翻页、不 toast。Shift 加大到半屏。
+        if (Config::instance().arrowKeysScroll()) {
+            const qreal frac = (event->modifiers() & Qt::ShiftModifier) ? 0.5 : 0.1;
+            const qreal imgW = m_canvas->zoom() * m_sourceImage.width();
+            if (imgW > qreal(m_canvas->viewport()->width())) {
+                m_canvas->scrollHorizontallyBy(event->key() == Qt::Key_Right ? frac : -frac);
+            }
+            event->accept();
+            return;
+        }
+        break;
     case Qt::Key_Up:
     case Qt::Key_Down: {
         // ↑/↓ = 上移/下移（原版语义，不是翻页）；Shift 加大到半屏。
-        // ←/→/PageUp/PageDown 已交给 QAction 快捷键，这里不再重复处理。
+        // 开关关闭时行为与改动前逐帧一致（不过滤尺寸）；开启时按同一判据过滤，
+        // 让四个方向在「仅方向键滚动」模式下口径统一。
         const qreal frac = (event->modifiers() & Qt::ShiftModifier) ? 0.5 : 0.1;
-        m_canvas->scrollVerticallyBy(event->key() == Qt::Key_Down ? frac : -frac);
+        const bool down = event->key() == Qt::Key_Down;
+        if (Config::instance().arrowKeysScroll()) {
+            const qreal imgH = m_canvas->zoom() * m_sourceImage.height();
+            if (imgH > qreal(m_canvas->viewport()->height())) {
+                m_canvas->scrollVerticallyBy(down ? frac : -frac);
+            }
+        } else {
+            m_canvas->scrollVerticallyBy(down ? frac : -frac);
+        }
         event->accept();
         return;
     }

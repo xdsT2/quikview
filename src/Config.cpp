@@ -411,6 +411,12 @@ bool Config::twoPageCover() const
     return m_settings.value(QStringLiteral("config/two_page_cover"), false).toBool();
 }
 
+bool Config::arrowKeysScroll() const
+{
+    // 只在启动装键盘时读一次：改 ini 需重启生效（不跟随设置页即时监听）。
+    return m_settings.value(QStringLiteral("config/arrow_keys_scroll"), false).toBool();
+}
+
 bool Config::wheelZoom() const
 {
     // 滚轮上下共用一个缩放开关：任一方向不是「放大/缩小」对应档（含旧配置里
