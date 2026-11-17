@@ -745,6 +745,10 @@
 <context>
     <name>MainWindow</name>
     <message>
+        <source>图像编辑器路径无效，已改用系统默认程序打开</source>
+        <translation>이미지 편집기 경로가 잘못되어 시스템 기본 프로그램으로 열었습니다.</translation>
+    </message>
+    <message>
         <source>未打开图片</source>
         <translation>이미지 없음</translation>
     </message>

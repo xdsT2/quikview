@@ -745,6 +745,10 @@
 <context>
     <name>MainWindow</name>
     <message>
+        <source>图像编辑器路径无效，已改用系统默认程序打开</source>
+        <translation>Invalid image editor path; opened with the system default program.</translation>
+    </message>
+    <message>
         <source>未打开图片</source>
         <translation>No image open</translation>
     </message>

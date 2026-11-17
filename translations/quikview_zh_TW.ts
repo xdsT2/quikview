@@ -745,6 +745,10 @@
 <context>
     <name>MainWindow</name>
     <message>
+        <source>图像编辑器路径无效，已改用系统默认程序打开</source>
+        <translation>影像編輯器路徑無效，已改用系統預設程式開啟</translation>
+    </message>
+    <message>
         <source>未打开图片</source>
         <translation>未開啟圖片</translation>
     </message>

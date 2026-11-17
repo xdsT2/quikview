@@ -745,6 +745,10 @@
 <context>
     <name>MainWindow</name>
     <message>
+        <source>图像编辑器路径无效，已改用系统默认程序打开</source>
+        <translation>画像エディタのパスが無効です。システムの既定のプログラムで開きました。</translation>
+    </message>
+    <message>
         <source>未打开图片</source>
         <translation>画像未読み込み</translation>
     </message>

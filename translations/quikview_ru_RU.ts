@@ -745,6 +745,10 @@
 <context>
     <name>MainWindow</name>
     <message>
+        <source>图像编辑器路径无效，已改用系统默认程序打开</source>
+        <translation>Недопустимый путь к редактору изображений; открыто программой по умолчанию.</translation>
+    </message>
+    <message>
         <source>未打开图片</source>
         <translation>Изображение не открыто</translation>
     </message>

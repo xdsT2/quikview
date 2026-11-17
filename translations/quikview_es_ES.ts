@@ -745,6 +745,10 @@
 <context>
     <name>MainWindow</name>
     <message>
+        <source>图像编辑器路径无效，已改用系统默认程序打开</source>
+        <translation>La ruta del editor de imágenes no es válida; se abrió con el programa predeterminado del sistema.</translation>
+    </message>
+    <message>
         <source>未打开图片</source>
         <translation>Sin imagen abierta</translation>
     </message>

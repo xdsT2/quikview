@@ -46,6 +46,7 @@
 #include <QPrintDialog>
 #include <QPrinter>
 #include <QProcess>
+#include <QStandardPaths>
 #include <QPropertyAnimation>
 #include <QPushButton>
 #include <QRandomGenerator>
@@ -5149,6 +5150,11 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << "hasImage=" << (!m_currentImage.isNull()) << "\n";
         }
     }
+    // 浏览行为三小件验收：按 config/etc/image_editor 触发一次「用外部编辑器打开」，
+    // 用于断言参数模板切分、%1 替换与无效路径回退（走的是 Ctrl+E 同一个入口）。
+    else if (c == QLatin1String("editor")) {
+        onOpenWithEditor();
+    }
     // 浏览行为三小件验收：向画布视口投递一次真实 QKeyEvent（L/R/U/D 或 Left/Right/Up/Down）。
     // 等价于「该键没有被 QAction 快捷键吃掉」之后的送达路径；键到底还在不在
     // 快捷键表里由同一次 report 的 keys= 字段证明，两者合起来才是完整断言。
@@ -6225,18 +6231,95 @@ void MainWindow::onCopyToFolder()
     }
 }
 
+namespace {
+// 「设置 → 杂项 → 图像编辑器」的参数模板切分（key config/etc/image_editor）：
+//   * 空格/制表符分隔，双引号内的空格不切 —— "D:\a b\viewer.exe" "%1" 不会被拆散；
+//   * 连续两个双引号 "" 视为一个字面量双引号；
+//   * 未闭合的引号按「到结尾都算引号内」处理，不丢字符。
+QStringList splitEditorTemplate(const QString &tpl)
+{
+    QStringList out;
+    QString cur;
+    bool inQuote = false;
+    bool has = false;
+    for (int i = 0; i < tpl.size(); ++i) {
+        const QChar ch = tpl.at(i);
+        if (ch == QLatin1Char('"')) {
+            if (inQuote && i + 1 < tpl.size() && tpl.at(i + 1) == QLatin1Char('"')) {
+                cur.append(QLatin1Char('"'));
+                ++i;
+            } else {
+                inQuote = !inQuote;
+            }
+            has = true;
+            continue;
+        }
+        if (!inQuote && (ch == QLatin1Char(' ') || ch == QLatin1Char('\t'))) {
+            if (has) {
+                out << cur;
+                cur.clear();
+                has = false;
+            }
+            continue;
+        }
+        cur.append(ch);
+        has = true;
+    }
+    if (has) {
+        out << cur;
+    }
+    return out;
+}
+} // namespace
+
 void MainWindow::onOpenWithEditor()
 {
     if (m_currentPath.isEmpty()) {
         return;
     }
-    const QString editor = Config::instance().settings()
-                               .value(QStringLiteral("config/etc/image_editor")).toString();
-    if (!editor.isEmpty() && QFile::exists(editor)) {
-        QProcess::startDetached(editor, { m_currentPath });
-    } else {
+    const QString tpl = Config::instance()
+                            .settings()
+                            .value(QStringLiteral("config/etc/image_editor"))
+                            .toString()
+                            .trimmed();
+    if (tpl.isEmpty()) {
         QDesktopServices::openUrl(QUrl::fromLocalFile(m_currentPath));
+        return;
     }
+    // 模板切分后才知道真正的程序是什么：旧式配置只填 exe 路径，新式可带参数
+    // （如 "C:\Windows\System32\notepad.exe" "%1"）。
+    const QStringList parts = splitEditorTemplate(tpl);
+    QString program = parts.value(0);
+    if (program.isEmpty()) {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(m_currentPath));
+        return;
+    }
+    if (!QFile::exists(program)) {
+        // 允许只写可执行名（notepad.exe）：按 PATH 解析一次，避免误判为无效路径
+        const QString resolved = QStandardPaths::findExecutable(program);
+        if (resolved.isEmpty()) {
+            // 配了但路径无效：提示一次，仍回退系统默认程序打开，不让 Ctrl+E 变哑键
+            m_toast->showMessage(QCoreApplication::translate(
+                "MainWindow", "图像编辑器路径无效，已改用系统默认程序打开"));
+            QDesktopServices::openUrl(QUrl::fromLocalFile(m_currentPath));
+            return;
+        }
+        program = resolved;
+    }
+    QStringList args = parts.mid(1);
+    bool substituted = false;
+    for (QString &a : args) {
+        if (a.contains(QStringLiteral("%1"))) {
+            // %1 已经在切分后的单个参数里，替换后仍是一个 argv，图片路径带空格也安全
+            a.replace(QStringLiteral("%1"), m_currentPath);
+            substituted = true;
+        }
+    }
+    if (!substituted) {
+        // 模板没写 %1（旧式配置）→ 图片路径作为最后一个参数追加，保持旧行为
+        args << m_currentPath;
+    }
+    QProcess::startDetached(program, args);
 }
 
 void MainWindow::onCopyToClipboard()
