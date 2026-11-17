@@ -238,6 +238,9 @@ int main(int argc, char *argv[])
     }
 
     MainWindow window;
+    // 窗口几何持久化单：show() 之前恢复，避免先按默认尺寸闪一下再跳到记录位置。
+    // 空 ini 不记录 → 内部直接返回，保持构造默认，等价旧行为。
+    window.restoreWindowGeometry();
     window.show();
 
     // 首实例挂监听：收到路径就切图并把自己拉到前台

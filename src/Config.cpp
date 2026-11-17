@@ -634,3 +634,45 @@ void Config::addRecentFile(const QString &path)
     }
     m_settings.setValue(QStringLiteral("recent_files"), recent);
 }
+
+// —— 窗口几何（整数键，不用 saveGeometry）——
+// 键名带 config/ 前缀，与其余键同命名空间；便携模式随 config.ini 走。
+bool Config::hasWindowGeometry() const
+{
+    return m_settings.contains(QStringLiteral("config/win_w"))
+        && m_settings.contains(QStringLiteral("config/win_h"));
+}
+
+int Config::winX() const
+{
+    return m_settings.value(QStringLiteral("config/win_x"), 0).toInt();
+}
+
+int Config::winY() const
+{
+    return m_settings.value(QStringLiteral("config/win_y"), 0).toInt();
+}
+
+int Config::winW() const
+{
+    return m_settings.value(QStringLiteral("config/win_w"), 0).toInt();
+}
+
+int Config::winH() const
+{
+    return m_settings.value(QStringLiteral("config/win_h"), 0).toInt();
+}
+
+bool Config::winMaximized() const
+{
+    return m_settings.value(QStringLiteral("config/win_maximized"), false).toBool();
+}
+
+void Config::setWindowGeometry(int x, int y, int w, int h, bool maximized)
+{
+    m_settings.setValue(QStringLiteral("config/win_x"), x);
+    m_settings.setValue(QStringLiteral("config/win_y"), y);
+    m_settings.setValue(QStringLiteral("config/win_w"), w);
+    m_settings.setValue(QStringLiteral("config/win_h"), h);
+    m_settings.setValue(QStringLiteral("config/win_maximized"), maximized);
+}

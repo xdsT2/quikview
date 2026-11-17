@@ -2780,6 +2780,68 @@ void MainWindow::openFile(const QString &path, bool transient)
                                          canonical, sortMode, sortDesc, skipRaw));
 }
 
+// —— 窗口几何恢复（纯整数键 + 离屏 clamp）——
+// 在 main() 的 show() 之前调用。空 ini（无记录）直接返回，保持构造默认 1080×815，
+// 即「无记录=现行为不变」。x/y 允许负值（副屏在主屏左侧时坐标天然为负）。
+void MainWindow::restoreWindowGeometry()
+{
+    Config &cfg = Config::instance();
+    if (!cfg.hasWindowGeometry()) {
+        return;
+    }
+    const int w = cfg.winW();
+    const int h = cfg.winH();
+    if (w <= 0 || h <= 0) {
+        return;
+    }
+    QRect target(cfg.winX(), cfg.winY(), w, h);
+
+    // 离屏判定：遍历所有屏的 availableGeometry，找记录矩形落在哪一屏。
+    // 完全离屏（与所有屏零交集）→ 回主屏居中；部分越界 → clamp 进那个屏。
+    const QList<QScreen *> screens = QGuiApplication::screens();
+    QScreen *fallback = QGuiApplication::primaryScreen();
+    if (!fallback && !screens.isEmpty()) {
+        fallback = screens.first();
+    }
+    QScreen *host = nullptr;
+    int bestArea = 0;
+    for (QScreen *s : screens) {
+        const QRect av = s->availableGeometry();
+        const QRect inter = av.intersected(target);
+        const int area = inter.width() * inter.height();
+        if (area > bestArea) {
+            bestArea = area;
+            host = s;
+        }
+    }
+
+    if (host) {
+        // 部分越界或完全在屏内：clamp 进该屏可见区（保留尺寸，只挪位置）。
+        const QRect av = host->availableGeometry();
+        int x = target.x();
+        int y = target.y();
+        int cw = qMin(w, av.width());
+        int ch = qMin(h, av.height());
+        x = qMax(av.left(), qMin(x, av.right() - cw));
+        y = qMax(av.top(), qMin(y, av.bottom() - ch));
+        target = QRect(x, y, cw, ch);
+    } else if (fallback) {
+        // 完全离屏（副屏被拔 / 分辨率变更）：回主屏居中。
+        const QRect av = fallback->availableGeometry();
+        int cw = qMin(w, av.width());
+        int ch = qMin(h, av.height());
+        target = QRect(av.left() + (av.width() - cw) / 2,
+                       av.top() + (av.height() - ch) / 2, cw, ch);
+    }
+    setGeometry(target);   // 先摆普通态
+
+    // 最大化态：普通几何已摆好，再最大化；Qt 的 showMaximized 会记住 normalGeometry，
+    // 取消最大化后正好回到上面 clamp 过的普通态。
+    if (cfg.winMaximized()) {
+        showMaximized();
+    }
+}
+
 // 打开文件并按图调窗：仅「启动带文件 / 文件→打开」两条路径使用。
 // 内部复用 openFile（目录/记忆/跳转逻辑不重写），只额外置位调窗标记。
 void MainWindow::openFileFitting(const QString &path)
@@ -4889,6 +4951,29 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         if (!psdDoc.composite.isNull())
             psdDoc.composite.save(QStringLiteral("Temp/psd-composite.png"));
     }
+    // wingeom —— 窗口几何读回探针（窗口几何持久化验收用）：把当前几何、
+    // 还原态几何、最大化态与配置里的记录值落盘，供脚本逐像素比对。
+    else if (c == QLatin1String("wingeom")) {
+        const QRect g = geometry();
+        const QRect ng = normalGeometry();
+        Config &cfg = Config::instance();
+        QFile f(QStringLiteral("Temp/wingeom-report.txt"));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << "geom=" << g.x() << ',' << g.y() << ',' << g.width() << ',' << g.height() << '\n'
+               << "normal=" << ng.x() << ',' << ng.y() << ',' << ng.width() << ',' << ng.height() << '\n'
+               << "maximized=" << (isMaximized() ? 1 : 0) << '\n'
+               << "cfg_has=" << (cfg.hasWindowGeometry() ? 1 : 0) << '\n'
+               << "cfg=" << cfg.winX() << ',' << cfg.winY() << ','
+               << cfg.winW() << ',' << cfg.winH() << ',' << (cfg.winMaximized() ? 1 : 0) << '\n';
+            QScreen *scr = QGuiApplication::screenAt(g.center());
+            if (!scr) scr = QGuiApplication::primaryScreen();
+            if (scr) {
+                const QRect av = scr->availableGeometry();
+                ts << "screen_avail=" << av.x() << ',' << av.y() << ',' << av.width() << ',' << av.height() << '\n';
+            }
+        }
+    }
     // PSD 图层验收探针（仅 --smoke 路径）：模拟面板/眼睛/单层预览操作
     else if (c == QLatin1String("psdpanel")) {
         togglePsdLayers();
@@ -5113,8 +5198,8 @@ void MainWindow::onPrev()
     if (!m_dir->isValid()) {
         return;
     }
-    // 双页阅览一次翻一跨页（2 张），普通浏览是 1 张
-    const int step = isSpreadMode() ? 2 : 1;
+    // 双页阅览一次翻一跨页（2 张），普通浏览是 1 张；封面模式下封面页只走 1 张
+    const int step = spreadBackwardStep();
     const int before = m_dir->index();
     const QString p = m_dir->advance(-step);
     if (p.isEmpty()) {
@@ -5133,7 +5218,7 @@ void MainWindow::onNext()
     if (!m_dir->isValid()) {
         return;
     }
-    const int step = isSpreadMode() ? 2 : 1;
+    const int step = spreadForwardStep();
     const int before = m_dir->index();
     const QString p = m_dir->advance(step);
     if (p.isEmpty()) {
@@ -5913,8 +5998,40 @@ QString MainWindow::spreadSecondPath() const
     if (!m_dir || !m_dir->isValid()) {
         return QString();
     }
-    const int n = m_dir->index() + 1;
+    const int i = m_dir->index();
+    // 封面模式（config/two_page_cover）：索引 0 是封面，单独成页不拼右侧；
+    // 之后从索引 1 起两两配对（1+2、3+4…）。默认模式仍按 0+1、2+3… 配对。
+    // 封面模式下遇到偶数索引（正常翻页路径不可达）也按「无右侧」处理，
+    // 防止状态被外部改坏时拼出半张跨页。
+    if (Config::instance().twoPageCover() && i % 2 == 0) {
+        return QString();
+    }
+    const int n = i + 1;
     return n < m_dir->count() ? m_dir->files().at(n) : QString();
+}
+
+int MainWindow::spreadForwardStep() const
+{
+    if (!isSpreadMode()) {
+        return 1;
+    }
+    if (!Config::instance().twoPageCover()) {
+        return 2;
+    }
+    // 封面页（索引 0）的下一落点是索引 1，即「第 2+3 张」跨页的左页。
+    return (m_dir && m_dir->isValid() && m_dir->index() == 0) ? 1 : 2;
+}
+
+int MainWindow::spreadBackwardStep() const
+{
+    if (!isSpreadMode()) {
+        return 1;
+    }
+    if (!Config::instance().twoPageCover()) {
+        return 2;
+    }
+    // 索引 1 是「第 2+3 张」跨页，往回是封面页（索引 0），只退 1 张。
+    return (m_dir && m_dir->isValid() && m_dir->index() == 1) ? 1 : 2;
 }
 
 namespace {
@@ -6744,6 +6861,13 @@ void MainWindow::closeEvent(QCloseEvent *event)
             return;
         }
     }
+    // 关闭时落盘窗口几何（窗口几何持久化单）：最大化态记 true，但 x/y/w/h
+    // 一律取 normalGeometry() 的还原态，恢复时才能「先摆普通态再最大化」。
+    // 设置窗仍可见而本次关闭被作废时上面已 return，不会误记。
+    const QRect ng = normalGeometry();
+    const QRect g = ng.isValid() ? ng : geometry();
+    Config::instance().setWindowGeometry(g.x(), g.y(), g.width(), g.height(), isMaximized());
+
     QMainWindow::closeEvent(event);
 }
 

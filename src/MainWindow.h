@@ -62,6 +62,10 @@ public:
     // 打开文件并按图片尺寸调窗（仅「启动带文件 / 文件→打开」两条路径用；
     // 见 fitWindowToImage()，受设置「根据图片大小调节窗口大小」控制）
     void openFileFitting(const QString &path);
+    // 窗口几何恢复（窗口几何持久化单）：在 main() 的 show() 之前调用。
+    // 读 config 的整数键，离屏 clamp 后 setGeometry；最大化态先摆普通态再最大化。
+    // 空 ini（无记录）直接返回，保持构造默认——即「无记录=现行为不变」。
+    void restoreWindowGeometry();
     void openSettings() { onSettings(); }   // 调试/自动化：直接打开设置对话框
     void setZoomMode(int mode);             // 调试/自动化 + 菜单共用：0原始/1适合窗口/2适合宽度
     void runSmokeCommand(const QString &cmd); // 调试/自动化：--smoke 单命令驱动（P0 冒烟）
@@ -280,6 +284,10 @@ private:
     void syncViewModeActions();              // 勾选态与内部状态对齐（硬规则：三者同步）
     void updateShowModeIcon();               // 工具栏图标：双页开取 spread，关取 zoom
     QString spreadSecondPath() const;        // 跨页的右/左手那张
+    // 双页翻页步进：默认恒为 2；开启「首图视为封面」后，封面页与第 2 张之间
+    // 只走 1 张（封面单独成页），其余跨页仍走 2 张。返回值用于 m_dir->advance()。
+    int spreadForwardStep() const;
+    int spreadBackwardStep() const;
     QImage readImageSync(const QString &path) const;   // 同步解码（双页拼图用）
     void refreshSpread();                    // 按当前索引重新拼接跨页
     void updateCanvasLogo();
