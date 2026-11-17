@@ -77,6 +77,10 @@ if [ -d "$QT_BIN/../share/qt6/plugins/imageformats" ]; then
     cp -f "$QT_BIN/../share/qt6/plugins/imageformats/"*.dll "$STAGE/imageformats/"
 fi
 
+# SVG 渲染（图标统一 2026-11-18）：功能图标全部走 QSvgRenderer，Qt6Svg.dll 由
+# windeployqt 按 import 自动收；收不到就是干净机器上满屏缺图标，直接拦下来。
+[ -f "$STAGE/Qt6Svg.dll" ] || { echo "缺 Qt6Svg.dll：windeployqt 未收取 Svg 模块" >&2; exit 1; }
+
 echo "[3/6] 补齐非 Qt 依赖（objdump 闭包）"
 declare -A SEEN=()
 QUEUE=()

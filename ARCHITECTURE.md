@@ -45,7 +45,8 @@
 | `HudShell` | 383 + 102 | 画布浮层共用外壳（2026-11-14 浮层标准统一）：磨砂底板 `HudBackdrop`、缓存投影 `HudEffect`、28×28 标题栏按钮 `HudToolButton` 与 110/85ms 开合动效，信息浮层与图层面板共用 |
 | `LayerPanel` | 404 + 75 | PSD 图层面板：右侧浮层，整图 / 图层预览 / 分组折叠 / 独立眼睛显隐；外壳走 `HudShell`，Esc 优先收起 |
 | `ThumbnailBrowser` | — | 底部胶片栏，绘制并异步解码可见项 |
-| `CtxMenu` / `MenuCatalog.h` / `MenuIcons` | 1411 | 应用内右键菜单：三层收纳目录、全量可见性配置（`config/appmenu/*`）、顶部五图标快捷区与中性线性图标自绘（0.5.2 批次） |
+| `CtxMenu` / `MenuCatalog.h` / `MenuIcons` | 1411 | 应用内右键菜单：三层收纳目录、全量可见性配置（`config/appmenu/*`）、顶部五图标快捷区。**图标自 2026-11-18 起不再自绘**：`MenuIcons` 只剩把历史 id 转成 `AppIcon` 语义 id 的转发层 |
+| `AppIcon` | 282 + 44 | **功能图标唯一入口**：语义 id → Fluent 家族映射表（一份，90 条），按目标像素取 16/20/24 档，`QSvgRenderer` 渲染 + 按主题重新着色，`QPixmap` 按 id/px/style/dpr/ink 缓存；qrc 缺失时 `available()==false` 优雅回退成无图标 |
 | `BatchConvertDialog` | 772 + 82 | 批量格式转换 |
 
 **基础设施**
@@ -88,10 +89,12 @@
 1. **版本号**：只有 `CMakeLists.txt` 的 `project(VERSION ...)`。它生成 `QUIKVIEW_VERSION` 宏，`setApplicationVersion()` 与「关于」对话框都读这个宏，不再各写各的字面量。
 2. **UI 令牌**：只有 `src/UiStyle.h`。QSS 里写 `@Token@` 占位符，运行时由 `withColorTokens()` 替换成常量——界面代码不出现裸色值。
 3. **翻译**：只有 `translations/*.ts`，运行时编译成 `.qm` 由 `QTranslator` 装载；中文（简体）是源语言，不额外装载。
+4. **图标**：只有 `src/AppIcon.cpp` 的映射表。`resources/icons/fluent/` 里的 SVG 由 `tools/install-fluent-icons.py` 依该表复制、`resources/ui.qrc` 的登记段也由它生成——不要在页面里各自拼路径，也不要手工往 qrc 里加图标，更不要把一个家族的多档尺寸全塞进来。
 
 ## 依赖清单
 
-- 构建：CMake ≥ 3.16 + Ninja；Qt 6（Widgets / Concurrent / PrintSupport / Network / LinguistTools）
+- 构建：CMake ≥ 3.16 + Ninja；Qt 6（Widgets / Concurrent / PrintSupport / Network / Svg / LinguistTools）
+- `Qt6::Svg`（2026-11-18 起）：功能图标全部由 `QSvgRenderer` 渲染，`find_package(Qt6 ... Svg)` 是硬依赖（构建机必须补上这一模块）。运行期若安装目录缺 `Qt6Svg.dll`，`AppIcon::available()` 变 false，图标整体缺席但界面照常可用、不黑块不崩溃；打包时 `tools/package.sh` 硬校验 `Qt6Svg.dll` 在 staging 里，缺了直接失败。
 - 可选解码：libraw、libheif（都走 `pkg_check_modules`，缺失时降级而非编译失败）
 - Windows 专有：`winmm`（翻页音效，运行时合成 WAV 走 `PlaySoundW` 异步播放）
 - 说明：Honeyview 用到的 libbpg 生态已停更，BPG 支持列为可选、不阻塞主线

@@ -50,6 +50,7 @@ Git Bash 下 `/D...` 参数会被 MSYS 当成路径改写，需 `MSYS2_ARG_CONV_
 
 ## 说明
 
+- **Qt SVG 模块（2026-11-18 起必须）**：功能图标由 `QSvgRenderer` 渲染，程序 import `Qt6Svg.dll`。`package.sh` 里 `windeployqt` 会按 import 自动收这一枚，并在收完后硬校验 `$STAGE/Qt6Svg.dll` 是否存在，缺了直接 `exit 1`——干净机器上少这一枚就是整屏缺图标，不能放进发布包。构建机的 Qt 套件也必须含 Svg 模块（本机是 MSYS2 `mingw-w64-x86_64-qt6-svg` 的 6.11.2 拷进官方套件，包含 `bin/Qt6Svg.dll`、`lib/libQt6Svg.dll.a`、`lib/cmake/Qt6Svg/`、`include/qt6/QtSvg/`）。
 - 安装向导为简体中文，默认安装到 `D:\Entertainment\QuikView`（可在目录页修改），带开始菜单组、桌面快捷方式（可勾选）与标准卸载器。
 - 安装器将 QuikView 登记为 PSD 的可选打开程序，并在勾选资源管理器集成时注册 PSD/PSB 内嵌缩略图处理器；不会静默抢占系统默认应用。
 - 程序翻译在编译期嵌入资源 `:/i18n`，payload 无需 `.qm` 文件。
