@@ -5113,8 +5113,8 @@ void MainWindow::onPrev()
     if (!m_dir->isValid()) {
         return;
     }
-    // 双页阅览一次翻一跨页（2 张），普通浏览是 1 张
-    const int step = isSpreadMode() ? 2 : 1;
+    // 双页阅览一次翻一跨页（2 张），普通浏览是 1 张；封面模式下封面页只走 1 张
+    const int step = spreadBackwardStep();
     const int before = m_dir->index();
     const QString p = m_dir->advance(-step);
     if (p.isEmpty()) {
@@ -5133,7 +5133,7 @@ void MainWindow::onNext()
     if (!m_dir->isValid()) {
         return;
     }
-    const int step = isSpreadMode() ? 2 : 1;
+    const int step = spreadForwardStep();
     const int before = m_dir->index();
     const QString p = m_dir->advance(step);
     if (p.isEmpty()) {
@@ -5913,8 +5913,40 @@ QString MainWindow::spreadSecondPath() const
     if (!m_dir || !m_dir->isValid()) {
         return QString();
     }
-    const int n = m_dir->index() + 1;
+    const int i = m_dir->index();
+    // 封面模式（config/two_page_cover）：索引 0 是封面，单独成页不拼右侧；
+    // 之后从索引 1 起两两配对（1+2、3+4…）。默认模式仍按 0+1、2+3… 配对。
+    // 封面模式下遇到偶数索引（正常翻页路径不可达）也按「无右侧」处理，
+    // 防止状态被外部改坏时拼出半张跨页。
+    if (Config::instance().twoPageCover() && i % 2 == 0) {
+        return QString();
+    }
+    const int n = i + 1;
     return n < m_dir->count() ? m_dir->files().at(n) : QString();
+}
+
+int MainWindow::spreadForwardStep() const
+{
+    if (!isSpreadMode()) {
+        return 1;
+    }
+    if (!Config::instance().twoPageCover()) {
+        return 2;
+    }
+    // 封面页（索引 0）的下一落点是索引 1，即「第 2+3 张」跨页的左页。
+    return (m_dir && m_dir->isValid() && m_dir->index() == 0) ? 1 : 2;
+}
+
+int MainWindow::spreadBackwardStep() const
+{
+    if (!isSpreadMode()) {
+        return 1;
+    }
+    if (!Config::instance().twoPageCover()) {
+        return 2;
+    }
+    // 索引 1 是「第 2+3 张」跨页，往回是封面页（索引 0），只退 1 张。
+    return (m_dir && m_dir->isValid() && m_dir->index() == 1) ? 1 : 2;
 }
 
 namespace {

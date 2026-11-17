@@ -47,6 +47,10 @@ public:
     // 背景/边框颜色与背景图访问器已随第 18 期「背景」段下线删除；
     // 四个键 view/bkgnd_* 、view/border_color 不再读写（存量 ini 留着无害）。
     bool overlayFilename() const;      // Shift+TAB 在画布顶部显示文件名（默认 false）
+    // 双页阅览「首图视为封面」（键 config/two_page_cover，默认 false）：
+    // 开启后目录第一张单独占一页，从第二张起两两拼页。仅影响双页阅览的分页，
+    // 单页模式与「上一张/下一张」以外的跳转不受影响。
+    bool twoPageCover() const;
 
     // 鼠标按键映射（键 config/mouse/btn_*）：值取 SettingsDialog 动作表，
     // "none" = 保留内置行为（左键平移/右键菜单/X、Y 无操作）。

@@ -404,6 +404,13 @@ int Config::cacheSizeMb() const
     return qBound(64, m_settings.value(QStringLiteral("config/imageproc/cache_size_mb"), 300).toInt(), 4096);
 }
 
+bool Config::twoPageCover() const
+{
+    // 双页阅览分页规则开关：默认 false = 现状（第 1+2、3+4… 两两拼页）。
+    // 这一项每次拼页/翻页时读一次，手改 ini 无需重启。
+    return m_settings.value(QStringLiteral("config/two_page_cover"), false).toBool();
+}
+
 bool Config::wheelZoom() const
 {
     // 滚轮上下共用一个缩放开关：任一方向不是「放大/缩小」对应档（含旧配置里
