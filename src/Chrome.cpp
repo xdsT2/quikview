@@ -1056,7 +1056,9 @@ void TopBar::paintEvent(QPaintEvent *)
         BtnVisual v = m_feedback->visual(i);
         ButtonPalette pal;
         pal.ink = ink;
-        pal.radius = 17;
+        // 顶栏按钮反馈底统一 8px 圆角矩形（Fluent 图标统一审图修订 2026-11-18）。
+        // 命中区仍是 kTopBtn(36)×kTopBtn(36)，只改反馈底视觉，不改 hitTest/布局/图标。
+        pal.radius = 8;
         pal.hover = QColor(QString::fromLatin1(UiStyle::pick("#35373b", "#e7e9eb")));
         pal.press = QColor(QString::fromLatin1(UiStyle::pick("#292b2f", "#dcdfe2")));
         pal.checkedBg = UiStyle::accentSoft();
@@ -1087,13 +1089,10 @@ void TopBar::paintEvent(QPaintEvent *)
             pal.checkedInk = light;
         }
 
-        const bool circle = (b.action != Action::Close && b.action != Action::Minimize
-                             && b.action != Action::Maximize && b.iconOnly);
-        if (!circle && b.action != Action::Close && b.action != Action::Minimize
-            && b.action != Action::Maximize) {
-            pal.radius = 9;   // 带文字按钮用圆角矩形反馈，不做胶囊
-        }
-        const QRectF visual = circle ? circleVisual(b.rect) : QRectF(b.rect);
+        // 全部功能按钮（图标/带文字）反馈底统一用整个命中区的 8px 圆角矩形；
+        // 不再用 circleVisual 的 32×32 圆形反馈。命中区、图标位置、文字不变。
+        // 窗口三键（关/最小化/最大化）pal.radius=0，保持系统标题栏直角惯例。
+        const QRectF visual = QRectF(b.rect);
         beginButton(p, visual, st, v, pal);
         const QColor drawInk = buttonInk(st, pal);
 
@@ -1730,20 +1729,24 @@ void ControlBar::paintEvent(QPaintEvent *)
 
     const QRectF capsule(0.5, 0.5, width() - 1.0, kIslandH - 1.0);
 
-    // 软阴影：胶囊下方三层，越远越淡（不依赖系统阴影，截图可复现）。
+    // 底栏外壳：14px 圆角长矩形（Fluent 图标统一审图修订 2026-11-18）。
+    // 外壳高 kIslandH=54，四角 14px 圆角 → 两端各留 54-2*14=26px 直边，
+    // 正是审图「816×54、14px 圆角、两端直边 26px」；不再是 27px 全胶囊。
+    constexpr qreal kShellRadius = 14.0;
+    // 软阴影：三层跟随外壳圆角，越远越淡（不依赖系统阴影，截图可复现）。
     p.setPen(Qt::NoPen);
     for (int i = 0; i < 3; ++i) {
         const qreal grow = 2.0 + i * 2.5;
         QColor sh(0, 0, 0, 34 - i * 9);
         p.setBrush(sh);
         p.drawRoundedRect(capsule.adjusted(-grow, grow, grow, grow + 2),
-                          (kIslandH + 2 * grow) / 2.0, (kIslandH + 2 * grow) / 2.0);
+                          kShellRadius + grow, kShellRadius + grow);
     }
 
     p.setPen(QPen((UiStyle::isLight() ? QColor(0, 0, 0, 28) : QColor(255, 255, 255, 30)), 1));
     p.setBrush(UiStyle::isLight() ? QColor(250, 250, 251, 242)
                                   : QColor(31, 32, 35, 227));
-    p.drawRoundedRect(capsule, 27, 27);
+    p.drawRoundedRect(capsule, kShellRadius, kShellRadius);
 
     // 进度块：比胶囊略深的嵌入式圆角底（滑杆 + 页码同区）。
     const QRect prog = progressRect();
