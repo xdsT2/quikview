@@ -3,6 +3,8 @@
 #include <QCoreApplication>
 
 #include <QFutureWatcher>
+#include <QFile>
+#include <QFileInfo>
 #include <QImage>
 #include <QImageIOHandler>
 #include <QImageReader>
@@ -12,9 +14,62 @@
 #include "Config.h"
 #include "RawImageLoader.h"
 
+namespace {
+
+// 解码失败分流（派单《格式兼容诊断提示》2026-11-18）：判定只发生在 loader 层。
+// 读文件头做魔数白名单比对——命中白名单说明「这是个我们能认的格式，只是数据读不
+// 出来」（截断/坏块/I/O），归 Corrupt；认不出来（或根本读不到头）归 Unsupported。
+// 注意：这里只读前几十字节，不解码，不动解码路径。
+LoadErrorCategory classifyByMagic(const QString &path)
+{
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly)) {
+        return LoadErrorCategory::Corrupt;   // 打不开＝I/O 层问题，不是格式不认识
+    }
+    const QByteArray head = f.read(64);
+    f.close();
+    if (head.size() < 4) {
+        return LoadErrorCategory::Corrupt;   // 短得连魔数都没有：当读取失败
+    }
+
+    auto at = [&head](int i) { return quint8(head.at(i)); };
+    const QString suffix = QFileInfo(path).suffix().toLower();
+    const bool png = at(0) == 0x89 && head.mid(1, 3) == "PNG";
+    const bool jpg = at(0) == 0xFF && at(1) == 0xD8 && at(2) == 0xFF;
+    const bool gif = head.startsWith("GIF8");
+    const bool bmp = head.startsWith("BM");
+    const bool webp = head.startsWith("RIFF") && head.mid(8, 4) == "WEBP";
+    const bool tiff = head.startsWith("II*\0") || head.startsWith("MM\0*");
+    const bool heif = head.mid(4, 4) == "ftyp"
+                      && (head.mid(8, 4) == "heic" || head.mid(8, 4) == "heix"
+                          || head.mid(8, 4) == "hevc" || head.mid(8, 4) == "hevx"
+                          || head.mid(8, 4) == "mif1" || head.mid(8, 4) == "msf1"
+                          || head.mid(8, 4) == "avif" || head.mid(8, 4) == "avis"
+                          || head.mid(8, 4) == "heis" || head.mid(8, 4) == "heim");
+    const bool jxl = at(0) == 0xFF && at(1) == 0x0A;          // JXL codestream
+    const bool jxlBox = head.mid(4, 4) == "JXL ";             // JXL container
+    const bool qoi = head.startsWith("qoif");
+    const bool ico = at(0) == 0x00 && at(1) == 0x00 && (at(2) == 0x01 || at(2) == 0x02)
+                     && at(3) == 0x00;
+    const bool psd = head.startsWith("8BPS");
+    const bool dds = head.startsWith("DDS ");
+    const bool exr = head.startsWith("v/1\x01");
+    const bool tgaBySuffix = (suffix == QLatin1String("tga"));   // TGA 无固定魔数，按扩展名兜底
+    const bool svg = head.contains("<svg") || head.contains("<?xml");
+
+    const bool known = png || jpg || gif || bmp || webp || tiff || heif || jxl
+                       || jxlBox || qoi || ico || psd || dds || exr || tgaBySuffix
+                       || svg;
+    return known ? LoadErrorCategory::Corrupt : LoadErrorCategory::Unsupported;
+}
+
+} // namespace
+
 ImageCache::ImageCache(QObject *parent)
     : QObject(parent)
 {
+    // loadFailed 的类别参数要在跨线程队列里传（解码线程 → 主线程），先注册元类型
+    qRegisterMetaType<LoadErrorCategory>("LoadErrorCategory");
     setFullCacheLimit(Config::instance().cacheSizeMb());   // 原图缓存上限（MB，读配置）
     m_thumbCache.setMaxCost(64 * 1024 * 1024);   // 缩略图缓存上限 ~64MB
     m_dragCache.setMaxCost(64 * 1024 * 1024);    // 拖动预览（缩放到视口）上限 64MB：24 张目录回拖也要命中
@@ -292,8 +347,10 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
             const PsdDocument psdDoc = PsdLoader::load(path, false);
             const QImage img = psdDoc.composite;
             const QString err = psdDoc.error;   // 例如「ZIP 压缩的 PSD 暂不支持」
-            QMetaObject::invokeMethod(this, [this, path, img, err, generation]() {
-                finishFullDecode(path, img, generation, err);
+            // 类别由 PsdLoader 判定（含 PSD 专属的 NoCompatPreview），UI 只取文案
+            const LoadErrorCategory cat = psdDoc.errorCategory;
+            QMetaObject::invokeMethod(this, [this, path, img, err, cat, generation]() {
+                finishFullDecode(path, img, generation, err, cat);
             }, Qt::QueuedConnection);
             return;
         }
@@ -359,7 +416,8 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
 }
 
 void ImageCache::finishFullDecode(const QString &path, const QImage &img,
-                                       quint64 generation, const QString &error)
+                                       quint64 generation, const QString &error,
+                                       LoadErrorCategory category)
 {
     // clearFull() 会在开关 HDR 时清空在飞集合：被清任务的结果到这里静默丢弃
     if (!m_fullInFlight.contains(path)) {
@@ -381,9 +439,14 @@ void ImageCache::finishFullDecode(const QString &path, const QImage &img,
     const bool stale = (generation != m_generation);
     if (img.isNull()) {
         if (!stale) {
+            // loader 没给类别（QImageReader / RAW 路径）时，在这里按魔数白名单补判：
+            // 认得出格式头 = 损坏，认不出 = 不支持。UI 层不再做任何字符串匹配。
+            if (category == LoadErrorCategory::None) {
+                category = classifyByMagic(path);
+            }
             emit loadFailed(path, error.isEmpty()
                                        ? QCoreApplication::translate("ImageCache", "无法解码")
-                                       : error);
+                                       : error, category);
         }
     } else {
         insertFull(path, img);

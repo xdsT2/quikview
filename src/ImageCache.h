@@ -9,6 +9,8 @@
 #include <QString>
 #include <QThreadPool>
 
+#include "LoadError.h"
+
 class QImage;
 
 // 异步解码 + 二级缓存（缩略图 / 原图）。
@@ -59,12 +61,15 @@ signals:
     void dragPreviewReady(const QString &path, const QImage &image);
     // A null image reports a failed preview decode.
     void thumbnailReady(const QString &path, const QImage &image);
-    void loadFailed(const QString &path, const QString &error);
+    // category 由 loader 层判定（PSD 分支取 PsdDocument::errorCategory，其余按魔数
+    // 白名单判「损坏 / 不支持」）；UI 只按它取文案，不匹配 error 字符串。
+    void loadFailed(const QString &path, const QString &error, LoadErrorCategory category);
 
 private:
     void startFullDecode(const QString &path, const QSize &previewSize, quint64 generation);
     void finishFullDecode(const QString &path, const QImage &img,
-                             quint64 generation, const QString &error = QString());
+                             quint64 generation, const QString &error = QString(),
+                             LoadErrorCategory category = LoadErrorCategory::None);
     void startNext();
     void startNextPreload();
     void startDragDecode();

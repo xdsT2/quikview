@@ -7,6 +7,8 @@
 #include <QStringList>
 #include <QVector>
 
+#include "LoadError.h"
+
 // 自研最小 PSD 解析：只覆盖 8bit RGB / PSD v1，不引入第三方库。
 // 设计边界（派单「避免用近似结果冒充原文件效果」）：
 //  - 默认整图用文件末尾 Image Data 段的**原始合成预览**（Photoshop 保存的结果），
@@ -38,6 +40,9 @@ struct PsdDocument
     QVector<PsdLayer> layers;
     QSize canvasSize;
     QString error;                // 解析失败原因
+    // 失败类别（派单《格式兼容诊断提示》）：UI 只按它分流文案，不匹配 error 文本。
+    // NoCompatPreview 只在「PSD 结构解析成功、但缺内嵌合成预览」时给出。
+    LoadErrorCategory errorCategory = LoadErrorCategory::None;
     QStringList limitations;      // 全文级别的能力限制说明
 
     bool valid() const { return !composite.isNull(); }

@@ -12,6 +12,7 @@
 #include <QVariant>
 #include <QVector>
 
+#include "LoadError.h"
 #include "PsdLoader.h"
 
 class ImageCanvas;
@@ -170,7 +171,7 @@ private slots:
     void onFullReady(const QString &path, const QImage &image, bool preview);
     // 拖动滑杆跟手预览（只换画布与标题，索引/元数据等松手后由 jumpTo 走全图）
     void onDragPreviewReady(const QString &path, const QImage &image);
-    void onLoadFailed(const QString &path, const QString &error);
+    void onLoadFailed(const QString &path, const QString &error, LoadErrorCategory category);
     // 幻灯片
     void onSlideshowTick();
 

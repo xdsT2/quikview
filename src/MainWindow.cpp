@@ -28,6 +28,7 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QCoreApplication>
 #include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
 #include <QImage>
@@ -2786,7 +2787,8 @@ void MainWindow::onDragPreviewReady(const QString &path, const QImage &image)
     showImage(image, path, true);
 }
 
-void MainWindow::onLoadFailed(const QString &path, const QString &error)
+void MainWindow::onLoadFailed(const QString &path, const QString &error,
+                              LoadErrorCategory category)
 {
     if (path != m_currentPath) {
         return;
@@ -2801,20 +2803,39 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error)
     if (!m_psdPath.isEmpty()) {
         clearPsdDocument();
     }
+
+    // 失败文案统一落到既有持久提示（空状态 / 页码旁浮标签），不加新控件。
+    auto showFailure = [this](const QString &text) {
+        m_loadFailed = true;
+        hideLoadStatus();
+        if (m_currentImage.isNull()) {
+            if (m_emptyState) {
+                m_emptyState->setStatus(text, true);
+                m_emptyState->update();
+            }
+        } else {
+            showLoadStatus(text, true);
+        }
+    };
+
+    Q_UNUSED(category);
+
     // PSD 的错误来自 PsdLoader，直接呈现；不要再走 libraw/libheif 兜底，
     // 否则会被改写成「libraw 打开失败」这类与文件无关的误导信息。
     if (PsdLoader::isPsdPath(path)) {
+        showFailure(tr("无法打开 %1：%2").arg(QFileInfo(path).fileName(), error));
         m_toast->showMessage(tr("无法打开：%1").arg(error));
         return;
     }
     QString rawErr;
+    const bool rawFile = isRawFilePath(path);
+    const bool rawDisabled = rawFile && Config::instance().noRawLoad();
     // 「不打开 RAW 图片文件」（键 "config/etc/no_raw_load"）：跳过 libraw 兜底，
     // 明确告知是设置拦下的，而不是伪装成「解码失败」。
     // 其余 RAW 的全尺寸解码已由 ImageCache 的后台线程做过（B12），这里不再重复解。
-    const bool rawFile = isRawFilePath(path);
     if (rawFile) {
-        rawErr = Config::instance().noRawLoad() ? tr("已在设置中禁用 RAW 解码")
-                                                : tr("RAW 解码失败");
+        rawErr = rawDisabled ? tr("已在设置中禁用 RAW 解码")
+                             : tr("RAW 解码失败");
     } else {
         QImage rawImg = loadRawImage(path, &rawErr, m_hdrTonemap);
         if (!rawImg.isNull()) {
@@ -2838,19 +2859,13 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error)
     // 最终失败（派单 §二）：就地持久显示文件名与原因，可继续翻页；信息保留到
     // 换图 / 重试 / 打开新文件。有上一张时页码旁浮标签；首次打开画布还是空
     // 状态，提示写进空状态里。toast 不再承担这次报错（它会两秒消失）。
-    const QString reason = lastErr.isEmpty() ? error : lastErr;
-    const QString text = tr("无法打开 %1：%2")
-                             .arg(QFileInfo(path).fileName(), reason);
-    m_loadFailed = true;
-    hideLoadStatus();
-    if (m_currentImage.isNull()) {
-        if (m_emptyState) {
-            m_emptyState->setStatus(text, true);
-            m_emptyState->update();
-        }
+    QString detail;
+    if (rawDisabled) {
+        detail = tr("已在设置中禁用 RAW 解码");
     } else {
-        showLoadStatus(text, true);
+        detail = lastErr.isEmpty() ? error : lastErr;
     }
+    showFailure(tr("无法打开 %1：%2").arg(QFileInfo(path).fileName(), detail));
 }
 
 // —— 连续翻页加载反馈（派单 2026-11-14 §二）——
