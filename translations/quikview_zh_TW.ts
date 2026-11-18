@@ -1488,6 +1488,18 @@
         <source>GIF 播放中 · 空格暂停</source>
         <translation>GIF 播放中 · 空白鍵暫停</translation>
     </message>
+    <message>
+        <source>该 PSD 未保存兼容性预览；请在 Photoshop「首选项 → 文件处理」勾选「提高 PSD 和 PSB 文件兼容性」后重新保存</source>
+        <translation>此 PSD 未儲存相容性預覽；請在 Photoshop「偏好設定 → 檔案處理」勾選「提高 PSD 和 PSB 檔案相容性」後重新儲存</translation>
+    </message>
+    <message>
+        <source>文件可能已损坏（格式头有效，图像数据读取失败）</source>
+        <translation>檔案可能已損毀（格式標頭有效，影像資料讀取失敗）</translation>
+    </message>
+    <message>
+        <source>暂不支持该格式</source>
+        <translation>暫不支援此格式</translation>
+    </message>
 </context>
 <context>
     <name>MetadataPanel</name>
@@ -1705,6 +1717,14 @@
     <message>
         <source>%1 个图层无独立像素（分组边界 / 调整层）</source>
         <translation>%1 個圖層無獨立像素（群組邊界 / 調整圖層）</translation>
+    </message>
+    <message>
+        <source>图像数据段头无效（压缩方式未知）</source>
+        <translation>影像資料區段標頭無效（壓縮方式未知）</translation>
+    </message>
+    <message>
+        <source>图像数据不完整（文件可能被截断或写入中断）</source>
+        <translation>影像資料不完整（檔案可能被截斷或寫入中斷）</translation>
     </message>
 </context>
 <context>

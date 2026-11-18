@@ -2787,6 +2787,32 @@ void MainWindow::onDragPreviewReady(const QString &path, const QImage &image)
     showImage(image, path, true);
 }
 
+namespace {
+
+// 解码失败类别 → 用户看得懂、可行动的说明（派单《格式兼容诊断提示》§二）。
+// 只按 loader 层给出的类别取文案：这里没有任何对 error 字符串的匹配，
+// 新增/改文案都在本函数内完成，不会和 PsdLoader/ImageCache 的具体错误串耦合。
+QString loadErrorAdvice(LoadErrorCategory category)
+{
+    switch (category) {
+    case LoadErrorCategory::NoCompatPreview:
+        return QCoreApplication::translate(
+            "MainWindow",
+            "该 PSD 未保存兼容性预览；请在 Photoshop「首选项 → 文件处理」勾选"
+            "「提高 PSD 和 PSB 文件兼容性」后重新保存");
+    case LoadErrorCategory::Corrupt:
+        return QCoreApplication::translate(
+            "MainWindow", "文件可能已损坏（格式头有效，图像数据读取失败）");
+    case LoadErrorCategory::Unsupported:
+        return QCoreApplication::translate("MainWindow", "暂不支持该格式");
+    case LoadErrorCategory::None:
+    default:
+        return QString();
+    }
+}
+
+} // namespace
+
 void MainWindow::onLoadFailed(const QString &path, const QString &error,
                               LoadErrorCategory category)
 {
@@ -2818,13 +2844,21 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error,
         }
     };
 
-    Q_UNUSED(category);
+    const QString advice = loadErrorAdvice(category);
 
     // PSD 的错误来自 PsdLoader，直接呈现；不要再走 libraw/libheif 兜底，
     // 否则会被改写成「libraw 打开失败」这类与文件无关的误导信息。
     if (PsdLoader::isPsdPath(path)) {
-        showFailure(tr("无法打开 %1：%2").arg(QFileInfo(path).fileName(), error));
-        m_toast->showMessage(tr("无法打开：%1").arg(error));
+        // 派单 §二：文案按类别取，toast 与持久提示同源，不做任何 error 字符串匹配。
+        if (!advice.isEmpty()) {
+            const QString text =
+                tr("无法打开 %1：%2").arg(QFileInfo(path).fileName(), advice);
+            showFailure(text);
+            m_toast->showMessage(text);
+        } else {
+            showFailure(tr("无法打开 %1：%2").arg(QFileInfo(path).fileName(), error));
+            m_toast->showMessage(tr("无法打开：%1").arg(error));
+        }
         return;
     }
     QString rawErr;
@@ -2859,9 +2893,12 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error,
     // 最终失败（派单 §二）：就地持久显示文件名与原因，可继续翻页；信息保留到
     // 换图 / 重试 / 打开新文件。有上一张时页码旁浮标签；首次打开画布还是空
     // 状态，提示写进空状态里。toast 不再承担这次报错（它会两秒消失）。
+    // 类别建议优先（人话 + 行动），设置项拦下的 RAW 用明确原因，不套「文件损坏」。
     QString detail;
     if (rawDisabled) {
         detail = tr("已在设置中禁用 RAW 解码");
+    } else if (!advice.isEmpty()) {
+        detail = advice;
     } else {
         detail = lastErr.isEmpty() ? error : lastErr;
     }

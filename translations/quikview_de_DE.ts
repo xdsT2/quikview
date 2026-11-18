@@ -1488,6 +1488,18 @@
         <source>GIF 播放中 · 空格暂停</source>
         <translation>GIF läuft · Leertaste zum Pausieren</translation>
     </message>
+    <message>
+        <source>该 PSD 未保存兼容性预览；请在 Photoshop「首选项 → 文件处理」勾选「提高 PSD 和 PSB 文件兼容性」后重新保存</source>
+        <translation>Diese PSD wurde ohne Kompatibilitätsvorschau gespeichert; aktiviere in Photoshop unter „Bearbeiten → Voreinstellungen → Dateiverwaltung“ die Option „Kompatibilität von PSD- und PSB-Dateien maximieren“ und speichere erneut</translation>
+    </message>
+    <message>
+        <source>文件可能已损坏（格式头有效，图像数据读取失败）</source>
+        <translation>Die Datei ist möglicherweise beschädigt (Header gültig, Bilddaten nicht lesbar)</translation>
+    </message>
+    <message>
+        <source>暂不支持该格式</source>
+        <translation>Dieses Format wird noch nicht unterstützt</translation>
+    </message>
 </context>
 <context>
     <name>MetadataPanel</name>
@@ -1705,6 +1717,14 @@
     <message>
         <source>%1 个图层无独立像素（分组边界 / 调整层）</source>
         <translation>%1 Ebenen ohne eigene Pixel (Gruppe / Einstellungsebene)</translation>
+    </message>
+    <message>
+        <source>图像数据段头无效（压缩方式未知）</source>
+        <translation>Ungültiger Header des Bilddatenabschnitts (unbekannte Kompression)</translation>
+    </message>
+    <message>
+        <source>图像数据不完整（文件可能被截断或写入中断）</source>
+        <translation>Bilddaten unvollständig (Datei abgeschnitten oder Schreiben unterbrochen)</translation>
     </message>
 </context>
 <context>
