@@ -228,6 +228,10 @@ inline const char *cardBg()      { return pick("#303133", "#ffffff"); }
 inline const char *cardLine()    { return pick("#414244", "#dcdcdf"); }
 inline const char *rowLine()     { return pick("#3e3f41", "#e6e6e8"); }
 inline const char *frameLine()   { return pick("#3f4042", "#d0d0d3"); }
+// 外壳「弱化」用：2026-11-17 设置界面去线后，底栏顶线只留一道极淡的分界，
+// 既要能看出「按钮栏」与正文的边界，又不能回到明线。取值只用 alpha 叠加，
+// 不新增实色令牌，深浅两套等强度。
+inline const char *footerLine()  { return pick("rgba(255,255,255,0.07)", "rgba(0,0,0,0.07)"); }
 inline const char *text()        { return pick("#f4f4f4", "#202124"); }
 inline const char *desc()        { return pick("#a5a7ac", "#616367"); }
 inline const char *navSelected() { return "#1688f8"; }   // 深浅同色，明亮纯蓝整行选中

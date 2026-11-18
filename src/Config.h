@@ -18,7 +18,6 @@ public:
     bool isPortable() const;
 
     QString language() const;
-    bool showSelectLangDialog() const;
     QString theme() const;   // "dark" | "light" | "system"
     bool blurMaterial() const;   // 磨砂材质（右键菜单与信息浮层，默认关）
     int slideshowIntervalMs() const;  // 默认 3000
@@ -45,7 +44,6 @@ public:
     QString edgeAction() const;        // "first" | "stop"（默认 "first"；旧值 "ask" 折算为 "stop"，询问实现落地前）
 
     // 浏览
-    QString thumbnailSize() const;     // "small" | "medium" | "large"（默认 "medium"）
     // 背景/边框颜色与背景图访问器已随第 18 期「背景」段下线删除；
     // 四个键 view/bkgnd_* 、view/border_color 不再读写（存量 ini 留着无害）。
     bool overlayFilename() const;      // Shift+TAB 在画布顶部显示文件名（默认 false）
@@ -77,7 +75,6 @@ public:
 
     // 图像处理
     QString interpolation() const;     // "bilinear" | "bicubic" | "lanczos"（默认 "bicubic"）
-    bool smoothZoom() const;           // 默认平滑缩放
     bool stretchSmall() const;         // 适合窗口时把小于窗口的图放大填满（默认 false）
     bool hdrTonemap() const;           // HDR 色调映射（本版恒 false：启用入口已移除，旧配置不激活）
     bool imageIcc() const;             // 使用图片内嵌 ICC（非 sRGB 图转 sRGB，默认 true）

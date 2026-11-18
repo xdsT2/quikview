@@ -66,11 +66,6 @@ QString Config::language() const
     return m_settings.value(QStringLiteral("config/language"), QStringLiteral("system")).toString();
 }
 
-bool Config::showSelectLangDialog() const
-{
-    return m_settings.value(QStringLiteral("config/show_select_lang_dialog"), true).toBool();
-}
-
 QString Config::theme() const
 {
     // 第 18 期起三档："dark" | "light" | "system"（跟随 Windows 深浅色）。
@@ -199,11 +194,6 @@ QString Config::edgeAction() const
     const QString v = m_settings.value(QStringLiteral("config/edge_action"),
                                         QStringLiteral("first")).toString();
     return v == QLatin1String("ask") ? QStringLiteral("stop") : v;
-}
-
-QString Config::thumbnailSize() const
-{
-    return m_settings.value(QStringLiteral("config/thumbnail_size"), QStringLiteral("medium")).toString();
 }
 
 // backgroundImage()/backgroundImagePath() 已随第 18 期「背景」段下线删除：
@@ -390,11 +380,6 @@ int Config::cacheSizeMb() const
     // 原图缓存上限，单位 MB；与设置页输入框同范围（64–4096），这里再夹一次
     // 防止手改配置越界，旧配置越界值按边界生效并在设置页按边界值显示。
     return qBound(64, m_settings.value(QStringLiteral("config/imageproc/cache_size_mb"), 300).toInt(), 4096);
-}
-
-bool Config::smoothZoom() const
-{
-    return m_settings.value(QStringLiteral("config/smooth_zoom"), true).toBool();
 }
 
 bool Config::wheelZoom() const

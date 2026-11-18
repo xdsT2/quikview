@@ -1214,6 +1214,7 @@ QString withColorTokens(QString qss)
         { "@GenCardLine@",     []{ return UiStyle::fluent::cardLine(); } },
         { "@GenRowLine@",      []{ return UiStyle::fluent::rowLine(); } },
         { "@GenFrameLine@",    []{ return UiStyle::fluent::frameLine(); } },
+        { "@GenFooterLine@",   []{ return UiStyle::fluent::footerLine(); } },
         { "@GenText@",         []{ return UiStyle::fluent::text(); } },
         { "@GenDesc@",         []{ return UiStyle::fluent::desc(); } },
         { "@GenAccent@",       []{ return UiStyle::fluent::focus(); } },
@@ -1361,12 +1362,17 @@ QWidget#keyRow[conflict="true"] QKeySequenceEdit QLineEdit {
    已作废，这里不保留任何旧值。外壳规则只覆盖设置对话框内具名对象；
    一般页规则一律带 [fluent="v2"]。色值全部走 @Gen*@ 令牌。 */
 /* —— 外壳：中性石墨黑三档表面，禁止蓝灰 / 蓝紫 —— */
-QWidget#dlgTitleBar { background: @GenTitleBg@; border-bottom: 1px solid @GenCardLine@; }
+/* 2026-11-17 去线：标题栏不再压底部分隔线，靠 #1a1b1d / #1c1d1f / #252628 三档
+   底色直接分区（dialogQss 里那条旧 border-bottom 由这里的 border-bottom: 0 显式压掉，
+   其他对话框不受影响）。底栏只留一道极淡顶线，保住「正文滚动区 / 固定按钮栏」的边界。 */
+QWidget#dlgTitleBar { background: @GenTitleBg@; border-bottom: 0; }
 QLabel#dlgTitle { color: @GenDesc@; font-size: 11px; }
 QWidget#navRail { background: @GenNavBg@; }
 QFrame#navDivider { background: @GenCardLine@; border: 0; }
+/* 导航/正文之间的 1px 占位：2026-11-17 起与导航栏同色，等于没有竖线。 */
+QFrame#navRailSeam { background: @GenNavBg@; border: 0; }
 QWidget#contentPane { background: @GenContentBg@; }
-QWidget#dlgFooter { background: @GenTitleBg@; border-top: 1px solid @GenCardLine@; }
+QWidget#dlgFooter { background: @GenTitleBg@; border-top: 1px solid @GenFooterLine@; }
 QLabel#footerNote { color: @GenDesc@; font-size: 11px; }
 QLabel#navCaption { color: @GenDesc@; font-size: 11px; }
 QLineEdit#navSearch { background: @GenCtrlBg@; color: @GenText@;
@@ -1442,6 +1448,13 @@ QPushButton#genNeutral[kbFocus="true"]:focus { border: 2px solid @GenAccent@; pa
 /* —— 一般页：中性灰卡片，极弱描边，靠明暗与间距分组 —— */
 QFrame#setGroup[fluent="v2"] { background: @GenCardBg@;
     border: 1px solid @GenCardLine@; border-radius: 11px; }
+/* 2026-11-17 去描边（先只落「一般」页）：卡片 #303133 压 #252628 内容底，
+   本身已经分得开，外圈那条 1px 线取消；组内多行仍用 @GenRowLine@ 的淡分隔线，
+   单行组（首尾翻页）只剩圆角底色。其他页由 genEdge 缺省值继续保留原描边。
+   描边改成与卡片同色而不是 border: 0：帧宽仍占 1px，卡片矩形、行基线、
+   分组间距与改前逐像素一致，切页也不会跳。 */
+QFrame#setGroup[fluent="v2"][genEdge="none"] { background: @GenCardBg@;
+    border: 1px solid @GenCardBg@; border-radius: 11px; }
 QFrame#rowLine[fluent="v2"] { background: @GenRowLine@;
     margin-left: 14px; margin-right: 14px; }
 QWidget#settingRow[fluent="v2"] { background: transparent; }
@@ -1668,8 +1681,11 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     m_searchEmpty->setVisible(false);
     bl->addWidget(nav);
 
+    // 2026-11-17 去线：导航栏与正文之间不再画 1px 竖线。宽度 1px 的占位仍然留着
+    // （updateContentColumnWidth() 的列宽算式按它扣了 1px，删掉会连带改列宽），
+    // 只把它的底色改成导航底色 → 线与导航栏同色，视觉上不再有分隔线。
     auto *rail = new QFrame(body);
-    rail->setObjectName(QStringLiteral("navDivider"));
+    rail->setObjectName(QStringLiteral("navRailSeam"));
     rail->setFixedWidth(1);
     bl->addWidget(rail);
 
@@ -2439,6 +2455,12 @@ void SettingsDialog::applyPageRhythm(QWidget *page, int firstGap, int groupGap,
     for (const char *name : marks) {
         for (QWidget *w : page->findChildren<QWidget *>(QLatin1String(name)))
             w->setProperty("fluent", QStringLiteral("v2"));
+    }
+    // 2026-11-17 去描边先只落「一般」页（首块验收页），其他页等内容样式确认后再推广：
+    // 本页卡片单独打 genEdge=none，QSS 用属性选择器压掉外圈描边，其余页保持原样。
+    if (isFirstPage) {
+        for (QWidget *w : page->findChildren<QWidget *>(QStringLiteral("setGroup")))
+            w->setProperty("genEdge", QStringLiteral("none"));
     }
     for (QPushButton *b : page->findChildren<QPushButton *>()) {
         if (b->objectName() == QLatin1String("miniBtn"))
