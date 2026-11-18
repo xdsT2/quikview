@@ -18,9 +18,12 @@ $CtxClsid = '{C9FFAFAD-7C1C-4CCC-A37C-A075ED1F27AF}'
 $Category = '{e357fccd-a995-4576-b01f-234630154e96}'
 $Exts     = @('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tif', '.tiff',
               '.psd', '.psb')
+# 只注册缩略图的扩展名（与 src/module.cpp 的 kThumbOnlyExts 一致），
+# 只清理 ShellEx，不当上下文菜单处理。
+$ThumbOnlyExts = @('.svg')
 
 # 1) 扩展名 ShellEx：共享视图 + WOW6432Node 兜底对称清理（交办单硬约束 2）
-foreach ($ext in $Exts) {
+foreach ($ext in ($Exts + $ThumbOnlyExts)) {
     foreach ($base in @('HKLM:\SOFTWARE\Classes', 'HKLM:\SOFTWARE\Classes\WOW6432Node')) {
         $key = "$base\$ext\ShellEx\$Category"
         if (Test-Path $key) {

@@ -17,6 +17,12 @@ const wchar_t* const kSupportedExts[] = {
     L".png", L".jpg", L".jpeg", L".bmp", L".gif", L".webp", L".tif", L".tiff",
     L".psd", L".psb",
 };
+// 只注册缩略图的扩展名（有渲染能力、但主程序打不开的格式）。
+// SVG 走 nanosvg 软渲染（src/svg_raster.cpp）。主程序解码白名单
+// （src/DirectoryLoader.cpp 的 kImageGroups）里没有 svg，发布包也不带 Qt 的
+// qsvg 图像插件，右键「用 QuikView 浏览」点开会失败 —— 所以 SVG 不进上面的
+// 上下文菜单清单，只进缩略图注册清单。脚本与安装器的 ShellEx 段同样只多这一项。
+const wchar_t* const kThumbOnlyExts[] = { L".svg" };
 const wchar_t kClsidString[] = L"{D8A1C4E2-7B35-4F69-92A4-5C6D7E8F1A2B}";
 const wchar_t kFriendlyName[] = L"QuikView Thumbnail Provider";
 const wchar_t kThumbCategory[] =
@@ -36,6 +42,26 @@ size_t QuikSupportedExtCount() {
 const wchar_t* QuikSupportedExt(size_t i) {
     return (i < QuikSupportedExtCount()) ? kSupportedExts[i] : L"";
 }
+
+namespace {
+
+// 缩略图注册清单（= 上下文菜单清单 + 只做缩略图的扩展名），
+// 只在 ShellEx 注册/反注册里用；顺序沿用两份数组的原顺序。
+size_t ThumbExtCount() {
+    return sizeof(kSupportedExts) / sizeof(kSupportedExts[0]) +
+           sizeof(kThumbOnlyExts) / sizeof(kThumbOnlyExts[0]);
+}
+
+const wchar_t* ThumbExt(size_t i) {
+    const size_t n = sizeof(kSupportedExts) / sizeof(kSupportedExts[0]);
+    if (i < n) return kSupportedExts[i];
+    i -= n;
+    return (i < sizeof(kThumbOnlyExts) / sizeof(kThumbOnlyExts[0]))
+               ? kThumbOnlyExts[i]
+               : L"";
+}
+
+}   // namespace
 
 namespace {
 
@@ -251,7 +277,8 @@ LONG UnregisterContextMenuHandler() {
 
 // .ext\ShellEx 键为 32/64 位共享视图，两个位数的 regsvr32 写的是同一份，幂等
 LONG RegisterShellExKeys() {
-    for (const wchar_t* ext : kSupportedExts) {
+    for (size_t i = 0; i < ThumbExtCount(); ++i) {
+        const wchar_t* ext = ThumbExt(i);
         wchar_t key[256];
         wsprintfW(key, L"Software\\Classes\\%s\\ShellEx\\%s", ext,
                   kThumbCategory);
@@ -275,7 +302,8 @@ LONG UnregisterShellExKeys() {
         L"Software\\Classes\\WOW6432Node\\%s\\ShellEx\\%s",
     };
     for (const wchar_t* fmt : bases) {
-        for (const wchar_t* ext : kSupportedExts) {
+        for (size_t i = 0; i < ThumbExtCount(); ++i) {
+            const wchar_t* ext = ThumbExt(i);
             wchar_t key[256];
             wsprintfW(key, fmt, ext, kThumbCategory);
             HKEY hk = nullptr;

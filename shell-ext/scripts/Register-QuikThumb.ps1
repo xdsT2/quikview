@@ -25,6 +25,10 @@ $CtxClsid = '{C9FFAFAD-7C1C-4CCC-A37C-A075ED1F27AF}'   # 上下文菜单 Handler
 $Category = '{e357fccd-a995-4576-b01f-234630154e96}'
 $Exts     = @('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tif', '.tiff',
               '.psd', '.psb')
+# 只注册缩略图的扩展名（与 src/module.cpp 的 kThumbOnlyExts 一致）。
+# SVG 由 DLL 内的 nanosvg 软渲染；主程序的解码白名单里没有 svg，右键菜单
+# 「用 QuikView 浏览」点开会失败，所以不进 $Exts，只进 ShellEx 注册。
+$ThumbOnlyExts = @('.svg')
 
 # DLL 路径相对化：默认 <仓库根>\build-shell64(32)\quikthumb.dll
 # 仓库根 = 本脚本目录(shell-ext/scripts) 的上两级
@@ -46,7 +50,7 @@ if ($has32) {
 # 1) 文件扩展名 → 缩略图 Handler。
 #    HKLM\Software\Classes 下的 .ext 键是 32/64 位共享视图，只写一份；
 #    位数差异由 CLSID 的 InprocServer32 双视图解决。
-foreach ($ext in $Exts) {
+foreach ($ext in ($Exts + $ThumbOnlyExts)) {
     $key = "HKLM:\SOFTWARE\Classes\$ext\ShellEx\$Category"
     New-Item -Path $key -Force | Out-Null
     Set-Item -Path $key -Value $Clsid
@@ -96,7 +100,7 @@ Write-Host ''
 Write-Host '注册完成：'
 Write-Host "  64 位 DLL: $Dll64"
 if ($has32) { Write-Host "  32 位 DLL: $Dll32" }
-Write-Host "  扩展名: $($Exts -join ' ')"
+Write-Host "  缩略图扩展名: $(($Exts + $ThumbOnlyExts) -join ' ')"
 Write-Host "  上下文菜单: 逐扩展名 ($($Exts -join ' ')) -> $CtxClsid"
 Write-Host ''
 Write-Host '生效方法：重启 explorer.exe，或先执行 ie4uinit.exe -show 再刷新。'

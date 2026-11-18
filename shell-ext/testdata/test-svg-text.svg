@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- 顶部色带（形状，必须渲染） + 下方一行文字（nanosvg 不渲染） -->
+  <rect x="0" y="0" width="512" height="160" fill="#333333"/>
+  <text x="40" y="340" font-family="sans-serif" font-size="120" fill="#ff0000">SVG TEXT</text>
+</svg>

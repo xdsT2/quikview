@@ -5,11 +5,14 @@
 //   → CopyPixels 直接写进 CreateDIBSection 的缓冲 → 返回 HBITMAP + WTSAT_ARGB。
 // 批次 C：PSD/PSB 不做完整像素解码，只解析文件头 → image resources 找
 //   ID 0x040C 内嵌 JPEG 缩略图，交现有 WIC 链；找不到回退默认图标。
+// B3 遗留补 SVG：WIC 没有 SVG 解码器，按内容嗅探后交给 nanosvg 软渲染
+//   （src/svg_raster.cpp），不链接 Qt/QtSvg，也不依赖外部进程。
 #include <wincodec.h>
 #include <shlobj.h>
 #include <vector>
 
 #include "quikthumb.h"
+#include "svg_raster.h"
 
 namespace {
 
@@ -296,6 +299,15 @@ STDMETHODIMP QuikThumbProvider::GetThumbnail(UINT cx, HBITMAP* phbm,
         *phbm = nullptr;
         *pat = WTSAT_UNKNOWN;
         if (!m_stream) return E_FAIL;
+
+        // —— SVG：内容嗅探（拿不到文件名，只按字节判断）——
+        // WIC 不认 SVG，失败就直接返回失败让 Explorer 用默认图标，
+        // 不再走下去白白多解一次。
+        if (SvgLooksLikeStream(m_stream)) {
+            HRESULT sh = SvgRenderThumb(m_stream, cx, phbm, pat);
+            if (SUCCEEDED(sh) && *phbm) return sh;
+            return FAILED(sh) ? sh : E_FAIL;
+        }
 
         QvPtr<IWICImagingFactory> factory;
         HRESULT hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr,

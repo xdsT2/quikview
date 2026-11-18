@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <!-- 坐标一律写百分比：nanosvg 对 objectBoundingBox 的单位小数坐标
+         （x2="1"）按用户单位解释，渐变会塌缩成硬边（实测，见回执的局限表）。 -->
+    <linearGradient id="lin" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0" stop-color="#ff0000"/>
+      <stop offset="1" stop-color="#0000ff"/>
+    </linearGradient>
+    <radialGradient id="rad" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#000000"/>
+    </radialGradient>
+  </defs>
+  <rect x="0" y="0" width="512" height="512" fill="url(#lin)"/>
+  <circle cx="256" cy="256" r="90" fill="url(#rad)"/>
+</svg>

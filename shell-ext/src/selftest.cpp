@@ -18,6 +18,7 @@
 #include <wchar.h>
 
 #include <string>
+#include <vector>
 
 typedef HRESULT(STDAPICALLTYPE* PFN_DllGetClassObject)(REFCLSID, REFIID,
                                                        void**);
@@ -246,6 +247,279 @@ bool WriteCtxCfg(const wchar_t* ini, const wchar_t* name, const wchar_t* value) 
     return WritePrivateProfileStringW(L"config", key.c_str(), value, ini) != 0;
 }
 
+// ===== SVG 用例助手（B3 遗留：内容嗅探 + nanosvg 软渲染）=====
+
+// 单个文件 → GetThumbnail 全链路（建实例 → 开流 → Load → QI → GetThumbnail）
+bool ThumbOfFile(IClassFactory* cf, const wchar_t* path, UINT cx,
+                 HBITMAP* phbm, WTS_ALPHATYPE* pat) {
+    *phbm = nullptr;
+    *pat = WTSAT_UNKNOWN;
+    QvInitializeWithStream* init = nullptr;
+    HRESULT hr = cf->CreateInstance(nullptr, IID_IInitializeWithStream,
+                                    (void**)&init);
+    if (FAILED(hr) || !init) return false;
+    IStream* st = nullptr;
+    bool ok = false;
+    hr = SHCreateStreamOnFileW(path, STGM_READ | STGM_SHARE_DENY_WRITE, &st);
+    if (SUCCEEDED(hr) && st && SUCCEEDED(init->Load(st, STGM_READ))) {
+        IThumbnailProvider* tp = nullptr;
+        if (SUCCEEDED(init->QueryInterface(IID_IThumbnailProvider,
+                                          (void**)&tp)) &&
+            tp) {
+            ok = SUCCEEDED(tp->GetThumbnail(cx, phbm, pat)) && *phbm != nullptr;
+            tp->Release();
+        }
+    }
+    if (st) st->Release();
+    init->Release();
+    return ok;
+}
+
+// 取整帧像素（自顶向下 32bpp BGRA），采样断言用
+bool ReadPixels(HBITMAP hbm, std::vector<BYTE>* out) {
+    BITMAP bm = {};
+    if (!hbm || !GetObjectW(hbm, sizeof(bm), &bm)) return false;
+    if (bm.bmWidth <= 0 || bm.bmHeight <= 0 || bm.bmBitsPixel != 32) return false;
+    BITMAPINFO bi = {};
+    bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bi.bmiHeader.biWidth = bm.bmWidth;
+    bi.bmiHeader.biHeight = -bm.bmHeight;
+    bi.bmiHeader.biPlanes = 1;
+    bi.bmiHeader.biBitCount = 32;
+    bi.bmiHeader.biCompression = BI_RGB;
+    out->assign((size_t)bm.bmWidth * bm.bmHeight * 4, 0);
+    HDC dc = GetDC(nullptr);
+    const int lines =
+        GetDIBits(dc, hbm, 0, (UINT)bm.bmHeight, out->data(), &bi, DIB_RGB_COLORS);
+    ReleaseDC(nullptr, dc);
+    return lines == bm.bmHeight;
+}
+
+struct PxB {
+    int b, g, r, a;   // 预乘 BGRA（不透明处 alpha=255，分量即原色）
+};
+
+PxB PixelAt(const std::vector<BYTE>& px, int w, int x, int y) {
+    const BYTE* p = &px[((size_t)y * w + x) * 4];
+    return PxB{p[0], p[1], p[2], p[3]};
+}
+
+bool Near(int v, int want, int tol) {
+    return (v > want ? v - want : want - v) <= tol;
+}
+
+// 「通道差」类断言用：判断某像素偏红/偏蓝（渐变两端）
+bool Dominant(const PxB& c, char ch, int margin) {
+    if (ch == 'r') return c.r > c.b + margin;
+    if (ch == 'b') return c.b > c.r + margin;
+    return false;
+}
+
+// SVG 夹具逐条断言。dir = testdata 目录（--svg-dir=），tmpDir = DLL 所在目录
+// （临时文件只写这里，跑完即删，不往仓库里落东西）。
+void RunSvgCases(IClassFactory* cf, const char* dir, const char* tmpDir) {
+    printf("--- SVG ---\n");
+    if (!dir || !*dir) {
+        printf("SKIP: svg-1..8（未传 --svg-dir=<shell-ext/testdata>）\n");
+        return;
+    }
+    const std::string base(dir);
+    auto pathOf = [&](const char* name) {
+        return ToWide((base + "\\" + name).c_str());
+    };
+
+    HBITMAP hbm = nullptr;
+    WTS_ALPHATYPE alpha = WTSAT_UNKNOWN;
+    std::vector<BYTE> px;
+    BITMAP bm = {};
+
+    // svg-1：基本夹具 256px —— 尺寸/位深/alpha 类型 + 两处颜色采样
+    {
+        const bool ok = ThumbOfFile(cf, pathOf("test-svg-basic.svg").c_str(),
+                                    256, &hbm, &alpha);
+        bool pass = false;
+        if (ok && GetObjectW(hbm, sizeof(bm), &bm) && bm.bmWidth == 256 &&
+            bm.bmHeight == 256 && bm.bmBitsPixel == 32 &&
+            alpha == WTSAT_ARGB && ReadPixels(hbm, &px)) {
+            const PxB corner = PixelAt(px, 256, 2, 2);       // 白底
+            const PxB center = PixelAt(px, 256, 128, 128);   // 蓝圆
+            pass = Near(corner.r, 255, 8) && Near(corner.g, 255, 8) &&
+                   Near(corner.b, 255, 8) && corner.a == 255 &&
+                   Near(center.r, 0x1f, 10) && Near(center.g, 0x6f, 10) &&
+                   Near(center.b, 0xeb, 10) && center.a == 255;
+            if (!pass) {
+                printf("      diag svg-1 corner=%d,%d,%d,%d center=%d,%d,%d,%d\n",
+                       corner.b, corner.g, corner.r, corner.a, center.b,
+                       center.g, center.r, center.a);
+            }
+        } else {
+            printf("      diag svg-1 ok=%d w=%ld h=%ld bpp=%d alpha=%d\n",
+                   (int)ok, bm.bmWidth, bm.bmHeight, bm.bmBitsPixel, (int)alpha);
+        }
+        if (hbm) DeleteObject(hbm);
+        hbm = nullptr;
+        CTX(pass, "svg-1 基本夹具 256px：白底+蓝圆颜色/尺寸/ARGB");
+    }
+
+    // svg-2：同一夹具 64px —— Explorer 小图标的请求尺度
+    {
+        const bool ok = ThumbOfFile(cf, pathOf("test-svg-basic.svg").c_str(), 64,
+                                    &hbm, &alpha);
+        bm = BITMAP();
+        const bool pass = ok && GetObjectW(hbm, sizeof(bm), &bm) &&
+                          bm.bmWidth == 64 && bm.bmHeight == 64 &&
+                          bm.bmBitsPixel == 32 && alpha == WTSAT_ARGB;
+        if (!pass) {
+            printf("      diag svg-2 ok=%d w=%ld h=%ld bpp=%d alpha=%d\n",
+                   (int)ok, bm.bmWidth, bm.bmHeight, bm.bmBitsPixel, (int)alpha);
+        }
+        if (hbm) DeleteObject(hbm);
+        hbm = nullptr;
+        CTX(pass, "svg-2 基本夹具 64px 出图");
+    }
+
+    // svg-3：透明样张 —— 四角全透明、圆心不透明（预乘 alpha 正确）
+    {
+        const bool ok = ThumbOfFile(cf, pathOf("test-svg-alpha.svg").c_str(),
+                                    256, &hbm, &alpha);
+        bool pass = false;
+        if (ok && ReadPixels(hbm, &px)) {
+            const PxB tl = PixelAt(px, 256, 1, 1);
+            const PxB br = PixelAt(px, 256, 254, 254);
+            const PxB c = PixelAt(px, 256, 128, 128);
+            pass = tl.a == 0 && br.a == 0 && c.a == 255 &&
+                   Near(c.r, 0xe0, 12) && Near(c.b, 0x52, 12);
+            // 预乘校验：不透明处分量就该等于原色（上面已查），半透明边缘
+            // 分量不得超过 alpha（预乘定义）
+            if (pass) {
+                bool premulOk = true;
+                int checked = 0;
+                for (int y = 0; y < 256; y += 4) {
+                    for (int x = 0; x < 256; x += 4) {
+                        const PxB p = PixelAt(px, 256, x, y);
+                        if (p.a > 0 && p.a < 255) {
+                            ++checked;
+                            if (p.r > p.a || p.g > p.a || p.b > p.a)
+                                premulOk = false;
+                        }
+                    }
+                }
+                printf("      svg-3 半透明采样点=%d premul=%d\n", checked,
+                       (int)premulOk);
+                pass = premulOk && checked > 0;
+            }
+            if (!pass) {
+                printf("      diag svg-3 corner=(a=%d,%d) center=(%d,%d,%d,a=%d)\n",
+                       tl.a, br.a, c.b, c.g, c.r, c.a);
+            }
+        }
+        if (hbm) DeleteObject(hbm);
+        hbm = nullptr;
+        CTX(pass, "svg-3 透明样张：角落 alpha=0、中心不透明、边缘已预乘");
+    }
+
+    // svg-4：渐变样张 —— 线性渐变两端颜色必须不同且方向正确
+    {
+        const bool ok = ThumbOfFile(cf, pathOf("test-svg-gradient.svg").c_str(),
+                                    256, &hbm, &alpha);
+        bool pass = false;
+        if (ok && ReadPixels(hbm, &px)) {
+            const PxB left = PixelAt(px, 256, 4, 128);
+            const PxB right = PixelAt(px, 256, 251, 128);
+            pass = left.a == 255 && right.a == 255 && Dominant(left, 'r', 40) &&
+                   Dominant(right, 'b', 40);
+            if (!pass) {
+                printf("      diag svg-4 left=%d,%d,%d,%d right=%d,%d,%d,%d\n",
+                       left.b, left.g, left.r, left.a, right.b, right.g,
+                       right.r, right.a);
+            }
+        }
+        if (hbm) DeleteObject(hbm);
+        hbm = nullptr;
+        CTX(pass, "svg-4 渐变样张：线性渐变红→蓝两端生效");
+    }
+
+    // svg-5：文字样张 —— 形状色带渲染、<text> 不渲染（nanosvg 无字体栈）
+    {
+        const bool ok = ThumbOfFile(cf, pathOf("test-svg-text.svg").c_str(),
+                                    256, &hbm, &alpha);
+        bool pass = false;
+        if (ok && ReadPixels(hbm, &px)) {
+            const PxB band = PixelAt(px, 256, 128, 40);   // svg y≈80
+            const PxB text1 = PixelAt(px, 256, 40, 140);  // svg y≈280
+            const PxB text2 = PixelAt(px, 256, 200, 140);
+            pass = band.a == 255 && Near(band.r, 0x33, 8) &&
+                   Near(band.g, 0x33, 8) && Near(band.b, 0x33, 8) &&
+                   text1.a == 0 && text2.a == 0;
+            if (!pass) {
+                printf("      diag svg-5 band=(%d,%d,%d,a=%d) text=(a=%d,%d)\n",
+                       band.b, band.g, band.r, band.a, text1.a, text2.a);
+            }
+        }
+        if (hbm) DeleteObject(hbm);
+        hbm = nullptr;
+        CTX(pass, "svg-5 文字样张：色带渲染、<text> 不渲染（局限记录）");
+    }
+
+    // svg-6：viewBox 50000px —— 不按原始尺寸分配位图，正常出 256
+    {
+        const bool ok = ThumbOfFile(cf, pathOf("test-svg-huge.svg").c_str(), 256,
+                                    &hbm, &alpha);
+        bool pass = false;
+        if (ok && GetObjectW(hbm, sizeof(bm), &bm) && ReadPixels(hbm, &px)) {
+            const PxB c = PixelAt(px, 256, 128, 128);
+            pass = bm.bmWidth == 256 && bm.bmHeight == 256 && c.a == 255 &&
+                   Near(c.r, 0x11, 10) && Near(c.b, 0x33, 10);
+            if (!pass) {
+                printf("      diag svg-6 w=%ld h=%ld center=(%d,%d,%d,%d)\n",
+                       bm.bmWidth, bm.bmHeight, c.b, c.g, c.r, c.a);
+            }
+        }
+        if (hbm) DeleteObject(hbm);
+        hbm = nullptr;
+        CTX(pass, "svg-6 viewBox 50000px：按目标尺度出图，不炸尺寸");
+    }
+
+    // svg-7：非 SVG 文本不被误判（嗅探为假 → WIC 也解不了 → 失败）
+    {
+        char negPath[MAX_PATH] = {};
+        snprintf(negPath, sizeof(negPath), "%s\\svg_sniff_neg.txt", tmpDir);
+        FILE* f = fopen(negPath, "wb");
+        bool wrote = false;
+        if (f) {
+            wrote = fputs("plain text, no markup at all <svx>\n", f) >= 0;
+            fclose(f);
+        }
+        hbm = nullptr;
+        alpha = WTSAT_UNKNOWN;
+        HBITMAP hbm2 = nullptr;
+        WTS_ALPHATYPE alpha2 = WTSAT_UNKNOWN;
+        const bool ok = wrote && !ThumbOfFile(cf, ToWide(negPath).c_str(), 256,
+                                             &hbm2, &alpha2);
+        const char* why = !wrote ? "临时文件写失败" : (ok ? "" : "竟然出图");
+        if (hbm2) DeleteObject(hbm2);
+        DeleteFileA(negPath);
+        CTX(ok, "svg-7 非 SVG 文本不误判（嗅探为假）");
+        if (!ok) printf("      diag svg-7 %s\n", why);
+    }
+
+    // svg-8：超大 cx 被夹到单边上限 2048（防内存炸）
+    {
+        const bool ok = ThumbOfFile(cf, pathOf("test-svg-basic.svg").c_str(),
+                                    4096, &hbm, &alpha);
+        bm = BITMAP();
+        const bool pass = ok && GetObjectW(hbm, sizeof(bm), &bm) &&
+                          bm.bmWidth == 2048 && bm.bmHeight == 2048;
+        if (!pass) {
+            printf("      diag svg-8 ok=%d w=%ld h=%ld（期望 2048）\n", (int)ok,
+                   bm.bmWidth, bm.bmHeight);
+        }
+        if (hbm) DeleteObject(hbm);
+        hbm = nullptr;
+        CTX(pass, "svg-8 cx=4096 被夹到 2048 单边上限");
+    }
+}
+
 }   // namespace
 
 int main(int argc, char** argv) {
@@ -300,6 +574,8 @@ int main(int argc, char** argv) {
     // ===== 缩略图（阶段 2）=====
     int thumbPass = 0, thumbFail = 0;
     for (int i = 2; i < argc; i++) {
+        // --svg-dir=<dir> 是 SVG 用例的夹具目录，不是图片
+        if (strncmp(argv[i], "--svg-dir=", 10) == 0) continue;
         wchar_t wpath[MAX_PATH];
         MultiByteToWideChar(CP_UTF8, 0, argv[i], -1, wpath, MAX_PATH);
 
@@ -365,6 +641,18 @@ int main(int argc, char** argv) {
         }
         tp->Release();
         init->Release();
+    }
+
+    // ===== SVG（B3 遗留：内容嗅探 + nanosvg 软渲染）=====
+    {
+        const char* svgDir = nullptr;
+        for (int i = 1; i < argc; ++i) {
+            if (strncmp(argv[i], "--svg-dir=", 10) == 0) svgDir = argv[i] + 10;
+        }
+        char svgTmpDir[MAX_PATH] = {};
+        GetFullPathNameA(argv[1], MAX_PATH, svgTmpDir, nullptr);
+        DirOfA(svgTmpDir);
+        RunSvgCases(cf, svgDir, svgTmpDir);
     }
 
     // ===== 上下文菜单（阶段 1）=====
