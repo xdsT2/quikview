@@ -3757,6 +3757,14 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         dlg->show();
         dlg->probeCtxToggle(c.mid(13));
     }
+    // etcprobe:<spec> —— 批次22 即时化验收：驱动 #84/#85/#86 开关真实点击，
+    // dump 切换前后控件态/Config getter/QSettings 原始值到 Temp/etc-live-probe.txt。
+    else if (c.startsWith(QLatin1String("etcprobe:"))) {
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        dlg->probeEtcLive(c.mid(9));
+    }
     // appmenu:<id>[,<id>…] / appmenureset —— 应用内右键菜单可见性开关探针
     // （右键菜单派单 2026-11-14）：驱动「父关子灰 / 组关整树灰 / 父开全量 /
     // 恢复默认」等设置页状态，供截图与回归验证。
@@ -6016,7 +6024,7 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
     if (failOnce) {
         failOnce = false;
         if (error)
-            *error = tr("模拟失败：信息面板拒绝本次字号切换。");
+            *error = tr("模拟失败：运行态拒绝本次即时应用（验收注入）。");
         return false;
     }
 
@@ -6100,6 +6108,65 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         }
         Theme::applySetting(*qApp, theme, themeScopeForLiveChange());
         syncThemeActions();          // 菜单勾选 + 局部表面刷新
+        return true;
+    }
+
+    // —— 全量即时化批次22 · 杂项页三项（#84/#85/#86）——
+    // 三项运行态都在动作期读 Config（单一 QSettings 实例），设置页 applyInstantValue
+    // 写盘 sync() 后本会话内 getter 立即读到新值；这里补「会话内可见 / 即时动作」。
+    if (key == QLatin1String("etc/disable_screensaver")) {
+        // #86：屏保抑制是可即时调用的原生 API，切换点立即下发/还原，不等重启。
+        // 退出时的兜底还原在 MainWindow 析构（applyScreensaverPrevention(false)）。
+        const bool on = value.toBool();
+        applyScreensaverPrevention(on);
+        if (m_toast)
+            m_toast->showMessage(on ? tr("已禁用屏幕保护（退出后自动恢复）")
+                                    : tr("已恢复屏幕保护"));
+        return true;
+    }
+
+    if (key == QLatin1String("etc/fit_window_to_image")) {
+        // #85：消费点是「打开新图片时一次性」读 Config。会话内切换后，若当前
+        // 已显示图片，立即按当前图调一次窗作为可见即时反馈；翻页/拖放仍不触发
+        // （保持既有设计）。resize 引起的 zoomChanged 用 guard 屏蔽，不污染缩放记忆。
+        if (value.toBool() && !m_currentImage.isNull()) {
+            const QSize before = size();
+            // 设置页非模态/模态 show 会在同一事件循环里回写主窗口尺寸；把调窗
+            // 推到事件循环末尾，避免被这次 show 的布局回放覆盖（实测同步 resize
+            // 当场就被还原）。m_fitWindowPending 由 fitWindowToImage 自清理。
+            QTimer::singleShot(0, this, [this, before]() {
+                if (m_currentImage.isNull())
+                    return;
+                m_zoomSaveGuard = true;
+                m_fitWindowPending = true;
+                fitWindowToImage();
+                m_zoomSaveGuard = false;
+                // 取证开关：仅验收探针置位时落盘调窗前后尺寸
+                if (qEnvironmentVariableIsSet("QUIKVIEW_ETC_PROBE")) {
+                    if (QFile f(QStringLiteral("Temp/etc-fit-live.txt"));
+                        f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                        QTextStream ts(&f);
+                        ts << "image=" << m_currentImage.width() << "x" << m_currentImage.height() << "\n"
+                           << "window_before=" << before.width() << "x" << before.height() << "\n"
+                           << "window_after=" << width() << "x" << height() << "\n"
+                           << "fit_applied=true\n";
+                    }
+                }
+            });
+        }
+        if (m_toast)
+            m_toast->showMessage(value.toBool() ? tr("已按图片大小调整窗口")
+                                                : tr("已关闭按图调窗，窗口尺寸不再自动变化"));
+        return true;
+    }
+
+    if (key == QLatin1String("etc/raw_thumbnail")) {
+        // #84：后台解码线程在打开 RAW 时读 Config（rawThumbnail && !noRawLoad）。
+        // 写盘后本会话内新值立即生效；提示区分与 #82「不打开 RAW」的联动。
+        if (m_toast)
+            m_toast->showMessage(value.toBool()
+                                     ? tr("已开启 RAW 内嵌缩略图（下次打开 RAW 生效）")
+                                     : tr("已关闭 RAW 内嵌缩略图（下次打开 RAW 生效）"));
         return true;
     }
 

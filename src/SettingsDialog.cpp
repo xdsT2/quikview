@@ -2615,8 +2615,10 @@ PillToggle *SettingsDialog::addSwitchRow(QWidget *section, const QString &label,
     if (!desc.isEmpty())
         cb->setToolTip(desc);
     parts.controls->addWidget(cb, 0, Qt::AlignVCenter);
-    if (key)
+    if (key) {
+        cb->setProperty("cfgKey", QString::fromLatin1(key));   // 即时化取证探针按配置键定位开关
         m_chkBinds.append({ cb, key, inverted, def });
+    }
     return cb;
 }
 
@@ -5396,18 +5398,25 @@ void SettingsDialog::buildEtcPage(QWidget *page)
     addSwitchRow(sec, tr("打开 JPEG 文件时，不打开同名 RAW 文件"),
                  QString(),
                  "etc/skip_raw_when_jpg", false, true);
-    addSwitchRow(sec, tr("打开 RAW 图片文件时，显示已有缩略图"),
+    // #84 RAW 缩略图：批次22 起为即时项，注册进 m_liveChecks 走「下发运行态 →
+    // 写盘 → 失败回退」链路；与 #82 noRawLoad() 的 && 短路联动由消费点保留。
+    auto *rawThumb = addSwitchRow(sec, tr("打开 RAW 图片文件时，显示已有缩略图"),
                  QString(),
                  "etc/raw_thumbnail", false, true);
+    m_liveChecks.append({ rawThumb, "etc/raw_thumbnail", false, false });
 
     sec = beginSection(page, tr("窗口与声音"));
     addSwitchRow(sec, tr("翻页时播放音效"), QString(),
                  "etc/pageturn_wav", false, false);
-    addSwitchRow(sec, tr("根据图片大小调节窗口大小"), QString(),
+    // #85 按图调窗：即时项。会话内切换即对当前图调一次窗，下次打开读新配置。
+    auto *fitWin = addSwitchRow(sec, tr("根据图片大小调节窗口大小"), QString(),
                  "etc/fit_window_to_image", false, false);
-    addSwitchRow(sec, tr("运行 QuikView 时禁用 Windows 屏幕保护程序"),
+    m_liveChecks.append({ fitWin, "etc/fit_window_to_image", false, false });
+    // #86 禁用屏保：即时项，切换点调 applyScreensaverPrevention 下发/还原。
+    auto *noSaver = addSwitchRow(sec, tr("运行 QuikView 时禁用 Windows 屏幕保护程序"),
                  tr("退出 QuikView 后恢复系统屏保设置"),
                  "etc/disable_screensaver", false, false);
+    m_liveChecks.append({ noSaver, "etc/disable_screensaver", false, false });
 
     // 2026-11-17 注释精简：原页脚逐句重复三行开关的语义，删除后行内与控件本身已足够。
     applyPageRhythm(page);
@@ -5992,9 +6001,13 @@ void SettingsDialog::applyLiveCheck(int index, bool checked)
         }
         if (host)
             host->applyLiveSetting(key, item.lastValue, nullptr);   // 兜底：运行态回到上次成功值
+        // PillToggle 的可见文字在内部标签而非 QAbstractButton::text()，用
+        // accessibleName（addSwitchRow 里设为同一 label）才拿得到项名。
+        const QString itemName = item.cb->accessibleName().isEmpty()
+                                     ? item.cb->text() : item.cb->accessibleName();
         QMessageBox::warning(this, tr("设置"),
                              tr("「%1」未能即时生效：%2\n已恢复原值，未写入配置。")
-                                 .arg(item.cb->text(), error));
+                                 .arg(itemName, error));
         return;
     }
 
@@ -6386,6 +6399,74 @@ void SettingsDialog::probeKeyConflict()
         grab().save(QStringLiteral("Temp/keys-conflict-row.png"));
     }
     close();
+}
+
+// —— 批次22 即时化验收探针（--smoke etcprobe:<spec>）——
+// 走真实 PillToggle::click → applyLiveCheck（下发运行态 + 写盘 + 失败回退），
+// 不绕过任何链路。dump 同一会话内「控件态 / Config getter / QSettings 原始值」
+// 证明写盘即被运行态读到（QSettings 单实例），且页面内控件态随切换即时更新。
+void SettingsDialog::probeEtcLive(const QString &spec)
+{
+    const auto dump = [this](const QString &tag) {
+        Config &cfg = Config::instance();
+        QSettings &s = cfg.settings();
+        const auto b = [&s](const char *full) { return s.value(QString::fromLatin1(full)).toBool(); };
+        QString out;
+        QTextStream ts(&out);
+        ts << "[" << tag << "]\n";
+        const struct { const char *key; const char *full; bool getter; bool checked; } rows[] = {
+            { "etc/raw_thumbnail",       "config/etc/raw_thumbnail",       cfg.rawThumbnail(),       false },
+            { "etc/fit_window_to_image", "config/etc/fit_window_to_image", cfg.fitWindowToImage(),   false },
+            { "etc/disable_screensaver", "config/etc/disable_screensaver", cfg.disableScreensaver(), false },
+        };
+        for (auto &r : rows) {
+            bool checked = false;
+            for (PillToggle *t : findChildren<PillToggle *>())
+                if (t->property("cfgKey").toString() == QLatin1String(r.key)) { checked = t->isChecked(); break; }
+            ts << r.key
+               << " checked=" << (checked ? "true" : "false")
+               << " getter=" << (r.getter ? "true" : "false")
+               << " stored=" << (b(r.full) ? "true" : "false")
+               << " present=" << (s.contains(QString::fromLatin1(r.full)) ? "1" : "0") << "\n";
+        }
+        // 联动项 #82 noRawLoad 不被误伤：单独 dump
+        ts << "etc/no_raw_load getter=" << (cfg.noRawLoad() ? "true" : "false") << "\n";
+        QFile f(QStringLiteral("Temp/etc-live-probe.txt"));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+            f.write(out.toUtf8());
+        }
+    };
+
+    QTimer::singleShot(400, this, [this, spec, dump]() {
+        // 定位杂项页并构建（延后构建页首次进入才建控件）
+        const auto navs = findChildren<QPushButton *>(QStringLiteral("navItem"));
+        for (QPushButton *b : navs) {
+            if (b->text().contains(tr("杂项"))) { b->click(); break; }
+        }
+        QTimer::singleShot(500, this, [this, spec, dump]() {
+            QFile::remove(QStringLiteral("Temp/etc-live-probe.txt"));
+            dump(QStringLiteral("before"));
+            // spec: "key=on|off+key=on|off"（+ 分隔：--smoke 用逗号拆命令）
+            const QStringList items = spec.split(u'+');
+            for (const QString &item : items) {
+                const int eq = item.indexOf(u'=');
+                if (eq < 0) continue;
+                const QString key = item.left(eq).trimmed();
+                const bool want = item.mid(eq + 1).trimmed() == QLatin1String("on");
+                for (PillToggle *t : findChildren<PillToggle *>()) {
+                    if (t->property("cfgKey").toString() != key) continue;
+                    if (t->isChecked() != want)
+                        t->click();   // 真实链路：applyLiveCheck → applyLiveSetting → 写盘
+                    break;
+                }
+            }
+            QTimer::singleShot(500, this, [this, dump]() {
+                dump(QStringLiteral("after"));
+                // 设置页自身 grab（--screenshot 抓的是主窗口，抓不到模态设置页）
+                grab().save(QStringLiteral("Temp/etc-live-settings.png"));
+            });
+        });
+    });
 }
 
 // —— 验收探针（--smoke keyreset）——

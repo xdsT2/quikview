@@ -53,6 +53,12 @@ public:
     // 直接改主题下拉的 currentIndex，走与鼠标选择相同的 currentIndexChanged
     // → applyThemePreview 链路，避免鼠标坐标漂移影响延迟采样。
     void probeTheme(const QString &theme);
+    // 批次22 即时化验收探针（--smoke etcprobe:<spec>）：切到杂项页，按 cfgKey
+    // 找到 #84/#85/#86 三个开关并点击到目标态（走 applyLiveCheck 真实链路），
+    // 把切换前后「控件态 / Config getter / QSettings 原始值」dump 到 Temp/。
+    // spec 形如 "etc/raw_thumbnail=off+etc/fit_window_to_image=on"（+ 分隔，
+    // 因 --smoke 用逗号拆命令；目标态 on/off）。
+    void probeEtcLive(const QString &spec);
     explicit SettingsDialog(QWidget *parent = nullptr);
     ~SettingsDialog() override;
 
