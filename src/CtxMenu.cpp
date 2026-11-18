@@ -475,21 +475,33 @@ void CtxMenu::paintEvent(QPaintEvent *event)
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
 
-    // —— 面板：圆角 10 + 1px 边框，两层软影由系统/DWM 承担（NoDropShadowWindowHint
-    //     + Acrylic 路径见 UiStyle::polishMenu），这里不再自绘投影。 ——
-    //     嵌套子菜单（UiStyle::polishSubmenu 置 appmenu.opaque）是不透明窗口，
-    //     磨砂半透明色画上去会直接混黑，改用纯色；顶层菜单磨砂开仍走半透明。 ——
-    const QRectF frame = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
+    // —— 面板：圆角 10。外描边按「呈现方式」分流（2026-11-17 用户决定只改
+    //     查看器右键菜单，顶栏三横菜单不在该决定范围内）：
+    //       * Presentation::ContextMenu（右键菜单）：**不画外描边**，靠圆角底色
+    //         与磨砂材质区分边界；面板铺满整个窗口矩形——以前留 0.5px 内缩是
+    //         给 1px 描边让位，描边去掉后内缩会露出窗口底色，实机表现为一圈黑边。
+    //       * Presentation::OriginalActions（顶栏三横菜单）：保留原 1px 描边与
+    //         0.5px 内缩，像素不变。
+    //     两层软影由系统/DWM 承担（NoDropShadowWindowHint + Acrylic 路径见
+    //     UiStyle::polishMenu），这里不自绘投影。 ——
+    //     嵌套子菜单（UiStyle::polishSubmenu 置 appmenu.opaque）一律用纯色面板：
+    //     子菜单窗口不吃磨砂合成，半透明色画上去会直接混黑；顶层菜单磨砂开仍走半透明。 ——
+    const bool borderless = (m_presentation == Presentation::ContextMenu);
+    const QRectF frame = borderless ? QRectF(rect())
+                                    : QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
     QPainterPath bgPath;
     bgPath.addRoundedRect(frame, kMenuRadius, kMenuRadius);
     const QColor surface = property("appmenu.opaque").toBool()
                                ? QColor(UiStyle::surfaceMenu())
                                : menuSurface();
     p.fillPath(bgPath, surface);
-    QPen borderPen(UiStyle::color(UiStyle::menuLine()), 1.0);
-    p.setPen(borderPen);
-    p.setBrush(Qt::NoBrush);
-    p.drawPath(bgPath);
+    if (!borderless) {
+        // 顶栏三横菜单：沿用改前的 1px 描边笔，颜色/粗细/内缩都不动。
+        QPen borderPen(UiStyle::color(UiStyle::menuLine()), 1.0);
+        p.setPen(borderPen);
+        p.setBrush(Qt::NoBrush);
+        p.drawPath(bgPath);
+    }
 
     const QList<QAction *> acts = actions();
     const QFont fLabel = UiStyle::font(13);

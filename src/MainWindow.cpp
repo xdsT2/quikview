@@ -2172,7 +2172,9 @@ QMenu *MainWindow::buildContextMenu()
             ma->setProperty(CtxMenu::kIconProp, QLatin1String(n->icon));
         }
         ma->setProperty("appmenu.id", QLatin1String(id));
-        UiStyle::polishSubmenu(sub);
+        // 查看器右键菜单的二级菜单要真圆角（去外描边后不能靠描边勾边），
+        // 故传 rounded=true；左侧汉堡菜单的同名函数调用保持默认不透明。
+        UiStyle::polishSubmenu(sub, /*rounded=*/true);
     };
 
     // —— 浏览相关段（一级：浏览导航 / 排序方式 / 浏览方式 / 缩放工具，二级直达）——

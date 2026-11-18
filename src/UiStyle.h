@@ -179,23 +179,28 @@ inline QColor interactiveSoft() { return isLight() ? QColor(22,136,248,31) : QCo
 
 // 嵌套子菜单专用（2026-11-16 用户实机回归）：父 popup 显示中再弹出的 QMenu
 // 走 Qt 嵌套 popup 的 layered 窗口路径，WA_TranslucentBackground 的
-// per-pixel alpha 会整体丢失——实机表现为子菜单整块渲染成黑色实块、
+// per-pixel alpha 可能整体丢失——实机表现为子菜单整块渲染成黑色实块、
 // 图标/面板全部不可见（CtxMenu::paintEvent 实际执行了，QWidget::grab 自渲染
-// 也正常，只有真实屏幕合成才黑，故须用 grab: 探针抓屏取证）。
-// 嵌套层改用不透明窗口：面板色 paintEvent 自绘，圆角四角露底用
+// 也正常，只有真实屏幕合成才黑，故须用真实截屏取证）。
+// 默认仍走不透明窗口：面板色 paintEvent 自绘，圆角四角露底用
 // autoFillBackground + palette 补成面板色，视觉无缝；磨砂半透明只保留在
-// 顶层菜单（嵌套层暂不支持半透明，回退纯色面板，见 paintEvent 的
-// appmenu.opaque 分支）。
-inline void polishSubmenu(QMenu *menu)
+// 顶层菜单（嵌套层回退纯色面板，见 paintEvent 的 appmenu.opaque 分支）。
+//
+// rounded=true 时反过来：窗口保留 per-pixel alpha、关掉 autoFillBackground，
+// 四角真正透明、圆角不被补成方角。仅查看器右键菜单的二级菜单用它
+// （2026-11-17 去外描边派单：描边去掉后，方角补齐会变成肉眼可见的方角）。
+// 已在 Win11 实机按 深/浅 × 磨砂开/关 逐场景截屏核验无黑块；若某版本
+// Windows 上再出现整窗黑块，把这个 true 改回 false 即可回退。
+inline void polishSubmenu(QMenu *menu, bool rounded = false)
 {
     if (!menu) {
         return;
     }
     menu->setProperty("appmenu.opaque", true);
-    menu->setAttribute(Qt::WA_TranslucentBackground, false);
+    menu->setAttribute(Qt::WA_TranslucentBackground, rounded);
     menu->setWindowFlag(Qt::FramelessWindowHint, true);
     menu->setWindowFlag(Qt::NoDropShadowWindowHint, true);
-    menu->setAutoFillBackground(true);
+    menu->setAutoFillBackground(!rounded);
     QPalette pal = menu->palette();
     pal.setColor(QPalette::Window, QColor(surfaceMenu()));
     menu->setPalette(pal);
