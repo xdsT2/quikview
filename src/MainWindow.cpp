@@ -3728,6 +3728,11 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         QKeyEvent event(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
         QApplication::sendEvent(m_overview, &event);
     }
+    else if (c.startsWith(QLatin1String("ovdblclick:")) && m_overview
+             && m_overview->isVisible()) {
+        // 验收探针：发真实双击事件，走 OverviewPanel::mouseDoubleClickEvent。
+        m_overview->probeDoubleClick(c.mid(11).toInt());
+    }
     else if (c == QLatin1String("filmright")) {
         QKeyEvent event(QEvent::KeyPress, Qt::Key_Right, Qt::NoModifier);
         QApplication::sendEvent(m_canvas, &event);
@@ -4041,11 +4046,6 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     // settingspages —— 打开设置并逐页切一遍（延后构建的每页首开耗时取证）。
     else if (c == QLatin1String("settingspages")) {
         auto *dlg = new SettingsDialog(this);
-    else if (c.startsWith(QLatin1String("ovdblclick:")) && m_overview
-             && m_overview->isVisible()) {
-        // 验收探针：发真实双击事件，走 OverviewPanel::mouseDoubleClickEvent。
-        m_overview->probeDoubleClick(c.mid(11).toInt());
-    }
         dlg->setAttribute(Qt::WA_DeleteOnClose);
         pushAppMenuRunState(dlg);
         dlg->show();
