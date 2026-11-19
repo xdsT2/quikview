@@ -20,6 +20,28 @@ Config::Config(const QString &path)
         m_settings.setValue(danger, m_settings.value(legacyDelete).toBool());
         m_settings.sync();
     }
+
+    // 上下文菜单 6 个开关（2026-11-19）：旧版设置页把值写到 config/<leaf>，
+    // 漏了 ctxmenu 层级，而壳扩展读的是 [config] ctxmenu\<leaf>，用户关掉的
+    // 项从未生效。这里一次性把旧键搬到正确层级并清掉孤儿键；打标记，避免
+    // 重复迁移覆盖用户此后在设置页做的选择。旧键读不删会让「误导性孤儿键」
+    // 永远留在 ini 里，所以迁移时一律 remove。
+    const QString ctxMigrated = QStringLiteral("config/etc/ctxmenu_keys_migrated");
+    if (!m_settings.value(ctxMigrated, false).toBool()) {
+        const char *const ctxLeaves[] = { "use_shell_menu", "show_browse",
+                                          "show_convert",     "show_preview",
+                                          "show_info",        "show_icon" };
+        for (const char *leaf : ctxLeaves) {
+            const QString legacy = QStringLiteral("config/") + leaf;
+            const QString target = QStringLiteral("config/ctxmenu/") + leaf;
+            if (!m_settings.contains(target) && m_settings.contains(legacy)) {
+                m_settings.setValue(target, m_settings.value(legacy));
+            }
+            m_settings.remove(legacy);
+        }
+        m_settings.setValue(ctxMigrated, true);
+        m_settings.sync();
+    }
 }
 
 QString Config::defaultConfigPath()

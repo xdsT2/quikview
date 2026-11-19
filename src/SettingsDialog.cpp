@@ -5208,8 +5208,12 @@ void SettingsDialog::buildContextMenuPage(QWidget *page)
             connect(row.toggle, &PillToggle::toggled, this,
                     [this, row, key, leaf](bool on) mutable {
                 QString err;
+                // writeValues() 自己拼 "config/" 前缀，所以这里必须带上 ctxmenu/
+                // 层级：写入的键要与上方读取键、壳扩展 prefs.cpp 读的
+                // [config] ctxmenu\<leaf> 完全一致，否则开关写到一个没人读的键上
+                // （旧版 bug：写 config/<leaf>，壳扩展读 config/ctxmenu/<leaf>）。
                 const QList<QPair<QString, QVariant>> vals = {
-                    { QString::fromLatin1(leaf), on }
+                    { QStringLiteral("ctxmenu/") + QString::fromLatin1(leaf), on }
                 };
                 if (writeValues(vals, false, &err))
                     return;
