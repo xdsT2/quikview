@@ -9,6 +9,8 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSizePolicy>
+#include <QStyleOptionButton>
+#include <QStylePainter>
 #include <QVBoxLayout>
 
 #include "AppIcon.h"
@@ -65,6 +67,8 @@ public:
         setObjectName(QStringLiteral("layerFold"));
         setFixedHeight(32);
         setCursor(Qt::PointingHandCursor);
+        // 同 NameButton：组名也可能很长，不能凭 sizeHint 把滚动内容撑宽
+        setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
     }
 
 protected:
@@ -112,15 +116,51 @@ QLabel *makeThumb(const QImage &image)
     return lab;
 }
 
+// 行名按钮：超长图层名按可用宽度单行省略，不撑破面板、不换行。
+// QPushButton 默认是硬裁（字被切一半），观感差且看不出还有内容；这里在
+// paintEvent 里用 elidedText 画，截断时补一条全名 tooltip（派单 2026-11-09
+// 遗留项「超长图层名」的验收结论，2026-11-19 补）。
+class NameButton : public QPushButton
+{
+public:
+    using QPushButton::QPushButton;
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QStylePainter painter(this);
+        QStyleOptionButton opt;
+        initStyleOption(&opt);
+        // QSS 给 #layerRow 的是 padding 0 8px + 1px 边框；这里再留 2px 余量，
+        // 免得算出的省略宽度正好压在裁剪边界上把省略号也切掉。
+        const QString elided =
+            fontMetrics().elidedText(opt.text, Qt::ElideRight, width() - 20);
+        if (elided != opt.text) {
+            opt.text = elided;
+            if (!m_tipShown) {
+                m_tipShown = true;
+                setToolTip(text());   // 全名给 tooltip，截断后仍能看全
+            }
+        }
+        painter.drawControl(QStyle::CE_PushButton, opt);
+    }
+
+private:
+    bool m_tipShown = false;
+};
+
 QWidget *makeRow(QWidget *host, const QString &text, bool selected)
 {
-    auto *row = new QPushButton(text, host);
+    auto *row = new NameButton(text, host);
     row->setObjectName(QStringLiteral("layerRow"));
     row->setCheckable(true);
     row->setChecked(selected);
     row->setCursor(Qt::PointingHandCursor);
     row->setFixedHeight(32);
-    row->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    // 水平 Ignored：QPushButton 的 sizeHint 带着整段文本宽度，会让滚动内容
+    // 比视口更宽、长出横向滚动条（超长名实测会这样）。忽略尺寸诉求，宽度
+    // 由行布局给，文本按实际宽度省略。
+    row->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
     return row;
 }
 
@@ -291,10 +331,14 @@ QVector<int> LayerPanel::visibleLayerIndexes() const
 int LayerPanel::preferredHeight() const
 {
     // 与 rebuild() 共用同一份可见行判定，不再复制一遍折叠逻辑。
-    // 固定开销 = PadTop9 + 标题栏30 + 间距4 + 整图32 + 间距4 + PadBottom11 = 90
-    //（外壳统一后与信息浮层同款内边距；简化提示行另加 ~44）。
+    // 固定开销 = PadTop9 + 标题栏30 + 间距4 + 整图32 + 间距4
+    //          + 行容器上下边距 2+2 + PadBottom11 = 94，每行 32 + 行距 2 = 34。
+    // 即 94 + n*34 - 2 = 92 + n*34（简化提示行另加 ~44）。
+    // 这里原来写 90，比实际内容少 2px：面板高度够、行也对，但滚动区可视高
+    // 恒比内容矮 2px，于是哪怕只有 5 行也常驻一条滚动条。像素测量确认后改 92
+    //（派单 2026-11-09 遗留项「面板高度像素级测量」）。
     const int rows = visibleLayerIndexes().size();
-    int h = 90 + rows * 34 + (m_simplified ? 44 : 0);
+    int h = 92 + rows * 34 + (m_simplified ? 44 : 0);
     return qBound(180, h, 620);
 }
 
