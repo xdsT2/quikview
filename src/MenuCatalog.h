@@ -75,6 +75,12 @@ inline const Node kNodes[] = {
     {"view_fitwidth",  "fit-width",    Leaf,   true,  "parent_view"},
     {"view_two_l2r",   "book",         Leaf,   true,  "parent_view"},
     {"view_two_r2l",   "book",         Leaf,   true,  "parent_view"},
+    // RAW+JPG 分组显示（派单 2026-11-18）：子菜单两个勾选项，父项常驻。
+    // 两个子项都是「行为开关」而不是菜单可见性开关的纯装饰：勾选态来自
+    // config/group_raw_jpg 与 config/group_show_raw，与设置页开关同源。
+    {"parent_group",   "images",       Parent, true,  "group_browse"},
+    {"group_raw_jpg",  "images",       Leaf,   true,  "parent_group"},
+    {"group_show_raw", "image",        Leaf,   true,  "parent_group"},
     {"parent_zoom",    "zoom",         Parent, false, "group_browse"},
     {"zoom_in",        "zoom-in",      Leaf,   true,  "parent_zoom"},
     {"zoom_out",       "zoom-out",     Leaf,   true,  "parent_zoom"},
@@ -211,6 +217,9 @@ inline const char *labelSource(const QString &id)
     if (id == QLatin1String("view_fitwidth"))     return QT_TRANSLATE_NOOP("AppMenu", "适合宽度");
     if (id == QLatin1String("view_two_l2r"))      return QT_TRANSLATE_NOOP("AppMenu", "智能双页 (左至右)");
     if (id == QLatin1String("view_two_r2l"))      return QT_TRANSLATE_NOOP("AppMenu", "智能双页 (右至左)");
+    if (id == QLatin1String("parent_group"))      return QT_TRANSLATE_NOOP("AppMenu", "分组显示");
+    if (id == QLatin1String("group_raw_jpg"))     return QT_TRANSLATE_NOOP("AppMenu", "RAW+JPG 分组显示");
+    if (id == QLatin1String("group_show_raw"))    return QT_TRANSLATE_NOOP("AppMenu", "显示原始数据");
     if (id == QLatin1String("zoom_in"))           return QT_TRANSLATE_NOOP("AppMenu", "放大");
     if (id == QLatin1String("zoom_out"))          return QT_TRANSLATE_NOOP("AppMenu", "缩小");
     if (id == QLatin1String("zoom_lock"))         return QT_TRANSLATE_NOOP("AppMenu", "锁定缩放");

@@ -315,6 +315,18 @@
         <source>复制图像文件</source>
         <translation>Copy Image File</translation>
     </message>
+    <message>
+        <source>分组显示</source>
+        <translation>Grouping</translation>
+    </message>
+    <message>
+        <source>RAW+JPG 分组显示</source>
+        <translation>RAW+JPG grouping</translation>
+    </message>
+    <message>
+        <source>显示原始数据</source>
+        <translation>Show original data</translation>
+    </message>
 </context>
 <context>
     <name>BatchConvertDialog</name>

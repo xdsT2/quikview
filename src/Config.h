@@ -98,6 +98,12 @@ public:
     bool noRawLoad() const;            // 不打开 RAW 图片文件（默认 false）
     bool skipRawWhenJpg() const;       // JPEG 存在时跳过同名 RAW（默认 true）
     bool rawThumbnail() const;         // RAW 先显示内嵌缩略图（默认 true）
+    bool groupRawJpg() const;
+    bool groupShowRaw() const;
+    // RAW+JPG 分组显示（派单 派单-RAW与JPG分组显示-20261118）：
+    // 键 config/group_raw_jpg —— 同目录同主名的 RAW/PSD 与 JPG 合并为一条（默认关，
+    // 关闭时目录列表与现状逐位一致）；键 config/group_show_raw —— 分组条目默认打开
+    // 原始数据（RAW/PSD）而不是 JPG（默认关 = 显示 JPG，浏览更快）。
     bool fitWindowToImage() const;     // 打开图片时按图片尺寸调节窗口（默认 false，需用户开启）
     bool pageturnWav() const;          // 翻页时播放音效（默认 false）
 

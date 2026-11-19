@@ -315,6 +315,18 @@
         <source>复制图像文件</source>
         <translation>Копировать файл изображения</translation>
     </message>
+    <message>
+        <source>分组显示</source>
+        <translation>Группировка</translation>
+    </message>
+    <message>
+        <source>RAW+JPG 分组显示</source>
+        <translation>Группировка RAW+JPG</translation>
+    </message>
+    <message>
+        <source>显示原始数据</source>
+        <translation>Показывать исходные данные</translation>
+    </message>
 </context>
 <context>
     <name>BatchConvertDialog</name>

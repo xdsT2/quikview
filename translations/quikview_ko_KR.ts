@@ -315,6 +315,18 @@
         <source>复制图像文件</source>
         <translation>이미지 파일 복사</translation>
     </message>
+    <message>
+        <source>分组显示</source>
+        <translation>그룹 표시</translation>
+    </message>
+    <message>
+        <source>RAW+JPG 分组显示</source>
+        <translation>RAW+JPG 그룹 표시</translation>
+    </message>
+    <message>
+        <source>显示原始数据</source>
+        <translation>원본 데이터 표시</translation>
+    </message>
 </context>
 <context>
     <name>BatchConvertDialog</name>

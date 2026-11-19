@@ -438,6 +438,19 @@ bool Config::rawThumbnail() const
     return m_settings.value(QStringLiteral("config/etc/raw_thumbnail"), true).toBool();
 }
 
+bool Config::groupRawJpg() const
+{
+    // 「RAW+JPG 分组显示」：消费点 DirectoryLoader::buildIndexDir 的列表构建层。
+    // 默认关 —— 关闭时扫描/排序/索引与现状逐位一致，不给既有浏览加任何分支。
+    return m_settings.value(QStringLiteral("config/group_raw_jpg"), false).toBool();
+}
+
+bool Config::groupShowRaw() const
+{
+    // 「显示原始数据」：分组条目上打开 RAW/PSD 而不是 JPG；仅在分组开启时生效。
+    return m_settings.value(QStringLiteral("config/group_show_raw"), false).toBool();
+}
+
 bool Config::fitWindowToImage() const
 {
     // 2026-11-12 用户口径：窗口尺寸默认不随打开的图片变化，保持初始 1080×815。

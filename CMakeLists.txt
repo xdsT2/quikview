@@ -38,6 +38,8 @@ add_executable(quikview WIN32
     src/ImageCache.h
     src/DirectoryLoader.cpp
     src/DirectoryLoader.h
+    src/RawJpgGroup.cpp
+    src/RawJpgGroup.h
     src/ImageEffects.cpp
     src/ToneMap.cpp
     src/ToneMap.h
