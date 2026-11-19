@@ -32,6 +32,11 @@
 
 namespace {
 
+// —— 缩放上下限（D3，对齐 core-ui 默认）——
+// 只约束**手动**缩放（滚轮/按钮/滑杆/恢复比例）；fit/fitWidth 是几何适配，
+// 不受上下限影响——否则超大图连「全览」都到不了。
+constexpr qreal kMinZoom = 0.01;
+constexpr qreal kMaxZoom = 64.0;
 // —— 长图轴锁（D2）——
 // 高/宽 ≥ 2.5 视为条漫式长图；纵向溢出视口时横向拖动被钉回中心。
 constexpr qreal kLongStripAspect = 2.5;
@@ -1324,6 +1329,10 @@ void ImageCanvas::applyZoomAt(qreal zoom, const QPoint &anchorViewportPt)
     if (!m_item || zoom <= 0.0) {
         return;
     }
+    // 上下限（D3）：0.01~64，对齐 core-ui 默认。下限取 min(0.01, 当前比例)，
+    // 避免「极端大图全览后想继续缩小」被下限反推放大；上限固定 64（贴素放大）。
+    const qreal minZ = qMin(kMinZoom, m_zoom);
+    zoom = qBound(minZ, zoom, kMaxZoom);
     m_pendingLongStripFitWidth = false;   // 明确缩放了，不再改起读方式
     const QPointF anchorScene = mapToScene(anchorViewportPt);
     // 锚点同时记一份**窗口坐标系**的副本：进入手动缩放时主窗口会把顶部 76px 安全区
