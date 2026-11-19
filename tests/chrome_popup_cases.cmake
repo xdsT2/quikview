@@ -115,11 +115,12 @@ quikview_chrome_case(dock_slider_drag
     "dock=2;dockvis=1;dockop=1.00;popup=0;docklock=0"
     "")
 
-# The standard window's bottom island is 72 logical pixels from the window edge.
+# The standard window's bottom island is 62 logical pixels from the window edge
+# （底栏改 596x44 后从 72 变为 62：44 高 + 18 外边距）。
 quikview_chrome_case(filmstrip_toggle
     "hover:540:400,lockdock,browser,report,browser,report"
-    "filmstrip=1;filmcurrent=0;filminview=1;dockbottom=72;margins=0,0,0,0;dockvis=1"
-    "filmstrip=0;dockbottom=72;margins=0,0,0,0;dockvis=1")
+    "filmstrip=1;filmcurrent=0;filminview=1;dockbottom=62;margins=0,0,0,0;dockvis=1"
+    "filmstrip=0;dockbottom=62;margins=0,0,0,0;dockvis=1")
 
 quikview_chrome_case(filmstrip_navigation
     "hover:540:400,browser,filmright,report,filmclick,report"
