@@ -56,7 +56,9 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
 
-    void openFile(const QString &path);
+    void openFile(const QString &path, bool transient = false);
+    // 路径后缀是否属于可解码图片（剪贴板取图/拖放共用，避免另起白名单）
+    static bool isSupportedImagePath(const QString &path);
     // 打开文件并按图片尺寸调窗（仅「启动带文件 / 文件→打开」两条路径用；
     // 见 fitWindowToImage()，受设置「根据图片大小调节窗口大小」控制）
     void openFileFitting(const QString &path);
@@ -123,6 +125,11 @@ private slots:
     void onCopyToFolder();
     void onOpenWithEditor();
     void onCopyToClipboard();
+    // 复制四变体（复制与剪贴板三件）：四键均沿用现有 Ctrl+C 空态口径
+    void onCopyExif();
+    void onCopyImagePath();
+    void onCopyVisibleImage();
+    void onCopyImageFile();
     void onSetWallpaper();
     void onAbout();
     // 视图
@@ -308,6 +315,10 @@ private:
     QAction *actCopyToFolder = nullptr;
     QAction *actOpenWithEditor = nullptr;
     QAction *actCopyToClipboard = nullptr;
+    QAction *actCopyExif = nullptr;
+    QAction *actCopyImagePath = nullptr;
+    QAction *actCopyVisibleImage = nullptr;
+    QAction *actCopyImageFile = nullptr;
     QAction *actWallpaper = nullptr;
     QAction *actAbout = nullptr;
     QAction *actQuit = nullptr;

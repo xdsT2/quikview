@@ -299,6 +299,22 @@
         <source>应用</source>
         <translation>アプリケーション</translation>
     </message>
+    <message>
+        <source>复制 EXIF 数据</source>
+        <translation>EXIF データをコピー</translation>
+    </message>
+    <message>
+        <source>复制图片路径</source>
+        <translation>画像のパスをコピー</translation>
+    </message>
+    <message>
+        <source>复制当前可见图像</source>
+        <translation>表示中の画像をコピー</translation>
+    </message>
+    <message>
+        <source>复制图像文件</source>
+        <translation>画像ファイルをコピー</translation>
+    </message>
 </context>
 <context>
     <name>BatchConvertDialog</name>
@@ -1499,6 +1515,66 @@
     <message>
         <source>暂不支持该格式</source>
         <translation>この形式は未対応です</translation>
+    </message>
+    <message>
+        <source>从剪贴板粘贴图片</source>
+        <translation>クリップボードから画像を貼り付け</translation>
+    </message>
+    <message>
+        <source>请先打开图片</source>
+        <translation>先に画像を開いてください</translation>
+    </message>
+    <message>
+        <source>该图片没有可复制的信息</source>
+        <translation>この画像にはコピーできる情報がありません</translation>
+    </message>
+    <message>
+        <source>已复制 EXIF 数据</source>
+        <translation>EXIF データをコピーしました</translation>
+    </message>
+    <message>
+        <source>该图片没有可复制的路径</source>
+        <translation>この画像にはコピーできるパスがありません</translation>
+    </message>
+    <message>
+        <source>已复制图片路径</source>
+        <translation>画像のパスをコピーしました</translation>
+    </message>
+    <message>
+        <source>复制当前可见图像失败</source>
+        <translation>表示中の画像のコピーに失敗しました</translation>
+    </message>
+    <message>
+        <source>已复制当前可见图像</source>
+        <translation>表示中の画像をコピーしました</translation>
+    </message>
+    <message>
+        <source>该图片没有可复制的文件</source>
+        <translation>この画像にはコピーできるファイルがありません</translation>
+    </message>
+    <message>
+        <source>已复制图像文件</source>
+        <translation>画像ファイルをコピーしました</translation>
+    </message>
+    <message>
+        <source>剪贴板中没有图片</source>
+        <translation>クリップボードに画像がありません</translation>
+    </message>
+    <message>
+        <source>复制 EXIF 数据</source>
+        <translation>EXIF データをコピー</translation>
+    </message>
+    <message>
+        <source>复制图片路径</source>
+        <translation>画像のパスをコピー</translation>
+    </message>
+    <message>
+        <source>复制当前可见图像</source>
+        <translation>表示中の画像をコピー</translation>
+    </message>
+    <message>
+        <source>复制图像文件</source>
+        <translation>画像ファイルをコピー</translation>
     </message>
 </context>
 <context>

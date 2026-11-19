@@ -299,6 +299,22 @@
         <source>应用</source>
         <translation>應用程式</translation>
     </message>
+    <message>
+        <source>复制 EXIF 数据</source>
+        <translation>複製 EXIF 資料</translation>
+    </message>
+    <message>
+        <source>复制图片路径</source>
+        <translation>複製圖片路徑</translation>
+    </message>
+    <message>
+        <source>复制当前可见图像</source>
+        <translation>複製目前可見影像</translation>
+    </message>
+    <message>
+        <source>复制图像文件</source>
+        <translation>複製影像檔</translation>
+    </message>
 </context>
 <context>
     <name>BatchConvertDialog</name>
@@ -1499,6 +1515,66 @@
     <message>
         <source>暂不支持该格式</source>
         <translation>暫不支援此格式</translation>
+    </message>
+    <message>
+        <source>从剪贴板粘贴图片</source>
+        <translation>從剪貼簿貼上影像</translation>
+    </message>
+    <message>
+        <source>请先打开图片</source>
+        <translation>請先開啟圖片</translation>
+    </message>
+    <message>
+        <source>该图片没有可复制的信息</source>
+        <translation>此圖片沒有可複製的資訊</translation>
+    </message>
+    <message>
+        <source>已复制 EXIF 数据</source>
+        <translation>已複製 EXIF 資料</translation>
+    </message>
+    <message>
+        <source>该图片没有可复制的路径</source>
+        <translation>此圖片沒有可複製的路徑</translation>
+    </message>
+    <message>
+        <source>已复制图片路径</source>
+        <translation>已複製圖片路徑</translation>
+    </message>
+    <message>
+        <source>复制当前可见图像失败</source>
+        <translation>複製目前可見影像失敗</translation>
+    </message>
+    <message>
+        <source>已复制当前可见图像</source>
+        <translation>已複製目前可見影像</translation>
+    </message>
+    <message>
+        <source>该图片没有可复制的文件</source>
+        <translation>此圖片沒有可複製的檔案</translation>
+    </message>
+    <message>
+        <source>已复制图像文件</source>
+        <translation>已複製影像檔</translation>
+    </message>
+    <message>
+        <source>剪贴板中没有图片</source>
+        <translation>剪貼簿中沒有影像</translation>
+    </message>
+    <message>
+        <source>复制 EXIF 数据</source>
+        <translation>複製 EXIF 資料</translation>
+    </message>
+    <message>
+        <source>复制图片路径</source>
+        <translation>複製圖片路徑</translation>
+    </message>
+    <message>
+        <source>复制当前可见图像</source>
+        <translation>複製目前可見影像</translation>
+    </message>
+    <message>
+        <source>复制图像文件</source>
+        <translation>複製影像檔</translation>
     </message>
 </context>
 <context>

@@ -44,6 +44,10 @@ inline const Node kNodes[] = {
     {"group_common",   "dots",         Section,true,  ""},
     {"image_info",     "info",         Single, true,  "group_common"},
     {"copy_clipboard", "copy",         Single, true,  "group_common"},
+    {"copy_exif",      "info",         Single, true,  "group_common"},
+    {"copy_path",      "folder-target",Single, true,  "group_common"},
+    {"copy_visible",   "image",        Single, true,  "group_common"},
+    {"copy_file",      "copy-more",    Single, true,  "group_common"},
     {"always_on_top",  "pin",          Single, true,  "group_common"},
     // —— 任务菜单（根组；下辖三个收纳分组）——
     {"group_task",     "grid",         Section,true,  ""},
@@ -241,6 +245,10 @@ inline const char *labelSource(const QString &id)
     if (id == QLatin1String("locate_file"))       return QT_TRANSLATE_NOOP("AppMenu", "定位文件…");
     if (id == QLatin1String("image_info"))        return QT_TRANSLATE_NOOP("AppMenu", "图片信息");
     if (id == QLatin1String("copy_clipboard"))    return QT_TRANSLATE_NOOP("AppMenu", "复制到剪贴板");
+    if (id == QLatin1String("copy_exif"))         return QT_TRANSLATE_NOOP("AppMenu", "复制 EXIF 数据");
+    if (id == QLatin1String("copy_path"))         return QT_TRANSLATE_NOOP("AppMenu", "复制图片路径");
+    if (id == QLatin1String("copy_visible"))      return QT_TRANSLATE_NOOP("AppMenu", "复制当前可见图像");
+    if (id == QLatin1String("copy_file"))         return QT_TRANSLATE_NOOP("AppMenu", "复制图像文件");
     if (id == QLatin1String("always_on_top"))     return QT_TRANSLATE_NOOP("AppMenu", "窗口置顶");
     if (id == QLatin1String("group_browse"))      return QT_TRANSLATE_NOOP("AppMenu", "浏览与显示");
     if (id == QLatin1String("parent_nav"))        return QT_TRANSLATE_NOOP("AppMenu", "浏览导航");
@@ -292,6 +300,8 @@ inline const char *sectionOf(const Node &n)
         id == QLatin1String("select_image") || id == QLatin1String("locate_file"))
         return "open";
     if (id == QLatin1String("image_info") || id == QLatin1String("copy_clipboard") ||
+        id == QLatin1String("copy_exif") || id == QLatin1String("copy_path") ||
+        id == QLatin1String("copy_visible") || id == QLatin1String("copy_file") ||
         id == QLatin1String("always_on_top"))
         return "common";
     if (id == QLatin1String("group_browse") || id == QLatin1String("group_image") ||
@@ -313,6 +323,10 @@ inline const char *shortcutSource(const QString &id)
     if (id == QLatin1String("locate_file"))  return "Ctrl+Enter";
     if (id == QLatin1String("image_info"))   return "Tab";
     if (id == QLatin1String("copy_clipboard"))return "Ctrl+C";
+    if (id == QLatin1String("copy_exif"))    return "Ctrl+Shift+C";
+    if (id == QLatin1String("copy_path"))    return "Ctrl+Alt+Shift+C";
+    if (id == QLatin1String("copy_visible")) return "Ctrl+Alt+C";
+    if (id == QLatin1String("copy_file"))    return "Alt+C";
     if (id == QLatin1String("always_on_top"))return "Ctrl+A";
     if (id == QLatin1String("nav_next"))     return "→";
     if (id == QLatin1String("nav_prev"))     return "←";

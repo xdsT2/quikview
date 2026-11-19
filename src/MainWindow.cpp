@@ -1260,6 +1260,11 @@ void MainWindow::createActions()
     actCopyToFolder = mk(tr("复制到 图片文件夹"), QKeySequence(QStringLiteral("Ins")), &MainWindow::onCopyToFolder);
     actOpenWithEditor = mk(tr("用图像编辑器打开"), QKeySequence(QStringLiteral("Ctrl+E")), &MainWindow::onOpenWithEditor);
     actCopyToClipboard = mk(tr("复制到剪贴板"), QKeySequence::Copy, &MainWindow::onCopyToClipboard);
+    // 复制四变体（复制与剪贴板三件）：键位对齐 BandiView；固定键位不进键盘自定义表
+    actCopyExif = mk(tr("复制 EXIF 数据"), QKeySequence(QStringLiteral("Ctrl+Shift+C")), &MainWindow::onCopyExif);
+    actCopyImagePath = mk(tr("复制图片路径"), QKeySequence(QStringLiteral("Ctrl+Alt+Shift+C")), &MainWindow::onCopyImagePath);
+    actCopyVisibleImage = mk(tr("复制当前可见图像"), QKeySequence(QStringLiteral("Ctrl+Alt+C")), &MainWindow::onCopyVisibleImage);
+    actCopyImageFile = mk(tr("复制图像文件"), QKeySequence(QStringLiteral("Alt+C")), &MainWindow::onCopyImageFile);
     actWallpaper = mk(tr("设为桌面壁纸…"), {}, &MainWindow::onSetWallpaper);
     actAbout = mk(tr("关于 QuikView"), QKeySequence(QStringLiteral("F1")), &MainWindow::onAbout);
     // Honeyview：X = 退出。Ctrl+Q 保留为副键
@@ -2232,6 +2237,7 @@ QMenu *MainWindow::buildContextMenu()
 
     // —— 常用动作 ——
     if (vis("image_info") || vis("always_on_top")
+        || vis("copy_exif") || vis("copy_path") || vis("copy_visible") || vis("copy_file")
         || (vis("copy_clipboard") && cfg.contextCopy())) {
         beforeItem();
     }
@@ -2255,6 +2261,27 @@ QMenu *MainWindow::buildContextMenu()
         decorate(actCopyToClipboard, "copy", QString(), QStringLiteral("Ctrl+C"), false, false);
         actCopyToClipboard->setEnabled(hasImage);
         quickCopy = actCopyToClipboard;
+    }
+    // 复制四变体：四个独立开关，各自复用动作本体的槽（真实键位仍在 QAction 上）
+    if (vis("copy_exif")) {
+        QAction *a = cmdId(menu, "copy_exif", QStringLiteral("Ctrl+Shift+C"),
+                           [this]() { onCopyExif(); });
+        a->setEnabled(hasImage);
+    }
+    if (vis("copy_path")) {
+        QAction *a = cmdId(menu, "copy_path", QStringLiteral("Ctrl+Alt+Shift+C"),
+                           [this]() { onCopyImagePath(); });
+        a->setEnabled(hasImage);
+    }
+    if (vis("copy_visible")) {
+        QAction *a = cmdId(menu, "copy_visible", QStringLiteral("Ctrl+Alt+C"),
+                           [this]() { onCopyVisibleImage(); });
+        a->setEnabled(hasImage);
+    }
+    if (vis("copy_file")) {
+        QAction *a = cmdId(menu, "copy_file", QStringLiteral("Alt+C"),
+                           [this]() { onCopyImageFile(); });
+        a->setEnabled(hasImage);
     }
     if (vis("always_on_top")) {
         beforeItem();
@@ -2650,7 +2677,25 @@ void MainWindow::toggleAlwaysOnTop()
 // 文件打开与加载
 // ---------------------------------------------------------------------------
 
-void MainWindow::openFile(const QString &path)
+bool MainWindow::isSupportedImagePath(const QString &path)
+{
+    if (path.isEmpty() || !QFileInfo::exists(path)) {
+        return false;
+    }
+    const QString suffix = QFileInfo(path).suffix().toLower();
+    if (suffix.isEmpty()) {
+        return false;
+    }
+    const QList<QByteArray> formats = QImageReader::supportedImageFormats();
+    for (const QByteArray &fmt : formats) {
+        if (suffix == QLatin1String(fmt.constData())) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void MainWindow::openFile(const QString &path, bool transient)
 {
     PerfProbe::begin("file", path.toUtf8().constData());
 
@@ -2673,13 +2718,13 @@ void MainWindow::openFile(const QString &path)
 
     // 自动保存当前图片路径为书签/最近记录——与原路径同一时机（打开即记），
     // 只依赖明确选中的这一张，不依赖目录索引是否完成。
-    const bool autoFav = Config::instance().autoBookmark()
+    const bool autoFav = !transient && Config::instance().autoBookmark()
                          && !canonical.isEmpty()
                          && !Config::instance().favorites().contains(canonical);
     if (autoFav) {
         Config::instance().toggleFavorite(canonical);
     }
-    if (Config::instance().rememberBrowsedFolders()) {
+    if (!transient && Config::instance().rememberBrowsedFolders()) {
         Config::instance().addRecentFile(canonical);
         refreshLibraryMenus();
     } else if (autoFav) {
@@ -4977,6 +5022,40 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << "\n";
         }
     }
+    // —— 复制与剪贴板三件 验收探针（--smoke）——
+    // clipcopy:exif|path|visible|file 执行对应复制；clippaste 取图；
+    // clipsettext:<txt文件> / clipsetimg:<img> / clipseturl:<file> / clipclear 注入；
+    // clipdump:<out> / clipstate:<out> 落证据。文本用文件传入以避开命令行中文乱码。
+    else if (c.startsWith(QLatin1String("clipcopy:"))) {
+        const QString kind = c.mid(9);
+        if (kind == QLatin1String("exif"))          onCopyExif();
+        else if (kind == QLatin1String("path"))     onCopyImagePath();
+        else if (kind == QLatin1String("visible"))  onCopyVisibleImage();
+        else if (kind == QLatin1String("file"))     onCopyImageFile();
+        else if (kind == QLatin1String("orig"))     onCopyToClipboard();
+    }
+    else if (c.startsWith(QLatin1String("clipdump:"))) {
+        QFile f(c.mid(9));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            const QMimeData *m = QGuiApplication::clipboard()->mimeData();
+            ts << "formats=" << (m ? m->formats().join(QLatin1Char(' ')) : QString()) << "\n";
+            ts << "hasText=" << (m && m->hasText()) << " hasImage="
+               << (m && m->hasImage()) << " hasUrls=" << (m && m->hasUrls()) << "\n";
+            if (m && m->hasText()) {
+                ts << "text=" << m->text().left(500) << "\n";
+            }
+            if (m && m->hasImage()) {
+                const QImage im = qvariant_cast<QImage>(m->imageData());
+                ts << "imageSize=" << im.width() << "x" << im.height() << "\n";
+            }
+            if (m && m->hasUrls()) {
+                for (const QUrl &u : m->urls()) {
+                    ts << "url=" << u.toLocalFile() << "\n";
+                }
+            }
+        }
+    }
 }
 
 // 首尾边界：所有翻页入口（胶囊、菜单、快捷键、滚轮）都走这里，规则只有一份。
@@ -6022,6 +6101,72 @@ void MainWindow::onCopyToClipboard()
     m_toast->showMessage(tr("已复制到剪贴板"));
 }
 
+// —— 复制四变体（复制与剪贴板三件）——
+// 统一空态口径：无图 toast「请先打开图片」，不崩。文案走 tr()（MainWindow 非
+// 命名空间 Chrome 内，裸 tr 安全），AppMenu 菜单文案走 QT_TRANSLATE_NOOP。
+
+void MainWindow::onCopyExif()
+{
+    if (m_currentImage.isNull()) {
+        m_toast->showMessage(tr("请先打开图片"));
+        return;
+    }
+    const QString text = m_metadata ? m_metadata->copyText() : QString();
+    if (text.isEmpty()) {
+        m_toast->showMessage(tr("该图片没有可复制的信息"));
+        return;
+    }
+    QGuiApplication::clipboard()->setText(text);
+    m_toast->showMessage(tr("已复制 EXIF 数据"));
+}
+
+void MainWindow::onCopyImagePath()
+{
+    if (m_currentImage.isNull()) {
+        m_toast->showMessage(tr("请先打开图片"));
+        return;
+    }
+    if (m_currentPath.isEmpty()) {
+        m_toast->showMessage(tr("该图片没有可复制的路径"));
+        return;
+    }
+    QGuiApplication::clipboard()->setText(QFileInfo(m_currentPath).absoluteFilePath());
+    m_toast->showMessage(tr("已复制图片路径"));
+}
+
+void MainWindow::onCopyVisibleImage()
+{
+    if (m_currentImage.isNull()) {
+        m_toast->showMessage(tr("请先打开图片"));
+        return;
+    }
+    // 「画布当前所见」= viewport 自渲染帧：含视图缩放/旋转/效果/裁剪的合成分辨率，
+    // 与 Ctrl+C 复制的 m_currentImage（原图合成帧）有意区分。
+    const QImage frame = m_canvas->viewport()->grab().toImage();
+    if (frame.isNull()) {
+        m_toast->showMessage(tr("复制当前可见图像失败"));
+        return;
+    }
+    QGuiApplication::clipboard()->setImage(frame);
+    m_toast->showMessage(tr("已复制当前可见图像"));
+}
+
+void MainWindow::onCopyImageFile()
+{
+    if (m_currentImage.isNull()) {
+        m_toast->showMessage(tr("请先打开图片"));
+        return;
+    }
+    if (m_currentPath.isEmpty() || !QFileInfo::exists(m_currentPath)) {
+        m_toast->showMessage(tr("该图片没有可复制的文件"));
+        return;
+    }
+    auto *mime = new QMimeData();
+    mime->setUrls({ QUrl::fromLocalFile(QFileInfo(m_currentPath).absoluteFilePath()) });
+    QGuiApplication::clipboard()->setMimeData(mime);
+    m_toast->showMessage(tr("已复制图像文件"));
+}
+
 void MainWindow::onSetWallpaper()
 {
     if (m_currentPath.isEmpty()) {
@@ -6486,6 +6631,7 @@ void MainWindow::pushAppMenuRunState(SettingsDialog *dlg)
                             "nav_prev10", "nav_rand_back", "nav_rand_fwd", "nav_folder_next",
                             "nav_folder_prev", "zoom_in", "zoom_out", "zoom_in1", "zoom_out1",
                             "zoom_100", "image_info", "copy_clipboard", "copy_folder",
+                            "copy_exif", "copy_path", "copy_visible", "copy_file",
                             "open_editor", "delete_file", "wallpaper", "print" }) {
         s.enabled.insert(QLatin1String(id), s.hasImage);
     }

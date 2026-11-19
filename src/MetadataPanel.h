@@ -44,6 +44,10 @@ public:
     void showImage(const QString &path, const QImage &image);
     void clear();
 
+    // 与信息浮层同源的键值文本（多行，组间空行）；供「复制 EXIF 数据」使用，
+    // 口径与浮层「复制参数」按钮完全一致，不另搞一套字段。
+    QString copyText() const { return m_copyLines.join(QLatin1Char('\n')); }
+
     // 「用小字体显示 EXIF / 文件信息」：键值行 12px ↔ 10px。切换后按最近一次
     // showImage 的入参重建 grid，宽度与折行随之更新。
     void setSmallFont(bool small);

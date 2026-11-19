@@ -299,6 +299,22 @@
         <source>应用</source>
         <translation>Приложение</translation>
     </message>
+    <message>
+        <source>复制 EXIF 数据</source>
+        <translation>Копировать данные EXIF</translation>
+    </message>
+    <message>
+        <source>复制图片路径</source>
+        <translation>Копировать путь к изображению</translation>
+    </message>
+    <message>
+        <source>复制当前可见图像</source>
+        <translation>Копировать видимое изображение</translation>
+    </message>
+    <message>
+        <source>复制图像文件</source>
+        <translation>Копировать файл изображения</translation>
+    </message>
 </context>
 <context>
     <name>BatchConvertDialog</name>
@@ -1499,6 +1515,66 @@
     <message>
         <source>暂不支持该格式</source>
         <translation>Этот формат пока не поддерживается</translation>
+    </message>
+    <message>
+        <source>从剪贴板粘贴图片</source>
+        <translation>Вставить изображение из буфера</translation>
+    </message>
+    <message>
+        <source>请先打开图片</source>
+        <translation>Сначала откройте изображение</translation>
+    </message>
+    <message>
+        <source>该图片没有可复制的信息</source>
+        <translation>В этом изображении нет данных для копирования</translation>
+    </message>
+    <message>
+        <source>已复制 EXIF 数据</source>
+        <translation>Данные EXIF скопированы</translation>
+    </message>
+    <message>
+        <source>该图片没有可复制的路径</source>
+        <translation>У этого изображения нет пути для копирования</translation>
+    </message>
+    <message>
+        <source>已复制图片路径</source>
+        <translation>Путь к изображению скопирован</translation>
+    </message>
+    <message>
+        <source>复制当前可见图像失败</source>
+        <translation>Не удалось скопировать видимое изображение</translation>
+    </message>
+    <message>
+        <source>已复制当前可见图像</source>
+        <translation>Видимое изображение скопировано</translation>
+    </message>
+    <message>
+        <source>该图片没有可复制的文件</source>
+        <translation>У этого изображения нет файла для копирования</translation>
+    </message>
+    <message>
+        <source>已复制图像文件</source>
+        <translation>Файл изображения скопирован</translation>
+    </message>
+    <message>
+        <source>剪贴板中没有图片</source>
+        <translation>В буфере обмена нет изображения</translation>
+    </message>
+    <message>
+        <source>复制 EXIF 数据</source>
+        <translation>Копировать данные EXIF</translation>
+    </message>
+    <message>
+        <source>复制图片路径</source>
+        <translation>Копировать путь к изображению</translation>
+    </message>
+    <message>
+        <source>复制当前可见图像</source>
+        <translation>Копировать видимое изображение</translation>
+    </message>
+    <message>
+        <source>复制图像文件</source>
+        <translation>Копировать файл изображения</translation>
     </message>
 </context>
 <context>

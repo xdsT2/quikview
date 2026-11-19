@@ -299,6 +299,22 @@
         <source>应用</source>
         <translation>응용 프로그램</translation>
     </message>
+    <message>
+        <source>复制 EXIF 数据</source>
+        <translation>EXIF 데이터 복사</translation>
+    </message>
+    <message>
+        <source>复制图片路径</source>
+        <translation>이미지 경로 복사</translation>
+    </message>
+    <message>
+        <source>复制当前可见图像</source>
+        <translation>보이는 이미지 복사</translation>
+    </message>
+    <message>
+        <source>复制图像文件</source>
+        <translation>이미지 파일 복사</translation>
+    </message>
 </context>
 <context>
     <name>BatchConvertDialog</name>
@@ -1499,6 +1515,66 @@
     <message>
         <source>暂不支持该格式</source>
         <translation>아직 지원하지 않는 형식입니다</translation>
+    </message>
+    <message>
+        <source>从剪贴板粘贴图片</source>
+        <translation>클립보드에서 이미지 붙여넣기</translation>
+    </message>
+    <message>
+        <source>请先打开图片</source>
+        <translation>먼저 이미지를 여세요</translation>
+    </message>
+    <message>
+        <source>该图片没有可复制的信息</source>
+        <translation>이 이미지에는 복사할 정보가 없습니다</translation>
+    </message>
+    <message>
+        <source>已复制 EXIF 数据</source>
+        <translation>EXIF 데이터를 복사했습니다</translation>
+    </message>
+    <message>
+        <source>该图片没有可复制的路径</source>
+        <translation>이 이미지에는 복사할 경로가 없습니다</translation>
+    </message>
+    <message>
+        <source>已复制图片路径</source>
+        <translation>이미지 경로를 복사했습니다</translation>
+    </message>
+    <message>
+        <source>复制当前可见图像失败</source>
+        <translation>보이는 이미지 복사 실패</translation>
+    </message>
+    <message>
+        <source>已复制当前可见图像</source>
+        <translation>보이는 이미지를 복사했습니다</translation>
+    </message>
+    <message>
+        <source>该图片没有可复制的文件</source>
+        <translation>이 이미지에는 복사할 파일이 없습니다</translation>
+    </message>
+    <message>
+        <source>已复制图像文件</source>
+        <translation>이미지 파일을 복사했습니다</translation>
+    </message>
+    <message>
+        <source>剪贴板中没有图片</source>
+        <translation>클립보드에 이미지가 없습니다</translation>
+    </message>
+    <message>
+        <source>复制 EXIF 数据</source>
+        <translation>EXIF 데이터 복사</translation>
+    </message>
+    <message>
+        <source>复制图片路径</source>
+        <translation>이미지 경로 복사</translation>
+    </message>
+    <message>
+        <source>复制当前可见图像</source>
+        <translation>보이는 이미지 복사</translation>
+    </message>
+    <message>
+        <source>复制图像文件</source>
+        <translation>이미지 파일 복사</translation>
     </message>
 </context>
 <context>

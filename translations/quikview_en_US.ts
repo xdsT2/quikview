@@ -299,6 +299,22 @@
         <source>应用</source>
         <translation>Application</translation>
     </message>
+    <message>
+        <source>复制 EXIF 数据</source>
+        <translation>Copy EXIF Data</translation>
+    </message>
+    <message>
+        <source>复制图片路径</source>
+        <translation>Copy Image Path</translation>
+    </message>
+    <message>
+        <source>复制当前可见图像</source>
+        <translation>Copy Visible Image</translation>
+    </message>
+    <message>
+        <source>复制图像文件</source>
+        <translation>Copy Image File</translation>
+    </message>
 </context>
 <context>
     <name>BatchConvertDialog</name>
@@ -1499,6 +1515,66 @@
     <message>
         <source>暂不支持该格式</source>
         <translation>This format is not supported yet</translation>
+    </message>
+    <message>
+        <source>从剪贴板粘贴图片</source>
+        <translation>Paste Image from Clipboard</translation>
+    </message>
+    <message>
+        <source>请先打开图片</source>
+        <translation>Open an image first</translation>
+    </message>
+    <message>
+        <source>该图片没有可复制的信息</source>
+        <translation>This image has no information to copy</translation>
+    </message>
+    <message>
+        <source>已复制 EXIF 数据</source>
+        <translation>EXIF data copied</translation>
+    </message>
+    <message>
+        <source>该图片没有可复制的路径</source>
+        <translation>This image has no path to copy</translation>
+    </message>
+    <message>
+        <source>已复制图片路径</source>
+        <translation>Image path copied</translation>
+    </message>
+    <message>
+        <source>复制当前可见图像失败</source>
+        <translation>Failed to copy the visible image</translation>
+    </message>
+    <message>
+        <source>已复制当前可见图像</source>
+        <translation>Visible image copied</translation>
+    </message>
+    <message>
+        <source>该图片没有可复制的文件</source>
+        <translation>This image has no file to copy</translation>
+    </message>
+    <message>
+        <source>已复制图像文件</source>
+        <translation>Image file copied</translation>
+    </message>
+    <message>
+        <source>剪贴板中没有图片</source>
+        <translation>No image in the clipboard</translation>
+    </message>
+    <message>
+        <source>复制 EXIF 数据</source>
+        <translation>Copy EXIF Data</translation>
+    </message>
+    <message>
+        <source>复制图片路径</source>
+        <translation>Copy Image Path</translation>
+    </message>
+    <message>
+        <source>复制当前可见图像</source>
+        <translation>Copy Visible Image</translation>
+    </message>
+    <message>
+        <source>复制图像文件</source>
+        <translation>Copy Image File</translation>
     </message>
 </context>
 <context>

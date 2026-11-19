@@ -4938,6 +4938,8 @@ void SettingsDialog::refreshAppMenuPreview(bool relayout)
             QStringLiteral("parent_interp"), QStringLiteral("parent_fx"), QStringLiteral("parent_rotate"),
             QStringLiteral("parent_transition"), QStringLiteral("image_info"),
             QStringLiteral("copy_clipboard"), QStringLiteral("copy_folder"),
+            QStringLiteral("copy_exif"), QStringLiteral("copy_path"),
+            QStringLiteral("copy_visible"), QStringLiteral("copy_file"),
             QStringLiteral("open_editor"), QStringLiteral("delete_file"),
             QStringLiteral("wallpaper"), QStringLiteral("print"),
         };
