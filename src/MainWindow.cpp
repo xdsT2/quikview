@@ -743,7 +743,7 @@ void MainWindow::toggleOverview()
     const QStringList files = hasDir ? m_dir->files() : QStringList();
     if (files.isEmpty()) {
         if (m_toast) {
-            m_toast->showMessage(tr("当前没有可浏览的图片"));
+            m_toast->showMessage(tr("当前没有可浏览的图片"), Chrome::Toast::Tone::Info);
         }
         return;
     }
@@ -1373,7 +1373,7 @@ void MainWindow::createActions()
         actToggleMeta->setChecked(false);
     });
     connect(m_metadata, &MetadataPanel::copied, this, [this]() {
-        m_toast->showMessage(tr("已复制图片信息参数"));
+        m_toast->showMessage(tr("已复制图片信息参数"), Chrome::Toast::Tone::Success);
     });
     // 直方图折叠/展开改了内容高度：浮层高度=内容自然高，须重排几何（2026-11-04）。
     // 布局激活是异步的（T0 时 hint 仍旧值 525，T100 才降到 427），延迟一拍以上
@@ -1870,7 +1870,8 @@ QMenu *MainWindow::buildCopytoMenu(CtxMenu *parentMenu)
         QAction *action = addMenuItem(menu, label, shortcut, [this, key, moveFile]() {
             const QString dir = Config::instance().settings().value(key).toString();
             if (dir.isEmpty()) {
-                m_toast->showMessage(tr("请先在 设置 → 杂项 中配置图片文件夹"));
+                m_toast->showMessage(tr("请先在 设置 → 杂项 中配置图片文件夹"),
+                                     Chrome::Toast::Tone::Warning);
                 return;
             }
             if (m_currentPath.isEmpty()) {
@@ -1878,17 +1879,21 @@ QMenu *MainWindow::buildCopytoMenu(CtxMenu *parentMenu)
             }
             const QString dest = QDir(dir).filePath(QFileInfo(m_currentPath).fileName());
             if (QFileInfo::exists(dest)) {
-                m_toast->showMessage(tr("目标已存在：%1").arg(dest));
+                m_toast->showMessage(tr("目标已存在：%1").arg(dest),
+                                     Chrome::Toast::Tone::Warning);
                 return;
             }
             const bool ok = moveFile ? QFile::rename(m_currentPath, dest)
                                      : QFile::copy(m_currentPath, dest);
             if (!ok) {
-                m_toast->showMessage(tr("操作失败：%1").arg(dest));
+                m_toast->showMessage(tr("操作失败：%1").arg(dest),
+                                     Chrome::Toast::Tone::Error);
             } else if (moveFile) {
-                m_toast->showMessage(tr("已移动到：%1").arg(dest));
+                m_toast->showMessage(tr("已移动到：%1").arg(dest),
+                                     Chrome::Toast::Tone::Success);
             } else {
-                m_toast->showMessage(tr("已复制到：%1").arg(dest));
+                m_toast->showMessage(tr("已复制到：%1").arg(dest),
+                                     Chrome::Toast::Tone::Success);
             }
         });
         if (styled)
@@ -1906,7 +1911,8 @@ QMenu *MainWindow::buildCopytoMenu(CtxMenu *parentMenu)
         const QString dir = Config::instance().settings()
                                 .value(QStringLiteral("config/etc/photo_folder_1")).toString();
         if (dir.isEmpty() || !QFileInfo::exists(dir)) {
-            m_toast->showMessage(tr("请先在 设置 → 杂项 中配置图片文件夹"));
+            m_toast->showMessage(tr("请先在 设置 → 杂项 中配置图片文件夹"),
+                                 Chrome::Toast::Tone::Warning);
             return;
         }
         QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
@@ -2704,7 +2710,7 @@ void MainWindow::openFile(const QString &path, bool transient)
     // 文件必须先存在：错误文件走原有提示路径，不启动解码/索引。
     const QFileInfo fi(path);
     if (!fi.exists()) {
-        m_toast->showMessage(tr("无法读取文件：") + path);
+        m_toast->showMessage(tr("无法读取文件：") + path, Chrome::Toast::Tone::Error);
         return;
     }
     const QString canonical = fi.absoluteFilePath();
@@ -2767,7 +2773,7 @@ void MainWindow::openFile(const QString &path, bool transient)
             }
             preloadNeighbors();
         } else {
-            m_toast->showMessage(tr("无法读取文件：") + canonical);
+            m_toast->showMessage(tr("无法读取文件：") + canonical, Chrome::Toast::Tone::Error);
         }
     });
     watcher->setFuture(QtConcurrent::run(DirectoryLoader::buildIndex,
@@ -3020,10 +3026,10 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error,
             const QString text =
                 tr("无法打开 %1：%2").arg(QFileInfo(path).fileName(), advice);
             showFailure(text);
-            m_toast->showMessage(text);
+            m_toast->showMessage(text, Chrome::Toast::Tone::Error);
         } else {
             showFailure(tr("无法打开 %1：%2").arg(QFileInfo(path).fileName(), error));
-            m_toast->showMessage(tr("无法打开：%1").arg(error));
+            m_toast->showMessage(tr("无法打开：%1").arg(error), Chrome::Toast::Tone::Error);
         }
         return;
     }
@@ -4035,6 +4041,11 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     // settingspages —— 打开设置并逐页切一遍（延后构建的每页首开耗时取证）。
     else if (c == QLatin1String("settingspages")) {
         auto *dlg = new SettingsDialog(this);
+    else if (c.startsWith(QLatin1String("ovdblclick:")) && m_overview
+             && m_overview->isVisible()) {
+        // 验收探针：发真实双击事件，走 OverviewPanel::mouseDoubleClickEvent。
+        m_overview->probeDoubleClick(c.mid(11).toInt());
+    }
         dlg->setAttribute(Qt::WA_DeleteOnClose);
         pushAppMenuRunState(dlg);
         dlg->show();
@@ -5628,7 +5639,8 @@ void MainWindow::onNegative()
     m_negative = !m_negative;
     applyAdjustments(m_canvas->viewCenterNormalized());
     if (m_toast) {
-        m_toast->showMessage(m_negative ? tr("反色：开") : tr("反色：关"));
+        m_toast->showMessage(m_negative ? tr("反色：开") : tr("反色：关"),
+                             Chrome::Toast::Tone::Info);
     }
 }
 
@@ -5742,7 +5754,8 @@ void MainWindow::onPageSelect()
 {
     if (!m_dir || !m_dir->isValid() || m_dir->count() <= 1) {
         if (m_toast) {
-            m_toast->showMessage(tr("当前目录没有可跳转的图片序列"));
+            m_toast->showMessage(tr("当前目录没有可跳转的图片序列"),
+                                 Chrome::Toast::Tone::Info);
         }
         return;
     }
@@ -5828,7 +5841,7 @@ void MainWindow::onEditBookmarks()
         }
         const QString p = cur->data(Qt::UserRole).toString();
         if (!QFileInfo::exists(p)) {
-            m_toast->showMessage(tr("文件已不存在"));
+            m_toast->showMessage(tr("文件已不存在"), Chrome::Toast::Tone::Warning);
             return;
         }
         jumpTo(p);
@@ -5842,7 +5855,7 @@ void MainWindow::onEditBookmarks()
             return;
         }
         if (!QFileInfo::exists(p)) {
-            m_toast->showMessage(tr("文件已不存在"));
+            m_toast->showMessage(tr("文件已不存在"), Chrome::Toast::Tone::Warning);
             return;
         }
         jumpTo(p);
@@ -5988,7 +6001,7 @@ void MainWindow::applyCrop()
 {
     const QRect r = m_canvas->selectionRect();
     if (r.isEmpty() || r.width() < 2 || r.height() < 2) {
-        m_toast->showMessage(tr("请先框选裁剪区域"));
+        m_toast->showMessage(tr("请先框选裁剪区域"), Chrome::Toast::Tone::Warning);
         return;
     }
     m_currentImage = m_currentImage.copy(r);
@@ -6050,7 +6063,7 @@ void MainWindow::onOpenFolder()
     }
     const QStringList files = listImagesInDir(dir);
     if (files.isEmpty()) {
-        m_toast->showMessage(tr("该文件夹没有可识别的图片"));
+        m_toast->showMessage(tr("该文件夹没有可识别的图片"), Chrome::Toast::Tone::Warning);
         return;
     }
     openFile(files.first());
@@ -6088,7 +6101,7 @@ void MainWindow::onDeleteFile()
         }
         setWindowTitle(QStringLiteral("QuikView"));
         m_topBar->setTitle(tr("未打开图片"));
-        m_toast->showMessage(tr("已删除"));
+        m_toast->showMessage(tr("已删除"), Chrome::Toast::Tone::Success);
     }
 }
 
@@ -6108,7 +6121,7 @@ void MainWindow::onCopyToFolder()
         return;
     }
     if (QFile::copy(m_currentPath, dest)) {
-        m_toast->showMessage(tr("已复制到：%1").arg(dest));
+        m_toast->showMessage(tr("已复制到：%1").arg(dest), Chrome::Toast::Tone::Success);
     } else {
         QMessageBox::warning(this, tr("复制失败"), tr("无法复制到：%1").arg(dest));
     }
@@ -6134,7 +6147,7 @@ void MainWindow::onCopyToClipboard()
         return;
     }
     QGuiApplication::clipboard()->setImage(m_currentImage);
-    m_toast->showMessage(tr("已复制到剪贴板"));
+    m_toast->showMessage(tr("已复制到剪贴板"), Chrome::Toast::Tone::Success);
 }
 
 // —— 复制四变体（复制与剪贴板三件）——
@@ -6144,63 +6157,63 @@ void MainWindow::onCopyToClipboard()
 void MainWindow::onCopyExif()
 {
     if (m_currentImage.isNull()) {
-        m_toast->showMessage(tr("请先打开图片"));
+        m_toast->showMessage(tr("请先打开图片"), Chrome::Toast::Tone::Warning);
         return;
     }
     const QString text = m_metadata ? m_metadata->copyText() : QString();
     if (text.isEmpty()) {
-        m_toast->showMessage(tr("该图片没有可复制的信息"));
+        m_toast->showMessage(tr("该图片没有可复制的信息"), Chrome::Toast::Tone::Warning);
         return;
     }
     QGuiApplication::clipboard()->setText(text);
-    m_toast->showMessage(tr("已复制 EXIF 数据"));
+    m_toast->showMessage(tr("已复制 EXIF 数据"), Chrome::Toast::Tone::Success);
 }
 
 void MainWindow::onCopyImagePath()
 {
     if (m_currentImage.isNull()) {
-        m_toast->showMessage(tr("请先打开图片"));
+        m_toast->showMessage(tr("请先打开图片"), Chrome::Toast::Tone::Warning);
         return;
     }
     if (m_currentPath.isEmpty()) {
-        m_toast->showMessage(tr("该图片没有可复制的路径"));
+        m_toast->showMessage(tr("该图片没有可复制的路径"), Chrome::Toast::Tone::Warning);
         return;
     }
     QGuiApplication::clipboard()->setText(QFileInfo(m_currentPath).absoluteFilePath());
-    m_toast->showMessage(tr("已复制图片路径"));
+    m_toast->showMessage(tr("已复制图片路径"), Chrome::Toast::Tone::Success);
 }
 
 void MainWindow::onCopyVisibleImage()
 {
     if (m_currentImage.isNull()) {
-        m_toast->showMessage(tr("请先打开图片"));
+        m_toast->showMessage(tr("请先打开图片"), Chrome::Toast::Tone::Warning);
         return;
     }
     // 「画布当前所见」= viewport 自渲染帧：含视图缩放/旋转/效果/裁剪的合成分辨率，
     // 与 Ctrl+C 复制的 m_currentImage（原图合成帧）有意区分。
     const QImage frame = m_canvas->viewport()->grab().toImage();
     if (frame.isNull()) {
-        m_toast->showMessage(tr("复制当前可见图像失败"));
+        m_toast->showMessage(tr("复制当前可见图像失败"), Chrome::Toast::Tone::Error);
         return;
     }
     QGuiApplication::clipboard()->setImage(frame);
-    m_toast->showMessage(tr("已复制当前可见图像"));
+    m_toast->showMessage(tr("已复制当前可见图像"), Chrome::Toast::Tone::Success);
 }
 
 void MainWindow::onCopyImageFile()
 {
     if (m_currentImage.isNull()) {
-        m_toast->showMessage(tr("请先打开图片"));
+        m_toast->showMessage(tr("请先打开图片"), Chrome::Toast::Tone::Warning);
         return;
     }
     if (m_currentPath.isEmpty() || !QFileInfo::exists(m_currentPath)) {
-        m_toast->showMessage(tr("该图片没有可复制的文件"));
+        m_toast->showMessage(tr("该图片没有可复制的文件"), Chrome::Toast::Tone::Warning);
         return;
     }
     auto *mime = new QMimeData();
     mime->setUrls({ QUrl::fromLocalFile(QFileInfo(m_currentPath).absoluteFilePath()) });
     QGuiApplication::clipboard()->setMimeData(mime);
-    m_toast->showMessage(tr("已复制图像文件"));
+    m_toast->showMessage(tr("已复制图像文件"), Chrome::Toast::Tone::Success);
 }
 
 // Ctrl+V 从剪贴板取图：优先级 图像 > 文件 URL > 文本路径 > toast。
@@ -6211,7 +6224,7 @@ void MainWindow::onPasteFromClipboard()
     QClipboard *clip = QGuiApplication::clipboard();
     const QMimeData *mime = clip->mimeData();
     if (!mime) {
-        m_toast->showMessage(tr("剪贴板中没有图片"));
+        m_toast->showMessage(tr("剪贴板中没有图片"), Chrome::Toast::Tone::Warning);
         return;
     }
 
@@ -6271,7 +6284,7 @@ void MainWindow::onPasteFromClipboard()
     }
 
     if (path.isEmpty()) {
-        m_toast->showMessage(tr("剪贴板中没有图片"));
+        m_toast->showMessage(tr("剪贴板中没有图片"), Chrome::Toast::Tone::Warning);
         return;
     }
 
@@ -6288,9 +6301,9 @@ void MainWindow::onSetWallpaper()
     }
     QString err;
     if (setDesktopWallpaper(m_currentPath, &err)) {
-        m_toast->showMessage(tr("已设为壁纸"));
+        m_toast->showMessage(tr("已设为壁纸"), Chrome::Toast::Tone::Success);
     } else {
-        m_toast->showMessage(tr("设壁纸失败：") + err);
+        m_toast->showMessage(tr("设壁纸失败：") + err, Chrome::Toast::Tone::Error);
     }
 }
 
@@ -6306,16 +6319,16 @@ void MainWindow::onSaveAs()
         return;
     }
     if (m_currentImage.save(out)) {
-        m_toast->showMessage(tr("已保存：%1").arg(out));
+        m_toast->showMessage(tr("已保存：%1").arg(out), Chrome::Toast::Tone::Success);
     } else {
-        m_toast->showMessage(tr("保存失败"));
+        m_toast->showMessage(tr("保存失败"), Chrome::Toast::Tone::Error);
     }
 }
 
 void MainWindow::onBatchConvert()
 {
     if (m_dir->files().isEmpty()) {
-        m_toast->showMessage(tr("当前目录没有可转换的图片"));
+        m_toast->showMessage(tr("当前目录没有可转换的图片"), Chrome::Toast::Tone::Warning);
         return;
     }
     BatchConvertDialog dlg(m_dir->files(), this);
@@ -6354,16 +6367,17 @@ void MainWindow::onToggleFavorite()
     Config::instance().toggleFavorite(m_currentPath);
     refreshLibraryMenus();
     if (wasFav) {
-        m_toast->showMessage(tr("已取消收藏"));
+        m_toast->showMessage(tr("已取消收藏"), Chrome::Toast::Tone::Info);
         return;
     }
     // 上限淘汰提示（键 config/bookmark/max_bookmarks，Config::maxBookmarks）：
     // 加入前已到上限 → 这一次必然挤掉最早的那条，如实告知而不是只说「已收藏」。
     const int cap = Config::instance().maxBookmarks();
     if (before >= cap) {
-        m_toast->showMessage(tr("已收藏（书签已满 %1 个，最早的书签已移除）").arg(cap));
+        m_toast->showMessage(tr("已收藏（书签已满 %1 个，最早的书签已移除）").arg(cap),
+                             Chrome::Toast::Tone::Success);
     } else {
-        m_toast->showMessage(tr("已收藏"));
+        m_toast->showMessage(tr("已收藏"), Chrome::Toast::Tone::Success);
     }
 }
 
@@ -6553,7 +6567,8 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         applyScreensaverPrevention(on);
         if (m_toast)
             m_toast->showMessage(on ? tr("已禁用屏幕保护（退出后自动恢复）")
-                                    : tr("已恢复屏幕保护"));
+                                    : tr("已恢复屏幕保护"),
+                                 Chrome::Toast::Tone::Success);
         return true;
     }
 
@@ -6588,7 +6603,8 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         }
         if (m_toast)
             m_toast->showMessage(value.toBool() ? tr("已按图片大小调整窗口")
-                                                : tr("已关闭按图调窗，窗口尺寸不再自动变化"));
+                                                : tr("已关闭按图调窗，窗口尺寸不再自动变化"),
+                                 Chrome::Toast::Tone::Success);
         return true;
     }
 
@@ -6598,7 +6614,8 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         if (m_toast)
             m_toast->showMessage(value.toBool()
                                      ? tr("已开启 RAW 内嵌缩略图（下次打开 RAW 生效）")
-                                     : tr("已关闭 RAW 内嵌缩略图（下次打开 RAW 生效）"));
+                                     : tr("已关闭 RAW 内嵌缩略图（下次打开 RAW 生效）"),
+                                 Chrome::Toast::Tone::Success);
         return true;
     }
 

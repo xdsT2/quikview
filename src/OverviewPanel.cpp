@@ -1,5 +1,6 @@
 #include "OverviewPanel.h"
 
+#include <QApplication>
 #include <QFileInfo>
 #include <QHelpEvent>
 #include <QKeyEvent>
@@ -307,6 +308,24 @@ void OverviewPanel::mouseDoubleClickEvent(QMouseEvent *event)
         return;
     }
     QWidget::mouseDoubleClickEvent(event);
+}
+
+void OverviewPanel::probeDoubleClick(int index)
+{
+    if (index < 0 || index >= m_files.size())
+        return;
+    ensureVisible(index);
+    const QRect cell = cellRect(index);
+    if (cell.isEmpty())
+        return;
+    const QPointF local = cell.center();
+    const QPointF global = mapToGlobal(cell.center());
+    QMouseEvent press(QEvent::MouseButtonPress, local, global, Qt::LeftButton,
+                      Qt::LeftButton, Qt::NoModifier);
+    QApplication::sendEvent(this, &press);
+    QMouseEvent dbl(QEvent::MouseButtonDblClick, local, global, Qt::LeftButton,
+                    Qt::LeftButton, Qt::NoModifier);
+    QApplication::sendEvent(this, &dbl);
 }
 
 void OverviewPanel::mouseMoveEvent(QMouseEvent *event)

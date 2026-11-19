@@ -2406,9 +2406,23 @@ void EmptyState::paintEvent(QPaintEvent *)
     // 等待用中性灰，失败用警示色，不挤占按钮与快捷键提示的布局位。
     if (!m_status.isEmpty()) {
         p.setFont(uiFont(12, QFont::Medium));
-        p.setPen(m_statusError ? QColor(QStringLiteral("#e07060"))
-                               : QColor(QString::fromLatin1(UiStyle::pick("#8a8f96", "#5a5f66"))));
-        p.drawText(QRect(0, top + 176, width(), 20), Qt::AlignCenter, m_status);
+        const QFontMetrics fm = p.fontMetrics();
+        const QColor statusInk = m_statusError
+                                     ? QColor(QString::fromLatin1(UiStyle::fluent::error()))
+                                     : QColor(QString::fromLatin1(UiStyle::pick("#8a8f96", "#5a5f66")));
+        // 静态提示按语义配 Fluent 图标（2026-11-19 定稿）：失败 Error Circle，
+        // 等待/加载 Info。图标与文字作为一组居中，避免文字单边漂移。
+        const int iconPx = 16;
+        const int gap = 6;
+        const int textW = fm.horizontalAdvance(m_status);
+        const qreal groupX = (width() - (iconPx + gap + textW)) / 2.0;
+        const qreal rowY = top + 176;
+        const bool drew = drawIcon(p, m_statusError ? "error-circle" : "info",
+                                   QRectF(groupX, rowY + 2, iconPx, iconPx), statusInk);
+        p.setPen(statusInk);
+        p.drawText(QRectF(groupX + (drew ? iconPx + gap : 0), rowY,
+                          width() - groupX, 20),
+                   Qt::AlignVCenter | Qt::AlignLeft, m_status);
     }
 
     const QRect primary = primaryRect();
@@ -2546,9 +2560,10 @@ Toast::Toast(QWidget *parent)
     connect(m_timer, &QTimer::timeout, this, &QWidget::hide);
 }
 
-void Toast::showMessage(const QString &text)
+void Toast::showMessage(const QString &text, Tone tone)
 {
     m_text = text;
+    m_tone = tone;
     reposition();
     show();
     raise();
@@ -2583,16 +2598,47 @@ void Toast::paintEvent(QPaintEvent *)
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setFont(uiFont(12));
     const QFontMetrics fm = p.fontMetrics();
+    // 图标 16 + 间距 8 + 左右内边距 14（定稿：通知也用同义 Fluent 图标，不再纯文本）。
+    const int iconPx = 16;
+    const int gap = 8;
+    const int padX = 14;
     const int w = qMin(parentWidget() ? parentWidget()->width() - 40 : 360,
-                       fm.horizontalAdvance(m_text) + 32);
+                       fm.horizontalAdvance(m_text) + iconPx + gap + padX * 2);
     // 右下角贴右缘 20px；顶部居中保持原位
     const qreal x = m_corner ? (width() - w - 20.0) : ((width() - w) / 2.0);
     const QRectF r(x, 0, w, 30);
     p.setPen(QPen(QColor(QString::fromLatin1(UiStyle::pick("#555555", "#aaaaaa"))), 1));
     p.setBrush(QColor(QString::fromLatin1(UiStyle::pick("#383838", "#c7c7c7"))));
     p.drawRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), 7, 7);
+
+    QColor iconInk = UiStyle::muted();
+    const char *iconId = "info";
+    switch (m_tone) {
+    case Tone::Success:
+        iconId = "checkmark-circle";
+        iconInk = UiStyle::fluent::statusOkColor();
+        break;
+    case Tone::Warning:
+        iconId = "warning";
+        iconInk = UiStyle::fluent::statusWarnColor();
+        break;
+    case Tone::Error:
+        iconId = "error-circle";
+        iconInk = QColor(QString::fromLatin1(UiStyle::fluent::error()));
+        break;
+    case Tone::Info:
+    default:
+        break;
+    }
+    const bool drewIcon = drawIcon(
+        p, iconId,
+        QRectF(r.x() + padX, r.center().y() - iconPx / 2.0, iconPx, iconPx), iconInk);
+
     p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#eeeeee", "#404040"))));
-    p.drawText(r, Qt::AlignCenter, m_text);
+    // 图标缺失时文字仍从内边距起排，不留空洞（回退与全量缺图路径同用）。
+    const qreal textX = r.x() + padX + (drewIcon ? iconPx + gap : 0);
+    p.drawText(QRectF(textX, r.y(), r.right() - textX - padX, r.height()),
+               Qt::AlignVCenter | Qt::AlignLeft, m_text);
 }
 
 // ===========================================================================

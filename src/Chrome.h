@@ -396,8 +396,12 @@ class Toast : public QWidget
 {
     Q_OBJECT
 public:
+    // 静态提示按语义取 Fluent 图标（2026-11-19 定稿）：
+    // Info / Checkmark Circle / Warning / Error Circle。
+    enum class Tone { Info, Success, Warning, Error };
+
     explicit Toast(QWidget *parent = nullptr);
-    void showMessage(const QString &text);
+    void showMessage(const QString &text, Tone tone = Tone::Info);
     // 通知位置（键 config/notify_corner，默认 true）：true=右下角，false=顶部居中。
     void setCorner(bool corner);
     // 父窗口尺寸变化时重算几何（applyChromeLayout 调用）。
@@ -408,6 +412,7 @@ protected:
 
 private:
     QString m_text;
+    Tone m_tone = Tone::Info;
     QTimer *m_timer = nullptr;
     bool m_corner = true;
 };

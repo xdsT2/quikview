@@ -54,6 +54,7 @@
         <file>icons/fluent/16/regular/ic_fluent_arrow_sync_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_bookmark_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_brightness_high_16_regular.svg</file>
+        <file>icons/fluent/16/regular/ic_fluent_checkmark_circle_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_chevron_down_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_chevron_left_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_chevron_right_16_regular.svg</file>
@@ -66,6 +67,7 @@
         <file>icons/fluent/16/regular/ic_fluent_desktop_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_dismiss_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_edit_16_regular.svg</file>
+        <file>icons/fluent/16/regular/ic_fluent_error_circle_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_eye_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_eye_off_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_filter_16_regular.svg</file>
@@ -106,6 +108,7 @@
         <file>icons/fluent/16/regular/ic_fluent_text_bullet_list_tree_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_text_sort_ascending_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_text_sort_descending_16_regular.svg</file>
+        <file>icons/fluent/16/regular/ic_fluent_warning_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_weather_moon_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_window_multiple_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_zoom_fit_16_regular.svg</file>
@@ -151,6 +154,7 @@
         <file>icons/fluent/20/regular/ic_fluent_arrow_sync_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_bookmark_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_brightness_high_20_regular.svg</file>
+        <file>icons/fluent/20/regular/ic_fluent_checkmark_circle_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_chevron_down_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_chevron_left_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_chevron_right_20_regular.svg</file>
@@ -163,6 +167,7 @@
         <file>icons/fluent/20/regular/ic_fluent_desktop_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_dismiss_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_edit_20_regular.svg</file>
+        <file>icons/fluent/20/regular/ic_fluent_error_circle_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_eye_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_eye_off_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_filter_20_regular.svg</file>
@@ -203,6 +208,7 @@
         <file>icons/fluent/20/regular/ic_fluent_text_bullet_list_tree_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_text_sort_ascending_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_text_sort_descending_20_regular.svg</file>
+        <file>icons/fluent/20/regular/ic_fluent_warning_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_weather_moon_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_window_multiple_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_zoom_fit_20_regular.svg</file>

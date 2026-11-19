@@ -26,6 +26,8 @@ public:
     void revealCurrent();
     // 验收探针：滚到内容末端（验证末排缩略图与文件名可见）。
     void scrollToEnd();
+    // 验收探针：对指定格发真实双击事件（走 mouseDoubleClickEvent，不直接 emit）。
+    void probeDoubleClick(int index);
 
 signals:
     void selected(int index);

@@ -125,6 +125,10 @@ const Entry kEntries[] = {
     {"edit", "edit", nullptr, "编辑"},
     {"monitor", "desktop", nullptr, "设为桌面壁纸"},
     {"moon", "weather_moon", nullptr, "深色主题"},
+    // —— 通知与静态提示（Toast / 空状态；2026-11-19 定稿语义）——
+    {"checkmark-circle", "checkmark_circle", nullptr, "成功通知"},
+    {"warning", "warning", nullptr, "警告提示"},
+    {"error-circle", "error_circle", nullptr, "失败通知 / 空状态错误行"},
     {"keyboard", "keyboard", "keyboard", "键盘快捷键；设置导航选中时填充"},
     {"cursor", "cursor", "cursor", "鼠标；设置导航选中时填充"},
     {"text-bullet-list", "text_bullet_list", "text_bullet_list", "右键菜单列表；设置导航选中时填充"},
