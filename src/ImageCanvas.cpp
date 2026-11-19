@@ -32,6 +32,10 @@
 
 namespace {
 
+// —— 长图轴锁（D2）——
+// 高/宽 ≥ 2.5 视为条漫式长图；纵向溢出视口时横向拖动被钉回中心。
+constexpr qreal kLongStripAspect = 2.5;
+
 // —— UI-001 §3.8.3 透明图像阴影的软边工具 ——
 // 对 ARGB32_Premultiplied 图做 3 遍盒式模糊（只动 alpha，RGB 恒黑）。阴影源
 // 永远是「图片外接矩形」填充，不做逐像素 Alpha 描摹——复杂透明形状不会脏边。
@@ -789,6 +793,12 @@ void ImageCanvas::setPixmap(const QPixmap &pixmap, bool fitAfter)
     m_rubber = nullptr;
     m_zoom = 1.0;
     resetTransform();
+    // 长图开图一次「适合宽度」（条漫阅读）：这里只记意图，由随后的
+    // fitToWindow 消费。直接改模式会和调用方的 applyCurrentZoom /
+    // 缩放状态恢复打架，也会让「用户主动选适合窗口」无法回到全览。
+    const QSizeF isz = pixmap.deviceIndependentSize();
+    m_pendingLongStripFitWidth = isz.width() > 0.0
+                                 && isz.height() / isz.width() >= kLongStripAspect;
     // QGraphicsScene 的 sceneRect 只涨不缩：换图后必须显式重置。
     // 加 2 倍视口 padding 后 fit 态也有滚动行程 → 打开即可拖、可拖出边界。
     updateSceneRect();
@@ -1175,6 +1185,13 @@ void ImageCanvas::fitToWindowGeom()
     if (iw <= 0.0 || ih <= 0.0) {
         return;
     }
+    // 长图首次装图：把这次「适合窗口」换成一次「适合宽度」（条漫起读）。
+    // 消费即清，之后用户再选适合窗口就是真正的全览（轴锁随之解除）。
+    if (m_pendingLongStripFitWidth) {
+        m_pendingLongStripFitWidth = false;
+        fitToWidthGeom();
+        return;
+    }
     resetTransform();
     qreal s = qMin(viewport()->width() / iw, viewport()->height() / ih);
     // 原版「拉伸小图像」默认关闭：小于窗口的图保持 100%，点 Z 开启后才等比放大填满。
@@ -1214,6 +1231,7 @@ void ImageCanvas::fitToWidthGeom()
     if (iw <= 0) {
         return;
     }
+    m_pendingLongStripFitWidth = false;   // 已经按宽度起读，意图达成
     resetTransform();
     // 宽度贴合要预留可能出现的垂直滚动条宽度，避免出现横向滚动条
     const int sbw = verticalScrollBar()->isVisible() || ih > viewport()->height()
@@ -1306,6 +1324,7 @@ void ImageCanvas::applyZoomAt(qreal zoom, const QPoint &anchorViewportPt)
     if (!m_item || zoom <= 0.0) {
         return;
     }
+    m_pendingLongStripFitWidth = false;   // 明确缩放了，不再改起读方式
     const QPointF anchorScene = mapToScene(anchorViewportPt);
     // 锚点同时记一份**窗口坐标系**的副本：进入手动缩放时主窗口会把顶部 76px 安全区
     // 收掉，视口在窗口里整体上移，若仍按视口坐标对齐，图片会跟着往上窜 30~40px。
@@ -1371,6 +1390,38 @@ void ImageCanvas::scrollVerticallyBy(qreal fraction)
         return;
     }
     bar->setValue(bar->value() + qRound(viewport()->height() * fraction));
+}
+
+// 长图轴锁（D2）：自动判定、无开关。条件是「当前显示方向的高/宽 ≥ 2.5
+// 且纵向溢出视口」——前者覆盖条漫，后者保证只有需要上下拖时才锁；纵向能
+// 全览（适合窗口/缩小到全图）即自动解除。横向是否溢出不影响判定：比例
+// ≥ 2.5 的图横向溢出时纵向必然溢出，锁照样生效。旋转 90° 后 MainWindow
+// 会把旋转烘进 pixmap，高宽互换，下一次事件即按新方向重新判定。
+bool ImageCanvas::longStripLock() const
+{
+    if (!m_item || m_cropMode) {
+        return false;
+    }
+    const QSizeF isz = m_item->pixmap().deviceIndependentSize();
+    if (isz.width() <= 0.0 || isz.height() <= 0.0) {
+        return false;
+    }
+    if (isz.height() / isz.width() < kLongStripAspect) {
+        return false;
+    }
+    return isz.height() * transform().m11() > viewport()->height() + 0.5;
+}
+
+// 轴锁生效时把横向钉回中心：sceneRect 是图片四周等量 padding，滚动条中点
+// 恰好对应图像水平中心。只由拖动路径调用——缩放锚点（滚轮/按钮）不经过
+// 这里，保证「不影响缩放与旋转」。
+void ImageCanvas::pinHorizontalCenter()
+{
+    QScrollBar *hb = horizontalScrollBar();
+    const int mid = hb->minimum() + (hb->maximum() - hb->minimum()) / 2;
+    if (hb->value() != mid) {
+        hb->setValue(mid);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1517,8 +1568,13 @@ void ImageCanvas::mouseMoveEvent(QMouseEvent *event)
     if (m_panning) {
         const QPoint delta = event->pos() - m_lastPan;
         m_lastPan = event->pos();
-        horizontalScrollBar()->setValue(horizontalScrollBar()->value() - delta.x());
         verticalScrollBar()->setValue(verticalScrollBar()->value() - delta.y());
+        // 长图轴锁（D2）：横向钉回中心，拖动只上下动。
+        if (longStripLock()) {
+            pinHorizontalCenter();
+        } else {
+            horizontalScrollBar()->setValue(horizontalScrollBar()->value() - delta.x());
+        }
         event->accept();
         return;
     }
@@ -1542,6 +1598,11 @@ void ImageCanvas::mouseMoveEvent(QMouseEvent *event)
         }
     }
     QGraphicsView::mouseMoveEvent(event);
+    // 长图轴锁（D2）：左键拖动由 ScrollHandDrag 在基类里滚滚动条，先让 Qt
+    // 走完本次拖拽，再把横向钉回中心，只保留上下位移。
+    if ((event->buttons() & Qt::LeftButton) && longStripLock()) {
+        pinHorizontalCenter();
+    }
 }
 
 void ImageCanvas::mouseReleaseEvent(QMouseEvent *event)

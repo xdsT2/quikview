@@ -193,6 +193,12 @@ private:
     void updateSceneRect();
     // 「图片大于窗口时显示图片顶部」：高于视口时滚到顶（fit / 100% 适配路径共用）
     void applyAlignTopIfLarge();
+    // 长图轴锁（D2）：当前图满足「高/宽 ≥ 2.5 且纵向溢出视口」时返回 true。
+    // 尺寸取 pixmap 的 deviceIndependentSize，旋转已在 MainWindow 落到 pixmap 上，
+    // 所以 90° 后高宽互换，这里判的永远是当前显示方向；全览（纵向不溢出）即失效。
+    bool longStripLock() const;
+    // 把横向滚动条钉在图片水平中心：padding 对称，滚动条中点即图像中心。
+    void pinHorizontalCenter();
     // 侧边翻页箭头带：命中判定 + 悬停光标/箭头显隐。pos 为视口坐标，
     // 与图片缩放无关；左带被缩略图面板压缩时随视口边距自动右移。
     int edgeTurnDelta(const QPoint &pos) const;
@@ -249,6 +255,9 @@ private:
     bool m_sampleRunning = false;    // 线程池里是否有任务在跑（单飞）
     QThreadPool m_samplePool;        // 专用单线程池：重采样不占 GUI 线程，也不抢全局池
     qreal m_zoom = 1.0;
+    // 长图首次装图时的一次性意图：由 fitToWindowGeom 消费成一次 fitToWidth，
+    // 让条漫从「适合宽度」起读。用户随后主动选「适合窗口」不会再被改写。
+    bool m_pendingLongStripFitWidth = false;
     // 交互收尾定时器：拖动连续缩放停止 150ms 后补做一次重采样（单发）
     QTimer m_sampleFlush;
     // 左键按下记账：松手时「位移 <3px 且 <300ms 且在箭头带内」才算点击翻页，
