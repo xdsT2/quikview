@@ -533,6 +533,25 @@ void MetadataPanel::showImage(const QString &path, const QImage &image)
         depth = 24;
     }
     fileRows.append({ tr("位深"), tr("%1 bit").arg(depth) });
+
+    // 打印尺寸（派单「视图与信息两小件·打印尺寸」2026-11-18）：像素 ÷ DPI × 2.54
+    // = 厘米，保留一位小数。
+    // DPI 取 EXIF 的 XResolution/YResolution（ResolutionUnit=3 已在解析层折算）；
+    // 无分辨率记录时按 96 dpi 假设，并在值尾标 @96 明示这是估算值 —— 不新增设置项。
+    // 单位固定 cm：超大图换算成米或给 in 备选属后续议题，本单不做。
+    if (!image.isNull()) {
+        const ExifParser::Dpi dpi = ExifParser::dpi(path);
+        const bool assumed = dpi.x <= 0.0 || dpi.y <= 0.0;
+        const double dpiX = assumed ? 96.0 : dpi.x;
+        const double dpiY = assumed ? 96.0 : (dpi.y > 0.0 ? dpi.y : dpiX);
+        QString printSize = tr("%1 × %2 cm").arg(
+            QString::number(image.width() * 2.54 / dpiX, 'f', 1),
+            QString::number(image.height() * 2.54 / dpiY, 'f', 1));
+        if (assumed) {
+            printSize += QStringLiteral(" @96");
+        }
+        fileRows.append({ tr("打印尺寸"), printSize });
+    }
     addGroup(fileRows);
 
     // —— 组 2 起：EXIF（按相机/拍摄参数归类，组间细分隔）——

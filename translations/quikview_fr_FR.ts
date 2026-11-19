@@ -1751,6 +1751,14 @@
         <source>GPS 信息</source>
         <translation>Infos GPS</translation>
     </message>
+    <message>
+        <source>打印尺寸</source>
+        <translation>Taille d'impression</translation>
+    </message>
+    <message>
+        <source>%1 × %2 cm</source>
+        <translation>%1 × %2 cm</translation>
+    </message>
 </context>
 <context>
     <name>PsdLoader</name>

@@ -241,3 +241,95 @@ ExifParser::Result ExifParser::parse(const QString &filePath)
 
     return r;
 }
+
+// 物理分辨率：只扫描文件头部。JPEG 的 APP1（Exif）段小 <64KB，TIFF 的 IFD0 也在
+// 头部附近，256KB 足够覆盖；不为一张图把几 MB 原文件读进内存。
+ExifParser::Dpi ExifParser::dpi(const QString &filePath)
+{
+    Dpi out;
+    QFile f(filePath);
+    if (!f.open(QIODevice::ReadOnly)) {
+        return out;
+    }
+    const QByteArray data = f.read(256 * 1024);
+    f.close();
+
+    const QByteArray marker("Exif\0\0", 6);
+    int tiff = data.indexOf(marker);
+    if (tiff >= 0) {
+        tiff += marker.size();
+    } else if (data.startsWith(QByteArray("II*\0", 4)) || data.startsWith(QByteArray("MM\0*", 4))) {
+        tiff = 0;   // 裸 TIFF：TIFF 头就在文件起点，IFD0 偏移相对文件头
+    } else {
+        return out;
+    }
+    if (tiff + 8 > data.size()) {
+        return out;
+    }
+    const QByteArray order = data.mid(tiff, 2);
+    bool little;
+    if (order == QByteArray("II", 2)) little = true;
+    else if (order == QByteArray("MM", 2)) little = false;
+    else return out;
+
+    Reader rd(data, tiff, little);
+    if (rd.u16(tiff + 2) != 42) {
+        return out;
+    }
+
+    const quint32 ifd0 = rd.u32(tiff + 4);
+    const int ifdOff = tiff + static_cast<int>(ifd0);
+    if (ifdOff + 2 > data.size()) {
+        return out;
+    }
+
+    // RATIONAL（type=5）：值域存的是偏移，两个 u32 = 分子/分母
+    auto rational = [&](quint32 valField) -> double {
+        const int off = tiff + static_cast<int>(valField);
+        if (off + 8 > data.size()) {
+            return 0.0;
+        }
+        const quint32 num = rd.u32(off);
+        const quint32 den = rd.u32(off + 4);
+        return den ? double(num) / double(den) : 0.0;
+    };
+
+    double rx = 0.0, ry = 0.0;
+    int unit = 2;   // EXIF 默认 ResolutionUnit = 2（英寸）
+    const quint16 count = rd.u16(ifdOff);
+    for (int i = 0; i < count; ++i) {
+        const int entry = ifdOff + 2 + i * 12;
+        if (entry + 12 > data.size()) {
+            break;
+        }
+        const quint16 tag = rd.u16(entry);
+        const quint16 type = rd.u16(entry + 2);
+        const quint32 cnt = rd.u32(entry + 4);
+        const quint32 valField = rd.u32(entry + 8);
+        if (tag == 0x011A) {        // XResolution
+            rx = (type == 5 && cnt >= 1) ? rational(valField) : 0.0;
+        } else if (tag == 0x011B) { // YResolution
+            ry = (type == 5 && cnt >= 1) ? rational(valField) : 0.0;
+        } else if (tag == 0x0128) { // ResolutionUnit（1=无单位 2=英寸 3=厘米）
+            if (type == 3 && cnt >= 1) {
+                unit = rd.u16(entry + 8);
+            } else if (type == 4) {
+                unit = static_cast<int>(valField);
+            }
+        }
+    }
+
+    if (unit == 3) {   // 厘米口径折算成像素/英寸
+        rx *= 2.54;
+        ry *= 2.54;
+    }
+    // 只给了一个轴：另一轴按同值处理（单值 DPI 的图很常见）
+    if (rx > 0.0 && ry <= 0.0) {
+        ry = rx;
+    } else if (ry > 0.0 && rx <= 0.0) {
+        rx = ry;
+    }
+    out.x = rx > 0.0 ? rx : 0.0;
+    out.y = ry > 0.0 ? ry : 0.0;
+    return out;
+}
