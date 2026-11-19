@@ -560,6 +560,22 @@
         <source>所有文件 (*)</source>
         <translation>Все файлы (*)</translation>
     </message>
+    <message>
+        <source>图片与压缩包</source>
+        <translation>Изображения и архивы</translation>
+    </message>
+    <message>
+        <source>压缩包</source>
+        <translation>Архивы</translation>
+    </message>
+    <message>
+        <source>暂不支持加密压缩包</source>
+        <translation>Зашифрованные архивы пока не поддерживаются</translation>
+    </message>
+    <message>
+        <source>包内没有可显示的图片</source>
+        <translation>В архиве нет изображений для показа</translation>
+    </message>
 </context>
 <context>
     <name>EmptyState</name>
@@ -3491,6 +3507,14 @@ https://github.com/xdsT2/quikview</translation>
         <source>图片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有文件 (*)</source>
         <translation>Изображения (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;Все файлы (*)</translation>
     </message>
+    <message>
+        <source>无法读取压缩包：%1</source>
+        <translation>Не удалось прочитать архив: %1</translation>
+    </message>
+    <message>
+        <source>压缩包内文件暂不支持此操作</source>
+        <translation>Это действие недоступно для файлов внутри архива</translation>
+    </message>
 </context>
 <context>
     <name>MetadataPanel</name>
@@ -3567,6 +3591,64 @@ https://github.com/xdsT2/quikview</translation>
     <message>
         <source>当前没有可显示的菜单项</source>
         <translation>Нет пунктов меню для отображения.</translation>
+    </message>
+</context>
+<context>
+    <name>ZipArchive</name>
+    <message>
+        <source>文件不存在或无法读取</source>
+        <translation>Файл не найден или не читается</translation>
+    </message>
+    <message>
+        <source>不是有效的 ZIP/CBZ 压缩包</source>
+        <translation>Это не корректный архив ZIP/CBZ</translation>
+    </message>
+    <message>
+        <source>压缩包已损坏，无法读取</source>
+        <translation>Архив повреждён и не читается</translation>
+    </message>
+    <message>
+        <source>暂不支持分卷压缩包</source>
+        <translation>Многотомные архивы пока не поддерживаются</translation>
+    </message>
+    <message>
+        <source>压缩包条目过多，暂不支持</source>
+        <translation>Слишком много записей в архиве</translation>
+    </message>
+    <message>
+        <source>暂不支持加密压缩包</source>
+        <translation>Зашифрованные архивы пока не поддерживаются</translation>
+    </message>
+    <message>
+        <source>包内文件超过 256 MB，已拒绝解码</source>
+        <translation>Файл в архиве больше 256 МБ — декодирование отклонено</translation>
+    </message>
+    <message>
+        <source>包内文件使用了暂不支持的压缩方式</source>
+        <translation>Используется неподдерживаемый метод сжатия</translation>
+    </message>
+    <message>
+        <source>包内文件校验失败（CRC 不符）</source>
+        <translation>Несовпадение контрольной суммы в архиве (CRC)</translation>
+    </message>
+</context>
+<context>
+    <name>ArchiveStore</name>
+    <message>
+        <source>文件不存在或无法读取</source>
+        <translation>Файл не найден или не читается</translation>
+    </message>
+    <message>
+        <source>压缩包已关闭或未打开</source>
+        <translation>Архив закрыт или не был открыт</translation>
+    </message>
+    <message>
+        <source>包内找不到该文件</source>
+        <translation>Файл не найден в архиве</translation>
+    </message>
+    <message>
+        <source>包内文件解码失败</source>
+        <translation>Не удалось декодировать файл в архиве</translation>
     </message>
 </context>
 </TS>

@@ -485,10 +485,13 @@ void MetadataPanel::addGroupGap()
     }
 }
 
-void MetadataPanel::showImage(const QString &path, const QImage &image)
+void MetadataPanel::showImage(const QString &path, const QImage &image,
+                              qint64 knownBytes, const QDateTime &knownModified)
 {
     m_lastPath = path;
     m_lastImage = image;
+    m_lastKnownBytes = knownBytes;
+    m_lastKnownModified = knownModified;
     clear();
 
     const QFileInfo info(path);
@@ -496,7 +499,7 @@ void MetadataPanel::showImage(const QString &path, const QImage &image)
     // —— 组 1：文件（文件名 / 图片大小 / 修改日期 / 图片信息 / 位深）——
     QList<MetadataPanel::Row> fileRows;
     fileRows.append({ tr("文件名"), info.fileName(), true });   // 文件名 600 字重
-    const qint64 bytes = info.size();
+    const qint64 bytes = knownBytes >= 0 ? knownBytes : info.size();
     if (bytes >= 1024 * 1024) {
         fileRows.append({ tr("图片大小"), tr("%1 MB").arg(QString::number(bytes / 1048576.0, 'f', 1)) });
     } else if (bytes >= 1024) {
@@ -505,7 +508,8 @@ void MetadataPanel::showImage(const QString &path, const QImage &image)
         fileRows.append({ tr("图片大小"), tr("%1 B").arg(bytes) });
     }
     fileRows.append({ tr("修改日期"),
-                      info.lastModified().toString(QStringLiteral("yyyy/MM/dd HH:mm:ss")) });
+                      (knownModified.isValid() ? knownModified : info.lastModified())
+                          .toString(QStringLiteral("yyyy/MM/dd HH:mm:ss")) });
 
     const QColorSpace space = image.colorSpace();
     QString colorSpaceText;
@@ -622,7 +626,7 @@ void MetadataPanel::setSmallFont(bool small)
     m_smallFont = small;
     // 已有内容按最近一次的入参重建：字号变了，值列的自然宽度也要重算。
     if (!m_lastPath.isEmpty()) {
-        showImage(m_lastPath, m_lastImage);
+        showImage(m_lastPath, m_lastImage, m_lastKnownBytes, m_lastKnownModified);
     }
 }
 

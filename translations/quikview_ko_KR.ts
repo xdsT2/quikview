@@ -560,6 +560,22 @@
         <source>所有文件 (*)</source>
         <translation>모든 파일 (*)</translation>
     </message>
+    <message>
+        <source>图片与压缩包</source>
+        <translation>이미지 및 압축 파일</translation>
+    </message>
+    <message>
+        <source>压缩包</source>
+        <translation>압축 파일</translation>
+    </message>
+    <message>
+        <source>暂不支持加密压缩包</source>
+        <translation>암호화된 압축 파일은 아직 지원하지 않습니다</translation>
+    </message>
+    <message>
+        <source>包内没有可显示的图片</source>
+        <translation>압축 파일 안에 표시할 수 있는 이미지가 없습니다</translation>
+    </message>
 </context>
 <context>
     <name>EmptyState</name>
@@ -3491,6 +3507,14 @@ https://github.com/xdsT2/quikview</translation>
         <source>图片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有文件 (*)</source>
         <translation>이미지 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;모든 파일 (*)</translation>
     </message>
+    <message>
+        <source>无法读取压缩包：%1</source>
+        <translation>압축 파일을 읽을 수 없습니다: %1</translation>
+    </message>
+    <message>
+        <source>压缩包内文件暂不支持此操作</source>
+        <translation>압축 파일 내 항목은 이 작업을 아직 지원하지 않습니다</translation>
+    </message>
 </context>
 <context>
     <name>MetadataPanel</name>
@@ -3567,6 +3591,64 @@ https://github.com/xdsT2/quikview</translation>
     <message>
         <source>当前没有可显示的菜单项</source>
         <translation>표시할 메뉴 항목이 없습니다.</translation>
+    </message>
+</context>
+<context>
+    <name>ZipArchive</name>
+    <message>
+        <source>文件不存在或无法读取</source>
+        <translation>파일이 없거나 읽을 수 없습니다</translation>
+    </message>
+    <message>
+        <source>不是有效的 ZIP/CBZ 压缩包</source>
+        <translation>올바른 ZIP/CBZ 압축 파일이 아닙니다</translation>
+    </message>
+    <message>
+        <source>压缩包已损坏，无法读取</source>
+        <translation>압축 파일이 손상되어 읽을 수 없습니다</translation>
+    </message>
+    <message>
+        <source>暂不支持分卷压缩包</source>
+        <translation>분할 압축 파일은 아직 지원하지 않습니다</translation>
+    </message>
+    <message>
+        <source>压缩包条目过多，暂不支持</source>
+        <translation>압축 파일 항목이 너무 많습니다</translation>
+    </message>
+    <message>
+        <source>暂不支持加密压缩包</source>
+        <translation>암호화된 압축 파일은 아직 지원하지 않습니다</translation>
+    </message>
+    <message>
+        <source>包内文件超过 256 MB，已拒绝解码</source>
+        <translation>압축 파일 내 항목이 256MB를 넘어 디코딩을 거부했습니다</translation>
+    </message>
+    <message>
+        <source>包内文件使用了暂不支持的压缩方式</source>
+        <translation>지원하지 않는 압축 방식을 사용합니다</translation>
+    </message>
+    <message>
+        <source>包内文件校验失败（CRC 不符）</source>
+        <translation>압축 파일 내 항목의 체크섬이 일치하지 않습니다(CRC)</translation>
+    </message>
+</context>
+<context>
+    <name>ArchiveStore</name>
+    <message>
+        <source>文件不存在或无法读取</source>
+        <translation>파일이 없거나 읽을 수 없습니다</translation>
+    </message>
+    <message>
+        <source>压缩包已关闭或未打开</source>
+        <translation>압축 파일이 닫혔거나 열리지 않았습니다</translation>
+    </message>
+    <message>
+        <source>包内找不到该文件</source>
+        <translation>압축 파일 안에 해당 항목이 없습니다</translation>
+    </message>
+    <message>
+        <source>包内文件解码失败</source>
+        <translation>압축 파일 내 항목 디코딩 실패</translation>
     </message>
 </context>
 </TS>

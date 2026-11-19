@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QDateTime>
 #include <QHash>
 #include <QImage>
 #include <QList>
@@ -41,7 +42,10 @@ class MetadataPanel : public QWidget
 public:
     explicit MetadataPanel(QWidget *parent = nullptr);
 
-    void showImage(const QString &path, const QImage &image);
+    // knownBytes / knownModified：包内条目没有磁盘 stat 可读，由调用方（ArchiveStore）
+    // 从 zip 中央目录注入；knownBytes < 0 表示走 QFileInfo（普通文件路径）。
+    void showImage(const QString &path, const QImage &image,
+                   qint64 knownBytes = -1, const QDateTime &knownModified = QDateTime());
     void clear();
 
     // 与信息浮层同源的键值文本（多行，组间空行）；供「复制 EXIF 数据」使用，
@@ -134,4 +138,6 @@ private:
     bool m_smallFont = false;    // 键值行字号档位（false=12px，true=10px）
     QString m_lastPath;          // 最近一次 showImage 的入参（字号切换时重建用）
     QImage m_lastImage;
+    qint64 m_lastKnownBytes = -1;          // 包内条目的字节数（-1 = 无注入）
+    QDateTime m_lastKnownModified;
 };
