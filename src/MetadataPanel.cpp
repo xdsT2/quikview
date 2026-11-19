@@ -27,6 +27,7 @@
 #include <QVariantAnimation>
 #include <QtMath>
 
+#include "AppIcon.h"
 #include "ExifParser.h"
 #include "HudShell.h"
 #include "UiStyle.h"
@@ -269,6 +270,13 @@ void MetadataPanel::buildUi()
     QFont titleFont = UiStyle::font(14);
     titleFont.setWeight(QFont::DemiBold);
     title->setFont(titleFont);
+    // 标题前 Info 图标（Fluent；2026-11-19 定稿：图片信息面板用 Info）。
+    auto *titleIcon = new QLabel(titleRow);
+    titleIcon->setPixmap(AppIcon::pixmap(QStringLiteral("info"), 16, hud::valText(),
+                                         AppIcon::Style::Regular, 2.0));
+    titleIcon->setFixedSize(20, 16);
+    titleIcon->setAlignment(Qt::AlignCenter);
+    titleLayout->addWidget(titleIcon);
     titleLayout->addWidget(title);
     titleLayout->addStretch(1);
 
@@ -323,6 +331,9 @@ void MetadataPanel::buildUi()
     QFont histFont = UiStyle::font(12);
     histFont.setWeight(QFont::DemiBold);
     m_histToggle->setFont(histFont);
+    // 直方图入口用 Data Histogram（2026-11-19 定稿）；▾/▸ 保留为折叠状态提示。
+    m_histToggle->setIcon(QIcon(AppIcon::icon(QStringLiteral("data-histogram"), hud::valText(), 16)));
+    m_histToggle->setIconSize(QSize(16, 16));
     m_histToggle->setText(tr("▾ 直方图"));
     connect(m_histToggle, &QPushButton::clicked, this, [this]() {
         const bool show = m_histBody->isHidden();

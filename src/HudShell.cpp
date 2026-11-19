@@ -6,6 +6,7 @@
 #include <QVariantAnimation>
 #include <QtMath>
 
+#include "AppIcon.h"
 #include "UiStyle.h"
 
 #ifdef Q_OS_WIN
@@ -281,6 +282,12 @@ void HudToolButton::paintEvent(QPaintEvent *)
     }
 
     QColor ink = underMouse() || isDown() ? hud::valText() : QColor(0xc9, 0xc9, 0xc9);
+    // 复制 / 关闭改用 Fluent 同义图标（2026-11-19 定稿）；资源缺失时保留原几何回退。
+    const QRectF glyphRect(rect().center().x() - 7.0, rect().center().y() - 7.0, 14.0, 14.0);
+    if (AppIcon::paint(p, m_glyph == Close ? QStringLiteral("x") : QStringLiteral("copy"),
+                       glyphRect, ink)) {
+        return;
+    }
     QPen pen(ink, 1.5);
     pen.setCapStyle(Qt::RoundCap);
     pen.setJoinStyle(Qt::RoundJoin);

@@ -62,6 +62,12 @@ void OverviewPanel::revealCurrent()
     update();
 }
 
+void OverviewPanel::scrollToEnd()
+{
+    m_scroll = maxScroll();
+    update();
+}
+
 void OverviewPanel::ensureVisible(int index)
 {
     if (index < 0)

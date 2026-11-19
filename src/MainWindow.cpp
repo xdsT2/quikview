@@ -310,6 +310,12 @@ MainWindow::MainWindow(QWidget *parent)
         onActivateImage(index);
     });
     connect(m_overview, &OverviewPanel::escapePressed, this, &MainWindow::closeOverview);
+    // 总览内单击选中时，底栏页码跟随选中项（定稿截图 24/24 的语义）。
+    connect(m_overview, &OverviewPanel::selected, this, [this](int index) {
+        if (m_control && m_dir && m_dir->isValid()) {
+            m_control->setPage(index + 1, m_dir->count());
+        }
+    });
 
     // PSD 图层：工具栏一级入口（仅 PSD 可见）+ 右侧浮层面板。
     m_layerPanel = new LayerPanel(this);
@@ -3648,6 +3654,26 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     }
     else if (c == QLatin1String("ovesc")) {
         closeOverview();
+    }
+    else if (c == QLatin1String("ovend") && m_overview && m_overview->isVisible()) {
+        // 验收探针：选中最后一张并滚到底，核对末排与文件名可见性。
+        if (m_dir && m_dir->count() > 0) {
+            m_overview->setCurrent(m_dir->count() - 1);
+            if (m_control) {
+                m_control->setPage(m_dir->count(), m_dir->count());
+            }
+        }
+        m_overview->scrollToEnd();
+    }
+    else if (c == QLatin1String("oventer") && m_overview && m_overview->isVisible()) {
+        // 验收探针：走 OverviewPanel 的真实 Enter 分支（不是直接调 ovopen）。
+        QKeyEvent event(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+        QApplication::sendEvent(m_overview, &event);
+    }
+    else if (c == QLatin1String("ovesckey") && m_overview && m_overview->isVisible()) {
+        // 验收探针：走 OverviewPanel 的真实 Esc 分支。
+        QKeyEvent event(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+        QApplication::sendEvent(m_overview, &event);
     }
     else if (c == QLatin1String("filmright")) {
         QKeyEvent event(QEvent::KeyPress, Qt::Key_Right, Qt::NoModifier);

@@ -1095,27 +1095,38 @@ void TopBar::paintEvent(QPaintEvent *)
         const QPointF center = b.rect.center();
         // 按下时图标轻微缩至 98%（按下只压暗不上浮；与底岛按钮同一语义）。
         const qreal iconS = 18.0 * (1.0 - 0.02 * v.press);
+        // 一次性命令按下时短暂用 filled，松开恢复 regular（2026-11-19 定稿状态规则）。
+        const AppIcon::Style iconStyle = (st.pressed && !st.disabled)
+                                             ? AppIcon::Style::Filled
+                                             : AppIcon::Style::Regular;
         // 带文字按钮：图标靠左（左内边距 10），文字接在图标右侧 8px。
         const QRectF icon = b.iconOnly
                                 ? QRectF(center.x() - iconS / 2, center.y() - iconS / 2, iconS, iconS)
                                 : QRectF(b.rect.x() + 10, center.y() - iconS / 2, iconS, iconS);
 
         switch (b.action) {
-        case Action::Open: drawIcon(p, "folder-open", icon, drawInk); break;
-        case Action::Browse: drawIcon(p, "apps", icon, drawInk); break;
-        case Action::Slideshow: drawIcon(p, "play", icon, drawInk); break;
-        case Action::Bookmark: drawIcon(p, "bookmark", icon, drawInk); break;
-        case Action::Edit: drawIcon(p, "image-edit", icon, drawInk); break;
-        case Action::CopyTo: drawIcon(p, "copy", icon, drawInk); break;
-        case Action::Layers: drawIcon(p, "stack", icon, drawInk); break;
+        case Action::Open: drawIcon(p, "folder-open", icon, drawInk, iconStyle); break;
+        case Action::Browse: drawIcon(p, "apps", icon, drawInk, iconStyle); break;
+        case Action::Slideshow: drawIcon(p, "play", icon, drawInk, iconStyle); break;
+        case Action::Bookmark: drawIcon(p, "bookmark", icon, drawInk, iconStyle); break;
+        case Action::Edit: drawIcon(p, "image-edit", icon, drawInk, iconStyle); break;
+        case Action::CopyTo: drawIcon(p, "copy", icon, drawInk, iconStyle); break;
+        case Action::Layers:
+            // 面板展开是持续状态：展开期间保持 filled，收起回 regular；按下瞬时填充。
+            drawIcon(p, "stack", icon, drawInk,
+                     (m_layersOpen || st.pressed) ? AppIcon::Style::Filled
+                                                  : AppIcon::Style::Regular);
+            break;
         case Action::TopLock:
             // 顶部锁：锁定态用 filled（派单 §5：锁定=持续激活），解锁用 regular。
             drawIcon(p, m_topLocked ? "lock-closed" : "lock-open", icon, drawInk,
-                     m_topLocked ? AppIcon::Style::Filled : AppIcon::Style::Regular);
+                     (m_topLocked || st.pressed) ? AppIcon::Style::Filled
+                                                 : AppIcon::Style::Regular);
             break;
         case Action::Pin:
             drawIcon(p, "pin", icon, drawInk,
-                     m_pinned ? AppIcon::Style::Filled : AppIcon::Style::Regular);
+                     (m_pinned || st.pressed) ? AppIcon::Style::Filled
+                                              : AppIcon::Style::Regular);
             break;
         case Action::Menu: drawHamburger(p, icon, drawInk); break;
         case Action::Minimize:
@@ -1591,10 +1602,10 @@ QVector<ControlBar::Item> ControlBar::items() const
     if (showGroup1()) {
         place(Action::Open, kIslandBtn);
         x += kIslandInnerGap;
-        place(Action::List, kIslandBtn);
-        x += kIslandInnerGap;
-        // 图片总览入口紧挨缩略图条入口（2026-11-19 定稿）。
+        // 图片总览入口紧挨缩略图条入口（2026-11-19 定稿：打开、总览、缩略图条）。
         place(Action::Overview, kIslandBtn);
+        x += kIslandInnerGap;
+        place(Action::List, kIslandBtn);
         x += kIslandGroupGap;
     }
 
@@ -1890,7 +1901,8 @@ void ControlBar::paintEvent(QPaintEvent *)
                 beginButton(p, QRectF(r), stU, v, pal);
                 drawIcon(p, "lock-open",
                          QRectF(center.x() - lockS / 2, center.y() - lockS / 2, lockS, lockS),
-                         buttonInk(stU, pal));
+                         buttonInk(stU, pal),
+                         stU.pressed ? AppIcon::Style::Filled : AppIcon::Style::Regular);
                 endButton(p);
                 p.restore();
             }
@@ -1917,21 +1929,27 @@ void ControlBar::paintEvent(QPaintEvent *)
         // 定稿：底栏图标 18×18；按下时轻微缩至 98%（不放大、不上浮）。
         const qreal iconS = 18.0 * (1.0 - 0.02 * v.press);
         const QRectF icon(center.x() - iconS / 2, center.y() - iconS / 2, iconS, iconS);
+        // 一次性命令按下时短暂用 filled，松开恢复 regular（2026-11-19 定稿状态规则）。
+        const AppIcon::Style iconStyle = st.pressed ? AppIcon::Style::Filled
+                                                    : AppIcon::Style::Regular;
 
         switch (it.action) {
-        case Action::Open: drawIcon(p, "folder-open", icon, drawInk); break;
-        case Action::List: drawIcon(p, "list", icon, drawInk); break;
+        case Action::Open: drawIcon(p, "folder-open", icon, drawInk, iconStyle); break;
+        case Action::List: drawIcon(p, "list", icon, drawInk, iconStyle); break;
         case Action::Overview:
             drawIcon(p, "apps", icon, drawInk,
-                     m_overviewActive ? AppIcon::Style::Filled : AppIcon::Style::Regular);
+                     (m_overviewActive || st.pressed) ? AppIcon::Style::Filled
+                                                      : AppIcon::Style::Regular);
             break;
-        case Action::ZoomOut: drawIcon(p, "subtract", icon, drawInk); break;
-        case Action::ZoomIn: drawIcon(p, "add", icon, drawInk); break;
-        case Action::Rotate: drawIcon(p, "arrow-rotate-counterclockwise", icon, drawInk); break;
-        case Action::Fullscreen: drawIcon(p, "full-screen-maximize", icon, drawInk); break;
-        case Action::Prev: drawIcon(p, "chevron-left", icon, drawInk); break;
-        case Action::Next: drawIcon(p, "chevron-right", icon, drawInk); break;
-        case Action::Lock: drawIcon(p, "lock-open", icon, drawInk); break;
+        case Action::ZoomOut: drawIcon(p, "subtract", icon, drawInk, iconStyle); break;
+        case Action::ZoomIn: drawIcon(p, "add", icon, drawInk, iconStyle); break;
+        case Action::Rotate:
+            drawIcon(p, "arrow-rotate-counterclockwise", icon, drawInk, iconStyle);
+            break;
+        case Action::Fullscreen: drawIcon(p, "full-screen-maximize", icon, drawInk, iconStyle); break;
+        case Action::Prev: drawIcon(p, "chevron-left", icon, drawInk, iconStyle); break;
+        case Action::Next: drawIcon(p, "chevron-right", icon, drawInk, iconStyle); break;
+        case Action::Lock: drawIcon(p, "lock-open", icon, drawInk, iconStyle); break;
         default: break;
         }
         endButton(p);
@@ -2415,9 +2433,15 @@ void EmptyState::paintEvent(QPaintEvent *)
         p.setBrush(Qt::NoBrush);
     }
     p.drawRoundedRect(QRectF(secondary).adjusted(0.5, 0.5, -0.5, -0.5), 6, 6);
+    const QColor secondaryInk(QString::fromLatin1(UiStyle::pick("#d9dadd", "#242628")));
+    // 空状态功能按钮复用同义图标（2026-11-19 定稿）。
+    drawIcon(p, "folder",
+             QRectF(secondary.x() + 14, secondary.center().y() - 8, 16, 16), secondaryInk);
     p.setFont(uiFont(12));
-    p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#d9dadd", "#242628"))));
-    p.drawText(secondary, Qt::AlignCenter, QCoreApplication::translate("EmptyState", "选择文件夹"));
+    p.setPen(secondaryInk);
+    p.drawText(QRect(secondary.x() + 36, secondary.y(), secondary.width() - 40, secondary.height()),
+               Qt::AlignVCenter | Qt::AlignLeft,
+               QCoreApplication::translate("EmptyState", "选择文件夹"));
 
     // 快捷键提示
     struct KbdGroup {

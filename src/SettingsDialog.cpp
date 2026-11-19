@@ -829,9 +829,10 @@ const char *navGlyphId(NavGlyph glyph)
     return "settings";
 }
 
-void paintNavGlyph(QPainter &p, NavGlyph glyph, const QRect &box, const QColor &color)
+void paintNavGlyph(QPainter &p, NavGlyph glyph, const QRect &box, const QColor &color,
+                   AppIcon::Style style)
 {
-    AppIcon::paint(p, QLatin1String(navGlyphId(glyph)), QRectF(box), color);
+    AppIcon::paint(p, QLatin1String(navGlyphId(glyph)), QRectF(box), color, style);
 }
 
 // navItem：QSS 负责背景/边框，图标与文字自绘（图标 16px + 间距 9px + 左内边距 11px）
@@ -872,11 +873,13 @@ protected:
         p.drawRoundedRect(plate, 6, 6);
 
         const int glyphSize = 16;
+        // 设置导航：选中项 Filled，其余 Regular（2026-11-19 定稿状态规则）。
         paintNavGlyph(p, m_glyph,
                       QRect(plate.x() + (plateSize - glyphSize) / 2,
                             plate.y() + (plateSize - glyphSize) / 2,
                             glyphSize, glyphSize),
-                      QColor(255, 255, 255));
+                      QColor(255, 255, 255),
+                      isChecked() ? AppIcon::Style::Filled : AppIcon::Style::Regular);
 
         QFont f = font();
         if (isChecked())

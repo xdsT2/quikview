@@ -49,8 +49,10 @@ protected:
 
         p.translate(QRectF(rect()).center());
         // 14×14 逻辑尺寸落在 16px 档资源上，等比缩放，不拉伸。
+        // 可见是持续状态，用 filled；隐藏切 eye-off 线性（2026-11-19 定稿状态规则）。
         AppIcon::paint(p, isChecked() ? QStringLiteral("eye") : QStringLiteral("eye-off"),
-                       QRectF(-7, -7, 14, 14), UiStyle::muted());
+                       QRectF(-7, -7, 14, 14), UiStyle::muted(),
+                       isChecked() ? AppIcon::Style::Filled : AppIcon::Style::Regular);
     }
 };
 
@@ -73,10 +75,11 @@ protected:
         p.setRenderHint(QPainter::Antialiasing);
         p.setPen(QPen(UiStyle::muted(), 1.25, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         p.translate(12, height() / 2.0);
-        // 展开/折叠：chevron 家族，收起朝右、展开朝下（不再手绘折线）。
+        // 展开/折叠：chevron 家族，收起朝右、展开朝下；展开是持续状态用 filled。
         AppIcon::paint(p, m_collapsed ? QStringLiteral("chevron-right")
                                       : QStringLiteral("chevron-down"),
-                       QRectF(-6, -6, 12, 12), UiStyle::muted());
+                       QRectF(-6, -6, 12, 12), UiStyle::muted(),
+                       m_collapsed ? AppIcon::Style::Regular : AppIcon::Style::Filled);
 
         p.translate(24, 0);
         AppIcon::paint(p, QStringLiteral("folder"), QRectF(-7, -7, 14, 14), UiStyle::muted());

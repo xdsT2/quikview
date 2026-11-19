@@ -13,9 +13,35 @@
              这一段由 tools/install-fluent-icons.py 生成，只登记程序实际使用的
              语义；不要手工增删，也不要在这里放整套 596 个精选 SVG。
              路径规律 :/icons/fluent/<16|20|24>/<regular|filled>/ic_fluent_<family>_<size>_<style>.svg -->
+        <file>icons/fluent/16/filled/ic_fluent_add_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_apps_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_arrow_rotate_counterclockwise_16_filled.svg</file>
         <file>icons/fluent/16/filled/ic_fluent_bookmark_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_chevron_down_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_chevron_left_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_chevron_right_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_color_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_copy_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_cursor_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_eye_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_folder_open_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_full_screen_maximize_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_image_edit_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_image_multiple_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_info_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_keyboard_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_link_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_local_language_16_filled.svg</file>
         <file>icons/fluent/16/filled/ic_fluent_lock_closed_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_lock_open_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_options_16_filled.svg</file>
         <file>icons/fluent/16/filled/ic_fluent_pin_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_play_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_settings_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_stack_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_subtract_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_text_bullet_list_16_filled.svg</file>
+        <file>icons/fluent/16/filled/ic_fluent_text_bullet_list_tree_16_filled.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_add_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_apps_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_arrow_exit_16_regular.svg</file>
@@ -35,6 +61,7 @@
         <file>icons/fluent/16/regular/ic_fluent_copy_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_crop_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_cursor_16_regular.svg</file>
+        <file>icons/fluent/16/regular/ic_fluent_data_histogram_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_delete_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_desktop_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_dismiss_16_regular.svg</file>
@@ -83,9 +110,35 @@
         <file>icons/fluent/16/regular/ic_fluent_window_multiple_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_zoom_fit_16_regular.svg</file>
         <file>icons/fluent/16/regular/ic_fluent_zoom_in_16_regular.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_add_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_apps_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_arrow_rotate_counterclockwise_20_filled.svg</file>
         <file>icons/fluent/20/filled/ic_fluent_bookmark_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_chevron_down_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_chevron_left_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_chevron_right_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_color_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_copy_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_cursor_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_eye_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_folder_open_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_full_screen_maximize_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_image_edit_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_image_multiple_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_info_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_keyboard_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_link_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_local_language_20_filled.svg</file>
         <file>icons/fluent/20/filled/ic_fluent_lock_closed_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_lock_open_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_options_20_filled.svg</file>
         <file>icons/fluent/20/filled/ic_fluent_pin_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_play_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_settings_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_stack_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_subtract_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_text_bullet_list_20_filled.svg</file>
+        <file>icons/fluent/20/filled/ic_fluent_text_bullet_list_tree_20_filled.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_add_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_apps_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_arrow_exit_20_regular.svg</file>
@@ -105,6 +158,7 @@
         <file>icons/fluent/20/regular/ic_fluent_copy_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_crop_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_cursor_20_regular.svg</file>
+        <file>icons/fluent/20/regular/ic_fluent_data_histogram_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_delete_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_desktop_20_regular.svg</file>
         <file>icons/fluent/20/regular/ic_fluent_dismiss_20_regular.svg</file>

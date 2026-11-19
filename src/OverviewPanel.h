@@ -24,6 +24,8 @@ public:
 
     // 打开时把当前图片定位到可视区域（选中并居中）。
     void revealCurrent();
+    // 验收探针：滚到内容末端（验证末排缩略图与文件名可见）。
+    void scrollToEnd();
 
 signals:
     void selected(int index);
