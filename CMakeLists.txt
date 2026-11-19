@@ -54,6 +54,11 @@ add_executable(quikview WIN32
     src/ExifParser.h
     src/Wallpaper.cpp
     src/Wallpaper.h
+    # 压缩包直读（派单 2026-11-18）：自研中央目录解析 + 复用 psd_sdk 内置 miniz
+    src/ZipArchive.cpp
+    src/ZipArchive.h
+    src/ArchiveStore.cpp
+    src/ArchiveStore.h
     src/SettingsDialog.cpp
     src/SettingsDialog.h
     src/PillToggle.cpp
@@ -125,6 +130,8 @@ target_link_libraries(quikview PRIVATE
     Qt6::Svg
     Psd
     dwmapi
+    # archreport 的进程峰值工作集（GetProcessMemoryInfo）走 psapi
+    psapi
 )
 
 if(LIBRAW_FOUND)
