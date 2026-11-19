@@ -1265,6 +1265,8 @@ void MainWindow::createActions()
     actCopyImagePath = mk(tr("复制图片路径"), QKeySequence(QStringLiteral("Ctrl+Alt+Shift+C")), &MainWindow::onCopyImagePath);
     actCopyVisibleImage = mk(tr("复制当前可见图像"), QKeySequence(QStringLiteral("Ctrl+Alt+C")), &MainWindow::onCopyVisibleImage);
     actCopyImageFile = mk(tr("复制图像文件"), QKeySequence(QStringLiteral("Alt+C")), &MainWindow::onCopyImageFile);
+    // Ctrl+V 从剪贴板取图（无配置开关）
+    actPasteImage = mk(tr("从剪贴板粘贴图片"), QKeySequence::Paste, &MainWindow::onPasteFromClipboard);
     actWallpaper = mk(tr("设为桌面壁纸…"), {}, &MainWindow::onSetWallpaper);
     actAbout = mk(tr("关于 QuikView"), QKeySequence(QStringLiteral("F1")), &MainWindow::onAbout);
     // Honeyview：X = 退出。Ctrl+Q 保留为副键
@@ -5034,6 +5036,31 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         else if (kind == QLatin1String("file"))     onCopyImageFile();
         else if (kind == QLatin1String("orig"))     onCopyToClipboard();
     }
+    else if (c == QLatin1String("clippaste")) {
+        onPasteFromClipboard();
+    }
+    else if (c.startsWith(QLatin1String("clipsettext:"))) {
+        QFile f(c.mid(12));
+        if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QGuiApplication::clipboard()->setText(
+                QString::fromUtf8(f.readAll()).trimmed());
+        }
+    }
+    else if (c.startsWith(QLatin1String("clipsetimg:"))) {
+        const QImage img(c.mid(11));
+        if (!img.isNull()) {
+            QGuiApplication::clipboard()->setImage(img);
+        }
+    }
+    else if (c.startsWith(QLatin1String("clipseturl:"))) {
+        const QString p = c.mid(11);
+        auto *mime = new QMimeData();
+        mime->setUrls({ QUrl::fromLocalFile(QFileInfo(p).absoluteFilePath()) });
+        QGuiApplication::clipboard()->setMimeData(mime);
+    }
+    else if (c == QLatin1String("clipclear")) {
+        QGuiApplication::clipboard()->clear();
+    }
     else if (c.startsWith(QLatin1String("clipdump:"))) {
         QFile f(c.mid(9));
         if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
@@ -5054,6 +5081,15 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                     ts << "url=" << u.toLocalFile() << "\n";
                 }
             }
+        }
+    }
+    else if (c.startsWith(QLatin1String("clipstate:"))) {
+        QFile f(c.mid(10));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << "current=" << m_currentPath << "\n"
+               << "displayed=" << m_displayedPath << "\n"
+               << "hasImage=" << (!m_currentImage.isNull()) << "\n";
         }
     }
 }
@@ -6165,6 +6201,84 @@ void MainWindow::onCopyImageFile()
     mime->setUrls({ QUrl::fromLocalFile(QFileInfo(m_currentPath).absoluteFilePath()) });
     QGuiApplication::clipboard()->setMimeData(mime);
     m_toast->showMessage(tr("已复制图像文件"));
+}
+
+// Ctrl+V 从剪贴板取图：优先级 图像 > 文件 URL > 文本路径 > toast。
+// 临时 PNG 落 %TEMP%\quikview-clip\，文件名带日期+序号，不污染图片目录；
+// 不进「最近打开」（绕过 addRecentFile），翻页仍按临时目录的同目录逻辑处理。
+void MainWindow::onPasteFromClipboard()
+{
+    QClipboard *clip = QGuiApplication::clipboard();
+    const QMimeData *mime = clip->mimeData();
+    if (!mime) {
+        m_toast->showMessage(tr("剪贴板中没有图片"));
+        return;
+    }
+
+    QString path;
+
+    // ① 图像数据（截图场景）：落临时 PNG
+    if (mime->hasImage()) {
+        QVariant data = mime->imageData();
+        QImage image = data.value<QImage>();
+        if (image.isNull()) {
+            image = data.value<QPixmap>().toImage();
+        }
+        if (!image.isNull()) {
+            const QString dir = QDir::tempPath() + QStringLiteral("/quikview-clip");
+            if (QDir().mkpath(dir)) {
+                const QString stamp = QDateTime::currentDateTime().toString(
+                    QStringLiteral("yyyyMMdd-HHmmss"));
+                for (int seq = 1; seq < 1000; ++seq) {
+                    const QString name = QStringLiteral("clip-%1-%2.png")
+                        .arg(stamp).arg(seq, 3, 10, QLatin1Char('0'));
+                    const QString candidate = dir + QLatin1Char('/') + name;
+                    if (!QFileInfo::exists(candidate)) {
+                        if (image.save(candidate, "PNG")) {
+                            path = candidate;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // ② 文件 URL 列表（资源管理器 Ctrl+C 的文件）：取第一个支持的图片
+    if (path.isEmpty() && mime->hasUrls()) {
+        const QList<QUrl> urls = mime->urls();
+        for (const QUrl &url : urls) {
+            if (!url.isLocalFile()) {
+                continue;
+            }
+            const QString local = url.toLocalFile();
+            if (MainWindow::isSupportedImagePath(local)) {
+                path = local;
+                break;
+            }
+        }
+    }
+
+    // ③ 纯文本且是存在的图片文件路径
+    if (path.isEmpty() && mime->hasText()) {
+        QString text = mime->text().trimmed();
+        if (text.startsWith(QLatin1String("file://"), Qt::CaseInsensitive)) {
+            text = QUrl(text).toLocalFile();
+        }
+        if (MainWindow::isSupportedImagePath(text)) {
+            path = text;
+        }
+    }
+
+    if (path.isEmpty()) {
+        m_toast->showMessage(tr("剪贴板中没有图片"));
+        return;
+    }
+
+    // 临时目录的 PNG 只作为「本次看图」打开，不写最近打开/书签。
+    const bool transient = path.startsWith(
+        QDir::tempPath() + QStringLiteral("/quikview-clip/"), Qt::CaseInsensitive);
+    openFile(path, transient);
 }
 
 void MainWindow::onSetWallpaper()

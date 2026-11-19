@@ -130,6 +130,8 @@ private slots:
     void onCopyImagePath();
     void onCopyVisibleImage();
     void onCopyImageFile();
+    // Ctrl+V 从剪贴板取图（图像 → 文件 URL → 文本路径 → toast）
+    void onPasteFromClipboard();
     void onSetWallpaper();
     void onAbout();
     // 视图
@@ -319,6 +321,7 @@ private:
     QAction *actCopyImagePath = nullptr;
     QAction *actCopyVisibleImage = nullptr;
     QAction *actCopyImageFile = nullptr;
+    QAction *actPasteImage = nullptr;
     QAction *actWallpaper = nullptr;
     QAction *actAbout = nullptr;
     QAction *actQuit = nullptr;
