@@ -1588,6 +1588,26 @@
         <source>复制图像文件</source>
         <translation>Copier le fichier image</translation>
     </message>
+    <message>
+        <source>锁定窗口大小</source>
+        <translation>Verrouiller la taille de la fenêtre</translation>
+    </message>
+    <message>
+        <source>窗口大小：锁定</source>
+        <translation>Taille de la fenêtre : verrouillée</translation>
+    </message>
+    <message>
+        <source>窗口大小：解锁</source>
+        <translation>Taille de la fenêtre : déverrouillée</translation>
+    </message>
+    <message>
+        <source>已关闭「根据图片大小调节窗口大小」（与锁定窗口大小互斥）</source>
+        <translation>« Ajuster la fenêtre à l'image » désactivé (incompatible avec la taille de fenêtre verrouillée)</translation>
+    </message>
+    <message>
+        <source>窗口大小已锁定，先解锁才能最大化</source>
+        <translation>Taille de la fenêtre verrouillée — déverrouillez pour agrandir</translation>
+    </message>
 </context>
 <context>
     <name>MetadataPanel</name>

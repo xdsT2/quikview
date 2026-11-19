@@ -9,6 +9,7 @@
 #include <QElapsedTimer>
 #include <QPair>
 #include <QPointer>
+#include <QSize>
 #include <QVariant>
 #include <QVector>
 
@@ -244,6 +245,13 @@ private:
     // 只对 m_fitWindowPending 标记的「启动打开 / 文件→打开」生效一次，
     // 翻页/拖放/换目录都不触发（避免每翻一页窗口跟着跳）。
     void fitWindowToImage();
+    // 锁定窗口大小（视图菜单勾选项，键 config/lock_window_size）：
+    //   开 → setFixedSize 钉住当前尺寸，窗口边缘不再出 resize 命中；关 → 解除。
+    //   互斥：开启时把「根据图片大小调节窗口大小」落盘为关（锁定优先）；
+    //   全屏优先：进全屏临时松绑，退出全屏按 m_lockSizeHint 锁回（不崩）。
+    void onToggleWindowSizeLock(bool on);
+    void applyWindowSizeLock();   // 只按配置落/解约束，不改配置、不弹 toast
+    void onToggleMaximize();      // 最大化/还原唯一入口（锁定时拦下）
     void setSlideshow(bool on);
     void applyCrop();
     void refreshLibraryMenus();
@@ -500,4 +508,9 @@ private:
     // 下一次全图就绪后做一次「按图调窗」（openFileFitting / 文件→打开 置位，
     // 见 fitWindowToImage()；翻页等其它打开路径不动它）
     bool m_fitWindowPending = false;
+    // 锁定窗口大小（config/lock_window_size）：m_windowSizeLocked = 当前确实挂着
+    // 固定尺寸约束（全屏期间为 false，全屏优先）；m_lockSizeHint = 要锁住的尺寸，
+    // 进全屏时保留，退出全屏按它锁回。
+    bool m_windowSizeLocked = false;
+    QSize m_lockSizeHint;
 };

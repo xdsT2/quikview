@@ -1588,6 +1588,26 @@
         <source>复制图像文件</source>
         <translation>Copy Image File</translation>
     </message>
+    <message>
+        <source>锁定窗口大小</source>
+        <translation>Lock window size</translation>
+    </message>
+    <message>
+        <source>窗口大小：锁定</source>
+        <translation>Window size: locked</translation>
+    </message>
+    <message>
+        <source>窗口大小：解锁</source>
+        <translation>Window size: unlocked</translation>
+    </message>
+    <message>
+        <source>已关闭「根据图片大小调节窗口大小」（与锁定窗口大小互斥）</source>
+        <translation>Turned off "Resize window to fit image" (mutually exclusive with lock window size)</translation>
+    </message>
+    <message>
+        <source>窗口大小已锁定，先解锁才能最大化</source>
+        <translation>Window size is locked — unlock it to maximize</translation>
+    </message>
 </context>
 <context>
     <name>MetadataPanel</name>

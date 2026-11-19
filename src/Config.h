@@ -105,6 +105,7 @@ public:
     // 关闭时目录列表与现状逐位一致）；键 config/group_show_raw —— 分组条目默认打开
     // 原始数据（RAW/PSD）而不是 JPG（默认关 = 显示 JPG，浏览更快）。
     bool fitWindowToImage() const;     // 打开图片时按图片尺寸调节窗口（默认 false，需用户开启）
+    bool lockWindowSize() const;       // 锁定窗口大小（键 config/lock_window_size，默认 false，持久化）
     bool pageturnWav() const;          // 翻页时播放音效（默认 false）
 
     // 排序（浏览菜单）：键 0名称/1修改时间/2大小/3类型 + 降序开关（默认升序）

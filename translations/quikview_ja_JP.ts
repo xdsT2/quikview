@@ -1588,6 +1588,26 @@
         <source>复制图像文件</source>
         <translation>画像ファイルをコピー</translation>
     </message>
+    <message>
+        <source>锁定窗口大小</source>
+        <translation>ウィンドウサイズを固定</translation>
+    </message>
+    <message>
+        <source>窗口大小：锁定</source>
+        <translation>ウィンドウサイズ：固定</translation>
+    </message>
+    <message>
+        <source>窗口大小：解锁</source>
+        <translation>ウィンドウサイズ：解除</translation>
+    </message>
+    <message>
+        <source>已关闭「根据图片大小调节窗口大小」（与锁定窗口大小互斥）</source>
+        <translation>「画像サイズに合わせてウィンドウサイズを調整」をオフにしました（ウィンドウサイズ固定と排他）</translation>
+    </message>
+    <message>
+        <source>窗口大小已锁定，先解锁才能最大化</source>
+        <translation>ウィンドウサイズが固定されています。最大化するには解除してください</translation>
+    </message>
 </context>
 <context>
     <name>MetadataPanel</name>

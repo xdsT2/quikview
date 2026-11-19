@@ -1588,6 +1588,26 @@
         <source>复制图像文件</source>
         <translation>Bilddatei kopieren</translation>
     </message>
+    <message>
+        <source>锁定窗口大小</source>
+        <translation>Fenstergröße sperren</translation>
+    </message>
+    <message>
+        <source>窗口大小：锁定</source>
+        <translation>Fenstergröße: gesperrt</translation>
+    </message>
+    <message>
+        <source>窗口大小：解锁</source>
+        <translation>Fenstergröße: entsperrt</translation>
+    </message>
+    <message>
+        <source>已关闭「根据图片大小调节窗口大小」（与锁定窗口大小互斥）</source>
+        <translation>„Fenstergröße an Bild anpassen“ deaktiviert (nicht mit gesperrter Fenstergröße kombinierbar)</translation>
+    </message>
+    <message>
+        <source>窗口大小已锁定，先解锁才能最大化</source>
+        <translation>Fenstergröße ist gesperrt – zum Maximieren erst entsperren</translation>
+    </message>
 </context>
 <context>
     <name>MetadataPanel</name>
