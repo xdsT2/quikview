@@ -213,7 +213,7 @@ private:
     mutable QRect m_filenameRect;
 };
 
-// ==================== 底部控制岛（54px 胶囊，浮于画布下缘 17px） ====================
+// ==================== 底部控制岛（44px 长矩形，浮于画布下缘 17px） ====================
 class ControlBar : public QWidget
 {
     Q_OBJECT
@@ -221,6 +221,8 @@ public:
     explicit ControlBar(QWidget *parent = nullptr);
 
     void setPage(int current, int total);
+    // 图片总览入口的选中态（总览打开时保持按下样式）。
+    void setOverviewActive(bool active);
     // 进度块（滑杆 + 页码）几何，ControlBar 局部坐标。连续翻页加载反馈用它
     // 把「正在打开第 N 张」锚到页码旁；胶囊隐藏时调用方自行回落画布底部。
     QRect progressRect() const;
@@ -250,6 +252,7 @@ public:
 signals:
     void openClicked();
     void listClicked();
+    void overviewClicked();
     void zoomInClicked();
     void zoomOutClicked();
     void zoomToggleClicked();   // 缩放胶囊：100% ↔ 适合窗口 循环切换
@@ -282,7 +285,7 @@ protected:
 
 private:
     enum class Action {
-        None, Open, List, ZoomOut, ZoomValue, ZoomIn,
+        None, Open, List, Overview, ZoomOut, ZoomValue, ZoomIn,
         Rotate, Fullscreen, Prev, PageSlider, PageValue, Next, Lock
     };
     struct Item {
@@ -309,6 +312,7 @@ private:
     int m_hover = -1;
     int m_press = -1;
     bool m_dragging = false;
+    bool m_overviewActive = false;
     QElapsedTimer m_previewClock;
     bool m_locked = false;
     bool m_weakened = false;

@@ -86,6 +86,7 @@
 #include "SettingsDialog.h"
 #include "Theme.h"
 #include "ThumbnailBrowser.h"
+#include "OverviewPanel.h"
 #include "Wallpaper.h"
 
 // 版本号由 CMakeLists 的 project(VERSION ...) 注入（见 QUIKVIEW_VERSION），
@@ -302,6 +303,14 @@ MainWindow::MainWindow(QWidget *parent)
     m_browser->hide();
     connect(m_browser, &ThumbnailBrowser::activateImage, this, &MainWindow::onActivateImage);
 
+    m_overview = new OverviewPanel(m_cache, this);
+    m_overview->hide();
+    connect(m_overview, &OverviewPanel::activated, this, [this](int index) {
+        closeOverview();
+        onActivateImage(index);
+    });
+    connect(m_overview, &OverviewPanel::escapePressed, this, &MainWindow::closeOverview);
+
     // PSD 图层：工具栏一级入口（仅 PSD 可见）+ 右侧浮层面板。
     m_layerPanel = new LayerPanel(this);
     m_layerPanel->hide();
@@ -331,7 +340,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_cache, &ImageCache::fullReady, this, &MainWindow::onFullReady);
     connect(m_cache, &ImageCache::loadFailed, this, &MainWindow::onLoadFailed);
 
-    // —— 铬件：38px 单行顶栏 + 54px 底部控制岛 ——
+    // —— 铬件：38px 单行顶栏 + 44px 底部控制岛 ——
     m_topBar = new Chrome::TopBar(this);
     m_topBar->setTitle(tr("未打开图片"));
     connect(m_topBar, &Chrome::TopBar::openClicked, this, &MainWindow::onOpen);
@@ -398,6 +407,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(m_control, &Chrome::ControlBar::openClicked, this, &MainWindow::onOpen);
     connect(m_control, &Chrome::ControlBar::listClicked, this, &MainWindow::toggleBrowserPanel);
+    connect(m_control, &Chrome::ControlBar::overviewClicked, this, &MainWindow::toggleOverview);
     connect(m_control, &Chrome::ControlBar::zoomInClicked, this, &MainWindow::onZoomIn);
     connect(m_control, &Chrome::ControlBar::zoomOutClicked, this, &MainWindow::onZoomOut);
     connect(m_control, &Chrome::ControlBar::zoomToggleClicked, this, &MainWindow::onZoomCapsuleToggle);
@@ -635,10 +645,16 @@ void MainWindow::applyChromeLayout()
         m_statusOverlay->setGeometry(x, y, w, h);
         m_statusOverlay->raise();
     }
+    if (m_overview) {
+        // 总览铺满客户区；顶栏与底栏随后再抬到它上面（保持可操作）。
+        m_overview->setGeometry(x, y, w, h);
+        if (m_overview->isVisible())
+            m_overview->raise();
+    }
     if (m_control) {
-        // 控件高 64 = 54 胶囊 + 10 内绘阴影；胶囊底边距画布底 17px。
+        // 控件高 54 = 44 外壳 + 10 内绘阴影；外壳底边距画布底 17px。
         m_control->setAvailableWidth(w);
-        m_control->move(x + (w - m_control->width()) / 2, y + h - 71);
+        m_control->move(x + (w - m_control->width()) / 2, y + h - 61);
         m_control->raise();
     }
     if (m_toast) {
@@ -705,6 +721,88 @@ void MainWindow::toggleBrowserPanel()
         return;
     }
     m_browser->setExpanded(!m_browser->isExpanded());
+}
+
+// 图片总览（2026-11-19 定稿）：网格选中、双击 / Enter 打开、Esc 返回。
+void MainWindow::toggleOverview()
+{
+    if (!m_overview) {
+        return;
+    }
+    if (m_overview->isVisible()) {
+        closeOverview();
+        return;
+    }
+    const bool hasDir = m_dir && m_dir->isValid();
+    const QStringList files = hasDir ? m_dir->files() : QStringList();
+    if (files.isEmpty()) {
+        if (m_toast) {
+            m_toast->showMessage(tr("当前没有可浏览的图片"));
+        }
+        return;
+    }
+    if (m_browser && m_browser->isExpanded()) {
+        m_browser->setExpanded(false);
+    }
+    m_overviewStatusWasVisible = m_statusOverlay && m_statusOverlay->isVisible();
+    m_overview->setFiles(files, hasDir ? m_dir->index() : -1);
+    m_overview->show();
+    m_overview->raise();
+    m_overview->revealCurrent();
+    m_overview->setFocus(Qt::OtherFocusReason);
+    if (m_control) {
+        m_control->setOverviewActive(true);
+    }
+    if (m_statusOverlay) {
+        m_statusOverlay->hide();
+    }
+    // 总览接管键盘：临时停用主窗口带快捷键的动作，避免 ←/→/Enter 改图或弹窗。
+    muteShortcutsForOverview(true);
+    setDockVisible(true, false);
+    m_dockPhase = ChromePhase::Visible;
+    m_dockHideTimer->stop();
+    applyChromeLayout();
+}
+
+void MainWindow::closeOverview()
+{
+    if (!m_overview || !m_overview->isVisible()) {
+        return;
+    }
+    m_overview->hide();
+    if (m_control) {
+        m_control->setOverviewActive(false);
+    }
+    muteShortcutsForOverview(false);
+    if (m_statusOverlay) {
+        m_statusOverlay->setVisible(m_overviewStatusWasVisible);
+        m_statusOverlay->raise();
+    }
+    if (m_canvas) {
+        m_canvas->setFocus(Qt::OtherFocusReason);
+    }
+    applyChromeLayout();
+}
+
+void MainWindow::muteShortcutsForOverview(bool mute)
+{
+    if (mute) {
+        m_overviewMutedActions.clear();
+        const auto actions = findChildren<QAction *>();
+        for (QAction *a : actions) {
+            if (a && !a->shortcut().isEmpty() && a->isEnabled()) {
+                a->setEnabled(false);
+                m_overviewMutedActions.append(a);
+            }
+        }
+    } else {
+        for (QAction *a : m_overviewMutedActions) {
+            if (a) {
+                a->setEnabled(true);
+            }
+        }
+        m_overviewMutedActions.clear();
+    }
 }
 
 void MainWindow::setTopChromeVisible(bool visible, bool animate)
@@ -898,6 +996,15 @@ void MainWindow::updateDockProximity()
         return;
     }
     if (m_dockLocked) {
+        m_dockHideTimer->stop();
+        if (m_dockPhase != ChromePhase::Visible && m_dockPhase != ChromePhase::Showing) {
+            setDockVisible(true, false);
+            m_dockPhase = ChromePhase::Visible;
+        }
+        return;
+    }
+    // 图片总览打开时底栏常显：总览入口需要可再次点击/Esc 之外的可视出口。
+    if (m_overview && m_overview->isVisible()) {
         m_dockHideTimer->stop();
         if (m_dockPhase != ChromePhase::Visible && m_dockPhase != ChromePhase::Showing) {
             setDockVisible(true, false);
@@ -2590,6 +2697,9 @@ void MainWindow::openFile(const QString &path)
         const bool ok = m_dir->applyIndex(idx);
         PerfProbe::mark(PerfProbe::currentSeq(), "index-ready", "");
         m_browser->setFiles(m_dir->files(), m_dir->index());
+        if (m_overview) {
+            m_overview->setFiles(m_dir->files(), m_dir->index());
+        }
         PerfProbe::mark(PerfProbe::currentSeq(), "filmstrip-set", "");
         if (ok) {
             // 首图可能先于索引上屏：此时按路径校正它的页码与缩略图选中项。
@@ -2598,6 +2708,9 @@ void MainWindow::openFile(const QString &path)
                 m_displayedIndex = shown;
                 m_control->setPage(shown + 1, m_dir->count());
                 m_browser->setCurrent(shown);
+                if (m_overview) {
+                    m_overview->setCurrent(shown);
+                }
             }
             preloadNeighbors();
         } else {
@@ -3127,6 +3240,9 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     // 信息浮层宽度随元数据自适应，换图后重排一次几何
     applyChromeLayout();
     m_browser->setCurrent(m_displayedIndex);
+    if (m_overview) {
+        m_overview->setCurrent(m_displayedIndex);
+    }
     setWindowTitle(QFileInfo(path).fileName() + QStringLiteral(" - QuikView"));
     m_topBar->setTitle(QFileInfo(path).fileName());
     m_frames->open(path);
@@ -3511,6 +3627,27 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     else if (c == QLatin1String("sortdesc"))   actSortDesc->toggle();
     else if (c == QLatin1String("browser")) {
         toggleBrowserPanel();
+    }
+    // overview / ovselect:N / ovopen / ovesc —— 图片总览验收探针。
+    else if (c == QLatin1String("overview")) {
+        toggleOverview();
+    }
+    else if (c.startsWith(QLatin1String("ovselect:")) && m_overview) {
+        const int index = c.mid(9).toInt();
+        if (index >= 0 && index < (m_dir ? m_dir->count() : 0)) {
+            m_overview->setCurrent(index);
+            if (m_control) m_control->setPage(index + 1, m_dir->count());
+        }
+    }
+    else if (c == QLatin1String("ovopen") && m_overview && m_overview->isVisible()) {
+        const int index = m_overview->currentIndex();
+        if (index >= 0) {
+            closeOverview();
+            onActivateImage(index);
+        }
+    }
+    else if (c == QLatin1String("ovesc")) {
+        closeOverview();
     }
     else if (c == QLatin1String("filmright")) {
         QKeyEvent event(QEvent::KeyPress, Qt::Key_Right, Qt::NoModifier);
@@ -4970,6 +5107,9 @@ void MainWindow::onSort(int mode)
     }
     if (m_dir->open(m_currentPath)) {
         m_browser->setFiles(m_dir->files(), m_dir->index());
+        if (m_overview) {
+            m_overview->setFiles(m_dir->files(), m_dir->index());
+        }
         jumpTo(m_currentPath);
     }
 }
@@ -4983,6 +5123,9 @@ void MainWindow::onSortDescending(bool on)
     }
     if (m_dir->open(m_currentPath)) {
         m_browser->setFiles(m_dir->files(), m_dir->index());
+        if (m_overview) {
+            m_overview->setFiles(m_dir->files(), m_dir->index());
+        }
         jumpTo(m_currentPath);
     }
 }
@@ -5798,6 +5941,10 @@ void MainWindow::onDeleteFile()
         m_canvas->clear();
         updateCanvasLogo();
         m_browser->setFiles({}, -1);
+        if (m_overview) {
+            closeOverview();
+            m_overview->setFiles({}, -1);
+        }
         setWindowTitle(QStringLiteral("QuikView"));
         m_topBar->setTitle(tr("未打开图片"));
         m_toast->showMessage(tr("已删除"));

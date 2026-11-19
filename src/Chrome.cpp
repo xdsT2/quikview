@@ -605,7 +605,8 @@ QPixmap skinFrame(const QString &name, int idx)
 namespace {
 
 constexpr int kTopH = 38;
-constexpr int kTopBtn = 36;
+// 2026-11-19 定稿：功能按钮底板与点击区 30×30、圆角 8、图标 18×18。
+constexpr int kTopBtn = 30;
 constexpr int kTopWinBtn = 46;
 constexpr int kTopMargin = 6;
 constexpr int kTopLogoW = 22;
@@ -615,7 +616,7 @@ int topTextWidth(const QString &text)
     return QFontMetrics(uiFont(12)).horizontalAdvance(text);
 }
 
-// 图标+文字按钮的自然宽度；纯图标固定 36。
+// 图标+文字按钮的自然宽度；纯图标固定 30（定稿 30×30）。
 // 文字态：左内边距 10 + 图标 18 + 图标文字间距 8 + 文字 + 右内边距 10。
 int topButtonWidth(const QString &label, bool withLabel)
 {
@@ -639,13 +640,8 @@ QString topActionLabel(int id)
     return QString();
 }
 
-// 圆形反馈：36×36 命中区里画 32×32 的圆，四角仍可点。
-QRectF circleVisual(const QRect &hit, int diameter = 32)
-{
-    return QRectF(hit.center().x() - diameter / 2.0 + 0.5,
-                  hit.center().y() - diameter / 2.0 + 0.5,
-                  diameter, diameter);
-}
+// 圆形反馈已不再用于顶栏/底栏按钮（定稿统一圆角矩形）；保留工具函数会触发
+// 未使用告警，故移除。
 
 } // namespace
 
@@ -761,7 +757,7 @@ QVector<TopBar::Btn> TopBar::buttons() const
         int required = 0;
     };
 
-    // 文字按钮之间 4px，纯图标按钮之间 2px（36 命中区几乎相邻）。
+    // 文字按钮之间 4px，纯图标按钮之间 2px（30 命中区几乎相邻）。
     auto gapFor = [](bool labeled) { return labeled ? 4 : 2; };
 
     auto makePlan = [&](int stage) {
@@ -1057,7 +1053,7 @@ void TopBar::paintEvent(QPaintEvent *)
         ButtonPalette pal;
         pal.ink = ink;
         // 顶栏按钮反馈底统一 8px 圆角矩形（Fluent 图标统一审图修订 2026-11-18）。
-        // 命中区仍是 kTopBtn(36)×kTopBtn(36)，只改反馈底视觉，不改 hitTest/布局/图标。
+        // 命中区是定稿的 kTopBtn(30)×kTopBtn(30)，只改视觉，不改按钮顺序与功能。
         pal.radius = 8;
         pal.hover = QColor(QString::fromLatin1(UiStyle::pick("#35373b", "#e7e9eb")));
         pal.press = QColor(QString::fromLatin1(UiStyle::pick("#292b2f", "#dcdfe2")));
@@ -1391,27 +1387,27 @@ void TopBar::keyReleaseEvent(QKeyEvent *e)
 }
 
 // ===========================================================================
-// 底部控制岛（54px 胶囊）
+// 底部控制岛（2026-11-19 定稿：596×44 外壳、14px 圆角长矩形）
 // ===========================================================================
 
 namespace {
 
-constexpr int kIslandH = 54;
-constexpr int kIslandWidgetH = 64;
-constexpr int kIslandPadX = 10;
-constexpr int kIslandBtn = 34;      // 普通按钮热区（含锁定）
-constexpr int kIslandNavBtn = 36;   // 上一张/下一张热区
+constexpr int kIslandH = 44;
+constexpr int kIslandWidgetH = 54;   // 44 外壳 + 10 内绘阴影
+constexpr int kIslandPadX = 10;      // 左右端内边距（垂直内边距 7 = 44-30 除以 2）
+constexpr int kIslandBtn = 30;       // 按钮底板与点击区（含锁定）
+constexpr int kIslandNavBtn = 30;    // 上一张/下一张
 constexpr int kIslandY = (kIslandH - kIslandBtn) / 2;
-constexpr int kIslandInnerGap = 4;
-constexpr int kIslandGroupGap = 8;
-constexpr int kIslandTrackWide = 168;     // 宽窗轨道上限
-constexpr int kIslandTrackStandard = 150; // 标准轨道（取代 188 长轨道）
-constexpr int kIslandTrackNarrow = 119;
-constexpr int kZoomCapsuleW = 72;   // 缩放胶囊：点击在 100% / 适合窗口 间切换
-constexpr int kZoomCapsuleH = 32;   // 高 32 → 圆角取一半，两端为完整半圆
-constexpr int kPageValueW = 44;
-constexpr int kProgressPadX = 10;    // 进度块左右内边距
-constexpr int kProgressInnerGap = 8; // 滑杆与页码之间
+constexpr int kIslandInnerGap = 3;
+constexpr int kIslandGroupGap = 3;
+constexpr int kIslandTrackWide = 120;      // 定稿滑条宽 120
+constexpr int kIslandTrackCompact = 104;   // 窄一档
+constexpr int kIslandTrackNarrow = 88;
+constexpr int kZoomCapsuleW = 52;   // 缩放胶囊：点击在 100% / 适合窗口 间切换
+constexpr int kZoomCapsuleH = 30;   // 与按钮同高，8px 圆角（不再是全圆胶囊）
+constexpr int kPageValueW = 41;
+constexpr int kProgressPadX = 7;     // 进度区左右呼吸位（定稿无内嵌底）
+constexpr int kProgressInnerGap = 6; // 滑杆与页码之间
 
 } // namespace
 
@@ -1459,6 +1455,15 @@ void ControlBar::setLocked(bool locked)
     if (!list.isEmpty()) {
         m_feedback->setChecked(list.size() - 1, locked);
     }
+    update();
+}
+
+void ControlBar::setOverviewActive(bool active)
+{
+    if (m_overviewActive == active) {
+        return;
+    }
+    m_overviewActive = active;
     update();
 }
 
@@ -1511,13 +1516,14 @@ bool ControlBar::keepVisible() const
 
 // 档位阈值按「该档整条岛的自然宽度 + 左右各 24px 呼吸位」定，
 // 这样不会出现「岛比可用宽度还宽」的挤出，也不会过早收掉低频项。
+// 596 定稿后整岛 596 宽；窄窗沿用原有收缩顺序。
 ControlBar::Tier ControlBar::tier() const
 {
-    if (m_availableWidth >= 736) return Tier::Full;      // 全组 + 150 轨道 ≈ 688（宽窗 168 → ≈ 706）
-    if (m_availableWidth >= 705) return Tier::Compact;   // 全组 + 119 轨道 ≈ 657
-    if (m_availableWidth >= 625) return Tier::Narrow;    // 收旋转/全屏 ≈ 577
-    if (m_availableWidth >= 545) return Tier::Minimal;   // 再收打开/缩略图 ≈ 497
-    return Tier::Tiny;                                   // 再收缩放加减 ≈ 425
+    if (m_availableWidth >= 637) return Tier::Full;      // 全组 + 120 滑条
+    if (m_availableWidth >= 600) return Tier::Compact;   // 全组 + 104 滑条
+    if (m_availableWidth >= 536) return Tier::Narrow;    // 收旋转/全屏
+    if (m_availableWidth >= 455) return Tier::Minimal;   // 再收打开/缩略图/总览
+    return Tier::Tiny;                                   // 再收缩放加减
 }
 
 bool ControlBar::showGroup1() const
@@ -1549,10 +1555,12 @@ void ControlBar::setAvailableWidth(int width)
 
 void ControlBar::recomputeWidth()
 {
-    // 滑杆三档响应：宽窗 168 / 标准 150 / 窄窗 119（胶囊与按钮不参与收窄）。
+    // 滑条三档响应（定稿全宽 120）：Full 120 / Compact·Narrow 104 / 更窄 88。
     m_trackWidth = (tier() == Tier::Full)
-                       ? (m_availableWidth >= 754 ? kIslandTrackWide : kIslandTrackStandard)
-                       : kIslandTrackNarrow;
+                       ? kIslandTrackWide
+                       : (tier() == Tier::Compact || tier() == Tier::Narrow
+                              ? kIslandTrackCompact
+                              : kIslandTrackNarrow);
     QVector<Item> list = items();
     int width = list.isEmpty() ? 240 : list.last().rect.right() + 1 + kIslandPadX;
     // 极窄窗：先缩短轨道，保留翻页热区、页码与倍率。
@@ -1584,6 +1592,9 @@ QVector<ControlBar::Item> ControlBar::items() const
         place(Action::Open, kIslandBtn);
         x += kIslandInnerGap;
         place(Action::List, kIslandBtn);
+        x += kIslandInnerGap;
+        // 图片总览入口紧挨缩略图条入口（2026-11-19 定稿）。
+        place(Action::Overview, kIslandBtn);
         x += kIslandGroupGap;
     }
 
@@ -1686,6 +1697,7 @@ QString ControlBar::tipText(Action action) const
     switch (action) {
     case Action::Open: return tr("打开");
     case Action::List: return tr("缩略图栏");
+    case Action::Overview: return tr("图片总览");
     case Action::ZoomOut: return tr("缩小");
     case Action::ZoomValue:
         // 提示跟着下一步操作走：100% 时点它去适合窗口，其余状态都先回原始尺寸。
@@ -1730,8 +1742,8 @@ void ControlBar::paintEvent(QPaintEvent *)
     const QRectF capsule(0.5, 0.5, width() - 1.0, kIslandH - 1.0);
 
     // 底栏外壳：14px 圆角长矩形（Fluent 图标统一审图修订 2026-11-18）。
-    // 外壳高 kIslandH=54，四角 14px 圆角 → 两端各留 54-2*14=26px 直边，
-    // 正是审图「816×54、14px 圆角、两端直边 26px」；不再是 27px 全胶囊。
+    // 定稿 596×44：四角 14px 圆角 → 两端各留 44-2*14=16px 直边；
+    // 进度条与页码直接落在外壳上，不再套内嵌底（2026-11-19 定稿）。
     constexpr qreal kShellRadius = 14.0;
     // 软阴影：三层跟随外壳圆角，越远越淡（不依赖系统阴影，截图可复现）。
     p.setPen(Qt::NoPen);
@@ -1748,13 +1760,7 @@ void ControlBar::paintEvent(QPaintEvent *)
                                   : QColor(31, 32, 35, 227));
     p.drawRoundedRect(capsule, kShellRadius, kShellRadius);
 
-    // 进度块：比胶囊略深的嵌入式圆角底（滑杆 + 页码同区）。
-    const QRect prog = progressRect();
-    if (!prog.isNull()) {
-        p.setPen(Qt::NoPen);
-        p.setBrush(UiStyle::isLight() ? QColor(0, 0, 0, 20) : QColor(0, 0, 0, 48));
-        p.drawRoundedRect(QRectF(prog).adjusted(0.5, 0.5, -0.5, -0.5), 17, 17);
-    }
+    // 进度条与页码直接落在外壳上（定稿无内嵌底）。
 
     const QVector<Item> list = items();
     const QColor ink = QColor(QString::fromLatin1(UiStyle::pick("#d7d9dc", "#26282a")));
@@ -1817,7 +1823,8 @@ void ControlBar::paintEvent(QPaintEvent *)
                 bg = blendColor(bg, down, v.press);
             }
             const QRectF cap(r);
-            const qreal capRadius = kZoomCapsuleH / 2.0;
+            // 定稿：缩放值胶囊与按钮同为 8px 圆角矩形（不再是全圆胶囊）。
+            constexpr qreal capRadius = 8.0;
             p.setPen(Qt::NoPen);
             p.setBrush(bg);
             p.drawRoundedRect(cap.adjusted(0.5, 0.5, -0.5, -0.5), capRadius, capRadius);
@@ -1855,10 +1862,12 @@ void ControlBar::paintEvent(QPaintEvent *)
         st.hover = (m_hover == i);
         st.pressed = (m_press == i);
         st.focus = (m_keyboardFocus && m_focus == i);
-        st.checked = (it.action == Action::Lock && m_locked);
+        st.checked = (it.action == Action::Lock && m_locked)
+                     || (it.action == Action::Overview && m_overviewActive);
 
         ButtonPalette pal;
-        pal.radius = 17;
+        // 定稿：按钮底板 30×30、圆角 7。
+        pal.radius = 7;
         pal.hover = QColor(QString::fromLatin1(UiStyle::pick("#35373b", "#e7e9eb")));
         pal.press = QColor(QString::fromLatin1(UiStyle::pick("#292b2f", "#dcdfe2")));
         pal.ink = ink;
@@ -1869,17 +1878,16 @@ void ControlBar::paintEvent(QPaintEvent *)
         const QPointF center = r.center();
 
         if (it.action == Action::Lock) {
-            // 锁定态交叉淡化：透明底（开）↔ 蓝圆底+深锁（锁）两层按 checked 插值
-            // 叠画；底色与锁图标同步 120ms 过渡，不做位移或缩放。蓝圆底与顶栏
-            // 透明底明确区分。
+            // 锁定态交叉淡化：透明底（开）↔ 蓝底圆角矩形 + 白锁（锁）两层按
+            // checked 插值叠画；与顶栏的透明底锁明确区分。
             const qreal chk = v.checked;
-            const qreal lockS = 20.0 * (1.0 - 0.02 * v.press);
+            const qreal lockS = 18.0 * (1.0 - 0.02 * v.press);
             if (chk < 0.999) {
                 p.save();
                 p.setOpacity(p.opacity() * (1.0 - chk));
                 BtnState stU = st;
                 stU.checked = false;
-                beginButton(p, circleVisual(r), stU, v, pal);
+                beginButton(p, QRectF(r), stU, v, pal);
                 drawIcon(p, "lock-open",
                          QRectF(center.x() - lockS / 2, center.y() - lockS / 2, lockS, lockS),
                          buttonInk(stU, pal));
@@ -1889,39 +1897,40 @@ void ControlBar::paintEvent(QPaintEvent *)
             if (chk > 0.001) {
                 p.save();
                 p.setOpacity(p.opacity() * chk);
-                const QRectF vr = circleVisual(r);
                 p.setPen(Qt::NoPen);
                 QColor blue(QStringLiteral("#1688f8"));
                 if (st.hover || st.pressed) {
                     blue = blue.lighter(112);
                 }
                 p.setBrush(blue);
-                p.drawEllipse(vr);
+                p.drawRoundedRect(QRectF(r).adjusted(0.5, 0.5, -0.5, -0.5), 7, 7);
                 drawIcon(p, "lock-closed",
                          QRectF(center.x() - lockS / 2, center.y() - lockS / 2, lockS, lockS),
-                         QColor(QStringLiteral("#0b1a24")), AppIcon::Style::Filled);
+                         QColor(Qt::white), AppIcon::Style::Filled);
                 p.restore();
             }
             continue;
         }
 
-        beginButton(p, circleVisual(r), st, v, pal);
+        beginButton(p, QRectF(r), st, v, pal);
         const QColor drawInk = buttonInk(st, pal);
-        // 按下时图标轻微缩至 98%（不放大、不上浮；松开 100ms 恢复）。
-        const qreal iconS = 20.0 * (1.0 - 0.02 * v.press);
-        const qreal navS = 21.0 * (1.0 - 0.02 * v.press);
+        // 定稿：底栏图标 18×18；按下时轻微缩至 98%（不放大、不上浮）。
+        const qreal iconS = 18.0 * (1.0 - 0.02 * v.press);
         const QRectF icon(center.x() - iconS / 2, center.y() - iconS / 2, iconS, iconS);
-        const QRectF navIcon(center.x() - navS / 2, center.y() - navS / 2, navS, navS);
 
         switch (it.action) {
         case Action::Open: drawIcon(p, "folder-open", icon, drawInk); break;
         case Action::List: drawIcon(p, "list", icon, drawInk); break;
+        case Action::Overview:
+            drawIcon(p, "apps", icon, drawInk,
+                     m_overviewActive ? AppIcon::Style::Filled : AppIcon::Style::Regular);
+            break;
         case Action::ZoomOut: drawIcon(p, "subtract", icon, drawInk); break;
         case Action::ZoomIn: drawIcon(p, "add", icon, drawInk); break;
         case Action::Rotate: drawIcon(p, "arrow-rotate-counterclockwise", icon, drawInk); break;
         case Action::Fullscreen: drawIcon(p, "full-screen-maximize", icon, drawInk); break;
-        case Action::Prev: drawIcon(p, "chevron-left", navIcon, drawInk); break;
-        case Action::Next: drawIcon(p, "chevron-right", navIcon, drawInk); break;
+        case Action::Prev: drawIcon(p, "chevron-left", icon, drawInk); break;
+        case Action::Next: drawIcon(p, "chevron-right", icon, drawInk); break;
         case Action::Lock: drawIcon(p, "lock-open", icon, drawInk); break;
         default: break;
         }
@@ -1934,6 +1943,7 @@ void ControlBar::activate(Action action, Qt::MouseButton button)
     switch (action) {
     case Action::Open: emit openClicked(); break;
     case Action::List: emit listClicked(); break;
+    case Action::Overview: emit overviewClicked(); break;
     case Action::ZoomIn: emit zoomInClicked(); break;
     case Action::ZoomOut: emit zoomOutClicked(); break;
     case Action::ZoomValue: emit zoomToggleClicked(); break;

@@ -22,6 +22,7 @@ class SettingsDialog;
 class MetadataPanel;
 class LayerPanel;
 class ThumbnailBrowser;
+class OverviewPanel;
 class FrameNavigator;
 class QAction;
 class QCloseEvent;
@@ -250,6 +251,9 @@ private:
     void applyChromeLayout();
     void updateCanvasInsets();               // 缩略图栏展开时让出左侧可视区
     void toggleBrowserPanel();
+    void toggleOverview();                   // 图片总览：网格选择 / 双击或 Enter 打开
+    void closeOverview();
+    void muteShortcutsForOverview(bool mute);
     void rotateImage(int degrees);           // 原地旋转（保持缩放与视图中心）
     void resetGeometry();                    // 不旋转：清空旋转/翻转，回到源图
     void rebuildFromSource(const QPointF &anchor);   // 从源图重算净几何变换
@@ -361,6 +365,9 @@ private:
     DirectoryLoader *m_dir = nullptr;
     MetadataPanel *m_metadata = nullptr;
     ThumbnailBrowser *m_browser = nullptr;
+    OverviewPanel *m_overview = nullptr;
+    bool m_overviewStatusWasVisible = false;
+    QVector<QAction *> m_overviewMutedActions;   // 总览打开期间临时停用的快捷键动作
     // —— PSD 图层（仅当前文件的会话内临时状态，不写回源文件）——
     LayerPanel *m_layerPanel = nullptr;
     PsdDocument m_psdDoc;

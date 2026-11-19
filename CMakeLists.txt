@@ -75,6 +75,8 @@ add_executable(quikview WIN32
     src/GammaDialog.h
     src/ThumbnailBrowser.cpp
     src/ThumbnailBrowser.h
+    src/OverviewPanel.cpp
+    src/OverviewPanel.h
     src/FrameNavigator.cpp
     src/FrameNavigator.h
     src/Theme.h
