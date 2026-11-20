@@ -49,12 +49,14 @@ public:
     // 原版「拉伸小图像」：关（默认）时小于窗口的图保持 100% 不放大
     void setStretchSmall(bool on);
     bool stretchSmall() const { return m_stretchSmall; }
-    void setWheelZoomEnabled(bool on) { m_wheelZoom = on; }
+    // 滚轮上下 / 中键单击与拖动已独立映射（翻页批次 2）：画布在事件里现读
+    // Config::wheelUpAction / wheelDownAction / middleClickAction / middleDragAction，
+    // 设置改动下次触发即生效，不再需要运行态 setter。
+
     // 「图片大于窗口时显示图片顶部」（键 imageproc/align_top_when_large，默认开）：
     // 适合宽度 / 原始大小两种模式下图片高度超出视口时，开=滚到顶，关=垂直居中。
     // 适合窗口模式图片恒不超出视口，该开关在那条路径上无可观测差异。
     void setAlignTopWhenLarge(bool on) { m_alignTopWhenLarge = on; }
-    void setMiddlePanEnabled(bool on) { m_middlePan = on; }
     // 双击最大化/还原开关（设置页「双击最大化 / 还原」）：开启时边缘单击翻页
     // 延迟 220ms 等第二击，收到双击就取消翻页只做最大化；关闭时边缘单击零延迟。
     void setDoubleClickMaximizeEnabled(bool on) { m_dblClickMaximize = on; }
@@ -129,8 +131,8 @@ signals:
     // 复用 config/edge_action，不在这里另写一套。
     void edgeTurnRequested(int delta);
     // 中键「点击」（位移 <3px、按压 <300ms，与左侧箭头带同一套阈值）：
-    // 请求切换全屏/还原。按住拖动仍是平移，不走这个信号。
-    void middleClickRequested();
+    // 派发 config/mouse/btn_middle_click 映射的动作（默认 fullscreen）。
+    // 按住拖动由 btn_middle_drag 独立控制（默认 pan），不走点击派发。
     // 左键双击（开启双击最大化时）：请求窗口最大化/还原。边缘双击会先取消
     // 220ms 内挂起的单击翻页（见 mouseReleaseEvent / mouseDoubleClickEvent）。
     void doubleClickRequested();
@@ -223,8 +225,6 @@ private:
     bool m_fitWidth = false;
     bool m_cropMode = false;
     bool m_smooth = true;
-    bool m_wheelZoom = true;
-    bool m_middlePan = true;
     bool m_stretchSmall = false;
     bool m_alignTopWhenLarge = true;   // 图片大于窗口时显示图片顶部（默认开）
     bool m_resizeBurst = false;  // 窗口边界拖动进行中（resizeEvent 置位，收尾定时器复位）

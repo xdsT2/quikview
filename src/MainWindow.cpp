@@ -462,9 +462,9 @@ MainWindow::MainWindow(QWidget *parent)
         }
     });
 
-    // 中键单击（位移 <3px 且 <300ms）= 全屏/还原；按住拖动仍由画布平移处理
-    connect(m_canvas, &ImageCanvas::middleClickRequested,
-            this, &MainWindow::toggleFullscreen);
+    // 中键单击（位移 <3px 且 <300ms）：派发 btn_middle_click 映射的动作
+    // （默认全屏切换），与左键/右键/X/Y 共用 mouseActionRequested 派发器；
+    // 按住拖动由 btn_middle_drag 独立控制（翻页批次 2）。
 
     // 左键双击（设置「双击最大化 / 还原」开启时）= 窗口最大化/还原。
     // 侧边翻页区域优先处理点击，画布其余区域仍支持双击最大化。
@@ -2571,8 +2571,8 @@ void MainWindow::applyRuntimeSettings()
     m_canvas->setStretchSmall(cfg.stretchSmall());
     m_zoomLocked = Config::instance().settings()
                        .value(QStringLiteral("config/zoom_fix"), false).toBool();
-    m_canvas->setWheelZoomEnabled(cfg.wheelZoom());
-    m_canvas->setMiddlePanEnabled(cfg.middlePan());
+    // 滚轮上下 / 中键单击与拖动：画布在事件里现读 Config 四个映射键
+    // （翻页批次 2），设置改动下次触发即生效，无需运行态下发。
     // 图片大于窗口时显示图片顶部（键 "config/imageproc/align_top_when_large"）
     m_canvas->setAlignTopWhenLarge(cfg.alignTopWhenLarge());
     // 缩放百分比浮标（键 "config/view/show_zoom_control"）：关掉时把已经在淡出

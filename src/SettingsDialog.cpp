@@ -3659,36 +3659,39 @@ void SettingsDialog::buildMousePage(QWidget *page)
 
     sec = beginSection(page, tr("按键映射"));
 
-    // configurable：该行是否真有消费点。中键与滚轮的「平移/缩放」经
-    // onAccepted 桥接写回 config/middle_pan、config/wheel_zoom 生效；
-    // 左右/X/Y 键由 ImageCanvas 判定点击后发 mouseActionRequested → 
-    // MainWindow::onMouseAction 派发，none 保留内置行为（右键菜单等）。
+    // 翻页批次 2（2026-11-20）：按键与手势独立映射。中键拆成「单击 / 拖动」
+    // 两行，滚轮上下各自一行、单向「无」只停用该方向。左/右/X/Y 键由
+    // ImageCanvas 判定后发 mouseActionRequested → MainWindow::onMouseAction
+    // 派发；中键单击与滚轮翻页走同一派发器；none 保留内置行为（左键拖拽、
+    // 右键菜单等）。支持矩阵外的档位灰显并说明原因，不做假开关。
     struct BtnDef { const char *key; const char *label; const char *def; bool configurable; };
     static const BtnDef btns[] = {
-        { "mouse/btn_left",   QT_TR_NOOP("鼠标左键"),  "none",     true  },
-        { "mouse/btn_middle", QT_TR_NOOP("鼠标中键"),  "pan",      true  },
-        { "mouse/btn_right",  QT_TR_NOOP("鼠标右键"),  "none",     true  },
-        { "mouse/btn_x",      QT_TR_NOOP("X 键"),      "none",     true  },
-        { "mouse/btn_y",      QT_TR_NOOP("Y 键"),      "none",     true  },
-        { "mouse/wheel_up",   QT_TR_NOOP("滚轮向上"),  "zoom_in",  true  },
-        { "mouse/wheel_down", QT_TR_NOOP("滚轮向下"),  "zoom_out", true  },
+        { "mouse/btn_left",         QT_TR_NOOP("鼠标左键"),   "none",       true },
+        { "mouse/btn_middle_click", QT_TR_NOOP("中键单击"),   "fullscreen", true },
+        { "mouse/btn_middle_drag",  QT_TR_NOOP("中键拖动"),   "pan",        true },
+        { "mouse/btn_right",        QT_TR_NOOP("鼠标右键"),   "none",       true },
+        { "mouse/btn_x",            QT_TR_NOOP("X 键"),       "none",       true },
+        { "mouse/btn_y",            QT_TR_NOOP("Y 键"),       "none",       true },
+        { "mouse/wheel_up",         QT_TR_NOOP("滚轮向上"),   "zoom_in",    true },
+        { "mouse/wheel_down",       QT_TR_NOOP("滚轮向下"),   "zoom_out",   true },
     };
 
     const auto opts = actionOptions();
-    for (int i = 0; i < 7; ++i) {
+    for (int i = 0; i < 8; ++i) {
         const BtnDef &b = btns[i];
         SettingRowParts parts = addSettingRow(sec, tr(b.label), QString());
         auto *combo = new QComboBox(parts.row);
         for (const auto &opt : opts)
             combo->addItem(opt.second, opt.first);
-        // 档位诚实化（SET-04 阶段 C）：右键 / X / Y 没有 "pan" 的
-        // onMouseAction 分支，拖拽平移只对左键内置拖拽有效，因此把该档灰显，
-        // 不写成「选了就生效」。其余 17 个动作都走同一个派发器。
         const QString key = QString::fromUtf8(b.key);
-        const bool panFake = (key == QLatin1String("mouse/btn_right")
-                              || key == QLatin1String("mouse/btn_x")
-                              || key == QLatin1String("mouse/btn_y"));
-        if (panFake) {
+        // 支持矩阵：右键 / X / Y 没有拖拽平移实现（按下即派发，无拖动阶段）；
+        // 中键单击是点击手势，pan 灰显；中键拖动只支持 none/pan；
+        // 滚轮支持 无/放大/缩小/翻下一张/翻上一张（连滚即连翻）。
+        QStringList allowed;
+        QString denyTip;
+        if (key == QLatin1String("mouse/btn_right")
+            || key == QLatin1String("mouse/btn_x")
+            || key == QLatin1String("mouse/btn_y")) {
             for (int j = 0; j < opts.size(); ++j) {
                 if (opts[j].first == QLatin1String("pan")) {
                     if (auto *model = qobject_cast<QStandardItemModel *>(combo->model())) {
@@ -3701,21 +3704,29 @@ void SettingsDialog::buildMousePage(QWidget *page)
                     }
                 }
             }
-        }
-        // 中键 / 滚轮的真实桥接档位（SET-04 批次 8）：中键只写 config/middle_pan
-        // （拖拽平移 / 无），滚轮只写 config/wheel_zoom（上=放大、下=缩小；任一
-        // 为「无」即关闭滚轮缩放）。其余档位没有运行时消费点 → 灰显并提示。
-        QStringList allowed;
-        QString denyTip;
-        if (key == QLatin1String("mouse/btn_middle")) {
+        } else if (key == QLatin1String("mouse/btn_middle_click")) {
+            for (int j = 0; j < opts.size(); ++j) {
+                if (opts[j].first == QLatin1String("pan")) {
+                    if (auto *model = qobject_cast<QStandardItemModel *>(combo->model())) {
+                        if (auto *item = model->item(j)) {
+                            const QString why = tr("单击手势不支持拖拽平移；拖动请在「中键拖动」单独设置");
+                            item->setEnabled(false);
+                            item->setToolTip(why);
+                            item->setData(why, Qt::UserRole + 1);
+                        }
+                    }
+                }
+            }
+        } else if (key == QLatin1String("mouse/btn_middle_drag")) {
             allowed << QStringLiteral("none") << QStringLiteral("pan");
-            denyTip = tr("中键暂无该动作实现；仅「无操作 / 拖拽平移」生效（「无」会连现有的单击全屏一起停用）");
-        } else if (key == QLatin1String("mouse/wheel_up")) {
-            allowed << QStringLiteral("none") << QStringLiteral("zoom_in");
-            denyTip = tr("滚轮向上暂无该动作实现；仅「无操作 / 放大」生效（「无」会关闭滚轮缩放）");
-        } else if (key == QLatin1String("mouse/wheel_down")) {
-            allowed << QStringLiteral("none") << QStringLiteral("zoom_out");
-            denyTip = tr("滚轮向下暂无该动作实现；仅「无操作 / 缩小」生效（「无」会关闭滚轮缩放）");
+            denyTip = tr("拖动手势仅支持「无操作 / 拖拽平移」；点击动作请在「中键单击」单独设置");
+        } else if (key == QLatin1String("mouse/wheel_up")
+                   || key == QLatin1String("mouse/wheel_down")) {
+            allowed << QStringLiteral("none") << QStringLiteral("zoom_in")
+                    << QStringLiteral("zoom_out") << QStringLiteral("next")
+                    << QStringLiteral("prev");
+            denyTip = tr("滚轮仅支持「无操作 / 放大 / 缩小 / 翻下一张 / 翻上一张」；"
+                         "单向选「无」只停用该方向");
         }
         if (!allowed.isEmpty()) {
             for (int j = 0; j < opts.size(); ++j) {
@@ -3744,8 +3755,8 @@ void SettingsDialog::buildMousePage(QWidget *page)
     }
 
     addHint(sec, tr("「无」保留内置行为：左键拖拽平移、边缘单击翻页、右键菜单。"
-                    "中键只放行「无操作／拖拽平移」，滚轮只放行「无操作／放大／缩小」，"
-                    "其余档位已灰显；映射在下次触发该按键时生效。"));
+                    "中键单击与拖动分别设置（默认单击全屏、拖动平移）；滚轮上下独立生效，"
+                    "单向选「无」只停用该方向。映射在下次触发该按键时生效。"));
     applyPageRhythm(page);
 }
 
@@ -5542,9 +5553,9 @@ void SettingsDialog::loadBindingsFromConfig(int chkFrom, int comboFrom, int keyF
         const QString stored = sGet(r.key.toLatin1().constData(), r.def);
         int idx = r.combo->findData(stored);
         // 旧配置里的不可执行档位（灰显项）按运行态安全值「无操作」显示：
-        // 滚轮任一方向非对应档 → 双向缩放都停；中键非「拖拽平移」→ 连单击
-        // 全屏一起停；右键 / X / Y 的 pan 在 Config 读取时折算回内置行为。
-        // 配置原值不回写，翻页批次 2 的独立映射迁移仍读原始档位。
+        // 右键 / X / Y 的 pan 在 Config 读取时折算回内置行为；滚轮与中键的
+        // 旧共用开关语义已由 Config 构造迁移按有效行为折算到独立映射键。
+        // 配置原值不回写。
         if (idx >= 0) {
             if (auto *model = qobject_cast<QStandardItemModel *>(r.combo->model())) {
                 if (auto *item = model->item(idx); item && !item->isEnabled())
@@ -5739,13 +5750,16 @@ void SettingsDialog::writeBridgeKeys()
         interp == QStringLiteral("0") ? QStringLiteral("fast")
             : interp == QStringLiteral("1") ? QStringLiteral("smooth")
                                            : QStringLiteral("lanczos"));
+    // 兼容桥（翻页批次 2 更新）：旧开关键仅供降级回退旧版本时读取，运行态
+    // 已改读四个独立映射键。wheel_zoom 按「两方向都在缩放位」推导，
+    // middle_pan 按「中键拖动=pan」推导，与旧版语义一致。
     const QPair<QString, QVariant> wheelPair = writeIfChanged(
         QStringLiteral("wheel_zoom"),
         sGet("mouse/wheel_up", QStringLiteral("zoom_in")) == QStringLiteral("zoom_in")
             && sGet("mouse/wheel_down", QStringLiteral("zoom_out")) == QStringLiteral("zoom_out"));
     const QPair<QString, QVariant> middlePair = writeIfChanged(
         QStringLiteral("middle_pan"),
-        sGet("mouse/btn_middle", QStringLiteral("pan")) == QStringLiteral("pan"));
+        sGet("mouse/btn_middle_drag", QStringLiteral("pan")) == QStringLiteral("pan"));
 
     QList<QPair<QString, QVariant>> changes;
     for (const QPair<QString, QVariant> &p : { interpPair, wheelPair, middlePair }) {

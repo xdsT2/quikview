@@ -89,9 +89,14 @@ public:
     int cacheSizeMb() const;           // 原图缓存上限 MB（默认 300，clamp 64..4096）
     bool alignTopWhenLarge() const;    // 图片大于窗口时显示图片顶部（默认开）
 
-    // 鼠标
-    bool wheelZoom() const;            // 滚轮缩放
-    bool middlePan() const;            // 中键拖拽平移
+    // 鼠标（翻页批次 2：按键与手势独立映射，2026-11-20）
+    // 滚轮上下独立设置，单向「无」只停用该方向；中键单击与拖动分别设置。
+    // 旧配置（滚轮共用缩放开关、中键 pan 捆绑单击全屏）在构造函数里按
+    // 「用户此前真正得到的行为」一次性迁移到下面四个键，旧键保留供降级。
+    QString wheelUpAction() const;     // 滚轮向上：none/zoom_in/zoom_out/next/prev（默认 zoom_in）
+    QString wheelDownAction() const;   // 滚轮向下：同上（默认 zoom_out）
+    QString middleClickAction() const; // 中键单击：点击动作表（默认 fullscreen）
+    QString middleDragAction() const;  // 中键拖动：none/pan（默认 pan）
     bool sideClickPageturn() const;    // 单击屏幕两侧翻页（默认 true）
     bool dblclickMaximize() const;     // 双击最大化 / 还原（默认 true）
 

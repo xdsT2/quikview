@@ -1356,13 +1356,29 @@ void ImageCanvas::applyZoomAt(qreal zoom, const QPoint &anchorViewportPt)
 
 void ImageCanvas::wheelEvent(QWheelEvent *event)
 {
-    if (!m_wheelZoom) {
+    // 翻页批次 2：滚轮上下独立映射。单向选「无」只停用该方向；缩放仍以
+    // 鼠标位置为锚点（原型/交接单 §5），翻页走与点击动作同一派发器。
+    const int dy = event->angleDelta().y();
+    if (dy == 0) {
+        QGraphicsView::wheelEvent(event);   // 水平滚轮交回基类
+        return;
+    }
+    const QString act = dy > 0 ? Config::instance().wheelUpAction()
+                               : Config::instance().wheelDownAction();
+    if (act == QLatin1String("none")) {
         event->ignore();
         return;
     }
-    const qreal factor = event->angleDelta().y() > 0 ? 1.25 : 0.8;
-    // 滚轮以鼠标位置为锚点（原型/交接单 §5）
-    applyZoomAt(m_zoom * factor, event->position().toPoint());
+    if (act == QLatin1String("zoom_in") || act == QLatin1String("zoom_out")) {
+        const qreal factor = act == QLatin1String("zoom_in") ? 1.25 : 0.8;
+        applyZoomAt(m_zoom * factor, event->position().toPoint());
+        event->accept();
+        return;
+    }
+    // next / prev：裁剪模式中不切图（与左键点击映射同一保护口径）。
+    if (!m_cropMode) {
+        emit mouseActionRequested(act);
+    }
     event->accept();
 }
 
@@ -1522,19 +1538,25 @@ void ImageCanvas::mousePressEvent(QMouseEvent *event)
         event->accept();
         return;
     }
-    if (m_middlePan && event->button() == Qt::MiddleButton) {
-        m_panning = true;
-        m_lastPan = event->pos();
-        // 中键也可能只是「点一下」：按下先记账，松手时再按位移/时长判定单击。
-        // 裁剪模式与未打开图片不参与（保持原行为，中键只做平移）。
+    if (event->button() == Qt::MiddleButton) {
+        // 翻页批次 2：中键拖动与单击独立。拖动=pan 档才进入平移；单击判定
+        // 只要映射了非 none 动作就记账（松手时按位移/时长判定）。裁剪模式
+        // 与未打开图片不参与单击（保持原行为）。
+        const QString drag = Config::instance().middleDragAction();
+        const QString click = Config::instance().middleClickAction();
+        if (drag == QLatin1String("pan")) {
+            m_panning = true;
+            m_lastPan = event->pos();
+            setCursor(Qt::ClosedHandCursor);
+            if (!m_panSignalActive) {
+                m_panSignalActive = true;
+                emit panStateChanged(true);
+            }
+        }
         m_midPressPos = event->pos();
         m_midPressClock.restart();
-        m_midPressTracked = m_item != nullptr && !m_cropMode;
-        setCursor(Qt::ClosedHandCursor);
-        if (!m_panSignalActive) {
-            m_panSignalActive = true;
-            emit panStateChanged(true);
-        }
+        m_midPressTracked = m_item != nullptr && !m_cropMode
+                            && click != QLatin1String("none");
         event->accept();
         return;
     }
@@ -1621,12 +1643,14 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent *event)
         event->accept();
         return;
     }
-    if (event->button() == Qt::MiddleButton && m_panning) {
-        m_panning = false;
-        unsetCursor();
-        if (m_panSignalActive) {
-            m_panSignalActive = false;
-            emit panStateChanged(false);
+    if (event->button() == Qt::MiddleButton) {
+        if (m_panning) {
+            m_panning = false;
+            unsetCursor();
+            if (m_panSignalActive) {
+                m_panSignalActive = false;
+                emit panStateChanged(false);
+            }
         }
         // 单击判定与左键箭头带同一套阈值：<3px、<300ms。拖动超过 3px 仍只是平移。
         const bool isClick = m_midPressTracked
@@ -1636,7 +1660,8 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent *event)
         m_midPressTracked = false;
         event->accept();
         if (isClick) {
-            emit middleClickRequested();
+            // 派发映射动作（默认 fullscreen）；与左键/右键/X/Y 共用派发器。
+            emit mouseActionRequested(Config::instance().middleClickAction());
         }
         return;
     }

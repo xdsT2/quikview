@@ -42,6 +42,35 @@ Config::Config(const QString &path)
         m_settings.setValue(ctxMigrated, true);
         m_settings.sync();
     }
+
+    // 鼠标手势独立映射（翻页批次 2，2026-11-20）：旧版滚轮上下共用一个缩放
+    // 开关（任一方向非对应档即双向停用），中键「拖拽平移」档捆绑单击全屏。
+    // 升级按「用户此前真正得到的行为」一次性迁移：滚轮只有两档都在缩放位
+    // 才真的能缩放，否则双向都停；中键只有 pan 档才有平移+单击，否则全停。
+    // 迁移覆盖写入四个新键（旧键保留供降级回退），打标记避免重复迁移覆盖
+    // 用户此后在设置页做的独立选择。
+    const QString mouseMigrated = QStringLiteral("config/etc/mouse_gestures_migrated");
+    if (!m_settings.value(mouseMigrated, false).toBool()) {
+        const QString up = m_settings.value(QStringLiteral("config/mouse/wheel_up"),
+                                            QStringLiteral("zoom_in")).toString();
+        const QString down = m_settings.value(QStringLiteral("config/mouse/wheel_down"),
+                                              QStringLiteral("zoom_out")).toString();
+        const bool wheelZoomWorked = up == QLatin1String("zoom_in")
+                                     && down == QLatin1String("zoom_out");
+        const bool middleWorked =
+            m_settings.value(QStringLiteral("config/mouse/btn_middle"),
+                             QStringLiteral("pan")).toString() == QLatin1String("pan");
+        m_settings.setValue(QStringLiteral("config/mouse/wheel_up"),
+                            wheelZoomWorked ? QStringLiteral("zoom_in") : QStringLiteral("none"));
+        m_settings.setValue(QStringLiteral("config/mouse/wheel_down"),
+                            wheelZoomWorked ? QStringLiteral("zoom_out") : QStringLiteral("none"));
+        m_settings.setValue(QStringLiteral("config/mouse/btn_middle_click"),
+                            middleWorked ? QStringLiteral("fullscreen") : QStringLiteral("none"));
+        m_settings.setValue(QStringLiteral("config/mouse/btn_middle_drag"),
+                            middleWorked ? QStringLiteral("pan") : QStringLiteral("none"));
+        m_settings.setValue(mouseMigrated, true);
+        m_settings.sync();
+    }
 }
 
 QString Config::defaultConfigPath()
@@ -418,25 +447,49 @@ int Config::cacheSizeMb() const
     return qBound(64, m_settings.value(QStringLiteral("config/imageproc/cache_size_mb"), 300).toInt(), 4096);
 }
 
-bool Config::wheelZoom() const
+// 滚轮支持档（翻页批次 2）：无操作 / 放大 / 缩小 / 翻下一张 / 翻上一张。
+// 翻页走与点击动作同一个派发器（MainWindow::onMouseAction），连滚即连翻。
+static bool wheelActionSupported(const QString &v)
 {
-    // 滚轮上下共用一个缩放开关：任一方向不是「放大/缩小」对应档（含旧配置里
-    // 不可执行的档位）就整体停用，与设置页写回的兼容桥同一公式。这里直接按
-    // mouse/wheel_up|down 推导而不是回读 config/wheel_zoom，避免手改或旧版
-    // 残留的开关键与档位键不一致时，运行态和设置页显示各说各话。
-    const QString up = m_settings.value(QStringLiteral("config/mouse/wheel_up"),
-                                        QStringLiteral("zoom_in")).toString();
-    const QString down = m_settings.value(QStringLiteral("config/mouse/wheel_down"),
-                                          QStringLiteral("zoom_out")).toString();
-    return up == QLatin1String("zoom_in") && down == QLatin1String("zoom_out");
+    return v == QLatin1String("none") || v == QLatin1String("zoom_in")
+           || v == QLatin1String("zoom_out") || v == QLatin1String("next")
+           || v == QLatin1String("prev");
 }
 
-bool Config::middlePan() const
+QString Config::wheelUpAction() const
 {
-    // 与 wheelZoom 同理按档位键推导：中键只有「拖拽平移」档生效（含单击全屏），
-    // 其余档位（含旧配置残留的不可执行值）连单击全屏一起停用。
-    return m_settings.value(QStringLiteral("config/mouse/btn_middle"),
-                            QStringLiteral("pan")).toString() == QLatin1String("pan");
+    // 上下独立：单向「无」只停用该方向。旧配置残留的不可执行档位在构造
+    // 迁移里已按有效行为折算；这里再兜一次底，未知值按 none（不吞事件）。
+    const QString v = m_settings.value(QStringLiteral("config/mouse/wheel_up"),
+                                        QStringLiteral("zoom_in")).toString();
+    return wheelActionSupported(v) ? v : QStringLiteral("none");
+}
+
+QString Config::wheelDownAction() const
+{
+    const QString v = m_settings.value(QStringLiteral("config/mouse/wheel_down"),
+                                        QStringLiteral("zoom_out")).toString();
+    return wheelActionSupported(v) ? v : QStringLiteral("none");
+}
+
+QString Config::middleClickAction() const
+{
+    // 中键单击与拖动分手：单击走点击动作表（默认全屏切换，与旧版一致），
+    // 拖动单独由 middleDragAction 控制。「pan」不是点击动作，折算 none。
+    const QString v = m_settings.value(QStringLiteral("config/mouse/btn_middle_click"),
+                                        QStringLiteral("fullscreen")).toString();
+    if (v.isEmpty() || v == QLatin1String("pan")) {
+        return QStringLiteral("none");
+    }
+    return v;
+}
+
+QString Config::middleDragAction() const
+{
+    // 拖动手势只支持平移；其余值（含旧配置残留）按 none。
+    const QString v = m_settings.value(QStringLiteral("config/mouse/btn_middle_drag"),
+                                        QStringLiteral("pan")).toString();
+    return v == QLatin1String("pan") ? QStringLiteral("pan") : QStringLiteral("none");
 }
 
 bool Config::sideClickPageturn() const
