@@ -3000,9 +3000,9 @@ void SettingsDialog::buildViewPage(QWidget *page)
     // 侧边箭头是真开关：ImageCanvas::setSideArrowsEnabled()。
     auto *sideArrows = addSwitchRow(sec, tr("显示侧边箭头"), QString(),
                                     "view/show_side_arrow", false, true);
-    addSwitchRow(sec, tr("记住缩放状态"),
-                 tr("下次打开这张图时恢复；当前画面不变"),
-                 "view/save_zoom_state", false, false);
+    auto *saveZoom = addSwitchRow(sec, tr("记住缩放状态"),
+                                  tr("下次打开这张图时恢复；当前画面不变"),
+                                  "view/save_zoom_state", false, false);
 
     sec = beginSection(page, tr("画面信息"));
     auto *overlayName = addSwitchRow(sec, tr("显示文件名浮层"),
@@ -3027,6 +3027,7 @@ void SettingsDialog::buildViewPage(QWidget *page)
     // 批次03：这四项按派单要求「切换即生效 + 取消/Esc/✕ 回滚」，同时也纳入
     // 即时框架（失败注入、失败回退、幂等都由 applyLiveCheck 统一负责）。
     m_liveChecks.append({ overlayName, "view/overlay_filename", false, false });
+    m_liveChecks.append({ saveZoom, "view/save_zoom_state", false, false });
     // 2026-11-17 注释精简：原页脚「切换后立即重排信息面板…」删除——这组开关都是即时重排，
     // 页脚不再重复说一次。
 

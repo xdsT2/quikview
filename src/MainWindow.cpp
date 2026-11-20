@@ -6662,6 +6662,19 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         return true;
     }
 
+    if (key == QLatin1String("view/save_zoom_state")) {
+        // 批次03 #11：消费点在 zoomChanged（上一处 lambda，配置开关 + 当前路径）。
+        // 开启时立刻按当前画面补记一次，让「下次打开这张图恢复」在本会话就有基线；
+        // 关闭不回清既有记忆——和旧行为一致，不替用户删数据。
+        if (value.toBool() && m_canvas && !m_currentPath.isEmpty() && !m_currentImage.isNull()) {
+            const QString st = m_canvas->isFitToWindow() ? QStringLiteral("fit")
+                             : m_canvas->isFitToWidth()  ? QStringLiteral("width")
+                                                         : QString::number(m_canvas->zoom(), 'f', 4);
+            Config::instance().setSavedViewState(m_currentPath, st);
+        }
+        return true;
+    }
+
     if (error)
         *error = tr("未知的即时设置项：%1").arg(key);
     return false;
@@ -6728,6 +6741,8 @@ QVariant MainWindow::liveSettingValue(const QString &key) const
     // 返回配置值，验收脚本可以直接对「设置页显示值 ↔ 运行态」做一致性比对。
     if (key == QLatin1String("view/overlay_filename"))
         return Config::instance().overlayFilename();
+    if (key == QLatin1String("view/save_zoom_state"))
+        return Config::instance().saveZoomState();
     return QVariant();
 }
 
