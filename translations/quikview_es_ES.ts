@@ -2019,6 +2019,71 @@
     <context>
         <name>SettingsDialog</name>
         <message>
+            <source>翻页音效</source>
+            <translation>Sonido de paginación</translation>
+        </message>
+
+        <message>
+            <source>外观与显示</source>
+            <translation>Apariencia y pantalla</translation>
+        </message>
+        <message>
+            <source>鼠标与滚轮</source>
+            <translation>Ratón y rueda</translation>
+        </message>
+        <message>
+            <source>Windows 集成</source>
+            <translation>Integración con Windows</translation>
+        </message>
+        <message>
+            <source>扩展</source>
+            <translation>Extensiones</translation>
+        </message>
+        <message>
+            <source>退出行为</source>
+            <translation>Comportamiento de salida</translation>
+        </message>
+        <message>
+            <source>画布与透明背景</source>
+            <translation>Lienzo y transparencia</translation>
+        </message>
+        <message>
+            <source>翻页</source>
+            <translation>Paginación</translation>
+        </message>
+        <message>
+            <source>缩放与记忆</source>
+            <translation>Zoom y memoria</translation>
+        </message>
+        <message>
+            <source>图片文件夹</source>
+            <translation>Carpetas de imágenes</translation>
+        </message>
+        <message>
+            <source>全部支持格式</source>
+            <translation>Todos los formatos admitidos</translation>
+        </message>
+        <message>
+            <source>展开支持的格式</source>
+            <translation>Expandir formatos admitidos</translation>
+        </message>
+        <message>
+            <source>展开</source>
+            <translation>Expandir</translation>
+        </message>
+        <message>
+            <source>收起</source>
+            <translation>Contraer</translation>
+        </message>
+        <message>
+            <source>QuikView 扩展</source>
+            <translation>Extensiones de QuikView</translation>
+        </message>
+        <message>
+            <source>暂未提供安装：当前版本没有扩展市场、安装包或加载开关。</source>
+            <translation>Aún no disponible: esta versión no incluye tienda de extensiones, instalador ni interruptor de activación.</translation>
+        </message>
+        <message>
             <source>「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。</source>
             <translation>«%1» se aplicó al instante: %2 · no hace falta guardar; «Cancelar»/Esc restaura el estado al abrir Ajustes.</translation>
         </message>

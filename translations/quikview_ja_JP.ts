@@ -2019,6 +2019,71 @@
     <context>
         <name>SettingsDialog</name>
         <message>
+            <source>翻页音效</source>
+            <translation>ページ送り効果音</translation>
+        </message>
+
+        <message>
+            <source>外观与显示</source>
+            <translation>外観と表示</translation>
+        </message>
+        <message>
+            <source>鼠标与滚轮</source>
+            <translation>マウスとホイール</translation>
+        </message>
+        <message>
+            <source>Windows 集成</source>
+            <translation>Windows 統合</translation>
+        </message>
+        <message>
+            <source>扩展</source>
+            <translation>拡張機能</translation>
+        </message>
+        <message>
+            <source>退出行为</source>
+            <translation>終了時の動作</translation>
+        </message>
+        <message>
+            <source>画布与透明背景</source>
+            <translation>キャンバスと透明</translation>
+        </message>
+        <message>
+            <source>翻页</source>
+            <translation>ページ送り</translation>
+        </message>
+        <message>
+            <source>缩放与记忆</source>
+            <translation>ズームと記憶</translation>
+        </message>
+        <message>
+            <source>图片文件夹</source>
+            <translation>画像フォルダー</translation>
+        </message>
+        <message>
+            <source>全部支持格式</source>
+            <translation>対応形式一覧</translation>
+        </message>
+        <message>
+            <source>展开支持的格式</source>
+            <translation>対応形式を展開</translation>
+        </message>
+        <message>
+            <source>展开</source>
+            <translation>展開</translation>
+        </message>
+        <message>
+            <source>收起</source>
+            <translation>折りたたむ</translation>
+        </message>
+        <message>
+            <source>QuikView 扩展</source>
+            <translation>QuikView 拡張機能</translation>
+        </message>
+        <message>
+            <source>暂未提供安装：当前版本没有扩展市场、安装包或加载开关。</source>
+            <translation>未提供：このバージョンには拡張機能ストア、インストーラー、有効化スイッチがありません。</translation>
+        </message>
+        <message>
             <source>「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。</source>
             <translation>「%1」は即時反映済み：%2 · 保存は不要。「キャンセル」/Esc で設定を開く前の状態に戻ります。</translation>
         </message>

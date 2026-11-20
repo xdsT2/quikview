@@ -2019,6 +2019,71 @@
     <context>
         <name>SettingsDialog</name>
         <message>
+            <source>翻页音效</source>
+            <translation>Paging Sound</translation>
+        </message>
+
+        <message>
+            <source>外观与显示</source>
+            <translation>Appearance &amp; Display</translation>
+        </message>
+        <message>
+            <source>鼠标与滚轮</source>
+            <translation>Mouse &amp; Wheel</translation>
+        </message>
+        <message>
+            <source>Windows 集成</source>
+            <translation>Windows Integration</translation>
+        </message>
+        <message>
+            <source>扩展</source>
+            <translation>Extensions</translation>
+        </message>
+        <message>
+            <source>退出行为</source>
+            <translation>Exit Behavior</translation>
+        </message>
+        <message>
+            <source>画布与透明背景</source>
+            <translation>Canvas &amp; Transparency</translation>
+        </message>
+        <message>
+            <source>翻页</source>
+            <translation>Paging</translation>
+        </message>
+        <message>
+            <source>缩放与记忆</source>
+            <translation>Zoom &amp; Memory</translation>
+        </message>
+        <message>
+            <source>图片文件夹</source>
+            <translation>Image Folders</translation>
+        </message>
+        <message>
+            <source>全部支持格式</source>
+            <translation>All Supported Formats</translation>
+        </message>
+        <message>
+            <source>展开支持的格式</source>
+            <translation>Expand supported formats</translation>
+        </message>
+        <message>
+            <source>展开</source>
+            <translation>Expand</translation>
+        </message>
+        <message>
+            <source>收起</source>
+            <translation>Collapse</translation>
+        </message>
+        <message>
+            <source>QuikView 扩展</source>
+            <translation>QuikView Extensions</translation>
+        </message>
+        <message>
+            <source>暂未提供安装：当前版本没有扩展市场、安装包或加载开关。</source>
+            <translation>Not available yet: this version has no extension marketplace, installer, or enable switch.</translation>
+        </message>
+        <message>
             <source>「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。</source>
             <translation>%1 took effect immediately: %2 · no need to save; Cancel / Esc restores the state from when Settings was opened.</translation>
         </message>

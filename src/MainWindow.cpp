@@ -5011,10 +5011,12 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         dlg->show();
         dlg->probeOpenCombo(a.value(0).toInt(), a.value(1).toInt());
     }
-    // 视觉回归探针：打开设置并切到指定页（settingspage:<序号>，0=一般）。
+    // 视觉回归探针：打开设置并切到指定页（settingspage:<序号>，0=通用）。
     // 语言无关定位（P1-4）：页面导航项都是 checkable 的 #navItem，「关于 QuikView」
     // 按钮不 checkable，据此排除，与文案/语言无关；页用数字索引定位，ASCII 别名
     // 映射到固定索引，不再按中文子串（非简中下会失效）匹配。
+    // 九页重组（2026-11-21）：旧的 assoc/context/bookmark/misc/language 别名保留，
+    // 统一指到内容现在所在的页，避免既有脚本点错页。
     else if (c.startsWith(QLatin1String("settingspage:"))) {
         const QString key = c.mid(13).trimmed();
         auto *dlg = new SettingsDialog(this);
@@ -5035,10 +5037,13 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             static const QHash<QString, int> kAliases = {
                 { QStringLiteral("general"), 0 },    { QStringLiteral("browse"), 1 },
                 { QStringLiteral("appearance"), 2 }, { QStringLiteral("image"), 3 },
-                { QStringLiteral("assoc"), 4 },      { QStringLiteral("keyboard"), 5 },
-                { QStringLiteral("mouse"), 6 },      { QStringLiteral("bookmark"), 7 },
-                { QStringLiteral("context"), 8 },    { QStringLiteral("rightclick"), 9 },
-                { QStringLiteral("misc"), 10 },      { QStringLiteral("language"), 11 },
+                { QStringLiteral("keyboard"), 4 },   { QStringLiteral("mouse"), 5 },
+                { QStringLiteral("rightclick"), 6 }, { QStringLiteral("windows"), 7 },
+                { QStringLiteral("extensions"), 8 },
+                // 旧别名 → 内容现在所在的页
+                { QStringLiteral("assoc"), 7 },      { QStringLiteral("context"), 7 },
+                { QStringLiteral("bookmark"), 1 },   { QStringLiteral("misc"), 0 },
+                { QStringLiteral("language"), 0 },
             };
             bool numeric = false;
             const int n = key.toInt(&numeric);
@@ -5047,6 +5052,18 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                 navs.at(index)->click();
             }
         });
+    }
+    // settingsgeo:<page>:<W>x<H> —— 最小窗口验收：把设置窗摆到指定尺寸再切页。
+    else if (c.startsWith(QLatin1String("settingsgeo:"))) {
+        const QStringList a = c.mid(12).split(u':');
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        dlg->raise();
+        dlg->activateWindow();
+        const QStringList sz = a.value(1).split(u'x');
+        const int page = a.value(0).toInt();
+        dlg->probePageAtSize(page, sz.value(0).toInt(), sz.value(1).toInt());
     }
     // menudump —— 把三横菜单的完整信息架构（含二级菜单、快捷键、勾选/可用态）
     // 追加到 Temp/v2-menu.txt，供逐项核对；不弹菜单、不点任何业务槽。

@@ -2019,6 +2019,71 @@
     <context>
         <name>SettingsDialog</name>
         <message>
+            <source>翻页音效</source>
+            <translation>翻頁音效</translation>
+        </message>
+
+        <message>
+            <source>外观与显示</source>
+            <translation>外觀與顯示</translation>
+        </message>
+        <message>
+            <source>鼠标与滚轮</source>
+            <translation>滑鼠與滾輪</translation>
+        </message>
+        <message>
+            <source>Windows 集成</source>
+            <translation>Windows 整合</translation>
+        </message>
+        <message>
+            <source>扩展</source>
+            <translation>擴充功能</translation>
+        </message>
+        <message>
+            <source>退出行为</source>
+            <translation>結束行為</translation>
+        </message>
+        <message>
+            <source>画布与透明背景</source>
+            <translation>畫布與透明</translation>
+        </message>
+        <message>
+            <source>翻页</source>
+            <translation>翻頁</translation>
+        </message>
+        <message>
+            <source>缩放与记忆</source>
+            <translation>縮放與記憶</translation>
+        </message>
+        <message>
+            <source>图片文件夹</source>
+            <translation>圖片資料夾</translation>
+        </message>
+        <message>
+            <source>全部支持格式</source>
+            <translation>全部支援格式</translation>
+        </message>
+        <message>
+            <source>展开支持的格式</source>
+            <translation>展開支援的格式</translation>
+        </message>
+        <message>
+            <source>展开</source>
+            <translation>展開</translation>
+        </message>
+        <message>
+            <source>收起</source>
+            <translation>收起</translation>
+        </message>
+        <message>
+            <source>QuikView 扩展</source>
+            <translation>QuikView 擴充功能</translation>
+        </message>
+        <message>
+            <source>暂未提供安装：当前版本没有扩展市场、安装包或加载开关。</source>
+            <translation>暫未提供安裝：目前版本沒有擴充市集、安裝包或載入開關。</translation>
+        </message>
+        <message>
             <source>「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。</source>
             <translation>「%1」已即時生效：%2 · 無需儲存；按「取消」/ Esc 會回到進入設定時的狀態。</translation>
         </message>

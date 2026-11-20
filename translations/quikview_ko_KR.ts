@@ -2019,6 +2019,71 @@
     <context>
         <name>SettingsDialog</name>
         <message>
+            <source>翻页音效</source>
+            <translation>페이지 넘김 효과음</translation>
+        </message>
+
+        <message>
+            <source>外观与显示</source>
+            <translation>모양 및 디스플레이</translation>
+        </message>
+        <message>
+            <source>鼠标与滚轮</source>
+            <translation>마우스 및 휠</translation>
+        </message>
+        <message>
+            <source>Windows 集成</source>
+            <translation>Windows 통합</translation>
+        </message>
+        <message>
+            <source>扩展</source>
+            <translation>확장</translation>
+        </message>
+        <message>
+            <source>退出行为</source>
+            <translation>종료 동작</translation>
+        </message>
+        <message>
+            <source>画布与透明背景</source>
+            <translation>캔버스 및 투명도</translation>
+        </message>
+        <message>
+            <source>翻页</source>
+            <translation>페이지 넘김</translation>
+        </message>
+        <message>
+            <source>缩放与记忆</source>
+            <translation>확대/축소 및 기억</translation>
+        </message>
+        <message>
+            <source>图片文件夹</source>
+            <translation>이미지 폴더</translation>
+        </message>
+        <message>
+            <source>全部支持格式</source>
+            <translation>지원 형식 모두</translation>
+        </message>
+        <message>
+            <source>展开支持的格式</source>
+            <translation>지원 형식 확장</translation>
+        </message>
+        <message>
+            <source>展开</source>
+            <translation>확장</translation>
+        </message>
+        <message>
+            <source>收起</source>
+            <translation>접기</translation>
+        </message>
+        <message>
+            <source>QuikView 扩展</source>
+            <translation>QuikView 확장</translation>
+        </message>
+        <message>
+            <source>暂未提供安装：当前版本没有扩展市场、安装包或加载开关。</source>
+            <translation>아직 제공되지 않음: 이 버전에는 확장 스토어, 설치 프로그램 또는 활성화 스위치가 없습니다.</translation>
+        </message>
+        <message>
             <source>「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。</source>
             <translation>"%1" 즉시 적용됨: %2 · 저장할 필요 없음. "취소"/Esc를 누르면 설정을 열었던 상태로 돌아갑니다.</translation>
         </message>

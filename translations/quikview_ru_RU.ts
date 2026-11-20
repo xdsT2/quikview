@@ -2019,6 +2019,71 @@
     <context>
         <name>SettingsDialog</name>
         <message>
+            <source>翻页音效</source>
+            <translation>Звук листания</translation>
+        </message>
+
+        <message>
+            <source>外观与显示</source>
+            <translation>Внешний вид и дисплей</translation>
+        </message>
+        <message>
+            <source>鼠标与滚轮</source>
+            <translation>Мышь и колесо</translation>
+        </message>
+        <message>
+            <source>Windows 集成</source>
+            <translation>Интеграция с Windows</translation>
+        </message>
+        <message>
+            <source>扩展</source>
+            <translation>Расширения</translation>
+        </message>
+        <message>
+            <source>退出行为</source>
+            <translation>Поведение при выходе</translation>
+        </message>
+        <message>
+            <source>画布与透明背景</source>
+            <translation>Холст и прозрачность</translation>
+        </message>
+        <message>
+            <source>翻页</source>
+            <translation>Листание</translation>
+        </message>
+        <message>
+            <source>缩放与记忆</source>
+            <translation>Масштаб и память</translation>
+        </message>
+        <message>
+            <source>图片文件夹</source>
+            <translation>Папки изображений</translation>
+        </message>
+        <message>
+            <source>全部支持格式</source>
+            <translation>Все поддерживаемые форматы</translation>
+        </message>
+        <message>
+            <source>展开支持的格式</source>
+            <translation>Развернуть поддерживаемые форматы</translation>
+        </message>
+        <message>
+            <source>展开</source>
+            <translation>Развернуть</translation>
+        </message>
+        <message>
+            <source>收起</source>
+            <translation>Свернуть</translation>
+        </message>
+        <message>
+            <source>QuikView 扩展</source>
+            <translation>Расширения QuikView</translation>
+        </message>
+        <message>
+            <source>暂未提供安装：当前版本没有扩展市场、安装包或加载开关。</source>
+            <translation>Пока недоступно: в этой версии нет магазина расширений, установщика и переключателя включения.</translation>
+        </message>
+        <message>
             <source>「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。</source>
             <translation>«%1» применено сразу: %2 · сохранять не нужно; «Отмена»/Esc вернёт состояние на момент открытия настроек.</translation>
         </message>

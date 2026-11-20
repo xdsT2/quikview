@@ -89,6 +89,9 @@ public:
     // 「设置里的下拉展开时主顶栏是否被误唤出」的截图验收；同时把各下拉的
     // 序号/当前值写到 Temp/settings-combos.txt，避免靠猜索引取错控件。
     void probeOpenCombo(int page, int index);
+    // probePageAtSize：切到第 page 页并把设置窗摆到指定尺寸（最小窗口 900×660
+    // 的滚动/末组可达验收用；--smoke settingsgeo:<page>:<W>x<H>）。
+    void probePageAtSize(int page, int w, int h);
     // probeCtxToggle：切到上下文菜单页并点击 ctxmenu.<leaf> 开关（--smoke
     // settingsctx:<leaf>）。与真实鼠标点击同一条 PillToggle::toggled →
     // writeValues 链路，供资源管理器右键验收驱动设置页开关。
@@ -182,7 +185,7 @@ private:
     // —— 页面骨架 ——
     QWidget *addPage(const QString &title, const QString &desc);
     // 延后构建：只建页壳 + 导航项，页面内容登记构建器，首次进入（或首次搜索）
-    // 时才真正创建。2026-11-16 实测 12 页同步构建约占设置窗开窗 169ms 中的
+    // 时才真正创建。2026-11-16 实测旧 12 页同步构建约占设置窗开窗 169ms 中的
     // 160ms；延后后首屏回到个位数毫秒，代价是首次进入该页要付一次构建耗时。
     QWidget *addLazyPage(const QString &title, const QString &desc,
                          void (SettingsDialog::*builder)(QWidget *));
@@ -191,7 +194,7 @@ private:
     // 页内容建完后补尾部弹簧（键盘页与查看器右键菜单页例外，见实现）。
     void finishPageLayout(int index);
     void selectPage(int index);
-    // 按当前窗口宽度算「一般」页内容列的左右边界：最大 660，超出时居中；
+    // 按当前窗口宽度算「通用」页内容列的左右边界：最大 660，超出时居中；
     // 其余页回到 0 边距（column 自带 28 内边距），与改前一致。
     void updateContentColumnWidth();
     // 一般页页头「标题—说明—内容」间距：标准 8+8，紧凑 6+6；其余页 13/15。
@@ -202,23 +205,19 @@ private:
     // 只把紧凑/标准档的组间距与行高落到单页（延后构建的页建完时补一次）。
     void applyCompactMetricsToPage(QWidget *page);
 
-    // —— 十一个页面 ——
+    // —— 九个页面 ——
     void buildGeneralPage(QWidget *page);
     void buildViewPage(QWidget *page);
     void buildAppearancePage(QWidget *page);
     void buildImageProcPage(QWidget *page);
-    void buildAssocPage(QWidget *page);
     void buildKeyboardPage(QWidget *page);
     void buildMousePage(QWidget *page);
-    void buildBookmarkPage(QWidget *page);
-    void buildContextMenuPage(QWidget *page);
-    // 上下文菜单页的应用内右键菜单可见性区（2026-11-14 全量配置修订）：
+    void buildWindowsPage(QWidget *page);
+    void buildExtensionsPage(QWidget *page);
+    // 查看器右键菜单页的应用内右键菜单可见性区（2026-11-14 全量配置修订）：
     // 打开与定位 / 常用动作 / 任务菜单 / 图像处理 / 文件操作 / 危险操作 / 应用
-    // 七段 + 列表开头的「恢复默认菜单」；资源管理器集成只读区仍由
-    // buildContextMenuPage 照原有字段排在末尾。
+    // 七段 + 列表开头的「恢复默认菜单」。
     void buildAppMenuSections(QWidget *page);
-    void buildEtcPage(QWidget *page);
-    void buildLangPage(QWidget *page);
 
     // —— 设置导出 / 导入（需求池 H1-3）——
     // 作用对象是「当前生效的那份 ini」：QUIKVIEW_CONFIG_PATH > 便携目录 config.ini
@@ -249,7 +248,7 @@ private:
     QWidget *groupCard(QWidget *section) const;
     // 统一页节奏：首组 12 / 组间 20、行高 42、右侧控件列整页同宽并右对齐、
     // 分组标题提级 13px/600。九页在各自 builder 末尾调用一次。
-    // 负数参数 = 沿用 kPage* 默认值；「一般」样板传定稿的 22/14/44/160，
+    // 负数参数 = 沿用 kPage* 默认值；「通用」样板传定稿的 22/14/44/160，
     // 其他页取值与调用方式一律不变（在途的九页节奏保持原状）。
     void applyPageRhythm(QWidget *page, int firstGap = -1, int groupGap = -1,
                          int rowH = -1, int ctlW = -1);
@@ -403,7 +402,7 @@ private:
     bool m_allPagesBuilt = false;
     QStackedWidget *m_stack = nullptr;
     QVBoxLayout *m_navLayout = nullptr;
-    // 「一般」样板外壳：只有 index 0 把内容列限到 748 并居中、隐藏页头分隔线、
+    // 「通用」样板外壳：只有 index 0 把内容列限到 748 并居中、隐藏页头分隔线、
     // 页标题与卡片左缘对齐；切到其他页时逐项还原，保证其余十页零变化。
     QWidget *m_contentColumn = nullptr;
     QVBoxLayout *m_contentLay = nullptr;
@@ -427,6 +426,9 @@ private:
     QWidget *m_pageActionHost = nullptr;
     QWidget *m_appMenuPage = nullptr;        // 大纲视图所在页（selectPage 用来切动作位）
     int m_appMenuPageIndex = -1;             // 该页在 m_pages 的下标（列宽按页放宽用）
+    // Windows 集成页「支持的格式」折叠体与展开按钮（默认收起）。
+    QWidget *m_formatsFoldBody = nullptr;
+    QPushButton *m_formatsToggleBtn = nullptr;
     std::function<void(int)> m_layoutAppMenuOutline;
     std::function<std::function<void()>()> m_saveAppMenuScroll;
     std::function<void()> m_refreshAppMenuStyle;
