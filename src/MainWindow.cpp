@@ -3963,6 +3963,22 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     else if (c.startsWith(QLatin1String("openpath:"))) {
         openFile(c.mid(9));
     }
+    // gifbg:<0-4>[:#RRGGBB] —— GIF 铺底即时重绘探针（翻页批次 2）：走与
+    // 设置页相同的「写盘 + applyLiveSetting」链路，验证当前 GIF 不重载即重铺。
+    else if (c.startsWith(QLatin1String("gifbg:"))) {
+        const QStringList parts = c.mid(6).split(QLatin1Char(':'));
+        const int mode = qBound(0, parts.value(0).toInt(), 4);
+        Config::instance().settings().setValue(
+            QStringLiteral("config/imageproc/gif_transparent"), mode);
+        if (parts.size() > 1 && !parts.at(1).isEmpty()) {
+            Config::instance().settings().setValue(
+                QStringLiteral("config/imageproc/gif_custom_color"), parts.at(1));
+            applyLiveSetting(QStringLiteral("imageproc/gif_custom_color"),
+                             parts.at(1), nullptr);
+        }
+        Config::instance().settings().sync();
+        applyLiveSetting(QStringLiteral("imageproc/gif_transparent"), mode, nullptr);
+    }
     // —— 二级界面（截图冒烟用，非模态打开以便截到窗口本身）——
     else if (c == QLatin1String("settings")) {
         auto *dlg = new SettingsDialog(this);
@@ -5480,8 +5496,9 @@ void MainWindow::showAnimFrame(const QImage &img)
     m_canvas->setPixmapPreservingView(QPixmap::fromImage(display), anchor, z, false, false);
 }
 
-// "0" 默认调色板 = 不铺底，透明区透出画布底色；"3" 的自定义色暂无取色器，
-// 先固定中灰 #808080（与 1/2 一样可观测），后续接取色器时只需改这里。
+// "0" 默认调色板 = 不铺底，透明区透出画布底色；1/2/3 = 白/黑/固定中灰；
+// 4 = 自定义颜色（翻页批次 2，2026-11-20）：取色器选色存
+// imageproc/gif_custom_color，只影响显示铺底，源文件/复制/导出保持原透明。
 QImage MainWindow::applyGifBackdrop(const QImage &img) const
 {
     const int mode = Config::instance().gifTransparent();
@@ -5490,6 +5507,7 @@ QImage MainWindow::applyGifBackdrop(const QImage &img) const
     }
     const QColor bg = (mode == 1) ? QColor(Qt::white)
                      : (mode == 2) ? QColor(Qt::black)
+                     : (mode == 4) ? Config::instance().gifCustomColor()
                                    : QColor(128, 128, 128);
     QImage out(img.size(), QImage::Format_ARGB32_Premultiplied);
     out.fill(bg);
@@ -5497,6 +5515,31 @@ QImage MainWindow::applyGifBackdrop(const QImage &img) const
     p.drawImage(0, 0, img);
     p.end();
     return out;
+}
+
+// GIF 背景即时重绘（翻页批次 2）：设置页改铺底档/自定义色时，按新背景重铺
+// 当前帧（动画取帧导航器当前帧，静态取源图），再走统一渲染管线补反相/Gamma/
+// 滤镜，缩放/平移保持不动。非 GIF 当前图不做任何事。
+void MainWindow::redrawGifBackdrop()
+{
+    if (!m_canvas || m_currentPath.isEmpty()) {
+        return;
+    }
+    if (QFileInfo(m_currentPath).suffix().toLower() != QLatin1String("gif")) {
+        return;
+    }
+    QImage base;
+    if (m_frames && m_frames->hasFrames()) {
+        base = m_frames->frameAt(m_frames->frameIndex());
+    }
+    if (base.isNull()) {
+        base = m_sourceImage;
+    }
+    if (base.isNull()) {
+        return;
+    }
+    m_originalImage = applyGifBackdrop(base);
+    applyAdjustments(m_canvas->viewCenterNormalized());
 }
 
 void MainWindow::startAnimation()
@@ -6703,6 +6746,14 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         // 图片阴影即时预览：只切屏幕预览层，不触碰任何导出路径。
         if (m_canvas)
             m_canvas->setImageShadowEnabled(value.toBool());
+        return true;
+    }
+
+    if (key == QLatin1String("imageproc/gif_transparent")
+        || key == QLatin1String("imageproc/gif_custom_color")) {
+        // GIF 铺底档 / 自定义色即时重绘（翻页批次 2）：当前图是 GIF 才重铺，
+        // 其他格式不受影响；动画下一帧起也按新背景铺（showAnimFrame 现读）。
+        redrawGifBackdrop();
         return true;
     }
 

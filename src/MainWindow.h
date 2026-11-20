@@ -177,6 +177,9 @@ private slots:
     // UI-001 §3.8 起仅内部兼容读取（设置页不再暴露下拉）；32 位透明图的
     // 画布背景/阴影改由 ImageCanvas 绘制层负责（applyImage32Backdrop 已删）。
     QImage applyGifBackdrop(const QImage &img) const;
+    // GIF 背景即时重绘（翻页批次 2）：设置页改 GIF 铺底档/自定义色时，按新
+    // 背景重铺当前帧并走统一渲染管线，缩放/平移保持不动。
+    void redrawGifBackdrop();
     // 异步加载
     void onFullReady(const QString &path, const QImage &image, bool preview);
     // 拖动滑杆跟手预览（只换画布与标题，索引/元数据等松手后由 jumpTo 走全图）

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QSettings>
+#include <QColor>
 
 // 应用配置。设计对照逆向得到的 Honeyview config.ini 配置面，
 // 但刻意做三处改进（见 ARCHITECTURE.md「取舍」）：
@@ -78,7 +79,8 @@ public:
     bool stretchSmall() const;         // 适合窗口时把小于窗口的图放大填满（默认 false）
     bool hdrTonemap() const;           // HDR 色调映射（本版恒 false：启用入口已移除，旧配置不激活）
     bool imageIcc() const;             // 使用图片内嵌 ICC（非 sRGB 图转 sRGB，默认 true）
-    int gifTransparent() const;        // GIF 解码兼容底色 0..3（§3.8 起仅内部读取，不在设置页暴露）
+    int gifTransparent() const;        // GIF 透明背景 0=默认调色板 1=白 2=黑 3=中灰 4=自定义（默认 0；批次 2 重新暴露并加自定义取色）
+    QColor gifCustomColor() const;     // GIF 自定义背景色（默认 #808080，仅档位 4 消费）
     QString canvasBackdrop() const;    // 全画布背景材质 "checker"|"solid"（旧值一次性迁移，默认随主题着色）
     bool showTransparency() const;     // 「显示透明区域」（默认开：纯色背景下透明像素铺指示棋盘）
     bool canvasShadow() const;         // 图片阴影开关（默认 false，仅 32 位 alpha 非 GIF 图）

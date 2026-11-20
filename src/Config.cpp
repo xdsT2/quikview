@@ -340,10 +340,21 @@ bool Config::imageIcc() const
 
 int Config::gifTransparent() const
 {
-    // GIF 解码兼容底色（0 默认调色板 / 1 白 / 2 黑 / 3 中灰），消费点
-    // MainWindow::applyGifBackdrop（仅 GIF 路径）。UI-001 §3.8.1 起不再在
-    // 设置页暴露该下拉，仅内部兼容读取；不新增 GIF 网格/自定义取色。
-    return qBound(0, m_settings.value(QStringLiteral("config/imageproc/gif_transparent"), 0).toInt(), 3);
+    // GIF 透明背景铺底档（0 默认调色板 / 1 白 / 2 黑 / 3 中灰 / 4 自定义），
+    // 消费点 MainWindow::applyGifBackdrop（仅 GIF 路径）。UI-001 §3.8.1 曾把
+    // 该下拉移出设置页仅留内部读取；翻页批次 2（2026-11-20，派单-HDR入口与
+    // 设置功能缺口）按单内范围重新暴露并补齐自定义取色。旧值 0..3 语义不变。
+    return qBound(0, m_settings.value(QStringLiteral("config/imageproc/gif_transparent"), 0).toInt(), 4);
+}
+
+QColor Config::gifCustomColor() const
+{
+    // 自定义铺底色独立存键（imageproc/gif_custom_color），切回其他档再切回
+    // 自定义不丢用户选色；非法值回落中灰 #808080。
+    const QString v = m_settings.value(QStringLiteral("config/imageproc/gif_custom_color"),
+                                       QStringLiteral("#808080")).toString();
+    const QColor c(v);
+    return c.isValid() ? c : QColor(128, 128, 128);
 }
 
 QString Config::canvasBackdrop() const

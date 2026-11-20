@@ -3310,6 +3310,27 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     addSwitchRow(sec, tr("图片阴影"),
                  tr("在图片边缘加一圈阴影，浅色背景下的浅色图片也能看清边界；仅屏幕预览，不进入复制、打印、批量转换与另存为"),
                  "imageproc/canvas_shadow", false, false);
+
+    // GIF 透明背景（翻页批次 2，2026-11-20 重新暴露 + 自定义取色）：
+    // 只影响 GIF 显示铺底，源文件/复制/导出保持原透明信息。旧 0..3 档语义
+    // 不变（默认调色板/白/黑/中灰）；新增第 5 档「自定义颜色」，选色独立存
+    // imageproc/gif_custom_color，切档不丢色。画布背景（棋盘/纯色）仍是
+    // 全画布材质，与本行互不替代。
+    m_gifBgCombo = addComboRow(sec, tr("GIF 透明背景"), QString(),
+                               "imageproc/gif_transparent", QStringLiteral("0"),
+                               {{QStringLiteral("0"), tr("默认调色板")},
+                                {QStringLiteral("1"), tr("白色")},
+                                {QStringLiteral("2"), tr("黑色")},
+                                {QStringLiteral("3"), tr("中灰背景")},
+                                {QStringLiteral("4"), tr("自定义颜色")}},
+                               kGenComboW);
+    descToRowTip(m_gifBgCombo, tr("只影响 GIF 显示铺底；源文件、复制与导出保持原透明信息"));
+    auto gifColorParts = addSettingRow(sec, tr("自定义颜色"), QString());
+    m_gifColorBtn = new QPushButton(gifColorParts.row);
+    m_gifColorBtn->setFixedSize(56, 26);
+    m_gifColorBtn->setCursor(Qt::PointingHandCursor);
+    gifColorParts.controls->addWidget(m_gifColorBtn, 0, Qt::AlignVCenter);
+    descToRowTip(m_gifColorBtn, tr("点击选择 GIF 透明区域的铺底颜色，选色即时重绘当前 GIF"));
     // 三控件都即时预览：写盘由 comboBind / chkBind 的即时路径统一走，这里只
     // 补运行态下发（applyLiveSetting 直达画布，模态设置页开着也能看到效果）。
     for (const ComboBind &b : m_comboBinds) {
@@ -5563,7 +5584,27 @@ void SettingsDialog::loadPageWidgets(QWidget *page)
         syncThemeControls(sGet("theme", QStringLiteral("dark")));
     if (owns(m_blurMaterial))
         m_blurMaterial->setChecked(bGet("ui/blur_material", false));
+    if (owns(m_gifColorBtn))
+        syncGifColorRow();   // 色样与可点态按回填后的档位/颜色刷新
     m_loading = false;
+}
+
+// GIF 自定义色样（翻页批次 2）：色样恒取 Config 现值；仅「自定义颜色」档
+// 可点，其余档灰显并说明原因，不做假按钮。
+void SettingsDialog::syncGifColorRow()
+{
+    if (!m_gifColorBtn || !m_gifBgCombo)
+        return;
+    const QColor c = Config::instance().gifCustomColor();
+    m_gifColorBtn->setStyleSheet(QStringLiteral(
+        "QPushButton{background:%1;border:1px solid rgba(128,128,128,0.65);"
+        "border-radius:6px;}")
+        .arg(c.name()));
+    const bool custom = m_gifBgCombo->currentData().toString() == QLatin1String("4");
+    m_gifColorBtn->setEnabled(custom);
+    m_gifColorBtn->setToolTip(custom
+        ? tr("点击选择 GIF 透明区域的铺底颜色")
+        : tr("先在上方「GIF 透明背景」选择「自定义颜色」"));
 }
 
 // ---------------------------------------------------------------------------
@@ -5828,6 +5869,20 @@ void SettingsDialog::connectPageWidgets(QWidget *page)
     if (owns(m_language)) {
         connect(m_language, &QComboBox::currentIndexChanged, this, [this]() {
             updatePendingNote();
+        });
+    }
+    if (owns(m_gifColorBtn)) {
+        syncGifColorRow();
+        connect(m_gifBgCombo, &QComboBox::currentIndexChanged, this, [this]() {
+            syncGifColorRow();
+        });
+        connect(m_gifColorBtn, &QPushButton::clicked, this, [this]() {
+            const QColor c = QColorDialog::getColor(Config::instance().gifCustomColor(),
+                                                    this, tr("选择 GIF 背景色"));
+            if (!c.isValid())
+                return;   // 取消保持原色，不写盘
+            applyInstantValue(QStringLiteral("imageproc/gif_custom_color"), c.name());
+            syncGifColorRow();
         });
     }
 }
