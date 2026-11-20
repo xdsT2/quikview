@@ -3014,8 +3014,8 @@ void SettingsDialog::buildViewPage(QWidget *page)
     descToRowTip(animInfo, tr("GIF / MNG 在底部信息行显示「第 n/N 帧」"));
     auto *zoomInfo = addSwitchRow(sec, tr("显示缩放浮标"), QString(),
                                   "view/show_zoom_control", false, true);
-    addSwitchRow(sec, tr("显示鼠标悬浮提示"), QString(),
-                 "view/show_tooltip", false, true);
+    auto *tooltip = addSwitchRow(sec, tr("显示鼠标悬浮提示"), QString(),
+                                 "view/show_tooltip", false, true);
     auto *smallFont = addSwitchRow(sec, tr("用小字体显示 EXIF / 文件信息"), QString(),
                                    "view/exif_small_font", false, false);
     // SET-02 样板 + SET-03 小批 A + SET-04 浏览页批次（同一页面，均为二态运行态开关）：
@@ -3028,6 +3028,7 @@ void SettingsDialog::buildViewPage(QWidget *page)
     // 即时框架（失败注入、失败回退、幂等都由 applyLiveCheck 统一负责）。
     m_liveChecks.append({ overlayName, "view/overlay_filename", false, false });
     m_liveChecks.append({ saveZoom, "view/save_zoom_state", false, false });
+    m_liveChecks.append({ tooltip, "view/show_tooltip", false, false });
     // 2026-11-17 注释精简：原页脚「切换后立即重排信息面板…」删除——这组开关都是即时重排，
     // 页脚不再重复说一次。
 

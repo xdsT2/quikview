@@ -6675,6 +6675,21 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         return true;
     }
 
+    if (key == QLatin1String("view/show_tooltip")) {
+        // 批次03 #15：两处消费点（Chrome::TooltipHint::hover 与 QEvent::ToolTip 过滤）
+        // 都读同一个键，写盘后下一次悬停即生效；这里负责把已经亮着的提示当场收掉。
+        // TooltipHint 的 m_tip 是铬件私有成员，主窗口只做 QToolTip::hideText() 并按
+        // 主题令牌重绘两条铬件，自绘提示在下一帧自然消失（不反向依赖私有接口）。
+        if (!value.toBool()) {
+            QToolTip::hideText();
+            if (m_topBar)
+                m_topBar->update();
+            if (m_control)
+                m_control->update();
+        }
+        return true;
+    }
+
     if (error)
         *error = tr("未知的即时设置项：%1").arg(key);
     return false;
@@ -6743,6 +6758,8 @@ QVariant MainWindow::liveSettingValue(const QString &key) const
         return Config::instance().overlayFilename();
     if (key == QLatin1String("view/save_zoom_state"))
         return Config::instance().saveZoomState();
+    if (key == QLatin1String("view/show_tooltip"))
+        return Config::instance().showTooltip();
     return QVariant();
 }
 
