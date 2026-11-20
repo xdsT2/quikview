@@ -6532,6 +6532,28 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         return true;
     }
 
+    // —— 全量即时化 B1 · 一般页四项 ——
+    // 三项的运行态就是「下一次动作按新值判断」，消费点每次动作都现读 Config
+    // （记忆文件夹 :2767 / 删除确认 :6406 / ESC 退出 :7311），设置页已写盘 sync()，
+    // 会话内立刻按新值走；这里给出显式成功返回，失败注入时走设置页的统一回滚。
+    if (key == QLatin1String("remember_browsed_folders")
+        || key == QLatin1String("esc_exit")
+        || key == QLatin1String("delete_confirm")) {
+        return true;
+    }
+
+    if (key == QLatin1String("notify_corner")) {
+        // 通知位置有真实的运行态：换位后立刻按新位置弹一条示例，切换即见效果，
+        // 不必等下一次通知（单内 §2：不可只换控件形态，须有会话内可见反馈）。
+        const bool corner = value.toBool();
+        if (m_toast) {
+            m_toast->setCorner(corner);
+            m_toast->showMessage(corner ? tr("通知已改到右下角") : tr("通知已改到顶部居中"),
+                                 Chrome::Toast::Tone::Success);
+        }
+        return true;
+    }
+
     if (key.startsWith(QLatin1String("keyboard/"))
         && key.endsWith(QLatin1String("_enabled"))) {
         // 键盘页「启用」是即时项：配置由设置页在调用前写入，这里在切换点

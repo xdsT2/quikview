@@ -2894,8 +2894,8 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
     // 2026-11-11：版式部分收进 applyPageRhythm()，九页共用同一套节奏。
     QWidget *sec = beginSection(page, tr("窗口行为"));
     // 2026-11-17：不再写「下次…时生效」；只有重启与检查频率留在行下。
-    addSwitchRow(sec, tr("不保存浏览过的文件夹路径"), QString(),
-                 "remember_browsed_folders", true, true);
+    auto *remember = addSwitchRow(sec, tr("不保存浏览过的文件夹路径"), QString(),
+                                  "remember_browsed_folders", true, true);
     addSwitchRow(sec, tr("不允许多个实例"), tr("重启 QuikView 后生效"),
                  "allow_multiple_instances", true, true);
     auto *alwaysOnTop = addSwitchRow(sec, tr("总在最前 (Ctrl+A)"),
@@ -2903,14 +2903,23 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
                                      "always_on_top", false, false);
     // SET-03 小批 A：置顶是二态且运行态可逆（原生 SetWindowPos 切带）。
     m_liveChecks.append({ alwaysOnTop, "always_on_top", false, false });
-    addSwitchRow(sec, tr("按 ESC 退出"), QString(),
-                 "esc_exit", false, true);
+    auto *escExit = addSwitchRow(sec, tr("按 ESC 退出"), QString(),
+                                 "esc_exit", false, true);
+    // 全量即时化 B1：三项的运行态是「下一次动作按新值判断」，消费点每次动作都
+    // 现读 Config（记忆文件夹 MainWindow.cpp:2767 / 删除确认 6406 / ESC 7311），
+    // 登记进即时下发表后，切换点就写盘 sync，会话内立刻按新值走。
+    m_liveChecks.append({ remember, "remember_browsed_folders", true, false });
+    m_liveChecks.append({ escExit, "esc_exit", false, false });
 
     sec = beginSection(page, tr("操作反馈"));
-    addSwitchRow(sec, tr("删除文件时确认"), QString(),
-                 "delete_confirm", false, true);
-    addSwitchRow(sec, tr("在边角显示通知信息，而非中心"), QString(),
-                 "notify_corner", false, true);
+    auto *deleteConfirm = addSwitchRow(sec, tr("删除文件时确认"), QString(),
+                                       "delete_confirm", false, true);
+    auto *notifyCorner = addSwitchRow(sec, tr("在边角显示通知信息，而非中心"), QString(),
+                                      "notify_corner", false, true);
+    // 通知位置有可下发的运行态（Toast 的角位）：切换点立刻换位并弹一条示例，
+    // 会话内可见；另外两项同样是消费即读，一起登记保证「切换即写盘」。
+    m_liveChecks.append({ deleteConfirm, "delete_confirm", false, false });
+    m_liveChecks.append({ notifyCorner, "notify_corner", false, false });
 
     // —— 检查更新 ——
     // 手动检查不受频控；自动检查默认开（2026-11-12 用户定稿），启动 5s 静默查一次、24h 限频。
