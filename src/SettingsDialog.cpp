@@ -2062,12 +2062,10 @@ void SettingsDialog::selectPage(int index)
         m_pageActionHost->setVisible(m_appMenuPage && m_pages.at(index) == m_appMenuPage);
     }
 
-    // 只调整标准尺寸，保留用户手动设定的窗口高度。
-    if (index == 5 && !wasKeyboard && height() == kDlgH) {
-        resize(width(), kDlgKeyboardH);
-    } else if (index != 5 && wasKeyboard && height() == kDlgKeyboardH) {
-        resize(width(), kDlgH);
-    }
+    // 切页不再改窗口尺寸（2026-11-20 尺寸稳定派单）：宽高与位置保持当前值，
+    // 手动调整后继续沿用；长页在内容区滚动，键盘页矮窗下由 KeyRowsArea.snapTo
+    // 把行区封顶到整行并改为行区内部滚动。
+    Q_UNUSED(wasKeyboard);
 }
 
 void SettingsDialog::updateGeneralHeaderSpacing()
