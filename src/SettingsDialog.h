@@ -59,6 +59,9 @@ public:
     // spec 形如 "etc/raw_thumbnail=off+etc/fit_window_to_image=on"（+ 分隔，
     // 因 --smoke 用逗号拆命令；目标态 on/off）。
     void probeEtcLive(const QString &spec);
+    // 验收探针（--smoke setcfglive:<cfgKey>=on|off）：切到「图像处理」页，按 cfgKey
+    // 真实点击开关，dump 前后「控件态 / Config getter / QSettings 原始值」到 Temp/。
+    void probeCfgLive(const QString &spec);
     explicit SettingsDialog(QWidget *parent = nullptr);
     ~SettingsDialog() override;
 

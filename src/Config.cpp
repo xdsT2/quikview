@@ -293,6 +293,13 @@ bool Config::strongSharpen() const
     return m_settings.value(QStringLiteral("config/imageproc/strong_sharpen"), false).toBool();
 }
 
+bool Config::autoSaveRotate() const
+{
+    // 「旋转后自动保存」（A2）：默认关。开启后旋转/翻转立即原子写回原文件，
+    // 消费点 MainWindow::maybeAutoSaveGeometry；每次操作实时读键，改开关即时生效。
+    return m_settings.value(QStringLiteral("config/auto_save_rotate"), false).toBool();
+}
+
 bool Config::previewMode() const
 {
     // 「先显示低品质图片以加速渲染」（C14）：消费点 ImageCache::startFullDecode

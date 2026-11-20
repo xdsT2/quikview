@@ -3279,6 +3279,13 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
                  tr("适配宽度／实际大小下、图片高于窗口时生效"),
                  "imageproc/align_top_when_large", false, true);
 
+    // 旋转后自动保存（A2）：标准开关行，键 config/auto_save_rotate 默认关；
+    // 即时化走 chkBind 统一路径（改完立刻写盘生效、重启保留）。
+    sec = beginSection(page, tr("自动保存"));
+    addSwitchRow(sec, tr("旋转后自动保存"),
+                 tr("旋转/翻转立即写回原文件；RAW 与动图不受影响"),
+                 "auto_save_rotate", false, false);
+
     sec = beginSection(page, tr("缓存与载入"));
     addSwitchRow(sec, tr("缓存下一张图片"), QString(),
                  "imageproc/cache_image", false, true);
@@ -6473,6 +6480,55 @@ void SettingsDialog::probeEtcLive(const QString &spec)
                 dump(QStringLiteral("after"));
                 // 设置页自身 grab（--screenshot 抓的是主窗口，抓不到模态设置页）
                 grab().save(QStringLiteral("Temp/etc-live-settings.png"));
+            });
+        });
+    });
+}
+
+// —— 验收探针（--smoke setcfglive:<cfgKey>=on|off）——
+// 只走真实控件点击链路（PillToggle::click → chkBind → applyLiveSetting → 写盘），
+// 不直接改 QSettings，确保验的是「改开关即时生效」本身。
+void SettingsDialog::probeCfgLive(const QString &spec)
+{
+    const int eq = spec.indexOf(u'=');
+    const QString key = eq < 0 ? spec : spec.left(eq).trimmed();
+    const bool want = eq >= 0 && spec.mid(eq + 1).trimmed() == QLatin1String("on");
+    QTimer::singleShot(400, this, [this, key, want]() {
+        const auto navs = findChildren<QPushButton *>(QStringLiteral("navItem"));
+        for (QPushButton *b : navs) {
+            if (b->text().contains(tr("图像处理"))) {
+                b->click();
+                break;
+            }
+        }
+        QTimer::singleShot(700, this, [this, key, want]() {
+            const auto dump = [this, key](const char *tag) {
+                bool checked = false;
+                for (PillToggle *t : findChildren<PillToggle *>())
+                    if (t->property("cfgKey").toString() == key) { checked = t->isChecked(); break; }
+                Config &cfg = Config::instance();
+                const QString out = QStringLiteral("[%1] key=%2 checked=%3 getter=%4 stored=%5 present=%6\n")
+                    .arg(QString::fromLatin1(tag), key,
+                         checked ? QStringLiteral("true") : QStringLiteral("false"),
+                         cfg.autoSaveRotate() ? QStringLiteral("true") : QStringLiteral("false"),
+                         cfg.settings().value(QStringLiteral("config/auto_save_rotate"), false).toBool()
+                             ? QStringLiteral("true") : QStringLiteral("false"),
+                         cfg.settings().contains(QStringLiteral("config/auto_save_rotate")) ? QStringLiteral("1")
+                                                                                            : QStringLiteral("0"));
+                QFile f(QStringLiteral("Temp/cfg-live-probe.txt"));
+                if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
+                    f.write(out.toUtf8());
+            };
+            QFile::remove(QStringLiteral("Temp/cfg-live-probe.txt"));
+            dump("before");
+            for (PillToggle *t : findChildren<PillToggle *>()) {
+                if (t->property("cfgKey").toString() != key) continue;
+                if (t->isChecked() != want) t->click();   // 真实链路
+                break;
+            }
+            QTimer::singleShot(500, this, [this, dump]() {
+                dump("after");
+                grab().save(QStringLiteral("Temp/cfg-live-settings.png"));
             });
         });
     });

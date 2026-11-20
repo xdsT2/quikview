@@ -86,6 +86,7 @@ public:
     bool cacheNextImage() const;       // 缓存下一张图片（翻页前预读，默认 true）
     int cacheSizeMb() const;           // 原图缓存上限 MB（默认 300，clamp 64..4096）
     bool alignTopWhenLarge() const;    // 图片大于窗口时显示图片顶部（默认开）
+    bool autoSaveRotate() const;       // 旋转后自动保存（默认关：旋转/翻转立即原子写回原文件）
 
     // 鼠标
     bool wheelZoom() const;            // 滚轮缩放
