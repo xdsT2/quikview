@@ -3368,16 +3368,14 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
                  "imageproc/image_icc", false, true);
     descToRowTip(iccFile, tr("打开带非 sRGB ICC 的图片时按配置转换上屏"));
     auto *iccMonitor = addSwitchRow(sec, tr("使用监视器的 ICC 设置"),
-                                    tr("Qt6 光栅后端不支持显示器色彩管理，暂不可用"),
+                                    tr("SDR 验证版：显示出口把 sRGB 转到当前屏幕关联配置；"
+                                       "已开 Windows 自动颜色管理的屏幕跳过，跨屏自动重估"),
                                     "imageproc/monitor_icc", false, false);
-    // 整行灰显（标题 + 说明 + 开关一起压暗），默认态就能读出「不可用」；
-    // 原因写在说明与整行 tooltip 里，不只藏在开关上。
-    iccMonitor->setEnabled(false);
-    if (QWidget *row = iccMonitor->parentWidget()) {
-        row->setEnabled(false);
-        row->setCursor(Qt::ArrowCursor);
-        row->setToolTip(tr("Qt6 光栅后端不支持显示器色彩管理，暂不可用"));
-    }
+    // 翻页批次 2（2026-11-20）：双屏不同 ICC 实测达标（转换精度对照 littleCMS、
+    // 跨屏重估、开关即时对照、ACM 屏单次转换），按派单启用入口。
+    // 无配置/损坏配置/无法转换时回退 sRGB 显示，原因记录到
+    // %TEMP%\quikview-monitor-icc.log。
+    descToRowTip(iccMonitor, tr("无有效配置或转换失败时保持 sRGB 显示，原因见临时目录日志"));
     // 2026-11-17 注释精简：原三段页脚拆到各行 tooltip（画布背景铺满与随主题、
     // 棋盘格固定屏幕坐标）；「阴影仅屏幕预览」已在图片阴影行的常驻说明里，页脚不再重复。
     applyPageRhythm(page);
