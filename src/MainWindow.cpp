@@ -53,6 +53,7 @@
 #include <QScrollBar>
 #include <QSet>
 #include <QScreen>
+#include <QWindow>
 #include <QStyleHints>
 #include <cmath>
 #include <QResizeEvent>
@@ -5224,8 +5225,8 @@ void MainWindow::onPrev()
     if (!m_dir->isValid()) {
         return;
     }
-    // 双页阅览一次翻一跨页（2 张），普通浏览是 1 张；封面模式下封面页只走 1 张
-    const int step = spreadBackwardStep();
+    // 双页阅览一次翻一跨页（2 张），普通浏览是 1 张
+    const int step = isSpreadMode() ? 2 : 1;
     const int before = m_dir->index();
     const QString p = m_dir->advance(-step);
     if (p.isEmpty()) {
@@ -5244,7 +5245,7 @@ void MainWindow::onNext()
     if (!m_dir->isValid()) {
         return;
     }
-    const int step = spreadForwardStep();
+    const int step = isSpreadMode() ? 2 : 1;
     const int before = m_dir->index();
     const QString p = m_dir->advance(step);
     if (p.isEmpty()) {
@@ -6024,42 +6025,9 @@ QString MainWindow::spreadSecondPath() const
     if (!m_dir || !m_dir->isValid()) {
         return QString();
     }
-    const int i = m_dir->index();
-    // 封面模式（config/two_page_cover）：索引 0 是封面，单独成页不拼右侧；
-    // 之后从索引 1 起两两配对（1+2、3+4…）。默认模式仍按 0+1、2+3… 配对。
-    // 封面模式下遇到偶数索引（正常翻页路径不可达）也按「无右侧」处理，
-    // 防止状态被外部改坏时拼出半张跨页。
-    if (Config::instance().twoPageCover() && i % 2 == 0) {
-        return QString();
-    }
-    const int n = i + 1;
+    const int n = m_dir->index() + 1;
     return n < m_dir->count() ? m_dir->files().at(n) : QString();
 }
-
-int MainWindow::spreadForwardStep() const
-{
-    if (!isSpreadMode()) {
-        return 1;
-    }
-    if (!Config::instance().twoPageCover()) {
-        return 2;
-    }
-    // 封面页（索引 0）的下一落点是索引 1，即「第 2+3 张」跨页的左页。
-    return (m_dir && m_dir->isValid() && m_dir->index() == 0) ? 1 : 2;
-}
-
-int MainWindow::spreadBackwardStep() const
-{
-    if (!isSpreadMode()) {
-        return 1;
-    }
-    if (!Config::instance().twoPageCover()) {
-        return 2;
-    }
-    // 索引 1 是「第 2+3 张」跨页，往回是封面页（索引 0），只退 1 张。
-    return (m_dir && m_dir->isValid() && m_dir->index() == 1) ? 1 : 2;
-}
-
 namespace {
 
 } // namespace
@@ -6891,7 +6859,21 @@ void MainWindow::closeEvent(QCloseEvent *event)
     // 一律取 normalGeometry() 的还原态，恢复时才能「先摆普通态再最大化」。
     // 设置窗仍可见而本次关闭被作废时上面已 return，不会误记。
     const QRect ng = normalGeometry();
-    const QRect g = ng.isValid() ? ng : geometry();
+    QRect g = ng.isValid() ? ng : geometry();
+    // Windows 最大化时会给窗口外包一层不可见缩放边框（本机 8px），normalGeometry()
+    // 返回的是「缩进后」的还原矩形；直接落盘会让下次「取消最大化」整体右下偏移
+    // 并缩水 2×内缩量。这里用「最大化帧矩形 − 所在屏可用区左上」反推内缩量补回，
+    // 使落盘口径与普通态 geometry() 一致（普通态实测 geometry()==帧矩形）。
+    if (isMaximized() && windowHandle()) {
+        if (QScreen *scr = windowHandle()->screen()) {
+            const QPoint d = frameGeometry().topLeft() - scr->availableGeometry().topLeft();
+            if (d.x() < 0 && d.x() >= -64 && d.y() < 0 && d.y() >= -64) {
+                g.translate(d.x(), d.y());
+                g.setWidth(g.width() - 2 * d.x());
+                g.setHeight(g.height() - 2 * d.y());
+            }
+        }
+    }
     Config::instance().setWindowGeometry(g.x(), g.y(), g.width(), g.height(), isMaximized());
 
     QMainWindow::closeEvent(event);
