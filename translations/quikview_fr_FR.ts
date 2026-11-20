@@ -1976,6 +1976,26 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。</source>
+        <translation>« %1 » s’applique immédiatement : %2 · pas besoin d’enregistrer ; « Annuler »/Échap rétablit l’état à l’ouverture des Réglages.</translation>
+    </message>
+    <message>
+        <source>开</source>
+        <translation>Activé</translation>
+    </message>
+    <message>
+        <source>关</source>
+        <translation>Désactivé</translation>
+    </message>
+    <message>
+        <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
+        <translation>Modifications abandonnées : les éléments instantanés de la page Affichage reviennent à l’état d’ouverture des Réglages.</translation>
+    </message>
+    <message>
+        <source>已关闭设置，未保留即时改动。</source>
+        <translation>Réglages fermés ; les modifications instantanées n’ont pas été conservées.</translation>
+    </message>
+    <message>
         <source>按下组合键…</source>
         <translation>Appuyez sur une combinaison…</translation>
     </message>
@@ -3153,13 +3173,13 @@ Valeur d'origine restaurée ; rien n'a été écrit dans la configuration.</tran
         <source>等 %1 项</source>
         <translation>+%1 autres</translation>
     </message>
-    <message>
+        <message>
         <source>待保存：%1
 
-「不保存」只放弃这些草稿；已即时应用的普通设置会保留。</source>
+「不保存」只放弃这些草稿；浏览页的缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示会回到进入设置时的状态，其余即时设置保留。</source>
         <translation>En attente : %1
 
-« Ne pas enregistrer » ne jette que ces brouillons ; les réglages ordinaires déjà appliqués en direct sont conservés.</translation>
+« Ne pas enregistrer » n’abandonne que ces brouillons ; sur la page Affichage, la mémoire de zoom / l’incrustation du nom de fichier / l’info de numéro d’image / l’infobulle au survol reviennent à l’état d’ouverture des Réglages, les autres réglages instantanés sont conservés.</translation>
     </message>
     <message>
         <source>保存并关闭</source>

@@ -1976,6 +1976,26 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。</source>
+        <translation>«%1» применено сразу: %2 · сохранять не нужно; «Отмена»/Esc вернёт состояние на момент открытия настроек.</translation>
+    </message>
+    <message>
+        <source>开</source>
+        <translation>Вкл.</translation>
+    </message>
+    <message>
+        <source>关</source>
+        <translation>Выкл.</translation>
+    </message>
+    <message>
+        <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
+        <translation>Изменения отменены: мгновенные пункты страницы «Просмотр» возвращены к состоянию на момент открытия настроек.</translation>
+    </message>
+    <message>
+        <source>已关闭设置，未保留即时改动。</source>
+        <translation>Настройки закрыты; мгновенные изменения не сохранены.</translation>
+    </message>
+    <message>
         <source>按下组合键…</source>
         <translation>Нажмите сочетание клавиш…</translation>
     </message>
@@ -3153,13 +3173,13 @@ https://github.com/xdsT2/quikview</translation>
         <source>等 %1 项</source>
         <translation>ещё %1</translation>
     </message>
-    <message>
+        <message>
         <source>待保存：%1
 
-「不保存」只放弃这些草稿；已即时应用的普通设置会保留。</source>
-        <translation>Ожидают: %1
+「不保存」只放弃这些草稿；浏览页的缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示会回到进入设置时的状态，其余即时设置保留。</source>
+        <translation>Ожидает сохранения: %1
 
-«Не сохранять» отбрасывает только эти черновики; уже применённые на живую обычные настройки сохраняются.</translation>
+«Не сохранять» отбрасывает только эти черновики; на странице «Просмотр» память масштаба / плашка имени файла / номер кадра / подсказка при наведении возвращаются к состоянию на момент открытия настроек, остальные мгновенные настройки сохраняются.</translation>
     </message>
     <message>
         <source>保存并关闭</source>

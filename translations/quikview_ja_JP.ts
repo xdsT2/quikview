@@ -1976,6 +1976,26 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。</source>
+        <translation>「%1」は即時反映済み：%2 · 保存は不要。「キャンセル」/Esc で設定を開く前の状態に戻ります。</translation>
+    </message>
+    <message>
+        <source>开</source>
+        <translation>オン</translation>
+    </message>
+    <message>
+        <source>关</source>
+        <translation>オフ</translation>
+    </message>
+    <message>
+        <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
+        <translation>変更を破棄しました：表示ページの即時項目は設定を開く前の状態に戻りました。</translation>
+    </message>
+    <message>
+        <source>已关闭设置，未保留即时改动。</source>
+        <translation>設定を閉じました。即時の変更は保持されていません。</translation>
+    </message>
+    <message>
         <source>按下组合键…</source>
         <translation>キーを入力…</translation>
     </message>
@@ -3153,13 +3173,13 @@ https://github.com/xdsT2/quikview</translation>
         <source>等 %1 项</source>
         <translation>ほか %1 件</translation>
     </message>
-    <message>
+        <message>
         <source>待保存：%1
 
-「不保存」只放弃这些草稿；已即时应用的普通设置会保留。</source>
+「不保存」只放弃这些草稿；浏览页的缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示会回到进入设置时的状态，其余即时设置保留。</source>
         <translation>保存待ち：%1
 
-「保存しない」はこれらの下書きだけを破棄します。すでに即時適用された通常の設定は保持されます。</translation>
+「保存しない」で破棄されるのはこの下書きのみです。表示ページのズーム記憶 / ファイル名オーバーレイ / フレーム番号表示 / ホバーヒントは設定を開く前の状態に戻り、それ以外の即時設定は保持されます。</translation>
     </message>
     <message>
         <source>保存并关闭</source>

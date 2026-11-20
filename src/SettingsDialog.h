@@ -59,6 +59,11 @@ public:
     // spec 形如 "etc/raw_thumbnail=off+etc/fit_window_to_image=on"（+ 分隔，
     // 因 --smoke 用逗号拆命令；目标态 on/off）。
     void probeEtcLive(const QString &spec);
+    // 批次03 浏览页四项验收探针（--smoke viewprobe / viewcancel / vievesc /
+    // viewclose / viewsave:<spec>）：切到浏览页，按 cfgKey 点击开关到目标态（走
+    // applyLiveCheck 真实链路），逐项 dump「控件态 / getter / ini 原始值 / 主窗口
+    // 运行态」到 Temp/view-live-probe.txt；closeMode 1=取消钮 2=Esc 3=✕ 4=保存。
+    void probeViewLive(const QString &spec, int closeMode, bool thenSave);
     explicit SettingsDialog(QWidget *parent = nullptr);
     ~SettingsDialog() override;
 
@@ -324,7 +329,8 @@ private:
 
     // —— SET-02 即时预览会话（样板：view/exif_small_font）——
     // 控件变更下发 MainWindow 运行态并立即写盘；失败时控件与运行态回退，
-    // 不留下半套状态。取消关闭不再回滚（已即时应用的设置保留）。
+    // 不留下半套状态。取消关闭默认不回滚（已即时应用的设置保留）；
+    // 例外是下方批次03 的浏览页四项——按派单要求取消 / Esc / ✕ 三链路回滚。
     struct LiveCheck {
         QCheckBox *cb;
         const char *key;
@@ -334,6 +340,15 @@ private:
     void connectLiveChecks(int from = 0);
     void applyLiveCheck(int index, bool checked);
     QList<LiveCheck> m_liveChecks;
+
+    // —— 批次03 浏览页四项：进入设置时的快照（取消 / Esc / ✕ 回滚）——
+    // 与上面「取消保留」的通用语义不同：这四项按派单 §2.4 要求三链路回滚，
+    // 即 reject 路径把配置值与运行态同时还原到进入设置前；保存（accept）才保留。
+    void captureBrowseLiveBaseline();
+    void rollbackBrowseLiveBaseline();
+    void updateBrowseLiveNote(const QString &key, bool value);
+    QHash<QString, bool> m_browseLiveBaseline;   // key → 进入设置时的值
+    QLabel *m_browseLiveNote = nullptr;          // 浏览页内联「已即时生效」状态行
 
     // —— 键盘自定义（批次 D1）冲突检测 ——
     // 保存前调用：同一键位只归一个启用的绑定、键位不得与固定动作相撞、

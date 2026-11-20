@@ -4514,6 +4514,27 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         dlg->show();
         dlg->probeAppMenuToggle(c.mid(8));
     }
+    // 批次03 浏览页四项（缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示）即时化验收：
+    // viewprobe:<spec> 只切换；viewcancel / vievesc / viewclose:<spec> 切换后分别
+    // 走「取消」按钮 / Esc / 标题栏 ✕ 三条真实关闭链路验回滚；viewsave:<spec>
+    // 切换后点「保存设置」验保留。
+    else if (c.startsWith(QLatin1String("viewprobe:"))
+             || c.startsWith(QLatin1String("viewcancel:"))
+             || c.startsWith(QLatin1String("vievesc:"))
+             || c.startsWith(QLatin1String("viewclose:"))
+             || c.startsWith(QLatin1String("viewsave:"))) {
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        QString spec;
+        int mode = 0;
+        if (c.startsWith(QLatin1String("viewcancel:"))) { mode = 1; spec = c.mid(11); }
+        else if (c.startsWith(QLatin1String("vievesc:"))) { mode = 2; spec = c.mid(8); }
+        else if (c.startsWith(QLatin1String("viewclose:"))) { mode = 3; spec = c.mid(10); }
+        else if (c.startsWith(QLatin1String("viewsave:"))) { mode = 4; spec = c.mid(9); }
+        else { spec = c.mid(10); }
+        dlg->probeViewLive(spec.trimmed(), mode, mode == 4);
+    }
     else if (c == QLatin1String("appmenureset")) {
         auto *dlg = new SettingsDialog(this);
         dlg->setAttribute(Qt::WA_DeleteOnClose);
@@ -7159,9 +7180,14 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
 {
     // 验收注入：QUIKVIEW_TEST_LIVE_FAIL=1 时第一次即时应用强制失败，用来验证
     // 「应用失败 → 控件与运行态回退、不写盘、错误可见」。只影响进程内首次调用。
-    static bool failOnce = qEnvironmentVariableIsSet("QUIKVIEW_TEST_LIVE_FAIL");
-    if (failOnce) {
-        failOnce = false;
+    // 验收注入：QUIKVIEW_TEST_LIVE_FAIL=1 时第一次即时应用强制失败（沿用 SET-02
+    // 的老口径）；也可以写成具体的 setting key（如 view/show_tooltip），只让这一项
+    // 的首次下发失败——批次03 验收要定向验证某个开关的失败回退，用后者。
+    static const QString failTarget = qEnvironmentVariable("QUIKVIEW_TEST_LIVE_FAIL");
+    static bool failUsed = false;
+    if (!failUsed && !failTarget.isEmpty()
+        && (failTarget == QLatin1String("1") || failTarget == key)) {
+        failUsed = true;
         if (error)
             *error = tr("模拟失败：运行态拒绝本次即时应用（验收注入）。");
         return false;
@@ -7357,6 +7383,54 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         return true;
     }
 
+    if (key == QLatin1String("view/overlay_filename")) {
+        // 批次03 #10：消费点在 showNameOverlay()（Shift+Tab 触发时读 Config）。
+        // 开启时立刻预览一次当前图，关闭时把已经在屏上的浮层收掉——设置页是模态的，
+        // 只看 ini 变化不算「可观察」，这里是会话内真实可见的那一下。
+        if (!value.toBool()) {
+            if (m_nameOverlayTimer)
+                m_nameOverlayTimer->stop();
+            if (m_nameOverlayFade)
+                m_nameOverlayFade->stop();
+            if (m_nameOverlay) {
+                m_nameOverlay->hide();
+                if (m_nameOverlayFx)
+                    m_nameOverlayFx->setOpacity(0.0);
+            }
+        } else if (!m_livePreviewQuiet && m_canvas && !m_currentPath.isEmpty()) {
+            showNameOverlayNow();   // 写盘发生在门槛之后，这里不能再回读旧值
+        }
+        return true;
+    }
+
+    if (key == QLatin1String("view/save_zoom_state")) {
+        // 批次03 #11：消费点在 zoomChanged（上一处 lambda，配置开关 + 当前路径）。
+        // 开启时立刻按当前画面补记一次，让「下次打开这张图恢复」在本会话就有基线；
+        // 关闭不回清既有记忆——和旧行为一致，不替用户删数据。
+        if (value.toBool() && m_canvas && !m_currentPath.isEmpty() && !m_currentImage.isNull()) {
+            const QString st = m_canvas->isFitToWindow() ? QStringLiteral("fit")
+                             : m_canvas->isFitToWidth()  ? QStringLiteral("width")
+                                                         : QString::number(m_canvas->zoom(), 'f', 4);
+            Config::instance().setSavedViewState(m_currentPath, st);
+        }
+        return true;
+    }
+
+    if (key == QLatin1String("view/show_tooltip")) {
+        // 批次03 #15：两处消费点（Chrome::TooltipHint::hover 与 QEvent::ToolTip 过滤）
+        // 都读同一个键，写盘后下一次悬停即生效；这里负责把已经亮着的提示当场收掉。
+        // TooltipHint 的 m_tip 是铬件私有成员，主窗口只做 QToolTip::hideText() 并按
+        // 主题令牌重绘两条铬件，自绘提示在下一帧自然消失（不反向依赖私有接口）。
+        if (!value.toBool()) {
+            QToolTip::hideText();
+            if (m_topBar)
+                m_topBar->update();
+            if (m_control)
+                m_control->update();
+        }
+        return true;
+    }
+
     if (error)
         *error = tr("未知的即时设置项：%1").arg(key);
     return false;
@@ -7399,8 +7473,7 @@ void MainWindow::refreshThemeSurfaces()
 }
 
 QVariant MainWindow::liveSettingValue(const QString &key) const
-{
-    if (key == QLatin1String("view/exif_small_font")) {
+{    if (key == QLatin1String("view/exif_small_font")) {
         if (m_metadata)
             return m_metadata->smallFont();
         if (m_statusOverlay)
@@ -7419,7 +7492,29 @@ QVariant MainWindow::liveSettingValue(const QString &key) const
         return m_liveAnimControlOverrideSet ? m_liveAnimControlOverride
                                             : Config::instance().showAnimControl();
     }
+    // 批次03：这三项的运行态就是配置本身（消费点每次读 Config），没有额外覆盖态；
+    // 返回配置值，验收脚本可以直接对「设置页显示值 ↔ 运行态」做一致性比对。
+    if (key == QLatin1String("view/overlay_filename"))
+        return Config::instance().overlayFilename();
+    if (key == QLatin1String("view/save_zoom_state"))
+        return Config::instance().saveZoomState();
+    if (key == QLatin1String("view/show_tooltip"))
+        return Config::instance().showTooltip();
     return QVariant();
+}
+
+QString MainWindow::viewLiveStateDump() const
+{
+    // 「运行态」不读配置、只读真实对象：浮层在不在屏上、这张图的缩放记忆条目、
+    // 系统工具提示是否可见。验收脚本据此判断「切换后行为真的变了」，而不是只看 ini。
+    return QStringLiteral("overlayvis=%1 opacity=%2 saved=%3 tipvis=%4 cur=%5")
+        .arg(m_nameOverlay && m_nameOverlay->isVisible() ? 1 : 0)
+        .arg(m_nameOverlayFx ? QString::number(m_nameOverlayFx->opacity(), 'f', 2)
+                             : QStringLiteral("na"))
+        .arg(Config::instance().savedViewState(m_currentPath))
+        .arg(QToolTip::isVisible() ? 1 : 0)
+        .arg(m_currentPath.isEmpty() ? QStringLiteral("(none)")
+                                     : QFileInfo(m_currentPath).fileName());
 }
 
 // 退出流程（2026-11-10 返工）：标题栏 × / F4 / 右键退出 / X / Ctrl+Q /
@@ -7587,6 +7682,14 @@ void MainWindow::onAbout()
 void MainWindow::showNameOverlay()
 {
     if (!m_canvas || !Config::instance().overlayFilename()) {
+        return;
+    }
+    showNameOverlayNow();
+}
+
+void MainWindow::showNameOverlayNow()
+{
+    if (!m_canvas) {
         return;
     }
     if (!m_nameOverlay) {
