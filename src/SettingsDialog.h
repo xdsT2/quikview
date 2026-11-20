@@ -68,6 +68,9 @@ public:
     // applyLiveCheck 真实链路），逐项 dump「控件态 / getter / ini 原始值 / 主窗口
     // 运行态」到 Temp/view-live-probe.txt；closeMode 1=取消钮 2=Esc 3=✕ 4=保存。
     void probeViewLive(const QString &spec, int closeMode, bool thenSave);
+    // 验收探针（--smoke setcfglive:<cfgKey>=on|off）：切到「图像处理」页，按 cfgKey
+    // 真实点击开关，dump 前后「控件态 / Config getter / QSettings 原始值」到 Temp/。
+    void probeCfgLive(const QString &spec);
     explicit SettingsDialog(QWidget *parent = nullptr);
     ~SettingsDialog() override;
 

@@ -9,6 +9,7 @@
 #include <QElapsedTimer>
 #include <QPair>
 #include <QPointer>
+#include <QSet>
 #include <QVariant>
 #include <QVector>
 
@@ -174,6 +175,8 @@ private slots:
     void onRotateRight();
     void onFlipH();
     void onFlipV();
+    // 旋转后自动保存（A2）：几何操作落地后按开关原子写回原文件（见 RotateAutoSave）。
+    void maybeAutoSaveGeometry();
     void onCrop();
     void onResize();
     void onEffect(int mode);
@@ -518,6 +521,10 @@ private:
     int m_netRotation = 0;     // 净旋转角：0 / 90 / 180 / 270
     bool m_flipH = false;
     bool m_flipV = false;
+    // 旋转后自动保存（A2）：本次 rebuild 是否由旋转/翻转/不旋转触发（待写回标记）；
+    // 跳过类格式每会话每类只提示一次的去重集合。
+    bool m_geometryOpPending = false;
+    QSet<QString> m_autoSaveSkipSeen;
     bool m_negative = false;   // 反相
     qreal m_gamma = 1.0;       // Gamma 补偿（1.0 = 不变）
     bool m_zoomLocked = false; // 锁定缩放：翻页后不做适配，沿用同一比例

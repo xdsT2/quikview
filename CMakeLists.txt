@@ -54,6 +54,8 @@ add_executable(quikview WIN32
     src/HudShell.h
     src/ExifParser.cpp
     src/ExifParser.h
+    src/RotateAutoSave.cpp
+    src/RotateAutoSave.h
     src/Wallpaper.cpp
     src/Wallpaper.h
     # 压缩包直读（派单 2026-11-18）：自研中央目录解析 + 复用 psd_sdk 内置 miniz

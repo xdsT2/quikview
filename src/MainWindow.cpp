@@ -84,6 +84,7 @@
 #include "MetadataPanel.h"
 #include "ToneMap.h"
 #include "RawImageLoader.h"
+#include "RotateAutoSave.h"
 #include "SettingsDialog.h"
 #include "Theme.h"
 #include "ThumbnailBrowser.h"
@@ -4513,6 +4514,13 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         dlg->show();
         dlg->probeEtcLive(c.mid(9));
     }
+    // setcfglive:<cfgKey>=on|off —— 旋转后自动保存开关真实点击探针
+    else if (c.startsWith(QLatin1String("setcfglive:"))) {
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        dlg->probeCfgLive(c.mid(11));
+    }
     // appmenu:<id>[,<id>…] / appmenureset —— 应用内右键菜单可见性开关探针
     // （右键菜单派单 2026-11-14）：驱动「父关子灰 / 组关整树灰 / 父开全量 /
     // 恢复默认」等设置页状态，供截图与回归验证。
@@ -6182,6 +6190,7 @@ void MainWindow::rotateImage(int degrees)
     } else if (degrees == 180 || degrees == -180) {
         anchor = QPointF(1.0 - n.x(), 1.0 - n.y());
     }
+    m_geometryOpPending = true;   // 旋转后自动保存（A2）：本次 rebuild 落地后按需写回
     rebuildFromSource(anchor);
 }
 
@@ -6201,6 +6210,7 @@ void MainWindow::rebuildFromSource(const QPointF &anchor)
         t.scale(1, -1);
     }
     m_originalImage = m_sourceImage.transformed(t);
+    maybeAutoSaveGeometry();   // 旋转后自动保存（A2）：写回成功会把源图与净角度归位
     m_effect = 0;
     if (actEffectNone) {
         actEffectNone->setChecked(true);
@@ -6224,6 +6234,7 @@ void MainWindow::resetGeometry()
     m_netRotation = 0;
     m_flipH = false;
     m_flipV = false;
+    m_geometryOpPending = true;
     rebuildFromSource(QPointF(0.5, 0.5));
 }
 
@@ -6245,6 +6256,7 @@ void MainWindow::onFlipH()
     const QPointF n = m_canvas->viewCenterNormalized();
     m_flipH = !m_flipH;
     // 屏幕左右镜像：锚点的 u 跟着翻，v 不动
+    m_geometryOpPending = true;
     rebuildFromSource(QPointF(1.0 - n.x(), n.y()));
 }
 
@@ -6255,7 +6267,44 @@ void MainWindow::onFlipV()
     }
     const QPointF n = m_canvas->viewCenterNormalized();
     m_flipV = !m_flipV;
+    m_geometryOpPending = true;
     rebuildFromSource(QPointF(n.x(), 1.0 - n.y()));
+}
+
+// 旋转后自动保存（A2）：开关开且本次是几何操作时，把「几何已就位、效果未加」的
+// m_originalImage 原子写回原文件。写回成功后源图即新文件像素、净角度/翻转归零，
+// 下一次旋转从新源图重算，不会叠转；失败只 toast，视图状态保持不丢操作。
+void MainWindow::maybeAutoSaveGeometry()
+{
+    if (!m_geometryOpPending) {
+        return;
+    }
+    m_geometryOpPending = false;
+    if (!Config::instance().autoSaveRotate() || m_currentPath.isEmpty()
+        || m_originalImage.isNull()) {
+        return;
+    }
+    const QString reason = RotateAutoSave::unsupportedReason(m_currentPath);
+    if (!reason.isEmpty()) {
+        if (!m_autoSaveSkipSeen.contains(reason)) {
+            m_autoSaveSkipSeen.insert(reason);
+            m_toast->showMessage(tr("该格式不支持自动保存"), Chrome::Toast::Tone::Warning);
+        }
+        return;
+    }
+    QString err;
+    if (RotateAutoSave::writeBack(m_currentPath, m_originalImage, err)) {
+        m_sourceImage = m_originalImage;
+        m_netRotation = 0;
+        m_flipH = false;
+        m_flipV = false;
+        if (m_metadata) {
+            m_metadata->showImage(m_currentPath, m_originalImage);
+        }
+        m_toast->showMessage(tr("已自动保存回原文件"), Chrome::Toast::Tone::Success);
+    } else {
+        m_toast->showMessage(tr("自动保存失败：%1").arg(err), Chrome::Toast::Tone::Warning);
+    }
 }
 
 void MainWindow::onEffect(int mode)
