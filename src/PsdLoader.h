@@ -9,7 +9,9 @@
 
 #include "LoadError.h"
 
-// 自研最小 PSD 解析：只覆盖 8bit RGB / PSD v1，不引入第三方库。
+// PSD 解析：二进制解析交给 vendor 的 MolecularMatters/psd_sdk（BSD-2，
+// third_party/psd_sdk），本模块只做「psd_sdk 结果 → 本项目 PsdDocument」的
+// 适配，不复制其实现代码；范围只覆盖 8bit RGB / PSD v1。
 // 设计边界（派单「避免用近似结果冒充原文件效果」）：
 //  - 默认整图用文件末尾 Image Data 段的**原始合成预览**（Photoshop 保存的结果），
 //    绝不逐层重合成冒充。
