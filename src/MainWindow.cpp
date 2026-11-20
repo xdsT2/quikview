@@ -7980,6 +7980,9 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
             if (m_control)
                 m_control->update();
         }
+        return true;
+    }
+
     if (key == QLatin1String("imageproc/gif_transparent")
         || key == QLatin1String("imageproc/gif_custom_color")) {
         // GIF 铺底档 / 自定义色即时重绘（翻页批次 2）：当前图是 GIF 才重铺，

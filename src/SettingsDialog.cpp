@@ -7091,6 +7091,11 @@ void SettingsDialog::probeViewLive(const QString &spec, int closeMode, bool then
                 } else {
                     autoOk->stop();
                 }
+            });
+        });
+    });
+}
+
 // —— 验收探针（--smoke setcfglive:<cfgKey>=on|off）——
 // 只走真实控件点击链路（PillToggle::click → chkBind → applyLiveSetting → 写盘），
 // 不直接改 QSettings，确保验的是「改开关即时生效」本身。
