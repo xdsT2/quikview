@@ -423,10 +423,13 @@ void ImageCache::finishFullDecode(const QString &path, const QImage &img,
     if (!m_fullInFlight.contains(path)) {
         return;
     }
+    // forgetPath 立过代次门限：早于门限的结果属于被替换掉的旧文件内容，
+    // 既不能进缓存，也不能上屏。
+    const quint64 floorGen = m_minGen.value(path, 0);
     // 同一路径已被新代次重新提交（快速反向回到上一张）：这条旧结果不动状态，
     // 只把解码成果塞进缓存，等新代次那条回来再上屏。
     if (m_fullInFlight.value(path) != generation) {
-        if (!img.isNull()) {
+        if (!img.isNull() && generation >= floorGen) {
             insertFull(path, img);
         }
         return;
@@ -449,8 +452,10 @@ void ImageCache::finishFullDecode(const QString &path, const QImage &img,
                                        : error, category);
         }
     } else {
-        insertFull(path, img);
-        if (!stale) {
+        if (generation >= floorGen) {
+            insertFull(path, img);
+        }
+        if (!stale && generation >= floorGen) {
             // FIFO：按入队顺序无条件上屏（显式跳转的在飞旧结果除外）
             emit fullReady(path, img, false);
         }
@@ -477,6 +482,51 @@ void ImageCache::cancelPending()
     m_dragMuted = true;
 }
 
+// 同名文件在外部被删掉后又保存回来：磁盘上已经是新内容，缓存里的旧图必须作废。
+// 清缓存不够——在飞的解码/预读/缩略图还会把旧内容塞回来，所以：
+//   ① m_minGen 给该路径立代次门限，早于门限的解码结果不得进缓存；
+//   ② 在飞全图任务直接从 m_fullInFlight 摘除，完成回调找不到条目即整体丢弃；
+//   ③ 预读/拖动预览命中同一路径时一并清空，回调按「路径不符」丢弃；
+//   ④ 缩略图缓存按 key 前缀清掉，在飞缩略图用 epoch 作废。
+void ImageCache::forgetPath(const QString &path)
+{
+    if (path.isEmpty()) {
+        return;
+    }
+    m_minGen.insert(path, m_generation + 1);
+
+    m_fullCache.remove(path);
+    m_dragCache.remove(path);
+    m_queue.removeAll(path);
+    m_preloadQueue.removeAll(path);
+    if (m_preloadPath == path) {
+        m_preloadPath.clear();
+        m_preloadPromote = false;
+    }
+    if (m_dragInFlight == path) {
+        m_dragInFlight.clear();
+    }
+    if (m_dragPending == path) {
+        m_dragPending.clear();
+    }
+    m_fullInFlight.remove(path);
+
+    const QString prefix = path + QLatin1Char('@');
+    const QList<QString> thumbKeys = m_thumbCache.keys();
+    for (const QString &key : thumbKeys) {
+        if (key.startsWith(prefix)) {
+            m_thumbCache.remove(key);
+        }
+    }
+    const QList<QString> inFlight = m_thumbInFlight.values();
+    for (const QString &key : inFlight) {
+        if (key.startsWith(prefix)) {
+            m_thumbInFlight.remove(key);
+        }
+    }
+    m_thumbEpoch.insert(path, m_thumbEpoch.value(path) + 1);
+}
+
 void ImageCache::requestThumbnail(const QString &path, const QSize &size)
 {
     const QString key = path + QLatin1Char('@') + QString::number(size.width()) + QLatin1Char('x') + QString::number(size.height());
@@ -488,6 +538,7 @@ void ImageCache::requestThumbnail(const QString &path, const QSize &size)
         return;
     }
     m_thumbInFlight.insert(key);
+    const quint64 epoch = m_thumbEpoch.value(path);
 
     auto future = QtConcurrent::run([path, size]() {
         if (PsdLoader::isPsdPath(path)) {
@@ -522,10 +573,15 @@ void ImageCache::requestThumbnail(const QString &path, const QSize &size)
     });
 
     auto *watcher = new QFutureWatcher<QImage>(this);
-    connect(watcher, &QFutureWatcher<QImage>::finished, this, [this, path, key, watcher]() {
+    connect(watcher, &QFutureWatcher<QImage>::finished, this, [this, path, key, epoch, watcher]() {
         m_thumbInFlight.remove(key);
         const QImage img = watcher->result();
         watcher->deleteLater();
+        // 解码期间文件被同名新内容替换（forgetPath）：这张旧缩略图不许进缓存，
+        // 也不许发出去覆盖已经重建的胶片栏；重新可见时自然会重新请求。
+        if (m_thumbEpoch.value(path) != epoch) {
+            return;
+        }
         if (!img.isNull())
             m_thumbCache.insert(key, new QImage(img));
         emit thumbnailReady(path, img);

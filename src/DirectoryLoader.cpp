@@ -6,8 +6,11 @@
 #include <QCollator>
 #include <QCoreApplication>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFileInfo>
+#include <QFileSystemWatcher>
 #include <QSet>
+#include <QTimer>
 
 #include <algorithm>
 
@@ -61,6 +64,85 @@ QStringList groupPatterns(const ImageGroup &g)
 
 }   // namespace
 
+DirectoryLoader::DirectoryLoader(QObject *parent)
+    : QObject(parent)
+{
+    m_watcher = new QFileSystemWatcher(this);
+    m_debounce = new QTimer(this);
+    m_debounce->setSingleShot(true);
+    m_debounce->setInterval(kWatchDebounceMs);
+    connect(m_debounce, &QTimer::timeout, this, &DirectoryLoader::flushWatchEvent);
+    connect(m_watcher, &QFileSystemWatcher::directoryChanged, this,
+            [this](const QString &path) {
+        // 防抖：批量导出/复制会连发事件，800ms 内只保留最后一次。
+        // 这里只重启计时器，不扫描、不解码。
+        if (m_watching && QDir(path).absolutePath() == m_watchDir) {
+            m_debounce->start();
+        }
+    });
+}
+
+bool DirectoryLoader::watchDirectory(const QString &dirPath)
+{
+    const QString abs = QDir(dirPath).absolutePath();
+    if (m_watching && abs == m_watchDir && m_watcher->directories().contains(abs)) {
+        return true;
+    }
+    stopWatching();
+    // 目录不存在（被拔掉的 U 盘、已断开的网络盘）：静默不监视。
+    if (abs.isEmpty() || !QDir(abs).exists()) {
+        return false;
+    }
+    m_watchDir = abs;
+    if (!m_watcher->addPath(abs)) {
+        // addPath 失败同样是静默降级：退出码/界面都不受影响。
+        m_watchDir.clear();
+        return false;
+    }
+    m_watching = true;
+    return true;
+}
+
+void DirectoryLoader::stopWatching()
+{
+    if (m_debounce) {
+        m_debounce->stop();
+    }
+    if (m_watcher && !m_watcher->directories().isEmpty()) {
+        m_watcher->removePaths(m_watcher->directories());
+    }
+    m_watchDir.clear();
+    m_watching = false;
+}
+
+void DirectoryLoader::flushWatchEvent()
+{
+    if (!m_watching || m_watchDir.isEmpty()) {
+        return;
+    }
+    // 目录本身消失（删除/改名/拔盘）：停止监视，列表与画面维持现状。
+    if (!QDir(m_watchDir).exists()) {
+        stopWatching();
+        return;
+    }
+    // Qt 在目录暂时不可达后可能自行摘除路径；目录还在就补挂，
+    // 保证「同名文件被删后又保存回来」仍能收到下一次事件。
+    if (!m_watcher->directories().contains(m_watchDir)) {
+        m_watching = m_watcher->addPath(m_watchDir);
+        if (!m_watching) {
+            m_watchDir.clear();
+            return;
+        }
+    }
+    emit directoryChangedDebounced();
+}
+
+void DirectoryLoader::setFilesAndIndex(const QStringList &files, int index)
+{
+    m_files = files;
+    m_index = files.isEmpty() ? -1 : qBound(0, index, int(files.size()) - 1);
+}
+
 QStringList DirectoryLoader::imageExtensions()
 {
     QStringList out;
@@ -106,15 +188,34 @@ QList<DirectoryLoader::Group> DirectoryLoader::imageGroups()
 // 后台可调用的纯函数：整个扫描/排序/过滤过程不触碰 DirectoryLoader 成员。
 // 注意：QCollator、QFileInfo 都是可重入的，工作线程内自建即用是安全的。
 DirectoryLoader::Index DirectoryLoader::buildIndex(const QString &filePath, int sort,
-                                                   bool sortDesc, bool skipRawWhenJpg)
+                                                   bool sortDesc, bool skipRawWhenJpg,
+                                                   bool groupRawJpg, bool showRaw)
 {
-    Index out;
     const QFileInfo fi(filePath);
     if (!fi.exists()) {
+        return Index{};
+    }
+    return buildIndexDir(fi.absolutePath(), fi.absoluteFilePath(), sort, sortDesc,
+                         skipRawWhenJpg, groupRawJpg, showRaw);
+}
+
+// 外部增删后的重扫入口：锚点文件可以已经不存在（正在显示的文件被删），
+// 此时仍然扫描目录并返回完整清单，anchor = -1 由上层做页位补偿。
+DirectoryLoader::Index DirectoryLoader::buildIndexDir(const QString &dirPath,
+                                                      const QString &anchorPath,
+                                                      int sort, bool sortDesc,
+                                                      bool skipRawWhenJpg,
+                                                      bool groupRawJpg, bool showRaw)
+{
+    Index out;
+    const QFileInfo anchorInfo(anchorPath);
+    out.found = !anchorPath.isEmpty() && anchorInfo.exists();
+    const QDir dir(dirPath);
+    if (!dir.exists()) {
         return out;
     }
-    out.found = true;
-    const QDir dir = fi.dir();
+    QElapsedTimer scanClock;
+    scanClock.start();
     PerfProbe::mark(PerfProbe::currentSeq(), "scan-start", "");
     QFileInfoList infos = dir.entryInfoList(imageExtensions(),
                                              QDir::Files | QDir::Readable);
@@ -152,13 +253,15 @@ DirectoryLoader::Index DirectoryLoader::buildIndex(const QString &filePath, int 
     });
     PerfProbe::mark(PerfProbe::currentSeq(), "sort-done", "");
 
-    const QString canonical = fi.absoluteFilePath();
+    const QString canonical = anchorInfo.absoluteFilePath();
 
     // 「打开 JPEG 时不同时打开同名 RAW」（键 "config/etc/skip_raw_when_jpg"）：
     // a.jpg + a.nef 同目录时只留 JPEG。仅在当前打开的是 JPEG 时过滤；直接打开
     // .nef 时保留全量列表，否则用户双击 RAW 会被自己的过滤规则挡在门外。
-    if (skipRawWhenJpg) {
-        const QString curSuffix = fi.suffix().toLower();
+    // 分组开启时这条过滤让位给分组（要合并的两份都在组里），否则 RAW 会被提前
+    // 删掉、组根本合不起来——两者是同一批「同主名 JPG + RAW」。
+    if (skipRawWhenJpg && !groupRawJpg) {
+        const QString curSuffix = anchorInfo.suffix().toLower();
         const bool curIsJpg = (curSuffix == QLatin1String("jpg")
                                || curSuffix == QLatin1String("jpeg")
                                || curSuffix == QLatin1String("jfif"));
@@ -186,19 +289,73 @@ DirectoryLoader::Index DirectoryLoader::buildIndex(const QString &filePath, int 
     }
 
     PerfProbe::mark(PerfProbe::currentSeq(), "filter-done", "");
-    out.files.reserve(infos.size());
+    QStringList paths;
+    paths.reserve(infos.size());
     for (const QFileInfo &info : infos) {
-        out.files << info.absoluteFilePath();
+        paths << info.absoluteFilePath();
     }
-    out.anchor = out.files.indexOf(canonical);
+
+    if (groupRawJpg) {
+        // RAW+JPG 分组显示：折叠同主名的 RAW/PSD + JPG。组表与显示路径都由
+        // RawJpgGroup 的纯函数给出，锚点按「条目包含该文件」定位，因此直接
+        // 打开 CR2 与打开同组 JPG 落在同一页位。
+        out.entries = RawJpgGroup::build(paths, showRaw);
+        out.files = RawJpgGroup::displayFiles(out.entries, showRaw);
+        out.anchor = RawJpgGroup::indexOfPath(out.entries, canonical);
+    } else {
+        // 关闭分组：与分组前逐位一致——每条一个文件，锚点是文件自己的下标。
+        out.files = paths;
+        out.entries.reserve(paths.size());
+        for (const QString &path : paths) {
+            RawJpgGroup::Entry e;
+            e.members << path;
+            e.grouped = false;
+            out.entries << e;
+        }
+        out.anchor = canonical.isEmpty() ? -1 : out.files.indexOf(canonical);
+    }
+    out.scanMs = scanClock.elapsed();
     return out;
 }
 
 bool DirectoryLoader::applyIndex(const Index &idx)
 {
-    m_files = idx.files;
+    m_entries = idx.entries;
+    // 显示路径按「运行期」的显示模式重算，而不是照抄扫描时的值：用户可能在
+    // 扫描在飞的过程中勾了「显示原始数据」，落地时以最新意图为准。
+    m_files = RawJpgGroup::displayFiles(m_entries, m_showRaw);
     m_index = idx.anchor;
     return m_index >= 0;
+}
+
+void DirectoryLoader::applyEntries(const QList<RawJpgGroup::Entry> &entries, int index)
+{
+    m_entries = entries;
+    m_files = RawJpgGroup::displayFiles(m_entries, m_showRaw);
+    m_index = m_files.isEmpty() ? -1 : qBound(0, index, int(m_files.size()) - 1);
+}
+
+void DirectoryLoader::setShowRaw(bool on)
+{
+    if (m_showRaw == on) {
+        return;
+    }
+    m_showRaw = on;
+    if (m_entries.isEmpty()) {
+        return;
+    }
+    // 不重扫、不重排：页位（m_index）与条目数量都不变，只换每条的打开路径。
+    m_files = RawJpgGroup::displayFiles(m_entries, on);
+}
+
+QString DirectoryLoader::displayPathAt(int i) const
+{
+    return (i >= 0 && i < m_files.size()) ? m_files.at(i) : QString();
+}
+
+RawJpgGroup::Entry DirectoryLoader::entryAt(int i) const
+{
+    return (i >= 0 && i < m_entries.size()) ? m_entries.at(i) : RawJpgGroup::Entry();
 }
 
 bool DirectoryLoader::open(const QString &filePath)

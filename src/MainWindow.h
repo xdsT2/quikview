@@ -14,6 +14,7 @@
 
 #include "LoadError.h"
 #include "PsdLoader.h"
+#include "DirectoryLoader.h"
 
 class ImageCanvas;
 class ImageCache;
@@ -234,6 +235,19 @@ private:
     void loadAsync(const QString &path, bool preempt = false);
     // 空闲预读：翻页停手 300ms 且解码队列空了，向当前页前后各预读 1 张
     void preloadNeighbors();
+    // —— 目录监视（外部增删/重命名自动刷新）——
+    // 防抖后的目录事件 → 后台重扫；同一时刻只跑一个扫描，期间新事件置脏补跑。
+    // 回调（onWatchedDirectoryChanged）里不扫描、不解码。
+    void onWatchedDirectoryChanged();
+    void startDirectoryRefresh();
+    void applyDirectoryRefresh(const DirectoryLoader::Index &idx, const QString &anchor,
+                               qint64 startedMs);
+    void writeWatchReport(const QString &path) const;
+    // RAW+JPG 分组显示（config/group_raw_jpg / config/group_show_raw）：
+    // 总开关落盘并重扫列表；「显示原始数据」只按组表换显示侧，不重扫。
+    void onToggleGroupRawJpg(bool on);
+    void onToggleGroupShowRaw(bool on);
+    void rebuildDirectoryForGrouping();
     // 显式跳转：先清空解码队列再加载（区别于顺序翻页的逐张播放）
     void jumpTo(const QString &path);
     void showImage(const QImage &image, const QString &path, bool preview = false);
@@ -253,6 +267,7 @@ private:
     // 页码去重：胶囊（ControlBar）可见时只在胶囊内显示「n / total」，
     // 状态浮层右下角不重复画；胶囊隐藏时由状态浮层顶上。m_pendingCounter 存最新页码文本。
     void applyCounterVisibility();
+    void updatePageCounter();                 // 目录刷新后重算「n / total」（不重解码画面）
     QString m_pendingCounter;
     void toggleAlwaysOnTop();
     void refreshZoomBadge(qreal z);           // 缩放浮标文案：当前缩放方式/百分比
@@ -466,6 +481,14 @@ private:
     // 页码 / 缩略图选中 / 信息浮层全部对应它；m_currentPath 是请求中的目标。
     QString m_displayedPath;
     int m_displayedIndex = -1;
+    // 目录监视（外部增删）：防抖后的后台重扫状态与取证计数。
+    bool m_dirRefreshInFlight = false;
+    bool m_dirRefreshDirty = false;
+    bool m_displayedFileMissing = false;   // 正在显示的图已被外部删除（画面保留）
+    int m_dirRefreshCount = 0;             // 完成的重扫次数（防抖验收用）
+    qint64 m_dirRefreshLastMs = -1;        // 最近一次「事件 → 列表应用」耗时
+    qint64 m_dirRefreshScanMs = -1;        // 最近一次扫描线程耗时
+    bool m_dirRefreshChanged = false;      // 最近一次重扫是否真的改了列表
     bool m_loadFailed = false;      // 目标图最终打开失败：状态保留到换图/重试
     QTimer *m_loadWaitTimer = nullptr;   // 200ms 未出画面 → 页码旁等待提示
     QLabel *m_loadStatus = nullptr;      // 浮动状态标签（页码旁 / 空状态共用文案）

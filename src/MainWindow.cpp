@@ -283,7 +283,9 @@ MainWindow::MainWindow(QWidget *parent)
     // —— 引擎 ——
     m_canvas = new ImageCanvas(this);
     m_cache = new ImageCache(this);
-    m_dir = new DirectoryLoader;
+    m_dir = new DirectoryLoader(this);
+    connect(m_dir, &DirectoryLoader::directoryChangedDebounced, this,
+            &MainWindow::onWatchedDirectoryChanged);
     // 启动就套用「循环」设置：此前只在菜单里切换时才生效，保存过的值重启后等于没读
     m_dir->setEdgeAction(Config::instance().edgeAction());
     m_frames = new FrameNavigator;
@@ -2409,6 +2411,29 @@ QMenu *MainWindow::buildContextMenu()
         });
         attachDirect(zoom, "parent_zoom");
     }
+    // —— 分组显示（RAW+JPG，派单 2026-11-18）——
+    // 一级入口「分组显示」下两个勾选项：总开关 + 「显示原始数据」子选项。
+    // 勾选态每次弹菜单现读配置；总开关关掉时子选项灰显（避免无意义的切换）。
+    if (vis("parent_group")) {
+        auto *group = newSub();
+        QAction *aGroup = group->addAction(QString());
+        aGroup->setCheckable(true);
+        aGroup->setChecked(cfg.groupRawJpg());
+        QObject::connect(aGroup, &QAction::toggled, this,
+                         [this](bool on) { onToggleGroupRawJpg(on); });
+        decorate(aGroup, "images", AppMenu::label(QLatin1String("group_raw_jpg")),
+                 QString(), false, false);
+
+        QAction *aRaw = group->addAction(QString());
+        aRaw->setCheckable(true);
+        aRaw->setChecked(cfg.groupShowRaw());
+        aRaw->setEnabled(cfg.groupRawJpg());
+        QObject::connect(aRaw, &QAction::triggered, this,
+                         [this](bool on) { onToggleGroupShowRaw(on); });
+        decorate(aRaw, "image", AppMenu::label(QLatin1String("group_show_raw")),
+                 QString(), false, false);
+        attachDirect(group, "parent_group");
+    }
 
     // —— 图像处理相关段（一级：插值算法 / 图片效果 / 图像旋转 / 过渡效果）——
     if (vis("parent_interp") || vis("parent_fx") || vis("parent_rotate")
@@ -2619,6 +2644,8 @@ void MainWindow::applyRuntimeSettings()
     // 排序设置恢复（键 + 方向），菜单勾选态同步
     m_dir->setSort(cfg.sortMode());
     m_dir->setSortDescending(cfg.sortDescending());
+    // RAW+JPG 分组显示：运行期显示模式跟随配置（分组关时该值不影响列表）
+    m_dir->setShowRaw(cfg.groupShowRaw());
     if (actSortName) {
         actSortName->setChecked(cfg.sortMode() == 0);
     }
@@ -2715,6 +2742,11 @@ void MainWindow::openFile(const QString &path, bool transient)
     }
     const QString canonical = fi.absoluteFilePath();
 
+    // 目录监视（外部增删/重命名自动刷新）：当前图所在目录是唯一监视目标。
+    // 目录不可达/网络盘断开时 watchDirectory 内部静默降级，不影响打开流程。
+    m_dir->watchDirectory(fi.absolutePath());
+    m_displayedFileMissing = false;
+
     // 代次 +1：本次打开之后到达的任何旧索引/旧画面都属于上一任务。
     const quint64 gen = ++m_openGeneration;
     m_currentPath = canonical;
@@ -2744,6 +2776,10 @@ void MainWindow::openFile(const QString &path, bool transient)
     const int sortMode = m_dir->sort();
     const bool sortDesc = m_dir->sortDescending();
     const bool skipRaw = Config::instance().skipRawWhenJpg();
+    // RAW+JPG 分组显示（config/group_raw_jpg / config/group_show_raw）：开关值
+    // 在这里取一次带进后台线程，扫描层本身不读配置。
+    const bool groupRaw = Config::instance().groupRawJpg();
+    const bool showRaw = Config::instance().groupShowRaw();
     auto *watcher = new QFutureWatcher<DirectoryLoader::Index>(this);
     connect(watcher, &QFutureWatcher<DirectoryLoader::Index>::finished, this,
             [this, watcher, gen, canonical]() {
@@ -2761,6 +2797,14 @@ void MainWindow::openFile(const QString &path, bool transient)
         }
         PerfProbe::mark(PerfProbe::currentSeq(), "filmstrip-set", "");
         if (ok) {
+            // 分组条目：用户直接打开的是组内 RAW/PSD、而当前模式要显示 JPG 时，
+            // 这里按组切到显示侧（同一条目同一页位）；否则页码与缩略图选中会
+            // 落在组外（files 里只有显示侧的路径）。
+            const QString groupPath = m_dir->displayPathAt(m_dir->index());
+            if (!groupPath.isEmpty() && groupPath != m_displayedPath
+                && groupPath != m_currentPath) {
+                jumpTo(groupPath);
+            }
             // 首图可能先于索引上屏：此时按路径校正它的页码与缩略图选中项。
             const int shown = m_dir->files().indexOf(m_displayedPath);
             if (shown >= 0) {
@@ -2777,7 +2821,8 @@ void MainWindow::openFile(const QString &path, bool transient)
         }
     });
     watcher->setFuture(QtConcurrent::run(DirectoryLoader::buildIndex,
-                                         canonical, sortMode, sortDesc, skipRaw));
+                                         canonical, sortMode, sortDesc, skipRaw,
+                                         groupRaw, showRaw));
 }
 
 // 打开文件并按图调窗：仅「启动带文件 / 文件→打开」两条路径使用。
@@ -2844,6 +2889,262 @@ void MainWindow::preloadNeighbors()
     if (i + step < files.size()) {
         m_cache->preload(files.at(i + step));
     }
+}
+
+// 目录监视 · 事件入口：只做轻量判断，扫描一律进后台线程。
+// 防抖已在 DirectoryLoader 内完成（800ms 合并），这里不再重复计时。
+void MainWindow::onWatchedDirectoryChanged()
+{
+    if (m_dir->watchedDirectory().isEmpty()) {
+        return;
+    }
+    // 目录整体消失（拔 U 盘/网络盘断开/目录被删）：静默停止监视，列表与画面不动。
+    if (!QDir(m_dir->watchedDirectory()).exists()) {
+        m_dir->stopWatching();
+        return;
+    }
+    if (m_dirRefreshInFlight) {
+        m_dirRefreshDirty = true;   // 合并到本次扫描收尾后的补扫
+        return;
+    }
+    startDirectoryRefresh();
+}
+
+// 重扫只做「枚举 + 排序 + 过滤」，与打开目录同一条纯函数，绝不在这里解码图片。
+void MainWindow::startDirectoryRefresh()
+{
+    const QString dirPath = m_dir->watchedDirectory();
+    const QString anchor = !m_displayedPath.isEmpty() ? m_displayedPath : m_currentPath;
+    if (dirPath.isEmpty() || anchor.isEmpty() || m_dirRefreshInFlight) {
+        return;
+    }
+    const int sortMode = m_dir->sort();
+    const bool sortDesc = m_dir->sortDescending();
+    const bool skipRaw = Config::instance().skipRawWhenJpg();
+    const bool groupRaw = Config::instance().groupRawJpg();
+    const bool showRaw = Config::instance().groupShowRaw();
+    const quint64 gen = m_openGeneration;
+    const qint64 startMs = QDateTime::currentMSecsSinceEpoch();
+    m_dirRefreshInFlight = true;
+    auto *watcher = new QFutureWatcher<DirectoryLoader::Index>(this);
+    connect(watcher, &QFutureWatcher<DirectoryLoader::Index>::finished, this,
+            [this, watcher, anchor, gen, startMs]() {
+        const DirectoryLoader::Index idx = watcher->result();
+        watcher->deleteLater();
+        m_dirRefreshInFlight = false;
+        // 扫描期间用户又打开别的文件/目录：这份结果属于上一任务，丢弃。
+        if (gen == m_openGeneration) {
+            applyDirectoryRefresh(idx, anchor, startMs);
+        }
+        if (m_dirRefreshDirty) {
+            m_dirRefreshDirty = false;
+            startDirectoryRefresh();
+        }
+    });
+    watcher->setFuture(QtConcurrent::run(DirectoryLoader::buildIndexDir, dirPath, anchor,
+                                         sortMode, sortDesc, skipRaw,
+                                         groupRaw, showRaw));
+}
+
+// 把重扫结果落到列表/胶片栏/总览。画布只在「被删的同名文件又回来」时重解码，
+// 其余情况一律不动画面——外部事件不能造成闪黑或重新装图。
+void MainWindow::applyDirectoryRefresh(const DirectoryLoader::Index &idx,
+                                       const QString &anchor, qint64 startedMs)
+{
+    // 目录在这期间又不可达：放弃本次结果，静默降级。
+    if (!QDir(m_dir->watchedDirectory()).exists()) {
+        m_dir->stopWatching();
+        return;
+    }
+    ++m_dirRefreshCount;
+    m_dirRefreshLastMs = QDateTime::currentMSecsSinceEpoch() - startedMs;
+    m_dirRefreshScanMs = idx.scanMs;
+
+    const QStringList files = idx.files;
+    if (files == m_dir->files()) {
+        m_dirRefreshChanged = false;
+        return;   // 内容无变化：连 UI 重建都省掉
+    }
+    m_dirRefreshChanged = true;
+
+    const int oldIndex = m_dir->index();
+    // 锚点按「条目包含该文件」定位：分组态下正在显示的可能是组内 RAW/PSD，
+    // 而 files 里放的是显示侧路径，单靠 files.indexOf 会误判成「文件已不在」。
+    const int newIndex = RawJpgGroup::indexOfPath(idx.entries, anchor);
+
+    if (newIndex >= 0) {
+        // 当前显示的文件仍在（新增/删除的都是别的文件）：当前页跟新页位走。
+        const bool wasMissing = m_displayedFileMissing;
+        m_displayedFileMissing = false;
+        m_dir->applyEntries(idx.entries, newIndex);
+        m_browser->setFiles(files, newIndex);
+        if (m_overview) {
+            m_overview->setFiles(files, newIndex);
+        }
+        m_displayedIndex = newIndex;
+        if (m_control) {
+            m_control->setPage(newIndex + 1, int(files.size()));
+        }
+        updatePageCounter();
+        if (wasMissing && anchor == m_displayedPath) {
+            // 删掉后又保存了同名文件：磁盘上是新内容，先作废缓存里的旧图
+            // （含在飞解码/缩略图），再重新解码接上最新内容。
+            m_cache->forgetPath(anchor);
+            jumpTo(anchor);
+        } else {
+            preloadNeighbors();
+        }
+        return;
+    }
+
+    if (QFileInfo::exists(anchor)) {
+        // 文件还在但没进清单（被过滤规则排除等）：只按老页位 clamp，不提示删除。
+        if (files.isEmpty()) {
+            m_dir->applyEntries(idx.entries, -1);
+            m_browser->setFiles(files, -1);
+            if (m_overview) m_overview->setFiles(files, -1);
+            m_displayedIndex = -1;
+            if (m_control) m_control->setPage(0, 0);
+            updatePageCounter();
+            return;
+        }
+        const int fallback = qBound(0, oldIndex, int(files.size()) - 1);
+        m_dir->applyEntries(idx.entries, fallback);
+        m_browser->setFiles(files, fallback);
+        if (m_overview) m_overview->setFiles(files, fallback);
+        m_displayedIndex = fallback;
+        if (m_control) m_control->setPage(fallback + 1, int(files.size()));
+        updatePageCounter();
+        return;
+    }
+
+    // 正在显示的文件被外部删除/移走：画面保留（不闪黑），游标退到原页位左邻，
+    // 下一次 next/prev 自然落到相邻存活项；胶片栏跟随新列表。
+    const bool firstNotice = !m_displayedFileMissing;
+    m_displayedFileMissing = true;
+    const int fallback = files.isEmpty() ? -1 : qBound(0, oldIndex - 1, int(files.size()) - 1);
+    m_dir->setFilesAndIndex(files, fallback);
+    m_browser->setFiles(files, fallback);
+    if (m_overview) {
+        m_overview->setFiles(files, fallback);
+    }
+    m_displayedIndex = fallback;
+    if (m_control) {
+        m_control->setPage(files.isEmpty() ? 0 : fallback + 1, int(files.size()));
+    }
+    updatePageCounter();
+    if (firstNotice && m_toast) {
+        m_toast->showMessage(tr("当前图片已在外部被删除"), Chrome::Toast::Tone::Warning);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// RAW+JPG 分组显示（派单 派单-RAW与JPG分组显示-20261118）
+// ---------------------------------------------------------------------------
+// 总开关：落盘 config/group_raw_jpg 后立即重建当前目录列表。必须重扫——关闭
+// 分组要把折叠的组表拆回逐文件，开启要把同主名的两份折叠；两者只能由
+// DirectoryLoader 的同一条纯函数（buildIndex）重新给出列表。
+void MainWindow::onToggleGroupRawJpg(bool on)
+{
+    Config::instance().settings().setValue(QStringLiteral("config/group_raw_jpg"), on);
+    rebuildDirectoryForGrouping();
+}
+
+// 「显示原始数据」：不重扫、不重排，只按组表把每条的打开路径换到另一侧。
+// 页位（条目下标）不变，因此胶片栏选中与页码天然一致。
+void MainWindow::onToggleGroupShowRaw(bool on)
+{
+    Config::instance().settings().setValue(QStringLiteral("config/group_show_raw"), on);
+    if (!Config::instance().groupRawJpg()) {
+        return;   // 分组未开：单条列表没有「另一侧」可切
+    }
+    m_dir->setShowRaw(on);
+    const int i = m_dir->index();
+    const QString target = m_dir->displayPathAt(i);
+    m_browser->setFiles(m_dir->files(), i);
+    if (m_overview) {
+        m_overview->setFiles(m_dir->files(), i);
+    }
+    if (m_control && i >= 0) {
+        m_control->setPage(i + 1, m_dir->count());
+    }
+    if (!target.isEmpty() && target != m_displayedPath) {
+        jumpTo(target);
+    }
+}
+
+// 分组开关落地后的重建：与打开文件/监视刷新共用 buildIndex，锚点取当前显示
+// 文件；结果回来后恢复到组内对应页位，显示侧按当前模式换图。
+void MainWindow::rebuildDirectoryForGrouping()
+{
+    const QString anchor = !m_displayedPath.isEmpty() ? m_displayedPath : m_currentPath;
+    if (anchor.isEmpty() || !QFileInfo::exists(anchor)) {
+        return;
+    }
+    const int sortMode = m_dir->sort();
+    const bool sortDesc = m_dir->sortDescending();
+    const bool skipRaw = Config::instance().skipRawWhenJpg();
+    const bool groupRaw = Config::instance().groupRawJpg();
+    const bool showRaw = Config::instance().groupShowRaw();
+    m_dir->setShowRaw(showRaw);
+    // 作废旧目录任务：旧索引回来时不能覆盖刚重建的新列表。
+    const quint64 gen = ++m_openGeneration;
+    auto *watcher = new QFutureWatcher<DirectoryLoader::Index>(this);
+    connect(watcher, &QFutureWatcher<DirectoryLoader::Index>::finished, this,
+            [this, watcher, gen]() {
+        const DirectoryLoader::Index idx = watcher->result();
+        watcher->deleteLater();
+        if (gen != m_openGeneration) {
+            return;
+        }
+        const bool ok = m_dir->applyIndex(idx);
+        const int i = m_dir->index();
+        m_browser->setFiles(m_dir->files(), i);
+        if (m_overview) {
+            m_overview->setFiles(m_dir->files(), i);
+        }
+        if (!ok) {
+            return;
+        }
+        m_displayedIndex = i;
+        if (m_control) {
+            m_control->setPage(i + 1, m_dir->count());
+        }
+        m_browser->setCurrent(i);
+        if (m_overview) {
+            m_overview->setCurrent(i);
+        }
+        const QString target = m_dir->displayPathAt(i);
+        if (!target.isEmpty() && target != m_displayedPath) {
+            jumpTo(target);
+        } else {
+            preloadNeighbors();
+        }
+    });
+    watcher->setFuture(QtConcurrent::run(DirectoryLoader::buildIndex, anchor,
+                                         sortMode, sortDesc, skipRaw, groupRaw, showRaw));
+}
+
+// 冒烟探针：目录监视状态/计数落盘（防抖、页位、耗时取证）。path 为相对路径。
+void MainWindow::writeWatchReport(const QString &path) const
+{
+    QFile f(path);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+        return;
+    }
+    QTextStream ts(&f);
+    ts << "ts=" << QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss.zzz")) << "\n"
+       << "dir=" << m_dir->watchedDirectory() << "\n"
+       << "watching=" << (m_dir->isWatching() ? 1 : 0) << "\n"
+       << "count=" << m_dir->count() << "\n"
+       << "index=" << m_dir->index() << "\n"
+       << "displayed=" << m_displayedPath << "\n"
+       << "displayedIndex=" << m_displayedIndex << "\n"
+       << "displayedMissing=" << (m_displayedFileMissing ? 1 : 0) << "\n"
+       << "rebuilds=" << m_dirRefreshCount << "\n"
+       << "lastRefreshMs=" << m_dirRefreshLastMs << "\n"
+       << "lastScanMs=" << m_dirRefreshScanMs << "\n"
+       << "lastChanged=" << (m_dirRefreshChanged ? 1 : 0) << "\n";
 }
 
 void MainWindow::setupPsdDocument(const QString &path)
@@ -3225,6 +3526,7 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     // 加载反馈（派单 §二）：这张图真的上屏了——页码 / 缩略图选中 / 信息浮层
     // 全部对应「已显示」的图；等待提示与失败态就地撤除。
     m_displayedPath = path;
+    m_displayedFileMissing = false;   // 画布已接上新图：删除提示态结束
     m_displayedIndex = m_dir->files().indexOf(path);
     if (m_displayedIndex < 0) {
         m_displayedIndex = m_dir->index();   // 路径不在目录清单（拖入单图等）回落当前索引
@@ -3430,6 +3732,13 @@ void MainWindow::updateInfoOverlay()
     }
     m_statusOverlay->setImageInfo(parts.join(QStringLiteral("  •  ")));
 
+    updatePageCounter();
+}
+
+// 右下页码单独可刷新：目录被外部增删后列表长度/页位会变，但画面不重解码、
+// 不经过 showImage，所以这里从目录状态直接重算一次计数。
+void MainWindow::updatePageCounter()
+{
     if (m_dir) {
         const QStringList files = m_dir->files();
         const int index = m_dir->index();
@@ -3684,6 +3993,12 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         }
     }
     else if (c == QLatin1String("sortdesc"))   actSortDesc->toggle();
+    // groupon / groupoff / showraw / showjpg —— RAW+JPG 分组显示开关（验收探针，
+    // 与右键菜单勾选项走同一条槽，不绕过配置落盘与列表重建）。
+    else if (c == QLatin1String("groupon"))    onToggleGroupRawJpg(true);
+    else if (c == QLatin1String("groupoff"))   onToggleGroupRawJpg(false);
+    else if (c == QLatin1String("showraw"))    onToggleGroupShowRaw(true);
+    else if (c == QLatin1String("showjpg"))    onToggleGroupShowRaw(false);
     else if (c == QLatin1String("browser")) {
         toggleBrowserPanel();
     }
@@ -4942,6 +5257,17 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << "\n";
         }
     }
+    // watchreport[:Temp/xxx.txt] —— 目录监视取证：监视目录/页位/重建次数/耗时。
+    // 防抖验收读 rebuilds（100 文件批量写入应只 +1）；大目录读 lastScanMs/lastRefreshMs。
+    else if (c.startsWith(QLatin1String("watchreport"))) {
+        QString out = QStringLiteral("Temp/watch-report.txt");
+        if (c.startsWith(QLatin1String("watchreport:"))) {
+            out = c.mid(12).trimmed();
+        }
+        if (!out.isEmpty()) {
+            writeWatchReport(out);
+        }
+    }
     else if (c == QLatin1String("report")) {
         QFile f(QStringLiteral("Temp/zoom-report.txt"));
         if (f.open(QIODevice::Append | QIODevice::Text)) {
@@ -4966,6 +5292,8 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << " cap=" << (m_control ? m_control->size().width() : 0) << 'x'
                << (m_control ? m_control->size().height() : 0)
                << " page=" << (m_control ? m_control->page() : 0)
+               << " group=" << (Config::instance().groupRawJpg() ? 1 : 0)
+               << " gshowraw=" << (Config::instance().groupShowRaw() ? 1 : 0)
                << " track=" << (m_control ? m_control->trackWidth() : -1)
                << " zoomtxt=" << (m_control ? m_control->zoomText() : QString())
                << " dockfocus=" << (m_control && m_control->hasFocus() ? 1 : 0)
@@ -6779,6 +7107,8 @@ void MainWindow::pushAppMenuRunState(SettingsDialog *dlg)
     s.checked.insert(QStringLiteral("fx_flipv"), s.flippedV);
     s.checked.insert(QStringLiteral("fx_fliph"), s.flippedH);
     s.checked.insert(QStringLiteral("sort_desc"), s.sortDescending);
+    s.checked.insert(QStringLiteral("group_raw_jpg"), Config::instance().groupRawJpg());
+    s.checked.insert(QStringLiteral("group_show_raw"), Config::instance().groupShowRaw());
     // 依赖当前图片的命令在没有图片时禁用（与真实菜单的可用态同源）
     for (const char *id : { "nav_next", "nav_prev", "nav_first", "nav_last", "nav_next10",
                             "nav_prev10", "nav_rand_back", "nav_rand_fwd", "nav_folder_next",
