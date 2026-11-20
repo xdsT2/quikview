@@ -572,6 +572,22 @@
         <source>所有文件 (*)</source>
         <translation>All files (*)</translation>
     </message>
+    <message>
+        <source>图片与压缩包</source>
+        <translation>Images &amp; Archives</translation>
+    </message>
+    <message>
+        <source>压缩包</source>
+        <translation>Archives</translation>
+    </message>
+    <message>
+        <source>暂不支持加密压缩包</source>
+        <translation>Encrypted archives are not supported yet</translation>
+    </message>
+    <message>
+        <source>包内没有可显示的图片</source>
+        <translation>No displayable images in this archive</translation>
+    </message>
 </context>
 <context>
     <name>EmptyState</name>
@@ -3503,6 +3519,14 @@ Restored the original value; nothing was written to the config.</translation>
         <source>图片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有文件 (*)</source>
         <translation>Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;All files (*)</translation>
     </message>
+    <message>
+        <source>无法读取压缩包：%1</source>
+        <translation>Cannot read archive: %1</translation>
+    </message>
+    <message>
+        <source>压缩包内文件暂不支持此操作</source>
+        <translation>This action is not available for files inside an archive</translation>
+    </message>
 </context>
 <context>
     <name>MetadataPanel</name>
@@ -3579,6 +3603,64 @@ Restored the original value; nothing was written to the config.</translation>
     <message>
         <source>当前没有可显示的菜单项</source>
         <translation>There are no menu items to display.</translation>
+    </message>
+</context>
+<context>
+    <name>ZipArchive</name>
+    <message>
+        <source>文件不存在或无法读取</source>
+        <translation>File not found or unreadable</translation>
+    </message>
+    <message>
+        <source>不是有效的 ZIP/CBZ 压缩包</source>
+        <translation>Not a valid ZIP/CBZ archive</translation>
+    </message>
+    <message>
+        <source>压缩包已损坏，无法读取</source>
+        <translation>The archive is damaged and cannot be read</translation>
+    </message>
+    <message>
+        <source>暂不支持分卷压缩包</source>
+        <translation>Multi-volume archives are not supported yet</translation>
+    </message>
+    <message>
+        <source>压缩包条目过多，暂不支持</source>
+        <translation>Too many entries in this archive</translation>
+    </message>
+    <message>
+        <source>暂不支持加密压缩包</source>
+        <translation>Encrypted archives are not supported yet</translation>
+    </message>
+    <message>
+        <source>包内文件超过 256 MB，已拒绝解码</source>
+        <translation>File inside the archive exceeds 256 MB — decoding refused</translation>
+    </message>
+    <message>
+        <source>包内文件使用了暂不支持的压缩方式</source>
+        <translation>The file uses an unsupported compression method</translation>
+    </message>
+    <message>
+        <source>包内文件校验失败（CRC 不符）</source>
+        <translation>Checksum mismatch inside the archive (CRC)</translation>
+    </message>
+</context>
+<context>
+    <name>ArchiveStore</name>
+    <message>
+        <source>文件不存在或无法读取</source>
+        <translation>File not found or unreadable</translation>
+    </message>
+    <message>
+        <source>压缩包已关闭或未打开</source>
+        <translation>The archive is closed or was never opened</translation>
+    </message>
+    <message>
+        <source>包内找不到该文件</source>
+        <translation>File not found inside the archive</translation>
+    </message>
+    <message>
+        <source>包内文件解码失败</source>
+        <translation>Failed to decode the file inside the archive</translation>
     </message>
 </context>
 </TS>

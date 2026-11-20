@@ -13,6 +13,7 @@
 
 #include "Config.h"
 #include "RawImageLoader.h"
+#include "ArchiveStore.h"   // 压缩包内条目：从内存流解码，不落盘（派单 2026-11-18）
 
 namespace {
 
@@ -179,7 +180,11 @@ void ImageCache::startNextPreload()
     m_preloadGeneration = m_generation;
     QtConcurrent::run(&m_decodePool, [this, path]() {
         QImage img;
-        if (PsdLoader::isPsdPath(path)) {
+        if (ArchiveStore::isEntryPath(path)) {
+            // 包内条目：解压到内存再解码，解完即弃
+            QString ignored;
+            img = ArchiveStore::decode(path, QSize(), &ignored);
+        } else if (PsdLoader::isPsdPath(path)) {
             img = PsdLoader::load(path, false).composite;
         } else {
             QImageReader reader(path);
@@ -258,18 +263,23 @@ void ImageCache::startDragDecode()
     m_dragInFlight = path;
     QtConcurrent::run([this, path, size]() {
         QImage img;
-        QImageReader reader(path);
-        reader.setAutoTransform(true);
-        const QSize src = reader.size();
-        if (size.isValid() && src.isValid() && src.width() > 0 && src.height() > 0) {
-            QSize scaled = src;
-            scaled.scale(size, Qt::KeepAspectRatio);
-            if (scaled.width() > 0 && scaled.height() > 0) {
-                reader.setScaledSize(scaled);
+        if (ArchiveStore::isEntryPath(path)) {
+            QString ignored;
+            img = ArchiveStore::decode(path, size, &ignored);
+        } else {
+            QImageReader reader(path);
+            reader.setAutoTransform(true);
+            const QSize src = reader.size();
+            if (size.isValid() && src.isValid() && src.width() > 0 && src.height() > 0) {
+                QSize scaled = src;
+                scaled.scale(size, Qt::KeepAspectRatio);
+                if (scaled.width() > 0 && scaled.height() > 0) {
+                    reader.setScaledSize(scaled);
+                }
             }
-        }
-        if (reader.canRead()) {
-            img = reader.read();
+            if (reader.canRead()) {
+                img = reader.read();
+            }
         }
         QMetaObject::invokeMethod(this, [this, path, img]() {
             if (m_dragInFlight != path) {
@@ -341,6 +351,26 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
 {
     m_fullInFlight.insert(path, generation);
     QtConcurrent::run(&m_decodePool, [this, path, previewSize, generation]() {
+        // 包内条目（.zip/.cbz 里的文件）：解压进内存 → QImageReader 从内存流解码。
+        // 与文件路径同构：先按视口出一张快帧顶住连按，再解全图；解码完的字节即弃，
+        // 全程不落盘（派单 §二.3 / §四.5 的内存峰值就落在这两条）。
+        if (ArchiveStore::isEntryPath(path)) {
+            if (previewSize.isValid() && Config::instance().previewMode()) {
+                QString ignored;
+                const QImage prev = ArchiveStore::decode(path, previewSize, &ignored);
+                if (!prev.isNull()) {
+                    emitPreview(path, prev, generation);
+                }
+            }
+            QString entryError;
+            LoadErrorCategory entryCategory = LoadErrorCategory::None;
+            const QImage img = ArchiveStore::decode(path, QSize(), &entryError, &entryCategory);
+            QMetaObject::invokeMethod(this, [this, path, img, entryError, entryCategory,
+                                             generation]() {
+                finishFullDecode(path, img, generation, entryError, entryCategory);
+            }, Qt::QueuedConnection);
+            return;
+        }
         // PSD 走 PsdLoader（QImageReader 无 PSD 插件）：用文件自带的原始合成预览，
         // 不逐层重合成，避免用近似结果冒充原文件效果。
         if (PsdLoader::isPsdPath(path)) {
@@ -541,6 +571,11 @@ void ImageCache::requestThumbnail(const QString &path, const QSize &size)
     const quint64 epoch = m_thumbEpoch.value(path);
 
     auto future = QtConcurrent::run([path, size]() {
+        if (ArchiveStore::isEntryPath(path)) {
+            // 包内缩略图：解压入口字节 → 按缩略图尺寸解码（ArchiveStore 负责最终缩比）
+            QString ignored;
+            return ArchiveStore::decode(path, size, &ignored);
+        }
         if (PsdLoader::isPsdPath(path)) {
             QImage thumb = PsdLoader::load(path, false).composite;
             if (!thumb.isNull() && (thumb.width() > size.width() || thumb.height() > size.height()))

@@ -572,6 +572,22 @@
         <source>所有文件 (*)</source>
         <translation>Todos los archivos (*)</translation>
     </message>
+    <message>
+        <source>图片与压缩包</source>
+        <translation>Imágenes y archivos comprimidos</translation>
+    </message>
+    <message>
+        <source>压缩包</source>
+        <translation>Archivos comprimidos</translation>
+    </message>
+    <message>
+        <source>暂不支持加密压缩包</source>
+        <translation>Los archivos cifrados aún no son compatibles</translation>
+    </message>
+    <message>
+        <source>包内没有可显示的图片</source>
+        <translation>No hay imágenes que mostrar en el archivo</translation>
+    </message>
 </context>
 <context>
     <name>EmptyState</name>
@@ -3503,6 +3519,14 @@ Valor original restaurado; nada se escribió en la configuración.</translation>
         <source>图片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有文件 (*)</source>
         <translation>Imágenes (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;Todos los archivos (*)</translation>
     </message>
+    <message>
+        <source>无法读取压缩包：%1</source>
+        <translation>No se puede leer el archivo comprimido: %1</translation>
+    </message>
+    <message>
+        <source>压缩包内文件暂不支持此操作</source>
+        <translation>Esta acción no está disponible para archivos dentro de un comprimido</translation>
+    </message>
 </context>
 <context>
     <name>MetadataPanel</name>
@@ -3579,6 +3603,64 @@ Valor original restaurado; nada se escribió en la configuración.</translation>
     <message>
         <source>当前没有可显示的菜单项</source>
         <translation>No hay elementos de menú que mostrar.</translation>
+    </message>
+</context>
+<context>
+    <name>ZipArchive</name>
+    <message>
+        <source>文件不存在或无法读取</source>
+        <translation>Archivo no encontrado o ilegible</translation>
+    </message>
+    <message>
+        <source>不是有效的 ZIP/CBZ 压缩包</source>
+        <translation>No es un archivo ZIP/CBZ válido</translation>
+    </message>
+    <message>
+        <source>压缩包已损坏，无法读取</source>
+        <translation>El archivo está dañado y no se puede leer</translation>
+    </message>
+    <message>
+        <source>暂不支持分卷压缩包</source>
+        <translation>Los archivos multivolumen aún no son compatibles</translation>
+    </message>
+    <message>
+        <source>压缩包条目过多，暂不支持</source>
+        <translation>Demasiadas entradas en el archivo</translation>
+    </message>
+    <message>
+        <source>暂不支持加密压缩包</source>
+        <translation>Los archivos cifrados aún no son compatibles</translation>
+    </message>
+    <message>
+        <source>包内文件超过 256 MB，已拒绝解码</source>
+        <translation>El archivo supera 256 MB; decodificación rechazada</translation>
+    </message>
+    <message>
+        <source>包内文件使用了暂不支持的压缩方式</source>
+        <translation>El archivo usa un método de compresión no compatible</translation>
+    </message>
+    <message>
+        <source>包内文件校验失败（CRC 不符）</source>
+        <translation>La suma de verificación no coincide (CRC)</translation>
+    </message>
+</context>
+<context>
+    <name>ArchiveStore</name>
+    <message>
+        <source>文件不存在或无法读取</source>
+        <translation>Archivo no encontrado o ilegible</translation>
+    </message>
+    <message>
+        <source>压缩包已关闭或未打开</source>
+        <translation>El archivo está cerrado o nunca se abrió</translation>
+    </message>
+    <message>
+        <source>包内找不到该文件</source>
+        <translation>No se encontró el archivo dentro del comprimido</translation>
+    </message>
+    <message>
+        <source>包内文件解码失败</source>
+        <translation>Falló la decodificación del archivo dentro del comprimido</translation>
     </message>
 </context>
 </TS>

@@ -1,7 +1,9 @@
 #include "DirectoryLoader.h"
 
+#include "ArchiveStore.h"
 #include "Config.h"
 #include "PerfProbe.h"
+#include "ZipArchive.h"
 
 #include <QCollator>
 #include <QCoreApplication>
@@ -13,6 +15,7 @@
 #include <QTimer>
 
 #include <algorithm>
+#include <vector>
 
 namespace {
 
@@ -58,6 +61,36 @@ QStringList groupPatterns(const ImageGroup &g)
     out.reserve(g.count);
     for (int i = 0; i < g.count; ++i) {
         out << QStringLiteral("*.") + QLatin1String(g.exts[i]);
+    }
+    return out;
+}
+
+// 包内可解码的格式：同一张表派生，但去掉「必须走文件级 loader」的几类——
+// PSD 走 PsdLoader（从磁盘读文件）、相机/HEIF 格式走 libraw / libheif（同样
+// 只接受文件路径）。它们在压缩包里拿不到 QIODevice，列出来只会变成「打不开」。
+bool isArchiveDecodableExt(const QString &ext)
+{
+    static const QSet<QString> kFileOnly = {
+        QStringLiteral("psd"), QStringLiteral("heic"), QStringLiteral("heif"),
+        QStringLiteral("hif"), QStringLiteral("avif"), QStringLiteral("dng"),
+        QStringLiteral("nef"), QStringLiteral("cr2"), QStringLiteral("arw"),
+        QStringLiteral("rw2"), QStringLiteral("orf"), QStringLiteral("raf"),
+        QStringLiteral("pef"), QStringLiteral("raw")
+    };
+    return !kFileOnly.contains(ext);
+}
+
+// 包内图片扩展名（不带 "*."），顺序跟随 kImageGroups。
+QStringList archiveImageExts()
+{
+    QStringList out;
+    for (const ImageGroup &g : kImageGroups) {
+        for (int i = 0; i < g.count; ++i) {
+            const QString ext = QLatin1String(g.exts[i]);
+            if (isArchiveDecodableExt(ext)) {
+                out << ext;
+            }
+        }
     }
     return out;
 }
@@ -157,9 +190,15 @@ QString DirectoryLoader::imageFilter()
     QStringList entries;
     // QFileDialog 默认选中第一个过滤器。把「所有图片」放在首位，避免 PSD、
     // RAW 等已支持格式因为落在类型分组里而在打开窗口中被默认隐藏。
+    // 2026-11-19：首项同时收 *.zip / *.cbz，压缩包不必切到「所有文件」才看得见。
+    QStringList allPatterns = imageExtensions();
+    allPatterns << QStringLiteral("*.zip") << QStringLiteral("*.cbz");
     entries << QStringLiteral("%1 (%2)")
-                   .arg(QCoreApplication::translate("DirectoryLoader", "所有图片"),
-                        imageExtensions().join(QLatin1Char(' ')));
+                   .arg(QCoreApplication::translate("DirectoryLoader", "图片与压缩包"),
+                        allPatterns.join(QLatin1Char(' ')));
+    entries << QStringLiteral("%1 (%2)")
+                   .arg(QCoreApplication::translate("DirectoryLoader", "压缩包"),
+                        QStringLiteral("*.zip *.cbz"));
     for (const ImageGroup &g : kImageGroups) {
         entries << QStringLiteral("%1 (%2)")
                        .arg(QCoreApplication::translate("DirectoryLoader", g.label),
@@ -430,4 +469,119 @@ QString DirectoryLoader::prev10()
     }
     m_index = qMax(m_index - 10, 0);
     return m_files.at(m_index);
+}
+
+// 压缩包「虚拟目录」：条目清单来自 ZipArchive 的中央目录，排序在内存里做，
+// 不解压任何一张图（派单 §三：5000 条目包也不预读）。
+DirectoryLoader::Index DirectoryLoader::buildIndexArchive(const QString &archivePath,
+                                                          const QString &anchorEntry,
+                                                          int sort, bool sortDesc)
+{
+    Index out;
+    PerfProbe::mark(PerfProbe::currentSeq(), "scan-start", "archive");
+
+    QString openError;
+    ZipArchive::Status status = ZipArchive::Status::Ok;
+    const QSharedPointer<ZipArchive> archive = ArchiveStore::open(archivePath, &openError, &status);
+    if (!archive) {
+        out.archiveStatus = int(status);
+        out.archiveError = openError;
+        return out;
+    }
+    out.archiveStatus = int(ZipArchive::Status::Ok);
+
+    const QStringList exts = archiveImageExts();
+    QVector<const ZipArchive::Entry *> list;
+    list.reserve(archive->entries().size());
+    int encryptedImages = 0;
+    for (const ZipArchive::Entry &entry : archive->entries()) {
+        if (entry.isDir || entry.name.isEmpty()) {
+            continue;
+        }
+        // macOS 打包产生的资源分叉，不是正片
+        if (entry.name.startsWith(QLatin1String("__MACOSX/"), Qt::CaseInsensitive)
+            || entry.name.endsWith(QLatin1String(".DS_Store"), Qt::CaseInsensitive)) {
+            continue;
+        }
+        const int dot = entry.name.lastIndexOf(QLatin1Char('.'));
+        if (dot < 0) {
+            continue;
+        }
+        const QString suffix = entry.name.mid(dot + 1).toLower();
+        if (!exts.contains(suffix)) {
+            continue;
+        }
+        if (entry.encrypted) {
+            // 不解密：加密条目直接不出现在可浏览序列里（派单 §二.4）
+            ++encryptedImages;
+            continue;
+        }
+        list.append(&entry);
+    }
+    if (list.isEmpty()) {
+        out.archiveError = encryptedImages > 0
+                               ? QCoreApplication::translate("DirectoryLoader",
+                                                             "暂不支持加密压缩包")
+                               : QCoreApplication::translate("DirectoryLoader",
+                                                             "包内没有可显示的图片");
+        out.archiveStatus = encryptedImages > 0 ? int(ZipArchive::Status::Encrypted)
+                                                : int(ZipArchive::Status::Ok);
+        return out;
+    }
+    PerfProbe::mark(PerfProbe::currentSeq(), "scan-done",
+                    QByteArray::number(list.size()).constData());
+
+    // 自然排序：QCollator 打开数字模式，page-2 排在 page-10 前面（派单 §五.1）
+    QCollator collator;
+    collator.setCaseSensitivity(Qt::CaseInsensitive);
+    collator.setNumericMode(true);
+    auto suffixOf = [](const ZipArchive::Entry *e) {
+        const int dot = e->name.lastIndexOf(QLatin1Char('.'));
+        return dot < 0 ? QString() : e->name.mid(dot + 1).toLower();
+    };
+    const bool asc = !sortDesc;
+    std::sort(list.begin(), list.end(),
+              [sort, &collator, &suffixOf, asc](const ZipArchive::Entry *a,
+                                                const ZipArchive::Entry *b) {
+        int r = 0;
+        switch (sort) {
+        case 1:   // 修改时间（zip 里存的是 DOS 时间，大小比较即可）
+            r = (a->dosDateTime == b->dosDateTime)
+                    ? 0
+                    : (a->dosDateTime < b->dosDateTime ? -1 : 1);
+            break;
+        case 2:   // 大小
+            r = (a->size == b->size) ? 0 : (a->size < b->size ? -1 : 1);
+            break;
+        case 3: { // 类型：先扩展名，再名称
+            r = suffixOf(a).compare(suffixOf(b), Qt::CaseInsensitive);
+            if (r == 0) {
+                r = collator.compare(a->name, b->name);
+            }
+            break;
+        }
+        default:  // 名称
+            r = collator.compare(a->name, b->name);
+            break;
+        }
+        return asc ? (r < 0) : (r > 0);
+    });
+    PerfProbe::mark(PerfProbe::currentSeq(), "sort-done", "");
+
+    const QString prefix = ArchiveStore::entryPathPrefix(archivePath);
+    out.files.reserve(list.size());
+    for (const ZipArchive::Entry *entry : list) {
+        out.files << prefix + entry->name;
+    }
+    if (!anchorEntry.isEmpty()) {
+        out.anchor = int(out.files.indexOf(prefix + anchorEntry));
+        if (out.anchor < 0) {
+            out.anchor = 0;   // 锚点不在包内（比如双击的是已被删掉的条目）：落到第一张
+        }
+    } else {
+        out.anchor = 0;
+    }
+    out.found = !out.files.isEmpty();
+    PerfProbe::mark(PerfProbe::currentSeq(), "filter-done", "");
+    return out;
 }

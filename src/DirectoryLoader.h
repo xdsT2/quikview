@@ -25,6 +25,9 @@ public:
         int anchor = -1;     // filePath 在 files 中的位置；-1 = 不在清单
         bool found = false;  // 文件本身存在
         qint64 scanMs = 0;   // 扫描+排序+过滤的工作线程耗时（取证用）
+        // 压缩包虚拟目录专用（普通目录索引恒为 0 / 空）：
+        int archiveStatus = 0;    // ZipArchive::Status，0 = 正常打开
+        QString archiveError;     // 打开失败 / 包内无图 时可展示的文案
     };
 
     // 纯函数：扫描 + 排序 + JPEG/RAW 过滤（+ 可选 RAW/JPG 分组），不写任何成员
@@ -39,6 +42,13 @@ public:
     static Index buildIndexDir(const QString &dirPath, const QString &anchorPath,
                                int sort, bool sortDesc, bool skipRawWhenJpg,
                                bool groupRawJpg = false, bool showRaw = false);
+
+    // 压缩包「虚拟目录」（派单《ZIP 与 CBZ 压缩包直读》2026-11-18 第一阶段）：
+    // 条目清单直接来自 ZipArchive 已解析的中央目录，不解压、不落盘；
+    // anchorEntry 是包内条目名（空 = 取第一张；不在包内也回落到第一张）。
+    // 打开失败 / 空包 / 全加密时 files 为空，原因写进 archiveError。
+    static Index buildIndexArchive(const QString &archivePath, const QString &anchorEntry,
+                                   int sort, bool sortDesc);
 
     // 用后台结果更新本实例。返回是否可导航（与 open 的返回值一致）。
     bool applyIndex(const Index &idx);

@@ -58,6 +58,9 @@ public:
     ~MainWindow() override;
 
     void openFile(const QString &path, bool transient = false);
+    // 打开压缩包（.zip/.cbz）：包内图片作为「虚拟目录」序列浏览（派单 2026-11-18）。
+    // 与目录打开共用翻页/胶片栏/双页/幻灯片，只是索引来源换成包内中央目录。
+    void openArchive(const QString &archivePath, bool transient = false);
     // 路径后缀是否属于可解码图片（剪贴板取图/拖放共用，避免另起白名单）
     static bool isSupportedImagePath(const QString &path);
     // 打开文件并按图片尺寸调窗（仅「启动带文件 / 文件→打开」两条路径用；

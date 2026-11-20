@@ -572,6 +572,22 @@
         <source>所有文件 (*)</source>
         <translation>すべてのファイル (*)</translation>
     </message>
+    <message>
+        <source>图片与压缩包</source>
+        <translation>画像とアーカイブ</translation>
+    </message>
+    <message>
+        <source>压缩包</source>
+        <translation>アーカイブ</translation>
+    </message>
+    <message>
+        <source>暂不支持加密压缩包</source>
+        <translation>暗号化されたアーカイブはまだ対応していません</translation>
+    </message>
+    <message>
+        <source>包内没有可显示的图片</source>
+        <translation>アーカイブ内に表示できる画像がありません</translation>
+    </message>
 </context>
 <context>
     <name>EmptyState</name>
@@ -3503,6 +3519,14 @@ https://github.com/xdsT2/quikview</translation>
         <source>图片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有文件 (*)</source>
         <translation>画像 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;すべてのファイル (*)</translation>
     </message>
+    <message>
+        <source>无法读取压缩包：%1</source>
+        <translation>アーカイブを読み取れません：%1</translation>
+    </message>
+    <message>
+        <source>压缩包内文件暂不支持此操作</source>
+        <translation>アーカイブ内のファイルではこの操作はまだできません</translation>
+    </message>
 </context>
 <context>
     <name>MetadataPanel</name>
@@ -3579,6 +3603,64 @@ https://github.com/xdsT2/quikview</translation>
     <message>
         <source>当前没有可显示的菜单项</source>
         <translation>表示できるメニュー項目がありません。</translation>
+    </message>
+</context>
+<context>
+    <name>ZipArchive</name>
+    <message>
+        <source>文件不存在或无法读取</source>
+        <translation>ファイルが見つからないか、読み取れません</translation>
+    </message>
+    <message>
+        <source>不是有效的 ZIP/CBZ 压缩包</source>
+        <translation>有効な ZIP/CBZ アーカイブではありません</translation>
+    </message>
+    <message>
+        <source>压缩包已损坏，无法读取</source>
+        <translation>アーカイブが破損しているため読み取れません</translation>
+    </message>
+    <message>
+        <source>暂不支持分卷压缩包</source>
+        <translation>分割アーカイブはまだ対応していません</translation>
+    </message>
+    <message>
+        <source>压缩包条目过多，暂不支持</source>
+        <translation>アーカイブ内の項目が多すぎます</translation>
+    </message>
+    <message>
+        <source>暂不支持加密压缩包</source>
+        <translation>暗号化されたアーカイブはまだ対応していません</translation>
+    </message>
+    <message>
+        <source>包内文件超过 256 MB，已拒绝解码</source>
+        <translation>アーカイブ内のファイルが 256 MB を超えるため、デコードを拒否しました</translation>
+    </message>
+    <message>
+        <source>包内文件使用了暂不支持的压缩方式</source>
+        <translation>サポートされていない圧縮方式が使われています</translation>
+    </message>
+    <message>
+        <source>包内文件校验失败（CRC 不符）</source>
+        <translation>アーカイブ内のファイルのチェックサムが一致しません（CRC）</translation>
+    </message>
+</context>
+<context>
+    <name>ArchiveStore</name>
+    <message>
+        <source>文件不存在或无法读取</source>
+        <translation>ファイルが見つからないか、読み取れません</translation>
+    </message>
+    <message>
+        <source>压缩包已关闭或未打开</source>
+        <translation>アーカイブが閉じられているか、開かれていません</translation>
+    </message>
+    <message>
+        <source>包内找不到该文件</source>
+        <translation>アーカイブ内にそのファイルが見つかりません</translation>
+    </message>
+    <message>
+        <source>包内文件解码失败</source>
+        <translation>アーカイブ内のファイルのデコードに失敗しました</translation>
     </message>
 </context>
 </TS>

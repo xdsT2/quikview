@@ -88,6 +88,8 @@
 #include "Theme.h"
 #include "ThumbnailBrowser.h"
 #include "OverviewPanel.h"
+#include "ArchiveStore.h"   // 压缩包（ZIP/CBZ）虚拟目录：打开/标题/包内解码
+#include "ZipArchive.h"
 #include "Wallpaper.h"
 
 // 版本号由 CMakeLists 的 project(VERSION ...) 注入（见 QUIKVIEW_VERSION），
@@ -97,8 +99,11 @@
 #endif
 
 #ifdef Q_OS_WIN
-#define NOMINMAX
+#ifndef NOMINMAX
+#define NOMINMAX   // Qt 的 os_defines.h 已经定义过，避免重定义告警
+#endif
 #include <windows.h>
+#include <psapi.h>   // GetProcessMemoryInfo：archreport 的内存峰值取证
 namespace {
 inline short xFromLparam(long v) { return static_cast<short>(LOWORD(v)); }
 inline short yFromLparam(long v) { return static_cast<short>(HIWORD(v)); }
@@ -2718,6 +2723,11 @@ bool MainWindow::isSupportedImagePath(const QString &path)
     if (path.isEmpty() || !QFileInfo::exists(path)) {
         return false;
     }
+    // 压缩包（ZIP/CBZ）：只要存在就接受，合法性交给 ZipArchive 打开时判定。
+    // 剪贴板取图 / 拖放 / 命令行都走这一条，别处不再另写后缀白名单。
+    if (ArchiveStore::isArchiveFile(path)) {
+        return true;
+    }
     const QString suffix = QFileInfo(path).suffix().toLower();
     if (suffix.isEmpty()) {
         return false;
@@ -2734,6 +2744,12 @@ bool MainWindow::isSupportedImagePath(const QString &path)
 void MainWindow::openFile(const QString &path, bool transient)
 {
     PerfProbe::begin("file", path.toUtf8().constData());
+
+    // 压缩包走虚拟目录分支：包内条目不是磁盘文件，不能进目录扫描/监视那条链路
+    if (ArchiveStore::isArchiveFile(path)) {
+        openArchive(path, transient);
+        return;
+    }
 
     // 文件必须先存在：错误文件走原有提示路径，不启动解码/索引。
     const QFileInfo fi(path);
@@ -2911,6 +2927,88 @@ void MainWindow::restoreWindowGeometry()
     if (cfg.winMaximized()) {
         showMaximized();
     }
+}
+
+// 压缩包（.zip/.cbz）：把包内图片当「虚拟目录」序列打开（派单 2026-11-18）。
+// 与目录浏览共用 m_dir / 胶片栏 / 翻页 / 双页 / 幻灯片，只是索引来源换成
+// ZipArchive 的中央目录；条目解码走内存流，全程不落盘。
+// 与目录打开的唯一节奏差别：首张必须等中央目录解析完（不知道第一张是谁），
+// 所以这里先建索引再 jumpTo，不再有「首图先上屏」那一段。
+void MainWindow::openArchive(const QString &archivePath, bool transient)
+{
+    PerfProbe::begin("archive", archivePath.toUtf8().constData());
+
+    const QFileInfo fi(archivePath);
+    if (!fi.exists()) {
+        m_toast->showMessage(tr("无法读取文件：") + archivePath);
+        return;
+    }
+    const QString canonical = fi.absoluteFilePath();
+    PerfProbe::mark(PerfProbe::currentSeq(), "request-sent", "");
+    // 代次 +1：此前在飞的索引/解码结果全部作废
+    const quint64 gen = ++m_openGeneration;
+    m_currentPath = canonical;
+    if (m_emptyState) {
+        m_emptyState->setStatus(tr("正在打开 %1 …").arg(fi.fileName()), false);
+        m_emptyState->update();
+    }
+
+    const int sortMode = m_dir->sort();
+    const bool sortDesc = m_dir->sortDescending();
+    auto *watcher = new QFutureWatcher<DirectoryLoader::Index>(this);
+    connect(watcher, &QFutureWatcher<DirectoryLoader::Index>::finished, this,
+            [this, watcher, gen, canonical, transient]() {
+        const DirectoryLoader::Index idx = watcher->result();
+        watcher->deleteLater();
+        if (gen != m_openGeneration) {
+            return;   // 用户又打开了别的图/包：这一份属于上一任务
+        }
+        if (idx.files.isEmpty()) {
+            // 打不开 / 空包 / 全加密：原因由 DirectoryLoader 给（按分类取文案）
+            const QString why = idx.archiveError.isEmpty()
+                                    ? tr("无法读取压缩包：%1").arg(QFileInfo(canonical).fileName())
+                                    : idx.archiveError;
+            m_loadFailed = true;
+            if (m_currentImage.isNull() && m_emptyState) {
+                m_emptyState->setStatus(why, true);
+                m_emptyState->update();
+            } else {
+                showLoadStatus(why, true);
+            }
+            m_toast->showMessage(why);
+            return;
+        }
+        // 包已解析成功：登记为当前包，后续解码按它取条目
+        ArchiveStore::setActive(canonical);
+        const bool ok = m_dir->applyIndex(idx);
+        PerfProbe::mark(PerfProbe::currentSeq(), "index-ready", "");
+        m_browser->setFiles(m_dir->files(), m_dir->index());
+        if (m_overview) {
+            m_overview->setFiles(m_dir->files(), m_dir->index());
+        }
+        PerfProbe::mark(PerfProbe::currentSeq(), "filmstrip-set", "");
+        if (!ok) {
+            m_toast->showMessage(tr("无法读取压缩包：%1").arg(QFileInfo(canonical).fileName()));
+            return;
+        }
+        const QString first = m_dir->current();
+        jumpTo(first);
+
+        // 书签/最近记录记「包」而不是包内条目：条目路径在下次启动时无法解析
+        const bool autoFav = !transient && Config::instance().autoBookmark()
+                             && !Config::instance().favorites().contains(canonical);
+        if (autoFav) {
+            Config::instance().toggleFavorite(canonical);
+        }
+        if (!transient && Config::instance().rememberBrowsedFolders()) {
+            Config::instance().addRecentFile(canonical);
+            refreshLibraryMenus();
+        } else if (autoFav) {
+            refreshLibraryMenus();
+        }
+    });
+    watcher->setFuture(QtConcurrent::run(DirectoryLoader::buildIndexArchive,
+                                         canonical, QString(), sortMode, sortDesc));
 }
 
 // 打开文件并按图调窗：仅「启动带文件 / 文件→打开」两条路径使用。
@@ -3407,6 +3505,19 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error,
 
     const QString advice = loadErrorAdvice(category);
 
+    // 包内条目：失败原因由 ArchiveStore 给出（加密 / 超限 / CRC / 解码失败），
+    // 不再走 libraw / libheif 兜底——它们只接受磁盘文件路径，对虚拟路径必然失败，
+    // 还会把原因改写成「RAW 打开失败」这种误导文案（派单 §二.4）。
+    if (ArchiveStore::isEntryPath(path)) {
+        // 条目级原因比类别建议更具体（「超过 256 MB」「CRC 不符」「加密」），
+        // 因此优先用 ArchiveStore 的文案；只有它为空的纯解码失败才退回类别建议。
+        const QString detail = error.isEmpty() ? advice : error;
+        const QString text = tr("无法打开 %1：%2").arg(ArchiveStore::displayName(path), detail);
+        showFailure(text);
+        m_toast->showMessage(text);
+        return;
+    }
+
     // PSD 的错误来自 PsdLoader，直接呈现；不要再走 libraw/libheif 兜底，
     // 否则会被改写成「libraw 打开失败」这类与文件无关的误导信息。
     if (PsdLoader::isPsdPath(path)) {
@@ -3554,8 +3665,8 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
         PerfProbe::markImageShown();
         PerfProbe::mark(PerfProbe::currentSeq(), "show-preview", "");
         m_canvas->setPixmap(QPixmap::fromImage(image));
-        setWindowTitle(QFileInfo(path).fileName() + QStringLiteral(" - QuikView"));
-        m_topBar->setTitle(QFileInfo(path).fileName());
+        setWindowTitle(ArchiveStore::displayName(path) + QStringLiteral(" - QuikView"));
+        m_topBar->setTitle(ArchiveStore::displayName(path));
         m_zoomSaveGuard = false;
         return;
     }
@@ -3685,15 +3796,17 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     // 页码与滑杆对应「已显示」的图：慢图等待期间页码停在上一张，目标页码由
     // 等待提示表达（派单 §二：页码与已显示图片对应）。
     m_control->setPage(m_displayedIndex + 1, m_dir->count());
-    m_metadata->showImage(path, image);
+    // 包内条目：大小/时间从 zip 中央目录注入（虚拟路径没有磁盘 stat）
+    m_metadata->showImage(path, image, ArchiveStore::entryBytes(path),
+                          ArchiveStore::entryModified(path));
     // 信息浮层宽度随元数据自适应，换图后重排一次几何
     applyChromeLayout();
     m_browser->setCurrent(m_displayedIndex);
     if (m_overview) {
         m_overview->setCurrent(m_displayedIndex);
     }
-    setWindowTitle(QFileInfo(path).fileName() + QStringLiteral(" - QuikView"));
-    m_topBar->setTitle(QFileInfo(path).fileName());
+    setWindowTitle(ArchiveStore::displayName(path) + QStringLiteral(" - QuikView"));
+    m_topBar->setTitle(ArchiveStore::displayName(path));
     m_frames->open(path);
     // 动图打开即自动播放（P0：仅 GIF）；换到静态图 / 多页 TIFF / 双页模式则停。
     // 这里不弹 toast（自动行为不打扰），空格切换时才提示。
@@ -3785,8 +3898,10 @@ void MainWindow::updateInfoOverlay()
     const QFileInfo fi(m_currentPath);
     QStringList parts;
     parts << QStringLiteral("%1 × %2").arg(m_currentImage.width()).arg(m_currentImage.height());
-    if (fi.exists()) {
-        const qint64 bytes = fi.size();
+    // 字节数：磁盘文件读 QFileInfo；包内条目取中央目录里的未压缩大小
+    // （虚拟路径在磁盘上不存在，fi.size() 恒为 0，直接显示会误导）
+    qint64 bytes = fi.exists() ? fi.size() : ArchiveStore::entryBytes(m_currentPath);
+    if (bytes >= 0) {
         if (bytes >= 1024 * 1024) {
             parts << QStringLiteral("%1 MB").arg(bytes / 1024.0 / 1024.0, 0, 'f', 1);
         } else {
@@ -3850,9 +3965,10 @@ void MainWindow::applyCounterVisibility()
 
 void MainWindow::updateStatus(const QString &path)
 {
-    // 状态并入标题栏（原版无状态栏）
-    setWindowTitle(QFileInfo(path).fileName() + QStringLiteral(" - QuikView"));
-    m_topBar->setTitle(QFileInfo(path).fileName());
+    // 状态并入标题栏（原版无状态栏）。包内条目显示「包名 › 内部路径」，
+    // 与目录浏览的「文件名」同一位置、同一形态（派单 §五.5）。
+    setWindowTitle(ArchiveStore::displayName(path) + QStringLiteral(" - QuikView"));
+    m_topBar->setTitle(ArchiveStore::displayName(path));
 }
 
 void MainWindow::onActivateImage(int index)
@@ -5348,6 +5464,64 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             screen->grabWindow(0).save(path);
         }
     }
+    // archreport —— 压缩包直读取证（派单 2026-11-18 §五.2 / §五.3）：
+    // 条目数、自然排序抽样、当前条目三档解码耗时、进程峰值工作集。
+    else if (c == QLatin1String("archreport")) {
+        QFile f(QStringLiteral("Temp/archive-report.txt"));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            const QString archivePath = ArchiveStore::archivePathOf(m_currentPath);
+            ts << "archive=" << (archivePath.isEmpty() ? QStringLiteral("(none)") : archivePath)
+               << "\n";
+            ts << "isEntry=" << (ArchiveStore::isEntryPath(m_currentPath) ? 1 : 0) << "\n";
+            ts << "current=" << m_currentPath << "\n";
+            ts << "displayName=" << ArchiveStore::displayName(m_currentPath) << "\n";
+            ts << "windowTitle=" << windowTitle() << "\n";
+            ts << "entries=" << (m_dir ? m_dir->count() : -1)
+               << " index=" << (m_dir ? m_dir->index() : -1) << "\n";
+            if (m_dir && !m_dir->files().isEmpty()) {
+                const QStringList files = m_dir->files();
+                QStringList head;
+                QStringList tail;
+                for (int i = 0; i < qMin(6, int(files.size())); ++i) {
+                    head << QFileInfo(files.at(i)).fileName();
+                }
+                for (int i = qMax(0, int(files.size()) - 6); i < files.size(); ++i) {
+                    tail << QFileInfo(files.at(i)).fileName();
+                }
+                ts << "head=" << head.join(QLatin1String(" | ")) << "\n";
+                ts << "tail=" << tail.join(QLatin1String(" | ")) << "\n";
+            }
+            if (ArchiveStore::isEntryPath(m_currentPath)) {
+                QString entryErr;
+                QElapsedTimer clock;
+                clock.start();
+                const QImage thumb = ArchiveStore::decode(m_currentPath, QSize(240, 320), &entryErr);
+                const qint64 thumbMs = clock.elapsed();
+                clock.restart();
+                const QImage full = ArchiveStore::decode(m_currentPath, QSize(), &entryErr);
+                const qint64 fullMs = clock.elapsed();
+                ts << "thumbMs=" << thumbMs << " thumb=" << thumb.width() << 'x'
+                   << thumb.height() << "\n";
+                ts << "fullMs=" << fullMs << " full=" << full.width() << 'x' << full.height()
+                   << "\n";
+                if (!entryErr.isEmpty()) {
+                    ts << "decodeError=" << entryErr << "\n";
+                }
+            }
+#ifdef Q_OS_WIN
+            PROCESS_MEMORY_COUNTERS pmc{};
+            if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+                ts << "peakWorkingSetMb="
+                   << QString::number(double(pmc.PeakWorkingSetSize) / (1024.0 * 1024.0), 'f', 1)
+                   << "\n";
+                ts << "currentWorkingSetMb="
+                   << QString::number(double(pmc.WorkingSetSize) / (1024.0 * 1024.0), 'f', 1)
+                   << "\n";
+            }
+#endif
+        }
+    }
     // loadreport —— 图像加载诊断：把插件搜索路径、已注册的图像格式与最近一次
     // 解码失败原因落盘。空白画布取证时，这一份是唯一的可读证据。
     else if (c == QLatin1String("loadreport")) {
@@ -5696,6 +5870,22 @@ void MainWindow::onSort(int mode)
     if (m_currentPath.isEmpty() || !m_dir->isValid()) {
         return;
     }
+    // 包内条目：排序作用在中央目录条目上（QCollator 数字模式的自然排序），
+    // 重排后仍停在当前这张（派单 §五.1）
+    if (ArchiveStore::isEntryPath(m_currentPath)) {
+        const auto idx = DirectoryLoader::buildIndexArchive(
+            ArchiveStore::archivePathOf(m_currentPath),
+            ArchiveStore::entryNameOf(m_currentPath), m_dir->sort(),
+            m_dir->sortDescending());
+        if (m_dir->applyIndex(idx)) {
+            m_browser->setFiles(m_dir->files(), m_dir->index());
+            if (m_overview) {
+                m_overview->setFiles(m_dir->files(), m_dir->index());
+            }
+            jumpTo(m_currentPath);
+        }
+        return;
+    }
     if (m_dir->open(m_currentPath)) {
         m_browser->setFiles(m_dir->files(), m_dir->index());
         if (m_overview) {
@@ -5710,6 +5900,20 @@ void MainWindow::onSortDescending(bool on)
     m_dir->setSortDescending(on);
     Config::instance().settings().setValue(QStringLiteral("config/sort_desc"), on);
     if (m_currentPath.isEmpty() || !m_dir->isValid()) {
+        return;
+    }
+    if (ArchiveStore::isEntryPath(m_currentPath)) {
+        const auto idx = DirectoryLoader::buildIndexArchive(
+            ArchiveStore::archivePathOf(m_currentPath),
+            ArchiveStore::entryNameOf(m_currentPath), m_dir->sort(),
+            m_dir->sortDescending());
+        if (m_dir->applyIndex(idx)) {
+            m_browser->setFiles(m_dir->files(), m_dir->index());
+            if (m_overview) {
+                m_overview->setFiles(m_dir->files(), m_dir->index());
+            }
+            jumpTo(m_currentPath);
+        }
         return;
     }
     if (m_dir->open(m_currentPath)) {
@@ -6332,6 +6536,12 @@ QImage MainWindow::readImageSync(const QString &path) const
     if (path.isEmpty()) {
         return QImage();
     }
+    // 包内条目：双页拼图的第二页同样从内存流解，不走 libraw/libheif
+    if (ArchiveStore::isEntryPath(path)) {
+        QString ignored;
+        const QImage viaArchive = ArchiveStore::decode(path, QSize(), &ignored);
+        return m_hdrTonemap ? ToneMap::toneMapToSdr(viaArchive) : viaArchive;
+    }
     QString err;
     QImage img = loadRawImage(path, &err, m_hdrTonemap);
     if (!img.isNull()) {
@@ -6512,6 +6722,12 @@ void MainWindow::onDeleteFile()
     if (m_currentPath.isEmpty()) {
         return;
     }
+    // 包内条目在磁盘上没有独立文件：删除动作会「删掉一个不存在的东西」，
+    // 直接在入口挡下并说清原因（派单 §二.5）
+    if (ArchiveStore::isEntryPath(m_currentPath)) {
+        m_toast->showMessage(tr("压缩包内文件暂不支持此操作"));
+        return;
+    }
     const QString name = QFileInfo(m_currentPath).fileName();
     if (Config::instance().deleteConfirm()) {
         const auto ret = QMessageBox::question(
@@ -6548,6 +6764,10 @@ void MainWindow::onCopyToFolder()
     if (m_currentPath.isEmpty()) {
         return;
     }
+    if (ArchiveStore::isEntryPath(m_currentPath)) {
+        m_toast->showMessage(tr("压缩包内文件暂不支持此操作"));
+        return;
+    }
     const QString dir = QFileDialog::getExistingDirectory(this, tr("复制到图片文件夹"));
     if (dir.isEmpty()) {
         return;
@@ -6568,6 +6788,10 @@ void MainWindow::onCopyToFolder()
 void MainWindow::onOpenWithEditor()
 {
     if (m_currentPath.isEmpty()) {
+        return;
+    }
+    if (ArchiveStore::isEntryPath(m_currentPath)) {
+        m_toast->showMessage(tr("压缩包内文件暂不支持此操作"));
         return;
     }
     const QString editor = Config::instance().settings()
@@ -6613,6 +6837,11 @@ void MainWindow::onCopyImagePath()
         m_toast->showMessage(tr("请先打开图片"), Chrome::Toast::Tone::Warning);
         return;
     }
+    if (ArchiveStore::isEntryPath(m_currentPath)) {
+        // 包内条目没有独立路径：复制「包/条目」这种伪路径给别的程序没有意义
+        m_toast->showMessage(tr("压缩包内文件暂不支持此操作"));
+        return;
+    }
     if (m_currentPath.isEmpty()) {
         m_toast->showMessage(tr("该图片没有可复制的路径"), Chrome::Toast::Tone::Warning);
         return;
@@ -6642,6 +6871,10 @@ void MainWindow::onCopyImageFile()
 {
     if (m_currentImage.isNull()) {
         m_toast->showMessage(tr("请先打开图片"), Chrome::Toast::Tone::Warning);
+        return;
+    }
+    if (ArchiveStore::isEntryPath(m_currentPath)) {
+        m_toast->showMessage(tr("压缩包内文件暂不支持此操作"));
         return;
     }
     if (m_currentPath.isEmpty() || !QFileInfo::exists(m_currentPath)) {
@@ -6737,6 +6970,10 @@ void MainWindow::onSetWallpaper()
     if (m_currentPath.isEmpty()) {
         return;
     }
+    if (ArchiveStore::isEntryPath(m_currentPath)) {
+        m_toast->showMessage(tr("压缩包内文件暂不支持此操作"));
+        return;
+    }
     QString err;
     if (setDesktopWallpaper(m_currentPath, &err)) {
         m_toast->showMessage(tr("已设为壁纸"), Chrome::Toast::Tone::Success);
@@ -6750,8 +6987,16 @@ void MainWindow::onSaveAs()
     if (m_currentImage.isNull()) {
         return;
     }
+    // 包内条目：另存为是「导出」的正路，默认文件名取条目名、目录取包所在目录
+    QString suggested = m_currentPath;
+    if (ArchiveStore::isEntryPath(m_currentPath)) {
+        const QFileInfo archive(ArchiveStore::archivePathOf(m_currentPath));
+        suggested = archive.dir().filePath(
+            QFileInfo(ArchiveStore::entryNameOf(m_currentPath)).completeBaseName()
+            + QStringLiteral(".png"));
+    }
     const QString out = QFileDialog::getSaveFileName(
-        this, tr("另存为"), m_currentPath,
+        this, tr("另存为"), suggested,
         tr("PNG (*.png);;JPEG (*.jpg *.jpeg);;BMP (*.bmp);;WebP (*.webp);;TIFF (*.tif *.tiff)"));
     if (out.isEmpty()) {
         return;
@@ -6767,6 +7012,11 @@ void MainWindow::onBatchConvert()
 {
     if (m_dir->files().isEmpty()) {
         m_toast->showMessage(tr("当前目录没有可转换的图片"), Chrome::Toast::Tone::Warning);
+        return;
+    }
+    // 批量转换按磁盘路径工作：包内条目要么先解包（第二阶段），要么导单张
+    if (ArchiveStore::isEntryPath(m_currentPath)) {
+        m_toast->showMessage(tr("压缩包内文件暂不支持此操作"));
         return;
     }
     BatchConvertDialog dlg(m_dir->files(), this);
@@ -6800,9 +7050,14 @@ void MainWindow::onToggleFavorite()
     if (m_currentPath.isEmpty()) {
         return;
     }
+    // 包内条目：收藏的是「包」本身——条目路径下次启动时没有已挂载的包可解析
+    QString favPath = m_currentPath;
+    if (ArchiveStore::isEntryPath(favPath)) {
+        favPath = ArchiveStore::archivePathOf(favPath);
+    }
     const int before = Config::instance().favorites().size();
-    const bool wasFav = Config::instance().favorites().contains(m_currentPath);
-    Config::instance().toggleFavorite(m_currentPath);
+    const bool wasFav = Config::instance().favorites().contains(favPath);
+    Config::instance().toggleFavorite(favPath);
     refreshLibraryMenus();
     if (wasFav) {
         m_toast->showMessage(tr("已取消收藏"), Chrome::Toast::Tone::Info);

@@ -572,6 +572,22 @@
         <source>所有文件 (*)</source>
         <translation>所有檔案 (*)</translation>
     </message>
+    <message>
+        <source>图片与压缩包</source>
+        <translation>圖片與壓縮檔</translation>
+    </message>
+    <message>
+        <source>压缩包</source>
+        <translation>壓縮檔</translation>
+    </message>
+    <message>
+        <source>暂不支持加密压缩包</source>
+        <translation>暫不支援加密壓縮檔</translation>
+    </message>
+    <message>
+        <source>包内没有可显示的图片</source>
+        <translation>壓縮檔內沒有可顯示的圖片</translation>
+    </message>
 </context>
 <context>
     <name>EmptyState</name>
@@ -3503,6 +3519,14 @@ https://github.com/xdsT2/quikview</translation>
         <source>图片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有文件 (*)</source>
         <translation>圖片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有檔案 (*)</translation>
     </message>
+    <message>
+        <source>无法读取压缩包：%1</source>
+        <translation>無法讀取壓縮檔：%1</translation>
+    </message>
+    <message>
+        <source>压缩包内文件暂不支持此操作</source>
+        <translation>壓縮檔內檔案暫不支援此操作</translation>
+    </message>
 </context>
 <context>
     <name>MetadataPanel</name>
@@ -3579,6 +3603,64 @@ https://github.com/xdsT2/quikview</translation>
     <message>
         <source>当前没有可显示的菜单项</source>
         <translation>目前沒有可顯示的功能表項目。</translation>
+    </message>
+</context>
+<context>
+    <name>ZipArchive</name>
+    <message>
+        <source>文件不存在或无法读取</source>
+        <translation>檔案不存在或無法讀取</translation>
+    </message>
+    <message>
+        <source>不是有效的 ZIP/CBZ 压缩包</source>
+        <translation>不是有效的 ZIP/CBZ 壓縮檔</translation>
+    </message>
+    <message>
+        <source>压缩包已损坏，无法读取</source>
+        <translation>壓縮檔已損壞，無法讀取</translation>
+    </message>
+    <message>
+        <source>暂不支持分卷压缩包</source>
+        <translation>暫不支援分卷壓縮檔</translation>
+    </message>
+    <message>
+        <source>压缩包条目过多，暂不支持</source>
+        <translation>壓縮檔項目過多，暫不支援</translation>
+    </message>
+    <message>
+        <source>暂不支持加密压缩包</source>
+        <translation>暫不支援加密壓縮檔</translation>
+    </message>
+    <message>
+        <source>包内文件超过 256 MB，已拒绝解码</source>
+        <translation>壓縮檔內檔案超過 256 MB，已拒絕解碼</translation>
+    </message>
+    <message>
+        <source>包内文件使用了暂不支持的压缩方式</source>
+        <translation>壓縮檔內檔案使用了暫不支援的壓縮方式</translation>
+    </message>
+    <message>
+        <source>包内文件校验失败（CRC 不符）</source>
+        <translation>壓縮檔內檔案校驗失敗（CRC 不符）</translation>
+    </message>
+</context>
+<context>
+    <name>ArchiveStore</name>
+    <message>
+        <source>文件不存在或无法读取</source>
+        <translation>檔案不存在或無法讀取</translation>
+    </message>
+    <message>
+        <source>压缩包已关闭或未打开</source>
+        <translation>壓縮檔已關閉或尚未開啟</translation>
+    </message>
+    <message>
+        <source>包内找不到该文件</source>
+        <translation>壓縮檔內找不到該檔案</translation>
+    </message>
+    <message>
+        <source>包内文件解码失败</source>
+        <translation>壓縮檔內檔案解碼失敗</translation>
     </message>
 </context>
 </TS>
