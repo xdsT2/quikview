@@ -102,9 +102,9 @@ public:
     void probeAppMenuWindow(const QString &out, int w = 0, int h = 0,
                             const QString &scrollTo = QString(),
                             const QString &steps = QString());
-    // 设置导出验收探针（--smoke setio:<steps>，非交互路径）：
-    // steps 用 '+' 分隔，支持 page（切到杂项页）/ bottom / export|<path> /
-    // grab|<out>（整窗渲染落盘）。导出走与按钮槽同一条核心链路，
+    // 设置导出 / 导入验收探针（--smoke setio:<steps>，非交互路径）：
+    // steps 用 '+' 分隔，支持 page（切到杂项页）/ export|<path> / import|<path> /
+    // grab|<out>（整窗渲染落盘）。导出/导入走与按钮槽同一条核心链路，
     // 只是把原生文件对话框换成探针给的路径；每步结果追加到 Temp/setio-probe.txt。
     void probeSettingsIO(const QString &steps);
     // —— 常驻一级预览 + 浮动二级（实装派单 2026-11-16）——
@@ -152,8 +152,9 @@ private slots:
     // 校验 + 写盘；键盘冲突 / 写盘失败时不写盘并返回 false。
     bool onAccepted();
     void onReset();
-    // 杂项页「导出设置」标准按钮的点击槽。
+    // 杂项页「导出设置 / 导入设置」两个标准按钮的点击槽。
     void onExportSettings();
+    void onImportSettings();
 
 private:
     // 绑定表条目：load/save 统一遍历。inverted=true 表示 key 存正向语义
@@ -211,14 +212,19 @@ private:
     void buildEtcPage(QWidget *page);
     void buildLangPage(QWidget *page);
 
-    // —— 设置导出（需求池 H1-3）——
+    // —— 设置导出 / 导入（需求池 H1-3）——
     // 作用对象是「当前生效的那份 ini」：QUIKVIEW_CONFIG_PATH > 便携目录 config.ini
     // > 系统配置目录，与 Config::defaultConfigPath 同一来源，不写死 %APPDATA%。
     QString settingsIniPath() const;
+    // 三重校验：QSettings 能解析 / 含 [config] 段 / 至少 5 个本项目已知键。
+    bool isValidSettingsFile(const QString &path, QString *error) const;
     // 导出：当前 ini 全量字节副本，QSaveFile 原子写（目标已存在也能安全替换）。
     bool exportSettingsTo(const QString &path, QString *error);
-    // 按钮槽与探针共用的一条完整链路（推送待保存项 → 全量副本 → toast）。
+    // 导入：先备份为 config.ini.bak-YYYYMMDDHHMM，再原子覆盖；失败原文件不动。
+    bool applyImportedSettings(const QString &path, QString *error);
+    // 按钮槽与探针共用的一条完整链路（推送待保存项 → 校验 → 备份覆盖 → 回填界面 → toast）。
     void exportSettingsPath(const QString &path);
+    bool importSettingsPath(const QString &path);
     // 设置窗内的轻提示（复用 Chrome::Toast，不新造样式）。
     void showSettingsToast(const QString &text, bool ok);
 
@@ -485,7 +491,8 @@ private:
     QLineEdit *m_photoFolder2 = nullptr;
     QLineEdit *m_editorPath = nullptr;    // 杂项页
     QPushButton *m_btnExportSettings = nullptr;   // 杂项页：导出设置
-    Chrome::Toast *m_toast = nullptr;             // 设置窗内轻提示（导出结果）
+    QPushButton *m_btnImportSettings = nullptr;   // 杂项页：导入设置
+    Chrome::Toast *m_toast = nullptr;             // 设置窗内轻提示（导出/导入结果）
     QComboBox *m_language = nullptr;      // 语言页
     QPushButton *m_checkUpdateBtn = nullptr;  // 一般页：手动检查更新
     // 三选一确认框执行中：主窗口 closeEvent 与 Qt 自动关闭子窗口可能

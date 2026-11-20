@@ -16,6 +16,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QTextStream>
+#include <QDateTime>
 #include <QSaveFile>
 #include <QSettings>
 #include <QStandardPaths>
@@ -5450,7 +5451,7 @@ void SettingsDialog::buildEtcPage(QWidget *page)
 
     // 2026-11-17 注释精简：原页脚逐句重复三行开关的语义，删除后行内与控件本身已足够。
 
-    // —— 设置导出（需求池 H1-3，本单界面动作：标准按钮）——
+    // —— 设置导出 / 导入（需求池 H1-3，本单唯一界面动作：两个标准按钮）——
     // 放在杂项页尾部：这一页本来就是「杂项/维护」性质的入口聚合处。
     sec = beginSection(page, setioTr("设置备份"));
     {
@@ -5462,12 +5463,21 @@ void SettingsDialog::buildEtcPage(QWidget *page)
         connect(m_btnExportSettings, &QPushButton::clicked,
                 this, &SettingsDialog::onExportSettings);
     }
+    {
+        SettingRowParts parts = addSettingRow(
+            sec, setioTr("导入设置"),
+            setioTr("从 .ini 文件恢复设置，重启 QuikView 后生效"));
+        m_btnImportSettings = addButton(nullptr, setioTr("导入设置"));
+        parts.controls->addWidget(m_btnImportSettings, 0, Qt::AlignVCenter);
+        connect(m_btnImportSettings, &QPushButton::clicked,
+                this, &SettingsDialog::onImportSettings);
+    }
 
     applyPageRhythm(page);
 }
 
 // ===========================================================================
-// 9.1 设置导出（需求池 H1-3）
+// 9.1 设置导出 / 导入（需求池 H1-3）
 // ===========================================================================
 
 // 当前生效的那份 ini：QUIKVIEW_CONFIG_PATH → 程序目录 config.ini → 系统配置目录，
@@ -5484,6 +5494,59 @@ void SettingsDialog::showSettingsToast(const QString &text, bool ok)
         return;
     m_toast->showMessage(text, ok ? Chrome::Toast::Tone::Success
                                   : Chrome::Toast::Tone::Warning);
+}
+
+bool SettingsDialog::isValidSettingsFile(const QString &path, QString *error) const
+{
+    const auto fail = [error](const QString &why) {
+        if (error)
+            *error = why;
+        return false;
+    };
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly)) {
+        return fail(QStringLiteral("无法读取文件"));
+    }
+    const QString text = QString::fromUtf8(f.readAll());
+    f.close();
+
+    // ① QSettings 能解析（手改坏的 ini 会在 status 上暴露）：空文件也拒绝。
+    {
+        QSettings probe(path, QSettings::IniFormat);
+        if (probe.status() != QSettings::NoError)
+            return fail(QStringLiteral("QSettings 解析失败"));
+        if (probe.allKeys().isEmpty())
+            return fail(QStringLiteral("没有可读键"));
+    }
+
+    // ② 必须含 [config] 段（QuikView 的业务键全在这一段下）。
+    bool hasConfigSection = false;
+    for (const QString &line : text.split(QLatin1Char('\n'))) {
+        if (line.trimmed().compare(QStringLiteral("[config]"), Qt::CaseInsensitive) == 0) {
+            hasConfigSection = true;
+            break;
+        }
+    }
+    if (!hasConfigSection)
+        return fail(QStringLiteral("缺少 [config] 段"));
+
+    // ③ 至少 5 个本项目已知键：防止把别的软件的 ini 当设置吃进来。
+    //    只做「键名出现过」的粗判——这里的目的不是逐键校值，而是来源识别。
+    static const char *const kKnownKeys[] = {
+        "two_page_cover", "arrow_keys_scroll", "image_editor", "photo_folder_1",
+        "photo_folder_2", "click_side_pageturn", "canvas_bg", "interpolation",
+        "edge_action", "default_zoom", "show_side_arrow", "fit_window_to_image",
+        "disable_screensaver", "pageturn_wav", "raw_thumbnail", "language",
+        "theme", "cache_size_mb", "blur_material", "slideshow_interval_ms",
+    };
+    int hits = 0;
+    for (const char *key : kKnownKeys) {
+        if (text.contains(QString::fromLatin1(key)))
+            ++hits;
+    }
+    if (hits < 5)
+        return fail(QStringLiteral("已知键不足 5 个（命中 %1）").arg(hits));
+    return true;
 }
 
 bool SettingsDialog::exportSettingsTo(const QString &path, QString *error)
@@ -5512,6 +5575,47 @@ bool SettingsDialog::exportSettingsTo(const QString &path, QString *error)
     return true;
 }
 
+bool SettingsDialog::applyImportedSettings(const QString &path, QString *error)
+{
+    QFile in(path);
+    if (!in.open(QIODevice::ReadOnly)) {
+        if (error)
+            *error = in.errorString();
+        return false;
+    }
+    const QByteArray data = in.readAll();
+    in.close();
+
+    const QString dest = settingsIniPath();
+    // 备份：导入前的原配置整份留存，导入失败/回滚都有据可查。
+    if (QFileInfo::exists(dest)) {
+        const QString bak = dest + QStringLiteral(".bak-")
+                            + QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMddHHmm"));
+        QFile::remove(bak);
+        if (!QFile::copy(dest, bak)) {
+            if (error)
+                *error = QStringLiteral("备份原配置失败");
+            return false;
+        }
+    }
+    // 覆盖写入同样走 QSaveFile：失败时原文件仍在，不会出现半个 ini。
+    QSaveFile out(dest);
+    if (!out.open(QIODevice::WriteOnly)) {
+        if (error)
+            *error = out.errorString();
+        return false;
+    }
+    if (out.write(data) != data.size() || !out.commit()) {
+        if (error)
+            *error = out.errorString();
+        return false;
+    }
+    // 让运行中的 Config 立刻改为读新文件：不重启也能回读正确；
+    // 真正「生效」仍需重启（本单明确不做立即生效）。
+    Config::instance().reopenSettings();
+    return true;
+}
+
 void SettingsDialog::exportSettingsPath(const QString &path)
 {
     QString err;
@@ -5520,6 +5624,31 @@ void SettingsDialog::exportSettingsPath(const QString &path)
         return;
     }
     showSettingsToast(setioTr("设置已导出"), true);
+}
+
+bool SettingsDialog::importSettingsPath(const QString &path)
+{
+    // 先把队列里的即时项写完，再动文件：否则导入后旧内存值会被后续 sync 带回去。
+    flushPendingTheme();
+    QString err;
+    if (!flushPendingWrites(&err)) {
+        showSettingsToast(setioTr("导入失败，原配置未改动"), false);
+        return false;
+    }
+    if (!isValidSettingsFile(path, &err)) {
+        showSettingsToast(setioTr("不是有效的 QuikView 设置文件"), false);
+        return false;
+    }
+    if (!applyImportedSettings(path, &err)) {
+        showSettingsToast(setioTr("导入失败，原配置未改动"), false);
+        return false;
+    }
+    // 界面回填成导入后的值，并把待保存基线重置——避免关闭设置时把旧值又写回去。
+    loadFromConfig();
+    capturePendingBaseline(0);
+    updatePendingNote();
+    showSettingsToast(setioTr("导入成功，重启 QuikView 后生效"), true);
+    return true;
 }
 
 void SettingsDialog::onExportSettings()
@@ -5535,6 +5664,16 @@ void SettingsDialog::onExportSettings()
     if (!path.endsWith(QStringLiteral(".ini"), Qt::CaseInsensitive))
         path += QStringLiteral(".ini");
     exportSettingsPath(path);
+}
+
+void SettingsDialog::onImportSettings()
+{
+    QString path = QFileDialog::getOpenFileName(
+        this, setioTr("导入设置"), QFileInfo(settingsIniPath()).absolutePath(),
+        setioTr("QuikView 设置 (*.ini);;所有文件 (*)"));
+    if (path.isEmpty())
+        return;
+    importSettingsPath(path);
 }
 
 void SettingsDialog::probeSettingsIO(const QString &steps)
@@ -5572,6 +5711,10 @@ void SettingsDialog::probeSettingsIO(const QString &steps)
             const bool ok = exportSettingsTo(path, &err);
             showSettingsToast(ok ? setioTr("设置已导出") : setioTr("导出失败"), ok);
             result = QStringLiteral("ok=%1 path=%2 err=%3").arg(ok ? 1 : 0).arg(path, err);
+        } else if (step.startsWith(QLatin1String("import|"))) {
+            const QString path = step.mid(7);
+            const bool ok = importSettingsPath(path);
+            result = QStringLiteral("ok=%1 path=%2").arg(ok ? 1 : 0).arg(path);
         } else if (step.startsWith(QLatin1String("grab|"))) {
             const bool ok = grab().save(step.mid(5));
             result = QStringLiteral("ok=%1 out=%2").arg(ok ? 1 : 0).arg(step.mid(5));
