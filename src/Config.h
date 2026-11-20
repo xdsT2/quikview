@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QSettings>
+#include <QColor>
 
 // 应用配置。设计对照逆向得到的 Honeyview config.ini 配置面，
 // 但刻意做三处改进（见 ARCHITECTURE.md「取舍」）：
@@ -41,7 +42,7 @@ public:
     bool exifSmallFont() const;        // EXIF / 文件信息用小字体（默认 12px，开则 10px）
     bool alwaysOnTop() const;          // 总在最前
     bool escExit() const;              // 按 ESC 退出
-    QString edgeAction() const;        // "first" | "stop"（默认 "first"；旧值 "ask" 折算为 "stop"，询问实现落地前）
+    QString edgeAction() const;        // "first" | "stop" | "ask"（默认 "first"；ask=边界弹确认，翻页批次 2 已实现）
 
     // 浏览
     // 背景/边框颜色与背景图访问器已随第 18 期「背景」段下线删除；
@@ -78,7 +79,9 @@ public:
     bool stretchSmall() const;         // 适合窗口时把小于窗口的图放大填满（默认 false）
     bool hdrTonemap() const;           // HDR 色调映射（本版恒 false：启用入口已移除，旧配置不激活）
     bool imageIcc() const;             // 使用图片内嵌 ICC（非 sRGB 图转 sRGB，默认 true）
-    int gifTransparent() const;        // GIF 解码兼容底色 0..3（§3.8 起仅内部读取，不在设置页暴露）
+    bool monitorIcc() const;           // 显示器 ICC（SDR 验证版：ACM 关闭的屏幕做应用侧目标转换，默认 false）
+    int gifTransparent() const;        // GIF 透明背景 0=默认调色板 1=白 2=黑 3=中灰 4=自定义（默认 0；批次 2 重新暴露并加自定义取色）
+    QColor gifCustomColor() const;     // GIF 自定义背景色（默认 #808080，仅档位 4 消费）
     QString canvasBackdrop() const;    // 全画布背景材质 "checker"|"solid"（旧值一次性迁移，默认随主题着色）
     bool showTransparency() const;     // 「显示透明区域」（默认开：纯色背景下透明像素铺指示棋盘）
     bool canvasShadow() const;         // 图片阴影开关（默认 false，仅 32 位 alpha 非 GIF 图）
@@ -88,9 +91,14 @@ public:
     bool alignTopWhenLarge() const;    // 图片大于窗口时显示图片顶部（默认开）
     bool autoSaveRotate() const;       // 旋转后自动保存（默认关：旋转/翻转立即原子写回原文件）
 
-    // 鼠标
-    bool wheelZoom() const;            // 滚轮缩放
-    bool middlePan() const;            // 中键拖拽平移
+    // 鼠标（翻页批次 2：按键与手势独立映射，2026-11-20）
+    // 滚轮上下独立设置，单向「无」只停用该方向；中键单击与拖动分别设置。
+    // 旧配置（滚轮共用缩放开关、中键 pan 捆绑单击全屏）在构造函数里按
+    // 「用户此前真正得到的行为」一次性迁移到下面四个键，旧键保留供降级。
+    QString wheelUpAction() const;     // 滚轮向上：none/zoom_in/zoom_out/next/prev（默认 zoom_in）
+    QString wheelDownAction() const;   // 滚轮向下：同上（默认 zoom_out）
+    QString middleClickAction() const; // 中键单击：点击动作表（默认 fullscreen）
+    QString middleDragAction() const;  // 中键拖动：none/pan（默认 pan）
     bool sideClickPageturn() const;    // 单击屏幕两侧翻页（默认 true）
     bool dblclickMaximize() const;     // 双击最大化 / 还原（默认 true）
 

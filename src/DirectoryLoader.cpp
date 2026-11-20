@@ -422,8 +422,8 @@ QString DirectoryLoader::next()
 }
 
 // 一次走 step 张：双页阅览一跨页是 2 张，普通浏览是 1 张。
-// 到边界按 edgeAction 处理——stop 原地不动并返回空串（调用方据此提示），
-// first 回绕到另一端（保留原有循环语义）。
+// 到边界按 edgeAction 处理——stop/ask 原地不动并返回空串（ask 的确认对话框
+// 由 MainWindow::askEdgeWrap 统一处理，加载器不弹 UI），first 回绕到另一端。
 QString DirectoryLoader::advance(int step)
 {
     if (m_files.isEmpty() || step == 0) {

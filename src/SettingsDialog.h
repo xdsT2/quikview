@@ -451,6 +451,9 @@ private:
 
     // —— 专项控件 ——
     QSpinBox *m_cacheSize = nullptr;      // 图像处理：缓存大小 MB
+    QComboBox *m_gifBgCombo = nullptr;    // 图像处理：GIF 透明背景档（批次 2）
+    QPushButton *m_gifColorBtn = nullptr; // 图像处理：GIF 自定义铺底色样按钮
+    void syncGifColorRow();               // 色样取 Config 现值；仅「自定义」档可点
     // 外观页（第 18 期）：主题三件套——不进绑定表，saveAppearance() 手工落盘，
     // 因为 config/theme 是三态字符串（dark/light/system），不是布尔/枚举绑定能表达的。
     // 2026-11-06：改为胶囊拨动开关，「深色模式」更名为「浅色模式」（浅色开 = light）。

@@ -471,9 +471,9 @@ MainWindow::MainWindow(QWidget *parent)
         }
     });
 
-    // 中键单击（位移 <3px 且 <300ms）= 全屏/还原；按住拖动仍由画布平移处理
-    connect(m_canvas, &ImageCanvas::middleClickRequested,
-            this, &MainWindow::toggleFullscreen);
+    // 中键单击（位移 <3px 且 <300ms）：派发 btn_middle_click 映射的动作
+    // （默认全屏切换），与左键/右键/X/Y 共用 mouseActionRequested 派发器；
+    // 按住拖动由 btn_middle_drag 独立控制（翻页批次 2）。
 
     // 左键双击（设置「双击最大化 / 还原」开启时）= 窗口最大化/还原。
     // 侧边翻页区域优先处理点击，画布其余区域仍支持双击最大化。
@@ -616,6 +616,19 @@ MainWindow::MainWindow(QWidget *parent)
     applyChromeLayout();
     updateCanvasLogo();
     m_chromeTimer->start();
+
+    // 显示器 ICC 跨屏重估（SDR 验证版，翻页批次 2）：窗口移到另一块屏幕时
+    // 按新屏的 profile / ACM 状态重转当前画面。windowHandle 在 show 后才存在，
+    // 用 singleShot(0) 挂到事件循环首轮（此时主窗口已 show）。
+    QTimer::singleShot(0, this, [this]() {
+        if (windowHandle()) {
+            connect(windowHandle(), &QWindow::screenChanged, this, [this](QScreen *) {
+                if (m_canvas && Config::instance().monitorIcc()) {
+                    m_canvas->reapplyMonitorIcc();
+                }
+            });
+        }
+    });
 }
 
 MainWindow::~MainWindow()
@@ -2603,8 +2616,8 @@ void MainWindow::applyRuntimeSettings()
     m_canvas->setStretchSmall(cfg.stretchSmall());
     m_zoomLocked = Config::instance().settings()
                        .value(QStringLiteral("config/zoom_fix"), false).toBool();
-    m_canvas->setWheelZoomEnabled(cfg.wheelZoom());
-    m_canvas->setMiddlePanEnabled(cfg.middlePan());
+    // 滚轮上下 / 中键单击与拖动：画布在事件里现读 Config 四个映射键
+    // （翻页批次 2），设置改动下次触发即生效，无需运行态下发。
     // 图片大于窗口时显示图片顶部（键 "config/imageproc/align_top_when_large"）
     m_canvas->setAlignTopWhenLarge(cfg.alignTopWhenLarge());
     // 缩放百分比浮标（键 "config/view/show_zoom_control"）：关掉时把已经在淡出
@@ -4483,6 +4496,31 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     else if (c.startsWith(QLatin1String("openpath:"))) {
         openFile(c.mid(9));
     }
+    // gifbg:<0-4>[:#RRGGBB] —— GIF 铺底即时重绘探针（翻页批次 2）：走与
+    // 设置页相同的「写盘 + applyLiveSetting」链路，验证当前 GIF 不重载即重铺。
+    else if (c.startsWith(QLatin1String("gifbg:"))) {
+        const QStringList parts = c.mid(6).split(QLatin1Char(':'));
+        const int mode = qBound(0, parts.value(0).toInt(), 4);
+        Config::instance().settings().setValue(
+            QStringLiteral("config/imageproc/gif_transparent"), mode);
+        if (parts.size() > 1 && !parts.at(1).isEmpty()) {
+            Config::instance().settings().setValue(
+                QStringLiteral("config/imageproc/gif_custom_color"), parts.at(1));
+            applyLiveSetting(QStringLiteral("imageproc/gif_custom_color"),
+                             parts.at(1), nullptr);
+        }
+        Config::instance().settings().sync();
+        applyLiveSetting(QStringLiteral("imageproc/gif_transparent"), mode, nullptr);
+    }
+    // monitoricc:<0|1> —— 显示器 ICC 开关即时对照探针（SDR 验证版）：
+    // 与设置页同一写盘 + applyLiveSetting 链路。
+    else if (c.startsWith(QLatin1String("monitoricc:"))) {
+        const bool on = c.mid(11) == QLatin1String("1");
+        Config::instance().settings().setValue(
+            QStringLiteral("config/imageproc/monitor_icc"), on);
+        Config::instance().settings().sync();
+        applyLiveSetting(QStringLiteral("imageproc/monitor_icc"), on, nullptr);
+    }
     // —— 二级界面（截图冒烟用，非模态打开以便截到窗口本身）——
     else if (c == QLatin1String("settings")) {
         auto *dlg = new SettingsDialog(this);
@@ -5757,7 +5795,9 @@ void MainWindow::runSmokeCommand(const QString &cmd)
 
 // 首尾边界：所有翻页入口（胶囊、菜单、快捷键、滚轮）都走这里，规则只有一份。
 //   非循环（edge_action=stop）：停在边界并提示；
-//   循环（edge_action=first）：回绕，但明确告知回到了另一端。
+//   循环（edge_action=first）：回绕，但明确告知回到了另一端；
+//   询问（edge_action=ask，翻页批次 2）：弹一次确认，确认后从另一端继续，
+//   取消留在当前图片；幻灯片到边界暂停，确认后恢复、取消后停止。
 void MainWindow::onPrev()
 {
     if (!m_dir->isValid()) {
@@ -5768,6 +5808,9 @@ void MainWindow::onPrev()
     const int before = m_dir->index();
     const QString p = m_dir->advance(-step);
     if (p.isEmpty()) {
+        if (Config::instance().edgeAction() == QLatin1String("ask") && askEdgeWrap(false)) {
+            return;
+        }
         if (m_toast) m_toast->showMessage(tr("已经是第一张图片"));
         return;
     }
@@ -5787,6 +5830,9 @@ void MainWindow::onNext()
     const int before = m_dir->index();
     const QString p = m_dir->advance(step);
     if (p.isEmpty()) {
+        if (Config::instance().edgeAction() == QLatin1String("ask") && askEdgeWrap(true)) {
+            return;
+        }
         if (m_toast) m_toast->showMessage(tr("已经是最后一张图片"));
         return;
     }
@@ -5797,7 +5843,57 @@ void MainWindow::onNext()
     }
 }
 
-// 10 张跳转：边界停住并提示（TEXT_MSG_FIRSTPAGE/LASTPAGE）
+// 首尾「询问」的唯一实现（派单 HDR入口与设置功能缺口 第二批）。
+// 手动向前/向后翻到边界时询问是否循环：确认=从另一端继续；取消=留在当前。
+// 单图目录直接停住不弹；连续触发只出现一次确认（m_edgeAskBusy 挡重入）。
+// 幻灯片到边界先暂停计时器，确认后恢复，取消后停止放映。
+bool MainWindow::askEdgeWrap(bool forward)
+{
+    if (m_edgeAskBusy || !m_dir || !m_dir->isValid() || m_dir->count() <= 1) {
+        return false;
+    }
+    const bool slideshowPaused = m_slideshow && m_slideshowTimer
+                                 && m_slideshowTimer->isActive();
+    if (slideshowPaused) {
+        m_slideshowTimer->stop();
+    }
+    m_edgeAskBusy = true;
+    QMessageBox box(this);
+    box.setIcon(QMessageBox::Question);
+    box.setWindowTitle(tr("首尾翻页"));
+    box.setText(forward ? tr("已经是最后一张图片。要转到第一张继续吗？")
+                        : tr("已经是第一张图片。要转到最后一张继续吗？"));
+    QPushButton *yes = box.addButton(tr("继续(&C)"), QMessageBox::YesRole);
+    QPushButton *no = box.addButton(tr("停止(&S)"), QMessageBox::NoRole);
+    box.setDefaultButton(no);
+    box.exec();
+    m_edgeAskBusy = false;
+    const bool confirmed = box.clickedButton() == yes;
+    if (confirmed) {
+        // 与「循环」档同语义回绕：双页配对也按 first 档的落点（0 / 末张）。
+        m_dir->setIndex(forward ? 0 : m_dir->count() - 1);
+        jumpTo(m_dir->current());
+        playPageturnTone();
+        if (m_toast) {
+            m_toast->showMessage(forward ? tr("已回到第一张图片")
+                                         : tr("已回到最后一张图片"));
+        }
+        if (slideshowPaused) {
+            m_slideshowTimer->start();
+        }
+    } else if (slideshowPaused) {
+        // 取消：幻灯片停止（不是继续暂停）。走勾选态让菜单同步。
+        if (actSlideshow) {
+            actSlideshow->setChecked(false);
+        } else {
+            setSlideshow(false);
+        }
+    }
+    return confirmed;
+}
+
+// 10 张跳转：边界 clamp 停住（原版 CMD_PREV10/NEXT10 语义）；已在边界再跳
+// 按首尾规则处理——ask 档弹询问（与单张翻页同一入口），其余档提示停住。
 void MainWindow::onPrev10()
 {
     if (qEnvironmentVariableIsSet("QUIKVIEW_PERF")) { qWarning("PERF onPrev10 fired"); }
@@ -5805,6 +5901,9 @@ void MainWindow::onPrev10()
     if (!p.isEmpty()) {
         loadAsync(p);
     } else if (m_dir->isValid()) {
+        if (Config::instance().edgeAction() == QLatin1String("ask") && askEdgeWrap(false)) {
+            return;
+        }
         m_toast->showMessage(tr("已经是第一张图片"));
     }
 }
@@ -5816,6 +5915,9 @@ void MainWindow::onNext10()
     if (!p.isEmpty()) {
         loadAsync(p);
     } else if (m_dir->isValid()) {
+        if (Config::instance().edgeAction() == QLatin1String("ask") && askEdgeWrap(true)) {
+            return;
+        }
         m_toast->showMessage(tr("已经是最后一张图片"));
     }
 }
@@ -6096,8 +6198,9 @@ void MainWindow::showAnimFrame(const QImage &img)
     m_canvas->setPixmapPreservingView(QPixmap::fromImage(display), anchor, z, false, false);
 }
 
-// "0" 默认调色板 = 不铺底，透明区透出画布底色；"3" 的自定义色暂无取色器，
-// 先固定中灰 #808080（与 1/2 一样可观测），后续接取色器时只需改这里。
+// "0" 默认调色板 = 不铺底，透明区透出画布底色；1/2/3 = 白/黑/固定中灰；
+// 4 = 自定义颜色（翻页批次 2，2026-11-20）：取色器选色存
+// imageproc/gif_custom_color，只影响显示铺底，源文件/复制/导出保持原透明。
 QImage MainWindow::applyGifBackdrop(const QImage &img) const
 {
     const int mode = Config::instance().gifTransparent();
@@ -6106,6 +6209,7 @@ QImage MainWindow::applyGifBackdrop(const QImage &img) const
     }
     const QColor bg = (mode == 1) ? QColor(Qt::white)
                      : (mode == 2) ? QColor(Qt::black)
+                     : (mode == 4) ? Config::instance().gifCustomColor()
                                    : QColor(128, 128, 128);
     QImage out(img.size(), QImage::Format_ARGB32_Premultiplied);
     out.fill(bg);
@@ -6113,6 +6217,31 @@ QImage MainWindow::applyGifBackdrop(const QImage &img) const
     p.drawImage(0, 0, img);
     p.end();
     return out;
+}
+
+// GIF 背景即时重绘（翻页批次 2）：设置页改铺底档/自定义色时，按新背景重铺
+// 当前帧（动画取帧导航器当前帧，静态取源图），再走统一渲染管线补反相/Gamma/
+// 滤镜，缩放/平移保持不动。非 GIF 当前图不做任何事。
+void MainWindow::redrawGifBackdrop()
+{
+    if (!m_canvas || m_currentPath.isEmpty()) {
+        return;
+    }
+    if (QFileInfo(m_currentPath).suffix().toLower() != QLatin1String("gif")) {
+        return;
+    }
+    QImage base;
+    if (m_frames && m_frames->hasFrames()) {
+        base = m_frames->frameAt(m_frames->frameIndex());
+    }
+    if (base.isNull()) {
+        base = m_sourceImage;
+    }
+    if (base.isNull()) {
+        return;
+    }
+    m_originalImage = applyGifBackdrop(base);
+    applyAdjustments(m_canvas->viewCenterNormalized());
 }
 
 void MainWindow::startAnimation()
@@ -7485,6 +7614,19 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
             if (m_control)
                 m_control->update();
         }
+    if (key == QLatin1String("imageproc/gif_transparent")
+        || key == QLatin1String("imageproc/gif_custom_color")) {
+        // GIF 铺底档 / 自定义色即时重绘（翻页批次 2）：当前图是 GIF 才重铺，
+        // 其他格式不受影响；动画下一帧起也按新背景铺（showAnimFrame 现读）。
+        redrawGifBackdrop();
+        return true;
+    }
+
+    if (key == QLatin1String("imageproc/monitor_icc")) {
+        // 显示器 ICC 开关即时对照（SDR 验证版）：开=按当前屏 profile 重转，
+        // 关=还原 sRGB 显示。源 pixmap 始终是 sRGB，来回切换不累积误差。
+        if (m_canvas)
+            m_canvas->reapplyMonitorIcc();
         return true;
     }
 

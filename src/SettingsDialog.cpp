@@ -2967,21 +2967,13 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
     const auto opts = lastFileOptions();
     auto *edge = addComboRow(sec, tr("到达首尾图片时执行"), QString(),
                              "edge_action", QStringLiteral("first"), opts, kGenComboW);
-    // 档位诚实化：DirectoryLoader 只实现 first / stop；ask 既没有询问对话框，
-    // 在 next/prev 与 advance 两条路径上的回绕行为还不一致，按缺口灰显。
-    if (auto *model = qobject_cast<QStandardItemModel *>(edge->model())) {
-        for (int i = 0; i < edge->count(); ++i) {
-            if (edge->itemData(i).toString() == QLatin1String("ask")) {
-                if (auto *item = model->item(i)) {
-                    item->setEnabled(false);
-                    item->setToolTip(tr("「询问」档暂无实现（无确认对话框），灰显不可选"));
-                }
-            }
-        }
-    }
+    // 翻页批次 2（2026-11-20）：「询问」已实现——边界弹一次确认，确认后从
+    // 另一端继续，取消留在当前图片；幻灯片到边界暂停，确认后恢复、取消后停止。
+    // 三档全部可选，旧配置 ask 自本批起按新定义直接生效。
+    descToRowTip(edge, tr("「询问」在翻到边界时弹确认；单图目录直接停住，不弹框"));
     // v2 母版：长说明收进分组提示（内容不丢），卡片只留设置行。
-    sec->setToolTip(tr("「转到首个文件」在末尾继续时回绕到首个；「停止」停在当前图片。"
-                       "「询问」档当前无询问对话框实现，已灰显，不按生效计。"));
+    sec->setToolTip(tr("「转到首个文件」在末尾继续时回绕到首个；「停止」停在当前图片；"
+                       "「询问」弹确认框，确认后从另一端继续，取消留在当前图片。"));
 
     // —— 一般页 v2 母版定稿（2026-11-11）：只改视觉，不动任何业务 ——
     // 控件高 30 与工厂一致；首尾下拉宽 154（v2 标注）。按钮按文字自然宽，
@@ -3363,6 +3355,27 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     addSwitchRow(sec, tr("图片阴影"),
                  tr("在图片边缘加一圈阴影，浅色背景下的浅色图片也能看清边界；仅屏幕预览，不进入复制、打印、批量转换与另存为"),
                  "imageproc/canvas_shadow", false, false);
+
+    // GIF 透明背景（翻页批次 2，2026-11-20 重新暴露 + 自定义取色）：
+    // 只影响 GIF 显示铺底，源文件/复制/导出保持原透明信息。旧 0..3 档语义
+    // 不变（默认调色板/白/黑/中灰）；新增第 5 档「自定义颜色」，选色独立存
+    // imageproc/gif_custom_color，切档不丢色。画布背景（棋盘/纯色）仍是
+    // 全画布材质，与本行互不替代。
+    m_gifBgCombo = addComboRow(sec, tr("GIF 透明背景"), QString(),
+                               "imageproc/gif_transparent", QStringLiteral("0"),
+                               {{QStringLiteral("0"), tr("默认调色板")},
+                                {QStringLiteral("1"), tr("白色")},
+                                {QStringLiteral("2"), tr("黑色")},
+                                {QStringLiteral("3"), tr("中灰背景")},
+                                {QStringLiteral("4"), tr("自定义颜色")}},
+                               kGenComboW);
+    descToRowTip(m_gifBgCombo, tr("只影响 GIF 显示铺底；源文件、复制与导出保持原透明信息"));
+    auto gifColorParts = addSettingRow(sec, tr("自定义颜色"), QString());
+    m_gifColorBtn = new QPushButton(gifColorParts.row);
+    m_gifColorBtn->setFixedSize(56, 26);
+    m_gifColorBtn->setCursor(Qt::PointingHandCursor);
+    gifColorParts.controls->addWidget(m_gifColorBtn, 0, Qt::AlignVCenter);
+    descToRowTip(m_gifColorBtn, tr("点击选择 GIF 透明区域的铺底颜色，选色即时重绘当前 GIF"));
     // 三控件都即时预览：写盘由 comboBind / chkBind 的即时路径统一走，这里只
     // 补运行态下发（applyLiveSetting 直达画布，模态设置页开着也能看到效果）。
     for (const ComboBind &b : m_comboBinds) {
@@ -3400,16 +3413,14 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
                  "imageproc/image_icc", false, true);
     descToRowTip(iccFile, tr("打开带非 sRGB ICC 的图片时按配置转换上屏"));
     auto *iccMonitor = addSwitchRow(sec, tr("使用监视器的 ICC 设置"),
-                                    tr("Qt6 光栅后端不支持显示器色彩管理，暂不可用"),
+                                    tr("SDR 验证版：显示出口把 sRGB 转到当前屏幕关联配置；"
+                                       "已开 Windows 自动颜色管理的屏幕跳过，跨屏自动重估"),
                                     "imageproc/monitor_icc", false, false);
-    // 整行灰显（标题 + 说明 + 开关一起压暗），默认态就能读出「不可用」；
-    // 原因写在说明与整行 tooltip 里，不只藏在开关上。
-    iccMonitor->setEnabled(false);
-    if (QWidget *row = iccMonitor->parentWidget()) {
-        row->setEnabled(false);
-        row->setCursor(Qt::ArrowCursor);
-        row->setToolTip(tr("Qt6 光栅后端不支持显示器色彩管理，暂不可用"));
-    }
+    // 翻页批次 2（2026-11-20）：双屏不同 ICC 实测达标（转换精度对照 littleCMS、
+    // 跨屏重估、开关即时对照、ACM 屏单次转换），按派单启用入口。
+    // 无配置/损坏配置/无法转换时回退 sRGB 显示，原因记录到
+    // %TEMP%\quikview-monitor-icc.log。
+    descToRowTip(iccMonitor, tr("无有效配置或转换失败时保持 sRGB 显示，原因见临时目录日志"));
     // 2026-11-17 注释精简：原三段页脚拆到各行 tooltip（画布背景铺满与随主题、
     // 棋盘格固定屏幕坐标）；「阴影仅屏幕预览」已在图片阴影行的常驻说明里，页脚不再重复。
     applyPageRhythm(page);
@@ -3691,36 +3702,39 @@ void SettingsDialog::buildMousePage(QWidget *page)
 
     sec = beginSection(page, tr("按键映射"));
 
-    // configurable：该行是否真有消费点。中键与滚轮的「平移/缩放」经
-    // onAccepted 桥接写回 config/middle_pan、config/wheel_zoom 生效；
-    // 左右/X/Y 键由 ImageCanvas 判定点击后发 mouseActionRequested → 
-    // MainWindow::onMouseAction 派发，none 保留内置行为（右键菜单等）。
+    // 翻页批次 2（2026-11-20）：按键与手势独立映射。中键拆成「单击 / 拖动」
+    // 两行，滚轮上下各自一行、单向「无」只停用该方向。左/右/X/Y 键由
+    // ImageCanvas 判定后发 mouseActionRequested → MainWindow::onMouseAction
+    // 派发；中键单击与滚轮翻页走同一派发器；none 保留内置行为（左键拖拽、
+    // 右键菜单等）。支持矩阵外的档位灰显并说明原因，不做假开关。
     struct BtnDef { const char *key; const char *label; const char *def; bool configurable; };
     static const BtnDef btns[] = {
-        { "mouse/btn_left",   QT_TR_NOOP("鼠标左键"),  "none",     true  },
-        { "mouse/btn_middle", QT_TR_NOOP("鼠标中键"),  "pan",      true  },
-        { "mouse/btn_right",  QT_TR_NOOP("鼠标右键"),  "none",     true  },
-        { "mouse/btn_x",      QT_TR_NOOP("X 键"),      "none",     true  },
-        { "mouse/btn_y",      QT_TR_NOOP("Y 键"),      "none",     true  },
-        { "mouse/wheel_up",   QT_TR_NOOP("滚轮向上"),  "zoom_in",  true  },
-        { "mouse/wheel_down", QT_TR_NOOP("滚轮向下"),  "zoom_out", true  },
+        { "mouse/btn_left",         QT_TR_NOOP("鼠标左键"),   "none",       true },
+        { "mouse/btn_middle_click", QT_TR_NOOP("中键单击"),   "fullscreen", true },
+        { "mouse/btn_middle_drag",  QT_TR_NOOP("中键拖动"),   "pan",        true },
+        { "mouse/btn_right",        QT_TR_NOOP("鼠标右键"),   "none",       true },
+        { "mouse/btn_x",            QT_TR_NOOP("X 键"),       "none",       true },
+        { "mouse/btn_y",            QT_TR_NOOP("Y 键"),       "none",       true },
+        { "mouse/wheel_up",         QT_TR_NOOP("滚轮向上"),   "zoom_in",    true },
+        { "mouse/wheel_down",       QT_TR_NOOP("滚轮向下"),   "zoom_out",   true },
     };
 
     const auto opts = actionOptions();
-    for (int i = 0; i < 7; ++i) {
+    for (int i = 0; i < 8; ++i) {
         const BtnDef &b = btns[i];
         SettingRowParts parts = addSettingRow(sec, tr(b.label), QString());
         auto *combo = new QComboBox(parts.row);
         for (const auto &opt : opts)
             combo->addItem(opt.second, opt.first);
-        // 档位诚实化（SET-04 阶段 C）：右键 / X / Y 没有 "pan" 的
-        // onMouseAction 分支，拖拽平移只对左键内置拖拽有效，因此把该档灰显，
-        // 不写成「选了就生效」。其余 17 个动作都走同一个派发器。
         const QString key = QString::fromUtf8(b.key);
-        const bool panFake = (key == QLatin1String("mouse/btn_right")
-                              || key == QLatin1String("mouse/btn_x")
-                              || key == QLatin1String("mouse/btn_y"));
-        if (panFake) {
+        // 支持矩阵：右键 / X / Y 没有拖拽平移实现（按下即派发，无拖动阶段）；
+        // 中键单击是点击手势，pan 灰显；中键拖动只支持 none/pan；
+        // 滚轮支持 无/放大/缩小/翻下一张/翻上一张（连滚即连翻）。
+        QStringList allowed;
+        QString denyTip;
+        if (key == QLatin1String("mouse/btn_right")
+            || key == QLatin1String("mouse/btn_x")
+            || key == QLatin1String("mouse/btn_y")) {
             for (int j = 0; j < opts.size(); ++j) {
                 if (opts[j].first == QLatin1String("pan")) {
                     if (auto *model = qobject_cast<QStandardItemModel *>(combo->model())) {
@@ -3733,21 +3747,29 @@ void SettingsDialog::buildMousePage(QWidget *page)
                     }
                 }
             }
-        }
-        // 中键 / 滚轮的真实桥接档位（SET-04 批次 8）：中键只写 config/middle_pan
-        // （拖拽平移 / 无），滚轮只写 config/wheel_zoom（上=放大、下=缩小；任一
-        // 为「无」即关闭滚轮缩放）。其余档位没有运行时消费点 → 灰显并提示。
-        QStringList allowed;
-        QString denyTip;
-        if (key == QLatin1String("mouse/btn_middle")) {
+        } else if (key == QLatin1String("mouse/btn_middle_click")) {
+            for (int j = 0; j < opts.size(); ++j) {
+                if (opts[j].first == QLatin1String("pan")) {
+                    if (auto *model = qobject_cast<QStandardItemModel *>(combo->model())) {
+                        if (auto *item = model->item(j)) {
+                            const QString why = tr("单击手势不支持拖拽平移；拖动请在「中键拖动」单独设置");
+                            item->setEnabled(false);
+                            item->setToolTip(why);
+                            item->setData(why, Qt::UserRole + 1);
+                        }
+                    }
+                }
+            }
+        } else if (key == QLatin1String("mouse/btn_middle_drag")) {
             allowed << QStringLiteral("none") << QStringLiteral("pan");
-            denyTip = tr("中键暂无该动作实现；仅「无操作 / 拖拽平移」生效（「无」会连现有的单击全屏一起停用）");
-        } else if (key == QLatin1String("mouse/wheel_up")) {
-            allowed << QStringLiteral("none") << QStringLiteral("zoom_in");
-            denyTip = tr("滚轮向上暂无该动作实现；仅「无操作 / 放大」生效（「无」会关闭滚轮缩放）");
-        } else if (key == QLatin1String("mouse/wheel_down")) {
-            allowed << QStringLiteral("none") << QStringLiteral("zoom_out");
-            denyTip = tr("滚轮向下暂无该动作实现；仅「无操作 / 缩小」生效（「无」会关闭滚轮缩放）");
+            denyTip = tr("拖动手势仅支持「无操作 / 拖拽平移」；点击动作请在「中键单击」单独设置");
+        } else if (key == QLatin1String("mouse/wheel_up")
+                   || key == QLatin1String("mouse/wheel_down")) {
+            allowed << QStringLiteral("none") << QStringLiteral("zoom_in")
+                    << QStringLiteral("zoom_out") << QStringLiteral("next")
+                    << QStringLiteral("prev");
+            denyTip = tr("滚轮仅支持「无操作 / 放大 / 缩小 / 翻下一张 / 翻上一张」；"
+                         "单向选「无」只停用该方向");
         }
         if (!allowed.isEmpty()) {
             for (int j = 0; j < opts.size(); ++j) {
@@ -3776,8 +3798,8 @@ void SettingsDialog::buildMousePage(QWidget *page)
     }
 
     addHint(sec, tr("「无」保留内置行为：左键拖拽平移、边缘单击翻页、右键菜单。"
-                    "中键只放行「无操作／拖拽平移」，滚轮只放行「无操作／放大／缩小」，"
-                    "其余档位已灰显；映射在下次触发该按键时生效。"));
+                    "中键单击与拖动分别设置（默认单击全屏、拖动平移）；滚轮上下独立生效，"
+                    "单向选「无」只停用该方向。映射在下次触发该按键时生效。"));
     applyPageRhythm(page);
 }
 
@@ -5839,18 +5861,8 @@ void SettingsDialog::loadBindingsFromConfig(int chkFrom, int comboFrom, int keyF
         const int idx = b.combo->findData(sGet(b.key, b.def));
         b.combo->setCurrentIndex(idx >= 0 ? idx : 0);
     }
-    // 旧配置 edge_action="ask"：「询问」档灰显（无实现），运行态已由
-    // Config::edgeAction() 折算为「停止」，下拉显示同步折算，不再呈现
-    // 「选着一个灰项」；配置原值保留，翻页批次 2 交付后按新定义启用。
-    for (int i = qMax(0, comboFrom); i < m_comboBinds.size(); ++i) {
-        const ComboBind &b = m_comboBinds.at(i);
-        if (qstrcmp(b.key, "edge_action") != 0
-            || sGet(b.key, b.def) != QLatin1String("ask"))
-            continue;
-        const int stopIdx = b.combo->findData(QStringLiteral("stop"));
-        if (stopIdx >= 0)
-            b.combo->setCurrentIndex(stopIdx);
-    }
+    // 翻页批次 2（2026-11-20）：「询问」已实现并启用，旧配置 edge_action="ask"
+    // 直接按原值显示与生效，不再折算为「停止」（批次 1 的临时折算已移除）。
     for (int i = qMax(0, keyFrom); i < m_keyRows.size(); ++i) {
         const KeyRow &r = m_keyRows.at(i);
         // 出厂无单键的动作（幻灯片 / 裁剪）默认不启用，避免「勾着但热键为空」；
@@ -5869,9 +5881,9 @@ void SettingsDialog::loadBindingsFromConfig(int chkFrom, int comboFrom, int keyF
         const QString stored = sGet(r.key.toLatin1().constData(), r.def);
         int idx = r.combo->findData(stored);
         // 旧配置里的不可执行档位（灰显项）按运行态安全值「无操作」显示：
-        // 滚轮任一方向非对应档 → 双向缩放都停；中键非「拖拽平移」→ 连单击
-        // 全屏一起停；右键 / X / Y 的 pan 在 Config 读取时折算回内置行为。
-        // 配置原值不回写，翻页批次 2 的独立映射迁移仍读原始档位。
+        // 右键 / X / Y 的 pan 在 Config 读取时折算回内置行为；滚轮与中键的
+        // 旧共用开关语义已由 Config 构造迁移按有效行为折算到独立映射键。
+        // 配置原值不回写。
         if (idx >= 0) {
             if (auto *model = qobject_cast<QStandardItemModel *>(r.combo->model())) {
                 if (auto *item = model->item(idx); item && !item->isEnabled())
@@ -5911,7 +5923,27 @@ void SettingsDialog::loadPageWidgets(QWidget *page)
         syncThemeControls(sGet("theme", QStringLiteral("dark")));
     if (owns(m_blurMaterial))
         m_blurMaterial->setChecked(bGet("ui/blur_material", false));
+    if (owns(m_gifColorBtn))
+        syncGifColorRow();   // 色样与可点态按回填后的档位/颜色刷新
     m_loading = false;
+}
+
+// GIF 自定义色样（翻页批次 2）：色样恒取 Config 现值；仅「自定义颜色」档
+// 可点，其余档灰显并说明原因，不做假按钮。
+void SettingsDialog::syncGifColorRow()
+{
+    if (!m_gifColorBtn || !m_gifBgCombo)
+        return;
+    const QColor c = Config::instance().gifCustomColor();
+    m_gifColorBtn->setStyleSheet(QStringLiteral(
+        "QPushButton{background:%1;border:1px solid rgba(128,128,128,0.65);"
+        "border-radius:6px;}")
+        .arg(c.name()));
+    const bool custom = m_gifBgCombo->currentData().toString() == QLatin1String("4");
+    m_gifColorBtn->setEnabled(custom);
+    m_gifColorBtn->setToolTip(custom
+        ? tr("点击选择 GIF 透明区域的铺底颜色")
+        : tr("先在上方「GIF 透明背景」选择「自定义颜色」"));
 }
 
 // ---------------------------------------------------------------------------
@@ -6046,13 +6078,16 @@ void SettingsDialog::writeBridgeKeys()
         interp == QStringLiteral("0") ? QStringLiteral("fast")
             : interp == QStringLiteral("1") ? QStringLiteral("smooth")
                                            : QStringLiteral("lanczos"));
+    // 兼容桥（翻页批次 2 更新）：旧开关键仅供降级回退旧版本时读取，运行态
+    // 已改读四个独立映射键。wheel_zoom 按「两方向都在缩放位」推导，
+    // middle_pan 按「中键拖动=pan」推导，与旧版语义一致。
     const QPair<QString, QVariant> wheelPair = writeIfChanged(
         QStringLiteral("wheel_zoom"),
         sGet("mouse/wheel_up", QStringLiteral("zoom_in")) == QStringLiteral("zoom_in")
             && sGet("mouse/wheel_down", QStringLiteral("zoom_out")) == QStringLiteral("zoom_out"));
     const QPair<QString, QVariant> middlePair = writeIfChanged(
         QStringLiteral("middle_pan"),
-        sGet("mouse/btn_middle", QStringLiteral("pan")) == QStringLiteral("pan"));
+        sGet("mouse/btn_middle_drag", QStringLiteral("pan")) == QStringLiteral("pan"));
 
     QList<QPair<QString, QVariant>> changes;
     for (const QPair<QString, QVariant> &p : { interpPair, wheelPair, middlePair }) {
@@ -6176,6 +6211,20 @@ void SettingsDialog::connectPageWidgets(QWidget *page)
     if (owns(m_language)) {
         connect(m_language, &QComboBox::currentIndexChanged, this, [this]() {
             updatePendingNote();
+        });
+    }
+    if (owns(m_gifColorBtn)) {
+        syncGifColorRow();
+        connect(m_gifBgCombo, &QComboBox::currentIndexChanged, this, [this]() {
+            syncGifColorRow();
+        });
+        connect(m_gifColorBtn, &QPushButton::clicked, this, [this]() {
+            const QColor c = QColorDialog::getColor(Config::instance().gifCustomColor(),
+                                                    this, tr("选择 GIF 背景色"));
+            if (!c.isValid())
+                return;   // 取消保持原色，不写盘
+            applyInstantValue(QStringLiteral("imageproc/gif_custom_color"), c.name());
+            syncGifColorRow();
         });
     }
 }

@@ -9,6 +9,8 @@
 #include <QGraphicsRectItem>
 #include <QGraphicsScene>
 #include <QCursor>
+#include <QDebug>
+#include <QDir>
 #include <QFile>
 #include <QKeyEvent>
 #include <QLabel>
@@ -29,6 +31,16 @@
 #include <vector>
 
 #include "Config.h"
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
+#include <QColorSpace>
+#include <QDateTime>
+#include <QFileInfo>
+#include <QGuiApplication>
+#include <QScreen>
+#include <QWindow>
 
 namespace {
 
@@ -785,12 +797,201 @@ void ImageCanvas::drawForeground(QPainter *painter, const QRectF &rect)
     painter->restore();
 }
 
+// ---- 显示器 ICC · SDR 验证版（翻页批次 2，2026-11-20）----
+// 读屏幕当前关联的 ICC（GetICMProfileW）与该屏 Windows「自动管理应用颜色」
+// （ACM）状态：ACM 开启时系统合成阶段已做 sRGB→显示器转换，应用不能再转
+// （双重转换）；ACM 关闭的经典 SDR 桌面不做转换，由应用做唯一一次目标转换。
+#ifdef Q_OS_WIN
+// Qt 6 Windows 的 QScreen::name() 返回显示器友好名（如 "Philips 190E"），
+// 不是 GDI 设备名（\\.\DISPLAY2）。CreateDC / EnumDisplayDevices 需要后者，
+// 这里按 EnumDisplayDevices 的 DeviceString 反查；查不到时按屏幕几何匹配。
+static QString gdiDeviceName(const QString &screenName, const QRect &screenGeo)
+{
+    DISPLAY_DEVICEW adapter{};
+    adapter.cb = sizeof(adapter);
+    QString byGeo;
+    for (DWORD i = 0; EnumDisplayDevicesW(nullptr, i, &adapter, 0); ++i) {
+        if (!(adapter.StateFlags & DISPLAY_DEVICE_ACTIVE)) {
+            continue;
+        }
+        const QString devName = QString::fromWCharArray(adapter.DeviceName);
+        if (QString::fromWCharArray(adapter.DeviceString) == screenName) {
+            return devName;
+        }
+        DEVMODEW dm{};
+        dm.dmSize = sizeof(dm);
+        if (EnumDisplaySettingsW(reinterpret_cast<LPCWSTR>(devName.utf16()),
+                                 ENUM_CURRENT_SETTINGS, &dm)) {
+            const QRect r(dm.dmPosition.x, dm.dmPosition.y,
+                          static_cast<int>(dm.dmPelsWidth), static_cast<int>(dm.dmPelsHeight));
+            if (r.contains(screenGeo.center())) {
+                byGeo = devName;
+            }
+        }
+    }
+    return byGeo.isEmpty() ? screenName : byGeo;
+}
+
+static QByteArray monitorIccBytes(const QString &screenName, const QRect &screenGeo,
+                                  bool *acmEnabled, QString *profilePath)
+{
+    *acmEnabled = false;
+    profilePath->clear();
+    const QString devName = gdiDeviceName(screenName, screenGeo);
+    HDC dc = CreateDCW(L"DISPLAY", reinterpret_cast<LPCWSTR>(devName.utf16()),
+                       nullptr, nullptr);
+    if (!dc) {
+        return {};
+    }
+    DWORD size = 0;
+    GetICMProfileW(dc, &size, nullptr);
+    if (size > 0) {
+        QVector<wchar_t> buf(static_cast<qsizetype>(size), L'\0');
+        if (GetICMProfileW(dc, &size, buf.data())) {
+            *profilePath = QString::fromWCharArray(buf.constData());
+        }
+    }
+    DeleteDC(dc);
+    // 屏幕 → 物理显示器型号 → 注册表 MonitorDataStore 查 ACM。
+    DISPLAY_DEVICEW dd{};
+    dd.cb = sizeof(dd);
+    QString model;
+    if (EnumDisplayDevicesW(reinterpret_cast<LPCWSTR>(devName.utf16()), 0, &dd, 0)) {
+        const QString id = QString::fromWCharArray(dd.DeviceID);
+        const QStringList seg = id.split(QLatin1Char('\\'));
+        if (seg.size() >= 2) {
+            model = seg.at(1);   // MONITOR\SAC2453\{...}\0002 → SAC2453
+        }
+    }
+    if (!model.isEmpty()) {
+        QSettings reg(QStringLiteral("HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\"
+                                     "Control\\GraphicsDrivers\\MonitorDataStore"),
+                      QSettings::NativeFormat);
+        const QStringList keys = reg.childGroups();
+        for (const QString &k : keys) {
+            if (!k.startsWith(model)) {
+                continue;
+            }
+            reg.beginGroup(k);
+            const QVariant v = reg.value(QStringLiteral("AutoColorManagementEnabled"));
+            reg.endGroup();
+            if (v.isValid() && v.toInt() == 1) {
+                *acmEnabled = true;   // 同型号任一接口开 ACM 即保守判开
+                break;
+            }
+        }
+    }
+    if (profilePath->isEmpty()) {
+        return {};
+    }
+    QFile f(*profilePath);
+    if (!f.open(QIODevice::ReadOnly)) {
+        return {};
+    }
+    return f.readAll();
+}
+#endif
+
+QPixmap ImageCanvas::toMonitorSpace(const QPixmap &src) const
+{
+#ifndef Q_OS_WIN
+    return src;
+#else
+    // 回退原因日志（派单 §ICC：无法转换时说明原因）：状态变化才记一条，避免刷屏。
+    // Windows GUI 子系统 stderr 不接管道，落盘到临时目录供取证与排障。
+    static QString lastReason;
+    auto logOnce = [](const QString &reason) {
+        if (reason != lastReason) {
+            lastReason = reason;
+            qWarning("[monitor-icc] %s", qUtf8Printable(reason));
+            QFile f(QDir::tempPath() + QStringLiteral("/quikview-monitor-icc.log"));
+            if (f.open(QIODevice::Append | QIODevice::Text)) {
+                f.write(QDateTime::currentDateTime().toString(Qt::ISODate).toUtf8()
+                        + " " + reason.toUtf8() + "\n");
+            }
+        }
+    };
+    if (!Config::instance().monitorIcc() || src.isNull()) {
+        return src;
+    }
+    QScreen *screen = nullptr;
+    if (window() && window()->windowHandle()) {
+        screen = window()->windowHandle()->screen();
+    }
+    if (!screen) {
+        screen = QGuiApplication::primaryScreen();
+    }
+    if (!screen) {
+        logOnce(QStringLiteral("无可用屏幕信息，保持 sRGB 显示"));
+        return src;
+    }
+    bool acm = false;
+    QString path;
+    // 几何兜底用物理像素坐标（dmPosition 是物理像素）。
+    const qreal dpr = screen->devicePixelRatio();
+    const QRect geo = QRect(QPoint(qRound(screen->geometry().x() * dpr),
+                                   qRound(screen->geometry().y() * dpr)),
+                            QSize(qRound(screen->geometry().width() * dpr),
+                                  qRound(screen->geometry().height() * dpr)));
+    const QByteArray icc = monitorIccBytes(screen->name(), geo, &acm, &path);
+    if (acm) {
+        logOnce(QStringLiteral("%1 已启用 Windows 自动颜色管理，系统合成阶段已转换，"
+                               "应用跳过以避免双重转换").arg(screen->name()));
+        return src;
+    }
+    if (icc.isEmpty()) {
+        logOnce(QStringLiteral("%1 无有效 ICC 配置（%2），保持 sRGB 显示")
+                    .arg(screen->name(), path.isEmpty() ? QStringLiteral("未读取到 profile")
+                                                        : QStringLiteral("文件不可读")));
+        return src;
+    }
+    // profile 按路径 + 修改时间缓存，校准文件更新后自动重读。
+    static QHash<QString, QPair<QDateTime, QColorSpace>> cache;
+    const QDateTime mt = QFileInfo(path).lastModified();
+    QColorSpace target;
+    const auto it = cache.constFind(path);
+    if (it != cache.constEnd() && it->first == mt) {
+        target = it->second;
+    } else {
+        target = QColorSpace::fromIccProfile(icc);
+        cache.insert(path, {mt, target});
+    }
+    if (!target.isValid()) {
+        logOnce(QStringLiteral("%1 的 ICC 配置无法解析（%2），保持 sRGB 显示")
+                    .arg(screen->name(), path));
+        return src;
+    }
+    if (target == QColorSpace::SRgb) {
+        logOnce(QStringLiteral("%1 的目标配置即 sRGB，恒等跳过").arg(screen->name()));
+        return src;
+    }
+    QImage img = src.toImage();
+    if (!img.colorSpace().isValid()) {
+        img.setColorSpace(QColorSpace::SRgb);
+    }
+    img.convertToColorSpace(target);
+    if (img.isNull()) {
+        logOnce(QStringLiteral("%1 色彩空间转换失败，保持 sRGB 显示").arg(screen->name()));
+        return src;
+    }
+    logOnce(QStringLiteral("%1 应用 sRGB→%2 显示转换").arg(screen->name(), path));
+    return QPixmap::fromImage(img);
+#endif
+}
+
+void ImageCanvas::reapplyMonitorIcc()
+{
+    if (m_item && !m_sourcePixmap.isNull()) {
+        m_item->setPixmap(toMonitorSpace(m_sourcePixmap));
+    }
+}
+
 void ImageCanvas::setPixmap(const QPixmap &pixmap, bool fitAfter)
 {
     m_sourcePixmap = pixmap;
     m_sourceImage = pixmap.toImage();   // 隐式共享（raster 后端不复制像素），后台线程只读
     scene()->clear();
-    m_item = scene()->addPixmap(pixmap);
+    m_item = scene()->addPixmap(toMonitorSpace(pixmap));
     invalidateSampling();   // 换图后旧结果必是假命中（源都换了），在飞任务一并作废
     // QGraphicsPixmapItem 默认 FastTransformation——painter 的
     // SmoothPixmapTransform 不覆盖 item 自身采样，缩放必须显式开平滑。
@@ -823,7 +1024,7 @@ void ImageCanvas::setPixmapPreservingView(const QPixmap &pixmap, const QPointF &
     m_sourcePixmap = pixmap;
     m_sourceImage = pixmap.toImage();   // 隐式共享，同 setPixmap
     scene()->clear();
-    m_item = scene()->addPixmap(pixmap);
+    m_item = scene()->addPixmap(toMonitorSpace(pixmap));
     m_item->setTransformationMode(Qt::SmoothTransformation);
     m_rubber = nullptr;
     invalidateSampling();   // 换图后旧的目标尺寸命中必是假命中（源都换了）
@@ -1007,7 +1208,7 @@ void ImageCanvas::doRefreshSampling()
     if (m_interp != InterpLanczos || m_zoom >= 0.999 || m_zoom <= 0.0) {
         ++m_sampleGeneration;
         if (m_item->pixmap().cacheKey() != srcKey) {
-            m_item->setPixmap(m_sourcePixmap);
+            m_item->setPixmap(toMonitorSpace(m_sourcePixmap));
         }
         m_samplingSize = QSize();
         m_samplingSourceKey = srcKey;
@@ -1026,7 +1227,7 @@ void ImageCanvas::doRefreshSampling()
     if (static_cast<qint64>(tw) * th > 12000000) {
         ++m_sampleGeneration;
         if (m_item->pixmap().cacheKey() != srcKey) {
-            m_item->setPixmap(m_sourcePixmap);
+            m_item->setPixmap(toMonitorSpace(m_sourcePixmap));
         }
         m_samplingSize = QSize(tw, th);
         m_samplingSourceKey = srcKey;
@@ -1103,7 +1304,7 @@ void ImageCanvas::startPendingSample()
     if (m_item->pixmap().cacheKey() == m_sourcePixmap.cacheKey()) {
         const QPixmap preview = samplingPreview();
         if (!preview.isNull()) {
-            m_item->setPixmap(preview);
+            m_item->setPixmap(toMonitorSpace(preview));
         }
     }
     const quint64 gen = ++m_sampleGeneration;
@@ -1128,7 +1329,7 @@ void ImageCanvas::applySampleResult(quint64 generation, QImage result, const QSi
             && sameTarget) {
             QPixmap pm = QPixmap::fromImage(std::move(result));
             pm.setDevicePixelRatio(static_cast<qreal>(target.width()) / isz.width());
-            m_item->setPixmap(pm);
+            m_item->setPixmap(toMonitorSpace(pm));
             m_item->setTransformationMode(Qt::SmoothTransformation);
             m_samplingSize = target;
             m_samplingSourceKey = sourceKey;
@@ -1356,13 +1557,29 @@ void ImageCanvas::applyZoomAt(qreal zoom, const QPoint &anchorViewportPt)
 
 void ImageCanvas::wheelEvent(QWheelEvent *event)
 {
-    if (!m_wheelZoom) {
+    // 翻页批次 2：滚轮上下独立映射。单向选「无」只停用该方向；缩放仍以
+    // 鼠标位置为锚点（原型/交接单 §5），翻页走与点击动作同一派发器。
+    const int dy = event->angleDelta().y();
+    if (dy == 0) {
+        QGraphicsView::wheelEvent(event);   // 水平滚轮交回基类
+        return;
+    }
+    const QString act = dy > 0 ? Config::instance().wheelUpAction()
+                               : Config::instance().wheelDownAction();
+    if (act == QLatin1String("none")) {
         event->ignore();
         return;
     }
-    const qreal factor = event->angleDelta().y() > 0 ? 1.25 : 0.8;
-    // 滚轮以鼠标位置为锚点（原型/交接单 §5）
-    applyZoomAt(m_zoom * factor, event->position().toPoint());
+    if (act == QLatin1String("zoom_in") || act == QLatin1String("zoom_out")) {
+        const qreal factor = act == QLatin1String("zoom_in") ? 1.25 : 0.8;
+        applyZoomAt(m_zoom * factor, event->position().toPoint());
+        event->accept();
+        return;
+    }
+    // next / prev：裁剪模式中不切图（与左键点击映射同一保护口径）。
+    if (!m_cropMode) {
+        emit mouseActionRequested(act);
+    }
     event->accept();
 }
 
@@ -1522,19 +1739,25 @@ void ImageCanvas::mousePressEvent(QMouseEvent *event)
         event->accept();
         return;
     }
-    if (m_middlePan && event->button() == Qt::MiddleButton) {
-        m_panning = true;
-        m_lastPan = event->pos();
-        // 中键也可能只是「点一下」：按下先记账，松手时再按位移/时长判定单击。
-        // 裁剪模式与未打开图片不参与（保持原行为，中键只做平移）。
+    if (event->button() == Qt::MiddleButton) {
+        // 翻页批次 2：中键拖动与单击独立。拖动=pan 档才进入平移；单击判定
+        // 只要映射了非 none 动作就记账（松手时按位移/时长判定）。裁剪模式
+        // 与未打开图片不参与单击（保持原行为）。
+        const QString drag = Config::instance().middleDragAction();
+        const QString click = Config::instance().middleClickAction();
+        if (drag == QLatin1String("pan")) {
+            m_panning = true;
+            m_lastPan = event->pos();
+            setCursor(Qt::ClosedHandCursor);
+            if (!m_panSignalActive) {
+                m_panSignalActive = true;
+                emit panStateChanged(true);
+            }
+        }
         m_midPressPos = event->pos();
         m_midPressClock.restart();
-        m_midPressTracked = m_item != nullptr && !m_cropMode;
-        setCursor(Qt::ClosedHandCursor);
-        if (!m_panSignalActive) {
-            m_panSignalActive = true;
-            emit panStateChanged(true);
-        }
+        m_midPressTracked = m_item != nullptr && !m_cropMode
+                            && click != QLatin1String("none");
         event->accept();
         return;
     }
@@ -1621,12 +1844,14 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent *event)
         event->accept();
         return;
     }
-    if (event->button() == Qt::MiddleButton && m_panning) {
-        m_panning = false;
-        unsetCursor();
-        if (m_panSignalActive) {
-            m_panSignalActive = false;
-            emit panStateChanged(false);
+    if (event->button() == Qt::MiddleButton) {
+        if (m_panning) {
+            m_panning = false;
+            unsetCursor();
+            if (m_panSignalActive) {
+                m_panSignalActive = false;
+                emit panStateChanged(false);
+            }
         }
         // 单击判定与左键箭头带同一套阈值：<3px、<300ms。拖动超过 3px 仍只是平移。
         const bool isClick = m_midPressTracked
@@ -1636,7 +1861,8 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent *event)
         m_midPressTracked = false;
         event->accept();
         if (isClick) {
-            emit middleClickRequested();
+            // 派发映射动作（默认 fullscreen）；与左键/右键/X/Y 共用派发器。
+            emit mouseActionRequested(Config::instance().middleClickAction());
         }
         return;
     }
