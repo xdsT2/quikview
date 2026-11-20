@@ -3005,9 +3005,9 @@ void SettingsDialog::buildViewPage(QWidget *page)
                  "view/save_zoom_state", false, false);
 
     sec = beginSection(page, tr("画面信息"));
-    addSwitchRow(sec, tr("显示文件名浮层"),
-                 tr("隐藏顶端菜单时按 Shift+Tab 显隐"),
-                 "view/overlay_filename", false, false);
+    auto *overlayName = addSwitchRow(sec, tr("显示文件名浮层"),
+                                     tr("隐藏顶端菜单时按 Shift+Tab 显隐"),
+                                     "view/overlay_filename", false, false);
     // SET-04：帧号行由 updateInfoOverlay() 直接重排，模态设置页内也能看到信息行变化。
     auto *animInfo = addSwitchRow(sec, tr("显示动画帧号"), QString(),
                                   "view/show_anim_control", false, true);
@@ -3024,6 +3024,9 @@ void SettingsDialog::buildViewPage(QWidget *page)
     m_liveChecks.append({ sideArrows, "view/show_side_arrow", false, false });
     m_liveChecks.append({ zoomInfo, "view/show_zoom_control", false, false });
     m_liveChecks.append({ animInfo, "view/show_anim_control", false, false });
+    // 批次03：这四项按派单要求「切换即生效 + 取消/Esc/✕ 回滚」，同时也纳入
+    // 即时框架（失败注入、失败回退、幂等都由 applyLiveCheck 统一负责）。
+    m_liveChecks.append({ overlayName, "view/overlay_filename", false, false });
     // 2026-11-17 注释精简：原页脚「切换后立即重排信息面板…」删除——这组开关都是即时重排，
     // 页脚不再重复说一次。
 

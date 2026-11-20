@@ -239,6 +239,9 @@ private:
     void showImage(const QImage &image, const QString &path, bool preview = false);
     // 「顶端菜单隐藏时显示文件名 (Shift+TAB)」：画布顶部居中浮层，3s 后淡出。
     void showNameOverlay();
+    // 批次03 #10：设置页把开关刚打开时运行态要先于写盘生效（此路径不再回读
+    // Config 的旧值），显示逻辑与 Shift+Tab 共用同一段实现。
+    void showNameOverlayNow();
     void placeNameOverlay();
     // 按当前图片像素尺寸 + 铬件高度 resize 窗口，clamp 到可用屏幕 80%。
     // 只对 m_fitWindowPending 标记的「启动打开 / 文件→打开」生效一次，

@@ -6642,6 +6642,26 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         return true;
     }
 
+    if (key == QLatin1String("view/overlay_filename")) {
+        // 批次03 #10：消费点在 showNameOverlay()（Shift+Tab 触发时读 Config）。
+        // 开启时立刻预览一次当前图，关闭时把已经在屏上的浮层收掉——设置页是模态的，
+        // 只看 ini 变化不算「可观察」，这里是会话内真实可见的那一下。
+        if (!value.toBool()) {
+            if (m_nameOverlayTimer)
+                m_nameOverlayTimer->stop();
+            if (m_nameOverlayFade)
+                m_nameOverlayFade->stop();
+            if (m_nameOverlay) {
+                m_nameOverlay->hide();
+                if (m_nameOverlayFx)
+                    m_nameOverlayFx->setOpacity(0.0);
+            }
+        } else if (m_canvas && !m_currentPath.isEmpty()) {
+            showNameOverlayNow();   // 写盘发生在门槛之后，这里不能再回读旧值
+        }
+        return true;
+    }
+
     if (error)
         *error = tr("未知的即时设置项：%1").arg(key);
     return false;
@@ -6704,6 +6724,10 @@ QVariant MainWindow::liveSettingValue(const QString &key) const
         return m_liveAnimControlOverrideSet ? m_liveAnimControlOverride
                                             : Config::instance().showAnimControl();
     }
+    // 批次03：这三项的运行态就是配置本身（消费点每次读 Config），没有额外覆盖态；
+    // 返回配置值，验收脚本可以直接对「设置页显示值 ↔ 运行态」做一致性比对。
+    if (key == QLatin1String("view/overlay_filename"))
+        return Config::instance().overlayFilename();
     return QVariant();
 }
 
@@ -6849,6 +6873,14 @@ void MainWindow::onAbout()
 void MainWindow::showNameOverlay()
 {
     if (!m_canvas || !Config::instance().overlayFilename()) {
+        return;
+    }
+    showNameOverlayNow();
+}
+
+void MainWindow::showNameOverlayNow()
+{
+    if (!m_canvas) {
         return;
     }
     if (!m_nameOverlay) {
