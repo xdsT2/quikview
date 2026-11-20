@@ -14,6 +14,7 @@
 
 #include "LoadError.h"
 #include "PsdLoader.h"
+#include "DirectoryLoader.h"
 
 class ImageCanvas;
 class ImageCache;
@@ -234,6 +235,13 @@ private:
     void loadAsync(const QString &path, bool preempt = false);
     // 空闲预读：翻页停手 300ms 且解码队列空了，向当前页前后各预读 1 张
     void preloadNeighbors();
+    // —— 目录监视（外部增删/重命名自动刷新）——
+    void onWatchedDirectoryChanged();
+    void startDirectoryRefresh();
+    void applyDirectoryRefresh(const DirectoryLoader::Index &idx, const QString &anchor,
+                               qint64 startedMs);
+    void writeWatchReport(const QString &path) const;
+    void updatePageCounter();                 // 目录刷新后重算「n / total」（不重解码画面）
     // 显式跳转：先清空解码队列再加载（区别于顺序翻页的逐张播放）
     void jumpTo(const QString &path);
     void showImage(const QImage &image, const QString &path, bool preview = false);
@@ -377,6 +385,14 @@ private:
     ImageCanvas *m_canvas = nullptr;
     ImageCache *m_cache = nullptr;
     DirectoryLoader *m_dir = nullptr;
+    // —— 目录监视状态 ——
+    bool m_dirRefreshInFlight = false;   // 后台重扫在飞
+    bool m_dirRefreshDirty = false;      // 在飞期间又收到事件：收尾补扫一次
+    bool m_dirRefreshChanged = false;    // 最近一次重扫是否真的改了列表
+    bool m_displayedFileMissing = false; // 当前画面文件已在外部删除（同名回来即复位）
+    int m_dirRefreshCount = 0;           // 重建次数（防抖取证：100 文件应只 +1）
+    qint64 m_dirRefreshLastMs = -1;      // 最近一次重建总耗时（主线程+工作线程）
+    qint64 m_dirRefreshScanMs = -1;      // 最近一次扫描耗时（工作线程）
     MetadataPanel *m_metadata = nullptr;
     ThumbnailBrowser *m_browser = nullptr;
     OverviewPanel *m_overview = nullptr;

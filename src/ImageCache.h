@@ -37,6 +37,9 @@ public:
     void requestFull(const QString &path, const QSize &previewSize = QSize(),
                      bool preempt = false);
     void requestThumbnail(const QString &path, const QSize &size);
+    // 外部刷新（同名文件被删后又保存回来）：丢弃该路径的全图/拖动/缩略图缓存与
+    // 排队项，并作废此前的在飞结果，下一次请求从磁盘重新解码。
+    void forgetPath(const QString &path);
     void clear();
     void clearFull();   // 只清原图缓存（缩略图不受 HDR 开关影响）
     void cancelPending();   // 显式跳转：清空待解队列，在飞结果静默入缓存不上屏
@@ -85,6 +88,10 @@ private:
     // 在飞全图任务：路径 → 提交时的代次。同一路径允许被新代次重新提交
     // （快速反向回到正在解的上一张），旧任务完成时因代次不符降级为只入缓存。
     QHash<QString, quint64> m_fullInFlight;
+    // forgetPath 之后，代次小于该值的解码结果不得再进缓存（旧文件内容作废）。
+    QHash<QString, quint64> m_minGen;
+    // 缩略图作废时间戳：forgetPath 时自增，在飞缩略图回来按此丢弃。
+    QHash<QString, quint64> m_thumbEpoch;
     QSet<QString> m_thumbInFlight;
     QList<QString> m_queue;     // 待解码队列（FIFO，去重，上限 8）
     // 请求代次：每次显式跳转（cancelPending / preempt 请求）自增。解码结果只有

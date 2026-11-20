@@ -283,7 +283,9 @@ MainWindow::MainWindow(QWidget *parent)
     // —— 引擎 ——
     m_canvas = new ImageCanvas(this);
     m_cache = new ImageCache(this);
-    m_dir = new DirectoryLoader;
+    m_dir = new DirectoryLoader(this);
+    connect(m_dir, &DirectoryLoader::directoryChangedDebounced, this,
+            &MainWindow::onWatchedDirectoryChanged);
     // 启动就套用「循环」设置：此前只在菜单里切换时才生效，保存过的值重启后等于没读
     m_dir->setEdgeAction(Config::instance().edgeAction());
     m_frames = new FrameNavigator;
@@ -2709,6 +2711,11 @@ void MainWindow::openFile(const QString &path, bool transient)
     }
     const QString canonical = fi.absoluteFilePath();
 
+    // 目录监视（外部增删/重命名自动刷新）：当前图所在目录是唯一监视目标。
+    // 目录不可达/网络盘断开时 watchDirectory 内部静默降级，不影响打开流程。
+    m_dir->watchDirectory(fi.absolutePath());
+    m_displayedFileMissing = false;
+
     // 代次 +1：本次打开之后到达的任何旧索引/旧画面都属于上一任务。
     const quint64 gen = ++m_openGeneration;
     m_currentPath = canonical;
@@ -2838,6 +2845,170 @@ void MainWindow::preloadNeighbors()
     if (i + step < files.size()) {
         m_cache->preload(files.at(i + step));
     }
+}
+
+// 目录监视 · 事件入口：只做轻量判断，扫描一律进后台线程。
+// 防抖已在 DirectoryLoader 内完成（800ms 合并），这里不再重复计时。
+void MainWindow::onWatchedDirectoryChanged()
+{
+    if (m_dir->watchedDirectory().isEmpty()) {
+        return;
+    }
+    // 目录整体消失（拔 U 盘/网络盘断开/目录被删）：静默停止监视，列表与画面不动。
+    if (!QDir(m_dir->watchedDirectory()).exists()) {
+        m_dir->stopWatching();
+        return;
+    }
+    if (m_dirRefreshInFlight) {
+        m_dirRefreshDirty = true;   // 合并到本次扫描收尾后的补扫
+        return;
+    }
+    startDirectoryRefresh();
+}
+
+// 重扫只做「枚举 + 排序 + 过滤」，与打开目录同一条纯函数，绝不在这里解码图片。
+void MainWindow::startDirectoryRefresh()
+{
+    const QString dirPath = m_dir->watchedDirectory();
+    const QString anchor = !m_displayedPath.isEmpty() ? m_displayedPath : m_currentPath;
+    if (dirPath.isEmpty() || anchor.isEmpty() || m_dirRefreshInFlight) {
+        return;
+    }
+    const int sortMode = m_dir->sort();
+    const bool sortDesc = m_dir->sortDescending();
+    const bool skipRaw = Config::instance().skipRawWhenJpg();
+    const quint64 gen = m_openGeneration;
+    const qint64 startMs = QDateTime::currentMSecsSinceEpoch();
+    m_dirRefreshInFlight = true;
+    auto *watcher = new QFutureWatcher<DirectoryLoader::Index>(this);
+    connect(watcher, &QFutureWatcher<DirectoryLoader::Index>::finished, this,
+            [this, watcher, anchor, gen, startMs]() {
+        const DirectoryLoader::Index idx = watcher->result();
+        watcher->deleteLater();
+        m_dirRefreshInFlight = false;
+        // 扫描期间用户又打开别的文件/目录：这份结果属于上一任务，丢弃。
+        if (gen == m_openGeneration) {
+            applyDirectoryRefresh(idx, anchor, startMs);
+        }
+        if (m_dirRefreshDirty) {
+            m_dirRefreshDirty = false;
+            startDirectoryRefresh();
+        }
+    });
+    watcher->setFuture(QtConcurrent::run(DirectoryLoader::buildIndexDir, dirPath, anchor,
+                                         sortMode, sortDesc, skipRaw));
+}
+
+// 把重扫结果落到列表/胶片栏/总览。画布只在「被删的同名文件又回来」时重解码，
+// 其余情况一律不动画面——外部事件不能造成闪黑或重新装图。
+void MainWindow::applyDirectoryRefresh(const DirectoryLoader::Index &idx,
+                                       const QString &anchor, qint64 startedMs)
+{
+    // 目录在这期间又不可达：放弃本次结果，静默降级。
+    if (!QDir(m_dir->watchedDirectory()).exists()) {
+        m_dir->stopWatching();
+        return;
+    }
+    ++m_dirRefreshCount;
+    m_dirRefreshLastMs = QDateTime::currentMSecsSinceEpoch() - startedMs;
+    m_dirRefreshScanMs = idx.scanMs;
+
+    const QStringList files = idx.files;
+    if (files == m_dir->files()) {
+        m_dirRefreshChanged = false;
+        return;   // 内容无变化：连 UI 重建都省掉
+    }
+    m_dirRefreshChanged = true;
+
+    const int oldIndex = m_dir->index();
+    const int newIndex = files.indexOf(anchor);
+
+    if (newIndex >= 0) {
+        // 当前显示的文件仍在（新增/删除的都是别的文件）：当前页跟新页位走。
+        const bool wasMissing = m_displayedFileMissing;
+        m_displayedFileMissing = false;
+        m_dir->setFilesAndIndex(files, newIndex);
+        m_browser->setFiles(files, newIndex);
+        if (m_overview) {
+            m_overview->setFiles(files, newIndex);
+        }
+        m_displayedIndex = newIndex;
+        if (m_control) {
+            m_control->setPage(newIndex + 1, int(files.size()));
+        }
+        updatePageCounter();
+        if (wasMissing && anchor == m_displayedPath) {
+            // 删掉后又保存了同名文件：磁盘上是新内容，先作废缓存里的旧图
+            // （含在飞解码/缩略图），再重新解码接上最新内容。
+            m_cache->forgetPath(anchor);
+            jumpTo(anchor);
+        } else {
+            preloadNeighbors();
+        }
+        return;
+    }
+
+    if (QFileInfo::exists(anchor)) {
+        // 文件还在但没进清单（被过滤规则排除等）：只按老页位 clamp，不提示删除。
+        if (files.isEmpty()) {
+            m_dir->setFilesAndIndex(files, -1);
+            m_browser->setFiles(files, -1);
+            if (m_overview) m_overview->setFiles(files, -1);
+            m_displayedIndex = -1;
+            if (m_control) m_control->setPage(0, 0);
+            updatePageCounter();
+            return;
+        }
+        const int fallback = qBound(0, oldIndex, int(files.size()) - 1);
+        m_dir->setFilesAndIndex(files, fallback);
+        m_browser->setFiles(files, fallback);
+        if (m_overview) m_overview->setFiles(files, fallback);
+        m_displayedIndex = fallback;
+        if (m_control) m_control->setPage(fallback + 1, int(files.size()));
+        updatePageCounter();
+        return;
+    }
+
+    // 正在显示的文件被外部删除/移走：画面保留（不闪黑），游标退到原页位左邻，
+    // 下一次 next/prev 自然落到相邻存活项；胶片栏跟随新列表。
+    const bool firstNotice = !m_displayedFileMissing;
+    m_displayedFileMissing = true;
+    const int fallback = files.isEmpty() ? -1 : qBound(0, oldIndex - 1, int(files.size()) - 1);
+    m_dir->setFilesAndIndex(files, fallback);
+    m_browser->setFiles(files, fallback);
+    if (m_overview) {
+        m_overview->setFiles(files, fallback);
+    }
+    m_displayedIndex = fallback;
+    if (m_control) {
+        m_control->setPage(files.isEmpty() ? 0 : fallback + 1, int(files.size()));
+    }
+    updatePageCounter();
+    if (firstNotice && m_toast) {
+        m_toast->showMessage(tr("当前图片已在外部被删除"));
+    }
+}
+
+// 冒烟探针：目录监视状态/计数落盘（防抖、页位、耗时取证）。path 为相对路径。
+void MainWindow::writeWatchReport(const QString &path) const
+{
+    QFile f(path);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+        return;
+    }
+    QTextStream ts(&f);
+    ts << "ts=" << QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss.zzz")) << "\n"
+       << "dir=" << m_dir->watchedDirectory() << "\n"
+       << "watching=" << (m_dir->isWatching() ? 1 : 0) << "\n"
+       << "count=" << m_dir->count() << "\n"
+       << "index=" << m_dir->index() << "\n"
+       << "displayed=" << m_displayedPath << "\n"
+       << "displayedIndex=" << m_displayedIndex << "\n"
+       << "displayedMissing=" << (m_displayedFileMissing ? 1 : 0) << "\n"
+       << "rebuilds=" << m_dirRefreshCount << "\n"
+       << "lastRefreshMs=" << m_dirRefreshLastMs << "\n"
+       << "lastScanMs=" << m_dirRefreshScanMs << "\n"
+       << "lastChanged=" << (m_dirRefreshChanged ? 1 : 0) << "\n";
 }
 
 void MainWindow::setupPsdDocument(const QString &path)
@@ -3219,6 +3390,7 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     // 加载反馈（派单 §二）：这张图真的上屏了——页码 / 缩略图选中 / 信息浮层
     // 全部对应「已显示」的图；等待提示与失败态就地撤除。
     m_displayedPath = path;
+    m_displayedFileMissing = false;   // 画布已接上新图：删除提示态结束
     m_displayedIndex = m_dir->files().indexOf(path);
     if (m_displayedIndex < 0) {
         m_displayedIndex = m_dir->index();   // 路径不在目录清单（拖入单图等）回落当前索引
@@ -3424,6 +3596,13 @@ void MainWindow::updateInfoOverlay()
     }
     m_statusOverlay->setImageInfo(parts.join(QStringLiteral("  •  ")));
 
+    updatePageCounter();
+}
+
+// 右下页码单独可刷新：目录被外部增删后列表长度/页位会变，但画面不重解码、
+// 不经过 showImage，所以这里从目录状态直接重算一次计数。
+void MainWindow::updatePageCounter()
+{
     if (m_dir) {
         const QStringList files = m_dir->files();
         const int index = m_dir->index();
@@ -4929,6 +5108,17 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             ts << "lastError="
                << (m_lastLoadError.isEmpty() ? QStringLiteral("(none)") : m_lastLoadError)
                << "\n";
+        }
+    }
+    // watchreport[:Temp/xxx.txt] —— 目录监视取证：监视目录/页位/重建次数/耗时。
+    // 防抖验收读 rebuilds（100 文件批量写入应只 +1）；大目录读 lastScanMs/lastRefreshMs。
+    else if (c.startsWith(QLatin1String("watchreport"))) {
+        QString out = QStringLiteral("Temp/watch-report.txt");
+        if (c.startsWith(QLatin1String("watchreport:"))) {
+            out = c.mid(12).trimmed();
+        }
+        if (!out.isEmpty()) {
+            writeWatchReport(out);
         }
     }
     else if (c == QLatin1String("report")) {
