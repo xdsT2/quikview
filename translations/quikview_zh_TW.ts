@@ -1960,6 +1960,54 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>设置备份</source>
+        <translation>設定備份</translation>
+    </message>
+    <message>
+        <source>导出设置</source>
+        <translation>匯出設定</translation>
+    </message>
+        <message>
+        <source>把当前设置写入 .ini，便于备份或换机</source>
+        <translation>將目前設定寫入 .ini，方便備份或換機</translation>
+    </message>
+    <message>
+        <source>导入设置</source>
+        <translation>匯入設定</translation>
+    </message>
+    <message>
+        <source>从 .ini 文件恢复设置，重启 QuikView 后生效</source>
+        <translation>從 .ini 檔案還原設定，重新啟動 QuikView 後生效</translation>
+    </message>
+    <message>
+        <source>导出失败</source>
+        <translation>匯出失敗</translation>
+    </message>
+    <message>
+        <source>设置已导出</source>
+        <translation>設定已匯出</translation>
+    </message>
+    <message>
+        <source>不是有效的 QuikView 设置文件</source>
+        <translation>不是有效的 QuikView 設定檔</translation>
+    </message>
+    <message>
+        <source>导入失败，原配置未改动</source>
+        <translation>匯入失敗，原設定未變動</translation>
+    </message>
+    <message>
+        <source>导入成功，重启 QuikView 后生效</source>
+        <translation>匯入成功，重新啟動 QuikView 後生效</translation>
+    </message>
+    <message>
+        <source>QuikView 设置 (*.ini)</source>
+        <translation>QuikView 設定 (*.ini)</translation>
+    </message>
+    <message>
+        <source>QuikView 设置 (*.ini);;所有文件 (*)</source>
+        <translation>QuikView 設定 (*.ini);;所有檔案 (*)</translation>
+    </message>
+    <message>
         <source>按下组合键…</source>
         <translation>按下組合鍵…</translation>
     </message>

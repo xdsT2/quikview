@@ -1,6 +1,7 @@
 #include "SettingsDialog.h"
 
 #include "AppMenuPreview.h"
+#include "Chrome.h"
 #include "DirectoryLoader.h"
 
 #include <QAbstractButton>
@@ -15,6 +16,9 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QTextStream>
+#include <QSaveFile>
+#include <QSettings>
+#include <QStandardPaths>
 #include <QFontMetrics>
 #include <QFrame>
 #include <QGridLayout>
@@ -1900,6 +1904,11 @@ SettingsDialog::SettingsDialog(QWidget *parent)
         if (m_inputMode)
             m_inputMode->refresh();
     });
+
+    // 设置窗内的轻提示：直接复用 Chrome::Toast（与主窗同一套外观/图标/时长），
+    // 只是把父控件换成设置窗，这样导出/导入结果能贴着当前窗口显示。
+    m_toast = new Chrome::Toast(this);
+    m_toast->setCorner(true);
 }
 
 SettingsDialog::~SettingsDialog()
@@ -2221,6 +2230,8 @@ void SettingsDialog::resizeEvent(QResizeEvent *event)
         restore();
         QTimer::singleShot(0, this, restore);
     }
+    if (m_toast)
+        m_toast->reposition();
 }
 
 // ===========================================================================
@@ -5329,9 +5340,19 @@ void SettingsDialog::buildContextMenuPage(QWidget *page)
 // 9. 杂项
 // ===========================================================================
 
-void SettingsDialog::buildEtcPage(QWidget *page)
+namespace {
+
+// 设置导出/导入的新文案：显式写 context，和 SettingsDialog 的裸 tr() 同一个
+// context（"SettingsDialog"），但按派单硬约束一律走 QCoreApplication::translate。
+QString setioTr(const char *text)
 {
-    // 路径输入组：输入框与「浏览 / 打开」按钮保持同一组、统一右对齐。
+    return QCoreApplication::translate("SettingsDialog", text);
+}
+
+} // namespace
+
+void SettingsDialog::buildEtcPage(QWidget *page)
+{    // 路径输入组：输入框与「浏览 / 打开」按钮保持同一组、统一右对齐。
     QWidget *sec = beginSection(page, tr("常用路径"));
     auto makeFolderRow = [this, sec](const QString &label, const QString &cfgKey,
                                      QLineEdit **edit) {
@@ -5428,7 +5449,138 @@ void SettingsDialog::buildEtcPage(QWidget *page)
     m_liveChecks.append({ noSaver, "etc/disable_screensaver", false, false });
 
     // 2026-11-17 注释精简：原页脚逐句重复三行开关的语义，删除后行内与控件本身已足够。
+
+    // —— 设置导出（需求池 H1-3，本单界面动作：标准按钮）——
+    // 放在杂项页尾部：这一页本来就是「杂项/维护」性质的入口聚合处。
+    sec = beginSection(page, setioTr("设置备份"));
+    {
+        SettingRowParts parts = addSettingRow(
+            sec, setioTr("导出设置"),
+            setioTr("把当前设置写入 .ini，便于备份或换机"));
+        m_btnExportSettings = addButton(nullptr, setioTr("导出设置"));
+        parts.controls->addWidget(m_btnExportSettings, 0, Qt::AlignVCenter);
+        connect(m_btnExportSettings, &QPushButton::clicked,
+                this, &SettingsDialog::onExportSettings);
+    }
+
     applyPageRhythm(page);
+}
+
+// ===========================================================================
+// 9.1 设置导出（需求池 H1-3）
+// ===========================================================================
+
+// 当前生效的那份 ini：QUIKVIEW_CONFIG_PATH → 程序目录 config.ini → 系统配置目录，
+// 判定顺序与 Config::defaultConfigPath 完全一致，这里只读 QSettings 已解析出的
+// 实际文件名，天然跟随便携模式与冒烟隔离路径，绝不写死 %APPDATA%。
+QString SettingsDialog::settingsIniPath() const
+{
+    return QFileInfo(Config::instance().settings().fileName()).absoluteFilePath();
+}
+
+void SettingsDialog::showSettingsToast(const QString &text, bool ok)
+{
+    if (!m_toast)
+        return;
+    m_toast->showMessage(text, ok ? Chrome::Toast::Tone::Success
+                                  : Chrome::Toast::Tone::Warning);
+}
+
+bool SettingsDialog::exportSettingsTo(const QString &path, QString *error)
+{
+    // 导出前先把内存里的即时项落盘，导出的才是「界面上看到的当前配置」。
+    Config::instance().settings().sync();
+    const QString src = settingsIniPath();
+    QFile in(src);
+    if (!in.open(QIODevice::ReadOnly))
+        return false;
+    const QByteArray data = in.readAll();
+    in.close();
+
+    // QSaveFile：先写临时文件再原子替换，导出到已存在的旧文件也不会写一半。
+    QSaveFile out(path);
+    if (!out.open(QIODevice::WriteOnly)) {
+        if (error)
+            *error = out.errorString();
+        return false;
+    }
+    if (out.write(data) != data.size() || !out.commit()) {
+        if (error)
+            *error = out.errorString();
+        return false;
+    }
+    return true;
+}
+
+void SettingsDialog::exportSettingsPath(const QString &path)
+{
+    QString err;
+    if (!exportSettingsTo(path, &err)) {
+        showSettingsToast(setioTr("导出失败"), false);
+        return;
+    }
+    showSettingsToast(setioTr("设置已导出"), true);
+}
+
+void SettingsDialog::onExportSettings()
+{
+    const QString defName = QStringLiteral("quikview-settings-%1.ini")
+                                .arg(QDate::currentDate().toString(QStringLiteral("yyyyMMdd")));
+    const QString defDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+    QString path = QFileDialog::getSaveFileName(
+        this, setioTr("导出设置"), defDir.isEmpty() ? defName : defDir + QLatin1Char('/') + defName,
+        setioTr("QuikView 设置 (*.ini)"));
+    if (path.isEmpty())
+        return;
+    if (!path.endsWith(QStringLiteral(".ini"), Qt::CaseInsensitive))
+        path += QStringLiteral(".ini");
+    exportSettingsPath(path);
+}
+
+void SettingsDialog::probeSettingsIO(const QString &steps)
+{
+    QFile log(QStringLiteral("Temp/setio-probe.txt"));
+    if (!log.open(QIODevice::Append | QIODevice::Text))
+        return;
+    QTextStream ts(&log);
+    const QStringList parts = steps.split(QLatin1Char('+'), Qt::SkipEmptyParts);
+    for (const QString &rawPart : parts) {
+        const QString step = rawPart.trimmed();
+        QString result;
+        if (step == QLatin1String("page")) {
+            // 按文案定位「杂项」页签再点击：页面索引会随新增页漂移，写死数字不可靠。
+            for (QAbstractButton *b : m_tabs) {
+                if (b && b->text().contains(setioTr("杂项"))) {
+                    b->click();
+                    break;
+                }
+            }
+            result = QStringLiteral("ok=1 ini=%1 portable=%2")
+                         .arg(settingsIniPath())
+                         .arg(Config::instance().isPortable() ? 1 : 0);
+        } else if (step == QLatin1String("bottom")) {
+            // 滚到当前页底部：杂项页末尾才是「设置备份」，不滚下去截图看不全两个按钮。
+            // 当前页本身就是一个 QScrollArea（页内容挂在它的 widget() 上）。
+            if (m_stack) {
+                if (auto *sa = qobject_cast<QScrollArea *>(m_stack->currentWidget()))
+                    sa->verticalScrollBar()->setValue(sa->verticalScrollBar()->maximum());
+            }
+            result = QStringLiteral("ok=1");
+        } else if (step.startsWith(QLatin1String("export|"))) {
+            const QString path = step.mid(7);
+            QString err;
+            const bool ok = exportSettingsTo(path, &err);
+            showSettingsToast(ok ? setioTr("设置已导出") : setioTr("导出失败"), ok);
+            result = QStringLiteral("ok=%1 path=%2 err=%3").arg(ok ? 1 : 0).arg(path, err);
+        } else if (step.startsWith(QLatin1String("grab|"))) {
+            const bool ok = grab().save(step.mid(5));
+            result = QStringLiteral("ok=%1 out=%2").arg(ok ? 1 : 0).arg(step.mid(5));
+        } else {
+            result = QStringLiteral("ok=0 err=未知步骤");
+        }
+        ts << "step=" << step << ' ' << result << '\n';
+        ts.flush();
+    }
 }
 
 // ===========================================================================

@@ -1960,6 +1960,54 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>设置备份</source>
+        <translation>Einstellungen sichern</translation>
+    </message>
+    <message>
+        <source>导出设置</source>
+        <translation>Einstellungen exportieren</translation>
+    </message>
+        <message>
+        <source>把当前设置写入 .ini，便于备份或换机</source>
+        <translation>Aktuelle Einstellungen in eine .ini schreiben – zum Sichern oder für einen anderen PC</translation>
+    </message>
+    <message>
+        <source>导入设置</source>
+        <translation>Einstellungen importieren</translation>
+    </message>
+    <message>
+        <source>从 .ini 文件恢复设置，重启 QuikView 后生效</source>
+        <translation>Einstellungen aus einer .ini-Datei wiederherstellen; wirksam nach Neustart von QuikView</translation>
+    </message>
+    <message>
+        <source>导出失败</source>
+        <translation>Export fehlgeschlagen</translation>
+    </message>
+    <message>
+        <source>设置已导出</source>
+        <translation>Einstellungen exportiert</translation>
+    </message>
+    <message>
+        <source>不是有效的 QuikView 设置文件</source>
+        <translation>Keine gültige QuikView-Einstellungsdatei</translation>
+    </message>
+    <message>
+        <source>导入失败，原配置未改动</source>
+        <translation>Import fehlgeschlagen; die ursprüngliche Konfiguration wurde nicht geändert</translation>
+    </message>
+    <message>
+        <source>导入成功，重启 QuikView 后生效</source>
+        <translation>Import erfolgreich; wirksam nach Neustart von QuikView</translation>
+    </message>
+    <message>
+        <source>QuikView 设置 (*.ini)</source>
+        <translation>QuikView-Einstellungen (*.ini)</translation>
+    </message>
+    <message>
+        <source>QuikView 设置 (*.ini);;所有文件 (*)</source>
+        <translation>QuikView-Einstellungen (*.ini);;Alle Dateien (*)</translation>
+    </message>
+    <message>
         <source>按下组合键…</source>
         <translation>Tastenkombination drücken…</translation>
     </message>
