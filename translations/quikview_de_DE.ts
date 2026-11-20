@@ -2019,6 +2019,16 @@
     <context>
         <name>SettingsDialog</name>
         <message>
+            <source>重启后生效；每 24 小时最多检查一次</source>
+            <translation>Wirkt nach Neustart; höchstens einmal alle 24 Stunden</translation>
+        </message>
+
+        <message>
+            <source>通用</source>
+            <translation>Allgemein</translation>
+        </message>
+
+        <message>
             <source>翻页音效</source>
             <translation>Blätterton</translation>
         </message>

@@ -2019,6 +2019,16 @@
     <context>
         <name>SettingsDialog</name>
         <message>
+            <source>重启后生效；每 24 小时最多检查一次</source>
+            <translation>重新啟動後生效；每 24 小時最多檢查一次</translation>
+        </message>
+
+        <message>
+            <source>通用</source>
+            <translation>一般</translation>
+        </message>
+
+        <message>
             <source>翻页音效</source>
             <translation>翻頁音效</translation>
         </message>

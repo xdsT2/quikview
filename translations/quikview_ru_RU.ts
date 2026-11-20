@@ -2019,6 +2019,16 @@
     <context>
         <name>SettingsDialog</name>
         <message>
+            <source>重启后生效；每 24 小时最多检查一次</source>
+            <translation>Действует после перезапуска; не чаще одного раза в 24 часа</translation>
+        </message>
+
+        <message>
+            <source>通用</source>
+            <translation>Общие</translation>
+        </message>
+
+        <message>
             <source>翻页音效</source>
             <translation>Звук листания</translation>
         </message>

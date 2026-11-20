@@ -2912,6 +2912,9 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
     // 生效时机。原「一般」页保留窗口与应用级行为，吸收杂项页的「按图调窗 /
     // 禁用屏保」、语言整页与设置备份。
     QWidget *sec = beginSection(page, tr("窗口行为"));
+    // 「图像编辑器」一行的控件列要单独放宽：输入框 + 浏览… + 预设 三个控件
+    // 在 154/160 的统一控件列里放不下（英文下按钮文字会被截成 "owse"）。
+    QWidget *editorControls = nullptr;
     addSwitchRow(sec, tr("不允许多个实例"), tr("重启 QuikView 后生效"),
                  "allow_multiple_instances", true, true);
     auto *alwaysOnTop = addSwitchRow(sec, tr("总在最前 (Ctrl+A)"), QString(),
@@ -2945,6 +2948,8 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
         m_editorPath->setFixedWidth(210);
         m_editorPath->setAccessibleName(tr("图像编辑器程序路径"));
         parts.controls->addWidget(m_editorPath, 0, Qt::AlignVCenter);
+        editorControls =
+            parts.row->findChild<QWidget *>(QStringLiteral("rowControls"));
         auto *btnBrowse = addButton(nullptr, tr("浏览…"));
         auto *btnPreset = addButton(nullptr, tr("预设"));
         parts.controls->addWidget(btnBrowse, 0, Qt::AlignVCenter);
@@ -3069,6 +3074,10 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
             w->setProperty("fluent", QStringLiteral("v2"));
     }
     applyPageRhythm(page, kGenFirstGap, kGenGroupGap, kGenRowH, kGenCtlW);
+    // 统一节奏把每行控件列都固定到 160；编辑器路径这一行按自身 sizeHint 放宽，
+    // 避免英文「Browse… / Preset」被截断（其余行不受影响）。
+    if (editorControls)
+        editorControls->setFixedWidth(qMax(editorControls->sizeHint().width(), kGenCtlW));
 }
 
 // ===========================================================================
@@ -5057,8 +5066,13 @@ void SettingsDialog::probeVisitAllPages()
 void SettingsDialog::probeSearch(const QString &text)
 {
     // 走真实链路：setText → textChanged → ensureAllPagesBuilt + filterNavigation。
-    if (m_search)
+    // 首次搜索是「一次性补建其余页 + 建索引」的最坏路径，这里记一段耗时供回归对比。
+    if (m_search) {
+        QElapsedTimer t;
+        t.start();
         m_search->setText(text);
+        probeMark("search-first", t.nsecsElapsed() / 1000);
+    }
 }
 
 void SettingsDialog::refreshAppMenuPreview(bool relayout)
@@ -7113,13 +7127,26 @@ void SettingsDialog::probeResetDefaults()
     accept();
 }
 
-// —— 验收探针（--smoke settingsgeo:<page>:<W>x<H>）——
-// 最小窗口验收：先把窗口摆到指定尺寸，再切页，保证页面在紧凑档布局下重建/重排。
-void SettingsDialog::probePageAtSize(int page, int w, int h)
+// —— 验收探针（--smoke settingsgeo:<page>:<W>x<H>[:bottom][:fold]）——
+// 最小窗口验收：先把窗口摆到指定尺寸，再切页，保证页面在紧凑档布局下重建/重排；
+// 「:bottom」再加一步滚到页底，「:fold」点开「支持的格式」折叠体（Windows 集成页）。
+void SettingsDialog::probePageAtSize(int page, int w, int h, bool toBottom,
+                                     bool expandFormats)
 {
     if (w > 0 && h > 0)
         resize(w, h);
-    QTimer::singleShot(300, this, [this, page]() { selectPage(page); });
+    QTimer::singleShot(300, this, [this, page, toBottom, expandFormats]() {
+        selectPage(page);
+        if (expandFormats && m_formatsToggleBtn && m_formatsFoldBody
+            && !m_formatsFoldBody->isVisible())
+            m_formatsToggleBtn->click();
+        if (!toBottom || !m_stack)
+            return;
+        QTimer::singleShot(250, this, [this]() {
+            if (auto *sa = qobject_cast<QScrollArea *>(m_stack->currentWidget()))
+                sa->verticalScrollBar()->setValue(sa->verticalScrollBar()->maximum());
+        });
+    });
 }
 
 // —— 验收探针（--smoke settingscombo，见 MainWindow::runSmokeCommand）——

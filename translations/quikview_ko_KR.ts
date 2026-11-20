@@ -2019,6 +2019,16 @@
     <context>
         <name>SettingsDialog</name>
         <message>
+            <source>重启后生效；每 24 小时最多检查一次</source>
+            <translation>다시 시작 후 적용되며 24시간에 최대 1회 확인</translation>
+        </message>
+
+        <message>
+            <source>通用</source>
+            <translation>일반</translation>
+        </message>
+
+        <message>
             <source>翻页音效</source>
             <translation>페이지 넘김 효과음</translation>
         </message>

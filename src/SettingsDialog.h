@@ -90,8 +90,9 @@ public:
     // 序号/当前值写到 Temp/settings-combos.txt，避免靠猜索引取错控件。
     void probeOpenCombo(int page, int index);
     // probePageAtSize：切到第 page 页并把设置窗摆到指定尺寸（最小窗口 900×660
-    // 的滚动/末组可达验收用；--smoke settingsgeo:<page>:<W>x<H>）。
-    void probePageAtSize(int page, int w, int h);
+    // 的滚动/末组可达验收用；--smoke settingsgeo:<page>:<W>x<H>[:bottom][:fold]）。
+    void probePageAtSize(int page, int w, int h, bool toBottom = false,
+                         bool expandFormats = false);
     // probeCtxToggle：切到上下文菜单页并点击 ctxmenu.<leaf> 开关（--smoke
     // settingsctx:<leaf>）。与真实鼠标点击同一条 PillToggle::toggled →
     // writeValues 链路，供资源管理器右键验收驱动设置页开关。

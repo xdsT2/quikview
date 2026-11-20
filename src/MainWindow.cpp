@@ -3778,6 +3778,9 @@ void MainWindow::positionLoadStatus()
 
 void MainWindow::showImage(const QImage &image, const QString &path, bool preview)
 {
+    m_topBar->setLayerButtonVisible(PsdLoader::isPsdPath(path));
+    m_topBar->setLayerState(path == m_psdPath && m_psdDoc.valid(),
+                            path == m_psdPath && m_layerPanel->isVisible() && !m_layerPanel->isClosing());
     // 装图期间所有 zoomChanged 都是程序算的（fit / 恢复缩放 / 预览换图），
     // 统一屏蔽「保存缩放状态」写盘，避免把用户上次的缩放覆盖掉。
     m_zoomSaveGuard = true;
@@ -5063,7 +5066,9 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         dlg->activateWindow();
         const QStringList sz = a.value(1).split(u'x');
         const int page = a.value(0).toInt();
-        dlg->probePageAtSize(page, sz.value(0).toInt(), sz.value(1).toInt());
+        dlg->probePageAtSize(page, sz.value(0).toInt(), sz.value(1).toInt(),
+                             a.value(2) == QLatin1String("bottom"),
+                             a.value(3) == QLatin1String("fold"));
     }
     // menudump —— 把三横菜单的完整信息架构（含二级菜单、快捷键、勾选/可用态）
     // 追加到 Temp/v2-menu.txt，供逐项核对；不弹菜单、不点任何业务槽。

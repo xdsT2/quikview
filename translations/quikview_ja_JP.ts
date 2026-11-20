@@ -2019,6 +2019,16 @@
     <context>
         <name>SettingsDialog</name>
         <message>
+            <source>重启后生效；每 24 小时最多检查一次</source>
+            <translation>再起動後に有効。24 時間に 1 回まで確認</translation>
+        </message>
+
+        <message>
+            <source>通用</source>
+            <translation>一般</translation>
+        </message>
+
+        <message>
             <source>翻页音效</source>
             <translation>ページ送り効果音</translation>
         </message>

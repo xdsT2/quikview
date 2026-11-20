@@ -2019,6 +2019,16 @@
     <context>
         <name>SettingsDialog</name>
         <message>
+            <source>重启后生效；每 24 小时最多检查一次</source>
+            <translation>Prend effet après redémarrage ; au plus une fois toutes les 24 heures</translation>
+        </message>
+
+        <message>
+            <source>通用</source>
+            <translation>Général</translation>
+        </message>
+
+        <message>
             <source>翻页音效</source>
             <translation>Son de pagination</translation>
         </message>
