@@ -400,7 +400,7 @@ MainWindow::MainWindow(QWidget *parent)
     });
     connect(m_topBar, &Chrome::TopBar::minimizeClicked, this, &QWidget::showMinimized);
     connect(m_topBar, &Chrome::TopBar::maximizeClicked, this, [this]() {
-        isMaximized() ? showNormal() : showMaximized();
+        onToggleMaximize();
     });
     connect(m_topBar, &Chrome::TopBar::closeClicked, this, &QWidget::close);
     connect(m_topBar, &Chrome::TopBar::systemMenuRequested, this, [this](const QPoint &g) {
@@ -478,11 +478,7 @@ MainWindow::MainWindow(QWidget *parent)
     // 左键双击（设置「双击最大化 / 还原」开启时）= 窗口最大化/还原。
     // 侧边翻页区域优先处理点击，画布其余区域仍支持双击最大化。
     connect(m_canvas, &ImageCanvas::doubleClickRequested, this, [this]() {
-        if (isMaximized()) {
-            showNormal();
-        } else {
-            showMaximized();
-        }
+        onToggleMaximize();
     });
 
     // 鼠标按键映射（C9~C12）：画布只负责判定，动作统一在这里派发。
@@ -1126,6 +1122,12 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qint64 
         const double w = width(), h = height();
         const bool l = logical.x() < b, r = logical.x() > w - b;
         const bool t = logical.y() < b, bm = logical.y() > h - b;
+        // 锁定窗口大小期间四边一律报 HTBORDER（无缩放边框）：既不出 resize 光标，
+        // 也不会进 SC_SIZE 拖拽循环。setFixedSize 的 min/max 只是第二道兜底。
+        if (m_windowSizeLocked && (l || r || t || bm)) {
+            *result = HTBORDER;
+            return true;
+        }
         if (l && t)      { *result = HTTOPLEFT;     return true; }
         if (r && t)      { *result = HTTOPRIGHT;    return true; }
         if (l && bm)     { *result = HTBOTTOMLEFT;  return true; }
@@ -1197,9 +1199,18 @@ void MainWindow::toggleFullscreen()
 {
     if (isFullScreen()) {
         showNormal();
-    } else {
-        showFullScreen();
+        // 退出全屏：按 m_lockSizeHint 把锁定约束补回来（changeEvent 里同一条，幂等）
+        applyWindowSizeLock();
+        return;
     }
+    // 全屏优先：进全屏前必须先松绑 —— setFixedSize 的 max 尺寸会把 Qt 算出的
+    // 全屏几何夹回原尺寸，表现成「点了全屏没反应」。
+    if (m_windowSizeLocked) {
+        m_windowSizeLocked = false;
+        setMinimumSize(360, 260);
+        setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+    }
+    showFullScreen();
 }
 
 // Qt 的 showFullScreen/showNormal 会整体重写原生样式（FramelessWindowHint
@@ -1227,6 +1238,9 @@ void MainWindow::changeEvent(QEvent *event)
         if (!isFullScreen())
             applyNativeFrameStyles();
 #endif
+        // 锁定窗口大小：进出全屏、最大化/还原都是 WindowStateChange。全屏中
+        // applyWindowSizeLock 会保持松绑，退出全屏按 m_lockSizeHint 锁回。
+        applyWindowSizeLock();
     }
 }
 #endif
@@ -2064,6 +2078,12 @@ QMenu *MainWindow::buildHamburgerMenu()
     layers->setEnabled(m_psdDoc.valid());
     view->setActionIcon(layers, "layers");
     addMenuItem(view, tr("全屏"), QStringLiteral("F11"), [this]() { toggleFullscreen(); });
+    // 锁定窗口大小：勾选态现读配置。开启后窗口拖边/最大化不再改尺寸，
+    // 画布缩放与平移不受影响；与「按图调窗」互斥、全屏优先（见 applyWindowSizeLock）。
+    view->setActionIcon(addCheckableItem(view, tr("锁定窗口大小"), QString(),
+                                         Config::instance().lockWindowSize(),
+                                         [this](bool on) { onToggleWindowSizeLock(on); }),
+                        "lock");
 
     // —— 浏览与显示的参数 › ——
     auto *params = addHamburgerSubmenu(menu, tr("浏览与显示的参数"), "sliders");
@@ -2682,6 +2702,19 @@ void MainWindow::applyRuntimeSettings()
         actSortDesc->setChecked(cfg.sortDescending());
     }
     applyChromeLayout();   // 通知位置等铬件几何按当前配置立即重排（改设置不用重启）
+
+    // 锁定窗口大小（键 config/lock_window_size）：启动与「设置页保存返回」都走这里。
+    // 互斥：锁定开着时「根据图片大小调节窗口大小」必须为关 —— 最后操作者若在设置页
+    // 勾了按图调窗，这里按「锁定优先」把互斥项写回配置（关掉设置页时 toast 说明）。
+    if (cfg.lockWindowSize() && cfg.fitWindowToImage()) {
+        Config::instance().settings().setValue(
+            QStringLiteral("config/etc/fit_window_to_image"), false);
+        if (isVisible() && m_toast) {
+            m_toast->showMessage(
+                tr("已关闭「根据图片大小调节窗口大小」（与锁定窗口大小互斥）"));
+        }
+    }
+    applyWindowSizeLock();
 
 #ifdef Q_OS_WIN
     // setWindowFlag() 会让 Qt 按 flags 重建原生样式，把 WS_THICKFRAME|WS_CAPTION
@@ -3849,6 +3882,11 @@ void MainWindow::fitWindowToImage()
     if (!Config::instance().fitWindowToImage()) {
         return;
     }
+    // 互斥兜底：锁定窗口大小时不做按图调窗（开锁时已把该设置落盘为关，
+    // 这里防外部直接改 ini 后两条行为打架；锁定优先）。
+    if (Config::instance().lockWindowSize()) {
+        return;
+    }
     QScreen *screen = QGuiApplication::screenAt(QCursor::pos());
     if (!screen) {
         screen = QGuiApplication::primaryScreen();
@@ -3867,6 +3905,75 @@ void MainWindow::fitWindowToImage()
     const int h = qBound(160, img.height() + kOverheadH, maxH);
     resize(w, h);
     move(avail.x() + (avail.width() - w) / 2, avail.y() + (avail.height() - h) / 2);
+}
+
+// 锁定窗口大小（视图菜单勾选项，键 config/lock_window_size）。
+// 互斥：开启时把「根据图片大小调节窗口大小」落盘为关 —— 按图调窗每次「打开」
+// 都会 resize，与「尺寸钉死」直接冲突；规则是锁定优先，关锁不解锁被取消的项。
+void MainWindow::onToggleWindowSizeLock(bool on)
+{
+    Config::instance().settings().setValue(QStringLiteral("config/lock_window_size"), on);
+    const bool fitTurnedOff = on && Config::instance().fitWindowToImage();
+    if (fitTurnedOff) {
+        Config::instance().settings().setValue(
+            QStringLiteral("config/etc/fit_window_to_image"), false);
+    }
+    applyWindowSizeLock();
+    if (m_toast) {
+        m_toast->showMessage(fitTurnedOff
+            ? tr("已关闭「根据图片大小调节窗口大小」（与锁定窗口大小互斥）")
+            : (on ? tr("窗口大小：锁定") : tr("窗口大小：解锁")));
+    }
+}
+
+// 最大化/还原的唯一入口（标题栏按钮、画布双击、验收探针都走这里）。
+// 锁定窗口大小时直接拦下：setFixedSize 会把最大化几何夹回原尺寸，但窗口状态位
+// 仍会变成 maximized —— 解锁瞬间窗口会突然铺满全屏，前后不一致。所以入口拦，
+// 并 toast 说明「先解锁」。
+void MainWindow::onToggleMaximize()
+{
+    if (Config::instance().lockWindowSize() && !isMaximized()) {
+        if (m_toast) {
+            m_toast->showMessage(tr("窗口大小已锁定，先解锁才能最大化"));
+        }
+        return;
+    }
+    isMaximized() ? showNormal() : showMaximized();
+}
+
+// 锁定约束的唯一落点：只按配置落/解，不改配置、不弹 toast。
+// 调用来源 —— 菜单勾选、启动（applyRuntimeSettings）、全屏进出（changeEvent /
+// toggleFullscreen）。「全屏优先」：全屏期间必须松绑（不松绑 Qt 会把全屏几何夹回
+// 锁定尺寸），但 m_lockSizeHint 保留，退出全屏按它锁回。
+void MainWindow::applyWindowSizeLock()
+{
+    const bool wantLock = Config::instance().lockWindowSize();
+    if (!wantLock) {
+        m_lockSizeHint = QSize();
+        if (m_windowSizeLocked) {
+            m_windowSizeLocked = false;
+            setMinimumSize(360, 260);   // 构造里的最小尺寸下限
+            setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+        }
+        return;
+    }
+    if (isFullScreen()) {
+        if (m_windowSizeLocked) {
+            m_windowSizeLocked = false;
+            setMinimumSize(360, 260);
+            setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+        }
+        return;
+    }
+    if (!m_lockSizeHint.isValid()) {
+        // 首次落锁：最大化状态下先还原，按还原后的普通尺寸锁（不把屏幕尺寸当锁定尺寸）
+        if (isMaximized()) {
+            showNormal();
+        }
+        m_lockSizeHint = size();
+    }
+    m_windowSizeLocked = true;
+    setFixedSize(m_lockSizeHint);
 }
 
 void MainWindow::updateCanvasLogo()
@@ -4186,6 +4293,33 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     else if (c == QLatin1String("rotateleft")) onRotateLeft();
     else if (c == QLatin1String("rotateright")) onRotateRight();
     else if (c == QLatin1String("slideshow"))  actSlideshow->trigger();
+    // lockon / lockoff —— 锁定窗口大小开关（与视图菜单勾选项走同一条槽：
+    // 落盘 + 落/解约束 + toast，不绕过配置）
+    else if (c == QLatin1String("lockon"))     onToggleWindowSizeLock(true);
+    else if (c == QLatin1String("lockoff"))    onToggleWindowSizeLock(false);
+    // lockreport[:out] —— 锁定取证：配置真值 / 是否挂着固定尺寸 / 实际窗口尺寸一次写盘。
+    // 拖拽/最大化试验后读 locked=1 fixed=1 且 w/h 未变即证约束生效。
+    else if (c.startsWith(QLatin1String("lockreport"))) {
+        QString out = QStringLiteral("Temp/lock-report.txt");
+        if (c.startsWith(QLatin1String("lockreport:"))) {
+            out = c.mid(11).trimmed();
+        }
+        QFile f(out);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << "lock=" << (Config::instance().lockWindowSize() ? 1 : 0)
+               << " locked=" << (m_windowSizeLocked ? 1 : 0)
+               << " fixed=" << ((minimumSize() == maximumSize()) ? 1 : 0)
+               << " w=" << width() << " h=" << height()
+               << " min=" << minimumWidth() << 'x' << minimumHeight()
+               << " max=" << maximumWidth() << 'x' << maximumHeight()
+               << " hint=" << m_lockSizeHint.width() << 'x' << m_lockSizeHint.height()
+               << " fullscreen=" << (isFullScreen() ? 1 : 0)
+               << " maximized=" << (isMaximized() ? 1 : 0)
+               << " fit=" << (Config::instance().fitWindowToImage() ? 1 : 0)
+               << "\n";
+        }
+    }
     // resize:WxH —— 模拟用户拖窗口改变尺寸（验收「调窗口不打回适合窗口」）
     else if (c.startsWith(QLatin1String("resize:"))) {
         const QStringList wh = c.mid(7).split(QLatin1Char('x'));
@@ -4450,7 +4584,7 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         m_dir->setEdgeAction(edge);
     }
     else if (c == QLatin1String("fullscreen")) toggleFullscreen();
-    else if (c == QLatin1String("maximize")) { isMaximized() ? showNormal() : showMaximized(); }
+    else if (c == QLatin1String("maximize")) { onToggleMaximize(); }
     // wheel:slider|bar:up|down[:ctrl] —— 合成一次滚轮事件，验证「滑杆上滚翻页 / 其余位置缩放 / Ctrl 保留缩放」。
     // 外部注入滚轮要过 DPI 与消息循环，结果不可复现；这里直接把事件送到胶囊，判定只依赖胶囊自身逻辑。
     else if (c.startsWith(QLatin1String("wheel:"))) {
@@ -5189,6 +5323,56 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         if (m_metadata && m_metadata->m_copyBtn) {
             m_metadata->m_copyBtn->click();
         }
+    }
+    // 验收探针：把 HUD 键值全文（与「复制参数」同源，含数据行）写盘。
+    // 打印尺寸这类数值行用它核对，比截图读数可靠。
+    else if (c.startsWith(QLatin1String("hudtext"))) {
+        QString out = QStringLiteral("Temp/hud-text.txt");
+        if (c.startsWith(QLatin1String("hudtext:"))) {
+            out = c.mid(8).trimmed();
+        }
+        if (m_metadata) {
+            QFile f(out);
+            if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                QTextStream ts(&f);
+                ts << m_metadata->copyText() << "\n";
+            }
+        }
+    }
+    // 验收探针：单独弹出汉堡「浏览与显示」子菜单并自渲染截图（锁定窗口大小
+    // 勾选态取证）。定位语言无关：该子菜单同时含 actPrevFrame/actNextFrame。
+    else if (c.startsWith(QLatin1String("lockmenu"))) {
+        QString out = QStringLiteral("Temp/lock-menu.png");
+        if (c.startsWith(QLatin1String("lockmenu:"))) {
+            out = c.mid(9).trimmed();
+        }
+        QMenu *root = buildHamburgerMenu();
+        QMenu *view = findSubmenuDeep(root->actions(), [this](QMenu *m) {
+            return m->actions().contains(actPrevFrame) && m->actions().contains(actNextFrame);
+        });
+        if (!view) {
+            root->deleteLater();
+            return;
+        }
+        // 先布局再弹出：没布局过的子菜单尺寸为 0，grab() 出空图。
+        view->ensurePolished();
+        view->adjustSize();
+        view->popup(mapToGlobal(QPoint(width() / 2 - 120, height() / 3)));
+        // root 是 view 的父菜单，截图落地前不能删（否则 view 跟着没了）。
+        QTimer::singleShot(500, view, [view, root, out]() {
+            const QPixmap pm = view->grab();
+            const bool ok = !pm.isNull() && pm.save(out);
+            QFile log(QStringLiteral("Temp/lockmenu-log.txt"));
+            if (log.open(QIODevice::Append | QIODevice::Text)) {
+                QTextStream ts(&log);
+                ts.setEncoding(QStringConverter::Utf8);
+                ts << "grab visible=" << (view->isVisible() ? 1 : 0)
+                   << " size=" << view->width() << 'x' << view->height()
+                   << " pm=" << pm.width() << 'x' << pm.height()
+                   << " saved=" << (ok ? 1 : 0) << " out=" << out << '\n';
+            }
+            root->deleteLater();
+        });
     }
     // 验收探针：模拟应用重新激活（走 onActivationChanged 真实处理函数），
     // 验证失焦隐藏后不自动恢复（hud= 应保持 0）

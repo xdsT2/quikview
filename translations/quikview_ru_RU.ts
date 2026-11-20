@@ -1615,6 +1615,26 @@
             <source>自动保存失败：%1</source>
             <translation>Не удалось автосохранить: %1</translation>
         </message>
+        <message>
+            <source>锁定窗口大小</source>
+            <translation>Фиксировать размер окна</translation>
+        </message>
+        <message>
+            <source>窗口大小：锁定</source>
+            <translation>Размер окна: фиксирован</translation>
+        </message>
+        <message>
+            <source>窗口大小：解锁</source>
+            <translation>Размер окна: освобождён</translation>
+        </message>
+        <message>
+            <source>已关闭「根据图片大小调节窗口大小」（与锁定窗口大小互斥）</source>
+            <translation>«Подгонять окно под изображение» отключено (несовместимо с фиксацией размера окна)</translation>
+        </message>
+        <message>
+            <source>窗口大小已锁定，先解锁才能最大化</source>
+            <translation>Размер окна фиксирован — чтобы развернуть, снимите фиксацию</translation>
+        </message>
     </context>
     <context>
         <name>MetadataPanel</name>
@@ -1757,6 +1777,14 @@
         <message>
             <source>GPS 信息</source>
             <translation>Сведения GPS</translation>
+        </message>
+        <message>
+            <source>打印尺寸</source>
+            <translation>Размер при печати</translation>
+        </message>
+        <message>
+            <source>%1 × %2 cm</source>
+            <translation>%1 × %2 cm</translation>
         </message>
     </context>
     <context>

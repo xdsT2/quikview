@@ -562,6 +562,14 @@ bool Config::fitWindowToImage() const
     return m_settings.value(QStringLiteral("config/etc/fit_window_to_image"), false).toBool();
 }
 
+bool Config::lockWindowSize() const
+{
+    // 「锁定窗口大小」：开启后窗口尺寸不可拖拽改变（画布缩放/平移不受影响）。
+    // 默认关；持久化，重启后仍按启动尺寸锁定。与 config/etc/fit_window_to_image
+    // 互斥（按图调窗会改窗口尺寸），规则见 MainWindow::applyWindowSizeLock。
+    return m_settings.value(QStringLiteral("config/lock_window_size"), false).toBool();
+}
+
 bool Config::pageturnWav() const
 {
     return m_settings.value(QStringLiteral("config/etc/pageturn_wav"), false).toBool();

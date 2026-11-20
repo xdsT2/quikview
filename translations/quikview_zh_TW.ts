@@ -1615,6 +1615,26 @@
             <source>自动保存失败：%1</source>
             <translation>自動儲存失敗：%1</translation>
         </message>
+        <message>
+            <source>锁定窗口大小</source>
+            <translation>鎖定視窗大小</translation>
+        </message>
+        <message>
+            <source>窗口大小：锁定</source>
+            <translation>視窗大小：鎖定</translation>
+        </message>
+        <message>
+            <source>窗口大小：解锁</source>
+            <translation>視窗大小：解鎖</translation>
+        </message>
+        <message>
+            <source>已关闭「根据图片大小调节窗口大小」（与锁定窗口大小互斥）</source>
+            <translation>已關閉「根據圖片大小調整視窗大小」（與鎖定視窗大小互斥）</translation>
+        </message>
+        <message>
+            <source>窗口大小已锁定，先解锁才能最大化</source>
+            <translation>視窗大小已鎖定，先解鎖才能最大化</translation>
+        </message>
     </context>
     <context>
         <name>MetadataPanel</name>
@@ -1757,6 +1777,14 @@
         <message>
             <source>GPS 信息</source>
             <translation>GPS 資訊</translation>
+        </message>
+        <message>
+            <source>打印尺寸</source>
+            <translation>列印尺寸</translation>
+        </message>
+        <message>
+            <source>%1 × %2 cm</source>
+            <translation>%1 × %2 cm</translation>
         </message>
     </context>
     <context>

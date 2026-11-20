@@ -1615,6 +1615,26 @@
             <source>自动保存失败：%1</source>
             <translation>自動保存に失敗しました: %1</translation>
         </message>
+        <message>
+            <source>锁定窗口大小</source>
+            <translation>ウィンドウサイズを固定</translation>
+        </message>
+        <message>
+            <source>窗口大小：锁定</source>
+            <translation>ウィンドウサイズ：固定</translation>
+        </message>
+        <message>
+            <source>窗口大小：解锁</source>
+            <translation>ウィンドウサイズ：解除</translation>
+        </message>
+        <message>
+            <source>已关闭「根据图片大小调节窗口大小」（与锁定窗口大小互斥）</source>
+            <translation>「画像サイズに合わせてウィンドウサイズを調整」をオフにしました（ウィンドウサイズ固定と排他）</translation>
+        </message>
+        <message>
+            <source>窗口大小已锁定，先解锁才能最大化</source>
+            <translation>ウィンドウサイズが固定されています。最大化するには解除してください</translation>
+        </message>
     </context>
     <context>
         <name>MetadataPanel</name>
@@ -1757,6 +1777,14 @@
         <message>
             <source>GPS 信息</source>
             <translation>GPS 情報</translation>
+        </message>
+        <message>
+            <source>打印尺寸</source>
+            <translation>印刷サイズ</translation>
+        </message>
+        <message>
+            <source>%1 × %2 cm</source>
+            <translation>%1 × %2 cm</translation>
         </message>
     </context>
     <context>
