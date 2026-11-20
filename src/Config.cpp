@@ -367,6 +367,14 @@ bool Config::imageIcc() const
     return m_settings.value(QStringLiteral("config/imageproc/image_icc"), true).toBool();
 }
 
+bool Config::monitorIcc() const
+{
+    // 「使用显示器 ICC」（SDR 验证版，翻页批次 2）：ImageCanvas::toMonitorSpace
+    // 在显示链出口把 sRGB 图转到当前屏幕关联 profile；ACM 开启的屏幕跳过
+    // （系统合成已转换，避免双重转换）。默认关，验证达标后再启用设置入口。
+    return m_settings.value(QStringLiteral("config/imageproc/monitor_icc"), false).toBool();
+}
+
 int Config::gifTransparent() const
 {
     // GIF 透明背景铺底档（0 默认调色板 / 1 白 / 2 黑 / 3 中灰 / 4 自定义），

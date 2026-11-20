@@ -79,6 +79,7 @@ public:
     bool stretchSmall() const;         // 适合窗口时把小于窗口的图放大填满（默认 false）
     bool hdrTonemap() const;           // HDR 色调映射（本版恒 false：启用入口已移除，旧配置不激活）
     bool imageIcc() const;             // 使用图片内嵌 ICC（非 sRGB 图转 sRGB，默认 true）
+    bool monitorIcc() const;           // 显示器 ICC（SDR 验证版：ACM 关闭的屏幕做应用侧目标转换，默认 false）
     int gifTransparent() const;        // GIF 透明背景 0=默认调色板 1=白 2=黑 3=中灰 4=自定义（默认 0；批次 2 重新暴露并加自定义取色）
     QColor gifCustomColor() const;     // GIF 自定义背景色（默认 #808080，仅档位 4 消费）
     QString canvasBackdrop() const;    // 全画布背景材质 "checker"|"solid"（旧值一次性迁移，默认随主题着色）

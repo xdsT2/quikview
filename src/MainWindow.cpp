@@ -53,6 +53,7 @@
 #include <QScrollBar>
 #include <QSet>
 #include <QScreen>
+#include <QWindow>
 #include <QStyleHints>
 #include <cmath>
 #include <QResizeEvent>
@@ -607,6 +608,19 @@ MainWindow::MainWindow(QWidget *parent)
     applyChromeLayout();
     updateCanvasLogo();
     m_chromeTimer->start();
+
+    // 显示器 ICC 跨屏重估（SDR 验证版，翻页批次 2）：窗口移到另一块屏幕时
+    // 按新屏的 profile / ACM 状态重转当前画面。windowHandle 在 show 后才存在，
+    // 用 singleShot(0) 挂到事件循环首轮（此时主窗口已 show）。
+    QTimer::singleShot(0, this, [this]() {
+        if (windowHandle()) {
+            connect(windowHandle(), &QWindow::screenChanged, this, [this](QScreen *) {
+                if (m_canvas && Config::instance().monitorIcc()) {
+                    m_canvas->reapplyMonitorIcc();
+                }
+            });
+        }
+    });
 }
 
 MainWindow::~MainWindow()
@@ -3979,6 +3993,15 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         Config::instance().settings().sync();
         applyLiveSetting(QStringLiteral("imageproc/gif_transparent"), mode, nullptr);
     }
+    // monitoricc:<0|1> —— 显示器 ICC 开关即时对照探针（SDR 验证版）：
+    // 与设置页同一写盘 + applyLiveSetting 链路。
+    else if (c.startsWith(QLatin1String("monitoricc:"))) {
+        const bool on = c.mid(11) == QLatin1String("1");
+        Config::instance().settings().setValue(
+            QStringLiteral("config/imageproc/monitor_icc"), on);
+        Config::instance().settings().sync();
+        applyLiveSetting(QStringLiteral("imageproc/monitor_icc"), on, nullptr);
+    }
     // —— 二级界面（截图冒烟用，非模态打开以便截到窗口本身）——
     else if (c == QLatin1String("settings")) {
         auto *dlg = new SettingsDialog(this);
@@ -6754,6 +6777,14 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         // GIF 铺底档 / 自定义色即时重绘（翻页批次 2）：当前图是 GIF 才重铺，
         // 其他格式不受影响；动画下一帧起也按新背景铺（showAnimFrame 现读）。
         redrawGifBackdrop();
+        return true;
+    }
+
+    if (key == QLatin1String("imageproc/monitor_icc")) {
+        // 显示器 ICC 开关即时对照（SDR 验证版）：开=按当前屏 profile 重转，
+        // 关=还原 sRGB 显示。源 pixmap 始终是 sRGB，来回切换不累积误差。
+        if (m_canvas)
+            m_canvas->reapplyMonitorIcc();
         return true;
     }
 

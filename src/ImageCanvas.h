@@ -53,6 +53,9 @@ public:
     // Config::wheelUpAction / wheelDownAction / middleClickAction / middleDragAction，
     // 设置改动下次触发即生效，不再需要运行态 setter。
 
+    // 显示器 ICC（SDR 验证版，翻页批次 2）：开关/跨屏后按当前屏幕 profile
+    // 重转当前画面（源 pixmap 保持 sRGB，只换显示项）。
+    void reapplyMonitorIcc();
     // 「图片大于窗口时显示图片顶部」（键 imageproc/align_top_when_large，默认开）：
     // 适合宽度 / 原始大小两种模式下图片高度超出视口时，开=滚到顶，关=垂直居中。
     // 适合窗口模式图片恒不超出视口，该开关在那条路径上无可观测差异。
@@ -244,6 +247,9 @@ private:
     bool m_shadowCacheLight = false;    // 缓存生成时的主题（变了就重建）
     int m_interp = InterpBicubic;
     QPixmap m_sourcePixmap;      // 未经 Lanczos 预处理的原图，缩放变化时按它重算
+    // 显示器 ICC SDR 验证版：sRGB 显示图 → 当前屏幕 profile（ACM 开启的
+    // 屏幕跳过，避免与系统合成转换叠加）。非 Windows / 开关关 = 原样返回。
+    QPixmap toMonitorSpace(const QPixmap &src) const;
     QImage m_sourceImage;        // 与 m_sourcePixmap 同源（隐式共享），后台线程只读重采样
     QPixmap m_previewPixmap;     // 廉价预览帧：等采样结果时顶画面，避免重绘几十 MP 原图
     qint64 m_previewSourceKey = 0;   // 预览帧对应的原图 cacheKey（换图就重建）
