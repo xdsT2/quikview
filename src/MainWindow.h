@@ -63,6 +63,14 @@ public:
     // 打开文件并按图片尺寸调窗（仅「启动带文件 / 文件→打开」两条路径用；
     // 见 fitWindowToImage()，受设置「根据图片大小调节窗口大小」控制）
     void openFileFitting(const QString &path);
+    // 窗口几何恢复（窗口几何持久化单）：在 main() 的 show() 之前调用。
+    // 读 config 的整数键，离屏 clamp 后 setGeometry；最大化态先摆普通态再最大化。
+    // 空 ini（无记录）直接返回，保持构造默认——即「无记录=现行为不变」。
+    void restoreWindowGeometry();
+    // 会话恢复（窗口几何与会话恢复单）：启动后调用一次。读 config/session_last_file，
+    // 路径存在且扩展名在白名单才 openFile（非调窗），否则静默回空态、不弹错不 toast。
+    // main() 里在命令行带文件之后调用——命令行显式指定优先于会话恢复。
+    void restoreSession();
     void openSettings() { onSettings(); }   // 调试/自动化：直接打开设置对话框
     void setZoomMode(int mode);             // 调试/自动化 + 菜单共用：0原始/1适合窗口/2适合宽度
     void runSmokeCommand(const QString &cmd); // 调试/自动化：--smoke 单命令驱动（P0 冒烟）

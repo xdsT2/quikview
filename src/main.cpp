@@ -238,6 +238,9 @@ int main(int argc, char *argv[])
     }
 
     MainWindow window;
+    // 窗口几何持久化单：show() 之前恢复，避免先按默认尺寸闪一下再跳到记录位置。
+    // 空 ini 不记录 → 内部直接返回，保持构造默认，等价旧行为。
+    window.restoreWindowGeometry();
     window.show();
 
     // 首实例挂监听：收到路径就切图并把自己拉到前台
@@ -296,6 +299,9 @@ int main(int argc, char *argv[])
     if (!files.isEmpty()) {
         // 命令行带文件启动：按图调窗（设置「根据图片大小调节窗口大小」）
         window.openFileFitting(files.first());
+    } else {
+        // 无命令行文件时才恢复上次会话；命令行显式指定优先于会话恢复。
+        window.restoreSession();
     }
 
     int settleDelay = 2500;   // 无 smoke 命令时的默认截图等待（首图异步加载）

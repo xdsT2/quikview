@@ -53,6 +53,7 @@
 #include <QScrollBar>
 #include <QSet>
 #include <QScreen>
+#include <QWindow>
 #include <QStyleHints>
 #include <cmath>
 #include <QResizeEvent>
@@ -2746,6 +2747,9 @@ void MainWindow::openFile(const QString &path, bool transient)
     // 目录不可达/网络盘断开时 watchDirectory 内部静默降级，不影响打开流程。
     m_dir->watchDirectory(fi.absolutePath());
     m_displayedFileMissing = false;
+    // 会话恢复单：成功打开的绝对路径无条件记入会话键——不挂 rememberBrowsedFolders
+    // 开关（会话默认开启、无设置项），与「最近打开」同一处时机、不额外增加写盘点。
+    Config::instance().setSessionLastFile(canonical);
 
     // 代次 +1：本次打开之后到达的任何旧索引/旧画面都属于上一任务。
     const quint64 gen = ++m_openGeneration;
@@ -2823,6 +2827,90 @@ void MainWindow::openFile(const QString &path, bool transient)
     watcher->setFuture(QtConcurrent::run(DirectoryLoader::buildIndex,
                                          canonical, sortMode, sortDesc, skipRaw,
                                          groupRaw, showRaw));
+}
+
+// —— 会话恢复（config/session_last_file）——
+// 启动后调用一次：路径存在且扩展名在白名单内才打开，否则静默回空态（不弹错、不 toast）。
+// 用 openFile 而非 openFileFitting：会话恢复只回到该文件与目录页位，不改窗口大小。
+void MainWindow::restoreSession()
+{
+    const QString last = Config::instance().sessionLastFile();
+    if (last.isEmpty()) {
+        return;
+    }
+    const QFileInfo fi(last);
+    if (!fi.isFile() || !fi.exists()) {
+        return;   // 文件被删/改名/路径失效 → 保持空态
+    }
+    const QString suffix = fi.suffix().toLower();
+    if (suffix.isEmpty()
+        || !DirectoryLoader::imageExtensions().contains(QStringLiteral("*.") + suffix,
+                                                        Qt::CaseInsensitive)) {
+        return;   // 不支持的扩展名 → 保持空态，不启动解码
+    }
+    openFile(fi.absoluteFilePath());
+}
+
+// —— 窗口几何恢复（纯整数键 + 离屏 clamp）——
+// 在 main() 的 show() 之前调用。空 ini（无记录）直接返回，保持构造默认 1080×815，
+// 即「无记录=现行为不变」。x/y 允许负值（副屏在主屏左侧时坐标天然为负）。
+void MainWindow::restoreWindowGeometry()
+{
+    Config &cfg = Config::instance();
+    if (!cfg.hasWindowGeometry()) {
+        return;
+    }
+    const int w = cfg.winW();
+    const int h = cfg.winH();
+    if (w <= 0 || h <= 0) {
+        return;
+    }
+    QRect target(cfg.winX(), cfg.winY(), w, h);
+
+    // 离屏判定：遍历所有屏的 availableGeometry，找记录矩形落在哪一屏。
+    // 完全离屏（与所有屏零交集）→ 回主屏居中；部分越界 → clamp 进那个屏。
+    const QList<QScreen *> screens = QGuiApplication::screens();
+    QScreen *fallback = QGuiApplication::primaryScreen();
+    if (!fallback && !screens.isEmpty()) {
+        fallback = screens.first();
+    }
+    QScreen *host = nullptr;
+    int bestArea = 0;
+    for (QScreen *s : screens) {
+        const QRect av = s->availableGeometry();
+        const QRect inter = av.intersected(target);
+        const int area = inter.width() * inter.height();
+        if (area > bestArea) {
+            bestArea = area;
+            host = s;
+        }
+    }
+
+    if (host) {
+        // 部分越界或完全在屏内：clamp 进该屏可见区（保留尺寸，只挪位置）。
+        const QRect av = host->availableGeometry();
+        int x = target.x();
+        int y = target.y();
+        int cw = qMin(w, av.width());
+        int ch = qMin(h, av.height());
+        x = qMax(av.left(), qMin(x, av.right() - cw));
+        y = qMax(av.top(), qMin(y, av.bottom() - ch));
+        target = QRect(x, y, cw, ch);
+    } else if (fallback) {
+        // 完全离屏（副屏被拔 / 分辨率变更）：回主屏居中。
+        const QRect av = fallback->availableGeometry();
+        int cw = qMin(w, av.width());
+        int ch = qMin(h, av.height());
+        target = QRect(av.left() + (av.width() - cw) / 2,
+                       av.top() + (av.height() - ch) / 2, cw, ch);
+    }
+    setGeometry(target);   // 先摆普通态
+
+    // 最大化态：普通几何已摆好，再最大化；Qt 的 showMaximized 会记住 normalGeometry，
+    // 取消最大化后正好回到上面 clamp 过的普通态。
+    if (cfg.winMaximized()) {
+        showMaximized();
+    }
 }
 
 // 打开文件并按图调窗：仅「启动带文件 / 文件→打开」两条路径使用。
@@ -5204,6 +5292,29 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         if (!psdDoc.composite.isNull())
             psdDoc.composite.save(QStringLiteral("Temp/psd-composite.png"));
     }
+    // wingeom —— 窗口几何读回探针（窗口几何持久化验收用）：把当前几何、
+    // 还原态几何、最大化态与配置里的记录值落盘，供脚本逐像素比对。
+    else if (c == QLatin1String("wingeom")) {
+        const QRect g = geometry();
+        const QRect ng = normalGeometry();
+        Config &cfg = Config::instance();
+        QFile f(QStringLiteral("Temp/wingeom-report.txt"));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << "geom=" << g.x() << ',' << g.y() << ',' << g.width() << ',' << g.height() << '\n'
+               << "normal=" << ng.x() << ',' << ng.y() << ',' << ng.width() << ',' << ng.height() << '\n'
+               << "maximized=" << (isMaximized() ? 1 : 0) << '\n'
+               << "cfg_has=" << (cfg.hasWindowGeometry() ? 1 : 0) << '\n'
+               << "cfg=" << cfg.winX() << ',' << cfg.winY() << ','
+               << cfg.winW() << ',' << cfg.winH() << ',' << (cfg.winMaximized() ? 1 : 0) << '\n';
+            QScreen *scr = QGuiApplication::screenAt(g.center());
+            if (!scr) scr = QGuiApplication::primaryScreen();
+            if (scr) {
+                const QRect av = scr->availableGeometry();
+                ts << "screen_avail=" << av.x() << ',' << av.y() << ',' << av.width() << ',' << av.height() << '\n';
+            }
+        }
+    }
     // PSD 图层验收探针（仅 --smoke 路径）：模拟面板/眼睛/单层预览操作
     else if (c == QLatin1String("psdpanel")) {
         togglePsdLayers();
@@ -6244,7 +6355,6 @@ QString MainWindow::spreadSecondPath() const
     const int n = m_dir->index() + 1;
     return n < m_dir->count() ? m_dir->files().at(n) : QString();
 }
-
 namespace {
 
 } // namespace
@@ -7072,6 +7182,27 @@ void MainWindow::closeEvent(QCloseEvent *event)
             return;
         }
     }
+    // 关闭时落盘窗口几何（窗口几何持久化单）：最大化态记 true，但 x/y/w/h
+    // 一律取 normalGeometry() 的还原态，恢复时才能「先摆普通态再最大化」。
+    // 设置窗仍可见而本次关闭被作废时上面已 return，不会误记。
+    const QRect ng = normalGeometry();
+    QRect g = ng.isValid() ? ng : geometry();
+    // Windows 最大化时会给窗口外包一层不可见缩放边框（本机 8px），normalGeometry()
+    // 返回的是「缩进后」的还原矩形；直接落盘会让下次「取消最大化」整体右下偏移
+    // 并缩水 2×内缩量。这里用「最大化帧矩形 − 所在屏可用区左上」反推内缩量补回，
+    // 使落盘口径与普通态 geometry() 一致（普通态实测 geometry()==帧矩形）。
+    if (isMaximized() && windowHandle()) {
+        if (QScreen *scr = windowHandle()->screen()) {
+            const QPoint d = frameGeometry().topLeft() - scr->availableGeometry().topLeft();
+            if (d.x() < 0 && d.x() >= -64 && d.y() < 0 && d.y() >= -64) {
+                g.translate(d.x(), d.y());
+                g.setWidth(g.width() - 2 * d.x());
+                g.setHeight(g.height() - 2 * d.y());
+            }
+        }
+    }
+    Config::instance().setWindowGeometry(g.x(), g.y(), g.width(), g.height(), isMaximized());
+
     QMainWindow::closeEvent(event);
 }
 

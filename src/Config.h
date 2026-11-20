@@ -137,6 +137,21 @@ public:
     qint64 lastUpdateCheck() const;          // 上次检查时间（epoch 秒，0 = 从未）
     void setLastUpdateCheck(qint64 secsSinceEpoch);
 
+    // 窗口几何：五个整数键，不用 saveGeometry（base64 不可读、跨版本脆弱）。
+    // 关闭时落盘、启动时读回并做离屏 clamp；x/y 允许负值（副屏在主屏左侧）。
+    // hasWindowGeometry() 为 false（空 ini）时保持构造默认，等同无记录=现行为不变。
+    bool hasWindowGeometry() const;
+    int winX() const;
+    int winY() const;
+    int winW() const;
+    int winH() const;
+    bool winMaximized() const;
+    void setWindowGeometry(int x, int y, int w, int h, bool maximized);
+
+    // 会话恢复：上次查看文件的绝对路径（空串=无会话）。默认开启，不设开关。
+    QString sessionLastFile() const;
+    void setSessionLastFile(const QString &path);
+
     // 遥测：恒 false（M0 直接禁死；未来若做，走 opt-in 并保留本开关）
     bool telemetryEnabled() const { return false; }
 
