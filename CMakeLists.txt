@@ -54,6 +54,8 @@ add_executable(quikview WIN32
     src/HudShell.h
     src/ExifParser.cpp
     src/ExifParser.h
+    src/RotateAutoSave.cpp
+    src/RotateAutoSave.h
     src/Wallpaper.cpp
     src/Wallpaper.h
     src/SettingsDialog.cpp

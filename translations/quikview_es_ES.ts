@@ -1588,6 +1588,19 @@
         <source>复制图像文件</source>
         <translation>Copiar archivo de imagen</translation>
     </message>
+    <message>
+        <source>该格式不支持自动保存</source>
+        <translation>Este formato no admite el guardado automático</translation>
+    </message>
+    <message>
+        <source>已自动保存回原文件</source>
+        <translation>Guardado automáticamente en el archivo original</translation>
+    </message>
+    <message>
+        <source>自动保存失败：%1</source>
+        <translation>Error al guardar automáticamente: %1</translation>
+    </message>
+
 </context>
 <context>
     <name>MetadataPanel</name>
@@ -3293,6 +3306,19 @@ Valor original restaurado; nada se escribió en la configuración.</translation>
         <source>该选项暂未实现，将在后续版本提供。</source>
         <translation>Esta opción aún no está implementada; estará disponible en una versión futura.</translation>
     </message>
+    <message>
+        <source>自动保存</source>
+        <translation>Guardado automático</translation>
+    </message>
+    <message>
+        <source>旋转后自动保存</source>
+        <translation>Guardado automático tras rotar</translation>
+    </message>
+    <message>
+        <source>旋转/翻转立即写回原文件；RAW 与动图不受影响</source>
+        <translation>Girar/voltear escribe de inmediato en el archivo original; RAW e imágenes animadas no se ven afectados</translation>
+    </message>
+
 </context>
 <context>
     <name>ThumbnailBrowser</name>
@@ -3579,6 +3605,33 @@ Valor original restaurado; nada se escribió en la configuración.</translation>
     <message>
         <source>当前没有可显示的菜单项</source>
         <translation>No hay elementos de menú que mostrar.</translation>
+    </message>
+</context>
+<context>
+    <name>RotateAutoSave</name>
+    <message>
+        <source>文件不存在或图像为空</source>
+        <translation>Archivo ausente o imagen vacía</translation>
+    </message>
+    <message>
+        <source>只读或无写权限</source>
+        <translation>Solo lectura o sin permiso de escritura</translation>
+    </message>
+    <message>
+        <source>临时文件编码失败</source>
+        <translation>Error al codificar el archivo temporal</translation>
+    </message>
+    <message>
+        <source>临时文件落盘失败</source>
+        <translation>Error al volcar el archivo temporal en disco</translation>
+    </message>
+    <message>
+        <source>EXIF 方向标记改写失败</source>
+        <translation>Error al reescribir la marca de orientación EXIF</translation>
+    </message>
+    <message>
+        <source>替换原文件失败</source>
+        <translation>Error al reemplazar el archivo original</translation>
     </message>
 </context>
 </TS>

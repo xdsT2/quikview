@@ -1588,6 +1588,19 @@
         <source>复制图像文件</source>
         <translation>Копировать файл изображения</translation>
     </message>
+    <message>
+        <source>该格式不支持自动保存</source>
+        <translation>Этот формат не поддерживает автосохранение</translation>
+    </message>
+    <message>
+        <source>已自动保存回原文件</source>
+        <translation>Автосохранено в исходный файл</translation>
+    </message>
+    <message>
+        <source>自动保存失败：%1</source>
+        <translation>Не удалось автосохранить: %1</translation>
+    </message>
+
 </context>
 <context>
     <name>MetadataPanel</name>
@@ -3293,6 +3306,19 @@ https://github.com/xdsT2/quikview</translation>
         <source>该选项暂未实现，将在后续版本提供。</source>
         <translation>Этот параметр пока не реализован; он появится в будущей версии.</translation>
     </message>
+    <message>
+        <source>自动保存</source>
+        <translation>Автосохранение</translation>
+    </message>
+    <message>
+        <source>旋转后自动保存</source>
+        <translation>Автосохранение после поворота</translation>
+    </message>
+    <message>
+        <source>旋转/翻转立即写回原文件；RAW 与动图不受影响</source>
+        <translation>Поворот/отражение сразу записывается в исходный файл; RAW и анимированные изображения не затрагиваются</translation>
+    </message>
+
 </context>
 <context>
     <name>ThumbnailBrowser</name>
@@ -3579,6 +3605,33 @@ https://github.com/xdsT2/quikview</translation>
     <message>
         <source>当前没有可显示的菜单项</source>
         <translation>Нет пунктов меню для отображения.</translation>
+    </message>
+</context>
+<context>
+    <name>RotateAutoSave</name>
+    <message>
+        <source>文件不存在或图像为空</source>
+        <translation>Файл отсутствует или изображение пустое</translation>
+    </message>
+    <message>
+        <source>只读或无写权限</source>
+        <translation>Только чтение или нет прав на запись</translation>
+    </message>
+    <message>
+        <source>临时文件编码失败</source>
+        <translation>Не удалось закодировать временный файл</translation>
+    </message>
+    <message>
+        <source>临时文件落盘失败</source>
+        <translation>Не удалось сбросить временный файл на диск</translation>
+    </message>
+    <message>
+        <source>EXIF 方向标记改写失败</source>
+        <translation>Не удалось перезаписать тег ориентации EXIF</translation>
+    </message>
+    <message>
+        <source>替换原文件失败</source>
+        <translation>Не удалось заменить исходный файл</translation>
     </message>
 </context>
 </TS>

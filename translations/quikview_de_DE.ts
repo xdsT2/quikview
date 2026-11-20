@@ -1588,6 +1588,19 @@
         <source>复制图像文件</source>
         <translation>Bilddatei kopieren</translation>
     </message>
+    <message>
+        <source>该格式不支持自动保存</source>
+        <translation>Dieses Format unterstützt kein automatisches Speichern</translation>
+    </message>
+    <message>
+        <source>已自动保存回原文件</source>
+        <translation>Automatisch in die Originaldatei gespeichert</translation>
+    </message>
+    <message>
+        <source>自动保存失败：%1</source>
+        <translation>Automatisches Speichern fehlgeschlagen: %1</translation>
+    </message>
+
 </context>
 <context>
     <name>MetadataPanel</name>
@@ -3293,6 +3306,19 @@ Ursprungswert wiederhergestellt; nichts in die Konfiguration geschrieben.</trans
         <source>该选项暂未实现，将在后续版本提供。</source>
         <translation>Diese Option ist noch nicht implementiert und wird in einer künftigen Version angeboten.</translation>
     </message>
+    <message>
+        <source>自动保存</source>
+        <translation>Automatisches Speichern</translation>
+    </message>
+    <message>
+        <source>旋转后自动保存</source>
+        <translation>Nach dem Drehen automatisch speichern</translation>
+    </message>
+    <message>
+        <source>旋转/翻转立即写回原文件；RAW 与动图不受影响</source>
+        <translation>Drehen/Spiegeln schreibt sofort in die Originaldatei zurück; RAW und animierte Bilder sind nicht betroffen</translation>
+    </message>
+
 </context>
 <context>
     <name>ThumbnailBrowser</name>
@@ -3579,6 +3605,33 @@ Ursprungswert wiederhergestellt; nichts in die Konfiguration geschrieben.</trans
     <message>
         <source>当前没有可显示的菜单项</source>
         <translation>Es sind keine Menüeinträge anzuzeigen.</translation>
+    </message>
+</context>
+<context>
+    <name>RotateAutoSave</name>
+    <message>
+        <source>文件不存在或图像为空</source>
+        <translation>Datei fehlt oder Bild ist leer</translation>
+    </message>
+    <message>
+        <source>只读或无写权限</source>
+        <translation>Schreibgeschützt oder keine Schreibrechte</translation>
+    </message>
+    <message>
+        <source>临时文件编码失败</source>
+        <translation>Temporäre Datei konnte nicht kodiert werden</translation>
+    </message>
+    <message>
+        <source>临时文件落盘失败</source>
+        <translation>Temporäre Datei konnte nicht auf Datenträger geschrieben werden</translation>
+    </message>
+    <message>
+        <source>EXIF 方向标记改写失败</source>
+        <translation>EXIF-Ausrichtungsmarke konnte nicht umgeschrieben werden</translation>
+    </message>
+    <message>
+        <source>替换原文件失败</source>
+        <translation>Originaldatei konnte nicht ersetzt werden</translation>
     </message>
 </context>
 </TS>

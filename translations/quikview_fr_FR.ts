@@ -1588,6 +1588,19 @@
         <source>复制图像文件</source>
         <translation>Copier le fichier image</translation>
     </message>
+    <message>
+        <source>该格式不支持自动保存</source>
+        <translation>Ce format ne prend pas en charge l'enregistrement automatique</translation>
+    </message>
+    <message>
+        <source>已自动保存回原文件</source>
+        <translation>Enregistré automatiquement dans le fichier d'origine</translation>
+    </message>
+    <message>
+        <source>自动保存失败：%1</source>
+        <translation>Échec de l'enregistrement automatique : %1</translation>
+    </message>
+
 </context>
 <context>
     <name>MetadataPanel</name>
@@ -3293,6 +3306,19 @@ Valeur d'origine restaurée ; rien n'a été écrit dans la configuration.</tran
         <source>该选项暂未实现，将在后续版本提供。</source>
         <translation>Cette option n’est pas encore implémentée ; elle sera disponible dans une version ultérieure.</translation>
     </message>
+    <message>
+        <source>自动保存</source>
+        <translation>Enregistrement automatique</translation>
+    </message>
+    <message>
+        <source>旋转后自动保存</source>
+        <translation>Enregistrement automatique après rotation</translation>
+    </message>
+    <message>
+        <source>旋转/翻转立即写回原文件；RAW 与动图不受影响</source>
+        <translation>Rotation/miroir réécrit immédiatement le fichier d'origine ; RAW et images animées ne sont pas concernés</translation>
+    </message>
+
 </context>
 <context>
     <name>ThumbnailBrowser</name>
@@ -3579,6 +3605,33 @@ Valeur d'origine restaurée ; rien n'a été écrit dans la configuration.</tran
     <message>
         <source>当前没有可显示的菜单项</source>
         <translation>Aucun élément de menu à afficher.</translation>
+    </message>
+</context>
+<context>
+    <name>RotateAutoSave</name>
+    <message>
+        <source>文件不存在或图像为空</source>
+        <translation>Fichier absent ou image vide</translation>
+    </message>
+    <message>
+        <source>只读或无写权限</source>
+        <translation>Lecture seule ou aucun droit d'écriture</translation>
+    </message>
+    <message>
+        <source>临时文件编码失败</source>
+        <translation>Échec de l'encodage du fichier temporaire</translation>
+    </message>
+    <message>
+        <source>临时文件落盘失败</source>
+        <translation>Échec de l'écriture du fichier temporaire sur le disque</translation>
+    </message>
+    <message>
+        <source>EXIF 方向标记改写失败</source>
+        <translation>Échec de la réécriture de l'orientation EXIF</translation>
+    </message>
+    <message>
+        <source>替换原文件失败</source>
+        <translation>Échec du remplacement du fichier d'origine</translation>
     </message>
 </context>
 </TS>

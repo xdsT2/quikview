@@ -1588,6 +1588,19 @@
         <source>复制图像文件</source>
         <translation>複製影像檔</translation>
     </message>
+    <message>
+        <source>该格式不支持自动保存</source>
+        <translation>此格式不支援自動儲存</translation>
+    </message>
+    <message>
+        <source>已自动保存回原文件</source>
+        <translation>已自動儲存回原始檔案</translation>
+    </message>
+    <message>
+        <source>自动保存失败：%1</source>
+        <translation>自動儲存失敗：%1</translation>
+    </message>
+
 </context>
 <context>
     <name>MetadataPanel</name>
@@ -3293,6 +3306,19 @@ https://github.com/xdsT2/quikview</translation>
         <source>该选项暂未实现，将在后续版本提供。</source>
         <translation>此選項尚未實作，將於後續版本提供。</translation>
     </message>
+    <message>
+        <source>自动保存</source>
+        <translation>自動儲存</translation>
+    </message>
+    <message>
+        <source>旋转后自动保存</source>
+        <translation>旋轉後自動儲存</translation>
+    </message>
+    <message>
+        <source>旋转/翻转立即写回原文件；RAW 与动图不受影响</source>
+        <translation>旋轉/翻轉立即寫回原始檔案；RAW 與動畫圖片不受影響</translation>
+    </message>
+
 </context>
 <context>
     <name>ThumbnailBrowser</name>
@@ -3579,6 +3605,33 @@ https://github.com/xdsT2/quikview</translation>
     <message>
         <source>当前没有可显示的菜单项</source>
         <translation>目前沒有可顯示的功能表項目。</translation>
+    </message>
+</context>
+<context>
+    <name>RotateAutoSave</name>
+    <message>
+        <source>文件不存在或图像为空</source>
+        <translation>檔案不存在或影像為空</translation>
+    </message>
+    <message>
+        <source>只读或无写权限</source>
+        <translation>唯讀或無寫入權限</translation>
+    </message>
+    <message>
+        <source>临时文件编码失败</source>
+        <translation>暫存檔編碼失敗</translation>
+    </message>
+    <message>
+        <source>临时文件落盘失败</source>
+        <translation>暫存檔寫入磁碟失敗</translation>
+    </message>
+    <message>
+        <source>EXIF 方向标记改写失败</source>
+        <translation>EXIF 方向標記改寫失敗</translation>
+    </message>
+    <message>
+        <source>替换原文件失败</source>
+        <translation>取代原始檔案失敗</translation>
     </message>
 </context>
 </TS>

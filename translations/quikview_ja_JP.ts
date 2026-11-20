@@ -1588,6 +1588,19 @@
         <source>复制图像文件</source>
         <translation>画像ファイルをコピー</translation>
     </message>
+    <message>
+        <source>该格式不支持自动保存</source>
+        <translation>この形式は自動保存に対応していません</translation>
+    </message>
+    <message>
+        <source>已自动保存回原文件</source>
+        <translation>元のファイルに自動保存しました</translation>
+    </message>
+    <message>
+        <source>自动保存失败：%1</source>
+        <translation>自動保存に失敗しました: %1</translation>
+    </message>
+
 </context>
 <context>
     <name>MetadataPanel</name>
@@ -3293,6 +3306,19 @@ https://github.com/xdsT2/quikview</translation>
         <source>该选项暂未实现，将在后续版本提供。</source>
         <translation>このオプションはまだ実装されていません。今後のバージョンで提供されます。</translation>
     </message>
+    <message>
+        <source>自动保存</source>
+        <translation>自動保存</translation>
+    </message>
+    <message>
+        <source>旋转后自动保存</source>
+        <translation>回転後に自動保存</translation>
+    </message>
+    <message>
+        <source>旋转/翻转立即写回原文件；RAW 与动图不受影响</source>
+        <translation>回転/反転は元のファイルへ即時書き戻します。RAW とアニメーション画像は対象外です</translation>
+    </message>
+
 </context>
 <context>
     <name>ThumbnailBrowser</name>
@@ -3579,6 +3605,33 @@ https://github.com/xdsT2/quikview</translation>
     <message>
         <source>当前没有可显示的菜单项</source>
         <translation>表示できるメニュー項目がありません。</translation>
+    </message>
+</context>
+<context>
+    <name>RotateAutoSave</name>
+    <message>
+        <source>文件不存在或图像为空</source>
+        <translation>ファイルが存在しないか画像が空です</translation>
+    </message>
+    <message>
+        <source>只读或无写权限</source>
+        <translation>読み取り専用または書き込み権限がありません</translation>
+    </message>
+    <message>
+        <source>临时文件编码失败</source>
+        <translation>一時ファイルのエンコードに失敗しました</translation>
+    </message>
+    <message>
+        <source>临时文件落盘失败</source>
+        <translation>一時ファイルのディスク書き込みに失敗しました</translation>
+    </message>
+    <message>
+        <source>EXIF 方向标记改写失败</source>
+        <translation>EXIF 方向タグの書き換えに失敗しました</translation>
+    </message>
+    <message>
+        <source>替换原文件失败</source>
+        <translation>元のファイルの置き換えに失敗しました</translation>
     </message>
 </context>
 </TS>

@@ -1588,6 +1588,19 @@
         <source>复制图像文件</source>
         <translation>Copy Image File</translation>
     </message>
+    <message>
+        <source>该格式不支持自动保存</source>
+        <translation>This format does not support auto-save</translation>
+    </message>
+    <message>
+        <source>已自动保存回原文件</source>
+        <translation>Auto-saved to the original file</translation>
+    </message>
+    <message>
+        <source>自动保存失败：%1</source>
+        <translation>Auto-save failed: %1</translation>
+    </message>
+
 </context>
 <context>
     <name>MetadataPanel</name>
@@ -3293,6 +3306,19 @@ Restored the original value; nothing was written to the config.</translation>
         <source>该选项暂未实现，将在后续版本提供。</source>
         <translation>This option is not implemented yet; it will be available in a future release.</translation>
     </message>
+    <message>
+        <source>自动保存</source>
+        <translation>Auto-save</translation>
+    </message>
+    <message>
+        <source>旋转后自动保存</source>
+        <translation>Auto-save after rotation</translation>
+    </message>
+    <message>
+        <source>旋转/翻转立即写回原文件；RAW 与动图不受影响</source>
+        <translation>Rotate/flip writes back to the original file immediately; RAW and animated images are not affected</translation>
+    </message>
+
 </context>
 <context>
     <name>ThumbnailBrowser</name>
@@ -3579,6 +3605,33 @@ Restored the original value; nothing was written to the config.</translation>
     <message>
         <source>当前没有可显示的菜单项</source>
         <translation>There are no menu items to display.</translation>
+    </message>
+</context>
+<context>
+    <name>RotateAutoSave</name>
+    <message>
+        <source>文件不存在或图像为空</source>
+        <translation>File missing or image empty</translation>
+    </message>
+    <message>
+        <source>只读或无写权限</source>
+        <translation>Read-only or no write permission</translation>
+    </message>
+    <message>
+        <source>临时文件编码失败</source>
+        <translation>Failed to encode the temporary file</translation>
+    </message>
+    <message>
+        <source>临时文件落盘失败</source>
+        <translation>Failed to flush the temporary file to disk</translation>
+    </message>
+    <message>
+        <source>EXIF 方向标记改写失败</source>
+        <translation>Failed to rewrite the EXIF orientation tag</translation>
+    </message>
+    <message>
+        <source>替换原文件失败</source>
+        <translation>Failed to replace the original file</translation>
     </message>
 </context>
 </TS>

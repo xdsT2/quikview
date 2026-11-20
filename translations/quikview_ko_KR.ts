@@ -1588,6 +1588,19 @@
         <source>复制图像文件</source>
         <translation>이미지 파일 복사</translation>
     </message>
+    <message>
+        <source>该格式不支持自动保存</source>
+        <translation>이 형식은 자동 저장을 지원하지 않습니다</translation>
+    </message>
+    <message>
+        <source>已自动保存回原文件</source>
+        <translation>원본 파일에 자동 저장했습니다</translation>
+    </message>
+    <message>
+        <source>自动保存失败：%1</source>
+        <translation>자동 저장 실패: %1</translation>
+    </message>
+
 </context>
 <context>
     <name>MetadataPanel</name>
@@ -3293,6 +3306,19 @@ https://github.com/xdsT2/quikview</translation>
         <source>该选项暂未实现，将在后续版本提供。</source>
         <translation>이 옵션은 아직 구현되지 않았습니다. 이후 버전에서 제공됩니다.</translation>
     </message>
+    <message>
+        <source>自动保存</source>
+        <translation>자동 저장</translation>
+    </message>
+    <message>
+        <source>旋转后自动保存</source>
+        <translation>회전 후 자동 저장</translation>
+    </message>
+    <message>
+        <source>旋转/翻转立即写回原文件；RAW 与动图不受影响</source>
+        <translation>회전/뒤집기는 원본 파일에 즉시 기록됩니다. RAW 및 애니메이션 이미지는 적용되지 않습니다</translation>
+    </message>
+
 </context>
 <context>
     <name>ThumbnailBrowser</name>
@@ -3579,6 +3605,33 @@ https://github.com/xdsT2/quikview</translation>
     <message>
         <source>当前没有可显示的菜单项</source>
         <translation>표시할 메뉴 항목이 없습니다.</translation>
+    </message>
+</context>
+<context>
+    <name>RotateAutoSave</name>
+    <message>
+        <source>文件不存在或图像为空</source>
+        <translation>파일이 없거나 이미지가 비어 있습니다</translation>
+    </message>
+    <message>
+        <source>只读或无写权限</source>
+        <translation>읽기 전용 또는 쓰기 권한 없음</translation>
+    </message>
+    <message>
+        <source>临时文件编码失败</source>
+        <translation>임시 파일 인코딩 실패</translation>
+    </message>
+    <message>
+        <source>临时文件落盘失败</source>
+        <translation>임시 파일 디스크 쓰기 실패</translation>
+    </message>
+    <message>
+        <source>EXIF 方向标记改写失败</source>
+        <translation>EXIF 방향 태그 재작성 실패</translation>
+    </message>
+    <message>
+        <source>替换原文件失败</source>
+        <translation>원본 파일 교체 실패</translation>
     </message>
 </context>
 </TS>
