@@ -1960,6 +1960,26 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。</source>
+        <translation>«%1» se aplicó al instante: %2 · no hace falta guardar; «Cancelar»/Esc restaura el estado al abrir Ajustes.</translation>
+    </message>
+    <message>
+        <source>开</source>
+        <translation>Activado</translation>
+    </message>
+    <message>
+        <source>关</source>
+        <translation>Desactivado</translation>
+    </message>
+    <message>
+        <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
+        <translation>Cambios descartados: los elementos inmediatos de la página Ver vuelven al estado al abrir Ajustes.</translation>
+    </message>
+    <message>
+        <source>已关闭设置，未保留即时改动。</source>
+        <translation>Ajustes cerrados; los cambios inmediatos no se conservaron.</translation>
+    </message>
+    <message>
         <source>按下组合键…</source>
         <translation>Pulsa una combinación…</translation>
     </message>
@@ -3137,13 +3157,13 @@ Valor original restaurado; nada se escribió en la configuración.</translation>
         <source>等 %1 项</source>
         <translation>+%1 más</translation>
     </message>
-    <message>
+        <message>
         <source>待保存：%1
 
-「不保存」只放弃这些草稿；已即时应用的普通设置会保留。</source>
+「不保存」只放弃这些草稿；浏览页的缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示会回到进入设置时的状态，其余即时设置保留。</source>
         <translation>Pendiente: %1
 
-«No guardar» solo descarta estos borradores; los ajustes normales ya aplicados en vivo se conservan.</translation>
+«No guardar» solo descarta estos borradores; en la página Ver, la memoria de zoom / capa de nombre de archivo / info de fotograma / sugerencia al pasar el ratón vuelven al estado al abrir Ajustes; los demás ajustes inmediatos se conservan.</translation>
     </message>
     <message>
         <source>保存并关闭</source>

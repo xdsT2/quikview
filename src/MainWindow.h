@@ -86,6 +86,11 @@ public:
     void refreshThemeSurfaces();
     // 打开设置时的运行态快照来源（与配置值独立，供取消回滚）。
     QVariant liveSettingValue(const QString &key) const;
+    // 批次03 验收用：把三项「只能靠真实行为看出来」的运行态打成一行
+    // （浮层是否真的在屏上、当前图的缩放记忆条目、系统工具提示是否可见）。
+    QString viewLiveStateDump() const;
+    // 回滚期间抑制「设置项 → 画布预览」的一次性动作（目前只有文件名浮层用到）。
+    void setLivePreviewQuiet(bool quiet) { m_livePreviewQuiet = quiet; }
 
     // 键盘页冲突检测数据源：14 个可配置动作之外、持有键位的动作清单
     // （每个快捷键一条，含副键；显示名已剥 & 助记符与 '\t' 后缀）。
@@ -490,6 +495,9 @@ private:
     // 不写配置，updateInfoOverlay 先看这里；关闭设置页后清空标志，回到配置值。
     bool m_liveAnimControlOverride = false;
     bool m_liveAnimControlOverrideSet = false;
+    // 批次03：回滚到「显示文件名浮层 = 开」时不要再弹一次预览（取消设置不该在
+    // 画布上诈出一层文件名）。回滚期间由设置页置真，回滚结束立即复位。
+    bool m_livePreviewQuiet = false;
     // 装图/适配期间屏蔽「保存缩放状态」写盘（见 zoomChanged 连接处）
     bool m_zoomSaveGuard = false;
     // 开锁前的缩放方式（0=原始 1=适合窗口 2=适合宽度），-1 表示未记录。

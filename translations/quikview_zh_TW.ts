@@ -1960,6 +1960,26 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。</source>
+        <translation>「%1」已即時生效：%2 · 無需儲存；按「取消」/ Esc 會回到進入設定時的狀態。</translation>
+    </message>
+    <message>
+        <source>开</source>
+        <translation>開</translation>
+    </message>
+    <message>
+        <source>关</source>
+        <translation>關</translation>
+    </message>
+    <message>
+        <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
+        <translation>已放棄本次改動：瀏覽頁即時項已回到進入設定時的狀態。</translation>
+    </message>
+    <message>
+        <source>已关闭设置，未保留即时改动。</source>
+        <translation>已關閉設定，未保留即時改動。</translation>
+    </message>
+    <message>
         <source>按下组合键…</source>
         <translation>按下組合鍵…</translation>
     </message>
@@ -3137,13 +3157,13 @@ https://github.com/xdsT2/quikview</translation>
         <source>等 %1 项</source>
         <translation>另有 %1 項</translation>
     </message>
-    <message>
+        <message>
         <source>待保存：%1
 
-「不保存」只放弃这些草稿；已即时应用的普通设置会保留。</source>
+「不保存」只放弃这些草稿；浏览页的缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示会回到进入设置时的状态，其余即时设置保留。</source>
         <translation>待儲存：%1
 
-「不儲存」只放棄這些草稿；已即時套用的一般設定會保留。</translation>
+「不儲存」只放棄這些草稿；瀏覽頁的縮放記憶 / 檔名浮層 / 動畫幀號 / 滑鼠懸浮提示會回到進入設定時的狀態，其餘即時設定保留。</translation>
     </message>
     <message>
         <source>保存并关闭</source>

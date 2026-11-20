@@ -1960,6 +1960,26 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。</source>
+        <translation>"%1" 즉시 적용됨: %2 · 저장할 필요 없음. "취소"/Esc를 누르면 설정을 열었던 상태로 돌아갑니다.</translation>
+    </message>
+    <message>
+        <source>开</source>
+        <translation>켬</translation>
+    </message>
+    <message>
+        <source>关</source>
+        <translation>끔</translation>
+    </message>
+    <message>
+        <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
+        <translation>변경 사항을 버렸습니다: 보기 페이지의 즉시 항목이 설정을 열었던 상태로 돌아갔습니다.</translation>
+    </message>
+    <message>
+        <source>已关闭设置，未保留即时改动。</source>
+        <translation>설정을 닫았습니다. 즉시 변경은 유지되지 않았습니다.</translation>
+    </message>
+    <message>
         <source>按下组合键…</source>
         <translation>키 조합 입력…</translation>
     </message>
@@ -3137,13 +3157,13 @@ https://github.com/xdsT2/quikview</translation>
         <source>等 %1 项</source>
         <translation>외 %1개</translation>
     </message>
-    <message>
+        <message>
         <source>待保存：%1
 
-「不保存」只放弃这些草稿；已即时应用的普通设置会保留。</source>
+「不保存」只放弃这些草稿；浏览页的缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示会回到进入设置时的状态，其余即时设置保留。</source>
         <translation>저장 대기: %1
 
-"저장 안 함"은 이 초안만 버립니다. 이미 즉시 적용된 일반 설정은 유지됩니다.</translation>
+"저장 안 함"은 이 초안만 버립니다. 보기 페이지의 확대 기억 / 파일 이름 오버레이 / 프레임 번호 정보 / 호버 힌트는 설정을 열었던 상태로 돌아가고, 나머지 즉시 설정은 유지됩니다.</translation>
     </message>
     <message>
         <source>保存并关闭</source>

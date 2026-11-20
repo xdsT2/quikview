@@ -1960,6 +1960,26 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。</source>
+        <translation>„%1“ wirkt sofort: %2 · kein Speichern nötig; „Abbrechen“/Esc stellt den Zustand beim Öffnen der Einstellungen wieder her.</translation>
+    </message>
+    <message>
+        <source>开</source>
+        <translation>Ein</translation>
+    </message>
+    <message>
+        <source>关</source>
+        <translation>Aus</translation>
+    </message>
+    <message>
+        <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
+        <translation>Änderungen verworfen: Die Sofort-Elemente der Seite „Anzeigen“ sind wieder im Zustand beim Öffnen der Einstellungen.</translation>
+    </message>
+    <message>
+        <source>已关闭设置，未保留即时改动。</source>
+        <translation>Einstellungen geschlossen; Sofortänderungen wurden nicht behalten.</translation>
+    </message>
+    <message>
         <source>按下组合键…</source>
         <translation>Tastenkombination drücken…</translation>
     </message>
@@ -3137,13 +3157,13 @@ Ursprungswert wiederhergestellt; nichts in die Konfiguration geschrieben.</trans
         <source>等 %1 项</source>
         <translation>+%1 weitere</translation>
     </message>
-    <message>
+        <message>
         <source>待保存：%1
 
-「不保存」只放弃这些草稿；已即时应用的普通设置会保留。</source>
-        <translation>Offen: %1
+「不保存」只放弃这些草稿；浏览页的缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示会回到进入设置时的状态，其余即时设置保留。</source>
+        <translation>Ausstehend: %1
 
-„Nicht speichern“ verwirft nur diese Entwürfe; bereits live angewandte normale Einstellungen bleiben.</translation>
+„Nicht speichern“ verwirft nur diese Entwürfe; auf der Seite „Anzeigen“ kehren Zoom-Gedächtnis / Dateinamen-Overlay / Bildnummern-Info / Hover-Tooltip in den Zustand beim Öffnen der Einstellungen zurück, alle übrigen Soforteinstellungen bleiben erhalten.</translation>
     </message>
     <message>
         <source>保存并关闭</source>

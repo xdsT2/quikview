@@ -15,6 +15,8 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QTextStream>
+#include <QToolTip>
+#include <QCursor>
 #include <QFontMetrics>
 #include <QFrame>
 #include <QGridLayout>
@@ -3026,11 +3028,21 @@ void SettingsDialog::buildViewPage(QWidget *page)
     m_liveChecks.append({ animInfo, "view/show_anim_control", false, false });
     // 批次03：这四项按派单要求「切换即生效 + 取消/Esc/✕ 回滚」，同时也纳入
     // 即时框架（失败注入、失败回退、幂等都由 applyLiveCheck 统一负责）。
-    m_liveChecks.append({ overlayName, "view/overlay_filename", false, false });
     m_liveChecks.append({ saveZoom, "view/save_zoom_state", false, false });
+    m_liveChecks.append({ overlayName, "view/overlay_filename", false, false });
     m_liveChecks.append({ tooltip, "view/show_tooltip", false, false });
     // 2026-11-17 注释精简：原页脚「切换后立即重排信息面板…」删除——这组开关都是即时重排，
     // 页脚不再重复说一次。
+
+    // 批次03 内联状态行：模态设置页看不到主窗口时，用这行就地反馈「刚才那一下已经生效」，
+    // 并说明取消回滚口径（派单 §3 要求可观察，不得只换胶囊）。
+    m_browseLiveNote = new QLabel(page);
+    m_browseLiveNote->setObjectName(QStringLiteral("noteLabel"));
+    m_browseLiveNote->setWordWrap(true);
+    m_browseLiveNote->hide();
+    if (page->layout()) {
+        page->layout()->addWidget(m_browseLiveNote);
+    }
 
     // 「背景」段（背景图 + 路径 + 背景色 + 边框色）已按用户 2026-11-03 决定整段
     // 移除（第 18 期）：画布外观固定，见 MainWindow::applyRuntimeSettings 的注释。
@@ -5498,6 +5510,8 @@ void SettingsDialog::loadFromConfig()
 {
     loadBindingsFromConfig(0, 0, 0, 0);
     loadPageWidgets(nullptr);
+    // 批次03：记住进入设置时的四项状态，取消 / Esc / ✕ 时回到这里。
+    captureBrowseLiveBaseline();
 }
 
 void SettingsDialog::loadBindingsFromConfig(int chkFrom, int comboFrom, int keyFrom,
@@ -6028,6 +6042,102 @@ void SettingsDialog::applyLiveCheck(int index, bool checked)
     // 即时生效 + 立刻写盘：关闭窗口（含「不保存」）也保留该值。
     item.lastValue = want;
     applyInstantValue(key, want);
+    updateBrowseLiveNote(key, want);
+}
+
+// ---------------------------------------------------------------------------
+// 批次03：浏览页四项（保存缩放状态 / 文件名浮层 / 动画帧号 / 悬浮提示）
+// 进入设置时快照，取消（含 Esc、✕）回滚；保存才保留。
+// ---------------------------------------------------------------------------
+
+void SettingsDialog::updateBrowseLiveNote(const QString &key, bool value)
+{
+    if (!m_browseLiveNote)
+        return;
+    // 只在浏览页这四项（以及同页的即时项）上说话；其它页不显示这行。
+    QString itemName;
+    for (const LiveCheck &item : m_liveChecks) {
+        if (key == QString::fromLatin1(item.key)) {
+            itemName = item.cb->accessibleName().isEmpty() ? item.cb->text()
+                                                          : item.cb->accessibleName();
+            break;
+        }
+    }
+    if (itemName.isEmpty())
+        return;
+    m_browseLiveNote->setText(
+        tr("「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。")
+            .arg(itemName, value ? tr("开") : tr("关")));
+    m_browseLiveNote->show();
+}
+
+void SettingsDialog::captureBrowseLiveBaseline()
+{
+    // 取值一律走 Config getter：默认值（缩放记忆 false / 浮层 false / 动画帧号 true /
+    // 悬浮提示 true）只在 getter 里维护一份，不在这里再抄一遍，避免回滚写错口径。
+    // 只认配置值，不依赖浏览页是否已构建（该页是延迟构建页）。
+    Config &cfg = Config::instance();
+    m_browseLiveBaseline.clear();
+    m_browseLiveBaseline.insert(QStringLiteral("view/save_zoom_state"), cfg.saveZoomState());
+    m_browseLiveBaseline.insert(QStringLiteral("view/overlay_filename"), cfg.overlayFilename());
+    m_browseLiveBaseline.insert(QStringLiteral("view/show_anim_control"), cfg.showAnimControl());
+    m_browseLiveBaseline.insert(QStringLiteral("view/show_tooltip"), cfg.showTooltip());
+}
+
+void SettingsDialog::rollbackBrowseLiveBaseline()
+{
+    if (m_browseLiveBaseline.isEmpty())
+        return;
+    MainWindow *host = qobject_cast<MainWindow *>(parentWidget());
+    Config &cfg = Config::instance();
+    // 「当前值」必须走 getter（带默认值）：ini 里没这个键时 QSettings 返回无效值，
+    // 直接 toBool() 会得到 false，把「默认 true 且没写过」误判成改动、反而写一次盘。
+    const auto currentOf = [&cfg](const QString &key) {
+        if (key == QLatin1String("view/save_zoom_state"))
+            return cfg.saveZoomState();
+        if (key == QLatin1String("view/overlay_filename"))
+            return cfg.overlayFilename();
+        if (key == QLatin1String("view/show_anim_control"))
+            return cfg.showAnimControl();
+        if (key == QLatin1String("view/show_tooltip"))
+            return cfg.showTooltip();
+        return false;
+    };
+    QList<QPair<QString, QVariant>> revert;
+    bool anyChanged = false;
+    if (host)
+        host->setLivePreviewQuiet(true);   // 回滚不应在画布上弹预览
+    for (auto it = m_browseLiveBaseline.cbegin(); it != m_browseLiveBaseline.cend(); ++it) {
+        const QString key = it.key();
+        const bool base = it.value();
+        if (currentOf(key) == base)
+            continue;
+        anyChanged = true;
+        revert.append({ key, base });
+        // 运行态与配置同源：配置先回，运行态跟着回到基线（applyLiveSetting 只读
+        // 运行时状态、不写盘，两边不会二次分叉）。
+        if (host)
+            host->applyLiveSetting(key, base, nullptr);
+        // 页已构建过才需要同步控件与幂等值（未构建的页下次构建时按配置读取）。
+        for (LiveCheck &item : m_liveChecks) {
+            if (key != QString::fromLatin1(item.key))
+                continue;
+            item.lastValue = base;
+            const QSignalBlocker b(item.cb);
+            item.cb->setChecked(item.inverted ? !base : base);
+            break;
+        }
+    }
+    if (host)
+        host->setLivePreviewQuiet(false);
+    if (!revert.isEmpty())
+        commitValues(revert);   // 配置回到进入设置时的值（不弹窗、不整表重写）
+    if (m_browseLiveNote) {
+        m_browseLiveNote->setText(
+            anyChanged ? tr("已放弃本次改动：浏览页即时项已回到进入设置时的状态。")
+                       : tr("已关闭设置，未保留即时改动。"));
+        m_browseLiveNote->show();
+    }
 }
 
 bool SettingsDialog::onAccepted()
@@ -6483,6 +6593,149 @@ void SettingsDialog::probeEtcLive(const QString &spec)
     });
 }
 
+// —— 验收探针（--smoke viewprobe / viewcancel / vievesc / viewclose / viewsave，
+//    见 MainWindow::runSmokeCommand）——
+// spec: "key=on+key=off"（+ 分隔：--smoke 用逗号拆命令）。每切换一项立刻 dump
+// 一次（tag = step:<key>=<on|off>），最后 dump after / 截图 / 按 closeMode 走
+// 真实关闭链路，再 dump after-close（用于三链路回滚取证）。
+void SettingsDialog::probeViewLive(const QString &spec, int closeMode, bool thenSave)
+{
+    // 「失败注入」时 applyLiveCheck 会弹模态 warning，探针要先挂一个自动点掉它的
+    // 定时器，否则 exec 卡住、后面的 dump 永远不出。
+    auto *autoOk = new QTimer(this);
+    autoOk->setInterval(120);
+    connect(autoOk, &QTimer::timeout, this, [this]() {
+        if (auto *mb = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+            // 失败注入的取证：把「未能即时生效」提示原样存一张，再点掉。
+            mb->grab().save(QStringLiteral("Temp/view-live-fail.png"));
+            if (auto *ok = mb->button(QMessageBox::Ok))
+                ok->click();
+        }
+    });
+    autoOk->start();
+    // reject / accept 会关窗；探针要在关窗之后继续 dump 回滚结果，所以去掉
+    // WA_DeleteOnClose（MainWindow 建这个探针对话框时设的），对象留到进程退出。
+    setAttribute(Qt::WA_DeleteOnClose, false);
+
+    const auto dump = [this](const QString &tag) {
+        Config &cfg = Config::instance();
+        QSettings &s = cfg.settings();
+        const auto b = [&s](const char *full) { return s.value(QString::fromLatin1(full)).toBool(); };
+        const auto present = [&s](const char *full) { return s.contains(QString::fromLatin1(full)) ? 1 : 0; };
+        QString out;
+        QTextStream ts(&out);
+        ts << "[" << tag << "]\n";
+        const struct { const char *key; const char *full; bool getter; } rows[] = {
+            { "view/save_zoom_state", "config/view/save_zoom_state", cfg.saveZoomState() },
+            { "view/overlay_filename", "config/view/overlay_filename", cfg.overlayFilename() },
+            { "view/show_anim_control", "config/view/show_anim_control", cfg.showAnimControl() },
+            { "view/show_tooltip", "config/view/show_tooltip", cfg.showTooltip() },
+        };
+        for (const auto &r : rows) {
+            bool checked = false;
+            for (PillToggle *t : findChildren<PillToggle *>())
+                if (t->property("cfgKey").toString() == QLatin1String(r.key)) {
+                    checked = t->isChecked();
+                    break;
+                }
+            ts << r.key
+               << " checked=" << (checked ? "true" : "false")
+               << " getter=" << (r.getter ? "true" : "false")
+               << " stored=" << (b(r.full) ? "true" : "false")
+               << " present=" << present(r.full);
+            if (MainWindow *host = qobject_cast<MainWindow *>(parentWidget()))
+                ts << " runtime=" << host->liveSettingValue(QString::fromLatin1(r.key)).toBool();
+            ts << "\n";
+        }
+        if (MainWindow *host = qobject_cast<MainWindow *>(parentWidget())) {
+            ts << "mainwin " << host->viewLiveStateDump() << "\n";
+            // 同页回归项 #12/#14/#16：只 dump 落盘值与运行态（getter 在 Config 里
+            // 各有实现，这里统一走 liveSettingValue，与设置页显示同一个来源）。
+            for (const char *k : { "view/show_side_arrow", "view/show_zoom_control",
+                                   "view/exif_small_font" }) {
+                const QString key = QString::fromLatin1(k);
+                ts << "regress " << key
+                   << " stored=" << (b(("config/" + key).toLatin1().constData()) ? "true" : "false")
+                   << " present=" << (s.contains(QStringLiteral("config/") + key) ? 1 : 0)
+                   << " runtime=" << host->liveSettingValue(key).toBool() << "\n";
+            }
+        }
+        ts << "dialogVisible=" << (isVisible() ? 1 : 0)
+           << " note=\""
+           << (m_browseLiveNote && m_browseLiveNote->isVisible()
+                   ? m_browseLiveNote->text() : QStringLiteral("(hidden)"))
+           << "\"\n";
+        QFile f(QStringLiteral("Temp/view-live-probe.txt"));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
+            f.write(out.toUtf8());
+    };
+
+    const auto clickToggle = [this](const QString &key, bool want) {
+        for (PillToggle *t : findChildren<PillToggle *>()) {
+            if (t->property("cfgKey").toString() != key)
+                continue;
+            if (t->isChecked() != want)
+                t->click();   // 真实链路：applyLiveCheck → applyLiveSetting → 写盘
+            return true;
+        }
+        return false;
+    };
+
+    QTimer::singleShot(400, this, [this, spec, closeMode, thenSave, dump, clickToggle, autoOk]() {
+        // 浏览页是延后构建页：先进页把控件建出来（与用户点导航同一路径）。
+        const auto navs = findChildren<QPushButton *>(QStringLiteral("navItem"));
+        for (QPushButton *b : navs) {
+            if (b->text().contains(tr("浏览"))) { b->click(); break; }
+        }
+        QTimer::singleShot(500, this, [this, spec, closeMode, thenSave, dump, clickToggle, autoOk]() {
+            QFile::remove(QStringLiteral("Temp/view-live-probe.txt"));
+            dump(QStringLiteral("before"));
+            const QStringList items = spec.split(u'+');
+            for (const QString &item : items) {
+                const int eq = item.indexOf(u'=');
+                if (eq < 0)
+                    continue;
+                const QString key = item.left(eq).trimmed();
+                const bool want = item.mid(eq + 1).trimmed() == QLatin1String("on");
+                // 悬浮提示的真实行为取证：切到「关」之前先点亮一个系统工具提示，
+                // 切换后 dump 出的 tipvis 应为 0（隐藏发生在 applyLiveSetting 里）。
+                if (key == QLatin1String("view/show_tooltip") && !want
+                    && !QToolTip::isVisible()) {
+                    QToolTip::showText(QCursor::pos(), QStringLiteral("probe-tip"), this);
+                    dump(QStringLiteral("tip-primed"));
+                }
+                if (!clickToggle(key, want))
+                    dump(QStringLiteral("step-missing:") + item);
+                dump(QStringLiteral("step:") + item);
+            }
+            QTimer::singleShot(600, this, [this, closeMode, thenSave, dump, autoOk]() {
+                dump(QStringLiteral("after"));
+                grab().save(QStringLiteral("Temp/view-live-settings.png"));
+                // 真实关闭链路：1 = footer「取消」钮；2 = Esc 键；3 = 标题栏 ✕（close()）；
+                // 4 = footer「保存设置」（accept → 保留）。都落在同一个 reject() / accept()。
+                if (closeMode == 1) {
+                    for (QPushButton *b : findChildren<QPushButton *>())
+                        if (b->text() == tr("取消")) { b->click(); break; }
+                } else if (closeMode == 2) {
+                    QKeyEvent ev(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+                    QApplication::sendEvent(this, &ev);
+                } else if (closeMode == 3) {
+                    close();
+                } else if (closeMode == 4 || thenSave) {
+                    if (m_btnOk)
+                        m_btnOk->click();
+                }
+                if (closeMode != 0 || thenSave) {
+                    dump(QStringLiteral("after-close"));
+                    autoOk->stop();
+                } else {
+                    autoOk->stop();
+                }
+            });
+        });
+    });
+}
+
 // —— 验收探针（--smoke keyreset）——
 void SettingsDialog::probeResetDefaults()
 {
@@ -6687,7 +6940,9 @@ void SettingsDialog::reject()
     // 也可能向非模态子对话框再发一次关闭。没有这层守卫会连弹两次「保存更改？」。
     if (m_prompting)
         return;
-    // 关闭语义（2026-11-07）：普通设置已即时写盘，关闭即保留；
+    // 关闭语义（2026-11-07，2026-11-20 批次03 修订）：普通设置已即时写盘，关闭即保留；
+    // 例外是浏览页四项（缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示）——它们按
+    // 派单 §2.4 要求取消即回滚，配置与运行态一起回到进入设置时的状态。
     // 只有热键改绑 / 界面语言是待保存项。有草稿时弹三选一。
     flushPendingTheme();   // 排队中的主题切换先落运行态并写盘，再决定关闭方式
     const QStringList names = pendingChangeNames();
@@ -6698,6 +6953,7 @@ void SettingsDialog::reject()
             warnSaveFailure(error);
             return;   // 留在设置页，允许稍后重试
         }
+        rollbackBrowseLiveBaseline();   // 批次03：取消 / Esc / ✕ 三链路同口径回滚
         QDialog::reject();
         return;
     }
@@ -6710,7 +6966,8 @@ void SettingsDialog::reject()
     if (names.size() > shown.size())
         shown << tr("等 %1 项").arg(names.size());
     box.setInformativeText(tr("待保存：%1\n\n"
-                             "「不保存」只放弃这些草稿；已即时应用的普通设置会保留。")
+                             "「不保存」只放弃这些草稿；浏览页的缩放记忆 / 文件名浮层 / "
+                             "动画帧号 / 悬浮提示会回到进入设置时的状态，其余即时设置保留。")
                                .arg(shown.join(QStringLiteral("、"))));
     auto *saveBtn = box.addButton(tr("保存并关闭"), QMessageBox::AcceptRole);
     box.addButton(tr("不保存"), QMessageBox::DestructiveRole);
@@ -6726,12 +6983,13 @@ void SettingsDialog::reject()
         return;
     }
     if (box.clickedButton() && box.clickedButton() != keepBtn) {
-        // 不保存：只丢弃热键 / 语言草稿；已即时应用的普通项仍须确认落盘。
+        // 不保存：丢弃热键 / 语言草稿，浏览页四项回滚；其余已即时项仍须确认落盘。
         QString error;
         if (!flushPendingWrites(&error)) {
             warnSaveFailure(error);
             return;   // 留在设置页，允许稍后重试
         }
-        QDialog::reject();   // 丢弃待保存草稿，已即时项保留
+        rollbackBrowseLiveBaseline();   // 批次03：与 Esc / ✕ 同一口径
+        QDialog::reject();   // 丢弃待保存草稿
     }
 }

@@ -1960,6 +1960,26 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。</source>
+        <translation>%1 took effect immediately: %2 · no need to save; Cancel / Esc restores the state from when Settings was opened.</translation>
+    </message>
+    <message>
+        <source>开</source>
+        <translation>On</translation>
+    </message>
+    <message>
+        <source>关</source>
+        <translation>Off</translation>
+    </message>
+    <message>
+        <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
+        <translation>Changes discarded: the live items on the Browse page are back to the state from when Settings was opened.</translation>
+    </message>
+    <message>
+        <source>已关闭设置，未保留即时改动。</source>
+        <translation>Settings closed; live changes were not kept.</translation>
+    </message>
+    <message>
         <source>按下组合键…</source>
         <translation>Press a key combination…</translation>
     </message>
@@ -3137,13 +3157,13 @@ Restored the original value; nothing was written to the config.</translation>
         <source>等 %1 项</source>
         <translation>+%1 more</translation>
     </message>
-    <message>
+        <message>
         <source>待保存：%1
 
-「不保存」只放弃这些草稿；已即时应用的普通设置会保留。</source>
+「不保存」只放弃这些草稿；浏览页的缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示会回到进入设置时的状态，其余即时设置保留。</source>
         <translation>Pending: %1
 
-"Don't save" only discards these drafts; ordinary settings already applied live are kept.</translation>
+"Don't save" only discards these drafts; on the Browse page the zoom memory / filename overlay / animation frame info / hover tooltip revert to the state from when Settings was opened, all other live settings are kept.</translation>
     </message>
     <message>
         <source>保存并关闭</source>
