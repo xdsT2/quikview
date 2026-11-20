@@ -1,6 +1,7 @@
 #include "Config.h"
 
 #include "MenuCatalog.h"
+#include "quik_config_keys.h"
 
 #include <new>
 
@@ -28,12 +29,14 @@ Config::Config(const QString &path)
     // 永远留在 ini 里，所以迁移时一律 remove。
     const QString ctxMigrated = QStringLiteral("config/etc/ctxmenu_keys_migrated");
     if (!m_settings.value(ctxMigrated, false).toBool()) {
-        const char *const ctxLeaves[] = { "use_shell_menu", "show_browse",
-                                          "show_convert",     "show_preview",
-                                          "show_info",        "show_icon" };
-        for (const char *leaf : ctxLeaves) {
-            const QString legacy = QStringLiteral("config/") + leaf;
-            const QString target = QStringLiteral("config/ctxmenu/") + leaf;
+        // 键名来自 shared/quik_config_keys.h（与壳扩展 prefs.cpp 同一份字面量），
+        // 避免这边改名、那边忘改导致「设置改了右键不变」。
+        for (int i = 0; i < int(quikcfg::CtxLeafCount); ++i) {
+            const quikcfg::CtxLeaf leaf = quikcfg::CtxLeaf(i);
+            const QString name = QString::fromWCharArray(quikcfg::CtxLeafName(leaf));
+            const QString legacy = QStringLiteral("config/") + name;
+            const QString target = QString::fromWCharArray(
+                                       quikcfg::CtxSettingsKey(leaf).c_str());
             if (!m_settings.contains(target) && m_settings.contains(legacy)) {
                 m_settings.setValue(target, m_settings.value(legacy));
             }
@@ -77,19 +80,23 @@ QString Config::defaultConfigPath()
 {
     // 冒烟/截图隔离（M-07）：main() 检测到测试参数时用环境变量指定临时配置，
     // 这里的优先级最高——高于便携模式，保证真实 config 不被读写。
-    const QByteArray testConfig = qgetenv("QUIKVIEW_CONFIG_PATH");
+    const QByteArray testConfig = qgetenv(quikcfg::kConfigPathEnvVarA);
     if (!testConfig.isEmpty()) {
         return QString::fromLocal8Bit(testConfig);
     }
 
     // 便携模式：程序目录下存在 config.ini 则优先使用；否则用系统配置目录。
-    const QString portable = QCoreApplication::applicationDirPath() + QStringLiteral("/config.ini");
+    // 文件名与目录层级都取自 shared/quik_config_keys.h，与壳扩展 prefs.cpp 一致。
+    const QString configName =
+        QString::fromWCharArray(quikcfg::kConfigFileName);
+    const QString portable =
+        QCoreApplication::applicationDirPath() + QLatin1Char('/') + configName;
     if (QFileInfo::exists(portable)) {
         return portable;
     }
     const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
     QDir().mkpath(dir);
-    return dir + QStringLiteral("/config.ini");
+    return dir + QLatin1Char('/') + configName;
 }
 
 Config &Config::instance()

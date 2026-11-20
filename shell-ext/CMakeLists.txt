@@ -18,7 +18,8 @@ add_library(quikthumb SHARED
 # third_party/nanosvg：SVG 软渲染（单头文件 C，zlib）。壳扩展不能拉 Qt，
 # 这里把它直接编译进 DLL，目标机零额外依赖。
 target_include_directories(quikthumb PRIVATE
-    src ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/nanosvg)
+    src ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/nanosvg
+    ${CMAKE_CURRENT_SOURCE_DIR}/../shared)
 target_compile_definitions(quikthumb PRIVATE
     UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX WINVER=0x0601 _WIN32_WINNT=0x0601)
 # windowscodecs：MSVC 下 WIC 的 GUID 走导入库（MinGW 由 initguid 实例化，双保险）

@@ -1,5 +1,6 @@
 // QuikLoadMenuPrefs：定位 QuikView 的 config.ini 并读出菜单偏好。
-// 定位顺序与 src/Config.cpp::defaultConfigPath 一致：
+// 定位顺序与 src/Config.cpp::defaultConfigPath 一致（文件名、候选目录与键名
+// 全部来自 shared/quik_config_keys.h，壳扩展与主程序共用同一份字面量）：
 //   1) 环境变量 QUIKVIEW_CONFIG_PATH（测试钩子，资源管理器进程通常没有）
 //   2) <DLL 目录>\config.ini（便携模式：壳扩展 DLL 与 quikview.exe 同目录）
 //   3) %LOCALAPPDATA%\QuikView\QuikView\config.ini（安装版默认）
@@ -9,6 +10,7 @@
 #include <shlobj.h>
 #include <stdio.h>
 
+#include "quik_config_keys.h"
 #include "quikthumb.h"   // DllGetModule（便携模式按 DLL 目录定位 config.ini）
 
 namespace {
@@ -22,23 +24,19 @@ bool FileExistsW(const wchar_t* path) {
 bool FindConfigIni(wchar_t* out, DWORD cch) {
     // 1) 测试钩子
     wchar_t env[MAX_PATH] = {};
-    if (GetEnvironmentVariableW(L"QUIKVIEW_CONFIG_PATH", env, MAX_PATH) > 0 &&
+    if (GetEnvironmentVariableW(quikcfg::kConfigPathEnvVar, env, MAX_PATH) > 0 &&
         FileExistsW(env)) {
         lstrcpynW(out, env, (int)cch);
         return true;
     }
     // 2) 便携模式（DLL 旁边的 config.ini）
-    wchar_t buf[MAX_PATH] = {};
+    wchar_t module[MAX_PATH] = {};
     if (DllGetModule() &&
-        GetModuleFileNameW(DllGetModule(), buf, MAX_PATH) > 0) {
-        wchar_t* slash = wcsrchr(buf, L'\\');
-        if (slash) {
-            lstrcpynW(slash + 1, L"config.ini",
-                      (int)(MAX_PATH - (slash + 1 - buf)));
-            if (FileExistsW(buf)) {
-                lstrcpynW(out, buf, (int)cch);
-                return true;
-            }
+        GetModuleFileNameW(DllGetModule(), module, MAX_PATH) > 0) {
+        const std::wstring portable = quikcfg::PortableConfigPath(module);
+        if (FileExistsW(portable.c_str())) {
+            lstrcpynW(out, portable.c_str(), (int)cch);
+            return true;
         }
     }
     // 3) 安装版默认配置目录
@@ -46,10 +44,9 @@ bool FindConfigIni(wchar_t* out, DWORD cch) {
     if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_LOCAL_APPDATA, nullptr,
                                    SHGFP_TYPE_CURRENT, appdata)) &&
         appdata[0]) {
-        wchar_t cand[MAX_PATH + 64] = {};
-        wsprintfW(cand, L"%s\\QuikView\\QuikView\\config.ini", appdata);
-        if (FileExistsW(cand)) {
-            lstrcpynW(out, cand, (int)cch);
+        const std::wstring installed = quikcfg::InstallConfigPath(appdata);
+        if (FileExistsW(installed.c_str())) {
+            lstrcpynW(out, installed.c_str(), (int)cch);
             return true;
         }
     }
@@ -58,15 +55,17 @@ bool FindConfigIni(wchar_t* out, DWORD cch) {
 
 // 单键读取：QSettings IniFormat 的转义写法（'\'）优先，'/' 原样兜底；
 // 缺键返回 true（默认开）。值解析接受 true/false/1/0/on/off，其余按开。
-bool ReadBoolKey(const wchar_t* ini, const wchar_t* name) {
+bool ReadBoolKey(const wchar_t* ini, quikcfg::CtxLeaf leaf) {
     wchar_t key[96] = {};
     wchar_t val[16] = {};
-    wsprintfW(key, L"ctxmenu\\%s", name);
-    GetPrivateProfileStringW(L"config", key, L"", val,
+    const std::wstring backslash = quikcfg::CtxIniKeyBackslash(leaf);
+    lstrcpynW(key, backslash.c_str(), _countof(key));
+    GetPrivateProfileStringW(quikcfg::kCtxIniSection, key, L"", val,
                              (DWORD)(_countof(val) - 1), ini);
     if (!val[0]) {
-        wsprintfW(key, L"ctxmenu/%s", name);
-        GetPrivateProfileStringW(L"config", key, L"", val,
+        const std::wstring slash = quikcfg::CtxIniKeySlash(leaf);
+        lstrcpynW(key, slash.c_str(), _countof(key));
+        GetPrivateProfileStringW(quikcfg::kCtxIniSection, key, L"", val,
                                  (DWORD)(_countof(val) - 1), ini);
     }
     if (!val[0]) return true;
@@ -80,11 +79,11 @@ QuikMenuPrefs QuikLoadMenuPrefs() {
     QuikMenuPrefs p = { true, true, true, true, true, true };
     wchar_t ini[MAX_PATH] = {};
     if (!FindConfigIni(ini, MAX_PATH)) return p;
-    p.master  = ReadBoolKey(ini, L"use_shell_menu");
-    p.browse  = ReadBoolKey(ini, L"show_browse");
-    p.convert = ReadBoolKey(ini, L"show_convert");
-    p.preview = ReadBoolKey(ini, L"show_preview");
-    p.info    = ReadBoolKey(ini, L"show_info");
-    p.icon    = ReadBoolKey(ini, L"show_icon");
+    p.master  = ReadBoolKey(ini, quikcfg::CtxUseShellMenu);
+    p.browse  = ReadBoolKey(ini, quikcfg::CtxShowBrowse);
+    p.convert = ReadBoolKey(ini, quikcfg::CtxShowConvert);
+    p.preview = ReadBoolKey(ini, quikcfg::CtxShowPreview);
+    p.info    = ReadBoolKey(ini, quikcfg::CtxShowInfo);
+    p.icon    = ReadBoolKey(ini, quikcfg::CtxShowIcon);
     return p;
 }

@@ -101,7 +101,7 @@ add_executable(quikview WIN32
     resources/ui.qrc
 )
 
-target_include_directories(quikview PRIVATE src)
+target_include_directories(quikview PRIVATE src ${CMAKE_CURRENT_SOURCE_DIR}/shared)
 
 # 版本号单一来源：CMakeLists 的 project(VERSION ...)。
 # main.cpp 的 QApplication::setApplicationVersion 与「关于」对话框都读这个宏，

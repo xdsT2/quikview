@@ -4,6 +4,8 @@
 #include "Chrome.h"
 #include "DirectoryLoader.h"
 
+#include "quik_config_keys.h"
+
 #include <QAbstractButton>
 #include <QApplication>
 #include <QCheckBox>
@@ -5258,29 +5260,35 @@ void SettingsDialog::buildContextMenuPage(QWidget *page)
     sec = beginSection(page, tr("右键菜单开关"));
     struct CtxToggleRow {
         SettingsDialog::ToggleRow row;
-        const char *leaf;
+        quikcfg::CtxLeaf leaf;
     };
     auto ctxToggle = [this](QWidget *section, const QString &label,
-                            const QString &desc, const char *leaf) -> CtxToggleRow {
+                            const QString &desc, quikcfg::CtxLeaf leaf) -> CtxToggleRow {
         SettingsDialog::ToggleRow row =
             addToggleRow(section, label, desc, label);
         if (row.toggle) {
-            const QString key = QStringLiteral("config/ctxmenu/") + QLatin1String(leaf);
+            // 键名与壳扩展共用 shared/quik_config_keys.h（唯一来源），
+            // 这边拼 "config/ctxmenu/<leaf>"，壳扩展读 [config] ctxmenu\<leaf>。
+            const QString key =
+                QString::fromWCharArray(quikcfg::CtxSettingsKey(leaf).c_str());
             if (row.toggle) {
                 row.toggle->setChecked(
                     Config::instance().settings().value(key, true).toBool());
                 // 验收探针锚点：smoke settingsctx:<leaf> 按这个名字点开关
-                row.toggle->setAccessibleName(QStringLiteral("ctxmenu.") + QLatin1String(leaf));
+                row.toggle->setAccessibleName(
+                    QStringLiteral("ctxmenu.")
+                    + QString::fromWCharArray(quikcfg::CtxLeafName(leaf)));
             }
             connect(row.toggle, &PillToggle::toggled, this,
                     [this, row, key, leaf](bool on) mutable {
                 QString err;
-                // writeValues() 自己拼 "config/" 前缀，所以这里必须带上 ctxmenu/
-                // 层级：写入的键要与上方读取键、壳扩展 prefs.cpp 读的
-                // [config] ctxmenu\<leaf> 完全一致，否则开关写到一个没人读的键上
-                // （旧版 bug：写 config/<leaf>，壳扩展读 config/ctxmenu/<leaf>）。
+                // writeValues() 自己拼 "config/" 前缀，所以这里只给相对键
+                // ctxmenu/<leaf>；拼出来的位置必须等于壳扩展读的
+                // [config] ctxmenu\<leaf>，否则开关写到一个没人读的键上
+                // （旧版 bug：写 config/<leaf>）。
                 const QList<QPair<QString, QVariant>> vals = {
-                    { QStringLiteral("ctxmenu/") + QString::fromLatin1(leaf), on }
+                    { QString::fromWCharArray(
+                          quikcfg::CtxSettingsSubKey(leaf).c_str()), on }
                 };
                 if (writeValues(vals, false, &err))
                     return;
@@ -5301,29 +5309,29 @@ void SettingsDialog::buildContextMenuPage(QWidget *page)
     const CtxToggleRow masterRow = ctxToggle(
         sec, tr("在资源管理器右键菜单中显示 QuikView"),
         tr("关闭后不再插入菜单项；各细项的选择会保留"),
-        "use_shell_menu");
+        quikcfg::CtxUseShellMenu);
     const CtxToggleRow browseRow = ctxToggle(
         sec, tr("用 QuikView 浏览图片"), QString(),
-        "show_browse");
+        quikcfg::CtxShowBrowse);
     if (browseRow.row.row)
         browseRow.row.row->setToolTip(tr("命令行：quikview.exe \"文件\""));
     const CtxToggleRow convertRow = ctxToggle(
         sec, tr("用 QuikView 转换图片"), QString(),
-        "show_convert");
+        quikcfg::CtxShowConvert);
     if (convertRow.row.row)
         convertRow.row.row->setToolTip(tr("命令行：quikview.exe --batch \"文件\""));
     const CtxToggleRow previewRow = ctxToggle(
         sec, tr("菜单内预览"), QString(),
-        "show_preview");
+        quikcfg::CtxShowPreview);
     if (previewRow.row.row)
         previewRow.row.row->setToolTip(
             tr("右键菜单顶部显示 ≤256px 缩略图，解码超时自动省略"));
     const CtxToggleRow infoRow = ctxToggle(
         sec, tr("图片信息"), QString(),
-        "show_info");
+        quikcfg::CtxShowInfo);
     const CtxToggleRow iconRow = ctxToggle(
         sec, tr("软件图标"), QString(),
-        "show_icon");
+        quikcfg::CtxShowIcon);
 
     // 联动与整行灰显：注册态不可用 → 整行灰显；总开关关闭 → 细项行灰显
     // （勾选状态保留，恢复后各自生效）
