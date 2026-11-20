@@ -6,6 +6,7 @@
 #include <ole2.h>
 #include <shellapi.h>
 #include <shlobj.h>
+#include <strsafe.h>
 #include <wincodec.h>
 
 #include "quikthumb.h"
@@ -117,15 +118,51 @@ HBITMAP IconToBitmap(HICON hIcon, int w, int h) {
     return hb;
 }
 
+// 无符号整数 → 十进制文本。不用 printf 的 %llu / %I64u：wsprintfW 不支持前者，
+// 后者依赖 CRT 修饰符；整数手工拼出来最稳，也不给格式化留截断风险。
+void U64ToW(ULONGLONG v, wchar_t* out, int cch) {
+    if (!out || cch <= 0) return;
+    wchar_t tmp[24];
+    int n = 0;
+    do {
+        tmp[n++] = (wchar_t)(L'0' + (v % 10));
+        v /= 10;
+    } while (v && n < (int)_countof(tmp));
+    const int digits = n;
+    const int room = cch - 1;
+    const int copy = digits < room ? digits : room;
+    for (int i = 0; i < copy; ++i) out[i] = tmp[digits - 1 - i];
+    out[copy] = L'\0';
+}
+
+// 「128.0 KB」/「512 B」/「4.0 GB」：一律整数运算，保留一位小数（四舍五入到 0.1），
+// 单位按 KB/MB/GB 分档。cch 真正用于截断保护（StringCchPrintfW 的超长路径）。
 void FormatSize(ULONGLONG bytes, wchar_t* out, int cch) {
+    if (!out || cch <= 0) return;
+    out[0] = L'\0';
     if (bytes < 1024ULL) {
-        wsprintfW(out, L"%llu B", bytes);
-    } else if (bytes < 1024ULL * 1024) {
-        wsprintfW(out, L"%.1f KB", (double)bytes / 1024.0);
-    } else {
-        wsprintfW(out, L"%.1f MB", (double)bytes / (1024.0 * 1024.0));
+        wchar_t num[24] = {};
+        U64ToW(bytes, num, _countof(num));
+        StringCchPrintfW(out, (size_t)cch, L"%s B", num);
+        return;
     }
-    (void)cch;
+    const wchar_t* unit = L"KB";
+    ULONGLONG div = 1024ULL;
+    if (bytes >= 1024ULL * 1024 * 1024) {
+        unit = L"GB";
+        div = 1024ULL * 1024 * 1024;
+    } else if (bytes >= 1024ULL * 1024) {
+        unit = L"MB";
+        div = 1024ULL * 1024;
+    }
+    ULONGLONG whole = bytes / div;
+    const ULONGLONG rem = bytes % div;
+    // rem < div ≤ 1GiB，故 rem*10 不会溢出 64 位。
+    ULONGLONG tenth = (rem * 10 + div / 2) / div;
+    if (tenth >= 10) { ++whole; tenth -= 10; }
+    wchar_t wholeStr[24] = {};
+    U64ToW(whole, wholeStr, _countof(wholeStr));
+    StringCchPrintfW(out, (size_t)cch, L"%s.%u %s", wholeStr, (unsigned)tenth, unit);
 }
 
 }   // namespace
@@ -172,10 +209,15 @@ STDMETHODIMP QuikContextMenu::QueryInterface(REFIID riid, void** ppv) {
     }
 }
 
-STDMETHODIMP_(ULONG) QuikContextMenu::AddRef() { return ++m_ref; }
+// 引用计数用原子自增/自减：资源管理器有多条线程同时持有同一个壳扩展对象
+// （右键菜单、后台缩略图、不同 STA 窗口），裸 ++/-- 可能读到撕裂值后提前 delete。
+// 与 thumbnail.cpp 的 QuikThumbProvider 保持同一口径。
+STDMETHODIMP_(ULONG) QuikContextMenu::AddRef() {
+    return (ULONG)InterlockedIncrement((LONG*)&m_ref);
+}
 
 STDMETHODIMP_(ULONG) QuikContextMenu::Release() {
-    const ULONG ref = --m_ref;
+    const ULONG ref = (ULONG)InterlockedDecrement((LONG*)&m_ref);
     if (ref == 0) delete this;
     return ref;
 }
@@ -276,7 +318,8 @@ STDMETHODIMP QuikContextMenu::QueryContextMenu(HMENU hmenu, UINT indexMenu,
                             }
                             wchar_t sizeStr[48] = {};
                             FormatSize(sz.QuadPart, sizeStr, _countof(sizeStr));
-                            wsprintfW(m_infoText, L"%u×%u · %s", w, h, sizeStr);
+                            StringCchPrintfW(m_infoText, _countof(m_infoText),
+                                            L"%u×%u · %s", w, h, sizeStr);
                         }
                     }
                 }
@@ -382,7 +425,8 @@ STDMETHODIMP QuikContextMenu::QueryContextMenu(HMENU hmenu, UINT indexMenu,
         // 浏览项：右侧 \t 显示尺寸/大小
         wchar_t browseText[192] = {};
         if (m_infoText[0]) {
-            wsprintfW(browseText, L"%s\t%s", kMenuBrowse, m_infoText);
+            StringCchPrintfW(browseText, _countof(browseText), L"%s\t%s",
+                             kMenuBrowse, m_infoText);
         } else {
             lstrcpynW(browseText, kMenuBrowse, _countof(browseText));
         }
