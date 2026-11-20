@@ -2646,6 +2646,27 @@ QMenu *MainWindow::buildContextMenu()
     return menu;
 }
 
+namespace {
+// 应用内右键菜单「是否有可显示项」（派单 2026-11-20 Q6）：递归跳过分隔线，
+// 子菜单以其内部非空为准；五个根组全关时会得到「空壳 + 空快捷行」，此时不弹。
+bool appMenuHasVisibleItem(QMenu *m)
+{
+    for (QAction *a : m->actions()) {
+        if (!a || a->isSeparator() || !a->isVisible()) {
+            continue;
+        }
+        if (QMenu *sub = a->menu()) {
+            if (appMenuHasVisibleItem(sub)) {
+                return true;
+            }
+            continue;
+        }
+        return true;
+    }
+    return false;
+}
+} // namespace
+
 void MainWindow::contextMenuEvent(QContextMenuEvent *event)
 {
     // 右键已被映射成别的动作时，画布按下已经派发过，这里不再弹菜单；
@@ -2655,6 +2676,13 @@ void MainWindow::contextMenuEvent(QContextMenuEvent *event)
         return;
     }
     QMenu *menu = buildContextMenu();
+    // 空菜单守卫（派单 2026-11-20 Q6）：设置页允许把五个根组全部关闭，
+    // 此时菜单只剩空壳/分隔线。为空则静默返回，不出现空面板；其余行为
+    // （快捷键、Esc、级联）不受影响。
+    if (!appMenuHasVisibleItem(menu)) {
+        menu->deleteLater();
+        return;
+    }
     menu->exec(event->globalPos());
     menu->deleteLater();
 }
