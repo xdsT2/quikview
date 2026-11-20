@@ -1982,18 +1982,36 @@
     <message>
         <source>开</source>
         <translation>켬</translation>
-    </message>
-    <message>
         <source>关</source>
         <translation>끔</translation>
-    </message>
-    <message>
         <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
         <translation>변경 사항을 버렸습니다: 보기 페이지의 즉시 항목이 설정을 열었던 상태로 돌아갔습니다.</translation>
-    </message>
-    <message>
         <source>已关闭设置，未保留即时改动。</source>
         <translation>설정을 닫았습니다. 즉시 변경은 유지되지 않았습니다.</translation>
+        <source>设置备份</source>
+        <translation>설정 백업</translation>
+        <source>导出设置</source>
+        <translation>설정 내보내기</translation>
+        <source>把当前设置写入 .ini，便于备份或换机</source>
+        <translation>현재 설정을 .ini로 저장합니다. 백업이나 다른 PC로 옮길 때 편리합니다</translation>
+        <source>导入设置</source>
+        <translation>설정 가져오기</translation>
+        <source>从 .ini 文件恢复设置，重启 QuikView 后生效</source>
+        <translation>.ini 파일에서 설정을 복원합니다. QuikView를 다시 시작한 후 적용됩니다</translation>
+        <source>导出失败</source>
+        <translation>내보내기 실패</translation>
+        <source>设置已导出</source>
+        <translation>설정을 내보냈습니다</translation>
+        <source>不是有效的 QuikView 设置文件</source>
+        <translation>유효한 QuikView 설정 파일이 아닙니다</translation>
+        <source>导入失败，原配置未改动</source>
+        <translation>가져오기 실패: 기존 설정은 변경되지 않았습니다</translation>
+        <source>导入成功，重启 QuikView 后生效</source>
+        <translation>가져오기 성공: QuikView를 다시 시작한 후 적용됩니다</translation>
+        <source>QuikView 设置 (*.ini)</source>
+        <translation>QuikView 설정 (*.ini)</translation>
+        <source>QuikView 设置 (*.ini);;所有文件 (*)</source>
+        <translation>QuikView 설정 (*.ini);;모든 파일 (*)</translation>
     </message>
     <message>
         <source>按下组合键…</source>

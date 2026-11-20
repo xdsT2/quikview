@@ -1982,18 +1982,36 @@
     <message>
         <source>开</source>
         <translation>Ein</translation>
-    </message>
-    <message>
         <source>关</source>
         <translation>Aus</translation>
-    </message>
-    <message>
         <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
         <translation>Änderungen verworfen: Die Sofort-Elemente der Seite „Anzeigen“ sind wieder im Zustand beim Öffnen der Einstellungen.</translation>
-    </message>
-    <message>
         <source>已关闭设置，未保留即时改动。</source>
         <translation>Einstellungen geschlossen; Sofortänderungen wurden nicht behalten.</translation>
+        <source>设置备份</source>
+        <translation>Einstellungen sichern</translation>
+        <source>导出设置</source>
+        <translation>Einstellungen exportieren</translation>
+        <source>把当前设置写入 .ini，便于备份或换机</source>
+        <translation>Aktuelle Einstellungen in eine .ini schreiben – zum Sichern oder für einen anderen PC</translation>
+        <source>导入设置</source>
+        <translation>Einstellungen importieren</translation>
+        <source>从 .ini 文件恢复设置，重启 QuikView 后生效</source>
+        <translation>Einstellungen aus einer .ini-Datei wiederherstellen; wirksam nach Neustart von QuikView</translation>
+        <source>导出失败</source>
+        <translation>Export fehlgeschlagen</translation>
+        <source>设置已导出</source>
+        <translation>Einstellungen exportiert</translation>
+        <source>不是有效的 QuikView 设置文件</source>
+        <translation>Keine gültige QuikView-Einstellungsdatei</translation>
+        <source>导入失败，原配置未改动</source>
+        <translation>Import fehlgeschlagen; die ursprüngliche Konfiguration wurde nicht geändert</translation>
+        <source>导入成功，重启 QuikView 后生效</source>
+        <translation>Import erfolgreich; wirksam nach Neustart von QuikView</translation>
+        <source>QuikView 设置 (*.ini)</source>
+        <translation>QuikView-Einstellungen (*.ini)</translation>
+        <source>QuikView 设置 (*.ini);;所有文件 (*)</source>
+        <translation>QuikView-Einstellungen (*.ini);;Alle Dateien (*)</translation>
     </message>
     <message>
         <source>按下组合键…</source>

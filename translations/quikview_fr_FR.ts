@@ -1982,18 +1982,36 @@
     <message>
         <source>开</source>
         <translation>Activé</translation>
-    </message>
-    <message>
         <source>关</source>
         <translation>Désactivé</translation>
-    </message>
-    <message>
         <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
         <translation>Modifications abandonnées : les éléments instantanés de la page Affichage reviennent à l’état d’ouverture des Réglages.</translation>
-    </message>
-    <message>
         <source>已关闭设置，未保留即时改动。</source>
         <translation>Réglages fermés ; les modifications instantanées n’ont pas été conservées.</translation>
+        <source>设置备份</source>
+        <translation>Sauvegarde des paramètres</translation>
+        <source>导出设置</source>
+        <translation>Exporter les paramètres</translation>
+        <source>把当前设置写入 .ini，便于备份或换机</source>
+        <translation>Écrit les paramètres actuels dans un .ini, pour sauvegarde ou autre PC</translation>
+        <source>导入设置</source>
+        <translation>Importer les paramètres</translation>
+        <source>从 .ini 文件恢复设置，重启 QuikView 后生效</source>
+        <translation>Restaure les paramètres depuis un fichier .ini ; pris en compte après redémarrage de QuikView</translation>
+        <source>导出失败</source>
+        <translation>Échec de l'exportation</translation>
+        <source>设置已导出</source>
+        <translation>Paramètres exportés</translation>
+        <source>不是有效的 QuikView 设置文件</source>
+        <translation>Fichier de paramètres QuikView non valide</translation>
+        <source>导入失败，原配置未改动</source>
+        <translation>Échec de l'importation ; la configuration d'origine n'a pas été modifiée</translation>
+        <source>导入成功，重启 QuikView 后生效</source>
+        <translation>Importation réussie ; prise en compte après redémarrage de QuikView</translation>
+        <source>QuikView 设置 (*.ini)</source>
+        <translation>Paramètres QuikView (*.ini)</translation>
+        <source>QuikView 设置 (*.ini);;所有文件 (*)</source>
+        <translation>Paramètres QuikView (*.ini);;Tous les fichiers (*)</translation>
     </message>
     <message>
         <source>按下组合键…</source>

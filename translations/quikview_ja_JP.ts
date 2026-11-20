@@ -1982,18 +1982,36 @@
     <message>
         <source>开</source>
         <translation>オン</translation>
-    </message>
-    <message>
         <source>关</source>
         <translation>オフ</translation>
-    </message>
-    <message>
         <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
         <translation>変更を破棄しました：表示ページの即時項目は設定を開く前の状態に戻りました。</translation>
-    </message>
-    <message>
         <source>已关闭设置，未保留即时改动。</source>
         <translation>設定を閉じました。即時の変更は保持されていません。</translation>
+        <source>设置备份</source>
+        <translation>設定のバックアップ</translation>
+        <source>导出设置</source>
+        <translation>設定をエクスポート</translation>
+        <source>把当前设置写入 .ini，便于备份或换机</source>
+        <translation>現在の設定を .ini に書き出します。バックアップや別の PC への移行に便利です</translation>
+        <source>导入设置</source>
+        <translation>設定をインポート</translation>
+        <source>从 .ini 文件恢复设置，重启 QuikView 后生效</source>
+        <translation>.ini ファイルから設定を復元します。QuikView の再起動後に反映されます</translation>
+        <source>导出失败</source>
+        <translation>エクスポートに失敗しました</translation>
+        <source>设置已导出</source>
+        <translation>設定をエクスポートしました</translation>
+        <source>不是有效的 QuikView 设置文件</source>
+        <translation>有効な QuikView 設定ファイルではありません</translation>
+        <source>导入失败，原配置未改动</source>
+        <translation>インポートに失敗しました。元の設定は変更されていません</translation>
+        <source>导入成功，重启 QuikView 后生效</source>
+        <translation>インポートに成功しました。QuikView の再起動後に反映されます</translation>
+        <source>QuikView 设置 (*.ini)</source>
+        <translation>QuikView 設定 (*.ini)</translation>
+        <source>QuikView 设置 (*.ini);;所有文件 (*)</source>
+        <translation>QuikView 設定 (*.ini);;すべてのファイル (*)</translation>
     </message>
     <message>
         <source>按下组合键…</source>

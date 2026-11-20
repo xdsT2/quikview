@@ -1982,18 +1982,36 @@
     <message>
         <source>开</source>
         <translation>Вкл.</translation>
-    </message>
-    <message>
         <source>关</source>
         <translation>Выкл.</translation>
-    </message>
-    <message>
         <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
         <translation>Изменения отменены: мгновенные пункты страницы «Просмотр» возвращены к состоянию на момент открытия настроек.</translation>
-    </message>
-    <message>
         <source>已关闭设置，未保留即时改动。</source>
         <translation>Настройки закрыты; мгновенные изменения не сохранены.</translation>
+        <source>设置备份</source>
+        <translation>Резервная копия настроек</translation>
+        <source>导出设置</source>
+        <translation>Экспорт настроек</translation>
+        <source>把当前设置写入 .ini，便于备份或换机</source>
+        <translation>Записывает текущие настройки в .ini — для резервной копии или переноса на ПК</translation>
+        <source>导入设置</source>
+        <translation>Импорт настроек</translation>
+        <source>从 .ini 文件恢复设置，重启 QuikView 后生效</source>
+        <translation>Восстанавливает настройки из файла .ini; применяется после перезапуска QuikView</translation>
+        <source>导出失败</source>
+        <translation>Не удалось экспортировать</translation>
+        <source>设置已导出</source>
+        <translation>Настройки экспортированы</translation>
+        <source>不是有效的 QuikView 设置文件</source>
+        <translation>Это не файл настроек QuikView</translation>
+        <source>导入失败，原配置未改动</source>
+        <translation>Не удалось импортировать; исходная конфигурация не изменена</translation>
+        <source>导入成功，重启 QuikView 后生效</source>
+        <translation>Импорт выполнен; применяется после перезапуска QuikView</translation>
+        <source>QuikView 设置 (*.ini)</source>
+        <translation>Настройки QuikView (*.ini)</translation>
+        <source>QuikView 设置 (*.ini);;所有文件 (*)</source>
+        <translation>Настройки QuikView (*.ini);;Все файлы (*)</translation>
     </message>
     <message>
         <source>按下组合键…</source>
