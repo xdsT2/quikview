@@ -210,12 +210,15 @@ bool Config::escExit() const
 QString Config::edgeAction() const
 {
     // 2026-11-12 定稿默认：到达末尾继续时回绕到首个文件。
-    // 旧配置里的 "ask" 在「询问」实现落地（翻页批次 2）前按「停止」处理：
-    // 目录加载器 next/prev 只认 stop，ask 会绕回另一端，与 advance 不一致，
-    // 这里统一折算，配置原值保留，不回写。
+    // 翻页批次 2（2026-11-20）：「询问」落地——手动翻到边界弹一次确认，
+    // 确认后从另一端继续，取消留在当前图片（MainWindow::askEdgeWrap）。
+    // 旧配置 "ask" 自本批起按新定义直接生效，不再折算为 stop；未知值回落 first。
     const QString v = m_settings.value(QStringLiteral("config/edge_action"),
                                         QStringLiteral("first")).toString();
-    return v == QLatin1String("ask") ? QStringLiteral("stop") : v;
+    if (v == QLatin1String("stop") || v == QLatin1String("ask")) {
+        return v;
+    }
+    return QStringLiteral("first");
 }
 
 // backgroundImage()/backgroundImagePath() 已随第 18 期「背景」段下线删除：

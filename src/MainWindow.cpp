@@ -5107,7 +5107,9 @@ void MainWindow::runSmokeCommand(const QString &cmd)
 
 // 首尾边界：所有翻页入口（胶囊、菜单、快捷键、滚轮）都走这里，规则只有一份。
 //   非循环（edge_action=stop）：停在边界并提示；
-//   循环（edge_action=first）：回绕，但明确告知回到了另一端。
+//   循环（edge_action=first）：回绕，但明确告知回到了另一端；
+//   询问（edge_action=ask，翻页批次 2）：弹一次确认，确认后从另一端继续，
+//   取消留在当前图片；幻灯片到边界暂停，确认后恢复、取消后停止。
 void MainWindow::onPrev()
 {
     if (!m_dir->isValid()) {
@@ -5118,6 +5120,9 @@ void MainWindow::onPrev()
     const int before = m_dir->index();
     const QString p = m_dir->advance(-step);
     if (p.isEmpty()) {
+        if (Config::instance().edgeAction() == QLatin1String("ask") && askEdgeWrap(false)) {
+            return;
+        }
         if (m_toast) m_toast->showMessage(tr("已经是第一张图片"));
         return;
     }
@@ -5137,6 +5142,9 @@ void MainWindow::onNext()
     const int before = m_dir->index();
     const QString p = m_dir->advance(step);
     if (p.isEmpty()) {
+        if (Config::instance().edgeAction() == QLatin1String("ask") && askEdgeWrap(true)) {
+            return;
+        }
         if (m_toast) m_toast->showMessage(tr("已经是最后一张图片"));
         return;
     }
@@ -5147,7 +5155,57 @@ void MainWindow::onNext()
     }
 }
 
-// 10 张跳转：边界停住并提示（TEXT_MSG_FIRSTPAGE/LASTPAGE）
+// 首尾「询问」的唯一实现（派单 HDR入口与设置功能缺口 第二批）。
+// 手动向前/向后翻到边界时询问是否循环：确认=从另一端继续；取消=留在当前。
+// 单图目录直接停住不弹；连续触发只出现一次确认（m_edgeAskBusy 挡重入）。
+// 幻灯片到边界先暂停计时器，确认后恢复，取消后停止放映。
+bool MainWindow::askEdgeWrap(bool forward)
+{
+    if (m_edgeAskBusy || !m_dir || !m_dir->isValid() || m_dir->count() <= 1) {
+        return false;
+    }
+    const bool slideshowPaused = m_slideshow && m_slideshowTimer
+                                 && m_slideshowTimer->isActive();
+    if (slideshowPaused) {
+        m_slideshowTimer->stop();
+    }
+    m_edgeAskBusy = true;
+    QMessageBox box(this);
+    box.setIcon(QMessageBox::Question);
+    box.setWindowTitle(tr("首尾翻页"));
+    box.setText(forward ? tr("已经是最后一张图片。要转到第一张继续吗？")
+                        : tr("已经是第一张图片。要转到最后一张继续吗？"));
+    QPushButton *yes = box.addButton(tr("继续(&C)"), QMessageBox::YesRole);
+    QPushButton *no = box.addButton(tr("停止(&S)"), QMessageBox::NoRole);
+    box.setDefaultButton(no);
+    box.exec();
+    m_edgeAskBusy = false;
+    const bool confirmed = box.clickedButton() == yes;
+    if (confirmed) {
+        // 与「循环」档同语义回绕：双页配对也按 first 档的落点（0 / 末张）。
+        m_dir->setIndex(forward ? 0 : m_dir->count() - 1);
+        jumpTo(m_dir->current());
+        playPageturnTone();
+        if (m_toast) {
+            m_toast->showMessage(forward ? tr("已回到第一张图片")
+                                         : tr("已回到最后一张图片"));
+        }
+        if (slideshowPaused) {
+            m_slideshowTimer->start();
+        }
+    } else if (slideshowPaused) {
+        // 取消：幻灯片停止（不是继续暂停）。走勾选态让菜单同步。
+        if (actSlideshow) {
+            actSlideshow->setChecked(false);
+        } else {
+            setSlideshow(false);
+        }
+    }
+    return confirmed;
+}
+
+// 10 张跳转：边界 clamp 停住（原版 CMD_PREV10/NEXT10 语义）；已在边界再跳
+// 按首尾规则处理——ask 档弹询问（与单张翻页同一入口），其余档提示停住。
 void MainWindow::onPrev10()
 {
     if (qEnvironmentVariableIsSet("QUIKVIEW_PERF")) { qWarning("PERF onPrev10 fired"); }
@@ -5155,6 +5213,9 @@ void MainWindow::onPrev10()
     if (!p.isEmpty()) {
         loadAsync(p);
     } else if (m_dir->isValid()) {
+        if (Config::instance().edgeAction() == QLatin1String("ask") && askEdgeWrap(false)) {
+            return;
+        }
         m_toast->showMessage(tr("已经是第一张图片"));
     }
 }
@@ -5166,6 +5227,9 @@ void MainWindow::onNext10()
     if (!p.isEmpty()) {
         loadAsync(p);
     } else if (m_dir->isValid()) {
+        if (Config::instance().edgeAction() == QLatin1String("ask") && askEdgeWrap(true)) {
+            return;
+        }
         m_toast->showMessage(tr("已经是最后一张图片"));
     }
 }

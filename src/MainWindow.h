@@ -236,6 +236,10 @@ private:
     void preloadNeighbors();
     // 显式跳转：先清空解码队列再加载（区别于顺序翻页的逐张播放）
     void jumpTo(const QString &path);
+    // 首尾「询问」（edge_action=ask，翻页批次 2）：边界弹一次确认对话框。
+    // 确认=回绕到另一端继续；取消=留在当前图片。幻灯片到边界先暂停，
+    // 确认后恢复、取消后停止。单图目录/空目录不弹。返回 true=已回绕。
+    bool askEdgeWrap(bool forward);
     void showImage(const QImage &image, const QString &path, bool preview = false);
     // 「顶端菜单隐藏时显示文件名 (Shift+TAB)」：画布顶部居中浮层，3s 后淡出。
     void showNameOverlay();
@@ -496,6 +500,9 @@ private:
     int m_interpMode = 1;      // 0 bilinear / 1 bicubic / 2 lanczos
     bool m_slideshow = false;
     bool m_slideshowRandom = false;
+    // 首尾「询问」确认框正在显示：连续触发只弹一次（模态期间幻灯片已暂停，
+    // 排队到达的翻页事件在这里被挡掉，不再叠第二个对话框）。
+    bool m_edgeAskBusy = false;
     bool m_cropMode = false;
     // 下一次全图就绪后做一次「按图调窗」（openFileFitting / 文件→打开 置位，
     // 见 fitWindowToImage()；翻页等其它打开路径不动它）

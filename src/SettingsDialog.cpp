@@ -2944,21 +2944,13 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
     const auto opts = lastFileOptions();
     auto *edge = addComboRow(sec, tr("到达首尾图片时执行"), QString(),
                              "edge_action", QStringLiteral("first"), opts, kGenComboW);
-    // 档位诚实化：DirectoryLoader 只实现 first / stop；ask 既没有询问对话框，
-    // 在 next/prev 与 advance 两条路径上的回绕行为还不一致，按缺口灰显。
-    if (auto *model = qobject_cast<QStandardItemModel *>(edge->model())) {
-        for (int i = 0; i < edge->count(); ++i) {
-            if (edge->itemData(i).toString() == QLatin1String("ask")) {
-                if (auto *item = model->item(i)) {
-                    item->setEnabled(false);
-                    item->setToolTip(tr("「询问」档暂无实现（无确认对话框），灰显不可选"));
-                }
-            }
-        }
-    }
+    // 翻页批次 2（2026-11-20）：「询问」已实现——边界弹一次确认，确认后从
+    // 另一端继续，取消留在当前图片；幻灯片到边界暂停，确认后恢复、取消后停止。
+    // 三档全部可选，旧配置 ask 自本批起按新定义直接生效。
+    descToRowTip(edge, tr("「询问」在翻到边界时弹确认；单图目录直接停住，不弹框"));
     // v2 母版：长说明收进分组提示（内容不丢），卡片只留设置行。
-    sec->setToolTip(tr("「转到首个文件」在末尾继续时回绕到首个；「停止」停在当前图片。"
-                       "「询问」档当前无询问对话框实现，已灰显，不按生效计。"));
+    sec->setToolTip(tr("「转到首个文件」在末尾继续时回绕到首个；「停止」停在当前图片；"
+                       "「询问」弹确认框，确认后从另一端继续，取消留在当前图片。"));
 
     // —— 一般页 v2 母版定稿（2026-11-11）：只改视觉，不动任何业务 ——
     // 控件高 30 与工厂一致；首尾下拉宽 154（v2 标注）。按钮按文字自然宽，
@@ -5509,18 +5501,8 @@ void SettingsDialog::loadBindingsFromConfig(int chkFrom, int comboFrom, int keyF
         const int idx = b.combo->findData(sGet(b.key, b.def));
         b.combo->setCurrentIndex(idx >= 0 ? idx : 0);
     }
-    // 旧配置 edge_action="ask"：「询问」档灰显（无实现），运行态已由
-    // Config::edgeAction() 折算为「停止」，下拉显示同步折算，不再呈现
-    // 「选着一个灰项」；配置原值保留，翻页批次 2 交付后按新定义启用。
-    for (int i = qMax(0, comboFrom); i < m_comboBinds.size(); ++i) {
-        const ComboBind &b = m_comboBinds.at(i);
-        if (qstrcmp(b.key, "edge_action") != 0
-            || sGet(b.key, b.def) != QLatin1String("ask"))
-            continue;
-        const int stopIdx = b.combo->findData(QStringLiteral("stop"));
-        if (stopIdx >= 0)
-            b.combo->setCurrentIndex(stopIdx);
-    }
+    // 翻页批次 2（2026-11-20）：「询问」已实现并启用，旧配置 edge_action="ask"
+    // 直接按原值显示与生效，不再折算为「停止」（批次 1 的临时折算已移除）。
     for (int i = qMax(0, keyFrom); i < m_keyRows.size(); ++i) {
         const KeyRow &r = m_keyRows.at(i);
         // 出厂无单键的动作（幻灯片 / 裁剪）默认不启用，避免「勾着但热键为空」；

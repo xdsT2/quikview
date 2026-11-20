@@ -41,7 +41,7 @@ public:
     bool exifSmallFont() const;        // EXIF / 文件信息用小字体（默认 12px，开则 10px）
     bool alwaysOnTop() const;          // 总在最前
     bool escExit() const;              // 按 ESC 退出
-    QString edgeAction() const;        // "first" | "stop"（默认 "first"；旧值 "ask" 折算为 "stop"，询问实现落地前）
+    QString edgeAction() const;        // "first" | "stop" | "ask"（默认 "first"；ask=边界弹确认，翻页批次 2 已实现）
 
     // 浏览
     // 背景/边框颜色与背景图访问器已随第 18 期「背景」段下线删除；
