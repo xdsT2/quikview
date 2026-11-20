@@ -1635,6 +1635,10 @@
             <source>窗口大小已锁定，先解锁才能最大化</source>
             <translation>Tamaño de ventana bloqueado: desbloquéelo para maximizar</translation>
         </message>
+        <message>
+            <source>图像编辑器路径无效，已改用系统默认程序打开</source>
+            <translation>La ruta del editor de imágenes no es válida; se abrió con el programa predeterminado del sistema.</translation>
+        </message>
     </context>
     <context>
         <name>MetadataPanel</name>

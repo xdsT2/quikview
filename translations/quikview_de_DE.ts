@@ -1635,6 +1635,10 @@
             <source>窗口大小已锁定，先解锁才能最大化</source>
             <translation>Fenstergröße ist gesperrt – zum Maximieren erst entsperren</translation>
         </message>
+        <message>
+            <source>图像编辑器路径无效，已改用系统默认程序打开</source>
+            <translation>Ungültiger Pfad zum Bildeditor; mit dem Standardprogramm des Systems geöffnet.</translation>
+        </message>
     </context>
     <context>
         <name>MetadataPanel</name>

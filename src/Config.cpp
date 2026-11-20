@@ -465,6 +465,20 @@ int Config::cacheSizeMb() const
 // 滚轮支持档（翻页批次 2）：无操作 / 放大 / 缩小 / 翻下一张 / 翻上一张。
 // 翻页走与点击动作同一个派发器（MainWindow::onMouseAction），连滚即连翻。
 static bool wheelActionSupported(const QString &v)
+bool Config::twoPageCover() const
+{
+    // 双页阅览分页规则开关：默认 false = 现状（第 1+2、3+4… 两两拼页）。
+    // 这一项每次拼页/翻页时读一次，手改 ini 无需重启。
+    return m_settings.value(QStringLiteral("config/two_page_cover"), false).toBool();
+}
+
+bool Config::arrowKeysScroll() const
+{
+    // 只在启动装键盘时读一次：改 ini 需重启生效（不跟随设置页即时监听）。
+    return m_settings.value(QStringLiteral("config/arrow_keys_scroll"), false).toBool();
+}
+
+bool Config::wheelZoom() const
 {
     return v == QLatin1String("none") || v == QLatin1String("zoom_in")
            || v == QLatin1String("zoom_out") || v == QLatin1String("next")

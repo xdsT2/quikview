@@ -1635,6 +1635,10 @@
             <source>窗口大小已锁定，先解锁才能最大化</source>
             <translation>ウィンドウサイズが固定されています。最大化するには解除してください</translation>
         </message>
+        <message>
+            <source>图像编辑器路径无效，已改用系统默认程序打开</source>
+            <translation>画像エディタのパスが無効です。システムの既定のプログラムで開きました。</translation>
+        </message>
     </context>
     <context>
         <name>MetadataPanel</name>

@@ -1635,6 +1635,10 @@
             <source>窗口大小已锁定，先解锁才能最大化</source>
             <translation>Taille de la fenêtre verrouillée — déverrouillez pour agrandir</translation>
         </message>
+        <message>
+            <source>图像编辑器路径无效，已改用系统默认程序打开</source>
+            <translation>Chemin de l'éditeur d'images invalide ; ouvert avec le programme par défaut du système.</translation>
+        </message>
     </context>
     <context>
         <name>MetadataPanel</name>

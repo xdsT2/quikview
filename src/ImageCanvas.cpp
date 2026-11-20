@@ -1650,6 +1650,20 @@ void ImageCanvas::pinHorizontalCenter()
     }
 }
 
+void ImageCanvas::scrollHorizontallyBy(qreal fraction)
+{
+    // 与 scrollVerticallyBy 同一条逻辑，换成水平滚动条与视口宽度。
+    QScrollBar *bar = horizontalScrollBar();
+    if (!bar) {
+        return;
+    }
+    const int span = bar->maximum() - bar->minimum();
+    if (span <= 0) {
+        return;
+    }
+    bar->setValue(bar->value() + qRound(viewport()->width() * fraction));
+}
+
 // ---------------------------------------------------------------------------
 // 侧边翻页箭头（原版：悬停才出现的 Chevron，点击即翻页）：
 //   命中口径与显示口径统一为同一个 SideArrow 48x88 矩形——箭头在哪，

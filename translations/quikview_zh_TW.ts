@@ -1635,6 +1635,10 @@
             <source>窗口大小已锁定，先解锁才能最大化</source>
             <translation>視窗大小已鎖定，先解鎖才能最大化</translation>
         </message>
+        <message>
+            <source>图像编辑器路径无效，已改用系统默认程序打开</source>
+            <translation>影像編輯器路徑無效，已改用系統預設程式開啟</translation>
+        </message>
     </context>
     <context>
         <name>MetadataPanel</name>

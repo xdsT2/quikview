@@ -332,6 +332,10 @@ private:
     void syncViewModeActions();              // 勾选态与内部状态对齐（硬规则：三者同步）
     void updateShowModeIcon();               // 工具栏图标：双页开取 spread，关取 zoom
     QString spreadSecondPath() const;        // 跨页的右/左手那张
+    // 双页翻页步进：默认恒为 2；开启「首图视为封面」后，封面页与第 2 张之间
+    // 只走 1 张（封面单独成页），其余跨页仍走 2 张。返回值用于 m_dir->advance()。
+    int spreadForwardStep() const;
+    int spreadBackwardStep() const;
     QImage readImageSync(const QString &path) const;   // 同步解码（双页拼图用）
     void refreshSpread();                    // 按当前索引重新拼接跨页
     void updateCanvasLogo();

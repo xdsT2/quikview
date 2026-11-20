@@ -1635,6 +1635,10 @@
             <source>窗口大小已锁定，先解锁才能最大化</source>
             <translation>Размер окна фиксирован — чтобы развернуть, снимите фиксацию</translation>
         </message>
+        <message>
+            <source>图像编辑器路径无效，已改用系统默认程序打开</source>
+            <translation>Недопустимый путь к редактору изображений; открыто программой по умолчанию.</translation>
+        </message>
     </context>
     <context>
         <name>MetadataPanel</name>

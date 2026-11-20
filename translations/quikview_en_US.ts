@@ -1635,6 +1635,10 @@
             <source>窗口大小已锁定，先解锁才能最大化</source>
             <translation>Window size is locked — unlock it to maximize</translation>
         </message>
+        <message>
+            <source>图像编辑器路径无效，已改用系统默认程序打开</source>
+            <translation>Invalid image editor path; opened with the system default program.</translation>
+        </message>
     </context>
     <context>
         <name>MetadataPanel</name>
