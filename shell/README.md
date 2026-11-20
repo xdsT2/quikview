@@ -1,5 +1,13 @@
 # QuikView Shell 扩展
 
+> **已作废（2026-11-20）**：本目录的 `build\libquikview_shell.dll` 与 `register.bat`
+> 指向旧的 CLSID 组，与正式 `quikthumb.dll` 注册冲突，误执行会覆盖正式注册、
+> 造成缩略图/右键错乱。`register.bat` 现已改为只拒绝执行（非 0 退出）。
+>
+> **正确入口**：[`../shell-ext/README.md`](../shell-ext/README.md) 的「注册 / 反注册（管理员 PowerShell）」一节，
+> 使用 `shell-ext\scripts\Register-QuikThumb.ps1` / `Unregister-QuikThumb.ps1`（64+32 位双视图）。
+> 本目录仅作为历史实现保留。
+
 Windows 资源管理器缩略图提供者（IThumbnailProvider），对照 Honeyview 的 HVShell32/64.dll。
 
 ## 功能
@@ -14,11 +22,14 @@ cmake -S . -B build -G Ninja
 cmake --build build
 ```
 
-## 注册（需管理员权限）
+## 注册（已作废，见上方说明）
 
-```bash
-register.bat            # 注册
-register.bat unregister # 注销
+本目录的 `register.bat` 已被禁用（执行只会打印提示并以非 0 退出），不再作为注册入口。
+请改用 [`../shell-ext/README.md`](../shell-ext/README.md) 的「注册 / 反注册（管理员 PowerShell）」一节：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File shell-ext\scripts\Register-QuikThumb.ps1
+powershell -ExecutionPolicy Bypass -File shell-ext\scripts\Unregister-QuikThumb.ps1
 ```
 
 注册后若缩略图未立即生效，重启 `explorer.exe` 或注销重登录。
