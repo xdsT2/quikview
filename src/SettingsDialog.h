@@ -552,8 +552,10 @@ private:
     void applyLanguageSelection();                    // 选中即装载 + 重译 + 写盘
     void refreshLanguageStatus();                     // 行内「当前档位 / 生效语言」
     void setLanguageStatus(const QString &text);
+    void openDownloadPageNow(QPushButton *btn);       // #88 发布页 + 结果态
     // 批次23 #87/#88/#89：语言页三行的行内状态（页面内即时反馈，不靠弹窗/外部程序）
     QLabel *m_langStatus = nullptr;
+    QLabel *m_langDownloadStatus = nullptr;
     QPushButton *m_checkUpdateBtn = nullptr;  // 一般页：手动检查更新
     // 三选一确认框执行中：主窗口 closeEvent 与 Qt 自动关闭子窗口可能
     // 在同一次退出里各调一次 reject()，此标志保证只弹一次。

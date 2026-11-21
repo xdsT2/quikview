@@ -2811,6 +2811,22 @@ QString setioTr(const char *text)
     return QCoreApplication::translate("SettingsDialog", text);
 }
 
+// 批次23 #88：语言页「下载更多语言」的发布页地址（改前硬编码在按钮 lambda 里，
+// 现在状态行也要给出同一个地址，提到一处常量避免两处走样）。
+constexpr const char *kLanguagePageUrl = "https://github.com/xdsT2/quikview";
+
+// 批次23 #88/#89：外部打开的唯一入口。QUIKVIEW_TEST_OPENURL=ok|fail 时只注入
+// 结果、不真的拉起浏览器 / 文件管理器，取证不污染用户系统状态。
+bool openExternalUrl(const QUrl &url)
+{
+    const QByteArray inject = qgetenv("QUIKVIEW_TEST_OPENURL").trimmed().toLower();
+    if (inject == "ok")
+        return true;
+    if (inject == "fail")
+        return false;
+    return QDesktopServices::openUrl(url);
+}
+
 } // namespace
 
 void SettingsDialog::markUnavailable(QWidget *w)
@@ -2978,15 +2994,17 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
     {
         SettingRowParts parts = addSettingRow(sec, tr("下载更多语言"), QString());
         auto *btn = addButton(nullptr, tr("下载更多语言"));
+        btn->setObjectName(QStringLiteral("langDownloadBtn"));
         parts.controls->addWidget(btn, 0, Qt::AlignVCenter);
-        connect(btn, &QPushButton::clicked, this, [this]() {
-            // 外部网页：只报告系统是否接受了打开请求；网络可达性不做验证。
-            if (!QDesktopServices::openUrl(
-                    QUrl(QStringLiteral("https://github.com/xdsT2/quikview")))) {
-                QMessageBox::warning(this, tr("下载更多语言"),
-                                     tr("无法打开浏览器。请手动访问：\n"
-                                        "https://github.com/xdsT2/quikview"));
+        m_langDownloadStatus = addHint(
+            sec, tr("点击后在系统浏览器打开 QuikView 发布页；应用内只报告系统是否接受打开请求。"));
+        connect(btn, &QPushButton::clicked, this, [this, btn]() {
+            btn->setEnabled(false);
+            if (m_langDownloadStatus) {
+                m_langDownloadStatus->setText(
+                    tr("正在请求系统打开：%1…").arg(QLatin1String(kLanguagePageUrl)));
             }
+            QTimer::singleShot(0, this, [this, btn]() { openDownloadPageNow(btn); });
         });
     }
     addHint(sec, tr("两个入口都会离开 QuikView，应用内只报告系统是否接受打开请求。"));
@@ -6667,6 +6685,21 @@ void SettingsDialog::setLanguageStatus(const QString &text)
 }
 
 
+// #88：发布页交给系统浏览器，行内报告「进行中 / 已请求 / 未接受」。
+void SettingsDialog::openDownloadPageNow(QPushButton *btn)
+{
+    const QUrl url(QString::fromLatin1(kLanguagePageUrl));
+    const bool opened = openExternalUrl(url);
+    if (m_langDownloadStatus) {
+        m_langDownloadStatus->setText(
+            opened ? tr("已请求系统打开 %1，由系统浏览器接管。")
+                         .arg(QString::fromLatin1(kLanguagePageUrl))
+                   : tr("系统未接受打开请求，请手动访问：%1")
+                         .arg(QString::fromLatin1(kLanguagePageUrl)));
+    }
+    if (btn)
+        btn->setEnabled(true);
+}
 
 void SettingsDialog::capturePendingBaseline(int keyFrom)
 {
