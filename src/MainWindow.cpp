@@ -81,6 +81,7 @@
 #include "ImageCanvas.h"
 #include "MenuCatalog.h"
 #include "PsdLoader.h"
+#include "SvgLoader.h"      // 矢量 SVG：QSvgRenderer 栅格化（派单 2026-11-18）
 #include "LayerPanel.h"
 #include "ImageEffects.h"
 #include "MetadataPanel.h"
@@ -2893,13 +2894,12 @@ bool MainWindow::isSupportedImagePath(const QString &path)
     if (suffix.isEmpty()) {
         return false;
     }
-    const QList<QByteArray> formats = QImageReader::supportedImageFormats();
-    for (const QByteArray &fmt : formats) {
-        if (suffix == QLatin1String(fmt.constData())) {
-            return true;
-        }
-    }
-    return false;
+    // 白名单只有一份（DirectoryLoader 的分组表）：这里不再读
+    // QImageReader::supportedImageFormats() —— SVG 走 SvgLoader 而不是插件，
+    // 插件在不在、认不认 svg 都不该决定「能不能打开」。顺带把 jp2 这类
+    // 「Qt 能读、白名单刻意不收」的格式挡掉，与目录扫描口径一致。
+    return DirectoryLoader::imageExtensions().contains(QStringLiteral("*.") + suffix,
+                                                       Qt::CaseInsensitive);
 }
 
 void MainWindow::openFile(const QString &path, bool transient)
@@ -3692,6 +3692,19 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error,
             showFailure(tr("无法打开 %1：%2").arg(QFileInfo(path).fileName(), error));
             m_toast->showMessage(tr("无法打开：%1").arg(error), Chrome::Toast::Tone::Error);
         }
+        return;
+    }
+    // SVG 走 SvgLoader（QSvgRenderer 栅格化）：失败类别由 loader 层定性，
+    // 与 PSD 一样不再回落 RAW/HEIF（它们只认各自格式，只会把原因改写成
+    // 「libraw 打开失败」这类与文件无关的误导文案）。诊断细节仍要落盘，
+    // 否则 loadreport 只能看到「无法解码」，分不清是损坏还是缺 viewBox。
+    if (SvgLoader::isSvgPath(path)) {
+        m_lastLoadError = QStringLiteral("path=%1 | svg=%2")
+                              .arg(path, error.isEmpty() ? QStringLiteral("(empty)") : error);
+        const QString detail = advice.isEmpty() ? tr("暂不支持该格式") : advice;
+        const QString text = tr("无法打开 %1：%2").arg(QFileInfo(path).fileName(), detail);
+        showFailure(text);
+        m_toast->showMessage(text, Chrome::Toast::Tone::Error);
         return;
     }
     QString rawErr;

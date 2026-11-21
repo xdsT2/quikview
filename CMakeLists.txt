@@ -104,6 +104,10 @@ add_executable(quikview WIN32
     src/PanoChip.h
     src/PsdLoader.cpp
     src/PsdLoader.h
+    # 矢量 SVG 打开（派单 2026-11-18 格式扩展三件）：QSvgRenderer 栅格化，
+    # 依赖上面已链的 Qt6::Svg；不依赖 imageformats/qsvg 插件
+    src/SvgLoader.cpp
+    src/SvgLoader.h
     src/LayerPanel.cpp
     src/LayerPanel.h
     resources/ui.qrc

@@ -35,11 +35,13 @@ struct ImageGroup
 // jp2/j2k 已移除（2026-10-25）：Qt 的 openjpeg 插件对常见 JP2 报
 // component data type mismatch，Jasper 能读的文件现实中基本不存在——
 // 与动 WebP 同一原则：做不好就不让用户碰到。插件保留，将来换解码器可直接恢复。
+// svg（2026-11-18 格式扩展三件）：不在 supportedImageFormats 里，解码走
+// SvgLoader（QSvgRenderer 栅格化），见该文件头的路线说明。
 const char *const kCommonExts[] = { "png", "jpg", "jpeg", "jfif", "bmp", "gif",
                                     "webp", "tif", "tiff" };
 const char *const kIconExts[]   = { "ico", "cur", "icns" };
 const char *const kOtherExts[]  = { "tga", "mng", "wbmp",
-                                    "ppm", "pgm", "pbm", "xbm", "xpm", "psd" };
+                                    "ppm", "pgm", "pbm", "xbm", "xpm", "psd", "svg" };
 const char *const kCameraExts[] = { "heic", "heif", "hif", "avif",
                                     "dng", "nef", "cr2", "arw",
                                     "rw2", "orf", "raf", "pef", "raw" };
@@ -67,15 +69,16 @@ QStringList groupPatterns(const ImageGroup &g)
 
 // 包内可解码的格式：同一张表派生，但去掉「必须走文件级 loader」的几类——
 // PSD 走 PsdLoader（从磁盘读文件）、相机/HEIF 格式走 libraw / libheif（同样
-// 只接受文件路径）。它们在压缩包里拿不到 QIODevice，列出来只会变成「打不开」。
+// 只接受文件路径）、SVG 走 SvgLoader（QSvgRenderer 按栅格上限渲染磁盘文件）。
+// 它们在压缩包里拿不到 QIODevice，列出来只会变成「打不开」。
 bool isArchiveDecodableExt(const QString &ext)
 {
     static const QSet<QString> kFileOnly = {
-        QStringLiteral("psd"), QStringLiteral("heic"), QStringLiteral("heif"),
-        QStringLiteral("hif"), QStringLiteral("avif"), QStringLiteral("dng"),
-        QStringLiteral("nef"), QStringLiteral("cr2"), QStringLiteral("arw"),
-        QStringLiteral("rw2"), QStringLiteral("orf"), QStringLiteral("raf"),
-        QStringLiteral("pef"), QStringLiteral("raw")
+        QStringLiteral("psd"), QStringLiteral("svg"), QStringLiteral("heic"),
+        QStringLiteral("heif"), QStringLiteral("hif"), QStringLiteral("avif"),
+        QStringLiteral("dng"), QStringLiteral("nef"), QStringLiteral("cr2"),
+        QStringLiteral("arw"), QStringLiteral("rw2"), QStringLiteral("orf"),
+        QStringLiteral("raf"), QStringLiteral("pef"), QStringLiteral("raw")
     };
     return !kFileOnly.contains(ext);
 }

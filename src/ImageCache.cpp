@@ -9,6 +9,7 @@
 #include <QImageIOHandler>
 #include <QImageReader>
 #include "PsdLoader.h"
+#include "SvgLoader.h"      // 矢量 SVG：QSvgRenderer 栅格化（派单 2026-11-18）
 #include <QtConcurrent/QtConcurrent>
 
 #include "Config.h"
@@ -186,6 +187,11 @@ void ImageCache::startNextPreload()
             img = ArchiveStore::decode(path, QSize(), &ignored);
         } else if (PsdLoader::isPsdPath(path)) {
             img = PsdLoader::load(path, false).composite;
+        } else if (SvgLoader::isSvgPath(path)) {
+            // 预读不接矢量：SVG 必须按视口尺寸栅格化，预读时拿不到视口宽度，
+            // 存一张「自带尺寸」的位图，fit 查看时会被放大成糊图（图标型 SVG
+            // 尤其明显，16×16 的标志放大会糊），而 SvgLoader 单张只要几十毫秒，
+            // 省这点时间不值。这里不解，走「空结果」让预读队列自然跳过这张。
         } else {
             QImageReader reader(path);
             reader.setAutoTransform(true);
@@ -266,6 +272,10 @@ void ImageCache::startDragDecode()
         if (ArchiveStore::isEntryPath(path)) {
             QString ignored;
             img = ArchiveStore::decode(path, size, &ignored);
+        } else if (SvgLoader::isSvgPath(path)) {
+            // 拖动跟手预览：按视口盒缩到不大于目标（矢量只缩不放）
+            QString ignored;
+            img = SvgLoader::render(path, size, false, &ignored);
         } else {
             QImageReader reader(path);
             reader.setAutoTransform(true);
@@ -384,7 +394,31 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
             }, Qt::QueuedConnection);
             return;
         }
+        // SVG 走 SvgLoader（QSvgRenderer 栅格化，不依赖 imageformats/qsvg 插件）：
+        // 矢量没有「按比例解码」的概念，一次渲染到「不小于视口、且有上限」的栅格，
+        // 因此不走下面的快帧两级；失败类别由 loader 层定性（坏文件＝Corrupt、
+        // 后缀是 svg 但内容不是 SVG 文本＝Unsupported）。
+        if (SvgLoader::isSvgPath(path)) {
+            QString svgErr;
+            LoadErrorCategory svgCat = LoadErrorCategory::None;
+            const QImage img = SvgLoader::render(path, previewSize, true, &svgErr, &svgCat);
+            QMetaObject::invokeMethod(this, [this, path, img, svgErr, svgCat, generation]() {
+                finishFullDecode(path, img, generation, svgErr, svgCat);
+            }, Qt::QueuedConnection);
+            return;
+        }
         const bool rawFile = isRawFilePath(path);
+        // 「不打开 RAW 图片文件」必须在最前面短路：NEF/CR2/DNG 本身就是 TIFF 容器，
+        // Qt 的 tiff 插件按内容嗅探能读出内嵌预览（常见 160×120），先前的守卫只挡
+        // libraw，结果开关打开仍然上屏，等于没关。这里不给任何解码路径留口子，
+        // 直接按失败回主线程 → onLoadFailed 给「已在设置中禁用 RAW 解码」。
+        if (rawFile && Config::instance().noRawLoad()) {
+            QMetaObject::invokeMethod(this, [this, path, generation]() {
+                finishFullDecode(path, QImage(), generation, QString(),
+                                 LoadErrorCategory::None);
+            }, Qt::QueuedConnection);
+            return;
+        }
         // RAW 内嵌缩略图优先上屏（键 "config/etc/raw_thumbnail"，默认开）：
         // libraw unpack_thumb 通常几十毫秒，先顶住首屏，全尺寸随后在同一后台
         // 线程继续解。「不打开 RAW」时连缩略图也不出，交给 onLoadFailed 提示。
@@ -581,6 +615,12 @@ void ImageCache::requestThumbnail(const QString &path, const QSize &size)
             if (!thumb.isNull() && (thumb.width() > size.width() || thumb.height() > size.height()))
                 thumb = thumb.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
             return thumb;
+        }
+        if (SvgLoader::isSvgPath(path)) {
+            // 缩略图/胶片栏/总览网格：直接按请求盒栅格化（矢量按目标尺寸渲染，
+            // 比「先渲原尺寸再缩」既快又不糊）
+            QString ignored;
+            return SvgLoader::render(path, size, false, &ignored);
         }
         QImageReader reader(path);
         reader.setAutoTransform(true);
