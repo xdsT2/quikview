@@ -6845,8 +6845,10 @@ void SettingsDialog::connectPageWidgets(QWidget *page)
         return w && (!page || page == w || page->isAncestorOf(w));
     };
     if (owns(m_cacheSize)) {
+        // 批次04 #22：缓存大小走「下发运行态 → 写盘 → 失败回退」同一口径，
+        // 不在 connectInstantSignals 之外偷偷只写配置。
         connect(m_cacheSize, &QSpinBox::valueChanged, this, [this](int v) {
-            applyInstantValue(QStringLiteral("imageproc/cache_size_mb"), v);
+            applyCacheSizeLive(v);
         });
     }
     if (owns(m_maxBookmarks)) {
