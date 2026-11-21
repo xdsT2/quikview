@@ -43,6 +43,7 @@
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QSettings>
 #include <QPixmap>
 #include <QPrintDialog>
 #include <QPrinter>
@@ -4279,7 +4280,10 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     // Lanczos 模式下等于每次翻页多做一次全图重采样。
     // 翻页效果（键 "config/imageproc/pageturn_fx"）：只在上屏一张「不同路径」的
     // 整图时触发；首图、原地重绘（旋转/效果）、滑块跟手预览都不算换页。
-    const int pageFx = Config::instance().pageTurnFx();
+    // 批次05：设置页会话内的覆盖优先（它先下发运行态、后写盘，直接读配置会读到
+    // 旧档位），无覆盖时才读配置。
+    const int pageFx = (m_livePageTurnFx >= 0) ? m_livePageTurnFx
+                                               : Config::instance().pageTurnFx();
     // 滑块跟手预览（onDragPreviewReady）不推动画；它落地成全图时也不再算一次翻页，
     // 否则拖动结束时还会补一次过渡。其余整图换页（含快帧预览后的全图）照常触发。
     const bool fromDragPreview = (path == m_dragPreviewPath);
@@ -4292,8 +4296,11 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     // 减少动效：切图直接完成，只保留选中描边等颜色/文字状态反馈。
     if (pageTurn && pageFx > 0 && !m_zoomLocked && !Chrome::reducedMotion()) {
         m_canvas->setPixmapAnimated(QPixmap::fromImage(display), pageFx, /*fitAfter=*/false);
+        m_lastPageTurnFxUsed = pageFx;   // 验收：这一次换页真的用了哪一档
     } else {
         m_canvas->setPixmap(QPixmap::fromImage(display), /*fitAfter=*/false);
+        if (pageTurn)
+            m_lastPageTurnFxUsed = 0;    // 换页但按「无过渡」上屏
     }
     // 保存缩放状态（键 "config/view/save_zoom_state"）：开关开着且该路径有记录时，
     // 按记录恢复（fit / width / 具体比例）；没有记录才回落到 default_zoom。
@@ -5340,6 +5347,67 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         onStretchSmall(c == QLatin1String("stretchon"));
     }
     else if (c.startsWith(QLatin1String("interp:"))) { setInterpolationMode(c.mid(7)); }
+    // cshot:<png> —— 只抓画布（插值/背景类验收要看像素，不能只看 ini）
+    else if (c.startsWith(QLatin1String("cshot:"))) {
+        if (m_canvas)
+            m_canvas->grab().save(c.mid(6).trimmed());
+    }
+    // zoomto:<pct> —— 缩放到指定百分比（插值档差异在 25%~50% 最明显）
+    else if (c.startsWith(QLatin1String("zoomto:"))) {
+        if (m_canvas && c.mid(7).toDouble() > 0)
+            m_canvas->setZoom(c.mid(7).toDouble() / 100.0);
+    }
+    // —— 批次05 图像处理页五项验收探针 ——
+    // iprobe:<k=v+k=v> —— 打开设置页并切到对应页，按配置键真实切档（下拉走
+    // currentIndexChanged、开关走 PillToggle::click），逐项 dump 控件/getter/ini/运行态。
+    else if (c.startsWith(QLatin1String("iprobe:"))) {
+        if (!m_settingsDlg || !m_settingsDlg->isVisible())
+            onSettings();
+        // 语法：iprobe:<k=v+…>[@cancel|esc|close|save] —— 一条命令跑「切档 → 截图 → 关窗」
+        QString spec = c.mid(7);
+        QString close;
+        const int at = spec.indexOf(u'@');
+        if (at >= 0) {
+            close = spec.mid(at + 1).trimmed();
+            spec = spec.left(at);
+        }
+        if (auto *dlg = qobject_cast<SettingsDialog *>(m_settingsDlg.data()))
+            dlg->probeImgProcLive(spec, close);
+    }
+    // ipclose:<cancel|esc|close|save> —— 走「取消」钮 / Esc / 标题栏 ✕ / 保存设置
+    // 四条真实关闭路径（回滚与保留都用同一条 reject / accept 链路）。
+    else if (c.startsWith(QLatin1String("ipclose:"))) {
+        if (auto *dlg = qobject_cast<SettingsDialog *>(m_settingsDlg.data()))
+            dlg->probeImgProcLive(QString(), c.mid(8).trimmed());
+    }
+    // ipstep:<k=v+…> —— 设置页已开时追加一次切档（不关窗），用于「先切档再翻页」的时序验收
+    else if (c.startsWith(QLatin1String("ipstep:"))) {
+        if (auto *dlg = qobject_cast<SettingsDialog *>(m_settingsDlg.data()))
+            dlg->probeImgProcApply(c.mid(7));
+    }
+    // ipdump[:<out>] —— 运行态 + ini 一次落盘（翻页前后各打一次，比较 lastfx）
+    else if (c.startsWith(QLatin1String("ipdump"))) {
+        const QString out = c.startsWith(QLatin1String("ipdump:"))
+                                ? c.mid(7).trimmed() : QStringLiteral("Temp/ip-live-dump.txt");
+        QFile f(out);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+            QTextStream ts(&f);
+            const QSettings &s = Config::instance().settings();
+            ts << "label=" << qEnvironmentVariable("QUIKVIEW_PROBE_LABEL")
+               << " runtime " << imageProcLiveStateDump()
+               << " ini preview_mode="
+               << s.value(QStringLiteral("config/imageproc/preview_mode")).toString()
+               << " interpolate="
+               << s.value(QStringLiteral("config/imageproc/interpolate")).toString()
+               << " pageturn_fx="
+               << s.value(QStringLiteral("config/imageproc/pageturn_fx")).toString()
+               << " gif_transparent="
+               << s.value(QStringLiteral("config/imageproc/gif_transparent")).toString()
+               << " canvas_bg="
+               << s.value(QStringLiteral("config/imageproc/canvas_bg")).toString()
+               << "\n";
+        }
+    }
     // 双页维度：l2r/r2l = 直接设定方向（不 toggle，冒烟要确定性）；
     // off = 关双页（缩放保留）；toggle / toggle:r2l = 走菜单勾选项同一条 QAction::triggered，
     // 等价于按 7 / 6（验证「点已勾项=取消」的语义）。
@@ -7313,7 +7381,10 @@ void MainWindow::showAnimFrame(const QImage &img)
 // imageproc/gif_custom_color，只影响显示铺底，源文件/复制/导出保持原透明。
 QImage MainWindow::applyGifBackdrop(const QImage &img) const
 {
-    const int mode = Config::instance().gifTransparent();
+    // 即时档位优先：设置页先下运行态再写盘，重绘必须按「刚切的那一档」铺底，
+    // 否则选完档当屏仍按旧底色，只有下一帧/下次开图才变（假即时）。
+    const int mode = m_liveGifTransparent >= 0 ? m_liveGifTransparent
+                                               : Config::instance().gifTransparent();
     if (mode <= 0 || !img.hasAlphaChannel()) {
         return img;
     }
@@ -8902,7 +8973,45 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         || key == QLatin1String("imageproc/gif_custom_color")) {
         // GIF 铺底档 / 自定义色即时重绘（翻页批次 2）：当前图是 GIF 才重铺，
         // 其他格式不受影响；动画下一帧起也按新背景铺（showAnimFrame 现读）。
+        if (key == QLatin1String("imageproc/gif_transparent"))
+            m_liveGifTransparent = qBound(0, value.toInt(), 4);
         redrawGifBackdrop();
+        return true;
+    }
+
+    // —— 全量即时化批次05 · 图像处理页五项（#24/#29/#30）——
+    if (key == QLatin1String("imageproc/interpolate")) {
+        // #29 插值算法：设置页值是 "0"/"1"/"2"（0 bilinear / 1 bicubic / 2 lanczos）。
+        // setInterpolationMode 会同步桥键 config/interpolation、菜单勾选，并对当前
+        // 画面做一次重新采样——缩放到 25% 时切换，锯齿/锐度当场可见。
+        const QString v = value.toString();
+        const QString mode = (v == QLatin1String("0"))   ? QStringLiteral("bilinear")
+                           : (v == QLatin1String("1"))   ? QStringLiteral("bicubic")
+                           : (v == QLatin1String("2"))   ? QStringLiteral("lanczos")
+                                                         : QString();
+        if (mode.isEmpty()) {
+            if (error)
+                *error = tr("未知的插值档位：%1").arg(v);
+            return false;
+        }
+        setInterpolationMode(mode);
+        return true;
+    }
+
+    if (key == QLatin1String("imageproc/preview_mode")) {
+        // #24 先显示低品质图片：解码在后台线程，消费点是「下一次 startFullDecode」。
+        // 覆盖位给解码线程读，设置页随后写盘；失败注入时覆盖不落地，不会分叉。
+        m_livePreviewMode = value.toBool() ? 1 : 0;
+        if (m_cache)
+            m_cache->setPreviewModeLive(true, value.toBool());
+        return true;
+    }
+
+    if (key == QLatin1String("imageproc/pageturn_fx")) {
+        // #30 翻页效果：showImage 的换页分支现读这一档。覆盖位让「下一次翻页」
+        // 当场按新档位过渡；实际用到的档位记进 m_lastPageTurnFxUsed 供验收。
+        const int fx = qBound(0, value.toInt(), 3);
+        m_livePageTurnFx = fx;
         return true;
     }
 
@@ -8983,6 +9092,22 @@ QVariant MainWindow::liveSettingValue(const QString &key) const
         return Config::instance().saveZoomState();
     if (key == QLatin1String("view/show_tooltip"))
         return Config::instance().showTooltip();
+    // 批次05：这五项优先返回会话内覆盖，没有覆盖时回落配置——验收脚本用它核对
+    // 「设置页显示的档位 ↔ 运行态真的按这一档走」。
+    if (key == QLatin1String("imageproc/interpolate"))
+        return QString::number(m_interpMode);   // 与设置页 data（"0"/"1"/"2"）同口径
+    if (key == QLatin1String("imageproc/preview_mode"))
+        return m_livePreviewMode >= 0 ? (m_livePreviewMode != 0)
+                                      : Config::instance().previewMode();
+    if (key == QLatin1String("imageproc/pageturn_fx"))
+        return m_livePageTurnFx >= 0 ? m_livePageTurnFx : Config::instance().pageTurnFx();
+    if (key == QLatin1String("imageproc/gif_transparent"))
+        return m_liveGifTransparent >= 0 ? m_liveGifTransparent
+                                         : Config::instance().gifTransparent();
+    if (key == QLatin1String("imageproc/canvas_bg"))
+        return m_canvas ? (m_canvas->canvasBackdrop() == int(UiStyle::canvas::Backdrop::Solid)
+                              ? QStringLiteral("solid") : QStringLiteral("checker"))
+                        : Config::instance().canvasBackdrop();
     return QVariant();
 }
 
@@ -9022,6 +9147,36 @@ QString MainWindow::viewLiveStateDump() const
         .arg(QToolTip::isVisible() ? 1 : 0)
         .arg(m_currentPath.isEmpty() ? QStringLiteral("(none)")
                                      : QFileInfo(m_currentPath).fileName());
+}
+
+QString MainWindow::imageProcLiveStateDump() const
+{
+    // 只读真实运行态：画布当前插值档、解码覆盖位、最近一次换页实际用的档位、
+    // 画布背景材质、GIF 铺底覆盖位、当前图与缩放。ini 由探针另行读取比对。
+    return QStringLiteral("interp=%1 preview=%2 pagefx=%3 lastfx=%4 backdrop=%5 gif=%6 "
+                          "zoom=%7 cur=%8 menu=%9")
+        .arg(m_interpMode)
+        .arg(m_livePreviewMode >= 0 ? (m_livePreviewMode != 0 ? 1 : 0)
+                                    : (Config::instance().previewMode() ? 1 : 0))
+        .arg(m_livePageTurnFx >= 0 ? m_livePageTurnFx : Config::instance().pageTurnFx())
+        .arg(m_lastPageTurnFxUsed)
+        .arg(m_canvas ? (m_canvas->canvasBackdrop()
+                                 == int(UiStyle::canvas::Backdrop::Solid)
+                             ? QStringLiteral("solid") : QStringLiteral("checker"))
+                      : QStringLiteral("na"))
+        .arg(m_liveGifTransparent >= 0 ? m_liveGifTransparent
+                                       : Config::instance().gifTransparent())
+        .arg(m_canvas ? QString::number(m_canvas->zoom(), 'f', 4) : QStringLiteral("na"))
+        .arg(m_currentPath.isEmpty() ? QStringLiteral("(none)")
+                                     : QFileInfo(m_currentPath).fileName())
+        .arg(QStringLiteral("%1%2%3")
+                 .arg(actInterpFast && actInterpFast->isChecked() ? 1 : 0)
+                 .arg(actInterpSmooth && actInterpSmooth->isChecked() ? 1 : 0)
+                 .arg(actInterpLanczos && actInterpLanczos->isChecked() ? 1 : 0));
+}
+bool MainWindow::grabCanvasTo(const QString &path) const
+{
+    return m_canvas && !path.isEmpty() && m_canvas->grab().save(path);
 }
 
 // 退出流程（2026-11-10 返工）：标题栏 × / F4 / 右键退出 / X / Ctrl+Q /
@@ -9156,6 +9311,13 @@ void MainWindow::finishSettings()
     // 预览会话结束：清掉运行态覆盖，之后一律以配置为准（保存=新值，取消=旧值）。
     m_liveZoomControlOverrideSet = false;
     m_liveAnimControlOverrideSet = false;
+    // 批次05：五项覆盖位一并复位。取消/✕ 时设置页已把配置回滚到基线，这里清覆盖
+    // 正好让运行态跟着配置回到基线；保存时配置=新值，覆盖清掉后行为不变。
+    m_livePreviewMode = -1;
+    m_livePageTurnFx = -1;
+    m_liveGifTransparent = -1;
+    if (m_cache)
+        m_cache->setPreviewModeLive(false, true);
     // 设置页可能改了主题（三档）；按当前取值重新解析应用（system 时随系统）。
     // 磨砂开关要先落进 UiStyle，否则 appQss() 里菜单底还是旧的不透明度。
     const QString theme = Config::instance().theme();

@@ -3387,9 +3387,11 @@ https://github.com/xdsT2/quikview</translation>
         </message>
         <message>
             <source>待保存：%1
-「不保存」只放弃这些草稿；浏览页的缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示会回到进入设置时的状态，其余即时设置保留。</source>
-            <translation>保存待ち：%1
-「保存しない」で破棄されるのはこの下書きのみです。表示ページのズーム記憶 / ファイル名オーバーレイ / フレーム番号表示 / ホバーヒントは設定を開く前の状態に戻り、それ以外の即時設定は保持されます。</translation>
+
+「不保存」只放弃这些草稿；浏览页四项与图像处理/外观页的即时档位（插值、快帧策略、翻页效果、GIF 底色、画布背景）会回到进入设置时的状态，其余即时设置保留。</source>
+            <translation>未保存：%1
+
+「保存しない」はこれらの下書きだけを破棄します。閲覧ページの4項目と画像処理／外観ページの即時設定（補間、高速フレーム方式、ページめくり効果、GIF 背景色、キャンバス背景）は設定を開いた時点の状態に戻り、その他の即時設定は保持されます。</translation>
         </message>
         <message>
             <source>保存并关闭</source>
@@ -3551,7 +3553,35 @@ https://github.com/xdsT2/quikview</translation>
             <source>旋转/翻转立即写回原文件；RAW 与动图不受影响</source>
             <translation>回転/反転は元のファイルへ即時書き戻します。RAW とアニメーション画像は対象外です</translation>
         </message>
-    </context>
+            <message>
+            <source>双线性 (快)</source>
+            <translation>双線形 (高速)</translation>
+        </message>
+        <message>
+            <source>双三次 (平滑)</source>
+            <translation>双三次 (滑らか)</translation>
+        </message>
+        <message>
+            <source>缩放重采样时使用；双线性最快、双三次为默认，Lanczos 最锐</source>
+            <translation>ズーム時の再サンプリングに使用。双線形が最速、双三次が既定、Lanczos が最もシャープ</translation>
+        </message>
+        <message>
+            <source>「%1」已即时生效：%2 · %3；无需保存，按「取消」/ Esc 会回到进入设置时的状态。</source>
+            <translation>「%1」は即時反映されました：%2 · %3。保存は不要です。「キャンセル」/ Esc で設定を開いた時点の状態に戻ります。</translation>
+        </message>
+        <message>
+            <source>已放弃本次改动：图像处理页的即时项已回到进入设置时的状态。</source>
+            <translation>変更を破棄しました：画像処理ページの即時項目は設定を開いた時点の状態に戻りました。</translation>
+        </message>
+        <message>
+            <source>已放弃本次改动：翻页效果已回到进入设置时的档位。</source>
+            <translation>変更を破棄しました：ページめくり効果は設定を開いた時点の値に戻りました。</translation>
+        </message>
+        <message>
+            <source>已即时生效：%1 · %2</source>
+            <translation>即時反映：%1 · %2</translation>
+        </message>
+</context>
     <context>
         <name>ThumbnailBrowser</name>
         <message>

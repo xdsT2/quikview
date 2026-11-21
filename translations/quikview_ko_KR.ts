@@ -3387,9 +3387,11 @@ https://github.com/xdsT2/quikview</translation>
         </message>
         <message>
             <source>待保存：%1
-「不保存」只放弃这些草稿；浏览页的缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示会回到进入设置时的状态，其余即时设置保留。</source>
-            <translation>저장 대기: %1
-"저장 안 함"은 이 초안만 버립니다. 보기 페이지의 확대 기억 / 파일 이름 오버레이 / 프레임 번호 정보 / 호버 힌트는 설정을 열었던 상태로 돌아가고, 나머지 즉시 설정은 유지됩니다.</translation>
+
+「不保存」只放弃这些草稿；浏览页四项与图像处理/外观页的即时档位（插值、快帧策略、翻页效果、GIF 底色、画布背景）会回到进入设置时的状态，其余即时设置保留。</source>
+            <translation>저장되지 않음: %1
+
+“저장 안 함”은 이 초안만 버립니다. 찾아보기 페이지 4개 항목과 이미지 처리/모양 페이지의 즉시 설정(보간, 고속 프레임 방식, 페이지 넘김 효과, GIF 배경색, 캔버스 배경)은 설정을 열었을 때 상태로 돌아가고, 나머지 즉시 설정은 유지됩니다.</translation>
         </message>
         <message>
             <source>保存并关闭</source>
@@ -3551,7 +3553,35 @@ https://github.com/xdsT2/quikview</translation>
             <source>旋转/翻转立即写回原文件；RAW 与动图不受影响</source>
             <translation>회전/뒤집기는 원본 파일에 즉시 기록됩니다. RAW 및 애니메이션 이미지는 적용되지 않습니다</translation>
         </message>
-    </context>
+            <message>
+            <source>双线性 (快)</source>
+            <translation>쌍선형 (빠름)</translation>
+        </message>
+        <message>
+            <source>双三次 (平滑)</source>
+            <translation>쌍3차 (부드러움)</translation>
+        </message>
+        <message>
+            <source>缩放重采样时使用；双线性最快、双三次为默认，Lanczos 最锐</source>
+            <translation>확대/축소 리샘플링에 사용됩니다. 쌍선형이 가장 빠르고, 쌍3차가 기본, Lanczos가 가장 선명합니다</translation>
+        </message>
+        <message>
+            <source>「%1」已即时生效：%2 · %3；无需保存，按「取消」/ Esc 会回到进入设置时的状态。</source>
+            <translation>“%1”이(가) 즉시 적용되었습니다: %2 · %3. 저장이 필요 없으며, “취소”/Esc를 누르면 설정을 열었을 때 상태로 돌아갑니다.</translation>
+        </message>
+        <message>
+            <source>已放弃本次改动：图像处理页的即时项已回到进入设置时的状态。</source>
+            <translation>변경 사항을 취소했습니다: 이미지 처리 페이지의 즉시 적용 항목이 설정을 열었을 때 상태로 돌아갔습니다.</translation>
+        </message>
+        <message>
+            <source>已放弃本次改动：翻页效果已回到进入设置时的档位。</source>
+            <translation>변경 사항을 취소했습니다: 페이지 넘김 효과가 설정을 열었을 때 값으로 돌아갔습니다.</translation>
+        </message>
+        <message>
+            <source>已即时生效：%1 · %2</source>
+            <translation>즉시 적용: %1 · %2</translation>
+        </message>
+</context>
     <context>
         <name>ThumbnailBrowser</name>
         <message>

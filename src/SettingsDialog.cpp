@@ -25,6 +25,7 @@
 #include <QToolTip>
 #include <QCursor>
 #include <QDateTime>
+#include <QTime>
 #include <QSaveFile>
 #include <QSettings>
 #include <QStandardPaths>
@@ -1787,6 +1788,8 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     selectPage(0);
     mark("select-page0");
     capturePendingBaseline();
+    // 批次05：图像处理/外观五项在进入设置时快照档位（取消、Esc、✕ 回滚用）。
+    captureImgProcBaseline();
     updatePendingNote();
     // 即时项在加载完控件后再接信号：避免开窗时的 setChecked 触发一次写盘。
     connectLiveChecks();
@@ -1910,6 +1913,7 @@ void SettingsDialog::ensurePageBuilt(int index)
     const int keyFrom = m_keyRows.size();
     const int mouseFrom = m_mouseRows.size();
     const int liveFrom = m_liveChecks.size();
+    const int liveComboFrom = m_liveCombos.size();
 
     QElapsedTimer pageTimer;
     pageTimer.start();
@@ -1923,6 +1927,7 @@ void SettingsDialog::ensurePageBuilt(int index)
     finishPageLayout(index);
     rebuildPageSearchIndex(index);
     connectLiveChecks(liveFrom);
+    connectLiveCombos(liveComboFrom);
     connectInstantSignals(chkFrom, comboFrom, keyFrom, mouseFrom);
     connectPageWidgets(page);
     capturePendingBaseline(keyFrom);
@@ -3073,10 +3078,15 @@ void SettingsDialog::buildViewPage(QWidget *page)
     sec->setToolTip(tr("「转到首个文件」在末尾继续时回绕到首个；「停止」停在当前图片；"
                        "「询问」弹确认框，确认后从另一端继续，取消留在当前图片。"));
     // 翻页效果（原「图像处理」页）：「无 / 淡入淡出 / Alpha 滑动 / 滑动」四档不变。
-    addComboRow(sec, tr("翻页效果"), QString(),
+    // 批次05 #30：注册为即时项——下一张换页当场按新档位过渡（首图、旋转、滑块
+    // 跟手预览都不算换页，见 showImage 的 pageTurn 判定）。
+    auto *pageFx = addComboRow(sec, tr("翻页效果"), QString(),
                 "imageproc/pageturn_fx", QStringLiteral("1"),
                 { { "0", tr("无") }, { "1", tr("淡入淡出") },
                   { "2", tr("Alpha 滑动") }, { "3", tr("滑动") } });
+    descToRowTip(pageFx, tr("只对「换到另一张图」生效：翻到下一张、缩略图跳转、幻灯片切页"));
+    m_liveCombos.append({ pageFx, QStringLiteral("imageproc/pageturn_fx"),
+                          tr("翻页效果"), QString() });
     // 翻页音效（原「杂项」页）：键与默认值不变，消费点仍在每次翻页。
     // 2026-11-21：行名收成「翻页音效」，让搜索「翻页音效」直接命中本页。
     auto *pageturnWav = addSwitchRow(sec, tr("翻页音效"),
@@ -3197,6 +3207,8 @@ void SettingsDialog::buildViewPage(QWidget *page)
         parts.controls->addWidget(m_maxBookmarks, 0, Qt::AlignVCenter);
     }
     addHint(sec, tr("文件移动或重命名后原条目失效；书签只存本机配置，不随安装包或账户同步。"));
+    // 批次05 页内状态行：翻页效果切换后说明「下一次换页就按新档位走」。
+    m_viewLiveNote = addLiveNote(page);
     applyPageRhythm(page);
 }
 
@@ -3324,40 +3336,20 @@ void SettingsDialog::buildAppearancePage(QWidget *page)
     m_gifColorBtn->setCursor(Qt::PointingHandCursor);
     gifColorParts.controls->addWidget(m_gifColorBtn, 0, Qt::AlignVCenter);
     descToRowTip(m_gifColorBtn, tr("点击选择 GIF 透明区域的铺底颜色，选色即时重绘当前 GIF"));
-    // 三控件都即时预览：写盘由 comboBind / chkBind 的即时路径统一走，这里只
-    // 补运行态下发（applyLiveSetting 直达画布，模态设置页开着也能看到效果）。
-    for (const ComboBind &b : m_comboBinds) {
-        if (qstrcmp(b.key, "imageproc/canvas_bg") != 0)
-            continue;
-        connect(b.combo, &QComboBox::currentIndexChanged, this, [this, b]() {
-            if (m_loading)
-                return;
-            if (MainWindow *w = qobject_cast<MainWindow *>(parentWidget()))
-                w->applyLiveSetting(QStringLiteral("imageproc/canvas_bg"),
-                                    b.combo->currentData().toString(), nullptr);
-        });
-    }
+    // 三个控件都即时预览（批次05 #27/#28 复验口径）：写盘与运行态下发统一走
+    // applyLiveCombo / applyLiveCheck —— 下拉变更先下发画布，成功才写盘；
+    // 失败把选中项退回上次成功值，不留下「配置变了、画面没变」的分叉。
+    m_liveCombos.append({ m_gifBgCombo, QStringLiteral("imageproc/gif_transparent"),
+                          tr("GIF 透明背景"), QString() });
+    m_liveCombos.append({ canvasBgCombo, QStringLiteral("imageproc/canvas_bg"),
+                          tr("画布背景"), QString() });
+    m_liveChecks.append({ transparency, "imageproc/show_transparency", false, false });
     for (const ChkBind &b : m_chkBinds) {
-        if (qstrcmp(b.key, "imageproc/show_transparency") != 0
-            && qstrcmp(b.key, "imageproc/canvas_shadow") != 0)
+        if (qstrcmp(b.key, "imageproc/canvas_shadow") != 0)
             continue;
-        const QString key = QString::fromLatin1(b.key);
-        connect(b.cb, &QCheckBox::toggled, this, [this, key](bool on) {
-            if (m_loading)
-                return;
-            if (MainWindow *w = qobject_cast<MainWindow *>(parentWidget()))
-                w->applyLiveSetting(key, on, nullptr);
-        });
+        m_liveChecks.append({ b.cb, "imageproc/canvas_shadow", false, false });
     }
-
-    // 内联状态行：模态设置页看不到主窗口时，用这行就地反馈「刚才那一下已经生效」，
-    // 并说明取消回滚口径（派单 §3 要求可观察，不得只换胶囊）。
-    m_browseLiveNote = new QLabel(page);
-    m_browseLiveNote->setObjectName(QStringLiteral("noteLabel"));
-    m_browseLiveNote->setWordWrap(true);
-    m_browseLiveNote->hide();
-    if (page->layout())
-        page->layout()->addWidget(m_browseLiveNote);
+    m_browseLiveNote = addLiveNote(page);
 
     applyPageRhythm(page);
 }
@@ -3523,11 +3515,16 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     // 画布与 GIF 背景移入「外观与显示」，翻页效果与大图对齐移入「浏览」；
     // 键、默认值、即时链路保持原样。
     QWidget *sec = beginSection(page, tr("渲染"));
+    // 批次05 #29：默认值与运行态对齐——首装无 key 时 Config::interpolation() 是
+    // bicubic（"1"），旧 UI 写死 "0"（还标成「最近邻」）等于谎报运行档位。
+    // 三档名按运行态口径写：0 = 双线性、1 = 双三次、2 = Lanczos。
     auto *interpCombo = addComboRow(sec, tr("插值算法"), QString(),
-                "imageproc/interpolate", QStringLiteral("0"),
-                { { "0", tr("最近邻 (快)") }, { "1", tr("平滑 (双线性)") },
+                "imageproc/interpolate", QStringLiteral("1"),
+                { { "0", tr("双线性 (快)") }, { "1", tr("双三次 (平滑)") },
                   { "2", tr("Lanczos (锐利)") } });
-    descToRowTip(interpCombo, tr("缩放重采样时使用；最近邻最快，Lanczos 最锐"));
+    descToRowTip(interpCombo, tr("缩放重采样时使用；双线性最快、双三次为默认，Lanczos 最锐"));
+    m_liveCombos.append({ interpCombo, QStringLiteral("imageproc/interpolate"),
+                          tr("插值算法"), QString() });
     addSwitchRow(sec, tr("使用强锐化滤镜"),
                  tr("Lanczos 且缩小到 100% 以下时生效"),
                  "imageproc/strong_sharpen", false, false);
@@ -3556,8 +3553,13 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
         mb->setObjectName(QStringLiteral("rowUnit"));
         parts.controls->addWidget(mb, 0, Qt::AlignVCenter);
     }
-    addSwitchRow(sec, tr("先显示低品质图片以加速渲染"), QString(),
-                 "imageproc/preview_mode", false, true);
+    auto *previewMode = addSwitchRow(sec, tr("先显示低品质图片以加速渲染"), QString(),
+                                     "imageproc/preview_mode", false, true);
+    descToRowTip(previewMode, tr("开启时大图先按视口尺寸出一张快帧，随后替换为清晰全图；"
+                                "关闭后直接等全图上屏"));
+    // 批次05 #24：注册为即时项——切换即改解码策略（下一次打开大图就能看到
+    // 先模糊后清晰 / 直接清晰），失败注入时开关退回、配置不写。
+    m_liveChecks.append({ previewMode, "imageproc/preview_mode", false, false });
 
     // RAW（原「杂项 · RAW 图片」组）：三条开关的消费点都在解码链路。
     sec = beginSection(page, tr("RAW 图片"));
@@ -3598,6 +3600,8 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
                                        "已开 Windows 自动颜色管理的屏幕跳过，跨屏自动重估"),
                                     "imageproc/monitor_icc", false, false);
     descToRowTip(iccMonitor, tr("无有效配置或转换失败时保持 sRGB 显示，原因见临时目录日志"));
+    // 批次05 页内状态行：插值档 / 快帧策略切换后就地反馈「已经生效 + 怎么看到 + 取消口径」。
+    m_imgProcLiveNote = addLiveNote(page);
     applyPageRhythm(page);
 }
 
@@ -6660,6 +6664,17 @@ void SettingsDialog::connectInstantSignals(int chkFrom, int comboFrom, int keyFr
     }
     for (int i = qMax(0, comboFrom); i < m_comboBinds.size(); ++i) {
         const ComboBind &b = m_comboBinds.at(i);
+        // 即时预览下拉由 applyLiveCombo 统一下发 + 写盘（失败会退回上次成功值），
+        // 这里不能再挂一条「直接写盘」的信号，否则失败时配置已落盘、运行态却没变。
+        bool isLive = false;
+        for (const LiveCombo &item : m_liveCombos) {
+            if (item.combo == b.combo) {
+                isLive = true;
+                break;
+            }
+        }
+        if (isLive)
+            continue;
         connect(b.combo, &QComboBox::currentIndexChanged, this, [this, b]() {
             applyInstantValue(QString::fromLatin1(b.key),
                               b.combo->currentData().toString());
@@ -7196,6 +7211,228 @@ void SettingsDialog::applyLiveCheck(int index, bool checked)
     item.lastValue = want;
     applyInstantValue(key, want);
     updateBrowseLiveNote(key, want);
+    // 批次05：图像处理页的开关（快帧策略等）也走页内状态行，说明「已生效 + 怎么看」。
+    if (key.startsWith(QLatin1String("imageproc/")))
+        updateLiveNote(key, want);
+}
+
+// ---------------------------------------------------------------------------
+// 批次05 图像处理页五项：下拉即时预览 + 页内状态行 + 进入设置时的档位快照
+// ---------------------------------------------------------------------------
+
+void SettingsDialog::connectLiveCombos(int from)
+{
+    for (int i = qMax(0, from); i < m_liveCombos.size(); ++i) {
+        LiveCombo &item = m_liveCombos[i];
+        item.lastData = item.combo->currentData().toString();
+        connect(item.combo, &QComboBox::currentIndexChanged, this, [this, i]() {
+            if (m_loading)
+                return;
+            applyLiveCombo(i, m_liveCombos[i].combo->currentData().toString());
+        });
+    }
+}
+
+void SettingsDialog::applyLiveCombo(int index, const QString &data)
+{
+    if (m_loading || index < 0 || index >= m_liveCombos.size())
+        return;
+    LiveCombo &item = m_liveCombos[index];
+    if (data == item.lastData)   // 程序化回设 / 反复选同一项：幂等
+        return;
+
+    MainWindow *host = qobject_cast<MainWindow *>(parentWidget());
+    QString error;
+    if (!host)
+        error = tr("未找到主窗口，无法下发运行态。");
+    if (!host || !host->applyLiveSetting(item.key, data, &error)) {
+        // 运行态没变 → 选中项退回上次成功值；配置未写入，不留半套状态。
+        const QSignalBlocker b(item.combo);
+        item.combo->setCurrentIndex(item.combo->findData(item.lastData));
+        if (host)
+            host->applyLiveSetting(item.key, item.lastData, nullptr);
+        QMessageBox::warning(this, tr("设置"),
+                             tr("「%1」未能即时生效：%2\n已恢复原值，未写入配置。")
+                                 .arg(item.name, error));
+        return;
+    }
+
+    item.lastData = data;
+    applyInstantValue(item.key, data);
+    // 插值档的兼容桥键 config/interpolation 由运行态 setter 写；桥表其它键
+    // （滚轮/中键）与本批无关，这里仍走同一入口保持一致性。
+    writeBridgeKeys();
+    updateLiveNote(item.key, data);
+}
+
+QLabel *SettingsDialog::addLiveNote(QWidget *page)
+{
+    if (!page || !page->layout())
+        return nullptr;
+    auto *note = new QLabel(page);
+    note->setObjectName(QStringLiteral("noteLabel"));
+    note->setWordWrap(true);
+    note->hide();
+    // 放在页面内容最上方：切换控件时即使滚动到中段，回到页首也能立刻看到结论；
+    // 同时不挤压既有分组间距（插到标题之后）。
+    if (auto *box = qobject_cast<QVBoxLayout *>(page->layout()))
+        box->insertWidget(0, note);
+    else
+        page->layout()->addWidget(note);
+    return note;
+}
+
+QLabel *SettingsDialog::liveNoteFor(const QString &key) const
+{
+    if (key == QLatin1String("imageproc/interpolate")
+        || key == QLatin1String("imageproc/preview_mode"))
+        return m_imgProcLiveNote;
+    if (key == QLatin1String("imageproc/pageturn_fx"))
+        return m_viewLiveNote;
+    return m_browseLiveNote;   // GIF 透明背景 / 画布背景在「外观与显示」页
+}
+
+void SettingsDialog::updateLiveNote(const QString &key, const QVariant &value)
+{
+    QLabel *note = liveNoteFor(key);
+    if (!note)
+        return;
+    // 项名与「观察前提」都取自控件自身：项名用注册时写的 name，前提用行说明
+    // （descToRowTip 落在行/控件的 tooltip 上），文案不在这里另抄一份。
+    QString name;
+    QString premise;
+    QWidget *w = nullptr;
+    for (const LiveCombo &item : m_liveCombos) {
+        if (item.key == key) {
+            name = item.name;
+            w = item.combo;
+            break;
+        }
+    }
+    if (!w) {
+        for (const LiveCheck &item : m_liveChecks) {
+            if (key == QString::fromLatin1(item.key)) {
+                name = item.cb->accessibleName().isEmpty() ? item.cb->text()
+                                                          : item.cb->accessibleName();
+                w = item.cb;
+                break;
+            }
+        }
+    }
+    if (!w)
+        return;
+    premise = w->toolTip();
+    if (premise.isEmpty() && w->parentWidget())
+        premise = w->parentWidget()->toolTip();
+    QString valueText;
+    if (value.typeId() == QMetaType::Bool)
+        valueText = value.toBool() ? tr("开") : tr("关");
+    else if (auto *combo = qobject_cast<QComboBox *>(w)) {
+        const int idx = combo->findData(value.toString());
+        valueText = idx >= 0 ? combo->itemText(idx) : value.toString();
+    } else {
+        valueText = value.toString();
+    }
+    note->setText(tr("「%1」已即时生效：%2 · %3；无需保存，按「取消」/ Esc 会回到进入设置时的状态。")
+                      .arg(name, valueText, premise.isEmpty() ? tr("即时可见") : premise));
+    note->show();
+    // 页内状态行在页面顶部，翻到下面改控件时可能不在视野里；再补一条设置窗内的
+    // 轻提示（Chrome::Toast），保证「切换即预览」当场可见。
+    showSettingsToast(tr("已即时生效：%1 · %2").arg(name, valueText), true);
+}
+
+// 档位快照/比较的统一口径：优先取主窗口运行态（用户可能先按菜单改过插值档，
+// 那时运行态与 ini 不同），拿不到才回落 Config getter。
+static QString imgProcNormValue(MainWindow *host, const QString &key)
+{
+    QVariant v = host ? host->liveSettingValue(key) : QVariant();
+    if (key == QLatin1String("imageproc/preview_mode")) {
+        const bool on = v.isValid() ? v.toBool() : Config::instance().previewMode();
+        return on ? QStringLiteral("on") : QStringLiteral("off");
+    }
+    if (!v.isValid()) {
+        if (key == QLatin1String("imageproc/pageturn_fx"))
+            return QString::number(Config::instance().pageTurnFx());
+        if (key == QLatin1String("imageproc/gif_transparent"))
+            return QString::number(Config::instance().gifTransparent());
+        if (key == QLatin1String("imageproc/canvas_bg"))
+            return Config::instance().canvasBackdrop();
+        return QStringLiteral("1");   // interpolate：运行态默认 bicubic
+    }
+    if (key == QLatin1String("imageproc/interpolate"))
+        return v.toString();          // liveSettingValue 已按 "0"/"1"/"2" 返回
+    return v.toString();
+}
+
+void SettingsDialog::captureImgProcBaseline()
+{
+    MainWindow *host = qobject_cast<MainWindow *>(parentWidget());
+    m_imgProcBaseline.clear();
+    for (const char *key : { "imageproc/preview_mode", "imageproc/interpolate",
+                             "imageproc/pageturn_fx", "imageproc/gif_transparent",
+                             "imageproc/canvas_bg" }) {
+        const QString k = QString::fromLatin1(key);
+        m_imgProcBaseline.insert(k, imgProcNormValue(host, k));
+    }
+}
+
+void SettingsDialog::rollbackImgProcBaseline()
+{
+    if (m_imgProcBaseline.isEmpty())
+        return;
+    MainWindow *host = qobject_cast<MainWindow *>(parentWidget());
+    QList<QPair<QString, QVariant>> revert;
+    if (host)
+        host->setLivePreviewQuiet(true);   // 回滚不在画布上弹一次性预览
+    for (auto it = m_imgProcBaseline.cbegin(); it != m_imgProcBaseline.cend(); ++it) {
+        const QString key = it.key();
+        const QString base = it.value().toString();
+        if (imgProcNormValue(host, key) == base)
+            continue;
+        // 运行态先回基线（applyLiveSetting 不写盘），随后把配置写回基线值。
+        const QVariant want = key == QLatin1String("imageproc/preview_mode")
+                                  ? QVariant(base == QLatin1String("on"))
+                                  : QVariant(base);
+        if (host)
+            host->applyLiveSetting(key, want, nullptr);
+        revert.append({ key, want });
+        // 控件与幂等值同步（页未构建过就不必同步，下次构建按配置回填）。
+        for (LiveCombo &item : m_liveCombos) {
+            if (item.key != key)
+                continue;
+            item.lastData = base;
+            const QSignalBlocker b(item.combo);
+            const int idx = item.combo->findData(base);
+            if (idx >= 0)
+                item.combo->setCurrentIndex(idx);
+            break;
+        }
+        for (LiveCheck &item : m_liveChecks) {
+            if (key != QString::fromLatin1(item.key))
+                continue;
+            const bool baseBool = base == QLatin1String("on");
+            item.lastValue = baseBool;
+            const QSignalBlocker b(item.cb);
+            item.cb->setChecked(item.inverted ? !baseBool : baseBool);
+            break;
+        }
+    }
+    if (host)
+        host->setLivePreviewQuiet(false);
+    if (!revert.isEmpty())
+        commitValues(revert);   // 配置回到进入设置时的值（不弹窗、不整表重写）
+    if (m_imgProcLiveNote) {
+        m_imgProcLiveNote->setText(
+            revert.isEmpty() ? tr("已关闭设置，图像处理页未保留即时改动。")
+                             : tr("已放弃本次改动：图像处理页的即时项已回到进入设置时的状态。"));
+        m_imgProcLiveNote->show();
+    }
+    if (m_viewLiveNote) {
+        m_viewLiveNote->setText(
+            revert.isEmpty() ? tr("已关闭设置，翻页效果保持进入设置时的档位。")
+                             : tr("已放弃本次改动：翻页效果已回到进入设置时的档位。"));
+        m_viewLiveNote->show();
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -8515,6 +8752,201 @@ void SettingsDialog::probeViewLive(const QString &spec, int closeMode, bool then
     });
 }
 
+// —— 验收探针（--smoke iprobe:<k=v+k=v> / ipstep:<k=v+…> / ipclose:<mode>）——
+// 全走真实控件链路：下拉 currentIndexChanged → applyLiveCombo → applyLiveSetting
+// → 写盘；开关 → applyLiveCheck。不直接改 QSettings，验的是「切一下即时生效」本身。
+void SettingsDialog::probeImgProcDump(const QString &tag)
+{
+    // 一行一档：「控件当前值 / ini 原始值 / 主窗口运行态」，外加主窗运行态串与
+    // 三条页内状态行的可见性与文案——验收看的是「画面/运行态真的变了」。
+    const QSettings &s = Config::instance().settings();
+    MainWindow *host = qobject_cast<MainWindow *>(parentWidget());
+    const QString outPath = qEnvironmentVariable("QUIKVIEW_PROBE_OUT",
+                                                 QStringLiteral("Temp/imgproc-live-probe.txt"));
+    QFile f(outPath);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
+        return;
+    QTextStream ts(&f);
+    ts << "[" << tag << "]\n";
+    const struct { const char *key; const char *full; } rows[] = {
+        { "imageproc/interpolate", "config/imageproc/interpolate" },
+        { "imageproc/preview_mode", "config/imageproc/preview_mode" },
+        { "imageproc/pageturn_fx", "config/imageproc/pageturn_fx" },
+        { "imageproc/gif_transparent", "config/imageproc/gif_transparent" },
+        { "imageproc/canvas_bg", "config/imageproc/canvas_bg" },
+    };
+    for (const auto &r : rows) {
+        const QString key = QString::fromLatin1(r.key);
+        QString ui = QStringLiteral("(unbuilt)");
+        for (const LiveCombo &item : m_liveCombos)
+            if (item.key == key)
+                ui = item.combo->currentData().toString();
+        for (const LiveCheck &item : m_liveChecks)
+            if (key == QString::fromLatin1(item.key))
+                ui = item.cb->isChecked() ? QStringLiteral("on") : QStringLiteral("off");
+        ts << key << " ui=" << ui
+           << " ini=\"" << s.value(QString::fromLatin1(r.full)).toString() << "\""
+           << " present=" << (s.contains(QString::fromLatin1(r.full)) ? 1 : 0);
+        if (host)
+            ts << " runtime=\"" << host->liveSettingValue(key).toString() << "\"";
+        ts << "\n";
+    }
+    if (host)
+        ts << "mainwin " << host->imageProcLiveStateDump() << "\n";
+    for (const QLabel *n : { m_imgProcLiveNote, m_viewLiveNote, m_browseLiveNote })
+        ts << "note[" << (n && n->isVisible() ? "shown" : "hidden") << "]=\""
+           << (n ? n->text() : QString()) << "\"\n";
+    ts << "dialogVisible=" << (isVisible() ? 1 : 0) << "\n";
+}
+
+void SettingsDialog::probeImgProcApply(const QString &spec)
+{
+    const auto pageFor = [this](const QString &key) {
+        if (key == QLatin1String("imageproc/pageturn_fx"))
+            return tr("浏览");
+        if (key == QLatin1String("imageproc/gif_transparent")
+            || key == QLatin1String("imageproc/canvas_bg"))
+            return tr("外观与显示");
+        return tr("图像处理");
+    };
+    // 涉及的页先点开（延后构建页与用户点导航同一条路径）。
+    QStringList pages;
+    for (const QString &item : spec.split(u'+')) {
+        const int eq = item.indexOf(u'=');
+        if (eq < 0)
+            continue;
+        const QString p = pageFor(item.left(eq).trimmed());
+        if (!pages.contains(p))
+            pages << p;
+    }
+    for (const QString &p : pages) {
+        for (QPushButton *b : findChildren<QPushButton *>(QStringLiteral("navItem"))) {
+            if (b->text().contains(p)) {
+                b->click();
+                break;
+            }
+        }
+    }
+    for (const QString &item : spec.split(u'+')) {
+        if (item.trimmed().isEmpty())
+            continue;
+        const int eq = item.indexOf(u'=');
+        if (eq < 0)
+            continue;
+        const QString key = item.left(eq).trimmed();
+        const QString want = item.mid(eq + 1).trimmed();
+        bool acted = false;
+        for (LiveCombo &lc : m_liveCombos) {
+            if (lc.key != key)
+                continue;
+            const int idx = lc.combo->findData(want);
+            if (idx >= 0 && lc.combo->currentIndex() != idx)
+                lc.combo->setCurrentIndex(idx);   // 真实链路：currentIndexChanged
+            acted = true;
+            break;
+        }
+        if (!acted) {
+            for (PillToggle *t : findChildren<PillToggle *>()) {
+                if (t->property("cfgKey").toString() != key)
+                    continue;
+                const bool on = want == QLatin1String("on") || want == QLatin1String("1");
+                if (t->isChecked() != on)
+                    t->click();   // 真实链路：applyLiveCheck
+                acted = true;
+                break;
+            }
+        }
+        probeImgProcDump(acted ? QStringLiteral("step:") + key + QStringLiteral("=") + want
+                               : QStringLiteral("step-missing:") + item);
+    }
+}
+
+void SettingsDialog::probeImgProcLive(const QString &spec, const QString &closeMode)
+{
+    // 失败注入会弹模态 warning：挂一个自动点掉它的定时器，否则后面 dump 出不来。
+    auto *autoOk = new QTimer(this);
+    autoOk->setInterval(120);
+    connect(autoOk, &QTimer::timeout, this, [this]() {
+        if (auto *mb = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+            mb->grab().save(QStringLiteral("Temp/imgproc-live-fail.png"));
+            if (auto *ok = mb->button(QMessageBox::Ok))
+                ok->click();
+        }
+    });
+    autoOk->start();
+
+    // 一条命令跑完整链路：切档 → 当屏 dump + 画布像素截图 → 按方式关窗 →
+    // 关窗后再 dump（用主窗口指针，避开 WA_DeleteOnClose 把 this 销毁）。
+    QObject *keepAlive = new QObject(qApp);   // 关窗后仍存活的上下文
+    QPointer<MainWindow> host = qobject_cast<MainWindow *>(parentWidget());
+    QTimer::singleShot(400, this, [this, spec]() {
+        if (!QFile::exists(qEnvironmentVariable("QUIKVIEW_PROBE_OUT",
+                                                 QStringLiteral("Temp/imgproc-live-probe.txt"))))
+            probeImgProcDump(QStringLiteral("before-open"));
+        if (!spec.isEmpty())
+            probeImgProcApply(spec);
+    });
+    // 可选动作（翻页 / 旋转这类要看画面的场景）：QUIKVIEW_PROBE_ACTIONS=next,rotateright
+    QTimer::singleShot(700, this, [this, host]() {
+        const QString acts = qEnvironmentVariable("QUIKVIEW_PROBE_ACTIONS");
+        if (!host || acts.isEmpty())
+            return;
+        for (const QString &a : acts.split(u','))
+            if (!a.trimmed().isEmpty())
+                host->runSmokeCommand(a.trimmed());
+    });
+    QTimer::singleShot(1500, this, [this, closeMode, host, autoOk]() {
+        probeImgProcDump(QStringLiteral("before-close"));
+        const QString shot = qEnvironmentVariable("QUIKVIEW_PROBE_SHOT");
+        if (!shot.isEmpty())
+            grab().save(shot);
+        const QString canvasShot = qEnvironmentVariable("QUIKVIEW_PROBE_CANVAS");
+        if (host && !canvasShot.isEmpty())
+            host->grabCanvasTo(canvasShot);
+        const QString jsonOut = qEnvironmentVariable("QUIKVIEW_PROBE_JSON");
+        if (host && !jsonOut.isEmpty()) {
+            QFile jf(jsonOut);
+            if (jf.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
+                jf.write(QStringLiteral("%1\n").arg(host->imageProcLiveStateDump()).toUtf8());
+        }
+        if (closeMode == QLatin1String("cancel")) {
+            for (QPushButton *b : findChildren<QPushButton *>())
+                if (b->text() == tr("取消")) { b->click(); break; }
+        } else if (closeMode == QLatin1String("esc")) {
+            QKeyEvent ev(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+            QApplication::sendEvent(this, &ev);
+        } else if (closeMode == QLatin1String("close")) {
+            close();
+        } else if (closeMode == QLatin1String("save")) {
+            if (m_btnOk)
+                m_btnOk->click();
+        }
+    });
+    QTimer::singleShot(2400, keepAlive, [host, autoOk]() {
+        if (host) {
+            const QString outPath = qEnvironmentVariable(
+                "QUIKVIEW_PROBE_OUT", QStringLiteral("Temp/imgproc-live-probe.txt"));
+            QFile f(outPath);
+            if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+                QTextStream ts(&f);
+                ts << "[after-close] " << host->imageProcLiveStateDump() << "\n";
+            }
+            const QString jsonOut = qEnvironmentVariable("QUIKVIEW_PROBE_JSON");
+            if (!jsonOut.isEmpty()) {
+                QFile jf(jsonOut);
+                if (jf.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
+                    jf.write(QStringLiteral("%1 | after-close\n")
+                                 .arg(host->imageProcLiveStateDump()).toUtf8());
+            }
+            const QString afterShot = qEnvironmentVariable("QUIKVIEW_PROBE_CANVAS_AFTER");
+            if (!afterShot.isEmpty())
+                host->grabCanvasTo(afterShot);
+        }
+        autoOk->stop();
+    });
+}
+
+
 // —— 验收探针（--smoke setcfglive:<cfgKey>=on|off）——
 // 只走真实控件点击链路（PillToggle::click → chkBind → applyLiveSetting → 写盘），
 // 不直接改 QSettings，确保验的是「改开关即时生效」本身。
@@ -8804,6 +9236,7 @@ void SettingsDialog::reject()
             return;   // 留在设置页，允许稍后重试
         }
         rollbackBrowseLiveBaseline();   // 批次03：取消 / Esc / ✕ 三链路同口径回滚
+        rollbackImgProcBaseline();      // 批次05：图像处理/外观五项同口径回滚
         QDialog::reject();
         return;
     }
@@ -8816,8 +9249,9 @@ void SettingsDialog::reject()
     if (names.size() > shown.size())
         shown << tr("等 %1 项").arg(names.size());
     box.setInformativeText(tr("待保存：%1\n\n"
-                             "「不保存」只放弃这些草稿；浏览页的缩放记忆 / 文件名浮层 / "
-                             "动画帧号 / 悬浮提示会回到进入设置时的状态，其余即时设置保留。")
+                             "「不保存」只放弃这些草稿；浏览页四项与图像处理/外观页的"
+                             "即时档位（插值、快帧策略、翻页效果、GIF 底色、画布背景）"
+                             "会回到进入设置时的状态，其余即时设置保留。")
                                .arg(shown.join(QStringLiteral("、"))));
     auto *saveBtn = box.addButton(tr("保存并关闭"), QMessageBox::AcceptRole);
     box.addButton(tr("不保存"), QMessageBox::DestructiveRole);
@@ -8840,6 +9274,9 @@ void SettingsDialog::reject()
             return;   // 留在设置页，允许稍后重试
         }
         rollbackBrowseLiveBaseline();   // 批次03：与 Esc / ✕ 同一口径
+        rollbackImgProcBaseline();      // 批次05：与 Esc / ✕ 同一口径
         QDialog::reject();   // 丢弃待保存草稿
     }
 }
+
+

@@ -3387,9 +3387,11 @@ Valeur d'origine restaurée ; rien n'a été écrit dans la configuration.</tran
         </message>
         <message>
             <source>待保存：%1
-「不保存」只放弃这些草稿；浏览页的缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示会回到进入设置时的状态，其余即时设置保留。</source>
-            <translation>En attente : %1
-« Ne pas enregistrer » n’abandonne que ces brouillons ; sur la page Affichage, la mémoire de zoom / l’incrustation du nom de fichier / l’info de numéro d’image / l’infobulle au survol reviennent à l’état d’ouverture des Réglages, les autres réglages instantanés sont conservés.</translation>
+
+「不保存」只放弃这些草稿；浏览页四项与图像处理/外观页的即时档位（插值、快帧策略、翻页效果、GIF 底色、画布背景）会回到进入设置时的状态，其余即时设置保留。</source>
+            <translation>Non enregistré : %1
+
+« Ne pas enregistrer » ne rejette que ces brouillons ; les quatre options de la page Parcourir et les réglages immédiats des pages Traitement d'image / Apparence (interpolation, stratégie d'image rapide, effet de changement de page, fond GIF, fond du canevas) reviennent à l'état d'ouverture des préférences, les autres réglages immédiats sont conservés.</translation>
         </message>
         <message>
             <source>保存并关闭</source>
@@ -3551,7 +3553,35 @@ Valeur d'origine restaurée ; rien n'a été écrit dans la configuration.</tran
             <source>旋转/翻转立即写回原文件；RAW 与动图不受影响</source>
             <translation>Rotation/miroir réécrit immédiatement le fichier d'origine ; RAW et images animées ne sont pas concernés</translation>
         </message>
-    </context>
+            <message>
+            <source>双线性 (快)</source>
+            <translation>Bilinéaire (rapide)</translation>
+        </message>
+        <message>
+            <source>双三次 (平滑)</source>
+            <translation>Bicubique (lissé)</translation>
+        </message>
+        <message>
+            <source>缩放重采样时使用；双线性最快、双三次为默认，Lanczos 最锐</source>
+            <translation>Utilisé lors du rééchantillonnage au zoom ; Bilinéaire est le plus rapide, Bicubique par défaut, Lanczos le plus net</translation>
+        </message>
+        <message>
+            <source>「%1」已即时生效：%2 · %3；无需保存，按「取消」/ Esc 会回到进入设置时的状态。</source>
+            <translation>« %1 » est désormais appliqué immédiatement : %2 · %3 ; aucune sauvegarde nécessaire — « Annuler »/Échap rétablit l'état à l'ouverture des préférences.</translation>
+        </message>
+        <message>
+            <source>已放弃本次改动：图像处理页的即时项已回到进入设置时的状态。</source>
+            <translation>Modifications annulées : les options immédiates de la page Traitement d'image sont revenues à l'état d'ouverture des préférences.</translation>
+        </message>
+        <message>
+            <source>已放弃本次改动：翻页效果已回到进入设置时的档位。</source>
+            <translation>Modifications annulées : l'effet de changement de page est revenu au réglage d'ouverture des préférences.</translation>
+        </message>
+        <message>
+            <source>已即时生效：%1 · %2</source>
+            <translation>Appliqué immédiatement : %1 · %2</translation>
+        </message>
+</context>
     <context>
         <name>ThumbnailBrowser</name>
         <message>

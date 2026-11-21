@@ -74,8 +74,6 @@ public:
     // 验收探针（--smoke setcfglive:<cfgKey>=on|off）：切到「图像处理」页，按 cfgKey
     // 真实点击开关，dump 前后「控件态 / Config getter / QSettings 原始值」到 Temp/。
     void probeCfgLive(const QString &spec);
-    // 批次21（#81 翻页音效 / #82 不打开 RAW / #83 JPEG 同名 RAW）即时化验收探针。
-    // --smoke batch21probe:<g81|g82:<rawPath>|g83|close:<cancel|esc|x|save>>
     void probeBatch21(const QString &spec);
     // 批次18 验收探针（--smoke folderprobe:<root>）：切到「浏览」页的「图片文件夹 1」行，
     // 走真实输入框 / 「浏览…」回填 / 「打开」按钮链路，逐态 dump「输入框 / 配置原始值 /
@@ -85,6 +83,14 @@ public:
     // 重启读回探针（--smoke folderrestore:<root>）：新进程按隔离 ini 打开设置页，
     // dump「输入框回填值 / 配置原始值」到 <root>/folder1-restore.txt 并截图。
     void probeFolderRestore(const QString &root);
+    // 批次05 图像处理页五项验收探针（--smoke iprobe:<k=v+…> / ipclose:<mode>）：
+    // 切到对应页，按配置键真实切档（下拉走 currentIndexChanged、开关走 click），
+    // 逐项 dump「控件值 / ini 原始值 / 主窗口运行态 / 页内状态行」到
+    // Temp/imgproc-live-probe.txt；closeMode 取 cancel / esc / close / save。
+    void probeImgProcLive(const QString &spec, const QString &closeMode);
+    // 追加一步（--smoke ipstep:<k=v+…>）：不关窗，按配置键真实切档并 dump 一步。
+    void probeImgProcApply(const QString &spec);
+    void probeImgProcDump(const QString &tag);
     explicit SettingsDialog(QWidget *parent = nullptr);
     ~SettingsDialog() override;
 
@@ -405,6 +411,32 @@ private:
     void connectLiveChecks(int from = 0);
     void applyLiveCheck(int index, bool checked);
     QList<LiveCheck> m_liveChecks;
+
+    // —— 批次05 图像处理页五项：下拉类的即时预览（与 LiveCheck 同构）——
+    // 下拉不能走 LiveCheck（那个结构是一键一布尔），这里一一对应：
+    // 变更 → applyLiveSetting（运行态）→ 成功才写盘；失败把选中项退回上次成功值。
+    struct LiveCombo {
+        QComboBox *combo;
+        QString key;        // QString：注册点传字面量，生命周期与控件一致
+        QString name;       // 设置项显示名（状态行文案用）
+        QString lastData;   // 最近一次成功下发的 data（幂等 / 失败回退）
+    };
+    void connectLiveCombos(int from = 0);
+    void applyLiveCombo(int index, const QString &data);
+    QList<LiveCombo> m_liveCombos;
+
+    // —— 批次05：进入设置时的档位快照（取消 / Esc / ✕ 回滚，保存才保留）——
+    // 配置与运行态同时回到进入设置前：解码首帧策略 / 透明底色 / 插值档 / 翻页档。
+    void captureImgProcBaseline();
+    void rollbackImgProcBaseline();
+    QHash<QString, QVariant> m_imgProcBaseline;   // key → 进入设置时的档位（字符串/布尔）
+    // 页内联「已即时生效」状态行：图像处理页 / 浏览页各一行（外观页沿用
+    // m_browseLiveNote）。三项独立，切页时各自说话，不互相覆盖。
+    QLabel *m_imgProcLiveNote = nullptr;
+    QLabel *m_viewLiveNote = nullptr;
+    QLabel *addLiveNote(QWidget *page);
+    QLabel *liveNoteFor(const QString &key) const;
+    void updateLiveNote(const QString &key, const QVariant &value);
 
     // —— 批次03 浏览页四项：进入设置时的快照（取消 / Esc / ✕ 回滚）——
     // 与上面「取消保留」的通用语义不同：这四项按派单 §2.4 要求三链路回滚，

@@ -3387,9 +3387,11 @@ https://github.com/xdsT2/quikview</translation>
         </message>
         <message>
             <source>待保存：%1
-「不保存」只放弃这些草稿；浏览页的缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示会回到进入设置时的状态，其余即时设置保留。</source>
+
+「不保存」只放弃这些草稿；浏览页四项与图像处理/外观页的即时档位（插值、快帧策略、翻页效果、GIF 底色、画布背景）会回到进入设置时的状态，其余即时设置保留。</source>
             <translation>待儲存：%1
-「不儲存」只放棄這些草稿；瀏覽頁的縮放記憶 / 檔名浮層 / 動畫幀號 / 滑鼠懸浮提示會回到進入設定時的狀態，其餘即時設定保留。</translation>
+
+「不儲存」只放棄這些草稿；瀏覽頁四項與影像處理／外觀頁的即時檔位（插值、快取訊框策略、翻頁效果、GIF 底色、畫布背景）會回到進入設定時的狀態，其餘即時設定保留。</translation>
         </message>
         <message>
             <source>保存并关闭</source>
@@ -3551,7 +3553,35 @@ https://github.com/xdsT2/quikview</translation>
             <source>旋转/翻转立即写回原文件；RAW 与动图不受影响</source>
             <translation>旋轉/翻轉立即寫回原始檔案；RAW 與動畫圖片不受影響</translation>
         </message>
-    </context>
+            <message>
+            <source>双线性 (快)</source>
+            <translation>雙線性 (快速)</translation>
+        </message>
+        <message>
+            <source>双三次 (平滑)</source>
+            <translation>雙三次 (平滑)</translation>
+        </message>
+        <message>
+            <source>缩放重采样时使用；双线性最快、双三次为默认，Lanczos 最锐</source>
+            <translation>縮放重取樣時使用；雙線性最快、雙三次為預設，Lanczos 最銳利</translation>
+        </message>
+        <message>
+            <source>「%1」已即时生效：%2 · %3；无需保存，按「取消」/ Esc 会回到进入设置时的状态。</source>
+            <translation>「%1」已即時生效：%2 · %3；無需儲存，按「取消」/ Esc 會回到進入設定時的狀態。</translation>
+        </message>
+        <message>
+            <source>已放弃本次改动：图像处理页的即时项已回到进入设置时的状态。</source>
+            <translation>已放棄本次改動：影像處理頁的即時項目已回到進入設定時的狀態。</translation>
+        </message>
+        <message>
+            <source>已放弃本次改动：翻页效果已回到进入设置时的档位。</source>
+            <translation>已放棄本次改動：翻頁效果已回到進入設定時的檔位。</translation>
+        </message>
+        <message>
+            <source>已即时生效：%1 · %2</source>
+            <translation>已即時生效：%1 · %2</translation>
+        </message>
+</context>
     <context>
         <name>ThumbnailBrowser</name>
         <message>

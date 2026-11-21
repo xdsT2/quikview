@@ -75,6 +75,7 @@ public:
     // 图片），棋盘 tile 固定在视口逻辑坐标，不随缩放/平移变化。同值重调
     // 也会按当前主题重取令牌色并重绘（主题切换后 MainWindow 调它刷新）。
     void setCanvasBackdrop(int kind);
+    int canvasBackdrop() const { return m_backdrop; }
     // 透明图像阴影（UI-001 §3.8.3）：开关默认关，仅对带 Alpha 的 32 位透明
     // 图片生效（eligible 由 MainWindow 按当前图是否为 GIF 判定，GIF 恒不画）。
     // 阴影按图片最外层矩形（场景外接框）在图片下方绘制，主题令牌决定颜色

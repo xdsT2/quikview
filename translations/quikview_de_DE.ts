@@ -3387,9 +3387,11 @@ Ursprungswert wiederhergestellt; nichts in die Konfiguration geschrieben.</trans
         </message>
         <message>
             <source>待保存：%1
-「不保存」只放弃这些草稿；浏览页的缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示会回到进入设置时的状态，其余即时设置保留。</source>
-            <translation>Ausstehend: %1
-„Nicht speichern“ verwirft nur diese Entwürfe; auf der Seite „Anzeigen“ kehren Zoom-Gedächtnis / Dateinamen-Overlay / Bildnummern-Info / Hover-Tooltip in den Zustand beim Öffnen der Einstellungen zurück, alle übrigen Soforteinstellungen bleiben erhalten.</translation>
+
+「不保存」只放弃这些草稿；浏览页四项与图像处理/外观页的即时档位（插值、快帧策略、翻页效果、GIF 底色、画布背景）会回到进入设置时的状态，其余即时设置保留。</source>
+            <translation>Nicht gespeichert: %1
+
+„Nicht speichern“ verwirft nur diese Entwürfe; die vier Optionen der Seite „Durchsuchen“ und die Sofort-Einstellungen der Seiten „Bildverarbeitung“/„Darstellung“ (Interpolation, Schnellbild-Strategie, Seitenwechsel-Effekt, GIF-Hintergrund, Canvas-Hintergrund) kehren zum Stand beim Öffnen der Einstellungen zurück, alle übrigen Sofort-Einstellungen bleiben erhalten.</translation>
         </message>
         <message>
             <source>保存并关闭</source>
@@ -3551,7 +3553,35 @@ Ursprungswert wiederhergestellt; nichts in die Konfiguration geschrieben.</trans
             <source>旋转/翻转立即写回原文件；RAW 与动图不受影响</source>
             <translation>Drehen/Spiegeln schreibt sofort in die Originaldatei zurück; RAW und animierte Bilder sind nicht betroffen</translation>
         </message>
-    </context>
+            <message>
+            <source>双线性 (快)</source>
+            <translation>Bilinear (schnell)</translation>
+        </message>
+        <message>
+            <source>双三次 (平滑)</source>
+            <translation>Bikubisch (weich)</translation>
+        </message>
+        <message>
+            <source>缩放重采样时使用；双线性最快、双三次为默认，Lanczos 最锐</source>
+            <translation>Wird beim Skalieren zum Neuabtasten verwendet; Bilinear ist am schnellsten, Bikubisch ist Standard, Lanczos am schärfsten</translation>
+        </message>
+        <message>
+            <source>「%1」已即时生效：%2 · %3；无需保存，按「取消」/ Esc 会回到进入设置时的状态。</source>
+            <translation>„%1“ ist jetzt sofort aktiv: %2 · %3; kein Speichern nötig – „Abbrechen“/Esc stellt den Zustand beim Öffnen der Einstellungen wieder her.</translation>
+        </message>
+        <message>
+            <source>已放弃本次改动：图像处理页的即时项已回到进入设置时的状态。</source>
+            <translation>Änderungen verworfen: Die Sofort-Optionen der Seite „Bildverarbeitung“ sind wieder auf dem Stand beim Öffnen der Einstellungen.</translation>
+        </message>
+        <message>
+            <source>已放弃本次改动：翻页效果已回到进入设置时的档位。</source>
+            <translation>Änderungen verworfen: Der Seitenwechsel-Effekt ist wieder auf dem Stand beim Öffnen der Einstellungen.</translation>
+        </message>
+        <message>
+            <source>已即时生效：%1 · %2</source>
+            <translation>Sofort aktiv: %1 · %2</translation>
+        </message>
+</context>
     <context>
         <name>ThumbnailBrowser</name>
         <message>

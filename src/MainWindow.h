@@ -109,6 +109,11 @@ public:
     // 批次21 验收用：目录列表 / 当前图 / 失败文案一次打全，供三项（#81/#82/#83）
     // 的「切换后动作是否真按新值走」比对，不用从截图里读页数。
     QString batch21RuntimeDump() const;
+    // 批次05 验收用：图像处理/外观两项的运行态（插值档、快帧策略、翻页档、
+    // GIF 铺底档、画布背景）一次打成一行，供探针判断「真的变了」而不只看 ini。
+    QString imageProcLiveStateDump() const;
+    // 验收探针：把画布当前渲染结果落成 PNG（像素级证据，不看 ini）。
+    bool grabCanvasTo(const QString &path) const;
     // 回滚期间抑制「设置项 → 画布预览」的一次性动作（目前只有文件名浮层用到）。
     void setLivePreviewQuiet(bool quiet) { m_livePreviewQuiet = quiet; }
     // 批次18：菜单「复制到 / 移动到 图片文件夹 N」与验收探针共用同一条动作链路。
@@ -623,6 +628,15 @@ private:
     int m_zoomModeBeforeLock = -1;
     bool m_hdrTonemap = false; // HDR 色调映射（本版恒 false：入口已移除，loader 口保留）
     int m_interpMode = 1;      // 0 bilinear / 1 bicubic / 2 lanczos
+    // —— 批次05 图像处理页五项：会话内运行态覆盖（-1 = 无覆盖，读配置）——
+    // 快帧策略与翻页档的消费点都是「下一次解码 / 下一次换页才读值」，设置页
+    // 又是先下发运行态、后写盘，直接读配置会读到旧值；这里各留一个覆盖位，
+    // 关闭设置页（finishSettings）统一复位，以配置为准。
+    int m_livePreviewMode = -1;      // 0 关 / 1 开
+    int m_livePageTurnFx = -1;       // 0..3
+    int m_liveGifTransparent = -1;   // 0..4
+    // 最近一次换页实际用到的档位（验收要看「真的按新档位过渡」而不是只看 ini）
+    int m_lastPageTurnFxUsed = -1;
     bool m_slideshow = false;
     bool m_slideshowRandom = false;
     // 首尾「询问」确认框正在显示：连续触发只弹一次（模态期间幻灯片已暂停，
