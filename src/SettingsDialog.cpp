@@ -7231,6 +7231,269 @@ void SettingsDialog::probePageAtSize(int page, int w, int h, bool toBottom,
     });
 }
 
+// —— 验收探针（--smoke switchprobe，见 MainWindow::runSmokeCommand）——
+// 开关统一规格（2026-11-22，Qlementine Switch 视觉母版）验收：
+//   A. 逐页记录每个 PillToggle 的几何（逻辑 / sizeHint / dpr / 物理像素）；
+//   B. 一般页：点轨道中心、按空格各只切换一次；
+//   C. 浏览页：点整行文字（标题 QLabel）只切换一次（不重复触发）；
+//   D. 右键菜单页：父开关关 → 子项禁用，恢复后子项可用；
+//   E. 一般页 / 右键菜单页各出一张键盘焦点环截图。
+void SettingsDialog::probeSwitchAcceptance(const QString &outDir, int w, int h)
+{
+    QDir().mkpath(outDir);
+    if (w > 0 && h > 0)
+        resize(w, h);
+
+    auto settle = [](int ms) {
+        QElapsedTimer t;
+        t.start();
+        while (t.elapsed() < ms)
+            QApplication::processEvents(QEventLoop::AllEvents, 10);
+    };
+    settle(300);
+
+    QFile f(outDir + QStringLiteral("/switch-probe.txt"));
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Text))
+        return;
+    QTextStream ts(&f);
+
+    const auto pageToggles = [this](int page) -> QList<PillToggle *> {
+        selectPage(page);
+        QWidget *wgt = m_stack ? m_stack->currentWidget() : nullptr;
+        return wgt ? wgt->findChildren<PillToggle *>() : QList<PillToggle *>();
+    };
+    const auto idOf = [](PillToggle *t) -> QString {
+        const QString cfg = t->property("cfgKey").toString();
+        return cfg.isEmpty() ? t->property("appMenuId").toString() : cfg;
+    };
+    // 落地截图前把指针下的控件与祖先链依次喂 Leave，避免残留行悬停底纹
+    // 混进验收图（探针自己合成的鼠标事件不会自己散场）。
+    const auto clearHover = []() {
+        QWidget *w = QApplication::widgetAt(QCursor::pos());
+        while (w) {
+            QEvent ev(QEvent::Leave);
+            QApplication::sendEvent(w, &ev);
+            w = w->parentWidget();
+        }
+    };
+
+    ts << "# window=" << width() << "x" << height()
+       << " dpr=" << QString::number(devicePixelRatioF(), 'f', 2) << "\n";
+
+    // —— A. 逐页几何 ——
+    int total = 0;
+    int badGeometry = 0;
+    for (int p = 0; p < 9; ++p) {
+        const auto toggles = pageToggles(p);
+        settle(250);
+        for (PillToggle *t : toggles) {
+            const QSize sz = t->size();
+            const QSize hint = t->sizeHint();
+            const qreal dpr = t->devicePixelRatioF();
+            ++total;
+            if (sz != QSize(48, 30) || hint != QSize(48, 30))
+                ++badGeometry;
+            ts << "page=" << p << " id=\"" << idOf(t) << "\""
+               << " size=" << sz.width() << "x" << sz.height()
+               << " hint=" << hint.width() << "x" << hint.height()
+               << " dpr=" << QString::number(dpr, 'f', 2)
+               << " phys=" << qRound(sz.width() * dpr) << "x" << qRound(sz.height() * dpr)
+               << " track=" << PillToggle::trackWidth() << "x" << PillToggle::trackHeight()
+               << " checked=" << (t->isChecked() ? 1 : 0)
+               << " enabled=" << (t->isEnabled() ? 1 : 0)
+               << " visible=" << (t->isVisible() ? 1 : 0) << "\n";
+        }
+    }
+    ts << "metrics: total=" << total << " offSpec=" << badGeometry << "\n";
+
+    // 整窗截图（一般页 / 右键菜单页），用同一主题下的真实渲染。
+    for (int p : {0, 6}) {
+        pageToggles(p);
+        settle(300);
+        const QString name = outDir + QStringLiteral("/switch-page%1.png").arg(p);
+        clearHover();
+        grab().save(name);
+    }
+
+    // —— B. 一般页：点开关一次 / 空格一次 ——
+    {
+        PillToggle *t0 = nullptr;
+        for (PillToggle *t : pageToggles(0)) {
+            if (t->isVisible() && t->isEnabled()) {
+                t0 = t;
+                break;
+            }
+        }
+        settle(250);
+        if (t0) {
+            int toggles = 0;
+            const auto conn = connect(t0, &QCheckBox::toggled, this, [&toggles](bool) { ++toggles; });
+            const QPoint center = t0->rect().center();
+            const QPointF gp = t0->mapToGlobal(center);
+            QMouseEvent press(QEvent::MouseButtonPress, QPointF(center), gp,
+                              Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+            QMouseEvent release(QEvent::MouseButtonRelease, QPointF(center), gp,
+                                Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+            QApplication::sendEvent(t0, &press);
+            QApplication::sendEvent(t0, &release);
+            QApplication::processEvents();
+            ts << "check: click-switch id=\"" << idOf(t0) << "\" toggled=" << toggles
+               << " checked=" << (t0->isChecked() ? 1 : 0) << "\n";
+            toggles = 0;
+            t0->setFocus(Qt::ShortcutFocusReason);
+            QKeyEvent kp(QEvent::KeyPress, Qt::Key_Space, Qt::NoModifier);
+            QKeyEvent kr(QEvent::KeyRelease, Qt::Key_Space, Qt::NoModifier);
+            QApplication::sendEvent(t0, &kp);
+            QApplication::sendEvent(t0, &kr);
+            QApplication::processEvents();
+            ts << "check: key-space id=\"" << idOf(t0) << "\" toggled=" << toggles
+               << " checked=" << (t0->isChecked() ? 1 : 0) << "\n";
+            disconnect(conn);
+        }
+    }
+
+    // —— C. 整行点击（带命中过滤器的行：标题 QLabel 光标为手型）——
+    {
+        PillToggle *rowToggle = nullptr;
+        QLabel *rowLabel = nullptr;
+        int rowPage = -1;
+        for (int p = 1; p < 9 && !rowToggle; ++p) {
+            for (PillToggle *t : pageToggles(p)) {
+                // 开关被 addWidget 重挂到行内的控件容器，行本身是它的祖父：
+                // 依次看「控件容器」和「行」，取第一个带手型标题标签的。
+                QWidget *holders[2] = { t->parentWidget(),
+                                        t->parentWidget() ? t->parentWidget()->parentWidget()
+                                                          : nullptr };
+                for (QWidget *row : holders) {
+                    if (!row)
+                        continue;
+                    for (QLabel *l : row->findChildren<QLabel *>()) {
+                        if (l->isVisible() && !l->text().isEmpty()
+                            && l->cursor().shape() == Qt::PointingHandCursor) {
+                            rowToggle = t;
+                            rowLabel = l;
+                            rowPage = p;
+                            break;
+                        }
+                    }
+                    if (rowToggle)
+                        break;
+                }
+                if (rowToggle)
+                    break;
+            }
+        }
+        settle(250);
+        if (rowToggle && rowLabel) {
+            int toggles = 0;
+            const auto conn = connect(rowToggle, &QCheckBox::toggled, this,
+                                      [&toggles](bool) { ++toggles; });
+            const QPoint center = rowLabel->rect().center();
+            const QPointF gp = rowLabel->mapToGlobal(center);
+            QMouseEvent press(QEvent::MouseButtonPress, QPointF(center), gp,
+                              Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+            QMouseEvent release(QEvent::MouseButtonRelease, QPointF(center), gp,
+                                Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+            QApplication::sendEvent(rowLabel, &press);
+            QApplication::sendEvent(rowLabel, &release);
+            QApplication::processEvents();
+            ts << "check: click-row page=" << rowPage << " id=\"" << idOf(rowToggle)
+               << "\" label=\"" << rowLabel->text() << "\" toggled=" << toggles
+               << " checked=" << (rowToggle->isChecked() ? 1 : 0) << "\n";
+            disconnect(conn);
+        } else {
+            ts << "check: click-row SKIPPED (no row with hit filter)\n";
+        }
+    }
+
+    // —— D. 右键菜单页：父关子灰 ——
+    {
+        const auto found = [this](const QString &id) -> PillToggle * {
+            QWidget *wgt = m_stack ? m_stack->currentWidget() : nullptr;
+            if (!wgt)
+                return nullptr;
+            for (PillToggle *t : wgt->findChildren<PillToggle *>()) {
+                if (t->property("appMenuId").toString() == id)
+                    return t;
+            }
+            return nullptr;
+        };
+        QHash<QString, QString> childToParent;
+        for (PillToggle *t : pageToggles(6)) {
+            const QString id = t->property("appMenuId").toString();
+            const QString parent = AppMenu::parentOf(id);
+            if (!id.isEmpty() && !parent.isEmpty())
+                childToParent.insert(id, parent);
+        }
+        settle(250);
+        QString parentId;
+        QString childId;
+        for (auto it = childToParent.cbegin(); it != childToParent.cend(); ++it) {
+            if (found(it.value()) && found(it.key())) {
+                parentId = it.value();
+                childId = it.key();
+                break;
+            }
+        }
+        if (!parentId.isEmpty()) {
+            PillToggle *parent = found(parentId);
+            const bool parentInitial = parent->isChecked();
+            if (!parentInitial)
+                parent->click();
+            settle(350);
+            const bool childOnEnabled = found(childId)->isEnabled();
+            found(parentId)->click();   // 父关
+            settle(350);
+            const bool childOffEnabled = found(childId)->isEnabled();
+            clearHover();
+            grab().save(outDir + QStringLiteral("/switch-appmenu-disabled.png"));
+            found(parentId)->click();   // 复原
+            settle(350);
+            const bool childRestoredEnabled = found(childId)->isEnabled();
+            ts << "check: parent-child parent=\"" << parentId << "\" child=\"" << childId
+               << "\" parentInitial=" << (parentInitial ? 1 : 0)
+               << " childEnabled-parentOn=" << (childOnEnabled ? 1 : 0)
+               << " childEnabled-parentOff=" << (childOffEnabled ? 1 : 0)
+               << " childEnabled-restored=" << (childRestoredEnabled ? 1 : 0) << "\n";
+        } else {
+            ts << "check: parent-child SKIPPED\n";
+        }
+    }
+
+    // —— E. 键盘焦点环截图（先让输入来源切到键盘，再落焦点）——
+    const auto focusShot = [this, &ts, &settle, &outDir, &pageToggles, &idOf, &clearHover](int page) {
+        PillToggle *target = nullptr;
+        for (PillToggle *t : pageToggles(page)) {
+            if (t->isVisible() && t->isEnabled()) {
+                target = t;
+                break;
+            }
+        }
+        settle(250);
+        if (!target)
+            return;
+        QKeyEvent wake(QEvent::KeyPress, Qt::Key_F13, Qt::NoModifier);
+        QApplication::sendEvent(this, &wake);
+        target->setFocus(Qt::ShortcutFocusReason);
+        QApplication::processEvents();
+        QKeyEvent refresh(QEvent::KeyPress, Qt::Key_F13, Qt::NoModifier);
+        QApplication::sendEvent(this, &refresh);
+        QApplication::processEvents();
+        settle(200);
+        ts << "check: focus page=" << page << " id=\"" << idOf(target)
+           << "\" hasFocus=" << (target->hasFocus() ? 1 : 0)
+           << " kbFocus=" << (target->property("kbFocus").toBool() ? 1 : 0) << "\n";
+        clearHover();
+        grab().save(outDir + QStringLiteral("/switch-focus-page%1.png").arg(page));
+    };
+    focusShot(0);
+    focusShot(6);
+
+    ts.flush();
+    f.close();
+    QTimer::singleShot(0, qApp, &QCoreApplication::quit);
+}
+
 // —— 验收探针（--smoke settingscombo，见 MainWindow::runSmokeCommand）——
 void SettingsDialog::probeOpenCombo(int page, int index)
 {
@@ -7471,3 +7734,4 @@ void SettingsDialog::reject()
         QDialog::reject();   // 丢弃待保存草稿
     }
 }
+

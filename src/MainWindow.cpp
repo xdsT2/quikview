@@ -5344,6 +5344,24 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             }
         });
     }
+    // switchprobe:<outdir>[:<W>x<H>] —— 开关统一规格验收（2026-11-22）：逐页几何落盘、
+    // 点开关 / 整行点击 / 空格 / 父关子灰自检、焦点环与两页整窗截图。
+    else if (c.startsWith(QLatin1String("switchprobe:"))) {
+        const QStringList a = c.mid(12).split(u':');
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        dlg->raise();
+        dlg->activateWindow();
+        int w = 0;
+        int h = 0;
+        if (a.size() > 1) {
+            const QStringList sz = a.value(1).split(u'x');
+            w = sz.value(0).toInt();
+            h = sz.value(1).toInt();
+        }
+        dlg->probeSwitchAcceptance(a.value(0), w, h);
+    }
     // settingsgeo:<page>:<W>x<H> —— 最小窗口验收：把设置窗摆到指定尺寸再切页。
     else if (c.startsWith(QLatin1String("settingsgeo:"))) {
         const QStringList a = c.mid(12).split(u':');

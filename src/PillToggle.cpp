@@ -1,3 +1,18 @@
+// SPDX-FileCopyrightText: 2026 QuikView contributors
+// SPDX-License-Identifier: MIT
+//
+// 绘制结构与状态划分参考 Qlementine 的 Switch 控件：
+//   SPDX-FileCopyrightText: Olivier Cléro <oclero@hotmail.com>
+//   SPDX-License-Identifier: MIT
+//   来源：https://github.com/oclero/qlementine/blob/dev/lib/src/widgets/Switch.cpp
+//   抓取日期：2026-11-22（上游未提供可用 tag/commit，按 dev 分支原文对齐）
+// 上游用一个 QAbstractButton 子类自绘「圆角轨道 + 圆形滑块」，几何取
+// theme.controlHeightLarge × controlHeightSmall，滑块直径 = 轨道高 - 内边距 2 倍，
+// 滑块左界 = 轨道左 + 内边距 + 可滑动余量 * 位置比例；悬停 / 按下 / 禁用 / 焦点
+// 只换色不换形，位置动画 OutCubic。这里保留该几何与状态结构，颜色改接
+// QuikView 色板（UiStyle::fluent），不引入 Qlementine 的 QStyle。
+// 详见 NOTICE 第七节与 third_party/qlementine/。
+
 #include "PillToggle.h"
 
 #include "UiStyle.h"
@@ -10,7 +25,22 @@
 
 namespace {
 
-// 主题切换时轨道与滑块都要换色；过渡期间按位置插值，避免颜色先跳、位置后到。
+// —— 统一规格（逻辑像素） ——
+// 轨道 40×22；圆角取轨道高一半；滑块 16（内边距 3，与上游 borderWidth*2 在
+// 22 高度上等比折算：22 - 3*2 = 16，滑块/轨道高 = 0.727，接近上游 12/16）；
+// 焦点环 2px，外扩 2px，环外再留 2px 到控件边缘 → 控件 48×30。
+constexpr int kTrackW = 40;
+constexpr int kTrackH = 22;
+constexpr qreal kTrackRadius = kTrackH / 2.0;
+constexpr int kHandleInset = 3;
+constexpr int kHandleD = kTrackH - kHandleInset * 2;   // 16
+constexpr int kRingWidth = 2;
+constexpr int kRingGap = 2;
+constexpr int kEdgePad = 2;
+constexpr int kWidgetW = kTrackW + 2 * (kRingGap + kEdgePad);   // 48
+constexpr int kWidgetH = kTrackH + 2 * (kRingGap + kEdgePad);   // 30
+
+// 主题切换 / 开关过渡时颜色与位置一起插值，避免颜色先跳、滑块后到。
 QColor mixColor(const QColor &from, const QColor &to, qreal t)
 {
     const qreal k = qBound(0.0, t, 1.0);
@@ -18,6 +48,56 @@ QColor mixColor(const QColor &from, const QColor &to, qreal t)
                   qRound(from.green() + (to.green() - from.green()) * k),
                   qRound(from.blue() + (to.blue() - from.blue()) * k),
                   qRound(from.alpha() + (to.alpha() - from.alpha()) * k));
+}
+
+// 轨道填色（对应上游 switchGrooveColor）：开=绿、关=中性灰，悬停/按下只做加减
+// 明度，禁用向卡片底混色但保留色相与对比，保证「禁用 + 开」仍读得出是开。
+QColor grooveColor(bool on, bool hover, bool pressed, bool disabled)
+{
+    const QColor base = on ? UiStyle::fluent::switchOnColor()
+                           : UiStyle::fluent::switchOffColor();
+    if (disabled)
+        return mixColor(base, UiStyle::fluent::cardBgColor(), on ? 0.42 : 0.52);
+    if (pressed)
+        return mixColor(base, QColor(0, 0, 0), on ? 0.14 : 0.10);
+    if (hover)
+        return on ? mixColor(base, QColor(255, 255, 255), 0.12)
+                  : mixColor(base, UiStyle::fluent::textColor(), 0.14);
+    return base;
+}
+
+// 轨道描边（对应上游 switchGrooveBorderColor）。开启态在浅色主题沿用
+// #218941 内描边，其余按轨道色压暗 1 档，深浅两套都保证轨道边界清晰。
+QColor grooveBorderColor(bool on, bool disabled)
+{
+    if (disabled) {
+        const QColor offBase = UiStyle::fluent::switchOffColor();
+        const QColor onBase = UiStyle::fluent::switchOnColor();
+        return on ? mixColor(onBase, UiStyle::fluent::cardBgColor(), 0.42)
+                  : mixColor(offBase, UiStyle::fluent::cardBgColor(), 0.52);
+    }
+    if (on) {
+        return UiStyle::isLight() ? UiStyle::fluent::switchEdgeColor()
+                                  : mixColor(UiStyle::fluent::switchOnColor(),
+                                             QColor(0, 0, 0), 0.18);
+    }
+    return mixColor(UiStyle::fluent::switchOffColor(), QColor(0, 0, 0),
+                    UiStyle::isLight() ? 0.18 : 0.10);
+}
+
+// 滑块填色（对应上游 switchHandleColor）：恒为近白，悬停/按下轻微吸入轨道色，
+// 禁用向卡片底混色但保持正圆与位置。
+QColor handleColor(bool on, bool hover, bool pressed, bool disabled)
+{
+    const QColor knob = UiStyle::fluent::knobColor();
+    if (disabled)
+        return mixColor(knob, UiStyle::fluent::cardBgColor(), 0.35);
+    const QColor groove = grooveColor(on, false, false, false);
+    if (pressed)
+        return mixColor(knob, groove, 0.12);
+    if (hover)
+        return mixColor(knob, groove, 0.06);
+    return knob;
 }
 
 } // namespace
@@ -29,6 +109,9 @@ PillToggle::PillToggle(QWidget *parent)
     setCursor(Qt::PointingHandCursor);
     setFocusPolicy(Qt::StrongFocus);
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    // 固定为规格尺寸：大纲页折叠行在布局未激活时会被容器宽度拉伸
+    // （实测 100×30），固定后所有页面（含隐藏行）都严格 48×30。
+    setFixedSize(kWidgetW, kWidgetH);
     m_pos = isChecked() ? 1.0 : 0.0;
 
     m_motion = new QVariantAnimation(this);
@@ -80,37 +163,20 @@ void PillToggle::startMotion(bool on)
 
 void PillToggle::setFluent(bool on)
 {
-    if (m_fluent == on)
-        return;
+    // 2026-11-22：外观统一后本开关不再有「样板 / 旧版」两套尺寸，只记录调用方
+    // 意图，不改几何；保留签名避免调用点分叉。
     m_fluent = on;
-    updateGeometry();
-    update();
 }
 
 void PillToggle::setLargeTrack(bool on)
 {
-    // 大纲视图专用放大档（2026-11-16）：轨道 34×20、滑块 14、命中区 44×28。
-    // 只在「查看器右键菜单」页用，其它设置页仍走 30×16 的 mini 档。
-    if (m_large == on)
-        return;
+    // 同上：原大纲放大档已并入统一规格。
     m_large = on;
-    updateGeometry();
-    update();
-}
-
-bool PillToggle::fluentMode() const
-{
-    return m_fluent || property("fluent").toString() == QLatin1String("v2");
 }
 
 QSize PillToggle::sizeHint() const
 {
-    if (m_large)
-        return QSize(44, 28);   // 轨道 34×20 + 2px 环 + 4/5px 外距
-    if (fluentMode())
-        return QSize(38, 24);   // mini switch：轨道 30×16 + 2px 环 + 2px 外距
-    return QSize(UiStyle::SwitchTrackW + 2 * UiStyle::SwitchPad,
-                 UiStyle::SwitchTrackH + 2 * UiStyle::SwitchPad);
+    return QSize(kWidgetW, kWidgetH);   // 轨道 40×22 + 焦点环 2 + 外距 2
 }
 
 QSize PillToggle::minimumSizeHint() const
@@ -121,99 +187,55 @@ QSize PillToggle::minimumSizeHint() const
 void PillToggle::paintEvent(QPaintEvent *event)
 {
     Q_UNUSED(event);
-    const bool isFluent = fluentMode();
-
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
 
-    const int pad = UiStyle::SwitchPad;
-    // v2 mini switch：轨道 30×16 居中放在 38×24 命中区里（四面留 2px 环位）；
-    // 大纲视图放大档 34×20 / 命中区 44×28；非 v2 页面维持原 40×20。
-    const int trackW = m_large ? 34 : (isFluent ? 30 : UiStyle::SwitchTrackW);
-    const int trackH = m_large ? 20 : (isFluent ? 16 : UiStyle::SwitchTrackH);
-    const QRectF track = (isFluent || m_large)
-        ? QRectF((width() - trackW) / 2.0, (height() - trackH) / 2.0, trackW, trackH)
-        : QRectF(pad, pad, trackW, trackH);
+    // 轨道在控件内居中；四周各留 4px 给焦点环（2px 环 + 2px 外距）。
+    const QRectF track((width() - kTrackW) / 2.0, (height() - kTrackH) / 2.0,
+                       kTrackW, kTrackH);
     const qreal pos = qBound(0.0, m_pos, 1.0);
     const bool disabled = !isEnabled();
+    const bool hover = m_hover && !m_pressed;
+    const bool pressed = m_pressed;
 
-    // v2 母版：开启轨道 #32D66B 绿色，关闭轨道中性灰 #65676C/#797C81，
-    // 滑块恒为近白色；状态由滑块位置 + 填色表达，禁止蓝色开关。
-    // 非样板走原主题令牌，其他十个设置页不受影响。
-    const QColor fluentOff = UiStyle::fluent::switchOffColor();
-    const QColor fluentOffHover = mixColor(fluentOff, UiStyle::fluent::textColor(), 0.14);
-    const QColor offBorder = isFluent
-        ? (m_hover ? fluentOffHover : fluentOff)
-        : (m_hover ? UiStyle::muted() : UiStyle::lineStrong());
-    const QColor onColor = isFluent ? UiStyle::fluent::switchOnColor() : UiStyle::accent();
-    const QColor offFill = isFluent ? UiStyle::fluent::switchOffColor() : UiStyle::field();
-    QColor fill = mixColor(offFill, onColor, pos);
-    QColor border = mixColor(disabled && pos <= 0.0
-                                 ? (isFluent ? UiStyle::fluent::switchOffColor() : UiStyle::line())
-                                 : offBorder,
-                             onColor, pos);
+    const QColor fill = mixColor(grooveColor(false, hover, pressed, disabled),
+                                 grooveColor(true, hover, pressed, disabled), pos);
+    const QColor border = mixColor(grooveBorderColor(false, disabled),
+                                   grooveBorderColor(true, disabled), pos);
+    const QColor knob = mixColor(handleColor(false, hover, pressed, disabled),
+                                 handleColor(true, hover, pressed, disabled), pos);
 
-    // 禁用但仍勾选（跟随系统时显示系统当前模式）必须能看出「开」：
-    // 整体降透明度而不是换成灰色轨道，否则滑块位置对了、颜色却像关。
-    if (disabled && m_large) {
-        fill = UiStyle::color(UiStyle::fluent::outlineDisabledTrack());
-        border = fill;
-    } else if (disabled)
-        p.setOpacity(0.52);
-    else if (m_pressed)
-        p.setOpacity(0.88);
-
-    p.setPen(QPen(border, 1));
-    p.setBrush(fill);
-    const qreal trackRadius = (isFluent || m_large) ? trackH / 2.0 : UiStyle::SwitchRadius;
-    p.drawRoundedRect(track.adjusted(0.5, 0.5, -0.5, -0.5),
-                      trackRadius, trackRadius);
-
-    const int knob = m_large ? 14 : (isFluent ? 12 : UiStyle::SwitchKnob);
-    const int inset = (isFluent || m_large) ? (trackH - knob) / 2 : UiStyle::SwitchInset;
-    const qreal knobY = track.center().y() - knob / 2.0;
-    const qreal knobLeft = track.left() + inset;
-    const qreal knobRight = track.right() - inset - knob;
-    qreal knobX = knobLeft + (knobRight - knobLeft) * pos;
-    if (isFluent && m_pressed && !disabled)
-        knobX += (pos >= 0.5 ? -0.35 : 0.35);
-
+    // 轨道：填色矩形按上游做法内缩半个描边，再单独描 1px 边框。
+    const qreal halfBorder = 0.5;
+    const QRectF fillRect = track.adjusted(halfBorder, halfBorder,
+                                           -halfBorder, -halfBorder);
     p.setPen(Qt::NoPen);
-    const QColor knobOff = isFluent ? UiStyle::fluent::knobColor() : UiStyle::muted();
-    const QColor knobOn = isFluent ? UiStyle::fluent::knobColor() : UiStyle::panel();
-    p.setBrush(disabled && m_large
-                   ? UiStyle::color(UiStyle::fluent::outlineDisabledKnob())
-                   : mixColor(knobOff, knobOn, pos));
-    p.drawEllipse(QRectF(knobX, knobY, knob, knob));
+    p.setBrush(fill);
+    p.drawRoundedRect(fillRect, kTrackRadius, kTrackRadius);
 
-    if (disabled || m_pressed)
-        p.setOpacity(1.0);
+    p.setBrush(Qt::NoBrush);
+    p.setPen(QPen(border, 1));
+    p.drawRoundedRect(fillRect, kTrackRadius, kTrackRadius);
 
-    // 浅色主题开启轨道加 1px 内描边 #218941，增强白色卡片上的边界。
-    if (isFluent && UiStyle::isLight() && pos > 0.5 && !(disabled && m_large)) {
+    // 滑块：直径 = 轨道高 - 内边距 2 倍；左界 = 轨道左 + 内边距 + 可滑动余量 * 位置。
+    const qreal grooveSpan = kTrackW - kHandleInset * 2 - kHandleD;
+    qreal handleX = track.left() + kHandleInset + grooveSpan * pos;
+    // 按下时滑块朝轨道中心收 1px，给出「被压住」的手感（与上游一致的做法）。
+    if (pressed && !disabled)
+        handleX += (pos >= 0.5 ? -1.0 : 1.0);
+    const QRectF handle(handleX, track.top() + kHandleInset, kHandleD, kHandleD);
+    p.setPen(Qt::NoPen);
+    p.setBrush(knob);
+    p.drawEllipse(handle);
+
+    // 焦点环：只在「键盘导航 + 当前持有焦点」时出现。鼠标点击后 SettingsDialog
+    // 的输入来源追踪会把 kbFocus 置 false，环立即消失。
+    if (hasFocus() && property("kbFocus").toBool()) {
+        const QRectF ring = track.adjusted(-kRingGap, -kRingGap, kRingGap, kRingGap);
         p.setBrush(Qt::NoBrush);
-        p.setPen(QPen(UiStyle::fluent::switchEdgeColor(), 1));
-        p.drawRoundedRect(track.adjusted(0.5, 0.5, -0.5, -0.5),
-                          trackRadius, trackRadius);
-    }
-
-    // 焦点环：只在「键盘导航 + 当前持有焦点」时出现。鼠标点击后
-    // SettingsDialog 的输入来源追踪会把 kbFocus 置 false，环立即消失；
-    // 未使用 v2 的旧控件保持原行为。
-    const bool ringVisible = isFluent
-        ? (hasFocus() && property("kbFocus").toBool())
-        : hasFocus();
-    if (ringVisible) {
-        p.setBrush(Qt::NoBrush);
-        const QColor ring = isFluent ? UiStyle::fluent::accentColor() : UiStyle::accent();
-        p.setPen(QPen(ring, 2));
-        // 环围绕轨道外扩 2px；38×24 命中区里再外留 2px 到控件边缘。
-        const QRectF focusRect = isFluent
-            ? track.adjusted(-2, -2, 2, 2)
-            : QRectF(1, 1, width() - 2, height() - 2);
-        const qreal focusRadius = isFluent ? focusRect.height() / 2.0
-                                           : UiStyle::SwitchRadius + 1;
-        p.drawRoundedRect(focusRect, focusRadius, focusRadius);
+        p.setPen(QPen(UiStyle::color(UiStyle::fluent::focus()), kRingWidth));
+        const qreal ringRadius = ring.height() / 2.0;
+        p.drawRoundedRect(ring, ringRadius, ringRadius);
     }
 }
 
