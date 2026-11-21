@@ -3100,9 +3100,11 @@ void SettingsDialog::buildViewPage(QWidget *page)
                                   tr("下次打开这张图时恢复；当前画面不变"),
                                   "view/save_zoom_state", false, false);
     // 大图对齐（原「图像处理 · 渲染」）：显示位置属浏览行为，随本页走。
-    addSwitchRow(sec, tr("图片大于窗口时显示图片顶部"),
-                 tr("适配宽度／实际大小下、图片高于窗口时生效"),
-                 "imageproc/align_top_when_large", false, true);
+    // 批次04 #23：改为即时项——切换点当场按新值滚到顶 / 垂直居中。
+    auto *alignTop = addSwitchRow(sec, tr("图片大于窗口时显示图片顶部"),
+                                  tr("适配宽度／实际大小下、图片高于窗口时生效"),
+                                  "imageproc/align_top_when_large", false, true);
+    m_liveChecks.append({ alignTop, "imageproc/align_top_when_large", false, false });
     auto *remember = addSwitchRow(sec, tr("不保存浏览过的文件夹路径"), QString(),
                                   "remember_browsed_folders", true, true);
     m_liveChecks.append({ saveZoom, "view/save_zoom_state", false, false });
