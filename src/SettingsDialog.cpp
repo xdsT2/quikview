@@ -690,6 +690,8 @@ public:
     using QStyledItemDelegate::QStyledItemDelegate;
 
     int currentRow = -1;
+    QModelIndex hoverIndex;
+    bool keyboardNavigation = false;
 
     QSize sizeHint(const QStyleOptionViewItem &opt, const QModelIndex &idx) const override
     {
@@ -704,7 +706,8 @@ public:
         p->setRenderHint(QPainter::Antialiasing, true);
 
         const bool enabled = idx.flags() & Qt::ItemIsEnabled;
-        const bool hot = opt.state & QStyle::State_Selected;
+        const bool hot = enabled && (keyboardNavigation
+            ? (opt.state & QStyle::State_Selected) != 0 : idx == hoverIndex);
         const bool isCurrent = idx.row() == currentRow;
         const QString reason = idx.data(Qt::UserRole + 1).toString();
 
@@ -765,7 +768,22 @@ public:
         auto *d = new PopupDelegate(this);
         m_delegate = d;
         view()->setItemDelegate(d);
-        view()->setMouseTracking(true);
+        view()->installEventFilter(this);
+        view()->viewport()->installEventFilter(this);
+        view()->window()->installEventFilter(this);
+        m_pointerTimer.setInterval(16);
+        connect(&m_pointerTimer, &QTimer::timeout, this, [this]() {
+            const QPoint pointer = QCursor::pos();
+            if (pointer == m_lastPointer)
+                return;
+            m_lastPointer = pointer;
+            m_delegate->keyboardNavigation = false;
+            QWidget *viewport = view()->viewport();
+            const QPoint local = viewport->mapFromGlobal(pointer);
+            m_delegate->hoverIndex = viewport->rect().contains(local)
+                ? view()->indexAt(local) : QModelIndex();
+            viewport->update();
+        });
         setCursor(Qt::PointingHandCursor);
         setFixedHeight(kComboH);
     }
@@ -784,10 +802,43 @@ public:
         }
         view()->setMinimumWidth(qMin(need, 290));
         m_delegate->currentRow = currentIndex();
+        m_delegate->hoverIndex = {};
+        if (count() == 0)
+            return;
+        setPopupOpen(true);
         QComboBox::showPopup();
     }
 
 protected:
+    void hidePopup() override
+    {
+        QComboBox::hidePopup();
+        setPopupOpen(false);
+    }
+
+    void keyPressEvent(QKeyEvent *event) override
+    {
+        m_delegate->keyboardNavigation = true;
+        QComboBox::keyPressEvent(event);
+    }
+
+    void mousePressEvent(QMouseEvent *event) override
+    {
+        m_delegate->keyboardNavigation = false;
+        QComboBox::mousePressEvent(event);
+    }
+
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (m_popupOpen && event->type() == QEvent::KeyPress) {
+            m_delegate->keyboardNavigation = true;
+            view()->viewport()->update();
+        } else if (event->type() == QEvent::Hide && watched == view()->viewport()) {
+            setPopupOpen(false);
+        }
+        return QComboBox::eventFilter(watched, event);
+    }
+
     void paintEvent(QPaintEvent *event) override
     {
         QComboBox::paintEvent(event);
@@ -798,12 +849,42 @@ protected:
                       Qt::RoundCap, Qt::RoundJoin));
         const qreal cx = width() - 15;
         const qreal cy = height() / 2.0;
-        p.drawLine(QPointF(cx - 3.5, cy - 1.5), QPointF(cx, cy + 2.0));
-        p.drawLine(QPointF(cx, cy + 2.0), QPointF(cx + 3.5, cy - 1.5));
+        const qreal direction = m_popupOpen ? -1.0 : 1.0;
+        p.drawLine(QPointF(cx - 3.5, cy - 1.5 * direction),
+                   QPointF(cx, cy + 2.0 * direction));
+        p.drawLine(QPointF(cx, cy + 2.0 * direction),
+                   QPointF(cx + 3.5, cy - 1.5 * direction));
     }
 
 private:
+    void setPopupOpen(bool open)
+    {
+        if (m_popupOpen == open)
+            return;
+        m_popupOpen = open;
+        if (open) {
+            m_lastPointer = QCursor::pos();
+            m_pointerTimer.start();
+        } else {
+            m_pointerTimer.stop();
+            m_delegate->hoverIndex = {};
+            m_delegate->keyboardNavigation = false;
+        }
+        for (QWidget *row : window()->findChildren<QWidget *>(QStringLiteral("settingRow"))) {
+            if (!row->isVisible())
+                continue;
+            row->setProperty("popupSuppressHover", open);
+            row->style()->unpolish(row);
+            row->style()->polish(row);
+            row->update();
+        }
+        update();
+    }
+
     PopupDelegate *m_delegate = nullptr;
+    bool m_popupOpen = false;
+    QPoint m_lastPointer;
+    QTimer m_pointerTimer;
 };
 
 // ---------------------------------------------------------------------------
@@ -1469,6 +1550,8 @@ QFrame#rowLine[fluent="v2"] { background: @GenRowLine@;
     margin-left: 14px; margin-right: 14px; }
 QWidget#settingRow[fluent="v2"] { background: transparent; }
 QWidget#settingRow[fluent="v2"]:hover { background: @GenHover@; border-radius: 10px; }
+QWidget#settingRow[comboRow="true"]:hover,
+QWidget#settingRow[popupSuppressHover="true"]:hover { background: transparent; }
 QLabel#appMenuPreviewTitle { color: @GenText@; font-size: 15px; font-weight: 600; }
 QLabel#appMenuPreviewHint { color: @GenDesc@; font-size: 11px; }
 QLabel#sectionTitle[fluent="v2"] { font-size: 13px; font-weight: 600;
@@ -1491,12 +1574,12 @@ QComboBox[fluent="v2"] { background: @GenCtrlBg@; color: @GenText@;
     border: 1px solid @GenCtrlLine@; border-radius: 7px;
     min-height: 30px; max-height: 30px; font-size: 13px;
     padding: 0 26px 0 9px; }
-QComboBox[fluent="v2"]:hover { border-color: @GenDesc@; }
 QComboBox[fluent="v2"]:focus { border-color: @GenCtrlLine@; }
+QComboBox[fluent="v2"]:hover { background: @GenHover@; border-color: @GenDesc@; }
 QComboBox[fluent="v2"][kbFocus="true"]:focus {
     border: 2px solid @GenAccent@; padding: 0 25px 0 8px; }
 /* 菜单展开不画焦点环：字段保持普通描边，环只在键盘导航进入时出现。 */
-QComboBox[fluent="v2"]:open { border-color: @GenControlLine@; }
+QComboBox[fluent="v2"]:open { background: @GenCtrlBg@; border-color: @GenControlLine@; }
 /* 箭头由 V2ComboBox::paintEvent 自绘，QSS 不再画一份 */
 QComboBox[fluent="v2"]::drop-down { border: 0; width: 26px; }
 QComboBox[fluent="v2"]::down-arrow { image: none; width: 0; height: 0; }
@@ -2740,6 +2823,8 @@ PillToggle *SettingsDialog::addPillCheck(QWidget *section, const QString &label,
 QComboBox *SettingsDialog::makePopupCombo(QWidget *parent)
 {
     auto *combo = new V2ComboBox(parent);
+    if (parent && parent->objectName() == QLatin1String("settingRow"))
+        parent->setProperty("comboRow", true);
     combo->setProperty("fluent", QStringLiteral("v2"));
     return combo;
 }
@@ -2754,8 +2839,7 @@ QComboBox *SettingsDialog::addComboRow(QWidget *section, const QString &label,
     if (!parts.row)
         return nullptr;
 
-    auto *combo = new V2ComboBox(parts.row);
-    combo->setProperty("fluent", QStringLiteral("v2"));
+    auto *combo = makePopupCombo(parts.row);
     for (const auto &opt : options)
         combo->addItem(opt.second, opt.first);
     combo->setCursor(Qt::PointingHandCursor);
@@ -2991,7 +3075,7 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
         SettingRowParts parts = addSettingRow(
             sec, tr("界面语言"),
             tr("重启 QuikView 后生效"));
-        m_language = new QComboBox(parts.row);
+        m_language = makePopupCombo(parts.row);
         populateLanguageCombo(m_language);
         m_language->setCursor(Qt::PointingHandCursor);
         m_language->setFixedHeight(kComboH);
@@ -3161,7 +3245,7 @@ void SettingsDialog::buildViewPage(QWidget *page)
         SettingRowParts parts = addSettingRow(
             sec, tr("最大书签数"),
             tr("新增书签超过上限时，从最早的书签开始淘汰"));
-        m_maxBookmarks = new QComboBox(parts.row);
+        m_maxBookmarks = makePopupCombo(parts.row);
         for (int v : { 10, 20, 30, 50, 100 })
             m_maxBookmarks->addItem(QString::number(v), v);
         m_maxBookmarks->setCursor(Qt::PointingHandCursor);
@@ -3576,6 +3660,7 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     // 与热键表同处一页；键名、默认值、即时下发链路均不变。
     {
         QWidget *escSec = beginSection(page, tr("退出行为"));
+        escSec->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
         auto *escExit = addSwitchRow(escSec, tr("按 ESC 退出"), QString(),
                                      "esc_exit", false, true);
         m_liveChecks.append({ escExit, "esc_exit", false, false });
@@ -3779,13 +3864,19 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
         rl0->addWidget(row);
     }
 
+    // 视口高于表格内容时，把多余空间留在最后一行下方。
+    rl0->addStretch(1);
     rowsArea->setWidget(rowsBox);
     // 单一表格滚动区（规格 §审图索引）：表格吃满页面剩余高度，表头在滚动区
     // 之外固定，分组头与 14 行一起滚；900×660 与 1068×822 用同一支布局，
     // 只由可用高度决定露出多少行。不再做整行吸附——设计图 08 本身就允许
     // 末行被视口边缘自然截断。
     tl->addWidget(rowsArea, 1);
+    table->ensurePolished();
+    table->setMaximumHeight(head->height() + rowsBox->sizeHint().height()
+                            + 2 * table->frameWidth());
     pageLay->addWidget(table, 1);
+    pageLay->addStretch();
 
     applyPageRhythm(page);
 }
@@ -3828,7 +3919,7 @@ void SettingsDialog::buildMousePage(QWidget *page)
     for (int i = 0; i < 8; ++i) {
         const BtnDef &b = btns[i];
         SettingRowParts parts = addSettingRow(sec, tr(b.label), QString());
-        auto *combo = new QComboBox(parts.row);
+        auto *combo = makePopupCombo(parts.row);
         for (const auto &opt : opts)
             combo->addItem(opt.second, opt.first);
         const QString key = QString::fromUtf8(b.key);
@@ -4416,6 +4507,8 @@ struct OutlineState {
     QString priorFocusId;
     QPointer<QWidget> priorFocus;
     OutlineAnchor priorAnchor;
+    QFrame *table = nullptr;
+    QWidget *header = nullptr;
     OutlineScroll *scroll = nullptr;
     QLineEdit *find = nullptr;
     QLabel *count = nullptr;
@@ -4521,6 +4614,10 @@ struct OutlineState {
             item.row->setFocusPolicy(item.primaryControl() == item.row
                                          ? Qt::StrongFocus : Qt::ClickFocus);
         }
+        const QMargins margins = table->layout()->contentsMargins();
+        const int contentHeight = scroll->widget()->layout()->sizeHint().height();
+        table->setMaximumHeight(header->height() + margins.top()
+                                + contentHeight + margins.bottom());
     }
 };
 
@@ -4615,13 +4712,16 @@ void SettingsDialog::buildAppMenuSections(QWidget *page)
 
     auto *table = new QFrame(leftCol);
     table->setObjectName(QStringLiteral("appMenuSurface"));
+    st->table = table;
     auto *tableLay = new QVBoxLayout(table);
     tableLay->setContentsMargins(1, 1, 1, 1);
     tableLay->setSpacing(0);
     leftLay->addWidget(table, 1);
+    leftLay->addStretch();
 
     auto *head = new QWidget(table);
     head->setObjectName(QStringLiteral("appMenuColumnHeader"));
+    st->header = head;
     head->setFixedHeight(31);
     tableLay->addWidget(head);
     auto *headLay = new QHBoxLayout(head);
