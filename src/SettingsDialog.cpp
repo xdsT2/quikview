@@ -3541,13 +3541,18 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
                  "auto_save_rotate", false, false);
 
     sec = beginSection(page, tr("缓存与载入"));
-    addSwitchRow(sec, tr("缓存下一张图片"), QString(),
-                 "imageproc/cache_image", false, true);
+    // 批次04 #21：缓存下一张改为即时项——打开即当场预读前后相邻图，关闭即停止发新预读。
+    auto *cacheNext = addSwitchRow(sec, tr("缓存下一张图片"), QString(),
+                                   "imageproc/cache_image", false, true);
+    m_liveChecks.append({ cacheNext, "imageproc/cache_image", false, false });
     {
         SettingRowParts parts = addSettingRow(sec, tr("缓存大小"),
                                               tr("全尺寸解码缓存的占用上限，范围 64–4096 MB，越界按边界值生效"));
         m_cacheSize = new QSpinBox(parts.row);
-        m_cacheSize->setRange(64, 4096);
+        m_cacheSize->setRange(64, 4096);   // 与 Config::cacheSizeMb() 同一夹取口径（批次04 #22）
+        // 键入过程不逐字符下发：只有 Enter / 失焦（或按钮）提交一次，避免
+        // 「输入 1→2→0→4→8」把缓存上限来回抖成 64 的中间态。
+        m_cacheSize->setKeyboardTracking(false);
         m_cacheSize->setButtonSymbols(QAbstractSpinBox::NoButtons);
         m_cacheSize->setFixedHeight(kComboH);
         m_cacheSize->setFixedWidth(88);
