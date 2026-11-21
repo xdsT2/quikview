@@ -77,6 +77,22 @@ if [ -d "$QT_BIN/../share/qt6/plugins/imageformats" ]; then
     cp -f "$QT_BIN/../share/qt6/plugins/imageformats/"*.dll "$STAGE/imageformats/"
 fi
 
+# 图像解码：换用自建「纯解码」libheif（tools/build-libheif.sh 产出）。
+# MSYS2 的 libheif 把 9 个编解码器写成静态导入表，连带拖进 x265(21.62MB)/
+# aom(9.24MB)/SvtAv1Enc(7.22MB)/cryptopp(4.38MB)/rav1e(3.36MB) 等约 50MB 编码器 DLL；
+# 本程序只解码 HEIC/AVIF、从不编码，换成只带 libde265 + dav1d 的版本后，
+# 依赖闭包自然不再收这些编码器 —— 不是事后删文件：仍被导入的 DLL 删了会起不来。
+LIBHEIF_PREFIX="${QUIKVIEW_LIBHEIF_PREFIX:-$REPO_ROOT/build-libheif/prefix}"
+if [ -f "$LIBHEIF_PREFIX/bin/libheif.dll" ]; then
+    cp -f "$LIBHEIF_PREFIX/bin/libheif.dll" "$STAGE/libheif.dll"
+    echo "  libheif：自建纯解码版 $(du -h "$STAGE/libheif.dll" | cut -f1)"
+elif [ "${QUIKVIEW_REQUIRE_DECODE_ONLY_LIBHEIF:-0}" = "1" ]; then
+    echo "缺 $LIBHEIF_PREFIX/bin/libheif.dll：先跑 tools/build-libheif.sh" >&2
+    exit 1
+else
+    echo "  警告：没有自建纯解码 libheif，退回 MSYS2 版（会连带约 50MB 编码器 DLL）" >&2
+fi
+
 # SVG 渲染（图标统一 2026-11-18）：功能图标全部走 QSvgRenderer，Qt6Svg.dll 由
 # windeployqt 按 import 自动收；收不到就是干净机器上满屏缺图标，直接拦下来。
 [ -f "$STAGE/Qt6Svg.dll" ] || { echo "缺 Qt6Svg.dll：windeployqt 未收取 Svg 模块" >&2; exit 1; }
@@ -161,6 +177,17 @@ if ! find "$STAGE" -maxdepth 1 -name 'libraw-*.dll' -print -quit | grep -q .; th
     echo "  自检缺文件：libraw-*.dll" >&2
     BAD=1
 fi
+# 编码器 DLL 不该出现在包里：它们只服务 libheif 的编码路径，本程序不用。
+# 出现即说明 libheif 换版失败或依赖闭包又从别处把它们拉进来了，包体会多约 50MB。
+for pat in 'libx265-*.dll' 'libSvtAv1Enc-*.dll' 'librav1e.dll' 'libaom.dll' \
+           'libx264-*.dll' 'libkvazaar-*.dll' 'libcryptopp.dll' \
+           'libopenh264-*.dll' 'libopenjp2-*.dll' 'libopenjph-*.dll'; do
+    hit="$(find "$STAGE" -maxdepth 1 -name "$pat" -print -quit)"
+    if [ -n "$hit" ]; then
+        echo "  自检发现编码器 DLL：$(basename "$hit")" >&2
+        BAD=1
+    fi
+done
 [ "$BAD" = "0" ] || { echo "自检失败，中止" >&2; exit 1; }
 
 # 可选冒烟：SAMPLE=/path/to/img 时验证 staging 里的 exe 能自渲染

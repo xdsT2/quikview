@@ -52,7 +52,8 @@ echo "版本：${VERSION}（安装包 RC ${VERSION_RC}）"
 echo "makensis：$MAKENSIS"
 
 echo "[1/3] payload —— tools/package.sh 产 staging 与 zip（同一份 payload）"
-"$REPO_ROOT/tools/package.sh" "$BUILD_DIR" "$OUT_DIR"
+# 正式发布包必须带自建纯解码 libheif：退回 MSYS2 版会多约 50MB 编码器 DLL。
+QUIKVIEW_REQUIRE_DECODE_ONLY_LIBHEIF=1 "$REPO_ROOT/tools/package.sh" "$BUILD_DIR" "$OUT_DIR"
 
 # MUI_ICON 直接引用 ${SRC}\quikview.ico，缺了就编不过；这里先给出明确信息
 [ -f "$STAGE/quikview.ico" ] || { echo "staging 缺 quikview.ico（MUI_ICON 依赖），中止" >&2; exit 1; }
