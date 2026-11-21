@@ -447,6 +447,28 @@ inline QString resolveQss(QString qss)
         { "@hudLink@",        pick("#e3e3e3", "#3a3f45") },
         { "@hudLinkHover@",   pick("#ffffff", "#101113") },
         { "@hudSep@",         pick("rgba(255,255,255,0.12)", "rgba(0,0,0,0.12)") },
+        // 2026-11-22 弹窗批次：把设置窗母版的 @Gen*@ 语义角色并进统一解析表。
+        // 二级界面（设置 / 图片转换 / Gamma / 编辑书签）的 QSS 从此共用一套键名，
+        // 各对话框不再各自写裸色；取值仍只来自 namespace fluent（同一个真源）。
+        { "@GenTitleBg@",     fluent::titleBarBg() },
+        { "@GenNavBg@",       fluent::navBg() },
+        { "@GenContentBg@",   fluent::contentBg() },
+        { "@GenCardBg@",      fluent::cardBg() },
+        { "@GenCardLine@",    fluent::cardLine() },
+        { "@GenRowLine@",     fluent::rowLine() },
+        { "@GenFooterLine@",  fluent::footerLine() },
+        { "@GenText@",        fluent::text() },
+        { "@GenDesc@",        fluent::desc() },
+        { "@GenAccent@",      fluent::focus() },
+        { "@GenHover@",       fluent::hover() },
+        { "@GenCtrlBg@",      fluent::controlBg() },
+        { "@GenCtrlLine@",    fluent::controlLine() },
+        { "@GenPressed@",     fluent::controlPressed() },
+        { "@GenNavSel@",      fluent::navSelected() },
+        { "@GenKnob@",        fluent::switchKnob() },
+        { "@GenDisabled@",    fluent::disabled() },
+        { "@GenError@",       fluent::error() },
+        { "@GenDangerBg@",    fluent::dangerBg() },
     };
     for (const auto &e : map) {
         qss.replace(QLatin1String(e.key), QLatin1String(e.val));
@@ -692,16 +714,20 @@ QTabBar::tab:hover { color: #1b1b1b; }
 
 inline QString appQss() { return isLight() ? lightAppQss() : darkAppQss(); }
 
-// 对话框内部（设置 / 图片转换共用）；按主题出深/浅两套。
+// 对话框内部（设置 / 图片转换 / Gamma / 编辑书签共用）；按主题出深/浅两套。
+// 2026-11-22 第 4 批：两套正文都改走 @Gen*@ 语义令牌，因此返回前必须过 resolveQss
+// （原先只用 %1..%5 .arg()，漏了这层会让令牌原样留在 QSS 里、整条规则被 Qt 丢弃）。
 inline QString dialogQss()
 {
     if (isLight()) {
-        return QStringLiteral(R"(
-QDialog { background: #f4f5f7; }
-QWidget#dlgTitleBar { background: #f2f4f6; border-bottom: 1px solid rgba(0,0,0,0.085); }
-QLabel#dlgTitle { font-size: 13px; color: #1b1b1b; }
-QWidget#dlgFooter { background: #eceef1; border-top: 1px solid rgba(0,0,0,0.085); }
-QLabel#footerNote { color: #5c5f63; font-size: 11px; }
+        return resolveQss(QStringLiteral(R"(
+QDialog { background: @GenContentBg@; }
+QWidget#dlgTitleBar { background: @GenTitleBg@; border-bottom: 0;
+    border-top-left-radius: 10px; border-top-right-radius: 10px; }
+QLabel#dlgTitle { font-size: 11px; color: @GenDesc@; }
+QWidget#dlgFooter { background: @GenTitleBg@; border-top: 1px solid @GenFooterLine@;
+    border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; }
+QLabel#footerNote { color: @GenDesc@; font-size: 11px; }
 
 QWidget#navRail { background: #e6e8eb; }
 QLabel#navCaption { color: #5c5f63; font-size: 11px; letter-spacing: 1px; padding: 0 10px; }
@@ -721,29 +747,53 @@ QLabel#hint { color: #5f6368; font-size: 11px; }
 QFrame#hLine { background: rgba(0,0,0,0.085); border: 0; max-height: 1px; }
 QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; border: 0; }
 
-QPushButton#btnPrimary { background: #1689bd; border-color: #37a5cf; color: #ffffff; }
-QPushButton#btnPrimary:hover { background: #1b9bca; }
-QPushButton#btnSubtle { background: transparent; border-color: transparent; color: #4a4e53; }
-QPushButton#btnSubtle:hover { background: #d8dade; color: #101214; }
+QPushButton#btnPrimary { background: @GenCtrlBg@; color: @GenText@; border: 1px solid @GenCtrlLine@;
+    border-radius: 7px; min-height: 30px; padding: 0 12px; font-size: 13px; font-weight: 600; }
+QPushButton#btnPrimary:hover { background: @GenHover@; }
+QPushButton#btnPrimary:disabled { color: @GenDisabled@; background: transparent;
+    border-color: @GenCtrlLine@; }
+QPushButton#btnSubtle, QPushButton#genNeutral { background: transparent; color: @GenText@;
+    border: 1px solid transparent; border-radius: 7px; min-height: 30px; padding: 0 12px;
+    font-size: 13px; }
+QPushButton#btnSubtle:hover, QPushButton#genNeutral:hover { background: @GenHover@; }
+QPushButton#btnSubtle:disabled, QPushButton#genNeutral:disabled { color: @GenDisabled@; background: transparent; }
+QPushButton#btnDangerText { background: transparent; color: @GenError@;
+    border: 1px solid transparent; border-radius: 7px; min-height: 30px; padding: 0 12px;
+    font-size: 13px; }
+QPushButton#btnDangerText:hover { background: @GenDangerBg@; }
+QPushButton#btnDangerText:disabled { color: @GenDisabled@; background: transparent; }
 QPushButton#cardButton { background: #ffffff; border: 1px solid #999999; border-radius: 7px;
     color: #303236; min-height: 54px; }
 QPushButton#cardButton:hover { background: #f0f2f4; }
 QPushButton#cardButton:checked { background: rgba(22,137,189,0.12); border-color: #1689bd;
     color: #1689bd; }
-QPushButton#closeBtn { background: transparent; border: 0; color: #4a4e53; min-width: 30px;
-    min-height: 28px; padding: 0; border-radius: 5px; font-size: 14px; }
-QPushButton#closeBtn:hover { background: #c42b1c; color: #ffffff; }
-)");
-    }
-    return QStringLiteral(R"(
-QDialog { background: %1; }
-QWidget#dlgTitleBar { background: %2; border-bottom: 1px solid rgba(255,255,255,0.085); }
-QLabel#dlgTitle { font-size: 13px; color: #f2f2f2; }
-QWidget#dlgFooter { background: %3; border-top: 1px solid rgba(255,255,255,0.085); }
-QLabel#footerNote { color: %4; font-size: 11px; }
+QPushButton#closeBtn { background: transparent; border: 0; color: @GenDesc@; min-width: 30px;
+    min-height: 28px; padding: 0; border-radius: 6px; font-size: 14px; }
+QPushButton#closeBtn:hover { background: @GenHover@; color: @GenText@; }
 
-QWidget#navRail { background: %5; }
-QLabel#navCaption { color: %4; font-size: 11px; letter-spacing: 1px; padding: 0 10px; }
+/* 系统确认框（Qt 标准 QMessageBox）：与深色块同一组规则，只靠令牌切换深浅。 */
+QMessageBox { background: @GenContentBg@; }
+QLabel#qt_msgbox_label { color: @GenText@; font-size: 13px; }
+QLabel#qt_msgbox_informativelabel { color: @GenDesc@; font-size: 12px; }
+QMessageBox QPushButton { background: @GenCtrlBg@; color: @GenText@;
+    border: 1px solid @GenCtrlLine@; border-radius: 7px; min-height: 30px; min-width: 88px;
+    padding: 0 12px; font-size: 13px; }
+QMessageBox QPushButton:hover { background: @GenHover@; }
+QMessageBox QPushButton:default { font-weight: 600; }
+QMessageBox QPushButton:disabled { color: @GenDisabled@; }
+)")); 
+    }
+    return resolveQss(QStringLiteral(R"(
+QDialog { background: @GenContentBg@; }
+QWidget#dlgTitleBar { background: @GenTitleBg@; border-bottom: 0;
+    border-top-left-radius: 10px; border-top-right-radius: 10px; }
+QLabel#dlgTitle { font-size: 11px; color: @GenDesc@; }
+QWidget#dlgFooter { background: @GenTitleBg@; border-top: 1px solid @GenFooterLine@;
+    border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; }
+QLabel#footerNote { color: @GenDesc@; font-size: 11px; }
+
+QWidget#navRail { background: @GenNavBg@; }
+QLabel#navCaption { color: @GenDesc@; font-size: 11px; letter-spacing: 1px; padding: 0 10px; }
 QPushButton#navItem { background: transparent; border: 1px solid transparent; border-radius: 6px;
     color: #bfc3c8; text-align: left; padding: 0 11px; min-height: 33px; font-size: 12px; }
 QPushButton#navItem:hover { background: #2d2f34; color: #ffffff; }
@@ -760,23 +810,43 @@ QLabel#hint { color: #92979e; font-size: 11px; }
 QFrame#hLine { background: rgba(255,255,255,0.085); border: 0; max-height: 1px; }
 QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; border: 0; }
 
-QPushButton#btnPrimary { background: #138ab9; border-color: #37a5cf; color: #ffffff; }
-QPushButton#btnPrimary:hover { background: #1b9bca; }
-QPushButton#btnSubtle { background: transparent; border-color: transparent; color: #b9bdc2; }
-QPushButton#btnSubtle:hover { background: #33363b; color: #ffffff; }
+QPushButton#btnPrimary { background: @GenCtrlBg@; color: @GenText@; border: 1px solid @GenCtrlLine@;
+    border-radius: 7px; min-height: 30px; padding: 0 12px; font-size: 13px; font-weight: 600; }
+QPushButton#btnPrimary:hover { background: @GenHover@; }
+QPushButton#btnPrimary:disabled { color: @GenDisabled@; background: transparent;
+    border-color: @GenCtrlLine@; }
+QPushButton#btnSubtle, QPushButton#genNeutral { background: transparent; color: @GenText@;
+    border: 1px solid transparent; border-radius: 7px; min-height: 30px; padding: 0 12px;
+    font-size: 13px; }
+QPushButton#btnSubtle:hover, QPushButton#genNeutral:hover { background: @GenHover@; }
+QPushButton#btnSubtle:disabled, QPushButton#genNeutral:disabled { color: @GenDisabled@; background: transparent; }
+QPushButton#btnDangerText { background: transparent; color: @GenError@;
+    border: 1px solid transparent; border-radius: 7px; min-height: 30px; padding: 0 12px;
+    font-size: 13px; }
+QPushButton#btnDangerText:hover { background: @GenDangerBg@; }
+QPushButton#btnDangerText:disabled { color: @GenDisabled@; background: transparent; }
 QPushButton#cardButton { background: #2b2d31; border: 1px solid #45484e; border-radius: 7px;
     color: #c6cacf; min-height: 54px; }
 QPushButton#cardButton:hover { background: #34373c; }
 QPushButton#cardButton:checked { background: rgba(85,192,240,0.12); border-color: #55c0f0;
     color: #55c0f0; }
-QPushButton#closeBtn { background: transparent; border: 0; color: #b9bdc2; min-width: 30px;
-    min-height: 28px; padding: 0; border-radius: 5px; font-size: 14px; }
-QPushButton#closeBtn:hover { background: #c42b1c; color: #ffffff; }
-)").arg(QLatin1String(DialogBg))
-   .arg(QLatin1String(TitleBg))
-   .arg(QLatin1String(FooterBg))
-   .arg(QLatin1String(Muted))
-   .arg(QLatin1String(NavBg));
+QPushButton#closeBtn { background: transparent; border: 0; color: @GenDesc@; min-width: 30px;
+    min-height: 28px; padding: 0; border-radius: 6px; font-size: 14px; }
+QPushButton#closeBtn:hover { background: @GenHover@; color: @GenText@; }
+
+/* —— 系统确认框（Qt 标准 QMessageBox，第 4 批弹窗统一，2026-11-22）——
+   静态 API 建出来的框体不做自绘，只统一按钮尺寸/底座/默认钮字重与正文层级，
+   让「删除确认 / 错误提示 / 热键冲突 / 转换结果」与二级界面同一套观感。 */
+QMessageBox { background: @GenContentBg@; }
+QLabel#qt_msgbox_label { color: @GenText@; font-size: 13px; }
+QLabel#qt_msgbox_informativelabel { color: @GenDesc@; font-size: 12px; }
+QMessageBox QPushButton { background: @GenCtrlBg@; color: @GenText@;
+    border: 1px solid @GenCtrlLine@; border-radius: 7px; min-height: 30px; min-width: 88px;
+    padding: 0 12px; font-size: 13px; }
+QMessageBox QPushButton:hover { background: @GenHover@; }
+QMessageBox QPushButton:default { font-weight: 600; }
+QMessageBox QPushButton:disabled { color: @GenDisabled@; }
+)"));
 }
 
 // 图片信息 HUD（左上覆盖层，Tab-HUD 设计定稿 2026-11-13）

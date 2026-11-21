@@ -80,6 +80,7 @@ add_executable(quikview WIN32
     src/AppMenuPreview.h
     src/BatchConvertDialog.cpp
     src/BatchConvertDialog.h
+    src/DialogShell.h
     src/GammaDialog.cpp
     src/GammaDialog.h
     src/ThumbnailBrowser.cpp

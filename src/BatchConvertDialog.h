@@ -1,6 +1,7 @@
 #pragma once
 
-#include <QDialog>
+#include "DialogShell.h"
+
 #include <QPoint>
 #include <QStringList>
 
@@ -16,15 +17,12 @@ class QSlider;
 
 // 图片转换：批量旋转 / 缩放 / 转格式 / 输出到指定文件夹。
 // 视觉对照 Temp/quikview-secondary-prototype.html 的 .dialog.convert（780 宽两栏）。
-class BatchConvertDialog : public QDialog
+// 外壳（无边框圆角 / 主题底与描边 / 标题栏拖拽）沿用 UiShell::DialogShell。
+class BatchConvertDialog : public UiShell::DialogShell
 {
     Q_OBJECT
 public:
     explicit BatchConvertDialog(const QStringList &files, QWidget *parent = nullptr);
-
-protected:
-    void paintEvent(QPaintEvent *event) override;
-    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private slots:
     void onBrowse();

@@ -7702,6 +7702,58 @@ void SettingsDialog::probeKeyConflict()
     close();
 }
 
+// —— 验收探针（--smoke saveprompt）：关闭设置时的三选一（第 4 批弹窗验收）——
+// 只造一条真实待保存草稿（键盘页「删除」改绑），随后调 reject() 走与 ✕ / Esc
+// 完全同一条关闭链路；三选一框的排版顺序、角色、默认钮、初始焦点落盘，供回执取证。
+void SettingsDialog::probeSavePrompt(const QString &out)
+{
+    selectPage(4);   // 键盘页：背景有真实热键行，待保存草稿可见
+    for (const KeyRow &r : m_keyRows) {
+        if (r.action == QLatin1String("del")) {
+            // 不冲突的键位，避免先弹「占用」框把三选一挡掉
+            r.edit->setKeySequence(QKeySequence(QStringLiteral("Ctrl+Alt+F12")));
+            break;
+        }
+    }
+    updatePendingNote();
+
+    QTimer::singleShot(500, this, [this, out]() {
+        auto *mb = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+        if (!mb)
+            return;
+        // buttons() 是加入顺序，不是视觉顺序；按 x 排序还原实际排版
+        QList<QAbstractButton *> bs = mb->buttons();
+        std::sort(bs.begin(), bs.end(), [](QAbstractButton *a, QAbstractButton *b) {
+            return a->mapToGlobal(QPoint(0, 0)).x() < b->mapToGlobal(QPoint(0, 0)).x();
+        });
+        QString dump;
+        QTextStream ts(&dump);
+        ts << "pending=" << pendingChangeNames().join(QLatin1Char('|')) << "\n";
+        ts << "msgbox=" << mb->windowTitle() << " | text=" << mb->text()
+           << " | size=" << mb->width() << "x" << mb->height() << "\n";
+        const QAbstractButton *def = mb->defaultButton();
+        ts << "default=" << (def ? def->text() : QStringLiteral("(none)")) << "\n";
+        int i = 0;
+        for (QAbstractButton *b : bs) {
+            auto *pb = qobject_cast<QPushButton *>(b);
+            ts << "btn" << i++ << ": text=" << b->text()
+               << " role=" << int(mb->buttonRole(b))
+               << " default=" << (b == def ? 1 : 0)
+               << " focus=" << (b->hasFocus() ? 1 : 0)
+               << " enabled=" << (b->isEnabled() ? 1 : 0)
+               << " obj=" << b->objectName()
+               << " geom=" << b->mapToGlobal(QPoint(0, 0)).x() << ","
+               << b->mapToGlobal(QPoint(0, 0)).y() << " " << b->width() << "x"
+               << b->height() << "\n";
+        }
+        QFile f(out);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text))
+            f.write(dump.toUtf8());
+    });
+
+    reject();   // 阻塞在 box.exec()：外层的 --screenshot-ui 定时器仍会在嵌套循环里触发
+}
+
 // —— 批次22 即时化验收探针（--smoke etcprobe:<spec>）——
 // 走真实 PillToggle::click → applyLiveCheck（下发运行态 + 写盘 + 失败回退），
 // 不绕过任何链路。dump 同一会话内「控件态 / Config getter / QSettings 原始值」
@@ -8810,7 +8862,11 @@ void SettingsDialog::reject()
 
     QMessageBox box(this);
     box.setWindowTitle(tr("保存更改？"));
-    box.setIcon(QMessageBox::Question);
+    // 2026-11-22 第 4 批（弹窗统一）：这是全项目唯一手工构造的确认框。
+    // 图标换成 Warning（「有未保存草稿」是提醒不是提问，也不再出现蓝色问号）；
+    // 三个按钮给语义 objectName：主操作中性描边、丢弃草稿用危险色文字、
+    // 继续编辑保持中性——顺序沿用 Windows 习惯（保存 / 不保存 / 继续编辑）。
+    box.setIcon(QMessageBox::Warning);
     box.setText(tr("有 %1 项更改尚未保存。").arg(names.size()));
     QStringList shown = names.mid(0, 4);
     if (names.size() > shown.size())
@@ -8820,8 +8876,21 @@ void SettingsDialog::reject()
                              "动画帧号 / 悬浮提示会回到进入设置时的状态，其余即时设置保留。")
                                .arg(shown.join(QStringLiteral("、"))));
     auto *saveBtn = box.addButton(tr("保存并关闭"), QMessageBox::AcceptRole);
-    box.addButton(tr("不保存"), QMessageBox::DestructiveRole);
+    auto *discardBtn = box.addButton(tr("不保存"), QMessageBox::DestructiveRole);
     auto *keepBtn = box.addButton(tr("继续编辑"), QMessageBox::RejectRole);
+    saveBtn->setObjectName(QStringLiteral("dlgPrimary"));
+    discardBtn->setObjectName(QStringLiteral("dlgDanger"));
+    keepBtn->setObjectName(QStringLiteral("dlgNeutral"));
+    box.setStyleSheet(QStringLiteral(
+        // 设置窗自己是透明外壳（QDialog{background:transparent}），子对话框会继承这条
+        // 规则变成全透明；这里给确认框自己补一张不透明底，观感与设置窗正文同色。
+        "QMessageBox { background: %1; }"
+        "QPushButton#dlgPrimary { border-color: %2; }"
+        "QPushButton#dlgDanger { color: %3; border-color: transparent; }"
+        "QPushButton#dlgNeutral { border-color: transparent; }")
+        .arg(QLatin1String(UiStyle::fluent::contentBg()),
+             QLatin1String(UiStyle::fluent::focus()),
+             QLatin1String(UiStyle::fluent::error())));
     box.setDefaultButton(saveBtn);
     box.setEscapeButton(keepBtn);
     m_prompting = true;

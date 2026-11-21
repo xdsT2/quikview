@@ -76,7 +76,8 @@ protected:
 
         p.save();
         p.setClipPath(clip);
-        p.fillRect(rect(), QColor(QStringLiteral("#191b1e")));
+        // 取景底色跟主题走（深色仍是近似纯黑，浅色给画布白），不再写死 #191b1e
+        p.fillRect(rect(), UiStyle::canvas::solid(UiStyle::isLight()));
         if (!m_image.isNull()) {
             const QSize target = m_image.size().scaled(box.size().toSize(),
                                                        Qt::KeepAspectRatioByExpanding);
@@ -105,59 +106,52 @@ private:
 };
 
 BatchConvertDialog::BatchConvertDialog(const QStringList &files, QWidget *parent)
-    : QDialog(parent)
+    : UiShell::DialogShell(parent)
     , m_files(files)
 {
     setWindowTitle(tr("图片转换"));
-    setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
-    setAttribute(Qt::WA_TranslucentBackground, true);
-    setStyleSheet(UiStyle::dialogQss() + QStringLiteral(R"(
-QDialog { background: transparent; }
-QWidget#dlgTitleBar { border-top-left-radius: 10px; border-top-right-radius: 10px; }
-QWidget#dlgFooter { border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; }
+    // 外壳（透明底 + 圆角 + 主题描边 + 标题栏拖拽）由 DialogShell 统一出，此处只补本框内容风格。
+    // 2026-11-22 第 4 批：原先这里的裸色（#1e2023 / #c7cbd0 / #55c0f0 …）在浅色主题下会
+    // 留一块深色板，全部换成 dialogQss 的 @Gen*@ 语义令牌（取值仍来自 UiStyle::fluent）。
+    setStyleSheet(UiShell::DialogShell::shellQss() + QStringLiteral(R"(
+QLabel#formLabel { font-size: 12px; color: @GenText@; }
+QLabel#fileCaption { font-size: 11px; color: @GenDesc@; }
+QLabel#unitHint { font-size: 12px; color: @GenDesc@; }
+QLabel#rowLabel { font-size: 12px; color: @GenText@; }
+QLabel#qualityValue { font-size: 11px; color: @GenText@; }
+QLabel#qualityValue:disabled { color: @GenDisabled@; }
+QLabel#namePreview { background: @GenCtrlBg@; border: 1px solid @GenCardLine@;
+    border-radius: 5px; padding: 0 10px; color: @GenDesc@; font-size: 11px; }
+QLabel#progressText, QLabel#progressCount { font-size: 11px; color: @GenDesc@; }
 
-QLabel#formLabel { font-size: 12px; color: #c7cbd0; }
-QLabel#fileCaption { font-size: 11px; color: #c7cbd0; }
-QLabel#unitHint { font-size: 12px; color: #92979e; }
-QLabel#rowLabel { font-size: 12px; color: #c7cbd0; }
-QLabel#qualityValue { font-size: 11px; color: #55c0f0; }
-QLabel#qualityValue:disabled { color: #5d626a; }
-QLabel#namePreview { background: #1f2124; border: 1px solid rgba(255,255,255,0.085);
-    border-radius: 5px; padding: 0 10px; color: #9fa5ac; font-size: 11px; }
-QLabel#progressText, QLabel#progressCount { font-size: 11px; color: #92979e; }
+QRadioButton#radio { font-size: 11px; color: @GenText@; spacing: 6px; }
 
-QRadioButton#radio { font-size: 11px; color: #c9cdd2; spacing: 6px; }
-
-QListWidget#fileList { background: #1e2023; border: 1px solid rgba(255,255,255,0.085);
-    border-radius: 6px; padding: 5px; font-size: 11px; outline: 0; }
-QListWidget#fileList::item { padding: 6px 7px; border-radius: 4px; color: #b9bec5; }
-QListWidget#fileList::item:hover { background: #2a2c30; }
-QListWidget#fileList::item:selected { background: rgba(85,192,240,0.12); color: #55c0f0; }
+/* 容器/行样式交给 appQss 的全局列表规则（深浅两套齐全），这里只做字号与内缩。 */
+QListWidget#fileList { padding: 5px; font-size: 11px; outline: 0; }
+QListWidget#fileList::item { padding: 6px 7px; border-radius: 4px; }
 
 QLineEdit#sizeInput { min-height: 32px; }
-QPushButton#keepRatio:checked { background: rgba(85,192,240,0.12); border-color: #55c0f0;
-    color: #55c0f0; }
+QPushButton#keepRatio:checked { background: @GenHover@; border-color: @GenAccent@;
+    color: @GenText@; }
 
-QComboBox#formatSelect { min-height: 31px; background: %3; }
-QComboBox#formatSelect:hover { background: %1; }
-QComboBox#formatSelect:pressed { background: %2; }
-QComboBox#formatSelect:open { background: %3; }
+QComboBox#formatSelect { min-height: 31px; background: @GenCtrlBg@; }
+QComboBox#formatSelect:hover { background: @GenHover@; }
+QComboBox#formatSelect:pressed { background: @GenPressed@; }
+QComboBox#formatSelect:open { background: @GenCtrlBg@; }
 QComboBox#formatSelect::down-arrow { image: none; width: 0; height: 0; }
 
-QProgressBar#convertProgress { background: #383b40; border: 0; border-radius: 3px; }
-QProgressBar#convertProgress::chunk { background: #55c0f0; border-radius: 3px; }
+QProgressBar#convertProgress { background: @GenCtrlBg@; border: 0; border-radius: 3px; }
+QProgressBar#convertProgress::chunk { background: @GenNavSel@; border-radius: 3px; }
 
 QSlider#qualitySlider { min-width: 110px; }
-QSlider#qualitySlider::groove:horizontal { height: 3px; background: #5d6166; border-radius: 3px; }
-QSlider#qualitySlider::sub-page:horizontal { background: #55c0f0; border-radius: 3px; }
+QSlider#qualitySlider::groove:horizontal { height: 3px; background: @GenCtrlLine@;
+    border-radius: 3px; }
+QSlider#qualitySlider::sub-page:horizontal { background: @GenNavSel@; border-radius: 3px; }
 QSlider#qualitySlider::handle:horizontal { width: 11px; height: 11px; margin: -4px 0;
-    border-radius: 6px; background: #f2f4f5; }
-QSlider#qualitySlider::sub-page:horizontal:disabled { background: #4f5359; }
-QSlider#qualitySlider::handle:horizontal:disabled { background: #70767e; }
-)").arg(QString::fromLatin1(UiStyle::fluent::hover()),
-         QString::fromLatin1(UiStyle::fluent::controlPressed()),
-         QString::fromLatin1(UiStyle::fluent::controlBg())));
-    setFont(UiStyle::font(12));
+    border-radius: 6px; background: @GenKnob@; }
+QSlider#qualitySlider::sub-page:horizontal:disabled { background: @GenCtrlLine@; }
+QSlider#qualitySlider::handle:horizontal:disabled { background: @GenDisabled@; }
+)"));
 
     buildUi();
     loadSourceInfo();
@@ -188,7 +182,7 @@ void BatchConvertDialog::buildUi()
     auto *titleBar = new QWidget(this);
     titleBar->setObjectName(QStringLiteral("dlgTitleBar"));
     titleBar->setFixedHeight(UiStyle::TitleBarH);
-    titleBar->installEventFilter(this);
+    attachTitleBar(titleBar);   // 拖拽交给 DialogShell（与 Gamma / 编辑书签同一条链路）
     auto *tb = new QHBoxLayout(titleBar);
     tb->setContentsMargins(18, 0, 14, 0);
     tb->setSpacing(9);
@@ -468,12 +462,14 @@ void BatchConvertDialog::buildUi()
     fl->addStretch(1);
 
     auto *closeFooterBtn = new QPushButton(tr("关闭"), footer);
+    closeFooterBtn->setObjectName(QStringLiteral("genNeutral"));
     closeFooterBtn->setFixedHeight(32);
     closeFooterBtn->setCursor(Qt::PointingHandCursor);
     connect(closeFooterBtn, &QPushButton::clicked, this, &QDialog::reject);
     fl->addWidget(closeFooterBtn);
 
     m_openFolderBtn = new QPushButton(tr("打开文件夹"), footer);
+    m_openFolderBtn->setObjectName(QStringLiteral("genNeutral"));
     m_openFolderBtn->setFixedHeight(32);
     m_openFolderBtn->setCursor(Qt::PointingHandCursor);
     connect(m_openFolderBtn, &QPushButton::clicked, this, [this]() {
@@ -809,35 +805,6 @@ void BatchConvertDialog::onConvert()
 }
 
 // ---------------------------------------------------------------------------
-// 无边框窗口
+// 无边框窗口（paintEvent / 标题栏拖拽）已上移到 UiShell::DialogShell：
+// 三个弹窗共用一份主题底、描边与拖拽实现，这里不再各写一遍。
 // ---------------------------------------------------------------------------
-void BatchConvertDialog::paintEvent(QPaintEvent *event)
-{
-    Q_UNUSED(event)
-    QPainter p(this);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    p.setPen(QPen(UiStyle::color(UiStyle::Border), 1));
-    p.setBrush(UiStyle::color(UiStyle::Panel));
-    p.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5),
-                      UiStyle::RadiusDialog, UiStyle::RadiusDialog);
-}
-
-bool BatchConvertDialog::eventFilter(QObject *watched, QEvent *event)
-{
-    if (watched && watched->objectName() == QLatin1String("dlgTitleBar")) {
-        if (event->type() == QEvent::MouseButtonPress) {
-            auto *me = static_cast<QMouseEvent *>(event);
-            if (me->button() == Qt::LeftButton) {
-                m_dragOffset = me->globalPosition().toPoint() - frameGeometry().topLeft();
-                return true;
-            }
-        } else if (event->type() == QEvent::MouseMove) {
-            auto *me = static_cast<QMouseEvent *>(event);
-            if (me->buttons() & Qt::LeftButton) {
-                move(me->globalPosition().toPoint() - m_dragOffset);
-                return true;
-            }
-        }
-    }
-    return QDialog::eventFilter(watched, event);
-}
