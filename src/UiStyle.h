@@ -358,6 +358,31 @@ inline int    shadowDy(bool light)     { return light ? 2 : 2; }
 inline int    shadowMargin(bool light) { return light ? 24 : 26; }   // 源矩形外扩，容模糊扩散
 } // namespace canvas
 
+// —— 图片总览网格（2026-11-21 网格与进度联动返工）——
+// 依据：E:/A1/XiaoMiFeng/Output/专题产物/图片总览-20261119/图片总览-用户确认网格原型.html
+// （--canvas / --selected，选中文件名蓝底）+ 图二选中交互参考。
+// 卡片是整格底板：悬停=选中底 45% 叠在内容底上，选中=实底，文件名默认隐藏。
+namespace overview {
+inline QColor canvas() { return color(fluent::navBg()); }
+inline QColor cardSelected() { return isLight() ? QColor(0xd8, 0xd8, 0xd5) : QColor(0x38, 0x38, 0x38); }
+// 只做「底 + 选中底」的透明度叠加，不引入第三套中间色。
+inline QColor blend(const QColor &base, const QColor &tint, double weight)
+{
+    const double w = qBound(0.0, weight, 1.0);
+    auto ch = [w](int b, int t) { return int(qRound(b * (1.0 - w) + t * w)); };
+    return QColor(ch(base.red(), tint.red()), ch(base.green(), tint.green()),
+                  ch(base.blue(), tint.blue()), 255);
+}
+inline QColor cardHover() { return blend(canvas(), cardSelected(), 0.45); }
+// 缩略图未就绪时的占位底：在卡片底上还要能看出格子边界。
+inline QColor thumbPlaceholder() { return isLight() ? QColor(0xcb, 0xcc, 0xca) : QColor(0x2b, 0x2c, 0x2f); }
+inline QColor nameText() { return body(); }
+// 选中文件名底：图二的蓝底白字。浅色压到 #0b5fa8、深色 #1a63cc，
+// 对白字 6.2:1 / 5.6:1（12px 正文安全）；不用 #55c0f0 青，白字只有 2.1:1。
+inline QColor nameChip() { return isLight() ? QColor(0x0b, 0x5f, 0xa8) : QColor(0x1a, 0x63, 0xcc); }
+inline QColor nameChipText() { return QColor(Qt::white); }
+} // namespace overview
+
 // —— 尺寸令牌 ——
 inline constexpr int RadiusDialog = 10;
 inline constexpr int RadiusCard   = 9;
