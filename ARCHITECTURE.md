@@ -5,68 +5,68 @@
 
 ## 模块划分
 
-`src/` 共 33 个 `.cpp` + 39 个 `.h`，合计 34,870 行（`.cpp` 29,971 + `.h` 4,899）。按职责分五层（表内行数为模块规模快照，2026-11-21 实测，以文件实际内容为准）。
+`src/` 共 33 个 `.cpp` + 39 个 `.h`，合计 37,735 行（`.cpp` 32,278 + `.h` 5,457）。按职责分五层（表内行数为模块规模快照，2026-11-21 实测，以文件实际内容为准）。
 
 **入口与外壳**
 
 | 模块 | 行数 | 职责 |
 |---|---|---|
-| `main.cpp` | 342 | 入口、命令行解析（`--smoke` / `--screenshot` / `--screenshot-ui`）、翻译装载 |
-| `MainWindow` | 8233 + 562 | 主窗口：菜单、状态栏、拖放、全屏、快捷键、翻页调度、打印、设壁纸入口 |
-| `Chrome` | 2479 + 390 | 界面外壳：顶部条、底部胶囊控制栏、翻页滑块、两侧渐显箭头、信息浮层 |
-| `PillToggle` | 223 + 51 | 胶囊式开关控件 |
+| `main.cpp` | 371 | 入口、命令行解析（`--smoke` / `--screenshot` / `--screenshot-ui`）、翻译装载 |
+| `MainWindow` | 8658 + 583 | 主窗口：菜单、状态栏、拖放、全屏、快捷键、翻页调度、打印、设壁纸入口；会话 / 窗口几何恢复、目录外部变更刷新也在这里收口 |
+| `Chrome` | 2702 + 440 | 界面外壳：顶部条、底部胶囊控制栏、翻页滑块、两侧渐显箭头、信息浮层；图层按钮仅 PSD / PSB 显示 |
+| `PillToggle` | 254 + 61 | 胶囊式开关控件 |
 
 **画布与图像**
 
 | 模块 | 行数 | 职责 |
 |---|---|---|
-| `ImageCanvas` | 1908 + 277 | 画布：缩放 / 平移 / 适配 / 裁剪框 / 自绘渲染 |
-| `ImageCache` | 616 + 110 | 二级缓存，按字节计成本，空闲预读；显式跳转可抢占旧解码（代次隔离），全图解码走专用线程池（上限 2） |
-| `ImageEffects` | 90 + 12 | 像素处理：反色、裁剪、旋转等 |
-| `ToneMap` | 149 + 20 | HDR 色调映射 |
-| `GammaDialog` | 161 + 25 | Gamma 调节对话框 |
-| `OverviewPanel` | 409 + 73 | 底栏「图片总览」：全窗网格、按原始宽高比排布、单击选中 / 双击或 Enter 打开 / `Esc` 返回；打开时暂时接管快捷键 |
-| `RotateAutoSave` | 248 + 13 | 旋转后自动写回：格式白名单跳过（RAW / 动图 / 多页 TIFF / PSD），同目录临时文件 → fsync → 替换，JPEG 保留 EXIF 且 Orientation 归 1 |
+| `ImageCanvas` | 2006 + 293 | 画布：缩放 / 平移 / 适配 / 裁剪框 / 自绘渲染；手动缩放 0.01~64，长图纵向溢出时横向轴锁 |
+| `ImageCache` | 648 + 118 | 二级缓存，按字节计成本，空闲预读；显式跳转可抢占旧解码（代次隔离），全图解码走专用线程池（上限 2） |
+| `ImageEffects` | 102 + 18 | 像素处理：反色、裁剪、旋转等 |
+| `ToneMap` | 166 + 27 | HDR 色调映射 |
+| `GammaDialog` | 180 + 33 | Gamma 调节对话框 |
+| `OverviewPanel` | 447 + 83 | 底栏「图片总览」：全窗网格、按原始宽高比排布、单击选中 / 双击或 Enter 打开 / `Esc` 返回；打开时暂时接管快捷键 |
+| `RotateAutoSave` | 265 + 17 | 旋转后自动写回：格式白名单跳过（RAW / 动图 / 多页 TIFF / PSD），同目录临时文件 → fsync → 替换，JPEG 保留 EXIF 且 Orientation 归 1 |
 
 **解码与数据**
 
 | 模块 | 行数 | 职责 |
 |---|---|---|
-| `DirectoryLoader` | 544 + 119 | 目录扫描、文件序列与排序 |
-| `RawJpgGroup` | 143 + 44 | RAW+JPG（含 PSD+JPG）分组：目录列表构建层的纯函数，只做字符串与路径判断，可在后台线程调用 |
-| `RawImageLoader` | 163 + 15 | RAW 解码（libraw，可选） |
-| `HeifLoader` | 167 + 9 | HEIC / AVIF 解码（libheif，可选） |
-| `FrameNavigator` | 170 + 42 | 动图 GIF / 多页 TIFF 逐帧 |
-| `ExifParser` | 308 + 26 | 自研 EXIF / GPS 解析，无 GPL 依赖 |
-| `ZipArchive` | 459 + 91 | ZIP / CBZ 只读解析：自研 EOCD / 中央目录 / 局部头，解压复用 in-tree miniz 的 `tinfl` 与 `mz_crc32`；只认 store / deflate，不落盘、不解密、不支持分卷 |
-| `ArchiveStore` | 360 + 69 | 压缩包「虚拟目录」唯一入口：包注册表、虚拟路径拼装/拆分、条目解码；**包内条目路径 = 包路径 + `/` + 条目名** |
-| `PsdLoader` | 309 + 55 | PSD/PSB 解析：`psd_sdk`（BSD-2，vendor）适配层，只覆盖 8bit RGB / PSD v1；整图用文件内原始合成预览，逐层重合成不在范围内 |
-| `LoadError.h` | 13 | 解码失败类别枚举（`Corrupt` / `Unsupported` / `NoCompatPreview`），判定只在 loader 层，UI 只按类别取文案 |
+| `DirectoryLoader` | 587 + 140 | 目录扫描、文件序列与排序；`QFileSystemWatcher` 800ms 防抖重扫，同名重写作废缓存 |
+| `RawJpgGroup` | 162 + 53 | RAW+JPG（含 PSD+JPG）分组：目录列表构建层的纯函数，只做字符串与路径判断，可在后台线程调用 |
+| `RawImageLoader` | 181 + 19 | RAW 解码（libraw，可选） |
+| `HeifLoader` | 189 + 11 | HEIC / AVIF 解码（libheif，可选） |
+| `FrameNavigator` | 182 + 51 | 动图 GIF / 多页 TIFF 逐帧 |
+| `ExifParser` | 335 + 30 | 自研 EXIF / GPS 解析，无 GPL 依赖；提供打印尺寸用的 DPI |
+| `ZipArchive` | 495 + 102 | ZIP / CBZ 只读解析：自研 EOCD / 中央目录 / 局部头，解压复用 in-tree miniz 的 `tinfl` 与 `mz_crc32`；只认 store / deflate，不落盘、不解密、不支持分卷 |
+| `ArchiveStore` | 392 + 78 | 压缩包「虚拟目录」唯一入口：包注册表、虚拟路径拼装/拆分、条目解码；**包内条目路径 = 包路径 + `/` + 条目名** |
+| `PsdLoader` | 331 + 67 | PSD/PSB 解析：`psd_sdk`（BSD-2，vendor）适配层，只覆盖 8bit RGB / PSD v1；整图用文件内原始合成预览，逐层重合成不在范围内 |
+| `LoadError.h` | 16 | 解码失败类别枚举（`Corrupt` / `Unsupported` / `NoCompatPreview`），判定只在 loader 层，UI 只按类别取文案 |
 
 **界面**
 
 | 模块 | 行数 | 职责 |
 |---|---|---|
-| `SettingsDialog` | 6912 + 492 | **12 页**（一般 / 浏览 / 外观 / 图像处理 / 格式关联 / 键盘 / 鼠标 / 书签 / 上下文菜单 / 查看器右键菜单 / 杂项 / 语言）。**首屏只建「一般」，其余全部懒构建**，首次进入或首次搜索时才建；登记处 `SettingsDialog.cpp:1774-1794` |
-| `MetadataPanel` | 798 + 120 | 图片信息 HUD：标题栏 + 键值栅格 + 可折叠直方图（`Tab` 呼出）；实装 Tab-HUD 2026-11-13 定稿 |
-| `HudShell` | 360 + 81 | 画布浮层共用外壳（2026-11-14 浮层标准统一）：磨砂底板 `HudBackdrop`、缓存投影 `HudEffect`、28×28 标题栏按钮 `HudToolButton` 与 110/85ms 开合动效，信息浮层与图层面板共用 |
-| `LayerPanel` | 387 + 63 | PSD 图层面板：右侧浮层，整图 / 图层预览 / 分组折叠 / 独立眼睛显隐；外壳走 `HudShell`，Esc 优先收起 |
-| `ThumbnailBrowser` | 440 + 71 | 底部胶片栏，绘制并异步解码可见项 |
-| `CtxMenu` / `MenuCatalog.h` / `MenuIcons` | 648 + 75 / 362 / 23 + 20 | 应用内右键菜单：三层收纳目录、全量可见性配置（`config/appmenu/*`）、顶部五图标快捷区。**图标自 2026-11-18 起不再自绘**：`MenuIcons` 只剩把历史 id 转成 `AppIcon` 语义 id 的转发层 |
-| `AppMenuPreview` | 859 + 147 | 「查看器右键菜单」设置页的常驻一级预览 + 浮动二级预览：只呈现当前可见两级菜单与两级内交互，不改任何配置 |
-| `AppIcon` | 270 + 33 | **功能图标唯一入口**：语义 id → Fluent 家族映射表（一份，94 条），按目标像素取 16/20/24 档，`QSvgRenderer` 渲染 + 按主题重新着色，`QPixmap` 按 id/px/style/dpr/ink 缓存；qrc 缺失时 `available()==false` 优雅回退成无图标 |
-| `BatchConvertDialog` | 759 + 71 | 批量格式转换 |
+| `SettingsDialog` | 7480 + 525 | **9 页**（通用 / 浏览 / 外观与显示 / 图像处理 / 键盘 / 鼠标与滚轮 / 查看器右键菜单 / Windows 集成 / 扩展）。**首屏只建「通用」，其余全部懒构建**，首次进入或首次搜索时才建；登记处 `SettingsDialog.cpp:1854-1876` |
+| `MetadataPanel` | 880 + 143 | 图片信息 HUD：标题栏 + 键值栅格 + 可折叠直方图（`Tab` 呼出）；打印尺寸按 EXIF DPI 计算，无 DPI 时按 96 估算并标 `@96` |
+| `HudShell` | 397 + 107 | 画布浮层共用外壳：磨砂底板 `HudBackdrop`、缓存投影 `HudEffect`、28×28 标题栏按钮 `HudToolButton` 与 110/85ms 开合动效；底栏 / 信息面板 / 图层面板共用同一套柔和投影 |
+| `LayerPanel` | 428 + 75 | PSD 图层面板：右侧浮层，整图 / 图层预览 / 分组折叠 / 独立眼睛显隐；外壳走 `HudShell`，Esc 优先收起；高度 92 去掉常驻 2px 滚动条，长名省略 + tooltip |
+| `ThumbnailBrowser` | 469 + 79 | 底部胶片栏，绘制并异步解码可见项 |
+| `CtxMenu` / `MenuCatalog.h` / `MenuIcons` | 697 + 85 / 381 / 29 + 26 | 应用内右键菜单：三层收纳目录、全量可见性配置（`config/appmenu/*`）、顶部五图标快捷区；五个根组全关时不再弹空面板。**图标自 2026-11-18 起不再自绘**：`MenuIcons` 只剩把历史 id 转成 `AppIcon` 语义 id 的转发层 |
+| `AppMenuPreview` | 936 + 166 | 「查看器右键菜单」设置页的常驻一级预览 + 浮动二级预览：只呈现当前可见两级菜单与两级内交互，不改任何配置 |
+| `AppIcon` | 292 + 44 | **功能图标唯一入口**：语义 id → Fluent 家族映射表（一份，94 条），按目标像素取 16/20/24 档，`QSvgRenderer` 渲染 + 按主题重新着色，`QPixmap` 按 id/px/style/dpr/ink 缓存；qrc 缺失时 `available()==false` 优雅回退成无图标 |
+| `BatchConvertDialog` | 836 + 85 | 批量格式转换 |
 
 **基础设施**
 
 | 模块 | 行数 | 职责 |
 |---|---|---|
-| `Config` | 690 + 161 | QSettings INI、便携判定、快捷键与设置持久化 |
-| `UpdateChecker` | 314 + 56 | 检查更新（默认关，24 小时频控） |
-| `Wallpaper` | 23 + 4 | 设为壁纸 |
-| `UiStyle.h` | 763 | **UI 令牌唯一来源**：颜色 / 间距 / 字号，79 条 `inline constexpr`（其中颜色 45 条） |
-| `Theme.h` | 134 | 深 / 浅主题切换 |
-| `FlipProbe.h` / `PerfProbe.h` / `ThemeProbe.h` | 66 / 96 / 68 | 验收计时探针（翻图 / 打开分段 / 主题切换），环境变量开启，未开启时首判即返回，零开销 |
+| `Config` | 799 + 187 | QSettings INI、便携判定、快捷键与设置持久化；窗口几何 / 会话文件 / 导出导入与设置九页共用同一份键定义 |
+| `UpdateChecker` | 357 + 69 | 检查更新（默认关，24 小时频控） |
+| `Wallpaper` | 25 + 6 | 设为壁纸 |
+| `UiStyle.h` | 826 | **UI 令牌唯一来源**：颜色 / 间距 / 字号，79 条 `inline constexpr`（其中颜色 45 条） |
+| `Theme.h` | 148 | 深 / 浅主题切换 |
+| `FlipProbe.h` / `PerfProbe.h` / `ThemeProbe.h` | 77 / 111 / 77 | 验收计时探针（翻图 / 打开分段 / 主题切换），环境变量开启，未开启时首判即返回，零开销 |
 
 ## 子项目
 
