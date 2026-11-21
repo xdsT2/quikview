@@ -3335,7 +3335,9 @@ void MainWindow::applyDirectoryRefresh(const DirectoryLoader::Index &idx,
     const bool firstNotice = !m_displayedFileMissing;
     m_displayedFileMissing = true;
     const int fallback = files.isEmpty() ? -1 : qBound(0, oldIndex - 1, int(files.size()) - 1);
-    m_dir->setFilesAndIndex(files, fallback);
+    // 用 applyEntries 而不是 setFilesAndIndex：组表必须跟列表一起换。否则删除当前图
+    // 之后 m_entries 仍留着已删文件，切「显示原始数据」会把死路径翻回列表。
+    m_dir->applyEntries(idx.entries, fallback);
     m_browser->setFiles(files, fallback);
     if (m_overview) {
         m_overview->setFiles(files, fallback);
