@@ -551,6 +551,8 @@ private:
     qint64 m_dirRefreshLastMs = -1;        // 最近一次「事件 → 列表应用」耗时
     qint64 m_dirRefreshScanMs = -1;        // 最近一次扫描线程耗时
     bool m_dirRefreshChanged = false;      // 最近一次重扫是否真的改了列表
+    // 设置页切 #83 时挂一句待播提示：重扫是异步的，落列表那一刻才说得准「现在几张」。
+    QString m_dirRefreshNote;
     bool m_loadFailed = false;      // 目标图最终打开失败：状态保留到换图/重试
     QTimer *m_loadWaitTimer = nullptr;   // 200ms 未出画面 → 页码旁等待提示
     QLabel *m_loadStatus = nullptr;      // 浮动状态标签（页码旁 / 空状态共用文案）

@@ -3288,7 +3288,7 @@ void MainWindow::onWatchedDirectoryChanged()
 }
 
 // 重扫只做「枚举 + 排序 + 过滤」，与打开目录同一条纯函数，绝不在这里解码图片。
-void MainWindow::startDirectoryRefresh()
+void MainWindow::startDirectoryRefresh(bool skipRawKnown, bool skipRawValue)
 {
     const QString dirPath = m_dir->watchedDirectory();
     const QString anchor = !m_displayedPath.isEmpty() ? m_displayedPath : m_currentPath;
@@ -3297,7 +3297,9 @@ void MainWindow::startDirectoryRefresh()
     }
     const int sortMode = m_dir->sort();
     const bool sortDesc = m_dir->sortDescending();
-    const bool skipRaw = Config::instance().skipRawWhenJpg();
+    // 设置页切换 #83 那一刻配置还没写盘：沿用调用方传下来的值，
+    // 其余口径（目录事件触发的重扫）仍然现读配置。
+    const bool skipRaw = skipRawKnown ? skipRawValue : Config::instance().skipRawWhenJpg();
     const bool groupRaw = Config::instance().groupRawJpg();
     const bool showRaw = Config::instance().groupShowRaw();
     const quint64 gen = m_openGeneration;
@@ -3338,6 +3340,16 @@ void MainWindow::applyDirectoryRefresh(const DirectoryLoader::Index &idx,
     m_dirRefreshScanMs = idx.scanMs;
 
     const QStringList files = idx.files;
+    // 设置页主动要求的那次重扫（批次21 #83）：无论列表有没有变化都要给用户一句
+    // 「按新口径重扫完了、现在是几张」，否则切换后沉默 = 像是点了没反应。
+    if (!m_dirRefreshNote.isEmpty()) {
+        const QString note = m_dirRefreshNote;
+        m_dirRefreshNote.clear();
+        if (m_toast) {
+            m_toast->showMessage(tr("%1（当前文件夹 %2 张）").arg(note).arg(files.size()),
+                                 Chrome::Toast::Tone::Success);
+        }
+    }
     if (files == m_dir->files()) {
         m_dirRefreshChanged = false;
         return;   // 内容无变化：连 UI 重建都省掉
@@ -8351,6 +8363,33 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         }
         if (qEnvironmentVariableIsSet("QUIKVIEW_ETC_PROBE"))
             probeAppend(QStringLiteral("LIVE etc/no_raw_load=%1").arg(on ? 1 : 0));
+        return true;
+    }
+
+    if (key == QLatin1String("etc/skip_raw_when_jpg")) {
+        // #83：过滤只在 open()/buildIndex 扫描时读键。已打开的目录不重开也能生效——
+        // 直接复用既有「枚举+排序+过滤」重扫（同一纯函数、后台线程、只刷列表不解码），
+        // 当前页位按锚点跟回，收尾再报一句「现在是几张」。
+        const bool on = value.toBool();
+        if (qEnvironmentVariableIsSet("QUIKVIEW_ETC_PROBE"))
+            probeAppend(QStringLiteral("LIVE etc/skip_raw_when_jpg=%1").arg(on ? 1 : 0));
+        if (m_dir->watchedDirectory().isEmpty()) {
+            if (m_toast)
+                m_toast->showMessage(tr("已保存同名 RAW 过滤设置：当前没有打开的文件夹，下次打开时生效"),
+                                     Chrome::Toast::Tone::Success);
+            return true;
+        }
+        if (m_dirRefreshInFlight) {
+            // 正在扫：置脏补跑（本轮结果按旧口径），不谎报「已重扫」。
+            m_dirRefreshDirty = true;
+            if (m_toast)
+                m_toast->showMessage(tr("正在扫描当前文件夹，完成后按新设置刷新列表"),
+                                     Chrome::Toast::Tone::Success);
+            return true;
+        }
+        m_dirRefreshNote = on ? tr("已按新设置重扫：同名 RAW 不再带进列表")
+                              : tr("已按新设置重扫：同名 RAW 重新带进列表");
+        startDirectoryRefresh(/*skipRawKnown=*/true, /*skipRawValue=*/on);
         return true;
     }
 

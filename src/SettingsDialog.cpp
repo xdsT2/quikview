@@ -3539,9 +3539,13 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
     descToRowTip(noRaw, tr("拦的是「打开」这一步：翻到 RAW 时同样给这条提示，不显示也不解码"));
     // 批次21 #82：即时项——切换即下发运行态并写盘，关闭设置后保留。
     m_liveChecks.append({ noRaw, "etc/no_raw_load", false, false });
-    addSwitchRow(sec, tr("打开 JPEG 文件时，不打开同名 RAW 文件"),
-                 QString(),
-                 "etc/skip_raw_when_jpg", false, true);
+    auto *skipRaw = addSwitchRow(sec, tr("打开 JPEG 文件时，不打开同名 RAW 文件"),
+                                 tr("只影响打开 JPEG 时是否带出同目录同名 RAW；"
+                                    "直接打开 RAW 时列表照旧全带"),
+                                 "etc/skip_raw_when_jpg", false, true);
+    descToRowTip(skipRaw, tr("切换后立即重扫当前文件夹，不用重新打开目录"));
+    // 批次21 #83：即时项——切换即重扫当前目录并写盘，关闭设置后保留。
+    m_liveChecks.append({ skipRaw, "etc/skip_raw_when_jpg", false, true });
     // #84 RAW 缩略图：批次22 起为即时项，注册进 m_liveChecks 走「下发运行态 →
     // 写盘 → 失败回退」链路；与 #82 noRawLoad() 的 && 短路联动由消费点保留。
     auto *rawThumb = addSwitchRow(sec, tr("打开 RAW 图片文件时，显示已有缩略图"),
