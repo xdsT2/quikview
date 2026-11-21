@@ -364,6 +364,11 @@ void AppMenuPreview::highlightFromOutline(const QString &id, bool expand)
         }
     }
     if (hit < 0) {
+        // 目标行不在预览里（例如被关掉的入口）：清掉旧高亮，避免停在无关行上
+        if (!m_activeId.isEmpty()) {
+            m_activeId.clear();
+            update();
+        }
         return;
     }
     m_activeId = m_rows.at(hit).id;

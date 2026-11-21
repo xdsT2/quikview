@@ -75,12 +75,6 @@ inline const Node kNodes[] = {
     {"view_fitwidth",  "fit-width",    Leaf,   true,  "parent_view"},
     {"view_two_l2r",   "book",         Leaf,   true,  "parent_view"},
     {"view_two_r2l",   "book",         Leaf,   true,  "parent_view"},
-    // RAW+JPG 分组显示（派单 2026-11-18）：子菜单两个勾选项，父项常驻。
-    // 两个子项都是「行为开关」而不是菜单可见性开关的纯装饰：勾选态来自
-    // config/group_raw_jpg 与 config/group_show_raw，与设置页开关同源。
-    {"parent_group",   "images",       Parent, true,  "group_browse"},
-    {"group_raw_jpg",  "images",       Leaf,   true,  "parent_group"},
-    {"group_show_raw", "image",        Leaf,   true,  "parent_group"},
     {"parent_zoom",    "zoom",         Parent, false, "group_browse"},
     {"zoom_in",        "zoom-in",      Leaf,   true,  "parent_zoom"},
     {"zoom_out",       "zoom-out",     Leaf,   true,  "parent_zoom"},
@@ -88,6 +82,13 @@ inline const Node kNodes[] = {
     {"zoom_100",       "frame",        Leaf,   true,  "parent_zoom"},
     {"zoom_in1",       "zoom-in",      Leaf,   true,  "parent_zoom"},
     {"zoom_out1",      "zoom-out",     Leaf,   true,  "parent_zoom"},
+    // RAW+JPG 分组显示（派单 2026-11-18）：子菜单两个勾选项，父项常驻。
+    // 两个子项都是「行为开关」而不是菜单可见性开关的纯装饰：勾选态来自
+    // config/group_raw_jpg 与 config/group_show_raw，与设置页开关同源。
+    // 位序与 MainWindow::buildContextMenu 一致：排在「缩放工具」之后，预览才不会错位。
+    {"parent_group",   "images",       Parent, true,  "group_browse"},
+    {"group_raw_jpg",  "images",       Leaf,   true,  "parent_group"},
+    {"group_show_raw", "image",        Leaf,   true,  "parent_group"},
     // —— 图像处理（外层分组，总开关；默认四个子项全关，整组不出现父入口）——
     {"group_image",    "imageproc",    Group,  true,  "group_task"},
     {"parent_interp",  "interp",       Parent, false, "group_image"},

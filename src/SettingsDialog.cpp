@@ -5530,8 +5530,11 @@ void SettingsDialog::refreshAppMenuPreview(bool relayout)
         r.radioOn = on && radio;
         // 互斥组里非当前项画空圈（排序 / 浏览方式 / 插值 / 过渡 / 旋转）
         r.radioOff = radio && !on;
+        // 一级子菜单入口（Parent）在真实菜单里始终可展开：无图时只是子项灰显，
+        // 入口本身仍是 enabled，预览不能抢先按 needsImage 把它画灰。
+        const bool menuEntry = n.kind == AppMenu::Parent;
         r.enabled = enabledOf(r.id)
-                    && (s.hasImage || !needsImage(r.id));
+                    && (menuEntry || s.hasImage || !needsImage(r.id));
         return r;
     };
     auto visible = [&cfg](const AppMenu::Node &n) {
