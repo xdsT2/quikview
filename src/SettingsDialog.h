@@ -99,6 +99,13 @@ public:
     // probeResetDefaults：点 footer「恢复默认」并自动确认，走 onReset 同一条链路。
     void probeKeyConflict();
     void probeResetDefaults();
+    // 批次13 键盘页即时化验收探针（--smoke kblive:<action>+<step>…，非交互路径）：
+    // 切到键盘页，对指定动作行依次执行「点启用 / 录入热键 / 保存 / 关闭」等真实
+    // 控件链路（点勾选走 QCheckBox::toggled → applyInstantValue + applyLiveSetting，
+    // 录入走 QKeySequenceEdit 的真实按键事件），每步把「勾选态 / 可用态 / 行内
+    // 状态 / 配置值 / 运行态键位表」追加到 outPath。步骤：dump[:tag] / on / off /
+    // record:<键> / clear / save / esc；'+' 分隔（--smoke 用逗号拆命令）。
+    void probeKeyLive(const QString &spec, const QString &outPath = QString());
     // probeOpenCombo：切到第 page 页并展开其中第 index 个可见下拉，用于
     // 「设置里的下拉展开时主顶栏是否被误唤出」的截图验收；同时把各下拉的
     // 序号/当前值写到 Temp/settings-combos.txt，避免靠猜索引取错控件。
@@ -428,6 +435,11 @@ private:
     // 录入态：页首说明与行内「正在录入」跟随焦点切换。
     void refreshKeyEditingState();
     void setKeyHintMode(bool editing);
+    // 键位可用性（批次13）：保存值优先、否则出厂键位；两者都为空 = 该动作实际
+    // 拿不到任何键（MainWindow::applyShortcutConfig 会直接跳过），此时「启用」
+    // 无意义，必须灰显并说明原因，不留「勾着但按键无效」的可操作假开关。
+    bool keyRowHasEffectiveKey(int index) const;
+    void refreshKeyRowAvail(int index);
 
     QList<QWidget *> m_pages;              // 各页内容 widget（QScrollArea 的 widget）
     QList<QAbstractButton *> m_tabs;       // 左侧 navItem

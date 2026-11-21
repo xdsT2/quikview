@@ -2006,6 +2006,12 @@ bool commandKeepsArrowKey(const Config &cfg, const QString &cmdId, const QString
 }
 } // namespace
 
+// 验收探针用的显式重装入口：与关窗链路调用的是同一个函数，不改生产语义。
+void MainWindow::reapplyShortcuts()
+{
+    applyShortcutConfig();
+}
+
 void MainWindow::applyShortcutConfig()
 {
     const Config &cfg = Config::instance();
@@ -5511,6 +5517,77 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         dlg->show();
         dlg->probeCfgLive(c.mid(11));
     }
+    // kblive:<action>+<step>…[|<输出路径>] —— 批次13 键盘页即时化验收（幻灯片启用 / 热键）：
+    // 设置页保持打开，按真实控件链路点「启用」、录入热键、保存 / 关闭，
+    // 每步 dump 到 Temp/key-live-probe.txt（第 2 段可指定绝对路径）。
+    else if (c.startsWith(QLatin1String("kblive:"))) {
+        const QStringList parts = c.mid(7).split(QLatin1Char('|'));
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        dlg->probeKeyLive(parts.value(0).trimmed(), parts.value(1).trimmed());
+    }
+    // keypress:<键>[|<输出路径>] —— 批次13 真实按键取证：向本窗口投递原生
+    // WM_KEYDOWN/WM_KEYUP（与物理键盘同一条系统消息路径，Qt 快捷表按真实键位
+    // 分发），随后把「放映运行态 / 键位表」落盘。
+    else if (c.startsWith(QLatin1String("keypress:"))) {
+        const QStringList parts = c.mid(9).split(QLatin1Char('|'));
+        const QString seqText = parts.value(0).trimmed();
+        const QString out = parts.value(1).trimmed().isEmpty()
+                                ? QStringLiteral("Temp/keypress-probe.txt")
+                                : parts.value(1).trimmed();
+        const QKeySequence seq(seqText);
+        if (!seq.isEmpty()) {
+            const int code = seq[0].toCombined();
+            const Qt::KeyboardModifiers mods =
+                Qt::KeyboardModifiers(code & Qt::KeyboardModifierMask);
+            const int baseKey = code & ~Qt::KeyboardModifierMask;
+            // Qt 键码 → Windows 虚拟键：字母/数字用大写字符码，其余按同名常量。
+            quint32 vk = 0;
+            if (baseKey >= Qt::Key_A && baseKey <= Qt::Key_Z)
+                vk = quint32('A' + (baseKey - Qt::Key_A));
+            else if (baseKey >= Qt::Key_0 && baseKey <= Qt::Key_9)
+                vk = quint32('0' + (baseKey - Qt::Key_0));
+            else if (baseKey == Qt::Key_F1) vk = VK_F1 + 0;
+            else if (baseKey == Qt::Key_F2) vk = VK_F1 + 1;
+            else if (baseKey == Qt::Key_F3) vk = VK_F1 + 2;
+            else if (baseKey == Qt::Key_F4) vk = VK_F1 + 3;
+            else if (baseKey == Qt::Key_F5) vk = VK_F1 + 4;
+            else if (baseKey == Qt::Key_F6) vk = VK_F1 + 5;
+            else if (baseKey == Qt::Key_F7) vk = VK_F1 + 6;
+            else if (baseKey == Qt::Key_F8) vk = VK_F1 + 7;
+            else if (baseKey == Qt::Key_F9) vk = VK_F1 + 8;
+            else if (baseKey == Qt::Key_F10) vk = VK_F1 + 9;
+            else if (baseKey == Qt::Key_Space) vk = VK_SPACE;
+            if (vk) {
+                QWidget *target = QApplication::focusWidget();
+                if (!target)
+                    target = this;
+                HWND hw = reinterpret_cast<HWND>(target->window()->winId());
+                // 修饰键先按下再抬起，与真实组合键顺序一致。
+                QList<quint32> modVks;
+                if (mods & Qt::ControlModifier) modVks << VK_CONTROL;
+                if (mods & Qt::ShiftModifier)   modVks << VK_SHIFT;
+                if (mods & Qt::AltModifier)     modVks << VK_MENU;
+                for (quint32 mvk : modVks)
+                    PostMessageW(hw, WM_KEYDOWN, WPARAM(mvk), 0);
+                PostMessageW(hw, WM_KEYDOWN, WPARAM(vk), LPARAM(1));
+                PostMessageW(hw, WM_KEYUP, WPARAM(vk), LPARAM(0xC0000001));
+                for (quint32 mvk : modVks)
+                    PostMessageW(hw, WM_KEYUP, WPARAM(mvk), LPARAM(0xC0000001));
+                QTimer::singleShot(400, this, [this, out, seqText, vk]() {
+                    QFile f(out);
+                    if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+                        QTextStream ts(&f);
+                        ts << "key=" << seqText << " vk=" << int(vk)
+                           << " slide=" << (m_slideshow ? 1 : 0)
+                           << " slide_timer=" << (m_slideshowTimer && m_slideshowTimer->isActive() ? 1 : 0)
+                           << " kept=" << shortcutsReport() << "\n";
+                    }
+                });
+            }
+        }
+    }
     // appmenu:<id>[,<id>…] / appmenureset —— 应用内右键菜单可见性开关探针
     // （右键菜单派单 2026-11-14）：驱动「父关子灰 / 组关整树灰 / 父开全量 /
     // 恢复默认」等设置页状态，供截图与回归验证。
@@ -6786,6 +6863,9 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << " dpr=" << devicePixelRatioF()
                << " maximized=" << (isMaximized() ? 1 : 0)
                << " winstate=" << static_cast<int>(windowState())
+               // 幻灯片运行态（批次13 真实按键取证：slide=1 计时器在走，0 已停）
+               << " slide=" << (m_slideshow ? 1 : 0)
+               << " slide_timer=" << (m_slideshowTimer && m_slideshowTimer->isActive() ? 1 : 0)
                << " keys=" << shortcutsReport()
                << "\n";
         }
