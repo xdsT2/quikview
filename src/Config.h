@@ -63,7 +63,7 @@ public:
     QString mouseXAction() const;
     QString mouseYAction() const;
 
-    // 键盘快捷键自定义（批次 D1）：14 个可配置动作各占三键
+    // 键盘快捷键自定义（批次 D1）：13 个可配置动作各占三键
     // config/keyboard/<action>_enabled / _key / _action。_key 存 QKeySequence
     // 的 PortableText（"Ctrl+P"、"Right"…）。键存在且为空串 = 显式未绑定
     // （设置页显示「未设置」，运行期不装键）；键不存在 = 从未保存过，用出厂
