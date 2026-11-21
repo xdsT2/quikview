@@ -25,6 +25,7 @@ class QPaintEvent;
 class QPushButton;
 class QProgressBar;
 class QResizeEvent;
+class QScrollArea;
 class QSpacerItem;
 class QSpinBox;
 class InputModeWatcher;
@@ -115,6 +116,11 @@ public:
     void focusExtensionsPage();
     // 验收探针：把文字写进搜索框（触发「首次搜索补齐全部页」路径）。
     void probeSearch(const QString &text);
+    // 正文留白滚轮验收探针（--smoke settingswheel:<dir>，派单 2026-11-22）：
+    // 宽窗 / 窄窗分别在卡片列、左留白、右留白注入真实滚轮刻度（按落点找控件
+    // 再派发，与平台路径一致），记录滚动条位置、上下边界，以及大纲 / 常驻预览
+    // / 下拉弹层的表现；截图与文本证据写到 <dir>。
+    void probeWheelMargins(const QString &outDir);
     void probeAppMenuWindow(const QString &out, int w = 0, int h = 0,
                             const QString &scrollTo = QString(),
                             const QString &steps = QString());
@@ -148,6 +154,7 @@ public:
     void refreshAppMenuPreview(bool relayout = true);
 
 protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
     QSize minimumSizeHint() const override;
     void resizeEvent(QResizeEvent *event) override;
@@ -416,6 +423,13 @@ private:
     // 页标题与卡片左缘对齐；切到其他页时逐项还原，保证其余十页零变化。
     QWidget *m_contentColumn = nullptr;
     QVBoxLayout *m_contentLay = nullptr;
+    // —— 正文外侧留白滚轮（派单 2026-11-22）——
+    // 内容列居中限宽（kGenContentMaxW），页内滚动区只覆盖列宽；窗口拉宽后
+    // 两侧留白不属于任何滚动区，滚轮事件会冒泡到正文外壳。这里按原滚动位置
+    // 与上下边界转交给当前页自己的滚动区，卡片宽度不参与滚轮范围。
+    QWidget *m_contentPane = nullptr;
+    bool m_wheelForwarding = false;     // 转发重入保护：到边界的事件会再冒泡回来
+    QScrollArea *wheelTarget(const QPoint &contentPos) const;
     QFrame *m_headLine = nullptr;
     QSpacerItem *m_headGapTop = nullptr;     // 页头说明与分隔线之间（一般页收窄）
     QSpacerItem *m_headGapBottom = nullptr;  // 分隔线与内容之间

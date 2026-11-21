@@ -48,6 +48,7 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QScreen>
 #include <QSet>
 #include <QShowEvent>
 #include <QSpinBox>
@@ -65,6 +66,7 @@
 #include <QVersionNumber>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <QWheelEvent>
 #include <functional>
 #include <algorithm>
 #include <memory>
@@ -1586,6 +1588,10 @@ SettingsDialog::SettingsDialog(QWidget *parent)
 
     auto *content = new QFrame(body);
     content->setObjectName(QStringLiteral("contentPane"));
+    // 正文外壳接收列外留白的滚轮：列居中限宽后两侧留白不属于页内滚动区，
+    // 事件冒泡到这里由 eventFilter 转交给当前页的滚动区（派单 2026-11-22）。
+    m_contentPane = content;
+    content->installEventFilter(this);
     auto *cl = new QVBoxLayout(content);
     // 外壳：内容列由 updateContentColumnWidth() 居中限宽到 kGenContentMaxW
     // （2026-11-12 收窗：默认 920 下卡片 638、两侧各留 36/37）。
@@ -2037,6 +2043,60 @@ void SettingsDialog::updateContentColumnWidth()
         m_footerGap->changeSize(gap, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
         m_footer->layout()->invalidate();
     }
+}
+
+// ---------------------------------------------------------------------------
+// 正文外侧留白的滚轮转交（派单 2026-11-22）
+// 页内容列居中限宽（kGenContentMaxW），页内滚动区只覆盖这一列；窗口拉宽后
+// 两侧留白既不属于卡片列，也不属于页内滚动区，滚轮/触控板事件被沿途控件
+// 逐个忽略后冒泡到正文外壳。这里按视口坐标把事件重放给当前页自己的滚动区：
+// 沿用它的滚动位置、上下边界与滚动量，卡片宽度不参与滚轮范围。只转发事件，
+// 不改任何控件值；已在其它滚动区（页内列表、常驻预览、下拉弹层）消费掉的
+// 事件不会走到这里，因此不存在重复消费。
+// ---------------------------------------------------------------------------
+QScrollArea *SettingsDialog::wheelTarget(const QPoint &contentPos) const
+{
+    if (!m_stack || !m_contentPane)
+        return nullptr;
+    auto *page = qobject_cast<QScrollArea *>(m_stack->currentWidget());
+    if (!page)
+        return nullptr;
+
+    // 「查看器右键菜单」页：大纲与常驻预览保留各自的滚动行为，正文列外留白
+    // 跟随大纲。指针落在预览列的标题/说明等非滚动部位时也归预览列自己。
+    if (m_appMenuPageIndex >= 0 && m_stack->currentIndex() == m_appMenuPageIndex) {
+        if (auto *preview = page->findChild<QScrollArea *>(
+                QStringLiteral("appMenuPreviewScroll"))) {
+            const QRect previewRect(preview->mapTo(m_contentPane, QPoint(0, 0)),
+                                    preview->size());
+            if (previewRect.contains(contentPos))
+                return preview;
+        }
+        if (auto *outline = qobject_cast<QScrollArea *>(m_appMenuOutline))
+            return outline;
+    }
+    return page;
+}
+
+bool SettingsDialog::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_contentPane && event->type() == QEvent::Wheel && !m_wheelForwarding) {
+        auto *wheel = static_cast<QWheelEvent *>(event);
+        if (QScrollArea *target = wheelTarget(wheel->position().toPoint())) {
+            QWidget *viewport = target->viewport();
+            const QPointF local =
+                viewport->mapFrom(m_contentPane, wheel->position().toPoint());
+            QWheelEvent replay(local, viewport->mapToGlobal(local), wheel->pixelDelta(),
+                               wheel->angleDelta(), wheel->buttons(), wheel->modifiers(),
+                               wheel->phase(), wheel->inverted(), wheel->source());
+            // 滚动区滚到上下边界时会忽略事件并继续向上冒泡，用标志挡住二次转发。
+            m_wheelForwarding = true;
+            QApplication::sendEvent(viewport, &replay);
+            m_wheelForwarding = false;
+            return true;
+        }
+    }
+    return QDialog::eventFilter(watched, event);
 }
 
 void SettingsDialog::applyCompactLayout(bool compact)
@@ -5155,6 +5215,232 @@ void SettingsDialog::probeSearch(const QString &text)
         m_search->setText(text);
         probeMark("search-first", t.nsecsElapsed() / 1000);
     }
+}
+
+namespace {
+
+// 在屏幕坐标处注入一个滚轮刻度：按窗口内命中测试找落点控件（与 Qt 自己的
+// 滚轮派发一致），再走正常派发与冒泡。同时记录屏幕命中是否落在本窗口，
+// 避免窗口被遮挡 / 部分移出屏幕时把「假空转」当成行为证据。
+QString wheelAtInWindow(QWidget *window, QPoint globalPos, int angleY)
+{
+    QWidget *receiver = window->childAt(window->mapFromGlobal(globalPos));
+    if (!receiver)
+        receiver = window;
+    // Qt 只对系统自发事件做父链冒泡，合成 QWheelEvent 不会自己往上走；这里按
+    // 真实滚轮的最终承受者派发：落点若在滚动区里，事件最终由该区视口消费。
+    for (QWidget *w = receiver; w && w != window; w = w->parentWidget()) {
+        if (auto *sa = qobject_cast<QAbstractScrollArea *>(w)) {
+            receiver = sa->viewport();
+            break;
+        }
+    }
+    const QWidget *screenHit = QApplication::widgetAt(globalPos);
+    const bool onWindow = screenHit && (screenHit == window || window->isAncestorOf(screenHit));
+    const QString name = receiver->objectName().isEmpty()
+        ? QString::fromLatin1(receiver->metaObject()->className())
+        : receiver->objectName();
+    QWheelEvent ev(QPointF(receiver->mapFromGlobal(globalPos)), QPointF(globalPos), QPoint(),
+                   QPoint(0, angleY), Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+    QApplication::sendEvent(receiver, &ev);
+    QApplication::processEvents();
+    return QStringLiteral("receiver=%1 screenHit=%2")
+        .arg(name, onWindow ? QStringLiteral("window") : QStringLiteral("other"));
+}
+
+}  // namespace
+
+void SettingsDialog::probeWheelMargins(const QString &outDir)
+{
+    // 派单 2026-11-22 验收：拉宽设置窗口，在卡片内、左留白、右留白分别向上 /
+    // 向下滚动；再验窄窗、长页面、滚动上下边界、大纲与常驻预览、下拉弹层。
+    QTimer::singleShot(400, this, [this, outDir]() {
+        const QRect avail = screen()->availableGeometry();
+        const int wideW = qMin(1400, avail.width() - 120);
+        const int wideH = qMin(820, avail.height() - 160);
+        const QString dir = outDir.trimmed().isEmpty() ? QStringLiteral("Temp") : outDir.trimmed();
+        QDir().mkpath(dir);
+
+        QStringList log;
+        auto note = [&log](const QString &line) { log << line; };
+
+        resize(wideW, wideH);
+        move(avail.x() + 8, avail.y() + 8);
+        raise();
+        activateWindow();
+        QApplication::processEvents();
+        note(QStringLiteral("screen=%1,%2 %3x%4 dialogAt=%5,%6")
+                 .arg(avail.x()).arg(avail.y()).arg(avail.width()).arg(avail.height())
+                 .arg(x()).arg(y()));
+
+        // 找一页在当前高度下确实能滚的长页（外观 → 键盘 → 图像处理 → 通用 → 浏览）。
+        QScrollArea *page = nullptr;
+        int pageIndex = -1;
+        for (int idx : {2, 4, 3, 0, 1}) {
+            selectPage(idx);
+            QApplication::processEvents();
+            if (auto *sa = qobject_cast<QScrollArea *>(m_stack->currentWidget())) {
+                if (sa->verticalScrollBar()->maximum() > 0) {
+                    page = sa;
+                    pageIndex = idx;
+                    break;
+                }
+            }
+        }
+        QScrollBar *bar = page ? page->verticalScrollBar() : nullptr;
+        const QRect colRect = m_contentColumn->geometry();
+        const QRect paneRect = m_contentPane->rect();
+        note(QStringLiteral("window=%1x%2 page=%3 %4")
+                 .arg(width()).arg(height()).arg(pageIndex)
+                 .arg(m_pageTitles.value(pageIndex)));
+        note(QStringLiteral("pane=%1,%2 %3x%4 column=%5,%6 %7x%8 scrollValue=%9 max=%10")
+                 .arg(paneRect.x()).arg(paneRect.y()).arg(paneRect.width()).arg(paneRect.height())
+                 .arg(colRect.x()).arg(colRect.y()).arg(colRect.width()).arg(colRect.height())
+                 .arg(bar ? bar->value() : -1).arg(bar ? bar->maximum() : -1));
+
+        const QPoint cardPos = m_stack->mapTo(m_contentPane, m_stack->rect().center());
+        const int leftX = qMax(2, colRect.left() / 2);
+        const int rightX = qMin(paneRect.width() - 2,
+                                (colRect.right() + 1 + paneRect.width()) / 2);
+
+        auto sample = [&](const QString &label, const QPoint &panePos, int angleY) {
+            if (!bar)
+                return;
+            const int before = bar->value();
+            const QString hit = wheelAtInWindow(this, m_contentPane->mapToGlobal(panePos), angleY);
+            const int after = bar->value();
+            note(QStringLiteral("%1 pos=%2,%3 wheel=%4 before=%5 after=%6 %7 %8")
+                     .arg(label).arg(panePos.x()).arg(panePos.y()).arg(angleY)
+                     .arg(before).arg(after)
+                     .arg(after > before ? QStringLiteral("down")
+                                          : after < before ? QStringLiteral("up")
+                                                           : QStringLiteral("none"))
+                     .arg(hit));
+        };
+        auto setValue = [&](int v) {
+            if (!bar)
+                return;
+            bar->setValue(v);
+            QApplication::processEvents();
+        };
+
+        // 宽窗：卡片内 / 左留白 / 右留白，向下与向上各一格。
+        if (bar) {
+            const int mid = bar->maximum() / 2;
+            setValue(mid);
+            sample(QStringLiteral("wide-card-down"), cardPos, -120);
+            setValue(bar->maximum() / 2);
+            sample(QStringLiteral("wide-left-down"), QPoint(leftX, cardPos.y()), -120);
+            setValue(bar->maximum() / 2);
+            sample(QStringLiteral("wide-right-down"), QPoint(rightX, cardPos.y()), -120);
+            grab().save(dir + QStringLiteral("/wheel-wide-after-down.png"));
+            setValue(bar->maximum() / 2);
+            sample(QStringLiteral("wide-left-up"), QPoint(leftX, cardPos.y()), 120);
+            setValue(bar->maximum() / 2);
+            sample(QStringLiteral("wide-right-up"), QPoint(rightX, cardPos.y()), 120);
+            // 上下边界：顶部继续向上、底部继续向下都不应越过。
+            setValue(0);
+            sample(QStringLiteral("wide-left-top-up"), QPoint(leftX, cardPos.y()), 120);
+            setValue(bar->maximum());
+            sample(QStringLiteral("wide-right-bottom-down"), QPoint(rightX, cardPos.y()), -120);
+            setValue(0);
+        }
+
+        // 窄窗（最小尺寸 900×660）：留白收窄后同样应能滚动当前页。
+        resize(900, 660);
+        QApplication::processEvents();
+        if (bar) {
+            const QRect narrowCol = m_contentColumn->geometry();
+            const int nLeft = qMax(2, narrowCol.left() / 2);
+            const int nRight = qMin(m_contentPane->width() - 2,
+                                    (narrowCol.right() + 1 + m_contentPane->width()) / 2);
+            note(QStringLiteral("narrow column=%1,%2 %3x%4 leftX=%5 rightX=%6")
+                     .arg(narrowCol.x()).arg(narrowCol.y()).arg(narrowCol.width())
+                     .arg(narrowCol.height()).arg(nLeft).arg(nRight));
+            setValue(bar->maximum() / 2);
+            sample(QStringLiteral("narrow-left-down"), QPoint(nLeft, cardPos.y()), -120);
+            setValue(bar->maximum() / 2);
+            sample(QStringLiteral("narrow-right-down"), QPoint(nRight, cardPos.y()), -120);
+            grab().save(dir + QStringLiteral("/wheel-narrow.png"));
+        }
+
+        // 查看器右键菜单页：正文列外留白跟随大纲，常驻预览保留自己的滚动。
+        if (m_appMenuPageIndex >= 0) {
+            resize(wideW, wideH);
+            selectPage(m_appMenuPageIndex);
+            QApplication::processEvents();
+            auto *outline = qobject_cast<QScrollArea *>(m_appMenuOutline);
+            auto *preview = m_appMenuPage ? m_appMenuPage->findChild<QScrollArea *>(
+                                                QStringLiteral("appMenuPreviewScroll"))
+                                          : nullptr;
+            const QRect menuCol = m_contentColumn->geometry();
+            const int menuY = m_stack->mapTo(m_contentPane, QPoint(0, m_stack->height() / 2)).y();
+            const QPoint blank(qMax(2, menuCol.left() / 2), menuY);
+            if (outline) {
+                const int before = outline->verticalScrollBar()->value();
+                const QString hit = wheelAtInWindow(this, m_contentPane->mapToGlobal(blank), -120);
+                const int after = outline->verticalScrollBar()->value();
+                note(QStringLiteral("appmenu-left-down outline before=%1 after=%2 %3 previewValue=%4 %5")
+                         .arg(before).arg(after)
+                         .arg(after > before ? QStringLiteral("down") : QStringLiteral("none"))
+                         .arg(preview ? preview->verticalScrollBar()->value() : -1)
+                         .arg(hit));
+            }
+            if (preview) {
+                // 指针压在常驻预览列自己身上：应滚预览，不动大纲。
+                const QPoint previewPos =
+                    preview->mapTo(m_contentPane, preview->rect().center());
+                const int outlineBefore = outline ? outline->verticalScrollBar()->value() : -1;
+                const int before = preview->verticalScrollBar()->value();
+                const QString hit = wheelAtInWindow(this, m_contentPane->mapToGlobal(previewPos), -120);
+                const int after = preview->verticalScrollBar()->value();
+                note(QStringLiteral("appmenu-preview-down preview before=%1 after=%2 max=%3 outline=%4->%5 %6")
+                         .arg(before).arg(after)
+                         .arg(preview->verticalScrollBar()->maximum())
+                         .arg(outlineBefore)
+                         .arg(outline ? outline->verticalScrollBar()->value() : -1)
+                         .arg(hit));
+            }
+            grab().save(dir + QStringLiteral("/wheel-appmenu.png"));
+        }
+
+        // 下拉弹层打开时由弹层自己处理滚轮，正文页不应跟着动。
+        if (pageIndex >= 0) {
+            selectPage(pageIndex);
+            QApplication::processEvents();
+            QComboBox *combo = nullptr;
+            const auto combos = m_pages.at(pageIndex)->findChildren<QComboBox *>();
+            for (QComboBox *cb : combos) {
+                if (cb->isVisible() && cb->count() > 1 && cb->isEnabled()) {
+                    combo = cb;
+                    break;
+                }
+            }
+            if (combo && bar) {
+                const int pageBefore = bar->value();
+                combo->showPopup();
+                QApplication::processEvents();
+                QWidget *popup = combo->view() ? combo->view()->window() : nullptr;
+                const int popupBefore = combo->view() ? combo->view()->verticalScrollBar()->value() : -1;
+                if (popup) {
+                    const QString hit =
+                        wheelAtInWindow(popup, popup->mapToGlobal(popup->rect().center()), -120);
+                    note(QStringLiteral("dropdown wheel popupScroll=%1->%2 page=%3->%4 %5")
+                             .arg(popupBefore)
+                             .arg(combo->view()->verticalScrollBar()->value())
+                             .arg(pageBefore).arg(bar->value())
+                             .arg(hit));
+                }
+                combo->hidePopup();
+                QApplication::processEvents();
+            }
+        }
+
+        QFile report(dir + QStringLiteral("/wheel-margins.txt"));
+        if (report.open(QIODevice::WriteOnly | QIODevice::Text))
+            report.write(log.join(u'\n').toUtf8());
+        QTimer::singleShot(80, qApp, &QCoreApplication::quit);
+    });
 }
 
 void SettingsDialog::refreshAppMenuPreview(bool relayout)

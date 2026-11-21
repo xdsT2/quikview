@@ -5145,6 +5145,14 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         dlg->show();
         QTimer::singleShot(400, dlg, [dlg]() { dlg->probeVisitAllPages(); });
     }
+    // settingswheel:<dir> —— 设置正文留白滚轮验收（派单 2026-11-22）：宽窗 / 窄窗
+    // 分别在卡片列、左留白、右留白注入真实滚轮刻度，dump 滚动位置、边界与截图。
+    else if (c.startsWith(QLatin1String("settingswheel:"))) {
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        dlg->probeWheelMargins(c.mid(14));
+    }
     // ctxsub:<out>:<id> —— 按目录 id 抓取对应子菜单渲染图（grab，不经屏幕）；
     // 如 ctxsub:Temp\sort-sub.png:parent_sort。子菜单不存在（父关）时不落盘。
     else if (c.startsWith(QLatin1String("ctxsub:"))) {
