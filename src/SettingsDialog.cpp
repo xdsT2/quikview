@@ -3,7 +3,7 @@
 
 #include "AppMenuPreview.h"
 #include "Chrome.h"
-#include "DirectoryLoader.h"
+#include "LanguageRuntime.h"
 #include "PanoExtension.h"
 
 #include "quik_config_keys.h"
@@ -1062,6 +1062,10 @@ void populateLanguageCombo(QComboBox *combo)
     combo->addItem(QStringLiteral("Deutsch"), QStringLiteral("de_DE"));
     combo->addItem(QStringLiteral("Español"), QStringLiteral("es_ES"));
     combo->addItem(QStringLiteral("Русский"), QStringLiteral("ru_RU"));
+    // 批次23 验收钩子：QUIKVIEW_TEST_LANG_EXTRA=1 时追加一条没有 .qm 的档位，
+    // 用来走真实下拉验证「缺 .qm → 回退并提示」的降级路径（正常用户看不到）。
+    if (!qEnvironmentVariableIsEmpty("QUIKVIEW_TEST_LANG_EXTRA"))
+        combo->addItem(QStringLiteral("Italiano"), QStringLiteral("it_IT"));
 }
 
 // 把 QSS 里的 @Token@ 占位符换成 UiStyle 常量：界面代码里不再出现裸色值。
@@ -2932,11 +2936,16 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
             });
 
     // —— 界面语言（原「语言」整页并入）——
+    // 批次23 #87：改前下拉只更新待保存计数、写盘在 onAccepted()，界面要重启才变
+    // （SET-01 台账记的「写配置通、加载断」假开关）。改后选择即装载 .qm、全窗口
+    // 重译并立刻写 config/language，行内状态行给出「已切换 / 缺 .qm 已回退」。
     sec = beginSection(page, tr("界面语言"));
     {
         SettingRowParts parts = addSettingRow(
             sec, tr("界面语言"),
-            tr("重启 QuikView 后生效"));
+            tr("选择后立即切换界面语言并写入配置"));
+        descToRowTip(parts.row,
+                     tr("选择后立即生效，无需保存；缺少对应 .qm 时保持当前语言并当场说明"));
         m_language = makePopupCombo(parts.row);
         populateLanguageCombo(m_language);
         m_language->setCursor(Qt::PointingHandCursor);
@@ -2944,6 +2953,12 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
         m_language->setFixedWidth(kGenCtlW);
         m_language->setAccessibleName(tr("界面语言"));
         parts.controls->addWidget(m_language, 0, Qt::AlignVCenter);
+        // 「通用」页在构造函数里直接 build（不走 ensurePageBuilt 的 connectPageWidgets），
+        // 所以语言下拉必须在这里就地连接，否则选中事件根本没人接（改前「假开关」）。
+        connect(m_language, &QComboBox::currentIndexChanged, this, [this]() {
+            applyLanguageSelection();
+        });
+        m_langStatus = addHint(sec, QString());
     }
     {
         SettingRowParts parts = addSettingRow(sec, tr("打开语言文件夹"), QString());
@@ -2974,7 +2989,8 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
             }
         });
     }
-    addHint(sec, tr("两个入口都会离开 QuikView，应用内只报告启动是否成功。"));
+    addHint(sec, tr("两个入口都会离开 QuikView，应用内只报告系统是否接受打开请求。"));
+    refreshLanguageStatus();
 
     // —— 设置导出 / 导入（需求池 H1-3）——
     sec = beginSection(page, setioTr("设置备份"));
@@ -6265,6 +6281,8 @@ void SettingsDialog::loadPageWidgets(QWidget *page)
     if (owns(m_language)) {
         const int idx = m_language->findData(sGet("language", QStringLiteral("system")));
         m_language->setCurrentIndex(idx >= 0 ? idx : 0);
+        // 批次23：回填后把「当前档位 / 生效语言」写进行内状态行，避免只看勾选态。
+        refreshLanguageStatus();
     }
     // 外观页两件套不进绑定表，单独回读（历史 theme 三值 → 跟随 + 浅色两开关）。
     if (owns(m_themeCombo))
@@ -6557,9 +6575,13 @@ void SettingsDialog::connectPageWidgets(QWidget *page)
         });
     }
     if (owns(m_language)) {
-        connect(m_language, &QComboBox::currentIndexChanged, this, [this]() {
-            updatePendingNote();
-        });
+        // 批次23 #87：语言下拉在「通用」页构建处就地连接（该页不走这条懒加载路径），
+        // 这里只在语言组被搬到延后构建的页时才兜底，避免重复连接。
+        if (m_langStatus == nullptr) {
+            connect(m_language, &QComboBox::currentIndexChanged, this, [this]() {
+                applyLanguageSelection();
+            });
+        }
     }
     if (owns(m_gifColorBtn)) {
         syncGifColorRow();
@@ -6576,6 +6598,75 @@ void SettingsDialog::connectPageWidgets(QWidget *page)
         });
     }
 }
+
+// ===========================================================================
+// 批次23 #87/#88/#89：语言页三项即时化
+// ===========================================================================
+
+// 语言行状态行：无操作时报告「当前档位 + 实际生效语言」，有操作时由调用点覆盖。
+void SettingsDialog::refreshLanguageStatus()
+{
+    if (!m_langStatus || m_loading)
+        return;
+    const QString code = m_language ? m_language->currentData().toString()
+                                    : Config::instance().language();
+    const QString eff = (code == QLatin1String("system"))
+                            ? LangRuntime::systemLanguageCode()
+                            : code;
+    m_langStatus->setText(tr("当前：%1（生效语言 %2）；选择后立即生效并写入配置。")
+                              .arg(LangRuntime::displayName(code),
+                                   LangRuntime::displayName(eff)));
+}
+
+// #87：选中即装载 .qm → 全窗口重译 → 写 config/language。
+// 任一环节失败都回滚选择与语言本身，不留「选了不变但已写盘」的假动作。
+void SettingsDialog::applyLanguageSelection()
+{
+    if (!m_language || m_loading)
+        return;
+    const QString code = m_language->currentData().toString();
+    const QString before = LangRuntime::Manager::instance().code();
+    if (code == before) {
+        refreshLanguageStatus();
+        return;
+    }
+    const int beforeIndex = m_language->findData(before);
+    const auto restoreCombo = [this, beforeIndex]() {
+        const QSignalBlocker block(m_language);
+        m_language->setCurrentIndex(beforeIndex >= 0 ? beforeIndex : 0);
+    };
+
+    QString error;
+    if (!LangRuntime::Manager::instance().apply(code, &error)) {
+        restoreCombo();
+        setLanguageStatus(
+            tr("已恢复为 %1：%2").arg(LangRuntime::displayName(before), error));
+        return;
+    }
+    // 运行态先成立再落盘：写盘走唯一入口 writeValues 的非重试分支，
+    // 失败时内存回滚，并把刚装上的语言切回去，配置与运行态不分叉。
+    if (!writeValues({ { QStringLiteral("language"), code } }, false, &error)) {
+        LangRuntime::Manager::instance().apply(before, nullptr);
+        restoreCombo();
+        setLanguageStatus(
+            tr("配置写入失败，已恢复为 %1：%2").arg(LangRuntime::displayName(before), error));
+        return;
+    }
+    m_langBaseline = code;
+    // 这句 tr() 在新语言下求值：状态行本身就是「本页文案已即时重译」的证据。
+    setLanguageStatus(tr("已切换到 %1：本页与主窗口文案已即时重译，配置已写入。")
+                          .arg(LangRuntime::displayName(code)));
+    updatePendingNote();
+}
+
+// 语言行状态行文案（失败 / 回退 / 成功态都由调用点给完整句子）。
+void SettingsDialog::setLanguageStatus(const QString &text)
+{
+    if (m_langStatus)
+        m_langStatus->setText(text);
+}
+
+
 
 void SettingsDialog::capturePendingBaseline(int keyFrom)
 {
@@ -6598,8 +6689,7 @@ QStringList SettingsDialog::pendingChangeNames() const
         if (now != m_keyBaseline.value(r.action))
             names << tr("热键：%1").arg(r.label);
     }
-    if (m_language && m_language->currentData().toString() != m_langBaseline)
-        names << tr("界面语言");
+    // 批次23 #87：界面语言已改成即时项（选中即生效并写盘），不再进待保存计数。
     return names;
 }
 
@@ -6864,7 +6954,7 @@ bool SettingsDialog::onAccepted()
     flushPendingTheme();
 
     // —— 只提交实际变更的键：普通即时项在变更点已经落盘，这里不再整表重写。
-    // 待保存项只有热键改绑与界面语言；「启用」是即时项，不在这里重复写。 ——
+    // 待保存项只有热键改绑；「启用」与「界面语言」都是即时项，不在这里重复写。 ——
     QList<QPair<QString, QVariant>> changes;
     QSettings &s = Config::instance().settings();
     for (const KeyRow &r : m_keyRows) {
@@ -6880,12 +6970,7 @@ bool SettingsDialog::onAccepted()
         if (storedAction.isValid() && storedAction.toString() != r.action)
             changes.append({ actionKey, r.action });
     }
-    if (m_language) {
-        const QString now = m_language->currentData().toString();
-        if (now != m_langBaseline)
-            changes.append({ QStringLiteral("language"), now });
-    }
-
+    // 批次23 #87：界面语言是即时项（选中即已写盘），这里不再提交语言键。
     QString error;
     // 先重试此前 sync 失败的即时项：失败则不动草稿，避免「草稿已落盘、窗口还开着」。
     if (!flushPendingWrites(&error)) {
@@ -6917,9 +7002,12 @@ void SettingsDialog::onReset()
     loadFromConfig();
 
     // 恢复默认同样是「即时项立即生效」：配置已清成默认值，运行态按默认值重放；
-    // 热键 / 语言若与进入设置时不同，进入待保存计数（关闭时会询问）。
+    // 热键若与进入设置时不同，进入待保存计数（关闭时会询问）；界面语言已即时项，
+    // 这里按默认值（跟随系统）真的切回去，不留在重置前的语言上。
     for (int i = 0; i < m_liveChecks.size(); ++i)
         applyLiveCheck(i, m_liveChecks[i].cb->isChecked());
+    if (m_language)
+        applyLanguageSelection();
     applyThemePreview();
     if (m_blurMaterial) {
         UiStyle::setBlurMaterial(m_blurMaterial->isChecked());
@@ -7729,7 +7817,7 @@ void SettingsDialog::reject()
     // 关闭语义（2026-11-07，2026-11-20 批次03 修订）：普通设置已即时写盘，关闭即保留；
     // 例外是浏览页四项（缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示）——它们按
     // 派单 §2.4 要求取消即回滚，配置与运行态一起回到进入设置时的状态。
-    // 只有热键改绑 / 界面语言是待保存项。有草稿时弹三选一。
+    // 只有热键改绑是待保存项（界面语言自批次23 起改为即时项，关闭不再询问）。
     flushPendingTheme();   // 排队中的主题切换先落运行态并写盘，再决定关闭方式
     const QStringList names = pendingChangeNames();
     if (names.isEmpty()) {
@@ -7769,7 +7857,7 @@ void SettingsDialog::reject()
         return;
     }
     if (box.clickedButton() && box.clickedButton() != keepBtn) {
-        // 不保存：丢弃热键 / 语言草稿，浏览页四项回滚；其余已即时项仍须确认落盘。
+        // 不保存：丢弃热键草稿，浏览页四项回滚；其余已即时项（含界面语言）保留。
         QString error;
         if (!flushPendingWrites(&error)) {
             warnSaveFailure(error);

@@ -14,6 +14,7 @@
 #include <QTimer>
 #include <QTranslator>
 #include "Config.h"
+#include "LanguageRuntime.h"
 #include "MainWindow.h"
 #include "Theme.h"
 #include "UpdateChecker.h"
@@ -91,12 +92,15 @@ int main(int argc, char *argv[])
     }
 
     // 翻译（qt_add_translations 生成并嵌入到 :/i18n）
-    QTranslator translator;
-    const QString lang = Config::instance().language();
-    if (lang != QLatin1String("system") && lang != QLatin1String("zh_CN")) {
-        if (translator.load(QStringLiteral("quikview_") + lang, QStringLiteral(":/i18n"))) {
-            app.installTranslator(&translator);
-        }
+    // 批次23 #87：翻译器改成应用级单例（LanguageRuntime.h），启动装载与运行期
+    // 切换走同一入口；程序目录 translations/ 下的 .qm 也能被装上（与「打开语言
+    // 文件夹」按钮同一落点）。缺 .qm 时保持中文并留一条日志，不静默假装生效。
+    {
+        QString langError;
+        LangRuntime::Manager::instance().installAtStartup(Config::instance().language(),
+                                                          &langError);
+        if (!langError.isEmpty())
+            qWarning() << "[i18n]" << langError;
     }
 
     // 主题：三档 dark/light/system；system 按 Windows 深浅色解析。
