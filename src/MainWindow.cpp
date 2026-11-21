@@ -94,6 +94,10 @@
 #include "ArchiveStore.h"   // 压缩包（ZIP/CBZ）虚拟目录：打开/标题/包内解码
 #include "ZipArchive.h"
 #include "Wallpaper.h"
+// 360° 全景（派单 2026-11-20）：识别在主程序、渲染在独立组件进程。
+#include "PanoChip.h"
+#include "PanoExtension.h"
+#include "PanoMetadata.h"
 
 // 版本号由 CMakeLists 的 project(VERSION ...) 注入（见 QUIKVIEW_VERSION），
 // 这里只做兜底，避免脱离 CMake 直接编译时报未定义。
@@ -455,6 +459,15 @@ MainWindow::MainWindow(QWidget *parent)
         if (!m_dir || !m_dir->isValid() || index < 1 || index > m_dir->count()) {
             return;
         }
+        // 总览打开时画布被盖住：这一帧不用解全图，改为让网格选中与滚动跟随目标索引
+        // （2026-11-21 派单 §3）。松手后的 pageRequested 仍照原路走一次正规跳转。
+        if (m_overview && m_overview->isVisible()) {
+            if (m_preloadTimer) {
+                m_preloadTimer->stop();
+            }
+            m_overview->probeFollow(index - 1);
+            return;
+        }
         if (m_preloadTimer) {
             m_preloadTimer->stop();   // 拖动中不预读，让出解码给跟手预览
         }
@@ -530,6 +543,11 @@ MainWindow::MainWindow(QWidget *parent)
     m_emptyState = new Chrome::EmptyState(this);
     connect(m_emptyState, &Chrome::EmptyState::openClicked, this, &MainWindow::onOpen);
     connect(m_emptyState, &Chrome::EmptyState::folderClicked, this, &MainWindow::onOpenFolder);
+
+    // 「360° 查看」入口（派单 2026-11-20）：浮在底岛上方、只对完整球形图出现。
+    // NoFocus 由 PanoChip 自己设置——画布的键盘焦点与快捷键不受影响。
+    m_panoChip = new PanoChip(this);
+    connect(m_panoChip, &PanoChip::clicked, this, &MainWindow::onOpenPano);
 
     // 悬浮铬件透明度：顶部两条同步淡入淡出，底部胶囊独立。
     auto setupFade = [this](QWidget *widget, QGraphicsOpacityEffect *&effect,
@@ -685,6 +703,13 @@ void MainWindow::applyChromeLayout()
         m_control->setAvailableWidth(w);
         m_control->move(x + (w - m_control->width()) / 2, y + h - 61);
         m_control->raise();
+    }
+    if (m_panoChip && m_panoChip->isVisible()) {
+        // 与底岛同一条中轴，贴在岛上方 10px；岛隐藏时按画布底边回落。
+        const int bottom = m_control ? m_control->y() : y + h;
+        m_panoChip->move(x + (w - m_panoChip->width()) / 2,
+                         bottom - 10 - m_panoChip->height());
+        m_panoChip->raise();
     }
     if (m_toast) {
         // 通知位置由 config/notify_corner 决定：开=右下角（抬高避开胶囊），关=顶部居中
@@ -2480,6 +2505,16 @@ QMenu *MainWindow::buildContextMenu()
               QString(), false);
         reuse(show, actTwoR2L, "book", AppMenu::label(QLatin1String("view_two_r2l")),
               QString(), false);
+        // 360° 全景（派单 2026-11-20）：入口只对「可用的球形图」出现，属于随图
+        // 变化的上下文命令，因此不进 MenuCatalog 的可见性开关表（那里是全局配置）。
+        //   完整球形（未关提示）→「360° 查看」，与主窗常驻入口同一个落点；
+        //   已关提示 / 仅 2:1 宽图 →「尝试以 360° 查看」，只有手动入口；
+        //   局部裁切与其它投影 → 不给入口（首版不把局部图强行绕满一圈）。
+        if (m_pano.eligible() && !m_panoPath.isEmpty() && m_panoPath == m_currentPath) {
+            cmd(show, "view", m_pano.autoEntry ? tr("360° 查看")
+                                               : tr("尝试以 360° 查看"),
+                QString(), [this]() { onOpenPano(); }, false);
+        }
         attachDirect(show, "parent_view");
     }
     if (vis("parent_zoom")) {
@@ -3791,6 +3826,14 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     // 连按中途的快帧：只换画布与标题顶住体感。源图/效果/元数据/动图等簿记
     // 等全图到了走完整流程，避免快帧（缩放解码的小图）污染旋转/Gamma 基准。
     if (preview) {
+        // 快帧一上屏就撤掉上一张的全景入口：这张预览很可能就是普通的下一张图，
+        // 旧图的「360° 查看」不允许留在新画面上（派单识别矩阵最后一条）。
+        ++m_panoGen;
+        m_panoPath.clear();
+        m_pano = Pano::Info();
+        if (m_panoChip) {
+            m_panoChip->setActive(false);
+        }
         PerfProbe::markImageShown();
         PerfProbe::mark(PerfProbe::currentSeq(), "show-preview", "");
         m_canvas->setPixmap(QPixmap::fromImage(image));
@@ -3855,6 +3898,8 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     // 全部对应「已显示」的图；等待提示与失败态就地撤除。
     m_displayedPath = path;
     m_displayedFileMissing = false;   // 画布已接上新图：删除提示态结束
+    // 全景识别跟着「已显示的图」走：异步读 JPEG 头部，不阻塞上屏。
+    updatePanoProbe(path);
     m_displayedIndex = m_dir->files().indexOf(path);
     if (m_displayedIndex < 0) {
         m_displayedIndex = m_dir->index();   // 路径不在目录清单（拖入单图等）回落当前索引
@@ -3949,6 +3994,77 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     fitWindowToImage();
     // 装图全链路（含按图调窗引发的 resize→fit）结束，恢复写盘
     m_zoomSaveGuard = false;
+}
+
+// 360° 全景识别（派单 2026-11-20「识别结果与入口」）：只扫 JPEG 头部 XMP，
+// 走线程池，绝不阻塞上屏。m_panoGen 是代次令牌：换图即自增，旧结果回来直接丢弃，
+// 所以「连续切到普通图时旧图的入口不会留在新图上」不靠时序、靠代次保证。
+void MainWindow::updatePanoProbe(const QString &path)
+{
+    const quint64 gen = ++m_panoGen;
+    m_panoPath = path;
+    m_pano = Pano::Info();
+    if (m_panoChip) {
+        m_panoChip->setActive(false);
+    }
+    // 双页拼图是一张合成图，压缩包条目没有独立路径，都不参与全景判定。
+    if (path.isEmpty() || isSpreadMode() || ArchiveStore::isEntryPath(path)) {
+        return;
+    }
+    const QString suffix = QFileInfo(path).suffix().toLower();
+    if (suffix != QLatin1String("jpg") && suffix != QLatin1String("jpeg")
+        && suffix != QLatin1String("jfif")) {
+        return;   // 首版只认 JPG：其它格式连头部扫描都不做
+    }
+
+    auto *watcher = new QFutureWatcher<Pano::Info>(this);
+    connect(watcher, &QFutureWatcher<Pano::Info>::finished, this, [this, watcher, gen, path]() {
+        const Pano::Info info = watcher->result();
+        watcher->deleteLater();
+        if (gen != m_panoGen || path != m_panoPath || path != m_displayedPath) {
+            return;   // 已翻到别的图，旧结果作废
+        }
+        m_pano = info;
+        if (m_panoChip) {
+            m_panoChip->setActive(info.autoEntry);
+            if (info.autoEntry) {
+                applyChromeLayout();
+            }
+        }
+    });
+    watcher->setFuture(QtConcurrent::run(&Pano::probeFile, path));
+}
+
+// 全景入口唯一落点：组件已装 → 独立进程；未装 → 定位「设置 → 扩展」的组件行；
+// 启动失败 → 保留原图与原缩放，只给可操作提示（派单「组件缺失/启动失败」条）。
+void MainWindow::onOpenPano()
+{
+    if (m_panoPath.isEmpty() || !m_pano.eligible()) {
+        if (m_toast) {
+            m_toast->showMessage(tr("当前图片不是可用的 360° 全景图"),
+                                 Chrome::Toast::Tone::Warning);
+        }
+        return;
+    }
+    QString error;
+    if (PanoExt::Manager::instance().launch(m_panoPath, m_pano, &error)) {
+        return;
+    }
+    const PanoExt::Status st = PanoExt::Manager::instance().status();
+    if (st.state != PanoExt::State::Installed) {
+        onSettings();
+        if (auto *dlg = qobject_cast<SettingsDialog *>(m_settingsDlg.data())) {
+            dlg->focusExtensionsPage();
+        }
+        if (m_toast) {
+            m_toast->showMessage(tr("360° 全景查看器未安装，已定位到「设置 → 扩展」"),
+                                 Chrome::Toast::Tone::Info);
+        }
+        return;
+    }
+    if (m_toast) {
+        m_toast->showMessage(error, Chrome::Toast::Tone::Error);
+    }
 }
 
 // 按当前图片像素尺寸调窗（键 "config/etc/fit_window_to_image"）：
@@ -4402,6 +4518,110 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << "\n";
         }
     }
+    // —— 360° 全景（派单 2026-11-20）验收命令 ——
+    // panoinfo:<path> —— 同步跑一次识别，把结论落盘，识别矩阵逐行取证用。
+    else if (c.startsWith(QLatin1String("panoinfo:"))) {
+        const QString p = c.mid(9).trimmed();
+        const Pano::Info info = Pano::probeFile(p);
+        QString out = QStringLiteral("Temp/pano-probe.txt");
+        QFile f(out);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << "path=" << p << "\n"
+               << "kind=" << Pano::kindName(info.kind) << "\n"
+               << "auto=" << (info.autoEntry ? 1 : 0) << " manual="
+               << (info.manualEntry ? 1 : 0) << "\n"
+               << "heading=" << info.heading << " pitch=" << info.pitch
+               << " fov=" << info.fov << "\n"
+               << "detail=" << info.detail << "\n---\n";
+        }
+    }
+    // panoopen —— 走入口真实链路（未装会定位「设置 → 扩展」，已装拉起组件进程）
+    else if (c == QLatin1String("panoopen")) {
+        onOpenPano();
+    }
+    // panochip[:out] —— 当前图入口的真实可见性与几何，落盘供布局核对
+    else if (c.startsWith(QLatin1String("panochip"))) {
+        QString out = QStringLiteral("Temp/pano-chip.txt");
+        if (c.startsWith(QLatin1String("panochip:")))
+            out = c.mid(9).trimmed();
+        QFile f(out);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << "path=" << m_panoPath << " displayed=" << m_displayedPath << "\n"
+               << "kind=" << Pano::kindName(m_pano.kind)
+               << " auto=" << (m_pano.autoEntry ? 1 : 0)
+               << " manual=" << (m_pano.manualEntry ? 1 : 0) << "\n"
+               << "chip_visible=" << (m_panoChip && m_panoChip->isVisible() ? 1 : 0)
+               << " geo=" << (m_panoChip ? QStringLiteral("%1,%2 %3x%4")
+                                                 .arg(m_panoChip->x()).arg(m_panoChip->y())
+                                                 .arg(m_panoChip->width()).arg(m_panoChip->height())
+                                               : QStringLiteral("-"))
+               << " focusp=" << (m_panoChip ? static_cast<int>(m_panoChip->focusPolicy()) : -1)
+               << " canvasfocus=" << (m_canvas && m_canvas->hasFocus() ? 1 : 0) << "\n";
+        }
+    }
+    // extstatus[:out] —— 组件状态快照（安装前后对照、回执证据）
+    else if (c.startsWith(QLatin1String("extstatus"))) {
+        QString out = QStringLiteral("Temp/ext-status.txt");
+        if (c.startsWith(QLatin1String("extstatus:")))
+            out = c.mid(10).trimmed();
+        const PanoExt::Status st = PanoExt::Manager::instance().status();
+        QFile f(out);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << "state="
+               << (st.state == PanoExt::State::Installed    ? "installed"
+                   : st.state == PanoExt::State::Installing ? "installing"
+                   : st.state == PanoExt::State::Failed     ? "failed"
+                                                            : "not-installed")
+               << " version=" << st.version << " compatible=" << (st.compatible ? 1 : 0)
+               << " percent=" << st.percent << "\n"
+               << "path=" << st.path << "\n"
+               << "source=" << PanoExt::Manager::instance().sourceUrl() << "\n"
+               << "error=" << st.error << "\n";
+        }
+    }
+    else if (c == QLatin1String("extinstall")) {
+        PanoExt::Manager::instance().startInstall();
+    }
+    else if (c == QLatin1String("extcancel")) {
+        PanoExt::Manager::instance().cancelInstall();
+    }
+    else if (c == QLatin1String("extuninstall")) {
+        QString error;
+        const bool ok = PanoExt::Manager::instance().uninstall(&error);
+        m_lastLoadError = ok ? QStringLiteral("uninstalled") : error;
+    }
+    // extpage —— 直接定位「设置 → 扩展」组件行（截图与深连取证用）
+    else if (c == QLatin1String("extpage")) {
+        onSettings();
+        if (auto *dlg = qobject_cast<SettingsDialog *>(m_settingsDlg.data()))
+            dlg->focusExtensionsPage();
+        // 行内几何落到 Temp/ext-row.txt：组件行的文字列是否被挤成窄条，
+        // 光看截图容易误判，这里直接量。
+        QTimer::singleShot(300, this, [this]() {
+            if (!m_settingsDlg)
+                return;
+            QFile f(QStringLiteral("Temp/ext-row.txt"));
+            if (!f.open(QIODevice::WriteOnly | QIODevice::Text))
+                return;
+            QTextStream ts(&f);
+            const auto labels = m_settingsDlg->findChildren<QLabel *>(QStringLiteral("rowLabel"));
+            for (QLabel *l : labels) {
+                if (!l->text().contains(QStringLiteral("360")))
+                    continue;
+                auto *row = l->parentWidget();
+                ts << "row=" << row->width() << "x" << row->height() << " label="
+                   << l->width() << "x" << l->height() << " text=" << l->text() << "\n";
+                for (QWidget *w : row->findChildren<QWidget *>()) {
+                    if (!w->objectName().isEmpty())
+                        ts << "  child " << w->objectName() << " " << w->width() << "x"
+                           << w->height() << "\n";
+                }
+            }
+        });
+    }
     // resize:WxH —— 模拟用户拖窗口改变尺寸（验收「调窗口不打回适合窗口」）
     else if (c.startsWith(QLatin1String("resize:"))) {
         const QStringList wh = c.mid(7).split(QLatin1Char('x'));
@@ -4481,6 +4701,70 @@ void MainWindow::runSmokeCommand(const QString &cmd)
              && m_overview->isVisible()) {
         // 验收探针：发真实双击事件，走 OverviewPanel::mouseDoubleClickEvent。
         m_overview->probeDoubleClick(c.mid(11).toInt());
+    }
+    // —— 图片总览网格返工验收探针（2026-11-21 派单 §1–§3）——
+    // ovmetrics —— 当前网格几何、滚动位置、选中格与页码落盘（宽/普通/窄窗对照用）
+    else if (c == QLatin1String("ovmetrics")) {
+        if (m_overview) {
+            QFile f(QStringLiteral("Temp/overview-metrics.txt"));
+            if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+                QTextStream ts(&f);
+                const QPoint origin = mapToGlobal(QPoint(0, 0));
+                const QRect slider = m_control
+                    ? QRect(m_control->mapToGlobal(m_control->sliderRect().topLeft()),
+                            m_control->sliderRect().size())
+                    : QRect();
+                ts << "window=" << width() << "x" << height()
+                   << " at=" << origin.x() << "," << origin.y()
+                   << " slider=" << slider.x() << "," << slider.y() << " "
+                   << slider.width() << "x" << slider.height()
+                   << " mode=" << (m_overview->isVisible() ? "overview" : "canvas")
+                   << " " << m_overview->probeMetrics()
+                   << " page=" << (m_control ? m_control->page() : -1) << "/"
+                   << (m_dir ? m_dir->count() : -1) << "\n";
+            }
+        }
+    }
+    // ovfollow:N —— 直接让网格选中第 N 张并滚到可见（拖进度条的目标态）
+    else if (c.startsWith(QLatin1String("ovfollow:")) && m_overview
+             && m_overview->isVisible()) {
+        m_overview->probeFollow(c.mid(9).toInt());
+    }
+    // ovdragpress:N / ovdragto:N / ovdragrelease —— 对底栏滑杆合成真实鼠标序列，
+    // 走 ControlBar::applyPageFromX → pagePreviewRequested → 网格跟随的完整链路。
+    else if (c.startsWith(QLatin1String("ovdragpress:")) && m_control && m_dir
+             && m_overview && m_overview->isVisible()) {
+        const int page = qBound(1, c.mid(12).toInt(), qMax(1, m_dir->count()));
+        const QRect r = m_control->sliderRect();
+        const qreal left = r.left() + 7.0;
+        const qreal right = r.right() - 7.0;
+        const int count = qMax(1, m_dir->count());
+        const qreal ratio = count > 1 ? qreal(page - 1) / (count - 1) : 0.0;
+        const QPoint pos(qRound(left + ratio * (right - left)), r.center().y());
+        QMouseEvent press(QEvent::MouseButtonPress, pos, m_control->mapToGlobal(pos),
+                          Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(m_control, &press);
+    }
+    else if (c.startsWith(QLatin1String("ovdragto:")) && m_control && m_dir
+             && m_overview && m_overview->isVisible()) {
+        const int page = qBound(1, c.mid(9).toInt(), qMax(1, m_dir->count()));
+        const QRect r = m_control->sliderRect();
+        const qreal left = r.left() + 7.0;
+        const qreal right = r.right() - 7.0;
+        const int count = qMax(1, m_dir->count());
+        const qreal ratio = count > 1 ? qreal(page - 1) / (count - 1) : 0.0;
+        const QPoint pos(qRound(left + ratio * (right - left)), r.center().y());
+        QMouseEvent move(QEvent::MouseMove, pos, m_control->mapToGlobal(pos),
+                         Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(m_control, &move);
+    }
+    else if (c == QLatin1String("ovdragrelease") && m_control && m_overview
+             && m_overview->isVisible()) {
+        const QRect r = m_control->sliderRect();
+        const QPoint pos(r.center());
+        QMouseEvent release(QEvent::MouseButtonRelease, pos, m_control->mapToGlobal(pos),
+                            Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+        QApplication::sendEvent(m_control, &release);
     }
     else if (c == QLatin1String("filmright")) {
         QKeyEvent event(QEvent::KeyPress, Qt::Key_Right, Qt::NoModifier);

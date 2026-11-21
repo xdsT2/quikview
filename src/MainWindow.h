@@ -17,8 +17,10 @@
 #include "LoadError.h"
 #include "PsdLoader.h"
 #include "DirectoryLoader.h"
+#include "PanoMetadata.h"
 
 class ImageCanvas;
+class PanoChip;
 class ImageCache;
 class DirectoryLoader;
 class SettingsDialog;
@@ -341,6 +343,13 @@ private:
     void refreshSpread();                    // 按当前索引重新拼接跨页
     void updateCanvasLogo();
     void updateInfoOverlay();
+    // —— 360° 全景（派单 2026-11-20）——
+    // 识别只读 JPEG 头部的 XMP，异步跑在线程池里；m_panoGen 是代次令牌，
+    // 快速翻图时旧结果回来直接丢弃（「连续切到普通图时旧图的入口不会留在新图上」）。
+    void updatePanoProbe(const QString &path);
+    // 全景入口唯一落点：组件已装 → 显式启动独立进程；未装 → 定位到「设置 → 扩展」
+    // 的组件行；启动失败保留原图与缩放，只给可操作的 toast。
+    void onOpenPano();
     void setTopChromeVisible(bool visible, bool animate = true);
     void setDockVisible(bool visible, bool animate = true);
     void toggleTopLock();
@@ -474,6 +483,11 @@ private:
     Chrome::ZoomBadge *m_zoomBadge = nullptr;
     Chrome::StatusOverlay *m_statusOverlay = nullptr;
     Chrome::EmptyState *m_emptyState = nullptr;
+    // 「360° 查看」常驻入口：只对完整球形图出现，Qt::NoFocus 不抢画布键盘焦点。
+    PanoChip *m_panoChip = nullptr;
+    Pano::Info m_pano;              // 当前图识别结果（默认 NotFound）
+    QString m_panoPath;             // m_pano 对应的路径
+    quint64 m_panoGen = 0;          // 识别代次：换图即自增，旧回调据此丢弃
     QWidget *m_sidePrev = nullptr;
     QWidget *m_sideNext = nullptr;
 

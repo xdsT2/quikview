@@ -5,7 +5,7 @@
 
 ## 模块划分
 
-`src/` 共 33 个 `.cpp` + 39 个 `.h`，合计 37,735 行（`.cpp` 32,278 + `.h` 5,457）。按职责分五层（表内行数为模块规模快照，2026-11-21 实测，以文件实际内容为准）。
+`src/` 共 39 个 `.cpp` + 45 个 `.h`，合计约 37.3 千行（`.cpp` 31,884 + `.h` 5,411），其中 `src/pano/` 的 3+3 个文件属于独立可执行目标（见「子项目」）。按职责分五层（表内行数为模块规模快照，2026-11-21 实测，以文件实际内容为准）。
 
 **入口与外壳**
 
@@ -15,6 +15,7 @@
 | `MainWindow` | 8658 + 583 | 主窗口：菜单、状态栏、拖放、全屏、快捷键、翻页调度、打印、设壁纸入口；会话 / 窗口几何恢复、目录外部变更刷新也在这里收口 |
 | `Chrome` | 2702 + 440 | 界面外壳：顶部条、底部胶囊控制栏、翻页滑块、两侧渐显箭头、信息浮层；图层按钮仅 PSD / PSB 显示 |
 | `PillToggle` | 254 + 61 | 胶囊式开关控件 |
+| `PanoChip` | 102 + 28 | 主窗「360° 查看」胶囊：高 30 / 半径 15 / 12px DemiBold、`Qt::NoFocus`、悬停提亮；只在**完整球形全景图**上出现，居中贴底岛上沿 10px |
 
 **画布与图像**
 
@@ -42,6 +43,7 @@
 | `ArchiveStore` | 392 + 78 | 压缩包「虚拟目录」唯一入口：包注册表、虚拟路径拼装/拆分、条目解码；**包内条目路径 = 包路径 + `/` + 条目名** |
 | `PsdLoader` | 331 + 67 | PSD/PSB 解析：`psd_sdk`（BSD-2，vendor）适配层，只覆盖 8bit RGB / PSD v1；整图用文件内原始合成预览，逐层重合成不在范围内 |
 | `LoadError.h` | 16 | 解码失败类别枚举（`Corrupt` / `Unsupported` / `NoCompatPreview`），判定只在 loader 层，UI 只按类别取文案 |
+| `PanoMetadata` | 320 + 49 | **全景识别**：只扫 JPEG 段头（SOI→SOS 按段长 seek，不整文件读），取 APP1 里 xap/1.0 包，`QXmlStreamReader` 读 GPano 字段，失败退回已知字段名字节扫描；输出 `Complete` / `Suppressed` / `AspectOnly` / `Unsupported` / `NotFound` 与初始视角（heading / pitch / roll / fov）。纯逻辑，可在后台线程调，主窗用代次令牌丢弃过期结果 |
 
 **界面**
 
@@ -67,12 +69,14 @@
 | `UiStyle.h` | 826 | **UI 令牌唯一来源**：颜色 / 间距 / 字号，79 条 `inline constexpr`（其中颜色 45 条） |
 | `Theme.h` | 148 | 深 / 浅主题切换 |
 | `FlipProbe.h` / `PerfProbe.h` / `ThemeProbe.h` | 77 / 111 / 77 | 验收计时探针（翻图 / 打开分段 / 主题切换），环境变量开启，未开启时首判即返回，零开销 |
+| `PanoExtension` | 482 + 72 | **可选组件管理单例**：状态只认文件事实（`applicationDirPath()/quikview-pano.exe` + `pano-version.txt` 首行版本），兼容性 = major.minor 与主程序版本一致；下载源 `QUIKVIEW_PANO_SOURCE` → `config/ext/pano_source` → 安装包自带；网络下载取同址 `.sha256`（缺摘要即拒装）→ SHA-256 比对 → 解包 → 校验 MZ 头与版本 → 先写 `.new` 再替换；取消回 `NotInstalled` 且无错误，失败保留原状态并给中文原因 |
 
 ## 子项目
 
 | 目录 | 说明 |
 |---|---|
 | `shell-ext/` | 资源管理器壳扩展：缩略图提供程序（`IThumbnailProvider`）+ 右键菜单（`IContextMenu`），纯 Win32 裸 COM，不依赖 Qt。64 位 MinGW 静态构建为主交付物 |
+| `src/pano/` | **360° 全景查看器**：独立可执行目标 `quikview-pano.exe`（`PanoGlobe` 每像素反投视线求经纬 + 双线性采样、横向环绕、纵向夹极；`PanoWindow` 拖动 / 滚轮 / 双击复位 / Esc 关闭 + 底部 HUD）。只链 `Qt6::Widgets`，**不引第三方全景库、不用 OpenGL**：软件光栅，交互期半分辨率、停手 120ms 补全分辨率。`main.cpp` 解析 `--image/--heading/--pitch/--fov/--bench/--bench-out/--bench-shot`，参数逐个传递不拼引号，退出码 2 表示参数或解码失败 |
 | `shell/` | 早期壳扩展实现（缩略图 + 预览窗格），保留备查，不再是主交付物 |
 | `packaging/` | NSIS 安装包脚本（`quikview.nsi`） |
 | `translations/` | 9 种语言的 `.ts`（简繁中文、英、日、韩、法、德、西、俄） |
@@ -92,6 +96,7 @@
 | 配置格式 | 自研 config.ini（`[config]` 节） | QSettings INI | 与 Honeyview 同思路，跨平台 |
 | EXIF | 内嵌第三方库 | 自研解析（`ExifParser`） | 避开 libexiv2 的 GPL |
 | 壳扩展 | HVShell32/64.dll | `shell-ext/` 独立工程 | 不把 Qt 运行时拖进 explorer.exe |
+| 360° 全景查看 | 内置球面视图 | **自研独立进程**（软件光栅，Qt Widgets 自绘） | 不引第三方全景库 / OpenGL：可选功能不该给主程序绑图形栈依赖，组件 exe 仅 183 KB；代价是 8K 全分辨率约 66ms/帧，交互期走半分辨率 |
 
 ## 「单一来源」硬规则
 
@@ -100,6 +105,7 @@
 3. **翻译**：只有 `translations/*.ts`，运行时编译成 `.qm` 由 `QTranslator` 装载；中文（简体）是源语言，不额外装载。
 4. **图标**：只有 `src/AppIcon.cpp` 的映射表。`resources/icons/fluent/` 里的 SVG 由 `tools/install-fluent-icons.py` 依该表复制、`resources/ui.qrc` 的登记段也由它生成——不要在页面里各自拼路径，也不要手工往 qrc 里加图标，更不要把一个家族的多档尺寸全塞进来。
 5. **压缩包虚拟路径**：只有 `src/ArchiveStore.cpp`。包内条目的路径一律是 **包文件的绝对路径 + `/` + 包内条目名**（例：`E:/comics/book.cbz/001.jpg`）——这样 `QFileInfo(path).fileName()` 就是条目名，胶片栏 / 标题 / 缩略图的既有代码不必为虚拟路径另写取名逻辑，`lastIndexOf('/')` 之前就是包路径。**禁止**各模块自行拼 `包 + 分隔符 + 条目`，或用 `:`、`::`、「包名 + 空格」之类自造写法（详见 `ArchiveStore.h` 顶部注释）。
+6. **组件状态**：只有 `src/PanoExtension.cpp`。装没装只看文件事实（`quikview-pano.exe` + `pano-version.txt` 首行），「装上了」不看配置、不看注册表；版本口径与主程序同一个 `project(VERSION)`，安装向导写版本文件也用它。设置页、主窗入口、右键菜单都向 `Manager::instance().status()` 取状态，不各自拼判断。
 
 ## 依赖清单
 
@@ -108,11 +114,14 @@
 - 可选解码：libraw、libheif（都走 `pkg_check_modules`，缺失时降级而非编译失败）
 - 内嵌第三方（`third_party/`，随源码编译、不额外装 DLL）：`psd_sdk`（BSD-2，PSD/PSB 二进制解析，`PsdLoader` 只做适配）、`nanosvg`（zlib，壳扩展的 SVG 缩略图软渲染）、以及 psd_sdk 自带的 miniz（public domain，只编 `tinfl` 与 `mz_crc32`，供 `ZipArchive` 解压与校验）
 - Windows 专有：`winmm`（翻页音效，运行时合成 WAV 走 `PlaySoundW` 异步播放）
+- 打包期约定（0.5.6 起）：360° 组件**不进 staging**——`tools/package.sh` 把它放在输出目录的 `_pano-payload/`，`tools/package-installer.sh` 用 `/DEXTSRC` 指给 NSIS 的可选节；主安装节递归 `staging\*` 时目录里没有它，「不勾选就不装」由目录布局保证（早期 `/x "extensions\*.*"` 实测拦不住，已弃用）。
 - 说明：Honeyview 用到的 libbpg 生态已停更，BPG 支持列为可选、不阻塞主线
 
 ## 冒烟入口
 
 `--smoke <cmd[,cmd2]>` / `--screenshot` / `--screenshot-ui` 三个模式都会把配置重定向到临时 ini（环境变量 `QUIKVIEW_CONFIG_PATH`，优先级高于便携模式），**不污染用户 `config.ini`**。新增测试入口必须沿用这条路径。
+
+全景相关入口：`panoinfo:<path>`（同步跑一次识别并追加写 `Temp/pano-probe.txt`）、`panoopen`（走主窗真实入口链路）、`panochip[:out]`（当前图入口可见性与几何）、`extpage`（定位「设置 → 扩展」组件行并写 `Temp/ext-row.txt`）、`extstatus[:out]`、`extinstall` / `extcancel` / `extuninstall`。查看器自身另有 `--bench` / `--bench-out` / `--bench-shot` 三个验收参数。
 
 ## 许可证
 

@@ -4,6 +4,7 @@
 #include "AppMenuPreview.h"
 #include "Chrome.h"
 #include "DirectoryLoader.h"
+#include "PanoExtension.h"
 
 #include "quik_config_keys.h"
 
@@ -43,6 +44,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPaintEvent>
+#include <QProgressBar>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QScrollBar>
@@ -4425,12 +4427,203 @@ struct OutlineState {
 
 void SettingsDialog::buildExtensionsPage(QWidget *page)
 {
-    // 九页重组（2026-11-21）：扩展现为占位页——只说明组件与用途，不做假开关。
-    QWidget *sec = beginSection(page, tr("扩展"));
-    addSettingRow(sec, tr("QuikView 扩展"),
-                  tr("为查看器补充插件能力的预留入口（组件名：Extensions）"));
-    addHint(sec, tr("暂未提供安装：当前版本没有扩展市场、安装包或加载开关。"));
+    // 扩展页（派单 2026-11-20）：首版只有「360° 全景查看器」一个可选组件。
+    // 左侧组件名与用途，右侧状态 + 当前可用操作；组件状态只认文件事实
+    // （与安装向导勾选安装共用），因此两条安装路径不会各说各话。
+    QWidget *sec = beginSection(page, tr("可选组件"));
+    SettingRowParts row = addSettingRow(
+        sec, tr("360° 全景查看器"),
+        tr("把等距柱状全景图渲染成可拖动的球形视图，独立进程运行；组件缺失时普通看图不受影响。"));
+    m_extRow = row.row;
+
+    // 状态与进度竖排成一列，动作按钮单独一列：整页控件列宽度按 sizeHint 统一，
+    // 横排三个控件会把文字列压成窄条（实测 503px 控件列 vs 91px 文字列）。
+    auto *statusBox = new QWidget(row.row);
+    statusBox->setObjectName(QStringLiteral("extStatusBox"));
+    // 进度条平时隐藏，但控件列宽是建页时按 sizeHint 定死的：这里留最小宽度，
+    // 保证「安装中」进度条出现时不会把文字列再挤一次（布局不跳）。
+    statusBox->setMinimumWidth(100);
+    auto *sv = new QVBoxLayout(statusBox);
+    sv->setContentsMargins(0, 0, 0, 0);
+    sv->setSpacing(4);
+
+    m_extStatus = new QLabel(statusBox);
+    m_extStatus->setObjectName(QStringLiteral("rowTag"));
+    m_extStatus->setWordWrap(false);
+    m_extStatus->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    sv->addWidget(m_extStatus, 0, Qt::AlignRight);
+
+    m_extProgress = new QProgressBar(statusBox);
+    m_extProgress->setRange(0, 100);
+    m_extProgress->setValue(0);
+    m_extProgress->setTextVisible(false);
+    m_extProgress->setFixedWidth(96);
+    m_extProgress->setFixedHeight(6);
+    m_extProgress->setAccessibleName(tr("组件下载进度"));
+    sv->addWidget(m_extProgress, 0, Qt::AlignRight);
+
+    row.controls->addWidget(statusBox, 0, Qt::AlignVCenter);
+
+    m_extAction = addButton(row.row, tr("安装"));
+    m_extAction->setAccessibleName(tr("360° 全景查看器：安装"));
+    row.controls->addWidget(m_extAction, 0, Qt::AlignVCenter);
+    connect(m_extAction, &QPushButton::clicked, this, &SettingsDialog::onExtensionsAction);
+
+    addHint(sec, tr("首版范围为本地已拼好的 360°×180° 等距柱状 JPG："
+                    "带完整 GPano 标记的图在主窗给出「360° 查看」入口，"
+                    "2:1 宽图只在右键提供「尝试以 360° 查看」。"
+                    "局部裁切、其它投影与相片拼接不在本版。"));
+
+    // —— 组件信息（安装位置 / 下载源，只读）——
+    // 长路径与长地址放「说明行」而不是控件列：控件列整页同宽，塞长路径会把
+    // 同页其它行的文字列一起挤窄。
+    QWidget *info = beginSection(page, tr("组件信息"));
+    addSettingRow(info, tr("安装位置"),
+                  QDir::toNativeSeparators(PanoExt::Manager::exePath()));
+    m_extWhereHint = addHint(info, QString());
+
+    QWidget *secSource = beginSection(page, tr("下载源"));
+    addSettingRow(secSource, tr("组件包地址"),
+                  [this]() {
+                      const QString source = PanoExt::Manager::instance().sourceUrl();
+                      return source.isEmpty() ? tr("未配置") : source;
+                  }());
+    addHint(secSource,
+            tr("受控下载入口：用户不需要访问代码托管站点。安装包自带组件时无需下载；"
+               "未配置地址可运行安装包勾选该组件，或在 config.ini 写入 "
+               "config/ext/pano_source（支持 http(s) 与本地 file:// 测试源）。"));
+    addHint(secSource,
+            tr("下载包须带同址 .sha256 摘要，校验通过才落盘；取消、断网、摘要不符"
+               "都保留原有可用状态。卸载只删组件自身文件，不碰主程序与设置。"));
+
+    refreshExtensionsPage();
+
+    // 安装/取消/卸载/失败都从组件管理器广播，页面开着时即时刷新。
+    auto &mgr = PanoExt::Manager::instance();
+    connect(&mgr, &PanoExt::Manager::changed, this,
+            [this]() { refreshExtensionsPage(); });
+    connect(&mgr, &PanoExt::Manager::progressChanged, this,
+            [this](int) { refreshExtensionsPage(); });
+
     applyPageRhythm(page);
+}
+
+void SettingsDialog::refreshExtensionsPage()
+{
+    if (!m_extStatus || !m_extAction || !m_extProgress) {
+        return;   // 页面还没建（懒构建）
+    }
+    const PanoExt::Status st = PanoExt::Manager::instance().status();
+    QString stateText;
+    const char *color = UiStyle::fluent::desc();
+    QString actionText = tr("安装");
+    bool actionEnabled = true;
+
+    switch (st.state) {
+    case PanoExt::State::Installing:
+        // 还没收到第一段数据（percent=0）时说的是「连接中」，不是「安装中 0%」——
+        // 后者看着像卡住了。
+        stateText = st.percent > 0 ? tr("安装中 %1%").arg(st.percent)
+                                   : tr("正在连接下载源");
+        actionText = tr("取消");
+        color = UiStyle::fluent::statusWarn();
+        m_extProgress->setVisible(true);
+        m_extProgress->setValue(st.percent);
+        break;
+    case PanoExt::State::Installed:
+        stateText = st.compatible ? tr("已安装 %1").arg(st.version)
+                                  : tr("已安装 %1（版本不兼容）").arg(st.version);
+        actionText = tr("卸载");
+        color = st.compatible ? UiStyle::fluent::statusOk() : UiStyle::fluent::statusWarn();
+        m_extProgress->setVisible(false);
+        break;
+    case PanoExt::State::Failed:
+        stateText = tr("安装失败");
+        actionText = tr("重试");
+        color = UiStyle::Danger;
+        actionEnabled = true;
+        m_extProgress->setVisible(false);
+        break;
+    case PanoExt::State::NotInstalled:
+    default:
+        stateText = tr("未安装");
+        actionText = tr("安装");
+        color = UiStyle::fluent::desc();
+        m_extProgress->setVisible(false);
+        break;
+    }
+
+    if (!m_extProgress->isVisible() && st.state == PanoExt::State::Installing)
+        m_extProgress->setVisible(true);   // 兜底：安装中必须看得到进度
+
+    m_extStatus->setText(stateText);
+    m_extStatus->setStyleSheet(
+        QStringLiteral("color:%1;font-size:11px;").arg(QLatin1String(color)));
+    m_extStatus->setToolTip(st.state == PanoExt::State::Failed ? st.error : stateText);
+    m_extAction->setText(actionText);
+    m_extAction->setEnabled(actionEnabled);
+    m_extLastStatusText = stateText;
+
+    if (m_extWhereHint) {
+        const QString dir = QCoreApplication::applicationDirPath();
+        QString text;
+        if (st.state == PanoExt::State::Failed)
+            text = tr("上次操作没有完成：%1").arg(st.error);
+        else if (st.state == PanoExt::State::Installed)
+            text = tr("组件文件位于 %1，与安装向导勾选安装共用同一份状态；"
+                      "主程序升级保留已安装的兼容组件，不会替未安装的用户安装。")
+                       .arg(QDir::toNativeSeparators(dir));
+        else if (st.state == PanoExt::State::Installing)
+            text = tr("正在获取组件包：校验通过后才写入 %1。")
+                       .arg(QDir::toNativeSeparators(dir));
+        else
+            text = tr("尚未安装。安装向导与这里使用同一组件版本；"
+                      "安装目录需可写（%1）。")
+                       .arg(QDir::toNativeSeparators(dir));
+        m_extWhereHint->setText(text);
+    }
+}
+
+void SettingsDialog::onExtensionsAction()
+{
+    auto &mgr = PanoExt::Manager::instance();
+    const PanoExt::Status st = mgr.status();
+    switch (st.state) {
+    case PanoExt::State::Installing:
+        mgr.cancelInstall();
+        return;
+    case PanoExt::State::Installed: {
+        QString error;
+        if (!mgr.uninstall(&error))
+            showSettingsToast(error, false);
+        else
+            showSettingsToast(tr("已卸载 360° 全景查看器"), true);
+        return;
+    }
+    case PanoExt::State::Failed:
+    case PanoExt::State::NotInstalled:
+    default:
+        mgr.startInstall();
+        refreshExtensionsPage();
+        return;
+    }
+}
+
+void SettingsDialog::focusExtensionsPage()
+{
+    // 扩展页在九页里固定是最后一页（构造期 addLazyPage 顺序即导航顺序）。
+    const int idx = m_pages.size() - 1;
+    selectPage(idx);
+    if (m_extRow) {
+        m_extRow->setFocusPolicy(Qt::StrongFocus);
+        if (auto *scroll = qobject_cast<QScrollArea *>(m_pages.at(idx)->parentWidget()))
+            scroll->ensureWidgetVisible(m_extRow, 0, 24);
+        m_extRow->setFocus(Qt::OtherFocusReason);
+    }
+    if (m_extAction)
+        m_extAction->setFocus(Qt::OtherFocusReason);
+    if (PanoExt::Manager::instance().status().state == PanoExt::State::NotInstalled)
+        showSettingsToast(tr("360° 全景查看器尚未安装：点右侧「安装」后即可用原图打开"), false);
 }
 
 void SettingsDialog::buildAppMenuSections(QWidget *page)

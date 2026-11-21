@@ -94,6 +94,14 @@ add_executable(quikview WIN32
     src/MainWindow.h
     src/UpdateChecker.cpp
     src/UpdateChecker.h
+    # 360° 全景（派单 2026-11-20）：GPano 识别在主程序内（只读头部、零渲染），
+    # 球形渲染与交互在独立进程 quikview-pano（见下方 target）。
+    src/PanoMetadata.cpp
+    src/PanoMetadata.h
+    src/PanoExtension.cpp
+    src/PanoExtension.h
+    src/PanoChip.cpp
+    src/PanoChip.h
     src/PsdLoader.cpp
     src/PsdLoader.h
     src/LayerPanel.cpp
@@ -225,6 +233,31 @@ if(WIN32)
         endif()
     endforeach()
 endif()
+
+# ===========================================================================
+# 360° 全景查看器（可选组件，派单 2026-11-20）
+# ---------------------------------------------------------------------------
+# 独立进程，故意不并入 quikview.exe：
+#   · 可选安装，主程序不带它也能完整使用；
+#   · 球形渲染把 CPU 吃满时不会卡住看图的主界面；
+#   · 出问题只死扩展窗口，主窗口的原图与缩放状态原地保留。
+# 与主程序同目录安装（复用同一套 Qt 运行时 DLL），版本口径同样取
+# CMakeLists 的 project(VERSION)，不另写版本字面量。
+add_executable(quikview-pano WIN32
+    src/pano/main.cpp
+    src/pano/PanoWindow.cpp
+    src/pano/PanoWindow.h
+    src/pano/PanoGlobe.cpp
+    src/pano/PanoGlobe.h
+)
+target_include_directories(quikview-pano PRIVATE src)
+target_compile_definitions(quikview-pano PRIVATE
+    QUIKVIEW_PANO_VERSION="${PROJECT_VERSION}")
+target_link_libraries(quikview-pano PRIVATE Qt6::Widgets)
+set_target_properties(quikview-pano PROPERTIES
+    OUTPUT_NAME "quikview-pano"
+    WIN32_EXECUTABLE TRUE
+)
 
 # ===========================================================================
 # 显隐回归（CTest）：弹出菜单与上下悬浮铬件的隔离

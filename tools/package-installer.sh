@@ -52,7 +52,8 @@ echo "版本：${VERSION}（安装包 RC ${VERSION_RC}）"
 echo "makensis：$MAKENSIS"
 
 echo "[1/3] payload —— tools/package.sh 产 staging 与 zip（同一份 payload）"
-"$REPO_ROOT/tools/package.sh" "$BUILD_DIR" "$OUT_DIR"
+# 正式发布包必须带自建纯解码 libheif：退回 MSYS2 版会多约 50MB 编码器 DLL。
+QUIKVIEW_REQUIRE_DECODE_ONLY_LIBHEIF=1 "$REPO_ROOT/tools/package.sh" "$BUILD_DIR" "$OUT_DIR"
 
 # MUI_ICON 直接引用 ${SRC}\quikview.ico，缺了就编不过；这里先给出明确信息
 [ -f "$STAGE/quikview.ico" ] || { echo "staging 缺 quikview.ico（MUI_ICON 依赖），中止" >&2; exit 1; }
@@ -61,10 +62,17 @@ echo "[2/3] makensis 编译安装包"
 # makensis 只吃 Windows 路径；Git Bash 会把 /D... 当成路径改写，必须关掉转换
 SRC_WIN="$(cygpath -w "$STAGE")"
 OUT_WIN="$(cygpath -w "$SETUP")"
+# 360° 全景查看器载荷目录：可选安装节（SEC_PANO）从这里取 exe。
+# 组件**不在 staging 里**（package.sh 把它放在 $OUT_DIR/_pano-payload）：
+# 主安装节的 File /r 因此不可能把它递归解出，装不装只由向导里那一节决定。
+# 早期用 /x "extensions\*.*" 排除的做法实测没拦住（0.5.6 静默安装后组件照样
+# 落进安装目录的 extensions\），改成目录隔离后不再依赖排除规则。
+EXT_WIN="$(cygpath -w "$OUT_DIR/_pano-payload")"
 rm -f "$SETUP"
 cd "$REPO_ROOT"
 MSYS2_ARG_CONV_EXCL='*' "$MAKENSIS" \
     "/DSRC=$SRC_WIN" \
+    "/DEXTSRC=$EXT_WIN" \
     "/DOUTFILE=$OUT_WIN" \
     "/DAPPVERSION=$VERSION" \
     "/DAPPVERSION_RC=$VERSION_RC" \

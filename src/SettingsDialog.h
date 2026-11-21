@@ -23,6 +23,7 @@ class QLineEdit;
 class QMouseEvent;
 class QPaintEvent;
 class QPushButton;
+class QProgressBar;
 class QResizeEvent;
 class QSpacerItem;
 class QSpinBox;
@@ -109,6 +110,9 @@ public:
     // 窗口尺寸，抓整个设置窗（含侧栏、页头、页脚），用于设计对照与缩放验收。
     // 验收探针：逐页 selectPage 一次，记录每页「首次打开」端到端耗时。
     void probeVisitAllPages();
+    // 外部深连（派单 2026-11-20）：主程序在组件未装时点击全景入口，
+    // 定位到「设置 → 扩展」并让组件行进入视口、拿到键盘焦点。
+    void focusExtensionsPage();
     // 验收探针：把文字写进搜索框（触发「首次搜索补齐全部页」路径）。
     void probeSearch(const QString &text);
     void probeAppMenuWindow(const QString &out, int w = 0, int h = 0,
@@ -215,6 +219,11 @@ private:
     void buildMousePage(QWidget *page);
     void buildWindowsPage(QWidget *page);
     void buildExtensionsPage(QWidget *page);
+    // 组件行实时状态（下载进度 / 已安装版本 / 失败原因）；连 PanoExt::Manager 的信号，
+    // 页面没建时直接返回（懒构建）。
+    void refreshExtensionsPage();
+    // 组件行动作：未安装→安装，安装中→取消，已安装→卸载，失败→重试。
+    void onExtensionsAction();
     // 查看器右键菜单页的应用内右键菜单可见性区（2026-11-14 全量配置修订）：
     // 打开与定位 / 常用动作 / 任务菜单 / 图像处理 / 文件操作 / 危险操作 / 应用
     // 七段 + 列表开头的「恢复默认菜单」。
@@ -430,6 +439,13 @@ private:
     // Windows 集成页「支持的格式」折叠体与展开按钮（默认收起）。
     QWidget *m_formatsFoldBody = nullptr;
     QPushButton *m_formatsToggleBtn = nullptr;
+    // —— 扩展页 · 360° 全景查看器组件行（派单 2026-11-20）——
+    QWidget *m_extRow = nullptr;
+    QLabel *m_extStatus = nullptr;        // 未安装 / 安装中 42% / 已安装 0.5.6 / 安装失败
+    QProgressBar *m_extProgress = nullptr; // 仅安装中显示
+    QPushButton *m_extAction = nullptr;    // 安装 / 取消 / 卸载 / 重试
+    QLabel *m_extWhereHint = nullptr;      // 安装位置与清理范围的说明
+    QString m_extLastStatusText;           // 供外部深连高亮对照
     std::function<void(int)> m_layoutAppMenuOutline;
     std::function<std::function<void()>()> m_saveAppMenuScroll;
     std::function<void()> m_refreshAppMenuStyle;
