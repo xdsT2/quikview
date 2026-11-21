@@ -8,6 +8,7 @@
 #include <QKeyEvent>
 #include <QPainter>
 #include <QStyledItemDelegate>
+#include <QStylePainter>
 #include <QTimer>
 
 class PopupChoiceDelegate : public QStyledItemDelegate
@@ -165,11 +166,14 @@ protected:
         return QComboBox::eventFilter(watched, event);
     }
 
-    void paintEvent(QPaintEvent *event) override
+    void paintEvent(QPaintEvent *) override
     {
-        QComboBox::paintEvent(event);
-        // 右侧 12–14px 下箭头自绘（QSS 的 image 在小尺寸下不可控）。
-        QPainter p(this);
+        QStylePainter p(this);
+        QStyleOptionComboBox option;
+        initStyleOption(&option);
+        option.subControls &= ~QStyle::SC_ComboBoxArrow;
+        p.drawComplexControl(QStyle::CC_ComboBox, option);
+        p.drawControl(QStyle::CE_ComboBoxLabel, option);
         p.setRenderHint(QPainter::Antialiasing, true);
         p.setPen(QPen(UiStyle::fluent::descColor(), 1.5, Qt::SolidLine,
                       Qt::RoundCap, Qt::RoundJoin));

@@ -2881,7 +2881,7 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
         populateLanguageCombo(m_language);
         m_language->setCursor(Qt::PointingHandCursor);
         m_language->setFixedHeight(kComboH);
-        m_language->setFixedWidth(200);
+        m_language->setFixedWidth(kGenCtlW);
         m_language->setAccessibleName(tr("界面语言"));
         parts.controls->addWidget(m_language, 0, Qt::AlignVCenter);
     }
