@@ -32,6 +32,7 @@
 #include <QElapsedTimer>
 
 #include <cstdio>
+#include <functional>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QKeySequenceEdit>
@@ -3081,6 +3082,17 @@ void SettingsDialog::buildViewPage(QWidget *page)
                                      tr("翻页时播放音效；关闭后静音"),
                                      "etc/pageturn_wav", false, false);
     descToRowTip(pageturnWav, tr("翻页音效仅在单张翻页与幻灯片切页时播放"));
+    // 批次21 #81：即时项——切换即下发运行态（打开时当场播一次）并写盘，
+    // 关闭设置后保留（不属「取消即回滚」的浏览页四项）。
+    m_liveChecks.append({ pageturnWav, "etc/pageturn_wav", false, false });
+    // 就地在「翻页」组底部说一句：这一项是本页唯一的即时项，状态行贴在这里
+    // 才看得见（页尾的状态行在长页里要滚到底）。
+    m_viewLiveNote = new QLabel(sec);
+    m_viewLiveNote->setObjectName(QStringLiteral("noteLabel"));
+    m_viewLiveNote->setWordWrap(true);
+    m_viewLiveNote->hide();
+    if (auto *v = qobject_cast<QVBoxLayout *>(sec->layout()))
+        v->addWidget(m_viewLiveNote);
 
     sec = beginSection(page, tr("缩放与记忆"));
     auto *saveZoom = addSwitchRow(sec, tr("记住缩放状态"),
@@ -6922,24 +6934,37 @@ void SettingsDialog::applyLiveCheck(int index, bool checked)
 
 void SettingsDialog::updateBrowseLiveNote(const QString &key, bool value)
 {
-    if (!m_browseLiveNote)
-        return;
-    // 只在浏览页这四项（以及同页的即时项）上说话；其它页不显示这行。
+    // 只在「确实注册过」的即时项上说话：找不到名字（例如程序化回设）就静默。
     QString itemName;
+    QLabel *note = nullptr;
     for (const LiveCheck &item : m_liveChecks) {
-        if (key == QString::fromLatin1(item.key)) {
-            itemName = item.cb->accessibleName().isEmpty() ? item.cb->text()
-                                                          : item.cb->accessibleName();
-            break;
+        if (key != QString::fromLatin1(item.key))
+            continue;
+        itemName = item.cb->accessibleName().isEmpty() ? item.cb->text()
+                                                      : item.cb->accessibleName();
+        // 状态行跟着控件所在页走：浏览 / 图像处理 / 外观三页各有一条，
+        // 取「这页确实是该控件祖先」的那条；都没有才退回外观页那条。
+        note = nullptr;
+        for (QLabel *cand : { m_viewLiveNote, m_imageProcLiveNote, m_browseLiveNote }) {
+            if (cand && cand->parentWidget() && cand->parentWidget()->isAncestorOf(item.cb)) {
+                note = cand;
+                break;
+            }
         }
+        break;
     }
-    if (itemName.isEmpty())
+    if (itemName.isEmpty() || !note)
         return;
-    m_browseLiveNote->setText(
-        tr("「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。")
-            .arg(itemName, value ? tr("开") : tr("关")));
-    m_browseLiveNote->show();
+    // 取消回滚只存在于浏览页四项（m_browseLiveBaseline）；其余即时项（含批次21
+    // 三项）关闭即保留，写「会回到进入设置时的状态」会误导用户。
+    note->setText(m_browseLiveBaseline.contains(key)
+        ? tr("「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。")
+              .arg(itemName, value ? tr("开") : tr("关"))
+        : tr("「%1」已即时生效：%2 · 无需保存，关闭设置后保留。")
+              .arg(itemName, value ? tr("开") : tr("关")));
+    note->show();
 }
+
 
 void SettingsDialog::captureBrowseLiveBaseline()
 {
@@ -7670,6 +7695,213 @@ void SettingsDialog::probeLanguageLive(const QString &root)
         (*steps)[(*idx)++]();
     });
     runner->start();
+}
+
+// —— 批次21 即时化验收探针（--smoke batch21probe:<mode>[:<arg>]）——
+// 全部走真实链路：PillToggle::click → applyLiveCheck → MainWindow::applyLiveSetting
+// → writeValues 写盘。dump 的是「控件态 / Config getter / QSettings 原始值 / 页面内
+// 状态行 / 主窗口目录列表与实际上屏结果」，用来证明切换那一刻就生效，而不是只看 ini。
+void SettingsDialog::probeBatch21(const QString &spec)
+{
+    const QString dir = qEnvironmentVariable("QUIKVIEW_B21_PROBE_DIR",
+                                             QStringLiteral("Temp"));
+    QDir().mkpath(dir);
+    const QString logPath = dir + QStringLiteral("/batch21-probe.txt");
+    const QString mode = spec.section(u':', 0, 0).trimmed();
+    const QString arg = spec.section(u':', 1).trimmed();
+
+    auto dump = [this, logPath](const QString &tag) {
+        Config &cfg = Config::instance();
+        QSettings &s = cfg.settings();
+        QString out;
+        QTextStream ts(&out);
+        ts << "[" << tag << "]\n";
+        const struct { const char *key; const char *full; bool getter; } rows[] = {
+            { "etc/pageturn_wav",      "config/etc/pageturn_wav",      cfg.pageturnWav() },
+            { "etc/no_raw_load",       "config/etc/no_raw_load",       cfg.noRawLoad() },
+            { "etc/skip_raw_when_jpg", "config/etc/skip_raw_when_jpg", cfg.skipRawWhenJpg() },
+        };
+        for (auto &r : rows) {
+            bool checked = false;
+            for (PillToggle *t : findChildren<PillToggle *>())
+                if (t->property("cfgKey").toString() == QLatin1String(r.key)) {
+                    checked = t->isChecked();
+                    break;
+                }
+            ts << r.key
+               << " checked=" << (checked ? "true" : "false")
+               << " getter=" << (r.getter ? "true" : "false")
+               << " stored=" << (s.value(QString::fromLatin1(r.full)).toBool() ? "true" : "false")
+               << " present=" << (s.contains(QString::fromLatin1(r.full)) ? 1 : 0) << "\n";
+        }
+        const auto noteOf = [](QLabel *l) {
+            return l && l->isVisible() ? l->text() : QStringLiteral("(hidden)");
+        };
+        ts << "note.view=\"" << noteOf(m_viewLiveNote) << "\"\n";
+        ts << "note.appearance=\"" << noteOf(m_browseLiveNote) << "\"\n";
+        ts << "note.imageproc=\"" << noteOf(m_imageProcLiveNote) << "\"\n";
+        ts << "dialogVisible=" << (isVisible() ? 1 : 0) << "\n";
+        if (MainWindow *host = qobject_cast<MainWindow *>(parentWidget()))
+            ts << "runtime " << host->batch21RuntimeDump();
+        QFile f(logPath);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
+            f.write(out.toUtf8());
+    };
+
+    const auto navTo = [this](const QString &pageName) {
+        for (QPushButton *b : findChildren<QPushButton *>(QStringLiteral("navItem")))
+            if (b->text().contains(pageName)) { b->click(); return; }
+    };
+    const auto clickToggle = [this](const QString &key, bool want) {
+        for (PillToggle *t : findChildren<PillToggle *>()) {
+            if (t->property("cfgKey").toString() != key)
+                continue;
+            if (t->isChecked() != want)
+                t->click();
+            return;
+        }
+    };
+    const auto shot = [this, dir](const QString &name) {
+        grab().save(dir + QLatin1Char('/') + name + QStringLiteral(".png"));
+    };
+
+    // 失败注入时 applyLiveCheck 会弹模态警告：自动点掉，否则后面的步骤永远不跑。
+    auto *autoOk = new QTimer(this);
+    autoOk->setInterval(120);
+    connect(autoOk, &QTimer::timeout, this, [this, dir]() {
+        if (auto *mb = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+            mb->grab().save(dir + QStringLiteral("/batch21-fail.png"));
+            if (auto *ok = mb->button(QMessageBox::Ok))
+                ok->click();
+        }
+    });
+    autoOk->start();
+
+    struct Step { int delay; std::function<void()> fn; };
+    QList<Step> steps;
+
+    if (mode == QLatin1String("g81")) {
+        steps << Step{ 500, [navTo]() { navTo(tr("浏览")); } };
+        steps << Step{ 600, [dump]() { dump(QStringLiteral("g81-before")); } };
+        steps << Step{ 300, [clickToggle, dump]() {
+            clickToggle(QStringLiteral("etc/pageturn_wav"), true);
+            dump(QStringLiteral("g81-click-on"));
+        } };
+        steps << Step{ 700, [dump]() { dump(QStringLiteral("g81-on-settled")); } };
+        // 真实翻页（主窗口仍可交互，设置页是非模态）：开态两次 next 应各留一条
+        // playret=1；关态再 next 一次应留 called=0，正反对照才算证据。
+        steps << Step{ 300, [this]() {
+            if (MainWindow *host = qobject_cast<MainWindow *>(parentWidget()))
+                host->runSmokeCommand(QStringLiteral("next"));
+        } };
+        steps << Step{ 500, [this]() {
+            if (MainWindow *host = qobject_cast<MainWindow *>(parentWidget()))
+                host->runSmokeCommand(QStringLiteral("next"));
+        } };
+        steps << Step{ 700, [dump]() { dump(QStringLiteral("g81-played")); } };
+        steps << Step{ 200, [shot]() { shot(QStringLiteral("g81-on")); } };
+        steps << Step{ 500, [clickToggle, dump]() {
+            clickToggle(QStringLiteral("etc/pageturn_wav"), false);
+            dump(QStringLiteral("g81-click-off"));
+        } };
+        steps << Step{ 700, [dump]() { dump(QStringLiteral("g81-off-settled")); } };
+        steps << Step{ 300, [this]() {
+            if (MainWindow *host = qobject_cast<MainWindow *>(parentWidget()))
+                host->runSmokeCommand(QStringLiteral("next"));
+        } };
+        steps << Step{ 900, [dump]() { dump(QStringLiteral("g81-muted")); } };
+        steps << Step{ 200, [shot]() { shot(QStringLiteral("g81-off")); } };
+    } else if (mode == QLatin1String("g82")) {
+        steps << Step{ 500, [navTo]() { navTo(tr("图像处理")); } };
+        steps << Step{ 600, [dump]() { dump(QStringLiteral("g82-before")); } };
+        steps << Step{ 300, [clickToggle, dump]() {
+            clickToggle(QStringLiteral("etc/no_raw_load"), true);
+            dump(QStringLiteral("g82-click-on"));
+        } };
+        steps << Step{ 600, [shot]() { shot(QStringLiteral("g82-on")); } };
+        steps << Step{ 300, [this, arg, dump]() {
+            if (MainWindow *host = qobject_cast<MainWindow *>(parentWidget())) {
+                host->openFile(arg);
+                dump(QStringLiteral("g82-open-raw-blocked-requested"));
+            }
+        } };
+        steps << Step{ 2000, [dump]() { dump(QStringLiteral("g82-open-raw-blocked")); } };
+        steps << Step{ 300, [clickToggle, dump]() {
+            clickToggle(QStringLiteral("etc/no_raw_load"), false);
+            dump(QStringLiteral("g82-click-off"));
+        } };
+        steps << Step{ 600, [this, arg, dump]() {
+            if (MainWindow *host = qobject_cast<MainWindow *>(parentWidget()))
+                host->openFile(arg);
+            dump(QStringLiteral("g82-open-raw-allowed-requested"));
+        } };
+        steps << Step{ 2500, [dump]() { dump(QStringLiteral("g82-open-raw-allowed")); } };
+        steps << Step{ 300, [shot]() { shot(QStringLiteral("g82-off")); } };
+    } else if (mode == QLatin1String("g83")) {
+        steps << Step{ 500, [navTo]() { navTo(tr("图像处理")); } };
+        steps << Step{ 600, [dump]() { dump(QStringLiteral("g83-before")); } };
+        steps << Step{ 300, [clickToggle, dump]() {
+            clickToggle(QStringLiteral("etc/skip_raw_when_jpg"), false);
+            dump(QStringLiteral("g83-click-off-immediate"));
+        } };
+        steps << Step{ 1600, [dump]() { dump(QStringLiteral("g83-off-settled")); } };
+        steps << Step{ 200, [shot]() { shot(QStringLiteral("g83-off")); } };
+        steps << Step{ 500, [clickToggle, dump]() {
+            clickToggle(QStringLiteral("etc/skip_raw_when_jpg"), true);
+            dump(QStringLiteral("g83-click-on-immediate"));
+        } };
+        steps << Step{ 1600, [dump]() { dump(QStringLiteral("g83-on-settled")); } };
+        steps << Step{ 200, [shot]() { shot(QStringLiteral("g83-on")); } };
+    } else if (mode == QLatin1String("close")) {
+        steps << Step{ 500, [navTo]() { navTo(tr("浏览")); } };
+        steps << Step{ 500, [clickToggle]() {
+            clickToggle(QStringLiteral("etc/pageturn_wav"), true);
+        } };
+        steps << Step{ 400, [navTo]() { navTo(tr("图像处理")); } };
+        steps << Step{ 500, [clickToggle, dump]() {
+            clickToggle(QStringLiteral("etc/no_raw_load"), true);
+            clickToggle(QStringLiteral("etc/skip_raw_when_jpg"), false);
+            dump(QStringLiteral("close-before"));
+        } };
+        steps << Step{ 700, [this, arg, dump]() {
+            if (arg == QLatin1String("cancel")) {
+                for (QPushButton *b : findChildren<QPushButton *>())
+                    if (b->text() == tr("取消")) { b->click(); break; }
+            } else if (arg == QLatin1String("esc")) {
+                QKeyEvent ev(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+                QApplication::sendEvent(this, &ev);
+            } else if (arg == QLatin1String("x")) {
+                close();
+            } else if (m_btnOk) {
+                m_btnOk->click();
+            }
+            dump(QStringLiteral("close-after-") + arg);
+        } };
+    }
+
+    if (steps.isEmpty()) {
+        autoOk->stop();
+        return;
+    }
+    // reject / accept 会关窗；探针要在关窗之后继续 dump，所以不能随 close 销毁。
+    setAttribute(Qt::WA_DeleteOnClose, false);
+
+    auto queue = std::make_shared<QList<Step>>(steps);
+    auto cursor = std::make_shared<int>(0);
+    auto runner = std::make_shared<std::function<void()>>();
+    *runner = [this, queue, cursor, runner, autoOk]() {
+        if (*cursor >= queue->size()) {
+            autoOk->stop();
+            return;
+        }
+        const Step step = queue->at(*cursor);
+        ++*cursor;
+        QTimer::singleShot(step.delay, this, [step, runner]() {
+            step.fn();
+            (*runner)();
+        });
+    };
+    (*runner)();
 }
 
 // —— 验收探针（--smoke viewprobe / viewcancel / vievesc / viewclose / viewsave，

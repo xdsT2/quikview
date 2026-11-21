@@ -73,6 +73,9 @@ public:
     // 验收探针（--smoke setcfglive:<cfgKey>=on|off）：切到「图像处理」页，按 cfgKey
     // 真实点击开关，dump 前后「控件态 / Config getter / QSettings 原始值」到 Temp/。
     void probeCfgLive(const QString &spec);
+    // 批次21（#81 翻页音效 / #82 不打开 RAW / #83 JPEG 同名 RAW）即时化验收探针。
+    // --smoke batch21probe:<g81|g82:<rawPath>|g83|close:<cancel|esc|x|save>>
+    void probeBatch21(const QString &spec);
     explicit SettingsDialog(QWidget *parent = nullptr);
     ~SettingsDialog() override;
 
@@ -399,6 +402,8 @@ private:
     void updateBrowseLiveNote(const QString &key, bool value);
     QHash<QString, bool> m_browseLiveBaseline;   // key → 进入设置时的值
     QLabel *m_browseLiveNote = nullptr;          // 浏览页内联「已即时生效」状态行
+    QLabel *m_viewLiveNote = nullptr;            // 浏览页「翻页」组内的状态行（批次21 #81）
+    QLabel *m_imageProcLiveNote = nullptr;       // 图像处理页同款状态行（批次21 #82/#83）
 
     // —— 键盘自定义（批次 D1）冲突检测 ——
     // 保存前调用：同一键位只归一个启用的绑定、键位不得与固定动作相撞、

@@ -121,6 +121,21 @@ inline short yFromLparam(long v) { return static_cast<short>(HIWORD(v)); }
 namespace {
 constexpr int kTopChromeH = 76;      // 标题栏 28 + 命令栏 34 + 视觉留白（仅作面板/浮层定位）
 
+// 验收探针落盘（只在 QUIKVIEW_ETC_PROBE 置位时写）：路径取 QUIKVIEW_B21_PROBE_DIR，
+// 未给时落 Temp/。批次21 三项的「动作真发生了」都靠这行机读日志，不靠截图推断。
+void probeAppend(const QString &line)
+{
+    QString dir = qEnvironmentVariable("QUIKVIEW_B21_PROBE_DIR");
+    if (dir.isEmpty())
+        dir = QStringLiteral("Temp");
+    QFile f(dir + QStringLiteral("/batch21-probe.txt"));
+    if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+        QTextStream ts(&f);
+        ts << line << "\n";
+    }
+}
+
+
 void markTopBarMenu(QMenu *menu)
 {
     if (menu)
@@ -202,9 +217,16 @@ void applyScreensaverPrevention(bool on)
 // 首次使用时在内存里合成一段 40ms 衰减正弦 WAV（8kHz / 16bit / 单声道，
 // 含 RIFF 头），之后每次经 winmm PlaySoundW 以 SND_MEMORY 异步播放。
 // 不落仓库、不产生任何音频素材文件；非 Windows 平台为空操作。
-void playPageturnTone()
+// force=true 只给「在设置页打开翻页音效」那一下用：那时配置还没写盘（设置页
+// 先下发运行态、后写盘），按 getter 判断会把预览吞掉，用户点了听不到任何反馈。
+void playPageturnTone(bool force = false)
 {
-    if (!Config::instance().pageturnWav()) {
+    const bool enabled = Config::instance().pageturnWav();
+    if (!enabled && !force) {
+        if (qEnvironmentVariableIsSet("QUIKVIEW_ETC_PROBE")) {
+            // 验收探针：关态必须留「提前返回、没调用」的证据，不能靠听感推断。
+            probeAppend(QStringLiteral("PAGETURN cfg=0 force=0 called=0"));
+        }
         return;
     }
 #ifdef Q_OS_WIN
@@ -247,8 +269,16 @@ void playPageturnTone()
         return wav;
     }();
     // SND_MEMORY：首参是 WAV 字节流内存指针；SND_NODEFAULT：失败不回落系统提示音
-    PlaySoundW(reinterpret_cast<LPCWSTR>(kPageturnWav.constData()),
-               nullptr, SND_MEMORY | SND_ASYNC | SND_NODEFAULT);
+    const BOOL played = PlaySoundW(reinterpret_cast<LPCWSTR>(kPageturnWav.constData()),
+                                   nullptr, SND_MEMORY | SND_ASYNC | SND_NODEFAULT);
+    if (qEnvironmentVariableIsSet("QUIKVIEW_ETC_PROBE")) {
+        // 「有音」的机读证据：PlaySoundW 返回 TRUE = 这一段 WAV 已被系统接受并开始
+        // 异步播放（40ms / 2200Hz 衰减正弦，见上面合成参数）。
+        probeAppend(QStringLiteral("PAGETURN cfg=%1 force=%2 called=1 playret=%3")
+                        .arg(enabled ? 1 : 0)
+                        .arg(force ? 1 : 0)
+                        .arg(played ? 1 : 0));
+    }
 #else
     // 非 Windows 无 winmm，空操作
 #endif
@@ -3653,6 +3683,7 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error,
     // 失败文案统一落到既有持久提示（空状态 / 页码旁浮标签），不加新控件。
     auto showFailure = [this](const QString &text) {
         m_loadFailed = true;
+        m_lastFailureText = text;   // 验收探针读真实上屏文案，不去猜
         hideLoadStatus();
         if (m_currentImage.isNull()) {
             if (m_emptyState) {
@@ -5073,6 +5104,15 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         dlg->setAttribute(Qt::WA_DeleteOnClose);
         dlg->show();
         dlg->probeLanguageLive(c.mid(10).trimmed());
+    }
+    // batch21probe:<mode>[:<arg>] —— 批次21 即时化验收（#81/#82/#83）：
+    // 打开设置页走真实点击链路，切换后 dump 控件态/getter/落盘值/页面状态行/
+    // 主窗口目录列表与上屏结果；截图落在 QUIKVIEW_B21_PROBE_DIR。
+    else if (c.startsWith(QLatin1String("batch21probe:"))) {
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        dlg->probeBatch21(c.mid(13));
     }
     // setcfglive:<cfgKey>=on|off —— 旋转后自动保存开关真实点击探针
     else if (c.startsWith(QLatin1String("setcfglive:"))) {
@@ -8280,6 +8320,25 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         return true;
     }
 
+    // —— 全量即时化批次21 · 杂项页三项（#81 翻页音效 / #82 不打开 RAW / #83 JPEG 同名 RAW）——
+    if (key == QLatin1String("etc/pageturn_wav")) {
+        // #81：消费点在每次翻页 / 幻灯片切页现读 Config，写盘后下一动作即按新值走。
+        // 这一步补「点了就听得见」：打开时当场播同款 40ms 短音（跨过尚未写盘的旧值），
+        // 关闭时明确说「翻页将静音」，不留「点了只写盘」的准假动作。
+        const bool on = value.toBool();
+        if (on)
+            playPageturnTone(/*force=*/true);
+        if (m_toast) {
+            m_toast->showMessage(on ? tr("已开启翻页音效：翻页与幻灯片切页会响一声")
+                                    : tr("已关闭翻页音效：翻页将静音"),
+                                 Chrome::Toast::Tone::Success);
+        }
+        if (qEnvironmentVariableIsSet("QUIKVIEW_ETC_PROBE"))
+            probeAppend(QStringLiteral("LIVE etc/pageturn_wav=%1 preview_played=%2")
+                            .arg(on ? 1 : 0).arg(on ? 1 : 0));
+        return true;
+    }
+
     if (key == QLatin1String("imageproc/canvas_bg")) {
         // UI-001 §3.8：画布背景材质即时预览（棋盘/纯色），颜色随当前主题令牌。
         if (m_canvas)
@@ -8437,6 +8496,30 @@ QVariant MainWindow::liveSettingValue(const QString &key) const
     if (key == QLatin1String("view/show_tooltip"))
         return Config::instance().showTooltip();
     return QVariant();
+}
+
+QString MainWindow::batch21RuntimeDump() const
+{
+    const QString dir = m_dir ? m_dir->watchedDirectory() : QString();
+    const QStringList files = m_dir ? m_dir->files() : QStringList();
+    QStringList names;
+    for (const QString &f : files)
+        names << QFileInfo(f).fileName();
+    QString out;
+    out += QStringLiteral("dir=%1 count=%2 files=%3\n")
+               .arg(dir.isEmpty() ? QStringLiteral("(none)") : dir)
+               .arg(files.size())
+               .arg(names.isEmpty() ? QStringLiteral("(empty)") : names.join(QLatin1Char('|')));
+    out += QStringLiteral("current=%1 img=%2 failed=%3 failure=\"%4\"\n")
+               .arg(m_currentPath.isEmpty() ? QStringLiteral("(none)")
+                                            : QFileInfo(m_currentPath).fileName())
+               .arg(m_currentImage.isNull()
+                        ? QStringLiteral("null")
+                        : QStringLiteral("%1x%2").arg(m_currentImage.width())
+                                                 .arg(m_currentImage.height()))
+               .arg(m_loadFailed ? 1 : 0)
+               .arg(m_lastFailureText);
+    return out;
 }
 
 QString MainWindow::viewLiveStateDump() const

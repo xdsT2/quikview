@@ -106,6 +106,9 @@ public:
     // 批次03 验收用：把三项「只能靠真实行为看出来」的运行态打成一行
     // （浮层是否真的在屏上、当前图的缩放记忆条目、系统工具提示是否可见）。
     QString viewLiveStateDump() const;
+    // 批次21 验收用：目录列表 / 当前图 / 失败文案一次打全，供三项（#81/#82/#83）
+    // 的「切换后动作是否真按新值走」比对，不用从截图里读页数。
+    QString batch21RuntimeDump() const;
     // 回滚期间抑制「设置项 → 画布预览」的一次性动作（目前只有文件名浮层用到）。
     void setLivePreviewQuiet(bool quiet) { m_livePreviewQuiet = quiet; }
 
@@ -531,6 +534,9 @@ private:
     // --smoke loadreport 会把它落到 Temp/load-report.txt：加载失败不能只剩一张空白
     // 画布，验收时必须能读出「为什么失败」。
     QString m_lastLoadError;
+    // 最近一次「上屏失败」的完整文案（showFailure 写入）：批次21 探针要读真实提示，
+    // 而不是从 m_lastLoadError 反推（RAW 被设置拦下时那条日志里没有原因）。
+    QString m_lastFailureText;
     QString m_lastShownPath;   // 上一次完整上屏的路径，用于判断是否触发翻页过渡
     QString m_dragPreviewPath; // 最近一次滑块跟手预览的路径（它的全图落地不算翻页）
     // 连续翻页加载反馈：m_displayedPath = 当前画布实际显示的图（预览或全图），
