@@ -54,9 +54,10 @@
     { file: "06-effects.webp", title: "图像效果", desc: "反色 / Gamma / 旋转 / 插值" },
     { file: "07-context-menu.webp", title: "右键菜单", desc: "按功能分组，标出快捷键" },
     { file: "08-convert.webp", title: "批量转换", desc: "PNG / JPEG / BMP / WebP / TIFF" },
-    { file: "09-settings.webp", title: "设置", desc: "在设置里切换深浅主题" },
-    { file: "10-context-menu-settings.webp", title: "菜单设置", desc: "大纲 + 实时预览" },
-    { file: "11-start.webp", title: "启动画面", desc: "拖入、选图或整夹打开" }
+    { file: "09-settings.webp", title: "设置", desc: "九个分类，通用页可导入和导出设置" },
+    { file: "10-context-menu-settings.webp", title: "菜单设置", desc: "按组设置菜单项，右侧查看预览" },
+    { file: "11-start.webp", title: "启动画面", desc: "拖入图片、选择文件或打开文件夹" },
+    { file: "12-overview.webp", title: "图片总览", desc: "按网格查看同一文件夹里的图片" }
   ];
 
   var stageImg = document.getElementById("gallery-img");
@@ -73,7 +74,7 @@
     btn.setAttribute("aria-label", shot.title);
     btn.setAttribute("aria-selected", i === current ? "true" : "false");
     var img = document.createElement("img");
-    img.src = "assets/img/" + shot.file;
+    img.src = "assets/img/v0.5.6/" + shot.file;
     img.alt = shot.title;
     img.loading = "lazy";
     img.width = 320;
@@ -89,11 +90,11 @@
     stageImg.classList.add("swapping");
     var pre = new Image();
     pre.onload = function () {
-      stageImg.src = "assets/img/" + shot.file;
+      stageImg.src = "assets/img/v0.5.6/" + shot.file;
       stageImg.alt = shot.title;
       stageImg.classList.remove("swapping");
     };
-    pre.src = "assets/img/" + shot.file;
+    pre.src = "assets/img/v0.5.6/" + shot.file;
     stageTitle.textContent = shot.title;
     stageDesc.textContent = shot.desc;
     Array.prototype.forEach.call(thumbsWrap.children, function (btn, idx) {
@@ -116,7 +117,7 @@
 
   function openLightbox() {
     var shot = shots[current];
-    lbImg.src = "assets/img/" + shot.file;
+    lbImg.src = "assets/img/v0.5.6/" + shot.file;
     lbImg.alt = shot.title;
     lbCap.textContent = shot.title + " — " + shot.desc;
     lightbox.classList.add("open");

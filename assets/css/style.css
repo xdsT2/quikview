@@ -262,6 +262,8 @@ html[data-theme="light"] #theme-toggle .i-moon { display: none; }
 .gallery-stage > img {
   width: 100%;
   height: auto;
+  aspect-ratio: 1080 / 815;
+  object-fit: contain;
   cursor: zoom-in;
   transition: opacity 0.25s ease;
 }
@@ -309,7 +311,7 @@ html[data-theme="light"] #theme-toggle .i-moon { display: none; }
 
 .thumbs {
   display: grid;
-  grid-template-columns: repeat(11, 1fr);
+  grid-template-columns: repeat(12, 1fr);
   gap: 10px;
   margin-top: 16px;
 }
