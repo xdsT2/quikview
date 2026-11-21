@@ -3082,6 +3082,9 @@ void MainWindow::applyRuntimeSettings()
     }
 
     setInterpolationMode(cfg.interpolation());
+    // 强锐化滤镜（键 "config/imageproc/strong_sharpen"）：画布运行态从配置起步，
+    // 之后由设置页切换点即时下发（批次04 #20）。
+    m_canvas->setStrongSharpen(Config::instance().strongSharpen());
     m_canvas->setStretchSmall(cfg.stretchSmall());
     m_zoomLocked = Config::instance().settings()
                        .value(QStringLiteral("config/zoom_fix"), false).toBool();
@@ -3555,6 +3558,11 @@ void MainWindow::preloadNeighbors()
     if (!Config::instance().cacheNextImage()) {
         return;
     }
+    preloadNeighborsNow();
+}
+
+void MainWindow::preloadNeighborsNow()
+{
     if (!m_dir->isValid() || !m_cache->isIdle()) {
         if (m_dir->isValid() && m_preloadTimer) {
             m_preloadTimer->start();
@@ -5540,6 +5548,26 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         else if (c.startsWith(QLatin1String("viewsave:"))) { mode = 4; spec = c.mid(9); }
         else { spec = c.mid(10); }
         dlg->probeViewLive(spec.trimmed(), mode, mode == 4);
+    }
+    // 批次04 图像处理四项（强锐化 / 缓存下一张 / 缓存大小 / 大图顶部对齐）：
+    // iprobe:<spec> 只切换；ipcancel / ipesc / ipclose:<spec> 切换后分别走
+    // 「取消」/ Esc / 标题栏 ✕ 三条真实关闭链路验回滚；ipsave:<spec> 验保存保留。
+    else if (c.startsWith(QLatin1String("iprobe:"))
+             || c.startsWith(QLatin1String("ipcancel:"))
+             || c.startsWith(QLatin1String("ipesc:"))
+             || c.startsWith(QLatin1String("ipclose:"))
+             || c.startsWith(QLatin1String("ipsave:"))) {
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        QString spec;
+        int mode = 0;
+        if (c.startsWith(QLatin1String("ipcancel:"))) { mode = 1; spec = c.mid(9); }
+        else if (c.startsWith(QLatin1String("ipesc:"))) { mode = 2; spec = c.mid(6); }
+        else if (c.startsWith(QLatin1String("ipclose:"))) { mode = 3; spec = c.mid(8); }
+        else if (c.startsWith(QLatin1String("ipsave:"))) { mode = 4; spec = c.mid(7); }
+        else { spec = c.mid(7); }
+        dlg->probeImageProcLive(spec.trimmed(), mode, mode == 4);
     }
     else if (c == QLatin1String("appmenureset")) {
         auto *dlg = new SettingsDialog(this);
@@ -8914,6 +8942,62 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         return true;
     }
 
+    // —— 全量即时化批次04 · 图像处理页四项（#20 / #21 / #22 / #23）——
+    // 四项的运行态都在画布/缓存对象上，切换点直接改对象并当场给一次可见结果，
+    // 不读配置、不写盘（写盘由设置页 applyInstantValue 紧接着做，避免时序分叉）。
+    if (key == QLatin1String("imageproc/strong_sharpen")) {
+        // #20：锐化只在「Lanczos + 缩小到 100% 以下」的重采样路径上有差异。
+        // 改值后作废采样记账并立刻重算一次，这次重算就是会话内可见的那一下；
+        // 100% / 放大 / 非 Lanczos 下画面不变属预期（状态行会写明当前条件）。
+        if (m_canvas)
+            m_canvas->setStrongSharpen(value.toBool());
+        return true;
+    }
+
+    if (key == QLatin1String("imageproc/cache_image")) {
+        // #21：空闲预读开关。打开＝当场把前后相邻图排进预读队列（状态行里的
+        // 预读启动次数/命中计数立刻会动）；关闭＝不再发起新预读，已缓存的图保留。
+        const bool on = value.toBool();
+        if (on) {
+            // 推一拍再预读：不在开关信号栈里同步解码，也不让刚写入的配置与
+            // 本次下发互相覆盖。
+            QTimer::singleShot(0, this, [this]() { preloadNeighborsNow(); });
+            if (m_toast)
+                m_toast->showMessage(tr("已开启缓存下一张：正在预读相邻图片"),
+                                     Chrome::Toast::Tone::Success);
+        } else if (m_toast) {
+            m_toast->showMessage(tr("已关闭缓存下一张：不再预读相邻图片（已缓存的图保留）"),
+                                 Chrome::Toast::Tone::Success);
+        }
+        return true;
+    }
+
+    if (key == QLatin1String("imageproc/cache_size_mb")) {
+        // #22：缓存大小数值框。运行态就是 ImageCache 的淘汰水位，切换点立即改，
+        // 越界值与 Config 同一夹取口径（64..4096）；toast 报「上限 + 当前已用」，
+        // 让用户当场看到落到了哪个值、现在占了多少。
+        const int mb = qBound(64, value.toInt(), 4096);
+        if (m_cache) {
+            m_cache->setFullCacheLimit(mb);
+            if (m_toast) {
+                m_toast->showMessage(
+                    tr("缓存上限已改为 %1 MB（当前已用 %2 MB）")
+                        .arg(mb)
+                        .arg(QString::number(m_cache->fullCacheBytes() / 1048576.0, 'f', 1)),
+                    Chrome::Toast::Tone::Success);
+            }
+        }
+        return true;
+    }
+
+    if (key == QLatin1String("imageproc/align_top_when_large")) {
+        // #23：大图从顶部显示。切到关＝大图当场回到垂直居中，切到开＝当场滚到顶；
+        // 图不高于视口时两态没有可观察差异（属预期）。
+        if (m_canvas)
+            m_canvas->applyAlignTopWhenLargeLive(value.toBool());
+        return true;
+    }
+
     if (error)
         *error = tr("未知的即时设置项：%1").arg(key);
     return false;
@@ -8983,6 +9067,16 @@ QVariant MainWindow::liveSettingValue(const QString &key) const
         return Config::instance().saveZoomState();
     if (key == QLatin1String("view/show_tooltip"))
         return Config::instance().showTooltip();
+    // 批次04：四项的运行态各读真实对象（画布强锐化/大图对齐、缓存淘汰水位），
+    // 不做镜像成员，避免「控件显示值」与「实际生效值」两套来源。
+    if (key == QLatin1String("imageproc/strong_sharpen"))
+        return m_canvas ? m_canvas->strongSharpen() : Config::instance().strongSharpen();
+    if (key == QLatin1String("imageproc/cache_image"))
+        return Config::instance().cacheNextImage();
+    if (key == QLatin1String("imageproc/cache_size_mb"))
+        return m_cache ? m_cache->fullCacheLimitMb() : Config::instance().cacheSizeMb();
+    if (key == QLatin1String("imageproc/align_top_when_large"))
+        return m_canvas ? m_canvas->alignTopWhenLarge() : Config::instance().alignTopWhenLarge();
     return QVariant();
 }
 
@@ -9007,6 +9101,44 @@ QString MainWindow::batch21RuntimeDump() const
                                                  .arg(m_currentImage.height()))
                .arg(m_loadFailed ? 1 : 0)
                .arg(m_lastFailureText);
+    return out;
+}
+
+QString MainWindow::imageProcLiveStateDump() const
+{
+    // 批次04：只读真实对象——插值档、当前缩放、画布强锐化标记、大图对齐标记、
+    // 缓存上限与实际占用、预读是否开、命中/未命中/预读启动次数。验收脚本据此判
+    // 「切换后运行态真的变了」，而不只是 ini 变了。
+    const QString cur = m_currentPath.isEmpty() ? QStringLiteral("(none)")
+                                                : QFileInfo(m_currentPath).fileName();
+    QString out = QStringLiteral(
+                      "interp=%1 zoom=%2 sharp=%3 align=%4 cacheLimit=%5 cacheUsed=%6 "
+                      "hits=%7 misses=%8 preloadStarts=%9 preloadOn=%10 cur=%11")
+                      .arg(m_canvas ? m_canvas->interpolationMode() : -1)
+                      .arg(m_canvas ? QString::number(m_canvas->zoom(), 'f', 4)
+                                    : QStringLiteral("na"))
+                      .arg(m_canvas && m_canvas->strongSharpen() ? 1 : 0)
+                      .arg(m_canvas && m_canvas->alignTopWhenLarge() ? 1 : 0)
+                      .arg(m_cache ? m_cache->fullCacheLimitMb() : -1)
+                      .arg(m_cache ? m_cache->fullCacheBytes() : -1)
+                      .arg(m_cache ? m_cache->cacheHits() : -1)
+                      .arg(m_cache ? m_cache->cacheMisses() : -1)
+                      .arg(m_cache ? m_cache->preloadStarts() : -1)
+                      .arg(Config::instance().cacheNextImage() ? 1 : 0)
+                      .arg(cur);
+    if (m_canvas) {
+        // 大图对齐的可观察量：视口纵向滚动位置（0=顶、居中=中段），以及图片显示
+        // 高度是否超过视口（否则两态本来就无差异，说明原因用）。
+        auto *vb = m_canvas->verticalScrollBar();
+        out += QStringLiteral(" vscroll=%1/%2 larger=%3")
+                   .arg(vb->value())
+                   .arg(vb->maximum())
+                   .arg(m_canvas->viewport() && m_canvas->zoom() > 0.0
+                             && m_currentImage.height() * m_canvas->zoom()
+                                    > m_canvas->viewport()->height()
+                             ? 1
+                             : 0);
+    }
     return out;
 }
 

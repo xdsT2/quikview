@@ -1148,6 +1148,22 @@ void ImageCanvas::setInterpolationMode(int mode)
     refreshSampling();
 }
 
+void ImageCanvas::setStrongSharpen(bool on)
+{
+    if (m_strongSharpen == on) {
+        return;   // 同值重调幂等：不白扔一次重采样
+    }
+    m_strongSharpen = on;
+    // 锐化只在 Lanczos + 缩小重采样路径上有差异：作废已上屏的记账后在飞结果
+    // 一并过期，立刻按新值补算一次；放大 / 100% / 非 Lanczos 下等于只改标记。
+    // 还没有图（启动时从配置起步）时不触发重算，只记值，避免空图路径白跑一次。
+    if (m_item && !m_sourcePixmap.isNull()) {
+        invalidateSampling();
+        refreshSampling();
+        viewport()->update();
+    }
+}
+
 void ImageCanvas::setStretchSmall(bool on)
 {
     if (m_stretchSmall == on) {
@@ -1203,7 +1219,7 @@ void ImageCanvas::doRefreshSampling()
         return;
     }
     const qint64 srcKey = m_sourcePixmap.cacheKey();
-    const bool sharp = Config::instance().strongSharpen();
+    const bool sharp = m_strongSharpen;   // 运行态成员：设置页切换点即改（不读配置）
     // 放大 / 100% / 非 lanczos：原图直出；在飞结果已不该上屏，一并作废
     if (m_interp != InterpLanczos || m_zoom >= 0.999 || m_zoom <= 0.0) {
         ++m_sampleGeneration;
@@ -1290,7 +1306,7 @@ void ImageCanvas::startPendingSample()
                        qMax(1, qRound(isz.height() * m_zoom)));
     const qint64 srcKey = m_sourcePixmap.cacheKey();
     const int interp = m_interp;
-    const bool sharp = Config::instance().strongSharpen();
+    const bool sharp = m_strongSharpen;   // 与 doRefreshSampling 同一运行态来源
     if (m_samplingSize == target && m_samplingSourceKey == srcKey
         && m_samplingInterp == interp && m_samplingSharp == sharp) {
         return;   // 已经是这一档
@@ -1321,7 +1337,7 @@ void ImageCanvas::applySampleResult(quint64 generation, QImage result, const QSi
         const QSizeF isz = m_sourcePixmap.deviceIndependentSize();
         const bool shrinking = m_interp == InterpLanczos && m_zoom > 0.0 && m_zoom < 0.999;
         const bool sameSource = sourceKey == m_sourcePixmap.cacheKey();
-        const bool sameMode = interp == m_interp && sharp == Config::instance().strongSharpen();
+        const bool sameMode = interp == m_interp && sharp == m_strongSharpen;
         const bool sameTarget = isz.width() > 0.0
             && QSize(qMax(1, qRound(isz.width() * m_zoom)),
                      qMax(1, qRound(isz.height() * m_zoom))) == target;
@@ -1496,6 +1512,27 @@ void ImageCanvas::applyAlignTopIfLarge()
         const QRectF img = m_item->sceneBoundingRect();
         centerOn(img.center().x(), img.top() + viewport()->height() / (2.0 * transform().m11()));
     }
+}
+
+void ImageCanvas::applyAlignTopWhenLargeLive(bool on)
+{
+    m_alignTopWhenLarge = on;
+    if (!m_item) {
+        return;   // 还没有图：只记住新值，下一次适配按它走
+    }
+    const QSizeF isz = m_item->pixmap().deviceIndependentSize();
+    const bool larger = isz.height() * transform().m11() > viewport()->height();
+    if (on) {
+        applyAlignTopIfLarge();
+        return;
+    }
+    if (!larger) {
+        return;   // 图不高于视口：Qt 本来就居中，没有可观察差异
+    }
+    // 关：只动纵向——把大图拉回可视区中部（横向保持现状，不引入横向行程）。
+    // 用滚动条中点而不是 centerOn，避免同一次切换顺手横向挪图。
+    auto *vb = verticalScrollBar();
+    vb->setValue((vb->minimum() + vb->maximum()) / 2);
 }
 
 void ImageCanvas::setZoom(qreal zoom)

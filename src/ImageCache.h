@@ -58,6 +58,13 @@ public:
     // 原图缓存上限（MB）：设置页「缓存大小」在保存时调进来，立即改 m_fullCache
     // 的淘汰水位，不用重启；构造时也读配置设初值（见 ImageCache.cpp）。
     void setFullCacheLimit(int mb);
+    // 运行态读数（批次04 验收/设置页状态行共用）：命中上限、当前已用字节、
+    // 命中/未命中计数、预读实际启动次数。都读真实对象，不读配置。
+    int fullCacheLimitMb() const { return m_limitMb; }
+    qint64 fullCacheBytes() const { return m_fullCache.totalCost(); }
+    int cacheHits() const { return m_hits; }
+    int cacheMisses() const { return m_misses; }
+    int preloadStarts() const { return m_preloadStarts; }
 
 signals:
     void fullReady(const QString &path, const QImage &image, bool preview);
@@ -82,8 +89,15 @@ private:
     bool hasCurrentGenWork() const;
     // 快帧/RAW 缩略图回主线程上屏；代次不符（已被后续跳转作废）则丢弃。
     void emitPreview(const QString &path, const QImage &img, quint64 generation);
+    // 批次04 取证：QUIKVIEW_IMAGEPROC_PROBE=1 时把缓存上限/预读/命中写进
+    // Temp/imageproc-live-probe.txt；未置位时是空函数，不影响正常路径。
+    void probeLog(const QString &line) const;
 
     QCache<QString, QImage> m_fullCache;
+    int m_limitMb = 300;        // 当前原图缓存上限（MB，运行态口径）
+    int m_hits = 0;             // requestFull 时原图缓存命中次数
+    int m_misses = 0;           // requestFull 时未命中次数
+    int m_preloadStarts = 0;    // 预读实际启动次数（不是请求次数）
     QCache<QString, QImage> m_thumbCache;
     // 在飞全图任务：路径 → 提交时的代次。同一路径允许被新代次重新提交
     // （快速反向回到正在解的上一张），旧任务完成时因代次不符降级为只入缓存。
