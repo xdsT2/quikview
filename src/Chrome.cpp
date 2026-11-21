@@ -2,6 +2,7 @@
 #include "Config.h"
 #include "UiStyle.h"
 #include "AppIcon.h"
+#include "HudShell.h"
 
 #include <QApplication>
 #include <QContextMenuEvent>
@@ -686,6 +687,19 @@ void TopBar::setPinned(bool pinned)
     update();
 }
 
+void TopBar::setLayerButtonVisible(bool visible)
+{
+    if (m_showLayers == visible) {
+        return;
+    }
+    m_showLayers = visible;
+    m_hover = m_press = m_focus = -1;
+    m_feedback->setHover(-1);
+    m_feedback->setPressed(-1);
+    m_tip->hideNow();
+    update();
+}
+
 void TopBar::setLayerState(bool available, bool open)
 {
     if (m_layersAvailable == available && m_layersOpen == open) {
@@ -767,7 +781,7 @@ QVector<TopBar::Btn> TopBar::buttons() const
         p.filenameMin = stage == 0 ? 140 : 0;
         p.center = { Action::Slideshow, Action::Bookmark, Action::Edit, Action::CopyTo };
         p.browse = stage < 10;
-        p.layers = stage < 7;
+        p.layers = m_showLayers && stage < 7;
         p.topLock = stage < 8;
         p.pin = stage < 9;
         if (stage >= 3) p.center.removeOne(Action::CopyTo);
@@ -895,7 +909,7 @@ QVector<TopBar::Btn> TopBar::buttons() const
         rx -= kTopBtn;
         out.append(Btn{ Action::Layers, QRect(rx, y, kTopBtn, kTopBtn), QString(), true, false,
                         !m_layersAvailable });
-    } else {
+    } else if (m_showLayers) {
         m_hiddenIds.append(6);
     }
 
@@ -1404,7 +1418,7 @@ void TopBar::keyReleaseEvent(QKeyEvent *e)
 namespace {
 
 constexpr int kIslandH = 44;
-constexpr int kIslandWidgetH = 54;   // 44 外壳 + 10 内绘阴影
+constexpr qreal kIslandRadius = 14.0;
 constexpr int kIslandPadX = 10;      // 左右端内边距（垂直内边距 7 = 44-30 除以 2）
 constexpr int kIslandBtn = 30;       // 按钮底板与点击区（含锁定）
 constexpr int kIslandNavBtn = 30;    // 上一张/下一张
@@ -1426,7 +1440,8 @@ ControlBar::ControlBar(QWidget *parent)
     : QWidget(parent)
 {
     setMouseTracking(true);
-    setFixedSize(320, kIslandWidgetH);
+    setFixedSize(320, kIslandH);
+    setGraphicsEffect(new HudEffect(this, kIslandRadius));
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_NoSystemBackground);
     setFocusPolicy(Qt::StrongFocus);
@@ -1503,6 +1518,7 @@ void ControlBar::setWeakened(bool weakened)
         return;
     }
     m_weakened = weakened;
+    static_cast<HudEffect *>(graphicsEffect())->setShadowOpacity(weakened ? 0.45 : 1.0);
     update();
 }
 
@@ -1755,21 +1771,10 @@ void ControlBar::paintEvent(QPaintEvent *)
     // 底栏外壳：14px 圆角长矩形（Fluent 图标统一审图修订 2026-11-18）。
     // 定稿 596×44：四角 14px 圆角 → 两端各留 44-2*14=16px 直边；
     // 进度条与页码直接落在外壳上，不再套内嵌底（2026-11-19 定稿）。
-    constexpr qreal kShellRadius = 14.0;
-    // 软阴影：三层跟随外壳圆角，越远越淡（不依赖系统阴影，截图可复现）。
-    p.setPen(Qt::NoPen);
-    for (int i = 0; i < 3; ++i) {
-        const qreal grow = 2.0 + i * 2.5;
-        QColor sh(0, 0, 0, 34 - i * 9);
-        p.setBrush(sh);
-        p.drawRoundedRect(capsule.adjusted(-grow, grow, grow, grow + 2),
-                          kShellRadius + grow, kShellRadius + grow);
-    }
-
     p.setPen(QPen((UiStyle::isLight() ? QColor(0, 0, 0, 28) : QColor(255, 255, 255, 30)), 1));
     p.setBrush(UiStyle::isLight() ? QColor(250, 250, 251, 242)
                                   : QColor(31, 32, 35, 227));
-    p.drawRoundedRect(capsule, kShellRadius, kShellRadius);
+    p.drawRoundedRect(capsule, kIslandRadius, kIslandRadius);
 
     // 进度条与页码直接落在外壳上（定稿无内嵌底）。
 

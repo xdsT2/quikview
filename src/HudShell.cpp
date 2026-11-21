@@ -177,7 +177,8 @@ void HudBackdrop::resample()
 // 为原点从 0.99 缩放回 1。关闭淡出只动 progress。投影由圆角矩形轮廓模糊而来
 // （面板形状固定，尺寸变了才重建一次）。
 // ---------------------------------------------------------------------------
-HudEffect::HudEffect(QObject *parent) : QGraphicsEffect(parent) {}
+HudEffect::HudEffect(QObject *parent, qreal radius)
+    : QGraphicsEffect(parent), m_radius(radius < 0 ? hud::Radius : radius) {}
 
 void HudEffect::setProgress(qreal v)
 {
@@ -187,7 +188,7 @@ void HudEffect::setProgress(qreal v)
 
 QRectF HudEffect::boundingRectFor(const QRectF &r) const
 {
-    const qreal pad = hud::ShadowBlur + 2;
+    const qreal pad = hud::ShadowBlur * 1.5 + 2;
     return r.adjusted(-pad, -pad, pad, pad + hud::ShadowDy);
 }
 
@@ -199,12 +200,14 @@ void HudEffect::draw(QPainter *painter)
     }
     rebuildShadow(src, painter);
     painter->save();
-    painter->setOpacity(m_progress);
+    const qreal opacity = painter->opacity() * m_progress;
+    painter->setOpacity(opacity * m_shadowOpacity);
     if (!m_shadow.isNull()) {
         // 投影轮廓比面板大一圈 pad，落位时对齐面板顶点再向下偏移
         painter->drawImage(QPointF(src.left() - m_pad, src.top() - m_pad + hud::ShadowDy),
                            m_shadow);
     }
+    painter->setOpacity(opacity);
     if (m_scaleOn && m_progress < 1.0) {
         const qreal s = 0.99 + 0.01 * m_progress;
         painter->translate(src.topLeft());
@@ -220,33 +223,37 @@ void HudEffect::rebuildShadow(const QRectF &src, QPainter *painter)
     const qreal dpr = painter->device() ? painter->device()->devicePixelRatioF() : 1.0;
     const qreal keyW = src.width() * 1000.0 + dpr;
     const qreal keyH = src.height() * 1000.0 + dpr;
-    if (!m_shadow.isNull() && keyW == m_keyW && keyH == m_keyH) {
+    const int alpha = hud::shadow().alpha();
+    if (!m_shadow.isNull() && keyW == m_keyW && keyH == m_keyH && alpha == m_shadowAlpha) {
         return;
     }
     m_keyW = keyW;
     m_keyH = keyH;
-    m_pad = int(qCeil(hud::ShadowBlur * dpr)) + 2;
-    QImage silhouette(int(src.width() * dpr) + m_pad * 2, int(src.height() * dpr) + m_pad * 2,
+    m_shadowAlpha = alpha;
+    const int radius = qMax(2, qRound(hud::ShadowBlur * dpr / 2.0));
+    const int pad = radius * 3 + 1;
+    m_pad = pad / dpr;
+    QImage silhouette(qCeil(src.width() * dpr) + pad * 2, qCeil(src.height() * dpr) + pad * 2,
                       QImage::Format_ARGB32_Premultiplied);
     silhouette.setDevicePixelRatio(dpr);
     silhouette.fill(Qt::transparent);
     {
         QPainter sp(&silhouette);
         sp.setRenderHint(QPainter::Antialiasing, true);
-        const QRectF panelRect(m_pad, m_pad, src.width() * dpr, src.height() * dpr);
+        const QRectF panelRect(m_pad, m_pad, src.width(), src.height());
         QPainterPath path;
-        path.addRoundedRect(panelRect, hud::Radius * dpr, hud::Radius * dpr);
+        path.addRoundedRect(panelRect, m_radius, m_radius);
         sp.fillPath(path, QColor(0, 0, 0));
     }
     // 盒式模糊作用在 ARGB32_Premultiplied 的 alpha 上；三遍近高斯
-    m_shadow = blurImage(silhouette, qMax(2, qRound(hud::ShadowBlur * dpr / 2.0)), 3);
-    // 黑色 33%：轮廓 alpha 压到峰值 33%，RGB 归零（premultiplied 黑）。
+    m_shadow = blurImage(silhouette, radius, 3);
+    // 使用当前主题的投影强度。
     uchar *bits = m_shadow.bits();
     for (int i = 0; i < m_shadow.sizeInBytes(); i += 4) {
         bits[i + 0] = 0;
         bits[i + 1] = 0;
         bits[i + 2] = 0;
-        bits[i + 3] = uchar(bits[i + 3] * 0.33);
+        bits[i + 3] = uchar(bits[i + 3] * alpha / 255);
     }
 }
 

@@ -203,9 +203,6 @@ namespace {
 // 36/37；125% 下物理 1150 × 980。
 constexpr int kDlgW = 1068;   // 2026-11-16 开关层级修订：按设计稿恢复到 1068（覆盖 11-12 的 920 定档）
 constexpr int kDlgH = 784;
-// 键盘页只加高到 822（宽同 920）：14 行 + 四分组 + 冲突红条要一屏审阅
-// （规格 §审图索引）。宽度不再单独放宽。
-constexpr int kDlgKeyboardH = 822;
 constexpr int kDlgMinW = 900;
 constexpr int kDlgMinH = 660;
 constexpr int kTitleBarH = 41;     // v2：标题栏 41（窄窗 40）
@@ -2054,7 +2051,6 @@ void SettingsDialog::selectPage(int index)
     if (index < 0 || index >= m_pages.size())
         return;
     ensurePageBuilt(index);   // 延后构建：首次进入该页时才建内容
-    const bool wasKeyboard = m_stack->currentIndex() == 4;
     m_stack->setCurrentIndex(index);
     m_pageTitle->setText(m_pageTitles.at(index));
     const QString desc = m_pageDescs.at(index);
@@ -2074,13 +2070,6 @@ void SettingsDialog::selectPage(int index)
     // 页专属动作位（「恢复默认菜单」）只在查看器右键菜单页出现
     if (m_pageActionHost) {
         m_pageActionHost->setVisible(m_appMenuPage && m_pages.at(index) == m_appMenuPage);
-    }
-
-    // 只调整标准尺寸，保留用户手动设定的窗口高度。
-    if (index == 4 && !wasKeyboard && height() == kDlgH) {
-        resize(width(), kDlgKeyboardH);
-    } else if (index != 4 && wasKeyboard && height() == kDlgKeyboardH) {
-        resize(width(), kDlgH);
     }
 }
 

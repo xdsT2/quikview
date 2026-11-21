@@ -15,7 +15,7 @@
 //                  → 盒式模糊 ≈20px → 叠 #212121@91% 染色；关/采样不可用回退实底。
 //                  采样在事件循环里异步做（源每次 Paint 只标记脏 + 120ms 节流），
 //                  paintEvent 里绝不递归 render。
-//   HudEffect      常驻特效：静息只画缓存投影（向下 5 / 模糊 18 / 黑 33%）；
+//   HudEffect      常驻特效：静息只画缓存投影（向下 5 / 模糊 18 / 强度随主题）；
 //                  progress 0→1 开启（可带左上原点 0.99→1 缩放），关闭只动 progress。
 //   HudToolButton  标题栏 28×28 热区按钮（复制 / 关闭）：自绘悬停底、按下加深与
 //                  键盘焦点环；焦点环只在键盘导航（Tab/Backtab/Shortcut 原因）时
@@ -49,8 +49,10 @@ private:
 class HudEffect : public QGraphicsEffect
 {
     Q_OBJECT
+    Q_PROPERTY(qreal opacity READ progress WRITE setProgress)
 public:
-    explicit HudEffect(QObject *parent = nullptr);
+    explicit HudEffect(QObject *parent = nullptr, qreal radius = -1.0);
+    void setShadowOpacity(qreal opacity) { m_shadowOpacity = opacity; update(); }
 
     void setProgress(qreal v);
     qreal progress() const { return m_progress; }
@@ -69,7 +71,10 @@ private:
     qreal m_keyH = -1;
     qreal m_progress = 1.0;
     bool m_scaleOn = false;
-    int m_pad = 0;
+    qreal m_pad = 0;
+    qreal m_radius;
+    qreal m_shadowOpacity = 1.0;
+    int m_shadowAlpha = 0;
 };
 
 class HudToolButton : public QPushButton

@@ -38,6 +38,7 @@ class QMouseEvent;
 class QResizeEvent;
 class QKeyEvent;
 class QGraphicsOpacityEffect;
+class HudEffect;
 class QPropertyAnimation;
 
 namespace Chrome {
@@ -490,7 +491,7 @@ private:
     QTimer *m_probeTimer = nullptr;
     ChromePhase m_dockPhase = ChromePhase::Visible;
     QGraphicsOpacityEffect *m_captionOpacity = nullptr;
-    QGraphicsOpacityEffect *m_dockOpacity = nullptr;
+    HudEffect *m_dockOpacity = nullptr;
     QPropertyAnimation *m_captionFade = nullptr;
     QPropertyAnimation *m_dockFade = nullptr;
     bool m_topLocked = false;

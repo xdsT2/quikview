@@ -129,6 +129,7 @@ public:
     bool isTopLocked() const { return m_topLocked; }
     void setPinned(bool pinned);
     bool isPinned() const { return m_pinned; }
+    void setLayerButtonVisible(bool visible);
     void setLayerState(bool available, bool open);
     bool layersAvailable() const { return m_layersAvailable; }
 
@@ -200,6 +201,7 @@ private:
     QString m_title;
     bool m_topLocked = false;
     bool m_pinned = false;
+    bool m_showLayers = false;
     bool m_layersAvailable = false;
     bool m_layersOpen = false;
     int m_hover = -1;

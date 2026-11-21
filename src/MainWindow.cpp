@@ -68,6 +68,7 @@
 
 #include "BatchConvertDialog.h"
 #include "Chrome.h"
+#include "HudShell.h"
 #include "CtxMenu.h"
 
 #include <functional>
@@ -541,11 +542,14 @@ MainWindow::MainWindow(QWidget *parent)
         animation->setEasingCurve(QEasingCurve::OutCubic);
     };
     setupFade(m_topBar, m_captionOpacity, m_captionFade);
-    setupFade(m_control, m_dockOpacity, m_dockFade);
+    m_dockOpacity = static_cast<HudEffect *>(m_control->graphicsEffect());
+    m_dockFade = new QPropertyAnimation(m_dockOpacity, "opacity", this);
+    m_dockFade->setDuration(180);
+    m_dockFade->setEasingCurve(QEasingCurve::OutCubic);
 
     // 淡出结束才算 Hidden：动画途中不销毁、不重建、不切控件，避免出现闪烁。
     connect(m_dockFade, &QPropertyAnimation::finished, this, [this]() {
-        if (m_dockOpacity && qFuzzyCompare(m_dockOpacity->opacity() + 1.0, 0.0 + 1.0)) {
+        if (m_dockOpacity && qFuzzyCompare(m_dockOpacity->progress() + 1.0, 0.0 + 1.0)) {
             m_control->setAttribute(Qt::WA_TransparentForMouseEvents, true);
             m_control->hide();
             m_dockPhase = ChromePhase::Hidden;
@@ -895,7 +899,7 @@ void MainWindow::setDockVisible(bool visible, bool animate)
                         && qFuzzyCompare(m_dockFade->endValue().toDouble() + 1.0,
                                          (visible ? 1.0 : 0.0) + 1.0);
     if (m_control->isVisible() == visible
-        && (fading || qFuzzyCompare(m_dockOpacity->opacity() + 1.0, (visible ? 1.0 : 0.0) + 1.0))) {
+        && (fading || qFuzzyCompare(m_dockOpacity->progress() + 1.0, (visible ? 1.0 : 0.0) + 1.0))) {
         return; // 同上：目标状态已达成，不做无谓重绘
     }
     if (visible) {
@@ -903,15 +907,15 @@ void MainWindow::setDockVisible(bool visible, bool animate)
         m_control->raise();
     }
     m_dockFade->stop();
-    m_dockFade->setStartValue(m_dockOpacity->opacity());
+    m_dockFade->setStartValue(m_dockOpacity->progress());
     m_dockFade->setEndValue(visible ? 1.0 : 0.0);
     // 显隐分速：显示 130ms、隐藏 95ms（退出比进入快约 25%），位置永远不动、只改透明度；
     // 中断重入时以当前透明度为起点反向（setStartValue 已保证）。减少动效只留 80ms 淡入淡出。
     m_dockFade->setDuration(Chrome::reducedMotion() ? 80 : (visible ? 130 : 95));
-    if (animate && !qFuzzyCompare(m_dockOpacity->opacity(), visible ? 1.0 : 0.0)) {
+    if (animate && !qFuzzyCompare(m_dockOpacity->progress(), visible ? 1.0 : 0.0)) {
         m_dockFade->start();
     } else {
-        m_dockOpacity->setOpacity(visible ? 1.0 : 0.0);
+        m_dockOpacity->setProgress(visible ? 1.0 : 0.0);
         // 不做动画时不会有 finished 回调，必须在这里把隐藏彻底收尾，
         // 否则透明但仍在的胶囊会继续吃鼠标。
         if (!visible) {
@@ -5969,7 +5973,7 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << " filminview=" << (m_browser && m_browser->currentInView() ? 1 : 0)
                << " dockbottom=" << (m_control ? height() - m_control->y() : -1)
                << " dockvis=" << (m_control && m_control->isVisible() ? 1 : 0)
-               << " dockop=" << (m_dockOpacity ? QString::number(m_dockOpacity->opacity(), 'f', 2) : QStringLiteral("na"))
+               << " dockop=" << (m_dockOpacity ? QString::number(m_dockOpacity->progress(), 'f', 2) : QStringLiteral("na"))
                << " top=" << static_cast<int>(m_topPhase)
                // 弹窗归属（显隐回归断言用）：popup 表示当前确有弹层，
                // popuptop 表示它是顶栏自有菜单。两者都不参与显隐判定本身。
