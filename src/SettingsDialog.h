@@ -85,6 +85,11 @@ public:
     // 重启读回探针（--smoke folderrestore:<root>）：新进程按隔离 ini 打开设置页，
     // dump「输入框回填值 / 配置原始值」到 <root>/folder1-restore.txt 并截图。
     void probeFolderRestore(const QString &root);
+    // 验收探针（--smoke switchprobe:<cfgKey>=on|off）：按 cfgKey 定位任意开关并真实点击，
+    // dump 前后控件态 / Config getter（由调用方给）/ QSettings 原始值，验「改开关即时写盘」。
+    void probeOneSwitch(const QString &key, bool want,
+                        const std::function<bool()> &getter,
+                        const QString &outFile);
     explicit SettingsDialog(QWidget *parent = nullptr);
     ~SettingsDialog() override;
 

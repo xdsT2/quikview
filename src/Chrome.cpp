@@ -2401,13 +2401,9 @@ void EmptyState::setStatus(const QString &text, bool isError)
 QRect EmptyState::primaryRect() const
 {
     const int y = (height() - 340) / 2;
-    return QRect(width() / 2 - 123, y + 197, 120, 36);
-}
-
-QRect EmptyState::secondaryRect() const
-{
-    const int y = (height() - 340) / 2;
-    return QRect(width() / 2 + 7, y + 197, 116, 36);
+    // 单一主按钮居中（2026-11-21 打开入口单）：原「打开图片 / 选择文件夹」两钮
+    // 合并为一个「打开」，同一个选择器里既能选图片也能确认文件夹。
+    return QRect(width() / 2 - 80, y + 197, 160, 36);
 }
 
 void EmptyState::paintEvent(QPaintEvent *)
@@ -2432,9 +2428,7 @@ void EmptyState::paintEvent(QPaintEvent *)
     p.setFont(uiFont(13));
     p.setPen(QColor(QString::fromLatin1(UiStyle::pick("#999999", "#666666"))));
     p.drawText(QRect(0, top + 132, width(), 22), Qt::AlignCenter,
-               QCoreApplication::translate("EmptyState", "把图片拖到这里，或从电脑中选择一张图片"));
-    p.drawText(QRect(0, top + 154, width(), 22), Qt::AlignCenter,
-               QCoreApplication::translate("EmptyState", "也可以直接打开整个文件夹"));
+               QCoreApplication::translate("EmptyState", "把图片拖到这里，或点「打开」选择图片或文件夹"));
     // 加载/失败状态行（连续翻页派单 §二）：仅首次打开（画布无上一张）时可见，
     // 等待用中性灰，失败用警示色，不挤占按钮与快捷键提示的布局位。
     if (!m_status.isEmpty()) {
@@ -2459,7 +2453,6 @@ void EmptyState::paintEvent(QPaintEvent *)
     }
 
     const QRect primary = primaryRect();
-    const QRect secondary = secondaryRect();
 
     p.setPen(QPen(QColor(QStringLiteral("#2485b3")), 1));
     p.setBrush(m_hover == 0 ? QColor(QStringLiteral("#0e7fb5"))
@@ -2471,24 +2464,7 @@ void EmptyState::paintEvent(QPaintEvent *)
     p.setFont(uiFont(12, QFont::DemiBold));
     p.setPen(QColor(Qt::white));
     p.drawText(QRect(primary.x() + 40, primary.y(), primary.width() - 44, primary.height()),
-               Qt::AlignVCenter | Qt::AlignLeft, QCoreApplication::translate("EmptyState", "打开图片"));
-
-    p.setPen(QPen(QColor(QString::fromLatin1(UiStyle::pick("#4a4c50", "#b5b5b5"))), 1));
-    if (m_hover == 1) {
-        p.setBrush(QColor(QString::fromLatin1(UiStyle::pick("#383a3e", "#c7c9cb"))));
-    } else {
-        p.setBrush(Qt::NoBrush);
-    }
-    p.drawRoundedRect(QRectF(secondary).adjusted(0.5, 0.5, -0.5, -0.5), 6, 6);
-    const QColor secondaryInk(QString::fromLatin1(UiStyle::pick("#d9dadd", "#242628")));
-    // 空状态功能按钮复用同义图标（2026-11-19 定稿）。
-    drawIcon(p, "folder",
-             QRectF(secondary.x() + 14, secondary.center().y() - 8, 16, 16), secondaryInk);
-    p.setFont(uiFont(12));
-    p.setPen(secondaryInk);
-    p.drawText(QRect(secondary.x() + 36, secondary.y(), secondary.width() - 40, secondary.height()),
-               Qt::AlignVCenter | Qt::AlignLeft,
-               QCoreApplication::translate("EmptyState", "选择文件夹"));
+               Qt::AlignVCenter | Qt::AlignLeft, QCoreApplication::translate("EmptyState", "打开"));
 
     // 快捷键提示
     struct KbdGroup {
@@ -2496,7 +2472,7 @@ void EmptyState::paintEvent(QPaintEvent *)
         QString label;
     };
     const QVector<KbdGroup> groups = {
-        { { QStringLiteral("F2") }, QCoreApplication::translate("EmptyState", "打开图片") },
+        { { QStringLiteral("F2") }, QCoreApplication::translate("EmptyState", "打开") },
         { { QStringLiteral("F11") }, QCoreApplication::translate("EmptyState", "全屏查看") },
         { { QStringLiteral("F5") }, QCoreApplication::translate("EmptyState", "设置") },
     };
@@ -2544,7 +2520,6 @@ void EmptyState::mousePressEvent(QMouseEvent *e)
 {
     if (e->button() == Qt::LeftButton) {
         if (primaryRect().contains(e->pos())) m_press = 0;
-        else if (secondaryRect().contains(e->pos())) m_press = 1;
         update();
     }
     QWidget::mousePressEvent(e);
@@ -2557,15 +2532,13 @@ void EmptyState::mouseReleaseEvent(QMouseEvent *e)
     update();
     if (e->button() == Qt::LeftButton) {
         if (i == 0 && primaryRect().contains(e->pos())) emit openClicked();
-        if (i == 1 && secondaryRect().contains(e->pos())) emit folderClicked();
     }
     QWidget::mouseReleaseEvent(e);
 }
 
 void EmptyState::mouseMoveEvent(QMouseEvent *e)
 {
-    m_hover = primaryRect().contains(e->pos()) ? 0
-              : (secondaryRect().contains(e->pos()) ? 1 : -1);
+    m_hover = primaryRect().contains(e->pos()) ? 0 : -1;
     setPointerCursor(this, m_hover >= 0);
     update();
     QWidget::mouseMoveEvent(e);

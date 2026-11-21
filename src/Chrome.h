@@ -382,8 +382,9 @@ public:
     void setStatus(const QString &text, bool isError = false);
 
 signals:
+    // 统一「打开」入口（2026-11-21）：一个按钮同时承担「选图片」与「选文件夹」，
+    // 原 folderClicked 已随「打开文件夹」并入「打开」删除。
     void openClicked();
-    void folderClicked();
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -394,7 +395,6 @@ protected:
 
 private:
     QRect primaryRect() const;
-    QRect secondaryRect() const;
     int m_hover = -1;
     int m_press = -1;
     QString m_status;

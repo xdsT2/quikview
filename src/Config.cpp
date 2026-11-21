@@ -939,3 +939,10 @@ void Config::setSessionLastFile(const QString &path)
 {
     m_settings.setValue(QStringLiteral("config/session_last_file"), path);
 }
+
+// 启动时是否恢复上次查看的图片。缺键（全新配置 / 旧配置）一律关闭：
+// 老版本恢复到哪个文件都不问用户，这里不给既有用户「凭空打开一张图」的默认行为。
+bool Config::restoreLastFileOnStart() const
+{
+    return m_settings.value(QStringLiteral("config/restore_last_file"), false).toBool();
+}
