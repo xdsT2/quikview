@@ -4094,6 +4094,25 @@ void SettingsDialog::probeAppMenuWindow(const QString &out, int w, int h, const 
                             pv->setExpanded(step.mid(8));
                             QApplication::processEvents();
                         }
+                    } else if (step.startsWith(QLatin1String("locate="))) {
+                        // 预览 → 大纲 反向定位：向常驻预览投递真实鼠标按下/松开，
+                        // 走 AppMenuPreview::mousePressEvent → localizeOutline。
+                        // 叶子行若被执行命令会弹「打开图片」对话框，探针会被卡住，
+                        // 因此「大纲滚到该行 + 焦点落在该行」本身就是「不执行命令」的证据。
+                        if (auto *pv = qobject_cast<AppMenuPreview *>(m_appMenuPreview)) {
+                            const QRect r = pv->probeRowRect(step.mid(7));
+                            if (r.isValid()) {
+                                const QPoint c = r.center();
+                                const QPoint g = pv->mapToGlobal(c);
+                                QMouseEvent press(QEvent::MouseButtonPress, c, g, Qt::LeftButton,
+                                                  Qt::LeftButton, Qt::NoModifier);
+                                QMouseEvent release(QEvent::MouseButtonRelease, c, g,
+                                                    Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+                                QApplication::sendEvent(pv, &press);
+                                QApplication::sendEvent(pv, &release);
+                                QApplication::processEvents();
+                            }
+                        }
                     } else if (step.startsWith(QLatin1String("wait="))) {
                         // 等动画/布局落位（开关滑块过渡 120ms）
                         QElapsedTimer t;

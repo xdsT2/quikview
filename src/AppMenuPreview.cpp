@@ -383,6 +383,17 @@ void AppMenuPreview::setLocalizeOutlineFn(std::function<void(const QString &)> f
     m_localizeOutline = std::move(fn);
 }
 
+QRect AppMenuPreview::probeRowRect(const QString &id)
+{
+    rebuildGeometry();
+    for (int i = 0; i < m_rows.size() && i < m_geom.rowRects.size(); ++i) {
+        if (m_rows.at(i).id == id) {
+            return m_geom.rowRects.at(i).toRect();
+        }
+    }
+    return QRect();
+}
+
 void AppMenuPreview::setExpanded(const QString &groupId)
 {
     if (groupId.isEmpty()) {

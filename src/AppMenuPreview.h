@@ -74,6 +74,10 @@ public:
     struct ProbeInfo { QString activeId; QString expandedId; };  // 探针：当前定位/分组
     ProbeInfo probeInfo() const { return ProbeInfo{ m_activeId, m_expandedId }; }
 
+    // 探针：一级行在控件坐标系里的矩形（找不到返回空 QRect），供反向定位取证
+    // 向预览投递真实鼠标事件用。
+    QRect probeRowRect(const QString &id);
+
     QSize sizeHint() const override;
 
 signals:
