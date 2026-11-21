@@ -60,7 +60,7 @@ public:
         }
 
         QFont f = opt.font;
-        f.setPixelSize(13);
+        f.setPixelSize(14);
         f.setWeight(QFont::Normal);
         p->setFont(f);
         p->setPen(enabled ? UiStyle::fluent::textColor()
@@ -75,7 +75,7 @@ public:
         // 禁用原因：次行小字，始终可见，不用悬停才看到。
         if (!reason.isEmpty()) {
             QFont rf = opt.font;
-            rf.setPixelSize(11);
+            rf.setPixelSize(12);
             p->setFont(rf);
             p->setPen(UiStyle::fluent::descColor());
             const QRect rr(r.left() + 24, r.top() + 23, r.width() - 34, 18);

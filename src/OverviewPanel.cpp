@@ -253,7 +253,7 @@ void OverviewPanel::paintEvent(QPaintEvent *)
     const Metrics m = metrics();
     const QColor body = UiStyle::body();
     const QColor muted = UiStyle::muted();
-    const QFont nameFont = UiStyle::font(12);
+    const QFont nameFont = UiStyle::font(13);
 
     // 网格绘制裁到底栏上方，避免半排缩略图从悬浮栏底下穿出。
     const int clipBottom = height() - 64;
@@ -295,7 +295,7 @@ void OverviewPanel::paintEvent(QPaintEvent *)
             p.fillPath(clip, UiStyle::overview::thumbPlaceholder());
             if (m_failed.contains(i)) {
                 p.setPen(muted);
-                p.setFont(UiStyle::font(11));
+                p.setFont(UiStyle::font(12));
                 p.drawText(fitted, Qt::AlignCenter, tr("无法预览"));
             }
         }
@@ -343,7 +343,7 @@ void OverviewPanel::paintEvent(QPaintEvent *)
 
     // 左下状态行：图片总览 · N 张
     p.setPen(muted);
-    p.setFont(UiStyle::font(11));
+    p.setFont(UiStyle::font(12));
     p.drawText(QRect(m.marginX, height() - 30, width() - 2 * m.marginX, 20),
                Qt::AlignLeft | Qt::AlignVCenter,
                tr("图片总览 · %1 张").arg(m_files.size()));

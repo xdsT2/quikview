@@ -105,8 +105,8 @@ void drawLock(QPainter &p, const QPointF &center, const QColor &c)
 CtxMenu::CtxMenu(QWidget *parent, Presentation presentation)
     : QMenu(parent), m_presentation(presentation)
 {
-    // 标签 13px：菜单尺寸与绘制同源（QSS 的 12px 不再作用于本菜单的排版）。
-    setFont(UiStyle::font(13));
+    // 标签 14px（2026-11-22 统一字号）：菜单尺寸与绘制同源（QSS 字号不作用于本菜单排版）。
+    setFont(UiStyle::font(14));
 }
 
 void CtxMenu::setActionIcon(const QAction *action, const char *iconId)
@@ -420,8 +420,8 @@ bool CtxMenu::event(QEvent *ev)
 QSize CtxMenu::sizeHint() const
 {
     const QList<QAction *> acts = actions();
-    const QFont fLabel = UiStyle::font(13);
-    const QFont fShort = UiStyle::font(11);
+    const QFont fLabel = UiStyle::font(14);
+    const QFont fShort = UiStyle::font(12);
     const QFontMetrics fmL(fLabel);
     const QFontMetrics fmS(fShort);
 
@@ -477,8 +477,8 @@ void CtxMenu::paintEvent(QPaintEvent *event)
     p.fillPath(bgPath, translucent ? UiStyle::hud::plateTint() : UiStyle::hud::plateSolid());
 
     const QList<QAction *> acts = actions();
-    const QFont fLabel = UiStyle::font(13);
-    const QFont fShort = UiStyle::font(11);
+    const QFont fLabel = UiStyle::font(14);
+    const QFont fShort = UiStyle::font(12);
     const QFontMetrics fmL(fLabel);
     const QFontMetrics fmS(fShort);
     const bool shortcutCol = hasShortcutColumn(acts);

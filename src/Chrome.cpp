@@ -242,19 +242,11 @@ QRectF beginButton(QPainter &p, const QRectF &rect, const BtnState &s,
     }
 
     QColor border = QColor(0, 0, 0, 0);
-    if (checked) {
-        border = pal.checkedBorder;
-        border.setAlphaF(qMin(1.0, border.alphaF() * (1.0 + 0.9 * v.hover)));
-    } else if (pal.base.alpha() > 0) {
+    // 2026-11-22 全局交互统一：悬停/按下/开启一律不再画外圈描边，
+    // 只靠中性底板深浅分层；开启态由 Filled 图标表达（图一）。
+    // 仅保留两处：常态自带描边（pal.baseBorder，窗口三键等）与键盘焦点环。
+    if (!checked && pal.base.alpha() > 0) {
         border = pal.baseBorder;
-    } else if (amt > 0.004) {
-        border = pal.baseBorder;
-        border.setAlphaF(border.alphaF() * amt);
-    }
-    // 按下态：参考图 03 在圆内补一圈细描边，让「按下」比「悬停」更明确。
-    if (border.alpha() == 0 && !checked && !s.disabled && v.press > 0.004) {
-        border = UiStyle::isLight() ? QColor(0, 0, 0, 46) : QColor(255, 255, 255, 46);
-        border.setAlphaF(border.alphaF() * v.press);
     }
     if (border.alpha() > 0) {
         p.setPen(QPen(border, 1));
@@ -1069,11 +1061,12 @@ void TopBar::paintEvent(QPaintEvent *)
         // 顶栏按钮反馈底统一 8px 圆角矩形（Fluent 图标统一审图修订 2026-11-18）。
         // 命中区是定稿的 kTopBtn(30)×kTopBtn(30)，只改视觉，不改按钮顺序与功能。
         pal.radius = 8;
-        pal.hover = QColor(QString::fromLatin1(UiStyle::pick("#35373b", "#e7e9eb")));
-        pal.press = QColor(QString::fromLatin1(UiStyle::pick("#292b2f", "#dcdfe2")));
-        pal.checkedBg = UiStyle::accentSoft();
-        pal.checkedBorder = QColor(accent.red(), accent.green(), accent.blue(), 60);
-        pal.checkedInk = accent;
+        pal.hover = UiStyle::feedback::hover();
+        pal.press = UiStyle::feedback::press();
+        // 开启态只留中性底板（2026-11-22 图一）：强调色改成由 Filled 图标表达。
+        pal.checkedBg = UiStyle::feedback::plate();
+        pal.checkedBorder = QColor(0, 0, 0, 0);
+        pal.checkedInk = QColor(QString::fromLatin1(UiStyle::pick("#ffffff", "#101214")));
 
         if (b.action == Action::Close) {
             pal.radius = 0;
@@ -1087,16 +1080,15 @@ void TopBar::paintEvent(QPaintEvent *)
             pal.press = QColor(QString::fromLatin1(UiStyle::pick("#2a2b2e", "#dfe1e3")));
             pal.ink = QColor(QString::fromLatin1(UiStyle::pick("#c9c9c9", "#333333")));
         } else if (b.action == Action::TopLock) {
-            // 顶栏闭锁：保持透明底；悬停仍是中性圆（与底栏蓝底明确区分）。
+            // 顶栏闭锁：保持透明底；悬停仍是中性圆（与底栏明确区分）。
             pal.checkedBg = QColor(0, 0, 0, 0);
             pal.checkedBorder = QColor(0, 0, 0, 0);
             pal.checkedInk = QColor(QString::fromLatin1(UiStyle::pick("#ffffff", "#101214")));
         } else if (b.action == Action::Pin) {
-            // 图片置顶：独立图钉 + 自身选中样式（半透明蓝底 + 淡蓝描边/图标）。
-            const QColor light(QStringLiteral("#98d0ff"));
-            pal.checkedBg = QColor(accent.red(), accent.green(), accent.blue(), 64);
-            pal.checkedBorder = light;
-            pal.checkedInk = light;
+            // 图片置顶：沿用中性底板 + Filled 图钉，去掉原来的淡蓝描边（图二问题）。
+            pal.checkedBg = UiStyle::feedback::plate();
+            pal.checkedBorder = QColor(0, 0, 0, 0);
+            pal.checkedInk = QColor(QString::fromLatin1(UiStyle::pick("#ffffff", "#101214")));
         }
 
         // 全部功能按钮（图标/带文字）反馈底统一用整个命中区的 8px 圆角矩形；
@@ -1884,18 +1876,19 @@ void ControlBar::paintEvent(QPaintEvent *)
         ButtonPalette pal;
         // 定稿：按钮底板 30×30、圆角 7。
         pal.radius = 7;
-        pal.hover = QColor(QString::fromLatin1(UiStyle::pick("#35373b", "#e7e9eb")));
-        pal.press = QColor(QString::fromLatin1(UiStyle::pick("#292b2f", "#dcdfe2")));
+        pal.hover = UiStyle::feedback::hover();
+        pal.press = UiStyle::feedback::press();
         pal.ink = ink;
-        pal.checkedBg = UiStyle::accentSoft();
-        pal.checkedBorder = QColor(accent.red(), accent.green(), accent.blue(), 60);
-        pal.checkedInk = accent;
+        // 开启态：中性底板 + Filled 图标，不叠蓝底/蓝描边（2026-11-22 图一）。
+        pal.checkedBg = UiStyle::feedback::plate();
+        pal.checkedBorder = QColor(0, 0, 0, 0);
+        pal.checkedInk = QColor(QString::fromLatin1(UiStyle::pick("#ffffff", "#101214")));
 
         const QPointF center = r.center();
 
         if (it.action == Action::Lock) {
-            // 锁定态交叉淡化：透明底（开）↔ 蓝底圆角矩形 + 白锁（锁）两层按
-            // checked 插值叠画；与顶栏的透明底锁明确区分。
+            // 锁定态交叉淡化：透明底（开）↔ 中性底板 + 白色 Filled 锁（锁），
+            // 2026-11-22 起不再用蓝底，避免与进度条抢重点。
             const qreal chk = v.checked;
             const qreal lockS = 18.0 * (1.0 - 0.02 * v.press);
             if (chk < 0.999) {
@@ -1914,16 +1907,17 @@ void ControlBar::paintEvent(QPaintEvent *)
             if (chk > 0.001) {
                 p.save();
                 p.setOpacity(p.opacity() * chk);
-                p.setPen(Qt::NoPen);
-                QColor blue(QStringLiteral("#1688f8"));
+                QColor plate = UiStyle::feedback::plate();
                 if (st.hover || st.pressed) {
-                    blue = blue.lighter(112);
+                    plate = blendColor(plate, UiStyle::feedback::hover(), 0.6);
                 }
-                p.setBrush(blue);
+                p.setPen(Qt::NoPen);
+                p.setBrush(plate);
                 p.drawRoundedRect(QRectF(r).adjusted(0.5, 0.5, -0.5, -0.5), 7, 7);
                 drawIcon(p, "lock-closed",
                          QRectF(center.x() - lockS / 2, center.y() - lockS / 2, lockS, lockS),
-                         QColor(Qt::white), AppIcon::Style::Filled);
+                         QColor(QString::fromLatin1(UiStyle::pick("#ffffff", "#101214"))),
+                         AppIcon::Style::Filled);
                 p.restore();
             }
             continue;

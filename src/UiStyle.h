@@ -168,7 +168,8 @@ inline const char *surfaceMenu()   { return pick("#242528", "#ffffff"); }
 inline const char *surfaceSoft()   { return pick("#2a2c30", "#fafafb"); }
 inline const char *menuLine()      { return pick("rgba(255,255,255,0.14)", "rgba(0,0,0,0.14)"); }
 inline const char *menuText()      { return pick("#f2f2f2", "#1b1b1c"); }
-inline const char *menuHover()     { return pick("#35383e", "#f0f1f3"); }
+// 菜单/下拉选中底：2026-11-22 起与 feedback::hover() 同一取值，全局只留一套悬停底。
+inline const char *menuHover()     { return pick("#35373b", "#e7e9eb"); }
 inline const char *menuDisabled()  { return pick("#6f747a", "#8c9096"); }
 inline const char *menuSeparator() { return pick("rgba(255,255,255,0.085)", "rgba(0,0,0,0.08)"); }
 inline const char *tipBg()         { return pick("#2a2c30", "#ffffff"); }
@@ -383,6 +384,17 @@ inline QColor nameChip() { return isLight() ? QColor(0x0b, 0x5f, 0xa8) : QColor(
 inline QColor nameChipText() { return QColor(Qt::white); }
 } // namespace overview
 
+// —— 交互反馈底色（2026-11-22 全局字体与交互样式统一）——
+// 一套中性「悬停底 / 按下底 / 开启底板」，顶底栏自绘按钮、设置与弹窗按钮、
+// 下拉触发器与菜单项都从这里取，避免各控件自带一套中间色。
+// 开启态只留中性底板，不再叠强调色底+描边：状态由 Filled 图标表达（图一）。
+namespace feedback {
+inline QColor hover() { return isLight() ? QColor(0xe7, 0xe9, 0xeb) : QColor(0x35, 0x37, 0x3b); }
+inline QColor press() { return isLight() ? QColor(0xdc, 0xdf, 0xe2) : QColor(0x29, 0x2b, 0x2f); }
+// 开启/持续态底板：比悬停略实一档，仍属中性，不带色相。
+inline QColor plate() { return isLight() ? QColor(0xe2, 0xe4, 0xe6) : QColor(0x3a, 0x3c, 0x40); }
+} // namespace feedback
+
 // —— 尺寸令牌 ——
 inline constexpr int RadiusDialog = 10;
 inline constexpr int RadiusCard   = 9;
@@ -436,6 +448,11 @@ inline QString resolveQss(QString qss)
     for (const auto &e : map) {
         qss.replace(QLatin1String(e.key), QLatin1String(e.val));
     }
+    // 交互反馈底色：QSS 里不能调函数，这里把 feedback 令牌统一灌进去，
+    // 设置/弹窗按钮、菜单项与自绘控件因此共用同一套悬停底与按下底。
+    qss.replace(QStringLiteral("@fbHover@"), feedback::hover().name());
+    qss.replace(QStringLiteral("@fbPress@"), feedback::press().name());
+    qss.replace(QStringLiteral("@fbPlate@"), feedback::plate().name());
     return qss;
 }
 
@@ -448,7 +465,7 @@ QWidget { color: #f2f2f2; }
 
 QMenu { background: @menuBg@; color: @menuText@; border: 1px solid @menuLine@;
         border-radius: 8px; padding: 4px; }
-QMenu::item { height: 30px; padding: 0 18px 0 26px; border-radius: 6px; font-size: 12px; }
+QMenu::item { height: 32px; padding: 0 18px 0 26px; border-radius: 6px; font-size: 14px; }
 QMenu::item:selected { background: @menuHover@; }
 QMenu::item:disabled { color: @menuDisabled@; }
 QMenu::separator { height: 1px; background: @menuSep@; margin: 4px 7px; }
@@ -504,11 +521,11 @@ QRadioButton::indicator { width: 14px; height: 14px; border-radius: 7px;
 QRadioButton::indicator:checked { border: 4px solid #55c0f0; background: #ffffff; }
 QRadioButton::indicator:hover { border-color: #9ba1a8; }
 
-QPushButton { background: #303237; color: #e1e3e5; border: 1px solid #787878;
+QPushButton { background: #303237; color: #e1e3e5; border: 0;
     border-radius: 6px; padding: 0 16px; min-height: 30px; font-size: 12px; }
-QPushButton:hover { background: #3a3d43; border-color: #5e6269; }
-QPushButton:pressed { background: #2a2c30; }
-QPushButton:disabled { color: #6b7078; border-color: #3a3c40; background: #292b2f; }
+QPushButton:hover { background: @fbHover@; }
+QPushButton:pressed { background: @fbPress@; }
+QPushButton:disabled { color: #6b7078; background: #292b2f; }
 
 QSpinBox, QDoubleSpinBox { background: #2d2f34; color: #e0e2e4; border: 1px solid #787878;
     border-radius: 5px; padding: 0 4px 0 8px; font-size: 12px; min-height: 26px; }
@@ -564,7 +581,7 @@ QWidget { color: #1b1b1b; }
 
 QMenu { background: @menuBg@; color: @menuText@; border: 1px solid @menuLine@;
         border-radius: 8px; padding: 4px; }
-QMenu::item { height: 30px; padding: 0 18px 0 26px; border-radius: 6px; font-size: 12px; }
+QMenu::item { height: 32px; padding: 0 18px 0 26px; border-radius: 6px; font-size: 14px; }
 QMenu::item:selected { background: @menuHover@; color: @menuText@; }
 QMenu::item:disabled { color: @menuDisabled@; }
 QMenu::separator { height: 1px; background: @menuSep@; margin: 4px 7px; }
@@ -619,11 +636,11 @@ QRadioButton::indicator { width: 14px; height: 14px; border-radius: 7px;
 QRadioButton::indicator:checked { border: 4px solid #1689bd; background: #ffffff; }
 QRadioButton::indicator:hover { border-color: #5f5f5f; }
 
-QPushButton { background: #fbfbfb; color: #1b1b1b; border: 1px solid #8a8a8a;
+QPushButton { background: #fbfbfb; color: #1b1b1b; border: 0;
     border-radius: 6px; padding: 0 16px; min-height: 30px; font-size: 12px; }
-QPushButton:hover { background: #f0f0f0; border-color: #6b6b6b; }
-QPushButton:pressed { background: #e6e6e6; }
-QPushButton:disabled { color: #a0a0a0; border-color: #d0d0d0; background: #f5f5f5; }
+QPushButton:hover { background: @fbHover@; }
+QPushButton:pressed { background: @fbPress@; }
+QPushButton:disabled { color: #a0a0a0; background: #f5f5f5; }
 
 /* 以下 19 条补齐深色块已有、浅色块此前缺失的选择器（UI-001 §2.1）。
    不补会退回 Qt 默认外观，与周围 Fluent 控件出现两套设计语言。 */
