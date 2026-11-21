@@ -143,6 +143,8 @@ public:
     // 冒烟取证：按 id 合成 hover / pressed，截图不必依赖真实光标。
     void probeHover(int id);
     void probePress(int id);
+    // 冒烟取证：走真实标题栏右键链路（与 contextMenuEvent 同一信号、同一锚点）。
+    void probeSystemMenu();
 
 signals:
     void openClicked();

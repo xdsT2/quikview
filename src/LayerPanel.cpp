@@ -50,10 +50,11 @@ protected:
         }
 
         p.translate(QRectF(rect()).center());
-        // 14×14 逻辑尺寸落在 16px 档资源上，等比缩放，不拉伸。
+        // 16×16 逻辑尺寸对齐 Fluent 16px 网格（第 3 批实测：14px 时眼形退化成
+        // 一条弧线加一个点，用户认不出是「显示/隐藏」开关）。
         // 可见是持续状态，用 filled；隐藏切 eye-off 线性（2026-11-19 定稿状态规则）。
         AppIcon::paint(p, isChecked() ? QStringLiteral("eye") : QStringLiteral("eye-off"),
-                       QRectF(-7, -7, 14, 14), UiStyle::muted(),
+                       QRectF(-8, -8, 16, 16), UiStyle::muted(),
                        isChecked() ? AppIcon::Style::Filled : AppIcon::Style::Regular);
     }
 };
