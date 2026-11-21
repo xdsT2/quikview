@@ -2019,6 +2019,82 @@
     <context>
         <name>SettingsDialog</name>
         <message>
+            <source>选择后立即切换界面语言并写入配置</source>
+            <translation>La langue de l'interface change immédiatement et le réglage est enregistré</translation>
+        </message>
+        <message>
+            <source>选择后立即生效，无需保存；缺少对应 .qm 时保持当前语言并当场说明</source>
+            <translation>Appliqué immédiatement, sans enregistrement ; si le fichier .qm correspondant manque, la langue actuelle est conservée et la raison est affichée ici</translation>
+        </message>
+        <message>
+            <source>点击后先创建程序目录下的 translations，再交给系统文件管理器打开。</source>
+            <translation>Crée le dossier translations à côté du programme, puis l'ouvre dans l'explorateur de fichiers.</translation>
+        </message>
+        <message>
+            <source>点击后在系统浏览器打开 QuikView 发布页；应用内只报告系统是否接受打开请求。</source>
+            <translation>Ouvre la page de publication de QuikView dans le navigateur système ; l'application indique seulement si le système a accepté la demande.</translation>
+        </message>
+        <message>
+            <source>两个入口都会离开 QuikView，应用内只报告系统是否接受打开请求。</source>
+            <translation>Les deux boutons quittent QuikView ; l'application indique seulement si le système a accepté la demande.</translation>
+        </message>
+        <message>
+            <source>当前：%1（生效语言 %2）；选择后立即生效并写入配置。</source>
+            <translation>Actuel : %1 (langue effective %2) ; le changement s'applique immédiatement et est enregistré.</translation>
+        </message>
+        <message>
+            <source>已切换到 %1：本页与主窗口文案已即时重译，配置已写入。</source>
+            <translation>Passé à %1 : cette page et la fenêtre principale ont été retraduites immédiatement, et le réglage est enregistré.</translation>
+        </message>
+        <message>
+            <source>已恢复为 %1：%2</source>
+            <translation>Rétabli sur %1 : %2</translation>
+        </message>
+        <message>
+            <source>配置写入失败，已恢复为 %1：%2</source>
+            <translation>Échec de l'enregistrement, rétabli sur %1 : %2</translation>
+        </message>
+        <message>
+            <source>正在创建目录并请求系统打开：%1…</source>
+            <translation>Création du dossier et demande d'ouverture au système : %1…</translation>
+        </message>
+        <message>
+            <source>创建目录失败：%1；请检查上级目录权限，或手动创建后把 .qm 放进去。</source>
+            <translation>Impossible de créer le dossier : %1 ; vérifiez les droits du dossier parent, ou créez-le manuellement puis placez-y les fichiers .qm.</translation>
+        </message>
+        <message>
+            <source>目录已存在，已交给系统文件管理器打开：%1</source>
+            <translation>Le dossier existe déjà ; ouvert dans l'explorateur : %1</translation>
+        </message>
+        <message>
+            <source>已创建目录并交给系统文件管理器打开：%1</source>
+            <translation>Dossier créé et ouvert dans l'explorateur : %1</translation>
+        </message>
+        <message>
+            <source>目录已存在，但系统未接受打开请求；手动访问：%1</source>
+            <translation>Le dossier existe déjà, mais le système a refusé la demande d'ouverture ; ouvrez-le manuellement : %1</translation>
+        </message>
+        <message>
+            <source>已创建目录，但系统未接受打开请求；手动访问：%1</source>
+            <translation>Dossier créé, mais le système a refusé la demande d'ouverture ; ouvrez-le manuellement : %1</translation>
+        </message>
+        <message>
+            <source>正在请求系统打开：%1…</source>
+            <translation>Demande d'ouverture au système : %1…</translation>
+        </message>
+        <message>
+            <source>已请求系统打开 %1，由系统浏览器接管。</source>
+            <translation>Ouverture de %1 demandée au système ; le navigateur système prend le relais.</translation>
+        </message>
+        <message>
+            <source>系统未接受打开请求，请手动访问：%1</source>
+            <translation>Le système a refusé la demande d'ouverture ; ouvrez-le manuellement : %1</translation>
+        </message>
+        <message>
+            <source>缺少 %1.qm（已查找内置 i18n 与 translations 目录）</source>
+            <translation>%1.qm est absent (recherché dans l'i18n intégré et le dossier translations)</translation>
+        </message>
+        <message>
             <source>重启后生效；每 24 小时最多检查一次</source>
             <translation>Prend effet après redémarrage ; au plus une fois toutes les 24 heures</translation>
         </message>

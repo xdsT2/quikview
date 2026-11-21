@@ -2019,6 +2019,82 @@
     <context>
         <name>SettingsDialog</name>
         <message>
+            <source>选择后立即切换界面语言并写入配置</source>
+            <translation>선택하면 즉시 인터페이스 언어가 전환되고 설정에 저장됩니다</translation>
+        </message>
+        <message>
+            <source>选择后立即生效，无需保存；缺少对应 .qm 时保持当前语言并当场说明</source>
+            <translation>선택 즉시 적용되며 저장이 필요 없습니다. 해당 .qm 이 없으면 현재 언어를 유지하고 여기에 이유를 표시합니다.</translation>
+        </message>
+        <message>
+            <source>点击后先创建程序目录下的 translations，再交给系统文件管理器打开。</source>
+            <translation>프로그램 폴더의 translations 폴더를 만든 뒤 시스템 파일 탐색기로 엽니다.</translation>
+        </message>
+        <message>
+            <source>点击后在系统浏览器打开 QuikView 发布页；应用内只报告系统是否接受打开请求。</source>
+            <translation>시스템 브라우저에서 QuikView 배포 페이지를 엽니다. 앱에서는 시스템이 열기 요청을 수락했는지만 알려 줍니다.</translation>
+        </message>
+        <message>
+            <source>两个入口都会离开 QuikView，应用内只报告系统是否接受打开请求。</source>
+            <translation>두 버튼 모두 QuikView를 벗어납니다. 앱에서는 시스템이 요청을 수락했는지만 알려 줍니다.</translation>
+        </message>
+        <message>
+            <source>当前：%1（生效语言 %2）；选择后立即生效并写入配置。</source>
+            <translation>현재: %1 (적용 언어 %2). 선택 즉시 적용되고 저장됩니다.</translation>
+        </message>
+        <message>
+            <source>已切换到 %1：本页与主窗口文案已即时重译，配置已写入。</source>
+            <translation>%1(으)로 전환했습니다. 이 페이지와 주 창의 문구가 즉시 다시 번역되었고 설정도 저장되었습니다.</translation>
+        </message>
+        <message>
+            <source>已恢复为 %1：%2</source>
+            <translation>%1(으)로 되돌렸습니다: %2</translation>
+        </message>
+        <message>
+            <source>配置写入失败，已恢复为 %1：%2</source>
+            <translation>설정을 저장하지 못해 %1(으)로 되돌렸습니다: %2</translation>
+        </message>
+        <message>
+            <source>正在创建目录并请求系统打开：%1…</source>
+            <translation>폴더를 만들고 시스템에 열기를 요청하는 중: %1…</translation>
+        </message>
+        <message>
+            <source>创建目录失败：%1；请检查上级目录权限，或手动创建后把 .qm 放进去。</source>
+            <translation>폴더를 만들지 못했습니다: %1. 상위 폴더 권한을 확인하거나 직접 만든 뒤 .qm 파일을 넣어 주세요.</translation>
+        </message>
+        <message>
+            <source>目录已存在，已交给系统文件管理器打开：%1</source>
+            <translation>폴더가 이미 있습니다. 시스템 파일 탐색기로 열었습니다: %1</translation>
+        </message>
+        <message>
+            <source>已创建目录并交给系统文件管理器打开：%1</source>
+            <translation>폴더를 만들고 시스템 파일 탐색기로 열었습니다: %1</translation>
+        </message>
+        <message>
+            <source>目录已存在，但系统未接受打开请求；手动访问：%1</source>
+            <translation>폴더가 이미 있지만 시스템이 열기 요청을 수락하지 않았습니다. 직접 열어 주세요: %1</translation>
+        </message>
+        <message>
+            <source>已创建目录，但系统未接受打开请求；手动访问：%1</source>
+            <translation>폴더를 만들었지만 시스템이 열기 요청을 수락하지 않았습니다. 직접 열어 주세요: %1</translation>
+        </message>
+        <message>
+            <source>正在请求系统打开：%1…</source>
+            <translation>시스템에 열기를 요청하는 중: %1…</translation>
+        </message>
+        <message>
+            <source>已请求系统打开 %1，由系统浏览器接管。</source>
+            <translation>시스템에 %1 열기를 요청했습니다. 이후는 시스템 브라우저가 처리합니다.</translation>
+        </message>
+        <message>
+            <source>系统未接受打开请求，请手动访问：%1</source>
+            <translation>시스템이 열기 요청을 수락하지 않았습니다. 직접 열어 주세요: %1</translation>
+        </message>
+        <message>
+            <source>缺少 %1.qm（已查找内置 i18n 与 translations 目录）</source>
+            <translation>%1.qm 이 없습니다(내장 i18n 및 translations 폴더 확인)</translation>
+        </message>
+        <message>
             <source>重启后生效；每 24 小时最多检查一次</source>
             <translation>다시 시작 후 적용되며 24시간에 최대 1회 확인</translation>
         </message>

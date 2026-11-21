@@ -2019,6 +2019,82 @@
     <context>
         <name>SettingsDialog</name>
         <message>
+            <source>选择后立即切换界面语言并写入配置</source>
+            <translation>Язык интерфейса переключается сразу, настройка сохраняется</translation>
+        </message>
+        <message>
+            <source>选择后立即生效，无需保存；缺少对应 .qm 时保持当前语言并当场说明</source>
+            <translation>Применяется сразу, сохранять не нужно; если нужного .qm нет, текущий язык остаётся, а причина показывается здесь</translation>
+        </message>
+        <message>
+            <source>点击后先创建程序目录下的 translations，再交给系统文件管理器打开。</source>
+            <translation>Создаёт папку translations рядом с программой и открывает её в системном проводнике.</translation>
+        </message>
+        <message>
+            <source>点击后在系统浏览器打开 QuikView 发布页；应用内只报告系统是否接受打开请求。</source>
+            <translation>Открывает страницу загрузки QuikView в системном браузере; приложение сообщает только, приняла ли система запрос.</translation>
+        </message>
+        <message>
+            <source>两个入口都会离开 QuikView，应用内只报告系统是否接受打开请求。</source>
+            <translation>Обе кнопки покидают QuikView; приложение сообщает только, приняла ли система запрос.</translation>
+        </message>
+        <message>
+            <source>当前：%1（生效语言 %2）；选择后立即生效并写入配置。</source>
+            <translation>Сейчас: %1 (фактический язык %2); изменения применяются и сохраняются сразу.</translation>
+        </message>
+        <message>
+            <source>已切换到 %1：本页与主窗口文案已即时重译，配置已写入。</source>
+            <translation>Переключено на %1: эта страница и главное окно сразу переведены заново, настройка сохранена.</translation>
+        </message>
+        <message>
+            <source>已恢复为 %1：%2</source>
+            <translation>Возвращено на %1: %2</translation>
+        </message>
+        <message>
+            <source>配置写入失败，已恢复为 %1：%2</source>
+            <translation>Не удалось сохранить настройку, возвращено на %1: %2</translation>
+        </message>
+        <message>
+            <source>正在创建目录并请求系统打开：%1…</source>
+            <translation>Создаю папку и прошу систему открыть её: %1…</translation>
+        </message>
+        <message>
+            <source>创建目录失败：%1；请检查上级目录权限，或手动创建后把 .qm 放进去。</source>
+            <translation>Не удалось создать папку: %1; проверьте права на родительскую папку или создайте её вручную и положите туда .qm.</translation>
+        </message>
+        <message>
+            <source>目录已存在，已交给系统文件管理器打开：%1</source>
+            <translation>Папка уже существует; открыта в проводнике: %1</translation>
+        </message>
+        <message>
+            <source>已创建目录并交给系统文件管理器打开：%1</source>
+            <translation>Папка создана и открыта в проводнике: %1</translation>
+        </message>
+        <message>
+            <source>目录已存在，但系统未接受打开请求；手动访问：%1</source>
+            <translation>Папка уже существует, но система не приняла запрос; откройте вручную: %1</translation>
+        </message>
+        <message>
+            <source>已创建目录，但系统未接受打开请求；手动访问：%1</source>
+            <translation>Папка создана, но система не приняла запрос; откройте вручную: %1</translation>
+        </message>
+        <message>
+            <source>正在请求系统打开：%1…</source>
+            <translation>Прошу систему открыть: %1…</translation>
+        </message>
+        <message>
+            <source>已请求系统打开 %1，由系统浏览器接管。</source>
+            <translation>Системе отправлен запрос открыть %1; дальше действует системный браузер.</translation>
+        </message>
+        <message>
+            <source>系统未接受打开请求，请手动访问：%1</source>
+            <translation>Система не приняла запрос; откройте вручную: %1</translation>
+        </message>
+        <message>
+            <source>缺少 %1.qm（已查找内置 i18n 与 translations 目录）</source>
+            <translation>Нет файла %1.qm (проверены встроенный i18n и папка translations)</translation>
+        </message>
+        <message>
             <source>重启后生效；每 24 小时最多检查一次</source>
             <translation>Действует после перезапуска; не чаще одного раза в 24 часа</translation>
         </message>

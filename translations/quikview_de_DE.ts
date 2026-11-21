@@ -2019,6 +2019,82 @@
     <context>
         <name>SettingsDialog</name>
         <message>
+            <source>选择后立即切换界面语言并写入配置</source>
+            <translation>Die Oberflächensprache wird sofort umgestellt und die Einstellung gespeichert</translation>
+        </message>
+        <message>
+            <source>选择后立即生效，无需保存；缺少对应 .qm 时保持当前语言并当场说明</source>
+            <translation>Wird sofort übernommen, kein Speichern nötig; fehlt die passende .qm-Datei, bleibt die aktuelle Sprache und der Grund steht hier</translation>
+        </message>
+        <message>
+            <source>点击后先创建程序目录下的 translations，再交给系统文件管理器打开。</source>
+            <translation>Legt den Ordner translations neben dem Programm an und öffnet ihn im Datei-Explorer.</translation>
+        </message>
+        <message>
+            <source>点击后在系统浏览器打开 QuikView 发布页；应用内只报告系统是否接受打开请求。</source>
+            <translation>Öffnet die QuikView-Downloadseite im Systembrowser; die App meldet nur, ob das System die Anfrage angenommen hat.</translation>
+        </message>
+        <message>
+            <source>两个入口都会离开 QuikView，应用内只报告系统是否接受打开请求。</source>
+            <translation>Beide Schaltflächen verlassen QuikView; die App meldet nur, ob das System die Anfrage angenommen hat.</translation>
+        </message>
+        <message>
+            <source>当前：%1（生效语言 %2）；选择后立即生效并写入配置。</source>
+            <translation>Aktuell: %1 (wirksam %2); Änderungen gelten sofort und werden gespeichert.</translation>
+        </message>
+        <message>
+            <source>已切换到 %1：本页与主窗口文案已即时重译，配置已写入。</source>
+            <translation>Auf %1 umgestellt: Diese Seite und das Hauptfenster wurden sofort neu übersetzt, die Einstellung ist gespeichert.</translation>
+        </message>
+        <message>
+            <source>已恢复为 %1：%2</source>
+            <translation>Zurückgesetzt auf %1: %2</translation>
+        </message>
+        <message>
+            <source>配置写入失败，已恢复为 %1：%2</source>
+            <translation>Speichern fehlgeschlagen, zurückgesetzt auf %1: %2</translation>
+        </message>
+        <message>
+            <source>正在创建目录并请求系统打开：%1…</source>
+            <translation>Ordner wird angelegt und das System zum Öffnen aufgefordert: %1…</translation>
+        </message>
+        <message>
+            <source>创建目录失败：%1；请检查上级目录权限，或手动创建后把 .qm 放进去。</source>
+            <translation>Ordner konnte nicht angelegt werden: %1; prüfen Sie die Rechte des übergeordneten Ordners oder legen Sie ihn manuell an und kopieren Sie die .qm-Dateien hinein.</translation>
+        </message>
+        <message>
+            <source>目录已存在，已交给系统文件管理器打开：%1</source>
+            <translation>Ordner existiert bereits; im Datei-Explorer geöffnet: %1</translation>
+        </message>
+        <message>
+            <source>已创建目录并交给系统文件管理器打开：%1</source>
+            <translation>Ordner angelegt und im Datei-Explorer geöffnet: %1</translation>
+        </message>
+        <message>
+            <source>目录已存在，但系统未接受打开请求；手动访问：%1</source>
+            <translation>Ordner existiert bereits, aber das System hat die Anfrage abgelehnt; bitte manuell öffnen: %1</translation>
+        </message>
+        <message>
+            <source>已创建目录，但系统未接受打开请求；手动访问：%1</source>
+            <translation>Ordner angelegt, aber das System hat die Anfrage abgelehnt; bitte manuell öffnen: %1</translation>
+        </message>
+        <message>
+            <source>正在请求系统打开：%1…</source>
+            <translation>System wird zum Öffnen aufgefordert: %1…</translation>
+        </message>
+        <message>
+            <source>已请求系统打开 %1，由系统浏览器接管。</source>
+            <translation>System wurde gebeten, %1 zu öffnen; der Systembrowser übernimmt.</translation>
+        </message>
+        <message>
+            <source>系统未接受打开请求，请手动访问：%1</source>
+            <translation>Das System hat die Anfrage abgelehnt; bitte manuell öffnen: %1</translation>
+        </message>
+        <message>
+            <source>缺少 %1.qm（已查找内置 i18n 与 translations 目录）</source>
+            <translation>%1.qm fehlt (im integrierten i18n und im Ordner translations gesucht)</translation>
+        </message>
+        <message>
             <source>重启后生效；每 24 小时最多检查一次</source>
             <translation>Wirkt nach Neustart; höchstens einmal alle 24 Stunden</translation>
         </message>

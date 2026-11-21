@@ -2980,15 +2980,20 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
         SettingRowParts parts = addSettingRow(sec, tr("打开语言文件夹"), QString());
         descToRowTip(parts.row, tr("从 translations 目录加载 .qm 语言文件"));
         auto *btn = addButton(nullptr, tr("打开文件夹"));
+        btn->setObjectName(QStringLiteral("langFolderBtn"));
         parts.controls->addWidget(btn, 0, Qt::AlignVCenter);
-        connect(btn, &QPushButton::clicked, this, [this]() {
-            const QString dir = QCoreApplication::applicationDirPath()
-                                + QStringLiteral("/translations");
-            QDir().mkpath(dir);
-            if (!QDesktopServices::openUrl(QUrl::fromLocalFile(dir))) {
-                QMessageBox::warning(this, tr("打开语言文件夹"),
-                                     tr("无法调用系统文件管理器打开：\n%1").arg(dir));
+        m_langFolderStatus =
+            addHint(sec, tr("点击后先创建程序目录下的 translations，再交给系统文件管理器打开。"));
+        connect(btn, &QPushButton::clicked, this, [this, btn]() {
+            btn->setEnabled(false);
+            if (m_langFolderStatus) {
+                m_langFolderStatus->setText(
+                    tr("正在创建目录并请求系统打开：%1…")
+                        .arg(QDir::toNativeSeparators(LangRuntime::translationsDir())));
             }
+            // openUrl / mkpath 都是同步调用：先让「进行中」一帧真的画出来，
+            // 再走真实调用与成功 / 失败 / 已存在三态。
+            QTimer::singleShot(0, this, [this, btn]() { openLanguageFolderNow(btn); });
         });
     }
     {
@@ -6684,6 +6689,40 @@ void SettingsDialog::setLanguageStatus(const QString &text)
         m_langStatus->setText(text);
 }
 
+// #89：建目录 → 交给系统文件管理器。三态（新建 / 已存在 / 创建失败）都写在行内。
+void SettingsDialog::openLanguageFolderNow(QPushButton *btn)
+{
+    const QString dir = LangRuntime::translationsDir();
+    const QString shown = QDir::toNativeSeparators(dir);
+    const bool existed = QFileInfo(dir).isDir();
+    if (!existed && !QDir().mkpath(dir)) {
+        if (m_langFolderStatus) {
+            m_langFolderStatus->setText(
+                tr("创建目录失败：%1；请检查上级目录权限，或手动创建后把 .qm 放进去。")
+                    .arg(shown));
+        }
+        if (btn)
+            btn->setEnabled(true);
+        return;
+    }
+    const bool opened = openExternalUrl(QUrl::fromLocalFile(dir));
+    if (m_langFolderStatus) {
+        if (opened && existed)
+            m_langFolderStatus->setText(
+                tr("目录已存在，已交给系统文件管理器打开：%1").arg(shown));
+        else if (opened)
+            m_langFolderStatus->setText(
+                tr("已创建目录并交给系统文件管理器打开：%1").arg(shown));
+        else if (existed)
+            m_langFolderStatus->setText(
+                tr("目录已存在，但系统未接受打开请求；手动访问：%1").arg(shown));
+        else
+            m_langFolderStatus->setText(
+                tr("已创建目录，但系统未接受打开请求；手动访问：%1").arg(shown));
+    }
+    if (btn)
+        btn->setEnabled(true);
+}
 
 // #88：发布页交给系统浏览器，行内报告「进行中 / 已请求 / 未接受」。
 void SettingsDialog::openDownloadPageNow(QPushButton *btn)
@@ -7427,6 +7466,210 @@ void SettingsDialog::probeEtcLive(const QString &spec)
         });
         });
     });
+}
+
+// —— 批次23 语言页三项（#87/#88/#89）验收探针（--smoke langprobe:<root>）——
+// 全部走真实控件：逐档切换界面语言（含缺 .qm 的档位）、打开语言文件夹的新建 /
+// 已存在 / 系统拒绝打开 / 建目录失败、下载更多语言的成功 / 失败。
+// 外部打开一律走 QUIKVIEW_TEST_OPENURL 注入，不真的拉起浏览器或文件管理器；
+// 目录落点由 QUIKVIEW_TEST_LANGDIR 指到 <root>/languages，取证后整目录可删。
+void SettingsDialog::probeLanguageLive(const QString &root)
+{
+    QDir().mkpath(root);
+    const QString langDir = root + QStringLiteral("/languages");
+    qputenv("QUIKVIEW_TEST_LANGDIR", langDir.toLocal8Bit());
+    qputenv("QUIKVIEW_TEST_LANG_EXTRA", "1");
+    const QString logPath = root + QStringLiteral("/lang-live-probe.txt");
+    QFile::remove(logPath);
+
+    const auto append = [logPath](const QString &line) {
+        QFile f(logPath);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
+            f.write(line.toUtf8());
+    };
+    MainWindow *host = qobject_cast<MainWindow *>(parentWidget());
+
+    // 缺 .qm 的档位必须在构建下拉时就存在（populateLanguageCombo 已跑过），
+    // 探针自己补一条只存在于本次取证的下拉项，用来走真实选中链路验证回退。
+    if (m_language && m_language->findData(QStringLiteral("it_IT")) < 0)
+        m_language->addItem(QStringLiteral("Italiano"), QStringLiteral("it_IT"));
+
+    // 语言页那一段的标题文字与侧栏导航文字，用来证明「本页 / 主窗口已重译」。
+    const auto sectionTitle = [this]() -> QString {
+        QWidget *w = m_language;
+        while (w && w->objectName() != QLatin1String("pageSection"))
+            w = w->parentWidget();
+        if (!w)
+            return QStringLiteral("-");
+        for (QLabel *lab : w->findChildren<QLabel *>(QStringLiteral("sectionTitle")))
+            return lab->text();
+        return QStringLiteral("-");
+    };
+    const auto navTexts = [this]() -> QString {
+        QStringList out;
+        for (QPushButton *b : findChildren<QPushButton *>(QStringLiteral("navItem")))
+            out << b->text();
+        return out.join(QLatin1Char('|'));
+    };
+
+    const auto dump = [this, append, host, sectionTitle, navTexts, langDir](const QString &tag) {
+        QSettings &s = Config::instance().settings();
+        append(QStringLiteral("[%1] request=%2 effective=%3 hasQm=%4 combo=%5 stored=%6 "
+                              "present=%7\n")
+                   .arg(tag, LangRuntime::Manager::instance().code(),
+                        LangRuntime::Manager::instance().effectiveCode(),
+                        LangRuntime::Manager::instance().hasQm() ? QStringLiteral("1")
+                                                                : QStringLiteral("0"),
+                        m_language ? m_language->currentData().toString() : QStringLiteral("-"),
+                        s.value(QStringLiteral("config/language")).toString(),
+                        s.contains(QStringLiteral("config/language")) ? QStringLiteral("1")
+                                                                     : QStringLiteral("0"))
+               + QStringLiteral("    section=%1\n    nav=%2\n    status_lang=%3\n"
+                                "    status_folder=%4\n    status_download=%5\n"
+                                "    win_title=%6\n    dir=%7 exists=%8\n")
+                     .arg(sectionTitle(), navTexts(),
+                          m_langStatus ? m_langStatus->text() : QStringLiteral("-"),
+                          m_langFolderStatus ? m_langFolderStatus->text() : QStringLiteral("-"),
+                          m_langDownloadStatus ? m_langDownloadStatus->text()
+                                               : QStringLiteral("-"),
+                          host ? host->windowTitle() : QStringLiteral("-"),
+                          QDir::toNativeSeparators(langDir),
+                          QFileInfo(langDir).isDir() ? QStringLiteral("1")
+                                                     : QStringLiteral("0")));
+    };
+    const auto grabPage = [this, root, append](const QString &name) {
+        const bool ok = grab().save(root + QLatin1Char('/') + name);
+        append(QStringLiteral("[shot] %1 ok=%2\n").arg(name, ok ? QStringLiteral("1")
+                                                                : QStringLiteral("0")));
+    };
+    const auto grabMain = [host, root, append](const QString &name) {
+        if (!host)
+            return;
+        const bool ok = host->grab().save(root + QLatin1Char('/') + name);
+        append(QStringLiteral("[shot] %1 ok=%2\n").arg(name, ok ? QStringLiteral("1")
+                                                                : QStringLiteral("0")));
+    };
+    // 语言组在「通用」页尾部，滚到底才能把 #88/#89 两行与三条状态行一起截进画面。
+    const auto scrollBottom = [this]() {
+        auto *page = qobject_cast<QScrollArea *>(m_stack->currentWidget());
+        if (page && page->verticalScrollBar())
+            page->verticalScrollBar()->setValue(page->verticalScrollBar()->maximum());
+    };
+    const auto pick = [this](const QString &code) {
+        const int idx = m_language ? m_language->findData(code) : -1;
+        if (idx >= 0)
+            m_language->setCurrentIndex(idx);
+    };
+    const auto clickBtn = [this](const QString &objectName) {
+        if (auto *b = findChild<QPushButton *>(objectName)) {
+            if (b->isEnabled())
+                b->click();
+        }
+    };
+
+    auto *steps = new QList<std::function<void()>>;
+    steps->append([this]() {
+        for (QPushButton *b : findChildren<QPushButton *>(QStringLiteral("navItem"))) {
+            b->click();
+            break;   // 第一页就是「通用」，语言组在这一页
+        }
+    });
+    steps->append([dump, grabPage, grabMain]() {
+        dump(QStringLiteral("initial"));
+        grabPage(QStringLiteral("00-initial.png"));
+        grabMain(QStringLiteral("00-main-initial.png"));
+    });
+    steps->append([pick]() { pick(QStringLiteral("en_US")); });
+    steps->append([dump, grabPage, grabMain]() {
+        dump(QStringLiteral("en"));
+        grabPage(QStringLiteral("01-en.png"));
+        grabMain(QStringLiteral("01-main-en.png"));
+    });
+    steps->append([pick]() { pick(QStringLiteral("ja_JP")); });
+    steps->append([dump, grabPage]() {
+        dump(QStringLiteral("ja"));
+        grabPage(QStringLiteral("02-ja.png"));
+    });
+    steps->append([pick]() { pick(QStringLiteral("system")); });
+    steps->append([dump, grabPage]() {
+        dump(QStringLiteral("system"));
+        grabPage(QStringLiteral("03-system.png"));
+    });
+    // 缺 .qm 档（it_IT）→ 应回退到上一档并当场说明原因，不留「选了不变」。
+    steps->append([pick]() { pick(QStringLiteral("it_IT")); });
+    steps->append([dump, grabPage]() {
+        dump(QStringLiteral("missing-qm"));
+        grabPage(QStringLiteral("04-missing-qm.png"));
+    });
+    steps->append([pick]() { pick(QStringLiteral("zh_CN")); });
+    steps->append([dump, grabPage]() {
+        dump(QStringLiteral("zh"));
+        grabPage(QStringLiteral("05-zh.png"));
+    });
+    // #89 打开语言文件夹：新建 → 已存在 → 系统拒绝打开 → 建目录失败。
+    steps->append([scrollBottom]() { scrollBottom(); });
+    steps->append([]() { qputenv("QUIKVIEW_TEST_OPENURL", "ok"); });
+    steps->append([clickBtn]() { clickBtn(QStringLiteral("langFolderBtn")); });
+    steps->append([dump, grabPage]() {
+        dump(QStringLiteral("folder-new"));
+        grabPage(QStringLiteral("06-folder-new.png"));
+    });
+    steps->append([clickBtn]() { clickBtn(QStringLiteral("langFolderBtn")); });
+    steps->append([dump, grabPage]() {
+        dump(QStringLiteral("folder-exists"));
+        grabPage(QStringLiteral("07-folder-exists.png"));
+    });
+    steps->append([]() { qputenv("QUIKVIEW_TEST_OPENURL", "fail"); });
+    steps->append([clickBtn]() { clickBtn(QStringLiteral("langFolderBtn")); });
+    steps->append([dump, grabPage]() {
+        dump(QStringLiteral("folder-open-refused"));
+        grabPage(QStringLiteral("08-folder-open-refused.png"));
+    });
+    steps->append([]() {
+        // 不存在的盘符：mkpath 必然失败，验证「创建失败」这一态。
+        qputenv("QUIKVIEW_TEST_LANGDIR", "Z:/quikview-probe-no-drive/translations");
+    });
+    steps->append([clickBtn]() { clickBtn(QStringLiteral("langFolderBtn")); });
+    steps->append([dump, grabPage]() {
+        dump(QStringLiteral("folder-mkdir-failed"));
+        grabPage(QStringLiteral("09-folder-mkdir-failed.png"));
+    });
+    // #88 下载更多语言：成功 / 失败两态。
+    steps->append([langDir]() {
+        qputenv("QUIKVIEW_TEST_LANGDIR", langDir.toLocal8Bit());
+        qputenv("QUIKVIEW_TEST_OPENURL", "ok");
+    });
+    steps->append([clickBtn]() { clickBtn(QStringLiteral("langDownloadBtn")); });
+    steps->append([dump, grabPage]() {
+        dump(QStringLiteral("download-ok"));
+        grabPage(QStringLiteral("10-download-ok.png"));
+    });
+    steps->append([]() { qputenv("QUIKVIEW_TEST_OPENURL", "fail"); });
+    steps->append([clickBtn]() { clickBtn(QStringLiteral("langDownloadBtn")); });
+    steps->append([dump, grabPage]() {
+        dump(QStringLiteral("download-refused"));
+        grabPage(QStringLiteral("11-download-refused.png"));
+    });
+    steps->append([dump, grabMain]() {
+        dump(QStringLiteral("final"));
+        grabMain(QStringLiteral("12-main-final.png"));
+    });
+    steps->append([this]() { close(); });
+
+    auto *runner = new QTimer(this);
+    auto *idx = new int(0);
+    runner->setInterval(700);
+    connect(runner, &QTimer::timeout, this, [runner, idx, steps]() {
+        if (*idx >= steps->size()) {
+            runner->stop();
+            runner->deleteLater();
+            delete steps;
+            delete idx;
+            return;
+        }
+        (*steps)[(*idx)++]();
+    });
+    runner->start();
 }
 
 // —— 验收探针（--smoke viewprobe / viewcancel / vievesc / viewclose / viewsave，

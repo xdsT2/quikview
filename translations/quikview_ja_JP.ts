@@ -2019,6 +2019,82 @@
     <context>
         <name>SettingsDialog</name>
         <message>
+            <source>选择后立即切换界面语言并写入配置</source>
+            <translation>選択するとすぐに表示言語を切り替え、設定に保存します</translation>
+        </message>
+        <message>
+            <source>选择后立即生效，无需保存；缺少对应 .qm 时保持当前语言并当场说明</source>
+            <translation>選択後すぐに反映されます（保存は不要）。対応する .qm が無い場合は現在の言語のまま、ここに理由を表示します。</translation>
+        </message>
+        <message>
+            <source>点击后先创建程序目录下的 translations，再交给系统文件管理器打开。</source>
+            <translation>プログラム横の translations フォルダーを作成し、システムのファイルマネージャーで開きます。</translation>
+        </message>
+        <message>
+            <source>点击后在系统浏览器打开 QuikView 发布页；应用内只报告系统是否接受打开请求。</source>
+            <translation>システムのブラウザーで QuikView の公開ページを開きます。アプリ内では要求が受け付けられたかだけを表示します。</translation>
+        </message>
+        <message>
+            <source>两个入口都会离开 QuikView，应用内只报告系统是否接受打开请求。</source>
+            <translation>どちらのボタンも QuikView を離れます。アプリ内では要求が受け付けられたかだけを表示します。</translation>
+        </message>
+        <message>
+            <source>当前：%1（生效语言 %2）；选择后立即生效并写入配置。</source>
+            <translation>現在：%1（実際の言語 %2）。選択後すぐに反映され、保存されます。</translation>
+        </message>
+        <message>
+            <source>已切换到 %1：本页与主窗口文案已即时重译，配置已写入。</source>
+            <translation>%1 に切り替えました。このページとメインウィンドウの文言は即時に再翻訳され、設定も保存済みです。</translation>
+        </message>
+        <message>
+            <source>已恢复为 %1：%2</source>
+            <translation>%1 に戻しました：%2</translation>
+        </message>
+        <message>
+            <source>配置写入失败，已恢复为 %1：%2</source>
+            <translation>設定の保存に失敗したため、%1 に戻しました：%2</translation>
+        </message>
+        <message>
+            <source>正在创建目录并请求系统打开：%1…</source>
+            <translation>フォルダーを作成し、システムに開くよう要求しています：%1…</translation>
+        </message>
+        <message>
+            <source>创建目录失败：%1；请检查上级目录权限，或手动创建后把 .qm 放进去。</source>
+            <translation>フォルダーを作成できませんでした：%1。親フォルダーの権限を確認するか、手動で作成して .qm を入れてください。</translation>
+        </message>
+        <message>
+            <source>目录已存在，已交给系统文件管理器打开：%1</source>
+            <translation>フォルダーは既に存在します。システムのファイルマネージャーで開きました：%1</translation>
+        </message>
+        <message>
+            <source>已创建目录并交给系统文件管理器打开：%1</source>
+            <translation>フォルダーを作成し、システムのファイルマネージャーで開きました：%1</translation>
+        </message>
+        <message>
+            <source>目录已存在，但系统未接受打开请求；手动访问：%1</source>
+            <translation>フォルダーは既に存在しますが、システムが開く要求を受け付けませんでした。手動で開いてください：%1</translation>
+        </message>
+        <message>
+            <source>已创建目录，但系统未接受打开请求；手动访问：%1</source>
+            <translation>フォルダーを作成しましたが、システムが開く要求を受け付けませんでした。手動で開いてください：%1</translation>
+        </message>
+        <message>
+            <source>正在请求系统打开：%1…</source>
+            <translation>システムに開くよう要求しています：%1…</translation>
+        </message>
+        <message>
+            <source>已请求系统打开 %1，由系统浏览器接管。</source>
+            <translation>システムに %1 を開くよう要求しました。以降はシステムのブラウザーが担当します。</translation>
+        </message>
+        <message>
+            <source>系统未接受打开请求，请手动访问：%1</source>
+            <translation>システムが開く要求を受け付けませんでした。手動で開いてください：%1</translation>
+        </message>
+        <message>
+            <source>缺少 %1.qm（已查找内置 i18n 与 translations 目录）</source>
+            <translation>%1.qm が見つかりません（組み込み i18n と translations フォルダーを確認しました）</translation>
+        </message>
+        <message>
             <source>重启后生效；每 24 小时最多检查一次</source>
             <translation>再起動後に有効。24 時間に 1 回まで確認</translation>
         </message>

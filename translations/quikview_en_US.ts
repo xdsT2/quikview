@@ -2019,6 +2019,82 @@
     <context>
         <name>SettingsDialog</name>
         <message>
+            <source>选择后立即切换界面语言并写入配置</source>
+            <translation>Switches the interface language immediately and saves the setting</translation>
+        </message>
+        <message>
+            <source>选择后立即生效，无需保存；缺少对应 .qm 时保持当前语言并当场说明</source>
+            <translation>Applies immediately, no save needed; if the matching .qm is missing, the current language is kept and the reason is shown here</translation>
+        </message>
+        <message>
+            <source>点击后先创建程序目录下的 translations，再交给系统文件管理器打开。</source>
+            <translation>Creates the translations folder next to the program, then opens it in the system file manager.</translation>
+        </message>
+        <message>
+            <source>点击后在系统浏览器打开 QuikView 发布页；应用内只报告系统是否接受打开请求。</source>
+            <translation>Opens the QuikView release page in the system browser; the app only reports whether the system accepted the open request.</translation>
+        </message>
+        <message>
+            <source>两个入口都会离开 QuikView，应用内只报告系统是否接受打开请求。</source>
+            <translation>Both buttons leave QuikView; the app only reports whether the system accepted the open request.</translation>
+        </message>
+        <message>
+            <source>当前：%1（生效语言 %2）；选择后立即生效并写入配置。</source>
+            <translation>Current: %1 (effective %2); changes apply immediately and are saved.</translation>
+        </message>
+        <message>
+            <source>已切换到 %1：本页与主窗口文案已即时重译，配置已写入。</source>
+            <translation>Switched to %1: this page and the main window were re-translated at once, and the setting is saved.</translation>
+        </message>
+        <message>
+            <source>已恢复为 %1：%2</source>
+            <translation>Reverted to %1: %2</translation>
+        </message>
+        <message>
+            <source>配置写入失败，已恢复为 %1：%2</source>
+            <translation>Could not save the setting, reverted to %1: %2</translation>
+        </message>
+        <message>
+            <source>正在创建目录并请求系统打开：%1…</source>
+            <translation>Creating the folder and requesting the system to open it: %1…</translation>
+        </message>
+        <message>
+            <source>创建目录失败：%1；请检查上级目录权限，或手动创建后把 .qm 放进去。</source>
+            <translation>Could not create the folder: %1; check the parent folder permissions, or create it manually and put the .qm files there.</translation>
+        </message>
+        <message>
+            <source>目录已存在，已交给系统文件管理器打开：%1</source>
+            <translation>Folder already exists; opened in the system file manager: %1</translation>
+        </message>
+        <message>
+            <source>已创建目录并交给系统文件管理器打开：%1</source>
+            <translation>Folder created and opened in the system file manager: %1</translation>
+        </message>
+        <message>
+            <source>目录已存在，但系统未接受打开请求；手动访问：%1</source>
+            <translation>Folder already exists, but the system declined the open request; open it manually: %1</translation>
+        </message>
+        <message>
+            <source>已创建目录，但系统未接受打开请求；手动访问：%1</source>
+            <translation>Folder created, but the system declined the open request; open it manually: %1</translation>
+        </message>
+        <message>
+            <source>正在请求系统打开：%1…</source>
+            <translation>Requesting the system to open: %1…</translation>
+        </message>
+        <message>
+            <source>已请求系统打开 %1，由系统浏览器接管。</source>
+            <translation>Asked the system to open %1; the system browser takes over.</translation>
+        </message>
+        <message>
+            <source>系统未接受打开请求，请手动访问：%1</source>
+            <translation>The system declined the open request; please open it manually: %1</translation>
+        </message>
+        <message>
+            <source>缺少 %1.qm（已查找内置 i18n 与 translations 目录）</source>
+            <translation>%1.qm is missing (looked in the built-in i18n and the translations folder)</translation>
+        </message>
+        <message>
             <source>重启后生效；每 24 小时最多检查一次</source>
             <translation>Takes effect after restart; checked at most once every 24 hours</translation>
         </message>

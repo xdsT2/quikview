@@ -2019,6 +2019,82 @@
     <context>
         <name>SettingsDialog</name>
         <message>
+            <source>选择后立即切换界面语言并写入配置</source>
+            <translation>選擇後立即切換介面語言並寫入設定</translation>
+        </message>
+        <message>
+            <source>选择后立即生效，无需保存；缺少对应 .qm 时保持当前语言并当场说明</source>
+            <translation>選擇後立即生效，無需儲存；缺少對應 .qm 時保持目前語言並當場說明</translation>
+        </message>
+        <message>
+            <source>点击后先创建程序目录下的 translations，再交给系统文件管理器打开。</source>
+            <translation>點擊後先建立程式目錄下的 translations，再交給系統檔案總管開啟。</translation>
+        </message>
+        <message>
+            <source>点击后在系统浏览器打开 QuikView 发布页；应用内只报告系统是否接受打开请求。</source>
+            <translation>點擊後在系統瀏覽器開啟 QuikView 發佈頁；應用程式內只回報系統是否接受開啟請求。</translation>
+        </message>
+        <message>
+            <source>两个入口都会离开 QuikView，应用内只报告系统是否接受打开请求。</source>
+            <translation>兩個入口都會離開 QuikView，應用程式內只回報系統是否接受開啟請求。</translation>
+        </message>
+        <message>
+            <source>当前：%1（生效语言 %2）；选择后立即生效并写入配置。</source>
+            <translation>目前：%1（生效語言 %2）；選擇後立即生效並寫入設定。</translation>
+        </message>
+        <message>
+            <source>已切换到 %1：本页与主窗口文案已即时重译，配置已写入。</source>
+            <translation>已切換為 %1：本頁與主視窗文案已即時重譯，設定已寫入。</translation>
+        </message>
+        <message>
+            <source>已恢复为 %1：%2</source>
+            <translation>已還原為 %1：%2</translation>
+        </message>
+        <message>
+            <source>配置写入失败，已恢复为 %1：%2</source>
+            <translation>設定寫入失敗，已還原為 %1：%2</translation>
+        </message>
+        <message>
+            <source>正在创建目录并请求系统打开：%1…</source>
+            <translation>正在建立目錄並請求系統開啟：%1…</translation>
+        </message>
+        <message>
+            <source>创建目录失败：%1；请检查上级目录权限，或手动创建后把 .qm 放进去。</source>
+            <translation>建立目錄失敗：%1；請檢查上層目錄權限，或手動建立後把 .qm 放進去。</translation>
+        </message>
+        <message>
+            <source>目录已存在，已交给系统文件管理器打开：%1</source>
+            <translation>目錄已存在，已交給系統檔案總管開啟：%1</translation>
+        </message>
+        <message>
+            <source>已创建目录并交给系统文件管理器打开：%1</source>
+            <translation>已建立目錄並交給系統檔案總管開啟：%1</translation>
+        </message>
+        <message>
+            <source>目录已存在，但系统未接受打开请求；手动访问：%1</source>
+            <translation>目錄已存在，但系統未接受開啟請求；請手動存取：%1</translation>
+        </message>
+        <message>
+            <source>已创建目录，但系统未接受打开请求；手动访问：%1</source>
+            <translation>已建立目錄，但系統未接受開啟請求；請手動存取：%1</translation>
+        </message>
+        <message>
+            <source>正在请求系统打开：%1…</source>
+            <translation>正在請求系統開啟：%1…</translation>
+        </message>
+        <message>
+            <source>已请求系统打开 %1，由系统浏览器接管。</source>
+            <translation>已請求系統開啟 %1，由系統瀏覽器接管。</translation>
+        </message>
+        <message>
+            <source>系统未接受打开请求，请手动访问：%1</source>
+            <translation>系統未接受開啟請求，請手動存取：%1</translation>
+        </message>
+        <message>
+            <source>缺少 %1.qm（已查找内置 i18n 与 translations 目录）</source>
+            <translation>缺少 %1.qm（已搜尋內建 i18n 與 translations 目錄）</translation>
+        </message>
+        <message>
             <source>重启后生效；每 24 小时最多检查一次</source>
             <translation>重新啟動後生效；每 24 小時最多檢查一次</translation>
         </message>

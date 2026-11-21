@@ -2019,6 +2019,82 @@
     <context>
         <name>SettingsDialog</name>
         <message>
+            <source>选择后立即切换界面语言并写入配置</source>
+            <translation>El idioma de la interfaz cambia al instante y la opción se guarda</translation>
+        </message>
+        <message>
+            <source>选择后立即生效，无需保存；缺少对应 .qm 时保持当前语言并当场说明</source>
+            <translation>Se aplica al instante, sin guardar; si falta el .qm correspondiente, se mantiene el idioma actual y el motivo aparece aquí</translation>
+        </message>
+        <message>
+            <source>点击后先创建程序目录下的 translations，再交给系统文件管理器打开。</source>
+            <translation>Crea la carpeta translations junto al programa y la abre en el explorador de archivos.</translation>
+        </message>
+        <message>
+            <source>点击后在系统浏览器打开 QuikView 发布页；应用内只报告系统是否接受打开请求。</source>
+            <translation>Abre la página de descarga de QuikView en el navegador del sistema; la app solo indica si el sistema aceptó la solicitud.</translation>
+        </message>
+        <message>
+            <source>两个入口都会离开 QuikView，应用内只报告系统是否接受打开请求。</source>
+            <translation>Ambos botones salen de QuikView; la app solo indica si el sistema aceptó la solicitud.</translation>
+        </message>
+        <message>
+            <source>当前：%1（生效语言 %2）；选择后立即生效并写入配置。</source>
+            <translation>Actual: %1 (idioma efectivo %2); el cambio se aplica y se guarda al instante.</translation>
+        </message>
+        <message>
+            <source>已切换到 %1：本页与主窗口文案已即时重译，配置已写入。</source>
+            <translation>Cambiado a %1: esta página y la ventana principal se retradujeron al instante y la opción está guardada.</translation>
+        </message>
+        <message>
+            <source>已恢复为 %1：%2</source>
+            <translation>Restaurado a %1: %2</translation>
+        </message>
+        <message>
+            <source>配置写入失败，已恢复为 %1：%2</source>
+            <translation>No se pudo guardar; restaurado a %1: %2</translation>
+        </message>
+        <message>
+            <source>正在创建目录并请求系统打开：%1…</source>
+            <translation>Creando la carpeta y solicitando al sistema que la abra: %1…</translation>
+        </message>
+        <message>
+            <source>创建目录失败：%1；请检查上级目录权限，或手动创建后把 .qm 放进去。</source>
+            <translation>No se pudo crear la carpeta: %1; comprueba los permisos de la carpeta superior o créala manualmente y coloca allí los .qm.</translation>
+        </message>
+        <message>
+            <source>目录已存在，已交给系统文件管理器打开：%1</source>
+            <translation>La carpeta ya existe; abierta en el explorador del sistema: %1</translation>
+        </message>
+        <message>
+            <source>已创建目录并交给系统文件管理器打开：%1</source>
+            <translation>Carpeta creada y abierta en el explorador del sistema: %1</translation>
+        </message>
+        <message>
+            <source>目录已存在，但系统未接受打开请求；手动访问：%1</source>
+            <translation>La carpeta ya existe, pero el sistema rechazó la solicitud; ábrela manualmente: %1</translation>
+        </message>
+        <message>
+            <source>已创建目录，但系统未接受打开请求；手动访问：%1</source>
+            <translation>Carpeta creada, pero el sistema rechazó la solicitud; ábrela manualmente: %1</translation>
+        </message>
+        <message>
+            <source>正在请求系统打开：%1…</source>
+            <translation>Solicitando al sistema que abra: %1…</translation>
+        </message>
+        <message>
+            <source>已请求系统打开 %1，由系统浏览器接管。</source>
+            <translation>Se pidió al sistema abrir %1; el navegador del sistema se encarga.</translation>
+        </message>
+        <message>
+            <source>系统未接受打开请求，请手动访问：%1</source>
+            <translation>El sistema rechazó la solicitud; ábrelo manualmente: %1</translation>
+        </message>
+        <message>
+            <source>缺少 %1.qm（已查找内置 i18n 与 translations 目录）</source>
+            <translation>Falta %1.qm (se buscó en el i18n integrado y en la carpeta translations)</translation>
+        </message>
+        <message>
             <source>重启后生效；每 24 小时最多检查一次</source>
             <translation>Se aplica tras reiniciar; como máximo una vez cada 24 horas</translation>
         </message>

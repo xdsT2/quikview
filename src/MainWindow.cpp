@@ -5065,6 +5065,15 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         dlg->show();
         dlg->probeEtcLive(c.mid(9));
     }
+    // langprobe:<root> —— 批次23 语言页三项（#87/#88/#89）即时化验收：逐档切换
+    // 界面语言（含缺 .qm 回退）、打开语言文件夹三态、下载更多语言两态；外部打开
+    // 走 QUIKVIEW_TEST_OPENURL 注入，不真拉起浏览器 / 文件管理器。
+    else if (c.startsWith(QLatin1String("langprobe:"))) {
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        dlg->probeLanguageLive(c.mid(10).trimmed());
+    }
     // setcfglive:<cfgKey>=on|off —— 旋转后自动保存开关真实点击探针
     else if (c.startsWith(QLatin1String("setcfglive:"))) {
         auto *dlg = new SettingsDialog(this);

@@ -129,6 +129,9 @@ public:
     // grab|<out>（整窗渲染落盘）。导出/导入走与按钮槽同一条核心链路，
     // 只是把原生文件对话框换成探针给的路径；每步结果追加到 Temp/setio-probe.txt。
     void probeSettingsIO(const QString &steps);
+    // 批次23 语言页三项验收探针（--smoke langprobe:<root>）：逐档切换界面语言、
+    // 缺 .qm 回退、打开语言文件夹三态、下载更多语言两态；不真拉起外部程序。
+    void probeLanguageLive(const QString &root);
     // —— 常驻一级预览 + 浮动二级（实装派单 2026-11-16）——
     // 设置页右侧常驻查看器右键菜单一级预览；二级以独立顶层浮层展开。
     // 树结构与可见性由本页从 Config+MenuCatalog 实时计算（开关改动立即重建），
@@ -552,9 +555,11 @@ private:
     void applyLanguageSelection();                    // 选中即装载 + 重译 + 写盘
     void refreshLanguageStatus();                     // 行内「当前档位 / 生效语言」
     void setLanguageStatus(const QString &text);
+    void openLanguageFolderNow(QPushButton *btn);     // #89 建目录 + 交给系统
     void openDownloadPageNow(QPushButton *btn);       // #88 发布页 + 结果态
     // 批次23 #87/#88/#89：语言页三行的行内状态（页面内即时反馈，不靠弹窗/外部程序）
     QLabel *m_langStatus = nullptr;
+    QLabel *m_langFolderStatus = nullptr;
     QLabel *m_langDownloadStatus = nullptr;
     QPushButton *m_checkUpdateBtn = nullptr;  // 一般页：手动检查更新
     // 三选一确认框执行中：主窗口 closeEvent 与 Qt 自动关闭子窗口可能
