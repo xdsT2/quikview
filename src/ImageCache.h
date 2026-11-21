@@ -9,6 +9,8 @@
 #include <QString>
 #include <QThreadPool>
 
+#include <atomic>
+
 #include "LoadError.h"
 
 class QImage;
@@ -58,6 +60,11 @@ public:
     // 原图缓存上限（MB）：设置页「缓存大小」在保存时调进来，立即改 m_fullCache
     // 的淘汰水位，不用重启；构造时也读配置设初值（见 ImageCache.cpp）。
     void setFullCacheLimit(int mb);
+    // 「先显示低品质图片以加速渲染」（键 imageproc/preview_mode）的会话内覆盖：
+    // 设置页是模态/非模态但写在运行态之后才写盘，而解码在后台线程里读，不能
+    // 依赖写盘先后。设置页切换时先下发覆盖（known=true），关闭设置页后
+    // known=false 回到「一律读配置」。原子量给 worker 线程只读，不上锁队列。
+    void setPreviewModeLive(bool known, bool on);
 
 signals:
     void fullReady(const QString &path, const QImage &image, bool preview);
@@ -115,4 +122,7 @@ private:
     QSize m_dragSize;
     bool m_dragPromote = false; // 在飞预览的页被真要（连按/跳转）：解完按快帧上屏
     bool m_dragMuted = false;   // 有真实请求介入：在飞预览解完只入缓存不上屏
+    // 批次05 #24 的会话内覆盖（见 setPreviewModeLive 注释）。
+    std::atomic<bool> m_previewLiveKnown { false };
+    std::atomic<bool> m_previewLiveOn { true };
 };
