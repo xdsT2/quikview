@@ -3532,8 +3532,13 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
 
     // RAW（原「杂项 · RAW 图片」组）：三条开关的消费点都在解码链路。
     sec = beginSection(page, tr("RAW 图片"));
-    addSwitchRow(sec, tr("不打开 RAW 图片文件"),
-                 QString(), "etc/no_raw_load", false, false);
+    auto *noRaw = addSwitchRow(sec, tr("不打开 RAW 图片文件"),
+                               tr("开启后打开 RAW 只提示「已在设置中禁用 RAW 解码」；"
+                                  "已在屏上的图不撤掉"),
+                               "etc/no_raw_load", false, false);
+    descToRowTip(noRaw, tr("拦的是「打开」这一步：翻到 RAW 时同样给这条提示，不显示也不解码"));
+    // 批次21 #82：即时项——切换即下发运行态并写盘，关闭设置后保留。
+    m_liveChecks.append({ noRaw, "etc/no_raw_load", false, false });
     addSwitchRow(sec, tr("打开 JPEG 文件时，不打开同名 RAW 文件"),
                  QString(),
                  "etc/skip_raw_when_jpg", false, true);
@@ -3543,6 +3548,13 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
                  QString(),
                  "etc/raw_thumbnail", false, true);
     m_liveChecks.append({ rawThumb, "etc/raw_thumbnail", false, false });
+    // 本页即时项的状态行：贴在 RAW 组下面（不放页尾——色彩管理还在下面，页尾要滚）。
+    m_imageProcLiveNote = new QLabel(page);
+    m_imageProcLiveNote->setObjectName(QStringLiteral("noteLabel"));
+    m_imageProcLiveNote->setWordWrap(true);
+    m_imageProcLiveNote->hide();
+    if (page->layout())
+        page->layout()->addWidget(m_imageProcLiveNote);
 
     sec = beginSection(page, tr("色彩管理"));
     auto *iccFile = addSwitchRow(sec, tr("使用图片文件的 ICC 设置"), QString(),

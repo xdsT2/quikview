@@ -8339,6 +8339,21 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         return true;
     }
 
+    // —— 全量即时化批次21 · RAW 打开策略即时项（#82 不打开 RAW / #83 JPEG 同名 RAW）——
+    if (key == QLatin1String("etc/no_raw_load")) {
+        // #82：消费点在解码线程与 onLoadFailed 两处现读 Config。这里给页面内可见反馈，
+        // 并说明「当前已显示的图不会被撤掉」——设置项关的是「打开」，不是「换掉画面」。
+        const bool on = value.toBool();
+        if (m_toast) {
+            m_toast->showMessage(on ? tr("已禁止打开 RAW：再打开 .nef/.cr2/.dng 会提示「已在设置中禁用 RAW 解码」")
+                                    : tr("已允许打开 RAW：下次打开 RAW 走正常解码"),
+                                 Chrome::Toast::Tone::Success);
+        }
+        if (qEnvironmentVariableIsSet("QUIKVIEW_ETC_PROBE"))
+            probeAppend(QStringLiteral("LIVE etc/no_raw_load=%1").arg(on ? 1 : 0));
+        return true;
+    }
+
     if (key == QLatin1String("imageproc/canvas_bg")) {
         // UI-001 §3.8：画布背景材质即时预览（棋盘/纯色），颜色随当前主题令牌。
         if (m_canvas)
