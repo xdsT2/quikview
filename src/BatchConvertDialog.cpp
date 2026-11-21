@@ -1,3 +1,4 @@
+#include "PopupComboBox.h"
 #include "BatchConvertDialog.h"
 
 #include <QApplication>
@@ -137,7 +138,11 @@ QLineEdit#sizeInput { min-height: 32px; }
 QPushButton#keepRatio:checked { background: rgba(85,192,240,0.12); border-color: #55c0f0;
     color: #55c0f0; }
 
-QComboBox#formatSelect { min-height: 31px; }
+QComboBox#formatSelect { min-height: 31px; background: %3; }
+QComboBox#formatSelect:hover { background: %1; }
+QComboBox#formatSelect:pressed { background: %2; }
+QComboBox#formatSelect:open { background: %3; }
+QComboBox#formatSelect::down-arrow { image: none; width: 0; height: 0; }
 
 QProgressBar#convertProgress { background: #383b40; border: 0; border-radius: 3px; }
 QProgressBar#convertProgress::chunk { background: #55c0f0; border-radius: 3px; }
@@ -149,7 +154,9 @@ QSlider#qualitySlider::handle:horizontal { width: 11px; height: 11px; margin: -4
     border-radius: 6px; background: #f2f4f5; }
 QSlider#qualitySlider::sub-page:horizontal:disabled { background: #4f5359; }
 QSlider#qualitySlider::handle:horizontal:disabled { background: #70767e; }
-)"));
+)").arg(QString::fromLatin1(UiStyle::fluent::hover()),
+         QString::fromLatin1(UiStyle::fluent::controlPressed()),
+         QString::fromLatin1(UiStyle::fluent::controlBg())));
     setFont(UiStyle::font(12));
 
     buildUi();
@@ -328,7 +335,7 @@ void BatchConvertDialog::buildUi()
     auto *fmtLabel = new QLabel(tr("格式"), right);
     fmtLabel->setObjectName(QStringLiteral("rowLabel"));
     fmtLabel->setFixedWidth(52);
-    m_format = new QComboBox(right);
+    m_format = new PopupComboBox(right);
     m_format->setObjectName(QStringLiteral("formatSelect"));
     m_format->setFixedWidth(160);
     m_format->addItem(QStringLiteral("PNG"), QStringLiteral("png"));

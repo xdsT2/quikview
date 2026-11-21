@@ -237,6 +237,7 @@ inline const char *desc()        { return pick("#a5a7ac", "#616367"); }
 inline const char *navSelected() { return "#1688f8"; }   // 深浅同色，明亮纯蓝整行选中
 inline const char *navSelText()  { return pick("#ffffff", "#071625"); }
 inline const char *focus()       { return "#1688f8"; }   // 键盘焦点环
+inline const char *controlPressed() { return pick("#242526", "#d9d9dc"); }
 inline const char *hover()       { return pick("#2c2e30", "#e4e4e6"); }
 inline const char *controlBg()   { return pick("#3b3c3e", "#f0f0f1"); }
 inline const char *controlLine() { return pick("#4c4d50", "#d5d5d8"); }

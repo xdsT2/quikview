@@ -76,6 +76,7 @@ private:
     int quickIndexAt(const QPoint &pos) const;
 
     Presentation m_presentation;
+    bool m_keyboardNavigation = false;
     QHash<const QAction *, QString> m_actionIcons;
     int m_minWidth = 0;
     QList<QAction *> m_quick;        // 顶部快捷区绑定的真实动作（顺序=固定顺序）

@@ -48,15 +48,6 @@ QColor shortcutColor()   { return UiStyle::color(UiStyle::pick("#a7a9ad", "#6063
 QColor dangerIconColor() { return UiStyle::color(UiStyle::pick("#e15a50", "#c4382e")); }
 QColor dangerRowBg()     { return UiStyle::fluent::dangerBg(); }       // 复用既有低饱和危险底
 
-// 菜单面板底色：磨砂开时半透明（与 appQss 的磨砂替换值一致），关时纯色。
-QColor menuSurface()
-{
-    if (UiStyle::blurMaterial()) {
-        return QColor(UiStyle::isLight() ? QColor(255, 255, 255, 209) : QColor(39, 41, 45, 209));
-    }
-    return QColor(UiStyle::surfaceMenu());
-}
-
 QString propText(const QAction *a, const char *key)
 {
     const QVariant v = a->property(key);
@@ -259,6 +250,8 @@ void CtxMenu::triggerQuick(int idx)
 
 void CtxMenu::mouseMoveEvent(QMouseEvent *event)
 {
+    m_keyboardNavigation = false;
+    update();
     if (!m_quick.isEmpty()) {
         if (event->pos().y() < quickBodyTop()) {
             const int idx = quickIndexAt(event->pos());
@@ -314,6 +307,8 @@ void CtxMenu::mouseReleaseEvent(QMouseEvent *event)
 
 void CtxMenu::keyPressEvent(QKeyEvent *event)
 {
+    m_keyboardNavigation = true;
+    update();
     // —— 焦点在快捷区：左右切换、下进正文、回车/空格触发 ——
     if (m_quickFocus >= 0 && !m_quick.isEmpty()) {
         switch (event->key()) {
@@ -475,33 +470,11 @@ void CtxMenu::paintEvent(QPaintEvent *event)
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
 
-    // —— 面板：圆角 10。外描边按「呈现方式」分流（2026-11-17 用户决定只改
-    //     查看器右键菜单，顶栏三横菜单不在该决定范围内）：
-    //       * Presentation::ContextMenu（右键菜单）：**不画外描边**，靠圆角底色
-    //         与磨砂材质区分边界；面板铺满整个窗口矩形——以前留 0.5px 内缩是
-    //         给 1px 描边让位，描边去掉后内缩会露出窗口底色，实机表现为一圈黑边。
-    //       * Presentation::OriginalActions（顶栏三横菜单）：保留原 1px 描边与
-    //         0.5px 内缩，像素不变。
-    //     两层软影由系统/DWM 承担（NoDropShadowWindowHint + Acrylic 路径见
-    //     UiStyle::polishMenu），这里不自绘投影。 ——
-    //     嵌套子菜单（UiStyle::polishSubmenu 置 appmenu.opaque）一律用纯色面板：
-    //     子菜单窗口不吃磨砂合成，半透明色画上去会直接混黑；顶层菜单磨砂开仍走半透明。 ——
-    const bool borderless = (m_presentation == Presentation::ContextMenu);
-    const QRectF frame = borderless ? QRectF(rect())
-                                    : QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
+    // 菜单与图片信息浮层共用底色。嵌套窗口使用实底，避免半透明区域混黑。
     QPainterPath bgPath;
-    bgPath.addRoundedRect(frame, kMenuRadius, kMenuRadius);
-    const QColor surface = property("appmenu.opaque").toBool()
-                               ? QColor(UiStyle::surfaceMenu())
-                               : menuSurface();
-    p.fillPath(bgPath, surface);
-    if (!borderless) {
-        // 顶栏三横菜单：沿用改前的 1px 描边笔，颜色/粗细/内缩都不动。
-        QPen borderPen(UiStyle::color(UiStyle::menuLine()), 1.0);
-        p.setPen(borderPen);
-        p.setBrush(Qt::NoBrush);
-        p.drawPath(bgPath);
-    }
+    bgPath.addRoundedRect(QRectF(rect()), kMenuRadius, kMenuRadius);
+    const bool translucent = UiStyle::blurMaterial() && !property("appmenu.opaque").toBool();
+    p.fillPath(bgPath, translucent ? UiStyle::hud::plateTint() : UiStyle::hud::plateSolid());
 
     const QList<QAction *> acts = actions();
     const QFont fLabel = UiStyle::font(13);
@@ -510,7 +483,7 @@ void CtxMenu::paintEvent(QPaintEvent *event)
     const QFontMetrics fmS(fShort);
     const bool shortcutCol = hasShortcutColumn(acts);
     const bool arrowCol = anySubmenu(acts);
-    const QColor colText = QColor(UiStyle::menuText());
+    const QColor colText = UiStyle::hud::valText();
     const QColor colDisabled = QColor(UiStyle::menuDisabled());
     const QColor colHover = QColor(UiStyle::menuHover());
     const QPoint cursor = mapFromGlobal(QCursor::pos());
@@ -539,7 +512,7 @@ void CtxMenu::paintEvent(QPaintEvent *event)
             QColor bg;
             if (i == m_quickPressed && enabled) {
                 bg = quickPressedBg();
-            } else if (i == m_quickHover && enabled) {
+            } else if (!m_keyboardNavigation && i == m_quickHover && enabled) {
                 bg = danger ? dangerRowBg() : colHover;
             }
             if (bg.isValid()) {
@@ -549,7 +522,7 @@ void CtxMenu::paintEvent(QPaintEvent *event)
                 p.fillPath(bgPath, bg);
             }
             // 键盘焦点：2px 蓝色内框，独立于悬停/勾选
-            if (i == m_quickFocus && enabled) {
+            if (m_keyboardNavigation && i == m_quickFocus && enabled) {
                 QPainterPath ring;
                 ring.addRoundedRect(QRectF(r).adjusted(1.0, 1.0, -1.0, -1.0),
                                     kQuickBtnRadius, kQuickBtnRadius);
@@ -578,12 +551,12 @@ void CtxMenu::paintEvent(QPaintEvent *event)
         // 删除前短分隔：1×18px，垂直居中于按钮行
         if (sepX >= 0 && !btns.isEmpty()) {
             const int cy = btns.at(0).center().y();
-            p.setPen(QPen(QColor(UiStyle::menuSeparator()), 1.0));
+            p.setPen(QPen(UiStyle::hud::chartLine(), 1.0));
             p.drawLine(QPoint(sepX, cy - 9), QPoint(sepX, cy + 9));
         }
         // 快捷区下方 1px 分隔：左右内收 7px（与正文分隔同锚），距首个正文行 4px
         if (sepBelowY >= 0) {
-            p.setPen(QPen(QColor(UiStyle::menuSeparator()), 1.0));
+            p.setPen(QPen(UiStyle::hud::chartLine(), 1.0));
             p.drawLine(QPoint(bodyRow.left() + 7, sepBelowY),
                        QPoint(bodyRow.right() - 7, sepBelowY));
         }
@@ -594,7 +567,7 @@ void CtxMenu::paintEvent(QPaintEvent *event)
         if (a->isSeparator()) {
             // 分隔线 1px，左右缩进 7px，上下各留 4px（QSS 已给条目高度，这里只画线）。
             const int y = row.center().y();
-            p.setPen(QPen(QColor(UiStyle::menuSeparator()), 1.0));
+            p.setPen(QPen(UiStyle::hud::chartLine(), 1.0));
             p.drawLine(QPoint(row.left() + 7, y), QPoint(row.right() - 7, y));
             continue;
         }
@@ -606,9 +579,9 @@ void CtxMenu::paintEvent(QPaintEvent *event)
         const bool context = m_presentation == Presentation::ContextMenu;
         const QString iconId = context ? propText(a, kIconProp) : m_actionIcons.value(a);
         const bool danger = context ? hasFlag(a, kDangerProp) : iconId == QLatin1String("trash");
-        const bool hovered = row.contains(cursor);
-        const bool focused = (a == activeAction());
-        const bool dangerHover = danger && hovered;
+        const bool hovered = !m_keyboardNavigation && row.contains(cursor);
+        const bool focused = m_keyboardNavigation && (a == activeAction());
+        const bool dangerHover = danger && enabled && hovered;
 
         // —— 行底 ——
         QColor rowBg;
