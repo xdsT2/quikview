@@ -109,6 +109,9 @@ public:
     // 批次21 验收用：目录列表 / 当前图 / 失败文案一次打全，供三项（#81/#82/#83）
     // 的「切换后动作是否真按新值走」比对，不用从截图里读页数。
     QString batch21RuntimeDump() const;
+    // 批次04 图像处理四项的运行态读数（只读真实对象）：插值档/缩放/强锐化/大图对齐/
+    // 缓存上限与已用字节/预读开关与启动次数/命中未命中。设置页状态行与验收探针共用。
+    QString imageProcLiveStateDump() const;
     // 回滚期间抑制「设置项 → 画布预览」的一次性动作（目前只有文件名浮层用到）。
     void setLivePreviewQuiet(bool quiet) { m_livePreviewQuiet = quiet; }
     // 批次18：菜单「复制到 / 移动到 图片文件夹 N」与验收探针共用同一条动作链路。
@@ -272,6 +275,9 @@ private:
     void loadAsync(const QString &path, bool preempt = false);
     // 空闲预读：翻页停手 300ms 且解码队列空了，向当前页前后各预读 1 张
     void preloadNeighbors();
+    // 预读的实际执行段（不含开关判断）：设置页把「缓存下一张」当场打开时立即调一次，
+    // 不等 300ms 空闲计时器，也不受刚写入配置的时序影响（批次04 #21）。
+    void preloadNeighborsNow();
     // —— 目录监视（外部增删/重命名自动刷新）——
     // 防抖后的目录事件 → 后台重扫；同一时刻只跑一个扫描，期间新事件置脏补跑。
     // 回调（onWatchedDirectoryChanged）里不扫描、不解码。

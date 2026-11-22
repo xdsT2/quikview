@@ -46,6 +46,11 @@ public:
     enum InterpMode { InterpBilinear = 0, InterpBicubic = 1, InterpLanczos = 2 };
     void setInterpolationMode(int mode);
     int interpolationMode() const { return m_interp; }
+    // 「使用强锐化滤镜」（键 imageproc/strong_sharpen，默认关）：Lanczos 且缩小到
+    // 100% 以下时走锐化核。切换点由 MainWindow::applyLiveSetting 即时下发：作废
+    // 采样记账并立刻按新值重算一次，不再等下一次开图（批次04 #20）。
+    void setStrongSharpen(bool on);
+    bool strongSharpen() const { return m_strongSharpen; }
     // 原版「拉伸小图像」：关（默认）时小于窗口的图保持 100% 不放大
     void setStretchSmall(bool on);
     bool stretchSmall() const { return m_stretchSmall; }
@@ -60,6 +65,10 @@ public:
     // 适合宽度 / 原始大小两种模式下图片高度超出视口时，开=滚到顶，关=垂直居中。
     // 适合窗口模式图片恒不超出视口，该开关在那条路径上无可观测差异。
     void setAlignTopWhenLarge(bool on) { m_alignTopWhenLarge = on; }
+    bool alignTopWhenLarge() const { return m_alignTopWhenLarge; }
+    // 设置页切换点（批次04 #23）：改值并当场重排当前画面——开＝大图滚到顶，
+    // 关＝大图垂直居中；没有图或图不高于视口时只记住新值，下一次适配按它走。
+    void applyAlignTopWhenLargeLive(bool on);
     // 双击最大化/还原开关（设置页「双击最大化 / 还原」）：开启时边缘单击翻页
     // 延迟 220ms 等第二击，收到双击就取消翻页只做最大化；关闭时边缘单击零延迟。
     void setDoubleClickMaximizeEnabled(bool on) { m_dblClickMaximize = on; }
@@ -234,6 +243,7 @@ private:
     bool m_smooth = true;
     bool m_stretchSmall = false;
     bool m_alignTopWhenLarge = true;   // 图片大于窗口时显示图片顶部（默认开）
+    bool m_strongSharpen = false;      // 使用强锐化滤镜（Lanczos 缩小重采样时生效）
     bool m_resizeBurst = false;  // 窗口边界拖动进行中（resizeEvent 置位，收尾定时器复位）
     bool m_sideArrowsEnabled = true;   // 侧边箭头开关（关=不显示但仍可点）
     QColor m_backgroundColor;    // 画布底色（brush 与 stylesheet 同步维护）

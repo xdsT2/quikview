@@ -3124,9 +3124,11 @@ void SettingsDialog::buildViewPage(QWidget *page)
                                   tr("下次打开这张图时恢复；当前画面不变"),
                                   "view/save_zoom_state", false, false);
     // 大图对齐（原「图像处理 · 渲染」）：显示位置属浏览行为，随本页走。
-    addSwitchRow(sec, tr("图片大于窗口时显示图片顶部"),
-                 tr("适配宽度／实际大小下、图片高于窗口时生效"),
-                 "imageproc/align_top_when_large", false, true);
+    // 批次04 #23：改为即时项——切换点当场按新值滚到顶 / 垂直居中。
+    auto *alignTop = addSwitchRow(sec, tr("图片大于窗口时显示图片顶部"),
+                                  tr("适配宽度／实际大小下、图片高于窗口时生效"),
+                                  "imageproc/align_top_when_large", false, true);
+    m_liveChecks.append({ alignTop, "imageproc/align_top_when_large", false, false });
     auto *remember = addSwitchRow(sec, tr("不保存浏览过的文件夹路径"), QString(),
                                   "remember_browsed_folders", true, true);
     m_liveChecks.append({ saveZoom, "view/save_zoom_state", false, false });
@@ -3552,9 +3554,11 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
                 { { "0", tr("最近邻 (快)") }, { "1", tr("平滑 (双线性)") },
                   { "2", tr("Lanczos (锐利)") } });
     descToRowTip(interpCombo, tr("缩放重采样时使用；最近邻最快，Lanczos 最锐"));
-    addSwitchRow(sec, tr("使用强锐化滤镜"),
-                 tr("Lanczos 且缩小到 100% 以下时生效"),
-                 "imageproc/strong_sharpen", false, false);
+    // 批次04 #20：强锐化改为即时项——切换点下发画布运行态并当场重采样一次。
+    auto *sharp = addSwitchRow(sec, tr("使用强锐化滤镜"),
+                               tr("Lanczos 且缩小到 100% 以下时生效"),
+                               "imageproc/strong_sharpen", false, false);
+    m_liveChecks.append({ sharp, "imageproc/strong_sharpen", false, false });
 
     // 旋转后自动保存（A2）：标准开关行，键 config/auto_save_rotate 默认关。
     sec = beginSection(page, tr("自动保存"));
@@ -3563,13 +3567,18 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
                  "auto_save_rotate", false, false);
 
     sec = beginSection(page, tr("缓存与载入"));
-    addSwitchRow(sec, tr("缓存下一张图片"), QString(),
-                 "imageproc/cache_image", false, true);
+    // 批次04 #21：缓存下一张改为即时项——打开即当场预读前后相邻图，关闭即停止发新预读。
+    auto *cacheNext = addSwitchRow(sec, tr("缓存下一张图片"), QString(),
+                                   "imageproc/cache_image", false, true);
+    m_liveChecks.append({ cacheNext, "imageproc/cache_image", false, false });
     {
         SettingRowParts parts = addSettingRow(sec, tr("缓存大小"),
                                               tr("全尺寸解码缓存的占用上限，范围 64–4096 MB，越界按边界值生效"));
         m_cacheSize = new QSpinBox(parts.row);
-        m_cacheSize->setRange(64, 4096);
+        m_cacheSize->setRange(64, 4096);   // 与 Config::cacheSizeMb() 同一夹取口径（批次04 #22）
+        // 键入过程不逐字符下发：只有 Enter / 失焦（或按钮）提交一次，避免
+        // 「输入 1→2→0→4→8」把缓存上限来回抖成 64 的中间态。
+        m_cacheSize->setKeyboardTracking(false);
         m_cacheSize->setButtonSymbols(QAbstractSpinBox::NoButtons);
         m_cacheSize->setFixedHeight(kComboH);
         m_cacheSize->setFixedWidth(88);
@@ -3622,6 +3631,8 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
                                        "已开 Windows 自动颜色管理的屏幕跳过，跨屏自动重估"),
                                     "imageproc/monitor_icc", false, false);
     descToRowTip(iccMonitor, tr("无有效配置或转换失败时保持 sRGB 显示，原因见临时目录日志"));
+    // 批次04 复用批次21 建好的本页状态行（同一页只放一条，避免两条状态行各说一半）：
+    // 位置仍在 RAW 组下方、色彩管理上方，切完上方缓存/渲染项后无需滚动即可读到。
     applyPageRhythm(page);
 }
 
@@ -6415,6 +6426,8 @@ void SettingsDialog::loadFromConfig()
     loadPageWidgets(nullptr);
     // 批次03：记住进入设置时的四项状态，取消 / Esc / ✕ 时回到这里。
     captureBrowseLiveBaseline();
+    // 批次04：图像处理页四项同一口径（含浏览页 #23 大图对齐）。
+    captureImageProcLiveBaseline();
 }
 
 void SettingsDialog::loadBindingsFromConfig(int chkFrom, int comboFrom, int keyFrom,
@@ -6872,8 +6885,10 @@ void SettingsDialog::connectPageWidgets(QWidget *page)
         return w && (!page || page == w || page->isAncestorOf(w));
     };
     if (owns(m_cacheSize)) {
+        // 批次04 #22：缓存大小走「下发运行态 → 写盘 → 失败回退」同一口径，
+        // 不在 connectInstantSignals 之外偷偷只写配置。
         connect(m_cacheSize, &QSpinBox::valueChanged, this, [this](int v) {
-            applyInstantValue(QStringLiteral("imageproc/cache_size_mb"), v);
+            applyCacheSizeLive(v);
         });
     }
     if (owns(m_maxBookmarks)) {
@@ -7244,6 +7259,7 @@ void SettingsDialog::applyLiveCheck(int index, bool checked)
     item.lastValue = want;
     applyInstantValue(key, want);
     updateBrowseLiveNote(key, want);
+    updateImageProcLiveNote(key, want ? tr("开") : tr("关"));
 }
 
 // ---------------------------------------------------------------------------
@@ -7351,6 +7367,140 @@ void SettingsDialog::rollbackBrowseLiveBaseline()
                        : tr("已关闭设置，未保留即时改动。"));
         m_browseLiveNote->show();
     }
+}
+
+// ---------------------------------------------------------------------------
+// 批次04：图像处理页四项（#20 强锐化 / #21 缓存下一张 / #22 缓存大小；
+// #23 大图顶部对齐在浏览页但按本批口径一并纳入）进入设置时快照，
+// 取消（含 Esc、✕）把配置值与运行态一起回到快照，保存才保留。
+// ---------------------------------------------------------------------------
+
+void SettingsDialog::captureImageProcLiveBaseline()
+{
+    // 取值走 Config getter（默认值只在 getter 里维护一份：锐化 false / 预读 true /
+    // 缓存 300MB / 大图对齐 true），不在设置页再抄一套默认值。
+    Config &cfg = Config::instance();
+    m_imageProcLiveBaseline.clear();
+    m_imageProcLiveBaseline.insert(QStringLiteral("imageproc/strong_sharpen"), cfg.strongSharpen());
+    m_imageProcLiveBaseline.insert(QStringLiteral("imageproc/cache_image"), cfg.cacheNextImage());
+    m_imageProcLiveBaseline.insert(QStringLiteral("imageproc/cache_size_mb"), cfg.cacheSizeMb());
+    m_imageProcLiveBaseline.insert(QStringLiteral("imageproc/align_top_when_large"),
+                                   cfg.alignTopWhenLarge());
+    m_cacheSizeApplied = cfg.cacheSizeMb();
+}
+
+void SettingsDialog::rollbackImageProcLiveBaseline()
+{
+    if (m_imageProcLiveBaseline.isEmpty())
+        return;
+    MainWindow *host = qobject_cast<MainWindow *>(parentWidget());
+    Config &cfg = Config::instance();
+    const auto currentOf = [&cfg](const QString &key) -> QVariant {
+        if (key == QLatin1String("imageproc/strong_sharpen"))
+            return cfg.strongSharpen();
+        if (key == QLatin1String("imageproc/cache_image"))
+            return cfg.cacheNextImage();
+        if (key == QLatin1String("imageproc/cache_size_mb"))
+            return cfg.cacheSizeMb();
+        if (key == QLatin1String("imageproc/align_top_when_large"))
+            return cfg.alignTopWhenLarge();
+        return QVariant();
+    };
+    QList<QPair<QString, QVariant>> revert;
+    bool anyChanged = false;
+    for (auto it = m_imageProcLiveBaseline.cbegin(); it != m_imageProcLiveBaseline.cend(); ++it) {
+        const QString key = it.key();
+        const QVariant base = it.value();
+        if (currentOf(key) == base)
+            continue;
+        anyChanged = true;
+        revert.append({ key, base });
+        // 配置与运行态同源回滚：先把运行态按基线值下发（不写盘），再统一提交配置。
+        if (host)
+            host->applyLiveSetting(key, base, nullptr);
+        // 页构建过才需要同步控件与幂等值（未构建的页下次按配置回显）。
+        if (key == QLatin1String("imageproc/cache_size_mb")) {
+            m_cacheSizeApplied = base.toInt();
+            if (m_cacheSize) {
+                const QSignalBlocker b(m_cacheSize);
+                m_cacheSize->setValue(base.toInt());
+            }
+            continue;
+        }
+        for (LiveCheck &item : m_liveChecks) {
+            if (key != QString::fromLatin1(item.key))
+                continue;
+            item.lastValue = base.toBool();
+            const QSignalBlocker b(item.cb);
+            item.cb->setChecked(item.inverted ? !base.toBool() : base.toBool());
+            break;
+        }
+    }
+    if (!revert.isEmpty())
+        commitValues(revert);
+    if (m_imageProcLiveNote && anyChanged) {
+        m_imageProcLiveNote->setText(
+            tr("已放弃本次改动：图像处理页即时项已回到进入设置时的状态。"));
+        m_imageProcLiveNote->show();
+    }
+}
+
+void SettingsDialog::updateImageProcLiveNote(const QString &key, const QString &valueText)
+{
+    if (!m_imageProcLiveNote)
+        return;
+    // 只有本页三项说话（#23 大图对齐属浏览页，由浏览页状态行负责）。
+    QString itemName;
+    for (const LiveCheck &item : m_liveChecks) {
+        if (key != QString::fromLatin1(item.key))
+            continue;
+        itemName = item.cb->accessibleName().isEmpty() ? item.cb->text()
+                                                      : item.cb->accessibleName();
+        break;
+    }
+    if (key == QLatin1String("imageproc/cache_size_mb"))
+        itemName = tr("缓存大小");
+    if (itemName.isEmpty())
+        return;
+    QString runtime;
+    if (MainWindow *host = qobject_cast<MainWindow *>(parentWidget()))
+        runtime = host->imageProcLiveStateDump();
+    m_imageProcLiveNote->setText(
+        tr("「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。\n"
+           "运行态：%3")
+            .arg(itemName, valueText, runtime));
+    m_imageProcLiveNote->show();
+}
+
+void SettingsDialog::applyCacheSizeLive(int mb)
+{
+    if (m_loading || !m_cacheSize)
+        return;
+    const int want = qBound(64, mb, 4096);
+    if (want == m_cacheSizeApplied)   // 同值回设（含回滚 setValue）：幂等，不重复下发
+        return;
+    MainWindow *host = qobject_cast<MainWindow *>(parentWidget());
+    QString error;
+    if (!host)
+        error = tr("未找到主窗口，无法下发运行态。");
+    if (!host || !host->applyLiveSetting(QStringLiteral("imageproc/cache_size_mb"), want, &error)) {
+        // 运行态没变 → 数值框退回上一次成功值；配置没写，不留半套状态。
+        {
+            const QSignalBlocker b(m_cacheSize);
+            m_cacheSize->setValue(m_cacheSizeApplied);
+        }
+        if (host)
+            host->applyLiveSetting(QStringLiteral("imageproc/cache_size_mb"),
+                                   m_cacheSizeApplied, nullptr);
+        QMessageBox::warning(this, tr("设置"),
+                             tr("「%1」未能即时生效：%2\n已恢复原值，未写入配置。")
+                                 .arg(tr("缓存大小"), error));
+        return;
+    }
+    m_cacheSizeApplied = want;
+    applyInstantValue(QStringLiteral("imageproc/cache_size_mb"), want);
+    updateImageProcLiveNote(QStringLiteral("imageproc/cache_size_mb"),
+                            tr("%1 MB").arg(want));
 }
 
 bool SettingsDialog::onAccepted()
@@ -8615,6 +8765,151 @@ void SettingsDialog::probeViewLive(const QString &spec, int closeMode, bool then
     });
 }
 
+// —— 验收探针（--smoke iprobe / ipcancel / ipesc / ipclose / ipsave，
+//    见 MainWindow::runSmokeCommand）——
+// spec: "strong_sharpen=on+cache_image=off+cache_size=64+align_top_when_large=off"
+// （+ 分隔：--smoke 用逗号拆命令）。每项走真实控件链路：
+// PillToggle::click → applyLiveCheck → applyLiveSetting → 写盘；数值框 setValue →
+// applyCacheSizeLive → applyLiveSetting → 写盘。每切一项 dump 一次，最后按 closeMode
+// 走真实关闭链路再 dump after-close，用于三链路回滚取证。
+void SettingsDialog::probeImageProcLive(const QString &spec, int closeMode, bool thenSave)
+{
+    // 失败注入会弹模态 warning：探针先挂自动点掉它的定时器，顺带留一张提示原文。
+    auto *autoOk = new QTimer(this);
+    autoOk->setInterval(120);
+    connect(autoOk, &QTimer::timeout, this, [this]() {
+        if (auto *mb = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+            mb->grab().save(QStringLiteral("Temp/ip-live-fail.png"));
+            if (auto *ok = mb->button(QMessageBox::Ok))
+                ok->click();
+        }
+    });
+    autoOk->start();
+    setAttribute(Qt::WA_DeleteOnClose, false);   // 关窗后还要 dump 回滚结果
+
+    const auto dump = [this](const QString &tag) {
+        Config &cfg = Config::instance();
+        QSettings &s = cfg.settings();
+        const auto stored = [&s](const char *full) {
+            return s.value(QString::fromLatin1(full)).toBool() ? "true" : "false";
+        };
+        const auto present = [&s](const char *full) {
+            return s.contains(QString::fromLatin1(full)) ? 1 : 0;
+        };
+        QString out;
+        QTextStream ts(&out);
+        ts << "[" << tag << "]\n";
+        const struct { const char *key; const char *full; QString getter; } rows[] = {
+            { "imageproc/strong_sharpen", "config/imageproc/strong_sharpen",
+              cfg.strongSharpen() ? QStringLiteral("true") : QStringLiteral("false") },
+            { "imageproc/cache_image", "config/imageproc/cache_image",
+              cfg.cacheNextImage() ? QStringLiteral("true") : QStringLiteral("false") },
+            { "imageproc/cache_size_mb", "config/imageproc/cache_size_mb",
+              QString::number(cfg.cacheSizeMb()) },
+            { "imageproc/align_top_when_large", "config/imageproc/align_top_when_large",
+              cfg.alignTopWhenLarge() ? QStringLiteral("true") : QStringLiteral("false") },
+        };
+        for (const auto &r : rows) {
+            QString checked = QStringLiteral("na");
+            for (PillToggle *t : findChildren<PillToggle *>()) {
+                if (t->property("cfgKey").toString() == QLatin1String(r.key)) {
+                    checked = t->isChecked() ? QStringLiteral("true") : QStringLiteral("false");
+                    break;
+                }
+            }
+            if (QLatin1String(r.key) == QLatin1String("imageproc/cache_size_mb") && m_cacheSize)
+                checked = QString::number(m_cacheSize->value());
+            ts << r.key << " checked=" << checked
+               << " getter=" << r.getter
+               << " stored=" << stored(r.full)
+               << " present=" << present(r.full);
+            if (MainWindow *host = qobject_cast<MainWindow *>(parentWidget()))
+                ts << " runtime=" << host->liveSettingValue(QString::fromLatin1(r.key)).toString();
+            ts << "\n";
+        }
+        if (MainWindow *host = qobject_cast<MainWindow *>(parentWidget()))
+            ts << "mainwin " << host->imageProcLiveStateDump() << "\n";
+        ts << "dialogVisible=" << (isVisible() ? 1 : 0) << " note=\""
+           << (m_imageProcLiveNote && m_imageProcLiveNote->isVisible()
+                   ? m_imageProcLiveNote->text() : QStringLiteral("(hidden)"))
+           << "\"\n";
+        QFile f(QStringLiteral("Temp/ip-live-probe.txt"));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
+            f.write(out.toUtf8());
+    };
+
+    QTimer::singleShot(400, this, [this, spec, closeMode, thenSave, dump, autoOk]() {
+        // 四项分居「图像处理」（#20/#21/#22）与「浏览」（#23）两页：先补齐全部页
+        // 再切到图像处理，保证 status line 截图与所有控件都已在位。
+        ensureAllPagesBuilt();
+        int pageIdx = -1;
+        for (int i = 0; i < m_pageTitles.size(); ++i) {
+            if (m_pageTitles.at(i).contains(tr("图像处理"))) {
+                pageIdx = i;
+                break;
+            }
+        }
+        if (pageIdx >= 0)
+            selectPage(pageIdx);
+        QTimer::singleShot(500, this, [this, spec, closeMode, thenSave, dump, autoOk]() {
+            QFile::remove(QStringLiteral("Temp/ip-live-probe.txt"));
+            dump(QStringLiteral("before"));
+            const QStringList items = spec.split(u'+');
+            for (const QString &item : items) {
+                const int eq = item.indexOf(u'=');
+                if (eq < 0)
+                    continue;
+                const QString key0 = item.left(eq).trimmed();
+                // 允许简写：cache_size → imageproc/cache_size_mb；其余无页前缀时补 imageproc/。
+                QString key = key0;
+                if (key == QLatin1String("cache_size"))
+                    key = QStringLiteral("imageproc/cache_size_mb");
+                else if (!key.contains(u'/'))
+                    key = QStringLiteral("imageproc/") + key;
+                const QString value = item.mid(eq + 1).trimmed();
+                if (key == QLatin1String("imageproc/cache_size_mb")) {
+                    // setValue 会同步发 valueChanged → applyCacheSizeLive（真实链路）；
+                    // keyboardTracking=false 只影响键入过程，不影响程序化赋值。
+                    if (m_cacheSize)
+                        m_cacheSize->setValue(value.toInt());
+                } else {
+                    const bool want = value == QLatin1String("on");
+                    for (PillToggle *t : findChildren<PillToggle *>()) {
+                        if (t->property("cfgKey").toString() != key)
+                            continue;
+                        if (t->isChecked() != want)
+                            t->click();   // 真实链路
+                        break;
+                    }
+                }
+                dump(QStringLiteral("step:") + item);
+            }
+            // 预读是异步的（单飞解码）：留一段时间让「打开后真的读了相邻图」
+            // 在 cache_insert / preload_start 日志里落下来。
+            QTimer::singleShot(1500, this, [this, closeMode, thenSave, dump, autoOk]() {
+                dump(QStringLiteral("after"));
+                grab().save(QStringLiteral("Temp/ip-live-settings.png"));
+                if (closeMode == 1) {
+                    for (QPushButton *b : findChildren<QPushButton *>())
+                        if (b->text() == tr("取消")) { b->click(); break; }
+                } else if (closeMode == 2) {
+                    QKeyEvent ev(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+                    QApplication::sendEvent(this, &ev);
+                } else if (closeMode == 3) {
+                    close();
+                } else if (closeMode == 4 || thenSave) {
+                    if (m_btnOk)
+                        m_btnOk->click();
+                }
+                if (closeMode != 0 || thenSave) {
+                    dump(QStringLiteral("after-close"));
+                }
+                autoOk->stop();
+            });
+        });
+    });
+}
+
 // —— 验收探针（--smoke setcfglive:<cfgKey>=on|off）——
 // 只走真实控件点击链路（PillToggle::click → chkBind → applyLiveSetting → 写盘），
 // 不直接改 QSettings，确保验的是「改开关即时生效」本身。
@@ -8904,6 +9199,7 @@ void SettingsDialog::reject()
             return;   // 留在设置页，允许稍后重试
         }
         rollbackBrowseLiveBaseline();   // 批次03：取消 / Esc / ✕ 三链路同口径回滚
+        rollbackImageProcLiveBaseline();   // 批次04：图像处理四项同口径
         QDialog::reject();
         return;
     }
@@ -8920,8 +9216,10 @@ void SettingsDialog::reject()
     if (names.size() > shown.size())
         shown << tr("等 %1 项").arg(names.size());
     box.setInformativeText(tr("待保存：%1\n\n"
-                             "「不保存」只放弃这些草稿；浏览页的缩放记忆 / 文件名浮层 / "
-                             "动画帧号 / 悬浮提示会回到进入设置时的状态，其余即时设置保留。")
+                             "「不保存」只放弃这些草稿；浏览页与图像处理页的即时项"
+                             "（缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示 / 强锐化 / "
+                             "缓存下一张 / 缓存大小 / 大图顶部对齐）会回到进入设置时的状态，"
+                             "其余即时设置保留。")
                                .arg(shown.join(QStringLiteral("、"))));
     auto *saveBtn = box.addButton(tr("保存并关闭"), QMessageBox::AcceptRole);
     auto *discardBtn = box.addButton(tr("不保存"), QMessageBox::DestructiveRole);
@@ -8957,6 +9255,7 @@ void SettingsDialog::reject()
             return;   // 留在设置页，允许稍后重试
         }
         rollbackBrowseLiveBaseline();   // 批次03：与 Esc / ✕ 同一口径
+        rollbackImageProcLiveBaseline();   // 批次04：与 Esc / ✕ 同一口径
         QDialog::reject();   // 丢弃待保存草稿
     }
 }

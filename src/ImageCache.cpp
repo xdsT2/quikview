@@ -3,6 +3,7 @@
 #include <QCoreApplication>
 
 #include <QFutureWatcher>
+#include <QDateTime>
 #include <QFile>
 #include <QFileInfo>
 #include <QImage>
@@ -82,7 +83,30 @@ ImageCache::ImageCache(QObject *parent)
 
 void ImageCache::setFullCacheLimit(int mb)
 {
-    m_fullCache.setMaxCost(qint64(mb) * 1024 * 1024);
+    // 与 Config::cacheSizeMb() 同一夹取口径（64..4096）：设置页数值框、命令行
+    // 与验收探针都走这里，越界值按边界生效，运行态不会出现第三套范围（批次04 #22）。
+    m_limitMb = qBound(64, mb, 4096);
+    m_fullCache.setMaxCost(qint64(m_limitMb) * 1024 * 1024);
+    probeLog(QStringLiteral("cache_limit mb=%1 used=%2 limit_bytes=%3")
+                 .arg(m_limitMb)
+                 .arg(m_fullCache.totalCost())
+                 .arg(qint64(m_limitMb) * 1024 * 1024));
+}
+
+void ImageCache::probeLog(const QString &line) const
+{
+    if (!qEnvironmentVariableIsSet("QUIKVIEW_IMAGEPROC_PROBE")) {
+        return;
+    }
+    QFile f(QStringLiteral("Temp/imageproc-live-probe.txt"));
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+        return;
+    }
+    f.write(QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss.zzz"))
+                .toUtf8());
+    f.write(" ");
+    f.write(line.toUtf8());
+    f.write("\n");
 }
 
 QImage ImageCache::cachedFull(const QString &path) const
@@ -93,6 +117,15 @@ QImage ImageCache::cachedFull(const QString &path) const
 void ImageCache::requestFull(const QString &path, const QSize &previewSize, bool preempt)
 {
     m_previewSize = previewSize;
+    if (m_fullCache.contains(path))
+        ++m_hits;
+    else
+        ++m_misses;
+    probeLog(QStringLiteral("request file=%1 hit=%2 misses=%3 used=%4")
+                 .arg(QFileInfo(path).fileName())
+                 .arg(m_fullCache.contains(path) ? 1 : 0)
+                 .arg(m_misses)
+                 .arg(m_fullCache.totalCost()));
     if (preempt) {
         // 显式跳转：进入新代次。此刻之前提交的所有结果只入缓存、不再上屏。
         ++m_generation;
@@ -171,6 +204,11 @@ void ImageCache::insertFull(const QString &path, const QImage &img)
     // （此前 insert 不传成本=每条记 1，512MB 上限形同虚设）
     m_fullCache.insert(path, new QImage(img),
                        static_cast<int>(qMin<qint64>(img.sizeInBytes(), qint64(INT_MAX))));
+    probeLog(QStringLiteral("cache_insert file=%1 bytes=%2 used=%3 limit_mb=%4")
+                 .arg(QFileInfo(path).fileName())
+                 .arg(img.sizeInBytes())
+                 .arg(m_fullCache.totalCost())
+                 .arg(m_limitMb));;
 }
 
 void ImageCache::preload(const QString &path)
@@ -178,8 +216,11 @@ void ImageCache::preload(const QString &path)
     if (path.isEmpty() || m_fullCache.contains(path) || m_queue.contains(path)
         || m_fullInFlight.contains(path) || path == m_preloadPath
         || m_preloadQueue.contains(path)) {
+        probeLog(QStringLiteral("preload_skip file=%1 reason=hit_or_pending")
+                     .arg(QFileInfo(path).fileName()));
         return;
     }
+    probeLog(QStringLiteral("preload_req file=%1").arg(QFileInfo(path).fileName()));
     m_preloadQueue.append(path);
     startNextPreload();
 }
@@ -195,6 +236,10 @@ void ImageCache::startNextPreload()
     const QString path = m_preloadQueue.takeFirst();
     m_preloadPath = path;
     m_preloadGeneration = m_generation;
+    ++m_preloadStarts;
+    probeLog(QStringLiteral("preload_start file=%1 starts=%2")
+                 .arg(QFileInfo(path).fileName())
+                 .arg(m_preloadStarts));
     QtConcurrent::run(&m_decodePool, [this, path]() {
         QImage img;
         if (ArchiveStore::isEntryPath(path)) {

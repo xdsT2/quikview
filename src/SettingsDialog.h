@@ -71,6 +71,9 @@ public:
     // applyLiveCheck 真实链路），逐项 dump「控件态 / getter / ini 原始值 / 主窗口
     // 运行态」到 Temp/view-live-probe.txt；closeMode 1=取消钮 2=Esc 3=✕ 4=保存。
     void probeViewLive(const QString &spec, int closeMode, bool thenSave);
+    // 批次04 图像处理页四项探针（--smoke iprobe/ipcancel/ipesc/ipclose/ipsave）：
+    // 走真实控件点击链路（PillToggle::click / 数值框 setValue）→ applyLiveSetting → 写盘。
+    void probeImageProcLive(const QString &spec, int closeMode, bool thenSave);
     // 验收探针（--smoke setcfglive:<cfgKey>=on|off）：切到「图像处理」页，按 cfgKey
     // 真实点击开关，dump 前后「控件态 / Config getter / QSettings 原始值」到 Temp/。
     void probeCfgLive(const QString &spec);
@@ -420,6 +423,17 @@ private:
     QLabel *m_browseLiveNote = nullptr;          // 浏览页内联「已即时生效」状态行
     QLabel *m_viewLiveNote = nullptr;            // 浏览页「翻页」组内的状态行（批次21 #81）
     QLabel *m_imageProcLiveNote = nullptr;       // 图像处理页同款状态行（批次21 #82/#83）
+
+    // —— 批次04 图像处理页四项：快照回滚 + 页内状态行（#20/#21/#22 及浏览页 #23）——
+    // 与批次03 同一口径：取消 / Esc / ✕ 把配置值与运行态一起还原到进入设置前，
+    // 保存才保留。数值框（#22）走单独下发入口，不进 LiveCheck（那是「一键一布尔」）。
+    void captureImageProcLiveBaseline();
+    void rollbackImageProcLiveBaseline();
+    void updateImageProcLiveNote(const QString &key, const QString &valueText);
+    void applyCacheSizeLive(int mb);
+    QHash<QString, QVariant> m_imageProcLiveBaseline;   // key → 进入设置时的值
+    // 状态行复用批次21 的 m_imageProcLiveNote（同一页只放一条）
+    int m_cacheSizeApplied = 300;                       // 最近一次成功下发的缓存上限（MB）
 
     // —— 键盘自定义（批次 D1）冲突检测 ——
     // 保存前调用：同一键位只归一个启用的绑定、键位不得与固定动作相撞、
