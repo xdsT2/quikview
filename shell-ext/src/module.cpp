@@ -275,10 +275,32 @@ LONG UnregisterContextMenuHandler() {
     return ERROR_SUCCESS;
 }
 
+// 用户级（HKCU）是否已被别家缩略图处理器占住。Explorer 取缩略图按用户注册
+// 优先，所以「装到 HKLM 但 HKCU 写着别人」= 装了也不生效。产品语义是
+// 「检测到被别人占用就提示、不接管」：这里只检测，命中就跳过写 HKLM，
+// 由设置页如实显示「已被其他程序占用（不接管）」。
+bool PerUserHandlerIsForeign(const wchar_t* ext) {
+    wchar_t key[256];
+    wsprintfW(key, L"Software\\Classes\\%s\\ShellEx\\%s", ext, kThumbCategory);
+    HKEY hk = nullptr;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, key, 0, KEY_QUERY_VALUE, &hk) !=
+        ERROR_SUCCESS) {
+        return false;
+    }
+    wchar_t val[128] = {};
+    DWORD cb = sizeof(val);
+    const LONG rc =
+        RegQueryValueExW(hk, nullptr, nullptr, nullptr, (BYTE*)val, &cb);
+    RegCloseKey(hk);
+    if (rc != ERROR_SUCCESS || val[0] == L'\0') return false;
+    return lstrcmpiW(val, kClsidString) != 0;
+}
+
 // .ext\ShellEx 键为 32/64 位共享视图，两个位数的 regsvr32 写的是同一份，幂等
 LONG RegisterShellExKeys() {
     for (size_t i = 0; i < ThumbExtCount(); ++i) {
         const wchar_t* ext = ThumbExt(i);
+        if (PerUserHandlerIsForeign(ext)) continue;   // 被占用：不接管
         wchar_t key[256];
         wsprintfW(key, L"Software\\Classes\\%s\\ShellEx\\%s", ext,
                   kThumbCategory);
