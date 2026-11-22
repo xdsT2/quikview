@@ -255,6 +255,8 @@ private:
     QMenu *buildContextMenu();
     QMenu *buildBrowseMenu();
     QMenu *buildSlideshowMenu(CtxMenu *parentMenu = nullptr);
+    QMenu *buildBookmarkMenu();
+    QMenu *buildEditMenu();
     QMenu *buildCopytoMenu(CtxMenu *parentMenu = nullptr);
     QMenu *buildSystemMenu();
     // 三横菜单：完整一级信息架构（文件 / 幻灯片 / 书签 / 编辑与转换 / 复制到 /

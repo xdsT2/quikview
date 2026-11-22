@@ -1256,6 +1256,13 @@ void TopBar::contextMenuEvent(QContextMenuEvent *e)
     e->accept();
 }
 
+// 探针：在标题栏中部合成一次右键菜单请求，走的是与 contextMenuEvent 完全
+// 相同的信号与锚点，验收「标题栏右键」入口（第 3 批两个入口之一）。
+void TopBar::probeSystemMenu()
+{
+    emit systemMenuRequested(mapToGlobal(QPoint(width() / 2, height() / 2)));
+}
+
 void TopBar::leaveEvent(QEvent *)
 {
     m_hover = -1;

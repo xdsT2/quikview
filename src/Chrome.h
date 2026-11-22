@@ -145,6 +145,8 @@ public:
     void probePress(int id);
     // 冒烟取证：当前布局的按钮 id / 提示 / 命中区与文件名块（不含绘制态）。
     QString layoutDump() const;
+    // 冒烟取证：走真实标题栏右键链路（与 contextMenuEvent 同一信号、同一锚点）。
+    void probeSystemMenu();
 
 signals:
     void openClicked();
