@@ -529,6 +529,32 @@ void OverviewPanel::requestVisible()
     const int bottom = height() + 160; // 视口下方少量预取
     const QSize decode(qMin(420, m.cellW * 2), qMin(320, m.imageH * 2));
     const Layout &l = layout();
+
+    // 缓存上限按「当前视口实际可见格数」自适应：宽窗（2200×1240 → 12 列 × 7 排 = 84 格）
+    // 可见格数远超默认 64，QCache 会按插入顺序挤掉先加载的缩略图，而被挤出的格子
+    // 不会再被补请求，表现为整屏灰色占位。上限只增不减，回到窄窗也不回收常用格子。
+    int visibleCells = 0;
+    const int bandTop = m_scroll - 600;                        // 预取带 ±600px
+    const int bandBottom = m_scroll + height() + 600;
+    QSet<int> inBand;
+    for (int pos = 0; pos < m_order.size() && pos < l.cells.size(); ++pos) {
+        const QRect cell = l.cells.at(pos);
+        if (cell.bottom() >= m_scroll && cell.top() <= m_scroll + height())
+            ++visibleCells;
+        if (cell.bottom() >= bandTop && cell.top() <= bandBottom)
+            inBand.insert(m_order.at(pos));
+    }
+    const int needEntries = qMin(1024, qMax(96, visibleCells * 2 + 32));
+    if (m_images.maxCost() < needEntries)
+        m_images.setMaxCost(needEntries);
+    // 清理滚出预取带的陈旧在途请求：快速滚动时它们会把新露出格子的请求堵在队列后面。
+    for (auto it = m_pending.begin(); it != m_pending.end();) {
+        if (inBand.contains(it.value()))
+            ++it;
+        else
+            it = m_pending.erase(it);
+    }
+
     for (int pos = 0; pos < m_order.size() && m_pending.size() < kMaxPending; ++pos) {
         if (pos >= l.cells.size()) {
             break;
