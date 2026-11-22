@@ -90,7 +90,6 @@ inline constexpr const char *Rotate180           = "CMD_IMAGE_ROTATE_180";
 inline constexpr const char *RotateNone          = "CMD_IMAGE_ROTATE_NONE";
 inline constexpr const char *FlipH               = "CMD_IMAGE_FLIP_H";
 inline constexpr const char *FlipV               = "CMD_IMAGE_FLIP_V";
-inline constexpr const char *Crop                = "CMD_IMAGE_CROP";
 inline constexpr const char *Resize              = "CMD_IMAGE_RESIZE";
 inline constexpr const char *Negative            = "CMD_IMAGE_NEGATIVE";
 inline constexpr const char *Gamma               = "CMD_IMAGE_GAMMA";
@@ -279,8 +278,6 @@ inline const Entry kEntries[] = {
       QT_TRANSLATE_NOOP("MainWindow", "水平翻转"),               "Ctrl+M",        false, false },
     { Cmd::FlipV,              GroupImage,     "",           "",    "MainWindow",
       QT_TRANSLATE_NOOP("MainWindow", "垂直翻转"),               "Ctrl+F",        false, false },
-    { Cmd::Crop,               GroupImage,     "crop",       "",    "MainWindow",
-      QT_TRANSLATE_NOOP("MainWindow", "裁剪(&C)"),               "",              true,  false },
     { Cmd::Resize,             GroupImage,     "",           "",    "MainWindow",
       QT_TRANSLATE_NOOP("MainWindow", "调整大小(&R)"),           "",              false, false },
     { Cmd::Negative,           GroupImage,     "",           "",    "MainWindow",

@@ -411,30 +411,6 @@ MainWindow::MainWindow(QWidget *parent)
         menu->exec(g);
         menu->deleteLater();
     });
-    connect(m_topBar, &Chrome::TopBar::slideshowMenuRequested, this, [this](const QPoint &g) {
-        QMenu *menu = buildSlideshowMenu();
-        markTopBarMenu(menu);
-        menu->exec(g);
-        menu->deleteLater();
-    });
-    connect(m_topBar, &Chrome::TopBar::bookmarkMenuRequested, this, [this](const QPoint &g) {
-        QMenu *menu = buildBookmarkMenu();
-        markTopBarMenu(menu);
-        menu->exec(g);
-        menu->deleteLater();
-    });
-    connect(m_topBar, &Chrome::TopBar::editMenuRequested, this, [this](const QPoint &g) {
-        QMenu *menu = buildEditMenu();
-        markTopBarMenu(menu);
-        menu->exec(g);
-        menu->deleteLater();
-    });
-    connect(m_topBar, &Chrome::TopBar::copytoMenuRequested, this, [this](const QPoint &g) {
-        QMenu *menu = buildCopytoMenu();
-        markTopBarMenu(menu);
-        menu->exec(g);
-        menu->deleteLater();
-    });
     connect(m_topBar, &Chrome::TopBar::layersClicked, this, &MainWindow::togglePsdLayers);
     connect(m_topBar, &Chrome::TopBar::topLockToggled, this, &MainWindow::toggleTopLock);
     connect(m_topBar, &Chrome::TopBar::pinToggled, this, &MainWindow::toggleAlwaysOnTop);
@@ -1436,7 +1412,7 @@ void MainWindow::createActions()
     };
 
     // 文件（快捷键对照 Honeyview 语言表 MENUSTR_*，下同）
-    // —— 传 id 的 14 个动作 = 键盘页可配置动作（批次 D1），键位由 config/keyboard/* 下发
+    // —— 传 id 的 13 个动作 = 键盘页可配置动作（批次 D1），键位由 config/keyboard/* 下发
     actOpen = mk(tr("打开(&O)..."), QKeySequence::Open, &MainWindow::onOpen, QStringLiteral("open"));
     actOpen->setShortcuts({ QKeySequence::Open, QKeySequence(QStringLiteral("F2")) });
     actOpenFolder = mk(tr("打开文件夹..."), QKeySequence(QStringLiteral("F")), &MainWindow::onOpenFolder, QStringLiteral("openfolder"));
@@ -1612,8 +1588,8 @@ void MainWindow::createActions()
     // 翻转：Ctrl+M 水平 / Ctrl+F 垂直（MENUSTR_IMAGE_PRICESSING_MIRROR/FLIP）
     actFlipH = mk(tr("水平翻转"), QKeySequence(QStringLiteral("Ctrl+M")), &MainWindow::onFlipH);
     actFlipV = mk(tr("垂直翻转"), QKeySequence(QStringLiteral("Ctrl+F")), &MainWindow::onFlipV);
-    // 原版 X = 退出程序（已绑 actQuit）；裁剪走菜单/转换对话框，不占单键
-    actCrop = mk(tr("裁剪(&C)"), {}, &MainWindow::onCrop, QStringLiteral("crop"));   // 键盘页可配置（出厂无键）
+    // 原版 X = 退出程序（已绑 actQuit）；独立「裁剪」命令已移除（2026-11-22），
+    // 裁剪（含尺寸处理）只在「转换图片」对话框内提供。
     actResize = mk(tr("调整大小(&R)"), {}, &MainWindow::onResize);
     // 反色 Ctrl+I / Gamma 补偿 Ctrl+G（MENUSTR_IMAGE_PROCESSING_NEGATIVE/GAMMA）
     actNegative = mk(tr("反色"), QKeySequence(QStringLiteral("Ctrl+I")), &MainWindow::onNegative);
@@ -1789,7 +1765,6 @@ void MainWindow::registerCommands()
         { Cmd::RotateNone, nullptr },   // 不旋转：mk() 未留指针，走 triggerCommand 直调
         { Cmd::FlipH, actFlipH },
         { Cmd::FlipV, actFlipV },
-        { Cmd::Crop, actCrop },
         { Cmd::Resize, actResize },
         { Cmd::Negative, actNegative },
         { Cmd::Gamma, actGamma },
@@ -1895,7 +1870,7 @@ QString MainWindow::commandReport() const
 // 命令表 ↔ 动作注册表对账（冒烟 `cmdcheck`）：验收第 1 条的证据来源。
 // 检查三件事：
 //   1) 表里每条 configurable 命令都必须有真实动作（键位下发才有落点）；
-//   2) 历史 m_actions 的 14 个槽位必须都能映射到一条命令（改名不漏旧配置）；
+//   2) 历史 m_actions 的 13 个槽位必须都能映射到一条命令（改名不漏旧配置）；
 //   3) 表里 legacy 值不得重复（否则旧 ini 迁移会二义）。
 QString MainWindow::commandCheckReport() const
 {
@@ -1947,7 +1922,7 @@ QString MainWindow::commandCheckReport() const
 }
 
 // ---------------------------------------------------------------------------
-// 键盘快捷键自定义（批次 D1）：14 个可配置动作的键位下发。
+// 键盘快捷键自定义（批次 D1）：13 个可配置动作的键位下发。
 // 槽位语义（与设置页键盘页一一对应）：每一行是一个「键位槽」，
 // config/keyboard/<槽位>_enabled / _key / _action，槽位默认名 = 动作 id。
 //   槽位禁用 → 该槽位不贡献键位；
@@ -1967,7 +1942,7 @@ struct SlotDef {
 
 // 出厂槽位表。改动任何一个动作的出厂键位须同步设置页键盘页的 defs 表。
 // 注意：变量名不能用 slots——它是 Qt 的空宏。
-// 出厂槽位表（历史 14 个可改绑槽位）由命令注册表派生：键 = 旧槽位名（设置页冲突
+// 出厂槽位表（历史 13 个可改绑槽位）由命令注册表派生：键 = 旧槽位名（设置页冲突
 // 检测与冒烟 keys= 仍按槽位名取值），值 = CommandCatalog 里的出厂键位。
 // 命令 ID 化（H1-7）之后这里不再单独维护第二份键位清单，改键位只改注册表。
 // 注意：变量名不能用 slots——它是 Qt 的空宏。
@@ -2057,7 +2032,7 @@ void MainWindow::applyShortcutConfig()
     }
 }
 
-// configurable 动作的出厂键位全表（设置页冲突检测用）。
+// 13 个可配置动作的出厂键位全表（设置页冲突检测用）。
 QHash<QString, QList<QKeySequence>> MainWindow::factoryShortcutLists() const
 {
     QHash<QString, QList<QKeySequence>> out;
@@ -2066,7 +2041,7 @@ QHash<QString, QList<QKeySequence>> MainWindow::factoryShortcutLists() const
     return out;
 }
 
-// 键盘页冲突检测数据源：除 14 个可配置动作外，其余动作（打印 Ctrl+P、设置 F5、
+// 键盘页冲突检测数据源：除 13 个可配置动作外，其余动作（打印 Ctrl+P、设置 F5、
 // 退出 X…）的键位是固定的，新键位撞上即冲突。每个快捷键一条（副键也算）。
 QList<QPair<QString, QKeySequence>> MainWindow::fixedShortcutActions() const
 {
@@ -2082,7 +2057,6 @@ QList<QPair<QString, QKeySequence>> MainWindow::fixedShortcutActions() const
         m_actions.value(QStringLiteral("actual_size")),
         m_actions.value(QStringLiteral("fit")),
         m_actions.value(QStringLiteral("slideshow")),
-        m_actions.value(QStringLiteral("crop")),
         m_actions.value(QStringLiteral("favorite")),
         m_actions.value(QStringLiteral("del")),
     };
@@ -2106,12 +2080,12 @@ QList<QPair<QString, QKeySequence>> MainWindow::fixedShortcutActions() const
     return out;
 }
 
-// 冒烟取证（--smoke report 的 keys= 字段）：14 个可配置动作的当前键位。
+// 冒烟取证（--smoke report 的 keys= 字段）：13 个可配置动作的当前键位。
 QString MainWindow::shortcutsReport() const
 {
     static const char *const ids[] = {
         "open", "openfolder", "next", "prev", "next_frame", "prev_frame", "zoom_in",
-        "zoom_out", "actual_size", "fit", "slideshow", "crop", "favorite", "del",
+        "zoom_out", "actual_size", "fit", "slideshow", "favorite", "del",
     };
     QStringList parts;
     for (const char *id : ids) {
@@ -2247,45 +2221,6 @@ QMenu *MainWindow::buildSlideshowMenu(CtxMenu *parentMenu)
     return menu;
 }
 
-// 书签：添加书签 / 编辑书签 / 删除所有书签 / 书签设置（6 项含 2 条分隔）
-QMenu *MainWindow::buildBookmarkMenu()
-{
-    auto *menu = new QMenu(this);
-    menu->addAction(actFavorite);   // 添加书签 B
-    addMenuItem(menu, tr("编辑书签"), QStringLiteral("F3"), [this]() { onEditBookmarks(); });
-    menu->addSeparator();
-    addMenuItem(menu, tr("删除所有书签"), QString(), [this]() {
-        Config::instance().settings().setValue(QStringLiteral("favorites"), QStringList());
-        refreshLibraryMenus();
-        m_toast->showMessage(tr("已删除所有书签"));
-    });
-    menu->addSeparator();
-    addMenuItem(menu, tr("书签设置"), QString(), [this]() { onSettings(); });
-    UiStyle::polishMenu(menu);
-    return menu;
-}
-
-// 编辑：反色 / Gamma / 垂直翻转 / 水平翻转 / 转换图片 / 壁纸 / 打印 / 编辑器（8 项）
-QMenu *MainWindow::buildEditMenu()
-{
-    auto *menu = new QMenu(this);
-    actNegative->setChecked(m_negative);
-    menu->addAction(actNegative);      // Ctrl+I
-    menu->addAction(actGamma);         // Ctrl+G
-    menu->addAction(actFlipV);
-    menu->addAction(actFlipH);
-    menu->addSeparator();
-    // 原版"转换图片"即图片转换对话框；本项目对应 BatchConvertDialog（标题「图片转换」）
-    addMenuItem(menu, tr("转换图片 (旋转/裁剪)"), QStringLiteral("Ctrl+T"), [this]() {
-        onBatchConvert();
-    });
-    menu->addAction(actWallpaper);
-    menu->addAction(actPrint);
-    menu->addAction(actOpenWithEditor);
-    UiStyle::polishMenu(menu);
-    return menu;
-}
-
 // 复制到：图片文件夹 1 / 2、移动到 1、路径定义、打开文件夹 1（5 项）
 // 复制 / 移动到「图片文件夹 N」的真实动作（菜单项与批次18 验收探针共用）：
 // 目标目录每次动作现读配置，设置页即时写盘后本会话内立刻落到新目录。
@@ -2388,7 +2323,6 @@ QMenu *MainWindow::buildSystemMenu()
     menu->addAction(actSlideshow);
     menu->addAction(actPrevFrame);
     menu->addAction(actNextFrame);
-    menu->addAction(actCrop);
     menu->addAction(actResize);
     menu->addSeparator();
     menu->addAction(actDark);
@@ -2436,7 +2370,6 @@ QMenu *MainWindow::buildHamburgerMenu()
 
     // —— 编辑与转换 › ——
     auto *edit = addHamburgerSubmenu(menu, tr("编辑与转换"), "pencil");
-    addHamburgerAction(edit, actCrop, "crop");
     addHamburgerAction(edit, actResize, "size");
     edit->addSeparator();
     actNegative->setChecked(m_negative);
@@ -5222,7 +5155,7 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         if (m_topBar) m_topBar->probePress(c.mid(9).toInt());
     }
     else if (c == QLatin1String("topclosehover")) {
-        if (m_topBar) m_topBar->probeHover(12);
+        if (m_topBar) m_topBar->probeHover(8);
     }
     else if (c.startsWith(QLatin1String("ctrlhover:"))) {
         if (m_control) m_control->probeHover(c.mid(10).toInt());
@@ -6790,6 +6723,118 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << "\n";
         }
     }
+    // topaudit[:out] —— 顶栏结构取证：按钮 id/提示/命中区 + 文件名块。
+    // 顶栏四入口移除后据此断言：没有 2..5 号残留槽、文件名块接到右组前。
+    else if (c.startsWith(QLatin1String("topaudit"))) {
+        QString out = QStringLiteral("Temp/topbar-audit.txt");
+        if (c.startsWith(QLatin1String("topaudit:"))) {
+            out = c.mid(9).trimmed();
+        }
+        QFile f(out);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << (m_topBar ? m_topBar->layoutDump() : QStringLiteral("(no topbar)\n"));
+        }
+    }
+    // hamsub:<标题> —— 弹出三横菜单并展开指定二级子菜单（配合 --screenshot-ui
+    // 抓级联实拍；子菜单此时是最上层窗口）。
+    else if (c.startsWith(QLatin1String("hamsub:"))) {
+        const QString title = c.mid(7).trimmed();
+        QMenu *menu = buildHamburgerMenu();
+        markTopBarMenu(menu);
+        menu->setAttribute(Qt::WA_DeleteOnClose);
+        menu->popup(mapToGlobal(QPoint(40, 52)));
+        for (QAction *a : menu->actions()) {
+            if (a->menu() && a->text() == title) {
+                QMenu *sub = a->menu();
+                sub->popup(menu->mapToGlobal(
+                    QPoint(menu->width() + 2, menu->actionGeometry(a).top() - 6)));
+                break;
+            }
+        }
+    }
+    // keyfind:<PortableText> 或 keyfind:<out>:<PortableText> —— 键盘安装结果取证：
+    // 扫描全部 QAction 的快捷键，返回持有该键的动作数量与名字。旧「裁剪」绑定
+    // 删除后应 hits=0。同一份报告里 cropaction=1 表示注册表仍留着 crop，必须为 0。
+    else if (c.startsWith(QLatin1String("keyfind:"))) {
+        const QString arg = c.mid(8).trimmed();
+        QString out = QStringLiteral("Temp/keyfind.txt");
+        QString seqArg = arg;
+        // 键位 PortableText 不含 ':'；带前缀的写法是「输出文件:键位」。
+        const int sep = arg.indexOf(QLatin1Char(':'));
+        if (sep > 0) {
+            out = arg.left(sep).trimmed();
+            seqArg = arg.mid(sep + 1).trimmed();
+        }
+        const QKeySequence seq = QKeySequence::fromString(seqArg, QKeySequence::PortableText);
+        int hits = 0;
+        QStringList owners;
+        for (QAction *a : findChildren<QAction *>()) {
+            for (const QKeySequence &s : a->shortcuts()) {
+                if (!seq.isEmpty() && s == seq) {
+                    ++hits;
+                    QString label = a->text();
+                    label.remove(QLatin1Char('&'));
+                    owners << label;
+                }
+            }
+        }
+        QFile f(out);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << "seq=" << seqArg << " parsed=" << seq.toString(QKeySequence::PortableText)
+               << " hits=" << hits << " owners=" << owners.join(QLatin1Char('|'))
+               << " cropaction=" << (m_actions.contains(QStringLiteral("crop")) ? 1 : 0)
+               << " actions=" << m_actions.size() << "\n";
+        }
+    }
+    // mouseact:<action> —— 直接走画布鼠标派发器（旧 mouse/btn_* 映射的落点），
+    // 落盘动作名与裁剪模式状态。已移除的 crop 不应再进入裁剪模式。
+    else if (c.startsWith(QLatin1String("mouseact:"))) {
+        const QString action = c.mid(9).trimmed();
+        onMouseAction(action);
+        QFile f(QStringLiteral("Temp/mouseact.txt"));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << "action=" << action << " cropmode=" << (m_cropMode ? 1 : 0)
+               << " cropaction=" << (m_actions.contains(QStringLiteral("crop")) ? 1 : 0)
+               << "\n";
+        }
+    }
+    // hamact:<二级标题>:<项文本前缀> —— 在真实构建出来的三横菜单里定位条目并
+    // 触发其 QAction（与鼠标点选走同一个槽）。落盘 found/触发文本，配合
+    // --screenshot-ui 可拍「转换图片」对话框，确认入口仍在且可用。
+    else if (c.startsWith(QLatin1String("hamact:"))) {
+        const QString arg = c.mid(7);
+        const int sep = arg.indexOf(QLatin1Char(':'));
+        const QString title = sep > 0 ? arg.left(sep) : arg;
+        const QString item = sep > 0 ? arg.mid(sep + 1) : QString();
+        int found = 0;
+        QString hit;
+        QMenu *menu = buildHamburgerMenu();
+        for (QAction *a : menu->actions()) {
+            if (!a->menu() || a->text() != title) {
+                continue;
+            }
+            for (QAction *leaf : a->menu()->actions()) {
+                if (leaf->isSeparator() || !leaf->text().startsWith(item)) {
+                    continue;
+                }
+                found = 1;
+                hit = leaf->text();
+                leaf->trigger();
+                break;
+            }
+            break;
+        }
+        menu->deleteLater();
+        QFile f(QStringLiteral("Temp/hamact.txt"));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << "submenu=" << title << " item=" << item << " found=" << found
+               << " text=" << hit << "\n";
+        }
+    }
     // —— 复制与剪贴板三件 验收探针（--smoke）——
     // clipcopy:exif|path|visible|file 执行对应复制；clippaste 取图；
     // clipsettext:<txt文件> / clipsetimg:<img> / clipseturl:<file> / clipclear 注入；
@@ -7983,6 +8028,9 @@ void MainWindow::setSpreadMode(int mode)
     updateShowModeIcon();
 }
 
+// 2026-11-22：独立「裁剪」命令已从三横菜单与设置动作表移除，画布框选裁剪
+// 不再有入口；裁剪（含尺寸处理）统一走「转换图片」对话框。下面这段保留为
+// 模式切换/取消的内部实现，当前没有可达入口。
 void MainWindow::onCrop()
 {
     m_cropMode = !m_cropMode;
@@ -8657,7 +8705,7 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
     if (key.startsWith(QLatin1String("keyboard/"))
         && key.endsWith(QLatin1String("_enabled"))) {
         // 键盘页「启用」是即时项：配置由设置页在调用前写入，这里在切换点
-        // 立即按新配置重装 14 个动作的热键表，保证会话内按键立刻按新表分发，
+        // 立即按新配置重装 13 个动作的热键表，保证会话内按键立刻按新表分发，
         // 不再等对话框关闭后的 onSettings() 统一重放。
         applyShortcutConfig();
         return true;

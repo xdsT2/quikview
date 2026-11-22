@@ -503,13 +503,13 @@ public:
         setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
         // sizeHint 跟随内容：行区不再吃 stretch（M-05），若仍用 QScrollArea 的默认
-        // sizeHint（与内容无关的预置值），表格只按 360 高分配、14 行被逼出滚动条。
+        // sizeHint（与内容无关的预置值），表格只按 360 高分配、键盘行会被逼出滚动条。
         setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
     }
 
     // hint / head 是行区之外、同样占据纵向空间的固定部件。
     // extra：行区之外新增的部件（键盘页状态图例），也要从可用高度里扣掉，
-    // 否则 14 行会算出过高、表格底部越出页面。其余页不传，行为不变。
+    // 否则键盘行会算出过高、表格底部越出页面。其余页不传，行为不变。
     void snapTo(QWidget *hint, QWidget *head, int rowStep, QWidget *extra = nullptr,
                 int fixedContent = 0)
     {
@@ -583,9 +583,9 @@ private:
         if (!m_hint || !m_head || !m_outer) {
             return;
         }
-        // 内容自然高 = 14 行 + 13 条分隔线 + 底部 12px 安全留白（在 rowsBox margin 里）
+        // 内容自然高 = 13 行 + 12 条分隔线 + 底部 12px 安全留白（在 rowsBox margin 里）
         const int natural = widget() ? qMax(1, widget()->sizeHint().height())
-                                     : m_step * 14;
+                                     : m_step * 13;
         // 可用高 = 外层可视高 − 提示行 − 表头 − 表格上下 1px 边框。
         // 页面 layout 在这三段之外已无其它纵向占用（margins/spacing 均 0，
         // 表格外 spacing 已随 M-05 删除），不再重复扣减。
@@ -1035,7 +1035,6 @@ QList<QPair<QString, QString>> actionOptions()
         { QStringLiteral("context_menu"),  QObject::tr("上下文菜单") },
         { QStringLiteral("open"),          QObject::tr("打开") },
         { QStringLiteral("openfolder"),    QObject::tr("打开文件夹") },
-        { QStringLiteral("crop"),          QObject::tr("裁剪") },
         { QStringLiteral("favorite"),      QObject::tr("收藏") },
         { QStringLiteral("del"),           QObject::tr("删除") },
     };
@@ -3605,7 +3604,7 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
 // 4. 格式关联：说明 + 两个系统按钮 + 四组格式勾选网格
 
 // ===========================================================================
-// 5. 键盘：勾选 | 热键 | 操作 表格（14 行）
+// 5. 键盘：勾选 | 热键 | 操作 表格（13 行）
 // ===========================================================================
 
 void SettingsDialog::buildKeyboardPage(QWidget *page)
@@ -3690,7 +3689,7 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     rl0->setContentsMargins(0, 0, 0, 6);
     rl0->setSpacing(0);
 
-    // 默认键位 = MainWindow 出厂硬编码值（PortableText；幻灯片/裁剪出厂无单键）。
+    // 默认键位 = MainWindow 出厂硬编码值（PortableText；幻灯片出厂无单键）。
     // 四个分组按文件、浏览、显示与缩放、编辑与其他排列（规格 §焦点与键盘状态）。
     struct KeyDef {
         const char *group;
@@ -3710,7 +3709,6 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
         { "view", "zoom_out",    "Ctrl+-",     QT_TR_NOOP("缩小") },
         { "view", "actual_size", "0",          QT_TR_NOOP("实际大小") },
         { "view", "fit",         "9",          QT_TR_NOOP("适配窗口") },
-        { "edit", "crop",        "",           QT_TR_NOOP("裁剪") },
         { "edit", "favorite",    "B",          QT_TR_NOOP("收藏") },
         { "edit", "del",         "Del",        QT_TR_NOOP("删除") },
     };
@@ -3832,7 +3830,7 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     rl0->addStretch(1);
     rowsArea->setWidget(rowsBox);
     // 单一表格滚动区（规格 §审图索引）：表格吃满页面剩余高度，表头在滚动区
-    // 之外固定，分组头与 14 行一起滚；900×660 与 1068×822 用同一支布局，
+    // 之外固定，分组头与 13 行一起滚；900×660 与 1068×822 用同一支布局，
     // 只由可用高度决定露出多少行。不再做整行吸附——设计图 08 本身就允许
     // 末行被视口边缘自然截断。
     tl->addWidget(rowsArea, 1);
@@ -6387,7 +6385,7 @@ void SettingsDialog::loadBindingsFromConfig(int chkFrom, int comboFrom, int keyF
     // 直接按原值显示与生效，不再折算为「停止」（批次 1 的临时折算已移除）。
     for (int i = qMax(0, keyFrom); i < m_keyRows.size(); ++i) {
         const KeyRow &r = m_keyRows.at(i);
-        // 出厂无单键的动作（幻灯片 / 裁剪）默认不启用，避免「勾着但热键为空」；
+        // 出厂无单键的动作（幻灯片）默认不启用，避免「勾着但热键为空」；
         // 已有配置仍以用户落盘值为准（P2 / D4）。
         const bool enabledByDefault = !r.defHotkey.isEmpty();
         // 命令 ID 化（H1-7）：启用与键位都从命令键读（config/keyboard/<CMD>_*）。
@@ -7541,7 +7539,7 @@ void SettingsDialog::setKeyHintMode(bool editing)
 // 两类冲突（只由自定义行触发，且目标动作不同）：
 //   1) 两个自定义行键位相同；
 //   2) 自定义行键位撞上「仍处于出厂态的其他动作」的任何键（含 PageUp/Backspace
-//      等副键）或固定动作（打印 Ctrl+P 等 14 个之外的动作）的任何键。
+//      等副键）或固定动作（打印 Ctrl+P 等 13 个之外的动作）的任何键。
 // 有冲突：高亮全部冲突行并返回提示文案（每条冲突一行，指出键位与冲突的两个动作）；
 // 无冲突返回空串。
 QString SettingsDialog::keyboardConflicts()

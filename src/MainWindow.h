@@ -116,10 +116,10 @@ public:
     bool transferCurrentToFolder(const QString &cfgKey, bool moveFile, QString *dest,
                                  QString *error);
 
-    // 键盘页冲突检测数据源：14 个可配置动作之外、持有键位的动作清单
+    // 键盘页冲突检测数据源：13 个可配置动作之外、持有键位的动作清单
     // （每个快捷键一条，含副键；显示名已剥 & 助记符与 '\t' 后缀）。
     QList<QPair<QString, QKeySequence>> fixedShortcutActions() const;
-    // 14 个可配置动作的出厂键位全表（id → 键位列表，含副键）。设置页冲突检测用：
+    // 13 个可配置动作的出厂键位全表（id → 键位列表，含副键）。设置页冲突检测用：
     // 自定义键位不得撞上「仍处于出厂态」的其他动作的任何键。
     QHash<QString, QList<QKeySequence>> factoryShortcutLists() const;
 
@@ -250,8 +250,6 @@ private:
     QMenu *buildContextMenu();
     QMenu *buildBrowseMenu();
     QMenu *buildSlideshowMenu(CtxMenu *parentMenu = nullptr);
-    QMenu *buildBookmarkMenu();
-    QMenu *buildEditMenu();
     QMenu *buildCopytoMenu(CtxMenu *parentMenu = nullptr);
     QMenu *buildSystemMenu();
     // 三横菜单：完整一级信息架构（文件 / 幻灯片 / 书签 / 编辑与转换 / 复制到 /
@@ -264,10 +262,10 @@ private:
     void togglePsdLayers();
     void refreshPsdView();
     bool psdSimplified() const;
-    // 键盘快捷键自定义（批次 D1）：按 config/keyboard/* 给 14 个可配置动作
+    // 键盘快捷键自定义（批次 D1）：按 config/keyboard/* 给 13 个可配置动作
     // 重装键位。启动（createActions 末尾）与设置页保存返回后各走一次。
     void applyShortcutConfig();
-    // 冒烟取证：14 个可配置动作的当前键位（PortableText，无键记 '-'）。
+    // 冒烟取证：13 个可配置动作的当前键位（PortableText，无键记 '-'）。
     QString shortcutsReport() const;
     // preempt=true：显式跳转的抢占式加载（允许不等旧任务解完就启动新目标）；
     // 顺序翻页保持默认 false —— FIFO 逐张上屏，连按体感不变。
@@ -434,7 +432,6 @@ private:
     QAction *actNegative = nullptr;    // 反色（Ctrl+I）
     QAction *actGamma = nullptr;       // Gamma 补偿（Ctrl+G）
     QAction *actZoomLock = nullptr;    // 缩放锁定（Ctrl+K）
-    QAction *actCrop = nullptr;
     QAction *actResize = nullptr;
     QAction *actNextFrame = nullptr;
     QAction *actPrevFrame = nullptr;
@@ -443,7 +440,7 @@ private:
     QAction *actEffectNone = nullptr;
     QAction *actEffectSoften = nullptr;
     QAction *actEffectSharpen = nullptr;
-    // 键盘页可配置动作注册表（动作 id → QAction）。14 个 id 见
+    // 键盘页可配置动作注册表（动作 id → QAction）。13 个 id 见
     // applyShortcutConfig 的槽位表；键位下发与冲突检测都按 id 走这里。
     QHash<QString, QAction *> m_actions;
     QAction *actInterpFast = nullptr;

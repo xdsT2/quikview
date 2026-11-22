@@ -619,15 +619,12 @@ int topButtonWidth(const QString &label, bool withLabel)
     return 10 + 18 + 8 + topTextWidth(label) + 10;
 }
 
+// 只有「打开 / 浏览」两个按钮带文字；右组图标按钮与 Windows 三键不走这里。
 QString topActionLabel(int id)
 {
     switch (id) {
     case 0: return QObject::tr("打开");
     case 1: return QObject::tr("浏览");
-    case 2: return QObject::tr("幻灯片");
-    case 3: return QObject::tr("书签");
-    case 4: return QObject::tr("编辑");
-    case 5: return QObject::tr("复制到");
     default: break;
     }
     return QString();
@@ -707,17 +704,13 @@ int TopBar::idForAction(Action action)
     switch (action) {
     case Action::Open: return 0;
     case Action::Browse: return 1;
-    case Action::Slideshow: return 2;
-    case Action::Bookmark: return 3;
-    case Action::Edit: return 4;
-    case Action::CopyTo: return 5;
-    case Action::Layers: return 6;
-    case Action::TopLock: return 7;
-    case Action::Pin: return 8;
-    case Action::Menu: return 9;
-    case Action::Minimize: return 10;
-    case Action::Maximize: return 11;
-    case Action::Close: return 12;
+    case Action::Layers: return 2;
+    case Action::TopLock: return 3;
+    case Action::Pin: return 4;
+    case Action::Menu: return 5;
+    case Action::Minimize: return 6;
+    case Action::Maximize: return 7;
+    case Action::Close: return 8;
     default: break;
     }
     return -1;
@@ -728,34 +721,29 @@ TopBar::Action TopBar::actionForId(int id)
     switch (id) {
     case 0: return Action::Open;
     case 1: return Action::Browse;
-    case 2: return Action::Slideshow;
-    case 3: return Action::Bookmark;
-    case 4: return Action::Edit;
-    case 5: return Action::CopyTo;
-    case 6: return Action::Layers;
-    case 7: return Action::TopLock;
-    case 8: return Action::Pin;
-    case 9: return Action::Menu;
-    case 10: return Action::Minimize;
-    case 11: return Action::Maximize;
-    case 12: return Action::Close;
+    case 2: return Action::Layers;
+    case 3: return Action::TopLock;
+    case 4: return Action::Pin;
+    case 5: return Action::Menu;
+    case 6: return Action::Minimize;
+    case 7: return Action::Maximize;
+    case 8: return Action::Close;
     default: break;
     }
     return Action::None;
 }
 
 // 单行布局。分阶段收窄（与标注同序）：
-//   0 全文字 + 文件名 140 ｜ 1 文件名归零 ｜ 2 中组收成图标
-//   3 复制到 ｜ 4 编辑 ｜ 5 书签 ｜ 6 幻灯片 ｜ 7 图层
-//   8 顶栏锁 ｜ 9 置顶 ｜ 10 浏览
+//   0 全文字 + 文件名 140 ｜ 1 文件名归零 ｜ 2 浏览收成图标
+//   3 图层 ｜ 4 顶栏锁 ｜ 5 置顶 ｜ 6 浏览
 // 最后始终保留打开、三横菜单和 Windows 三按钮。
+// 2026-11-22 顶栏入口精简：书签 / 幻灯片放映 / 编辑 / 复制到四个快捷入口已移除，
+// 不再为它们留槽、也不迁入任何溢出列表；腾出的中段全部交给文件名。
 QVector<TopBar::Btn> TopBar::buttons() const
 {
     struct Plan {
-        bool labels = true;        // 中组是否带文字
         bool browseLabel = true;
         int filenameMin = 0;
-        QVector<Action> center;
         bool browse = true;
         bool layers = true;
         bool topLock = true;
@@ -768,31 +756,18 @@ QVector<TopBar::Btn> TopBar::buttons() const
 
     auto makePlan = [&](int stage) {
         Plan p;
-        p.labels = stage <= 1;
         p.browseLabel = stage <= 2;
         p.filenameMin = stage == 0 ? 140 : 0;
-        p.center = { Action::Slideshow, Action::Bookmark, Action::Edit, Action::CopyTo };
-        p.browse = stage < 10;
-        p.layers = m_showLayers && stage < 7;
-        p.topLock = stage < 8;
-        p.pin = stage < 9;
-        if (stage >= 3) p.center.removeOne(Action::CopyTo);
-        if (stage >= 4) p.center.removeOne(Action::Edit);
-        if (stage >= 5) p.center.removeOne(Action::Bookmark);
-        if (stage >= 6) p.center.removeOne(Action::Slideshow);
+        p.browse = stage < 6;
+        p.layers = m_showLayers && stage < 3;
+        p.topLock = stage < 4;
+        p.pin = stage < 5;
 
-        // 打开始终带文字（极窄窗也保留），只有中组与浏览会依次图标化/收入菜单。
+        // 打开始终带文字（极窄窗也保留），只有浏览会依次图标化/收入菜单。
         int left = kTopMargin + kTopLogoW + 8;
         left += topButtonWidth(topActionLabel(0), true) + gapFor(true);
         if (p.browse) {
             left += topButtonWidth(topActionLabel(1), p.browseLabel);
-        }
-        int centerW = 0;
-        for (Action a : p.center) {
-            centerW += topButtonWidth(topActionLabel(idForAction(a)), p.labels) + gapFor(p.labels);
-        }
-        if (centerW > 0) {
-            centerW -= gapFor(p.labels);
         }
 
         int right = 3 * kTopWinBtn + 8 + kTopBtn;   // 菜单常驻
@@ -800,14 +775,14 @@ QVector<TopBar::Btn> TopBar::buttons() const
         if (p.topLock) right += kTopBtn;
         if (p.pin) right += kTopBtn;
 
-        // 中组两侧各留 16px，文件名再留 24px 起收点。
-        p.required = left + p.filenameMin + centerW + right + 40;
+        // 文件名两侧各留 12/20px 呼吸位，再留 28px 起收点。
+        p.required = left + p.filenameMin + right + 32;
         return p;
     };
 
     Plan plan;
     bool fitted = false;
-    for (int stage = 0; stage <= 10; ++stage) {
+    for (int stage = 0; stage <= 6; ++stage) {
         plan = makePlan(stage);
         if (plan.required <= width()) {
             fitted = true;
@@ -815,7 +790,7 @@ QVector<TopBar::Btn> TopBar::buttons() const
         }
     }
     if (!fitted) {
-        plan = makePlan(10);
+        plan = makePlan(6);
     }
 
     QVector<Btn> out;
@@ -825,7 +800,7 @@ QVector<TopBar::Btn> TopBar::buttons() const
     const int h = height() > 0 ? height() : kTopH;
     const int y = (h - kTopBtn) / 2;
 
-    // —— 左组：Q 标识、打开、浏览、文件名 ——
+    // —— 左组：Q 标识、打开、浏览 ——
     int x = kTopMargin + kTopLogoW + 8;
     const int openW = topButtonWidth(topActionLabel(0), true);
     out.append(Btn{ Action::Open, QRect(x, y, openW, kTopBtn), topActionLabel(0),
@@ -842,15 +817,7 @@ QVector<TopBar::Btn> TopBar::buttons() const
     }
     const int leftEnd = x;
 
-    // —— 中组（相对整窗居中；空间不足时按计划收纳） ——
-    int centerW = 0;
-    for (Action a : plan.center) {
-        centerW += topButtonWidth(topActionLabel(idForAction(a)), plan.labels) + gapFor(plan.labels);
-    }
-    if (centerW > 0) {
-        centerW -= gapFor(plan.labels);
-    }
-
+    // —— 右组起点（图层 / 顶栏锁 / 置顶 / 三横菜单） ——
     const int rightEdge = width() - 3 * kTopWinBtn - 8;
     int rightStart = rightEdge;
     if (plan.layers) rightStart -= kTopBtn;
@@ -858,27 +825,11 @@ QVector<TopBar::Btn> TopBar::buttons() const
     if (plan.pin) rightStart -= kTopBtn;
     rightStart -= kTopBtn;   // menu
 
-    int centerStart = width() / 2 - centerW / 2;
-    centerStart = qBound(leftEnd + 16, centerStart, qMax(leftEnd + 16, rightStart - 12 - centerW));
-    int cx = centerStart;
-    for (Action a : plan.center) {
-        const int id = idForAction(a);
-        const int bw = topButtonWidth(topActionLabel(id), plan.labels);
-        out.append(Btn{ a, QRect(cx, y, bw, kTopBtn), topActionLabel(id),
-                        !plan.labels, false, false });
-        cx += bw + gapFor(plan.labels);
-    }
-    for (int id : { 2, 3, 4, 5 }) {
-        const Action a = actionForId(id);
-        if (!plan.center.contains(a)) {
-            m_hiddenIds.append(id);
-        }
-    }
-
     // 文件名：优先省略，可收至零宽；低于 80px 就整段不画（避免只剩一两个字母）。
+    // 中段原本留给四个快捷入口；入口移除后这块空间直接归文件名，不再设上限。
     const int fnLeft = leftEnd + 12;
-    const int fnRight = qMax(fnLeft, centerStart - 20);
-    const int fnW = qMin(360, fnRight - fnLeft);
+    const int fnRight = qMax(fnLeft, rightStart - 20);
+    const int fnW = fnRight - fnLeft;
     m_filenameRect = fnW >= 80 ? QRect(fnLeft, 0, fnW, h) : QRect();
 
     // —— 右组：图层 / 顶栏锁 / 置顶 / 三横菜单，再往右是 Windows 三按钮 ——
@@ -889,20 +840,20 @@ QVector<TopBar::Btn> TopBar::buttons() const
         rx -= kTopBtn;
         out.append(Btn{ Action::Pin, QRect(rx, y, kTopBtn, kTopBtn), QString(), true, false, false });
     } else {
-        m_hiddenIds.append(8);
+        m_hiddenIds.append(4);
     }
     if (plan.topLock) {
         rx -= kTopBtn;
         out.append(Btn{ Action::TopLock, QRect(rx, y, kTopBtn, kTopBtn), QString(), true, false, false });
     } else {
-        m_hiddenIds.append(7);
+        m_hiddenIds.append(3);
     }
     if (plan.layers) {
         rx -= kTopBtn;
         out.append(Btn{ Action::Layers, QRect(rx, y, kTopBtn, kTopBtn), QString(), true, false,
                         !m_layersAvailable });
     } else if (m_showLayers) {
-        m_hiddenIds.append(6);
+        m_hiddenIds.append(2);
     }
 
     for (int i = 0; i < 3; ++i) {
@@ -920,6 +871,34 @@ QVector<int> TopBar::hiddenActionIds() const
     return m_hiddenIds;
 }
 
+// 验收探针：把「实际参与命中/绘制」的按钮与文件名块原样落文本，
+// 四入口移除后据此逐项核对没有残槽、文件名确实接手中段空间。
+QString TopBar::layoutDump() const
+{
+    const QVector<Btn> list = buttons();
+    QString out;
+    out += QStringLiteral("width=%1 height=%2 buttons=%3 filename=%4,%5,%6,%7\n")
+               .arg(width())
+               .arg(height())
+               .arg(list.size())
+               .arg(m_filenameRect.x())
+               .arg(m_filenameRect.y())
+               .arg(m_filenameRect.width())
+               .arg(m_filenameRect.height());
+    for (const Btn &b : list) {
+        out += QStringLiteral("id=%1 tip=%2 rect=%3,%4,%5,%6 iconOnly=%7 caret=%8\n")
+                   .arg(idForAction(b.action))
+                   .arg(tipText(b.action))
+                   .arg(b.rect.x())
+                   .arg(b.rect.y())
+                   .arg(b.rect.width())
+                   .arg(b.rect.height())
+                   .arg(b.iconOnly ? 1 : 0)
+                   .arg(b.caret ? 1 : 0);
+    }
+    return out;
+}
+
 QPoint TopBar::actionAnchorGlobal(int id) const
 {
     const QVector<Btn> list = buttons();
@@ -934,12 +913,12 @@ QPoint TopBar::actionAnchorGlobal(int id) const
 
 QPoint TopBar::menuAnchorGlobal() const
 {
-    return actionAnchorGlobal(9);
+    return actionAnchorGlobal(5);
 }
 
 QPoint TopBar::closeAnchorGlobal() const
 {
-    return actionAnchorGlobal(12);
+    return actionAnchorGlobal(8);
 }
 
 void TopBar::probeHover(int id)
@@ -995,10 +974,6 @@ QString TopBar::tipText(Action action) const
     switch (action) {
     case Action::Open: return tr("打开");
     case Action::Browse: return tr("浏览");
-    case Action::Slideshow: return tr("幻灯片放映");
-    case Action::Bookmark: return tr("书签");
-    case Action::Edit: return tr("编辑");
-    case Action::CopyTo: return tr("复制到");
     case Action::Layers:
         return m_layersAvailable ? (m_layersOpen ? tr("隐藏 PSD 图层") : tr("PSD 图层"))
                                  : tr("PSD 图层（当前图片没有可用图层）");
@@ -1116,10 +1091,6 @@ void TopBar::paintEvent(QPaintEvent *)
         switch (b.action) {
         case Action::Open: drawIcon(p, "folder-open", icon, drawInk, iconStyle); break;
         case Action::Browse: drawIcon(p, "apps", icon, drawInk, iconStyle); break;
-        case Action::Slideshow: drawIcon(p, "play", icon, drawInk, iconStyle); break;
-        case Action::Bookmark: drawIcon(p, "bookmark", icon, drawInk, iconStyle); break;
-        case Action::Edit: drawIcon(p, "image-edit", icon, drawInk, iconStyle); break;
-        case Action::CopyTo: drawIcon(p, "copy", icon, drawInk, iconStyle); break;
         case Action::Layers:
             // 面板展开是持续状态：展开期间保持 filled，收起回 regular；按下瞬时填充。
             drawIcon(p, "stack", icon, drawInk,
@@ -1177,10 +1148,6 @@ void TopBar::activate(Action action, const QPoint &globalPos)
     switch (action) {
     case Action::Open: emit openClicked(); break;
     case Action::Browse: emit browseMenuRequested(globalPos); break;
-    case Action::Slideshow: emit slideshowMenuRequested(globalPos); break;
-    case Action::Bookmark: emit bookmarkMenuRequested(globalPos); break;
-    case Action::Edit: emit editMenuRequested(globalPos); break;
-    case Action::CopyTo: emit copytoMenuRequested(globalPos); break;
     case Action::Layers:
         if (m_layersAvailable) {
             emit layersClicked();

@@ -133,8 +133,8 @@ public:
     void setLayerState(bool available, bool open);
     bool layersAvailable() const { return m_layersAvailable; }
 
-    // 窄窗收起探针：0打开 1浏览 2幻灯片 3书签 4编辑 5复制到
-    // 6图层 7顶栏锁 8置顶 9三横菜单
+    // 窄窗收起探针：0打开 1浏览 2图层 3顶栏锁 4置顶 5三横菜单
+    // 6最小化 7最大化 8关闭
     QVector<int> hiddenActionIds() const;
     QPoint menuAnchorGlobal() const;
     QPoint closeAnchorGlobal() const;
@@ -143,14 +143,12 @@ public:
     // 冒烟取证：按 id 合成 hover / pressed，截图不必依赖真实光标。
     void probeHover(int id);
     void probePress(int id);
+    // 冒烟取证：当前布局的按钮 id / 提示 / 命中区与文件名块（不含绘制态）。
+    QString layoutDump() const;
 
 signals:
     void openClicked();
     void browseMenuRequested(const QPoint &globalPos);
-    void slideshowMenuRequested(const QPoint &globalPos);
-    void bookmarkMenuRequested(const QPoint &globalPos);
-    void editMenuRequested(const QPoint &globalPos);
-    void copytoMenuRequested(const QPoint &globalPos);
     void layersClicked();
     void topLockToggled();
     void pinToggled();
@@ -179,8 +177,7 @@ protected:
 
 private:
     enum class Action {
-        None, Open, Browse, Slideshow, Bookmark, Edit, CopyTo,
-        Layers, TopLock, Pin, Menu, Minimize, Maximize, Close
+        None, Open, Browse, Layers, TopLock, Pin, Menu, Minimize, Maximize, Close
     };
     struct Btn {
         Action action = Action::None;
