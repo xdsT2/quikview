@@ -3096,14 +3096,8 @@ void SettingsDialog::buildViewPage(QWidget *page)
     // 批次21 #81：即时项——切换即下发运行态（打开时当场播一次）并写盘，
     // 关闭设置后保留（不属「取消即回滚」的浏览页四项）。
     m_liveChecks.append({ pageturnWav, "etc/pageturn_wav", false, false });
-    // 就地在「翻页」组底部说一句：这一项是本页唯一的即时项，状态行贴在这里
-    // 才看得见（页尾的状态行在长页里要滚到底）。
-    m_viewLiveNote = new QLabel(sec);
-    m_viewLiveNote->setObjectName(QStringLiteral("noteLabel"));
-    m_viewLiveNote->setWordWrap(true);
-    m_viewLiveNote->hide();
-    if (auto *v = qobject_cast<QVBoxLayout *>(sec->layout()))
-        v->addWidget(m_viewLiveNote);
+    // 状态行：批次05 起统一由本函数末尾的 addLiveNote(page) 贴在页首
+    // （批次21 原来的「贴在本组底部」标签已并入同一条，避免一页两条）。
 
     sec = beginSection(page, tr("缩放与记忆"));
     auto *saveZoom = addSwitchRow(sec, tr("记住缩放状态"),
@@ -3583,13 +3577,8 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
                  QString(),
                  "etc/raw_thumbnail", false, true);
     m_liveChecks.append({ rawThumb, "etc/raw_thumbnail", false, false });
-    // 本页即时项的状态行：贴在 RAW 组下面（不放页尾——色彩管理还在下面，页尾要滚）。
-    m_imageProcLiveNote = new QLabel(page);
-    m_imageProcLiveNote->setObjectName(QStringLiteral("noteLabel"));
-    m_imageProcLiveNote->setWordWrap(true);
-    m_imageProcLiveNote->hide();
-    if (page->layout())
-        page->layout()->addWidget(m_imageProcLiveNote);
+    // 本页即时项的状态行：批次05 起统一由 addLiveNote(page) 贴在页首
+    // （批次21 原来的「贴在本页中段」标签已并入同一条，避免一页两条）。
 
     sec = beginSection(page, tr("色彩管理"));
     auto *iccFile = addSwitchRow(sec, tr("使用图片文件的 ICC 设置"), QString(),
@@ -3601,7 +3590,7 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
                                     "imageproc/monitor_icc", false, false);
     descToRowTip(iccMonitor, tr("无有效配置或转换失败时保持 sRGB 显示，原因见临时目录日志"));
     // 批次05 页内状态行：插值档 / 快帧策略切换后就地反馈「已经生效 + 怎么看到 + 取消口径」。
-    m_imgProcLiveNote = addLiveNote(page);
+    m_imageProcLiveNote = addLiveNote(page);
     applyPageRhythm(page);
 }
 
@@ -7286,7 +7275,7 @@ QLabel *SettingsDialog::liveNoteFor(const QString &key) const
 {
     if (key == QLatin1String("imageproc/interpolate")
         || key == QLatin1String("imageproc/preview_mode"))
-        return m_imgProcLiveNote;
+        return m_imageProcLiveNote;
     if (key == QLatin1String("imageproc/pageturn_fx"))
         return m_viewLiveNote;
     return m_browseLiveNote;   // GIF 透明背景 / 画布背景在「外观与显示」页
@@ -7421,11 +7410,11 @@ void SettingsDialog::rollbackImgProcBaseline()
         host->setLivePreviewQuiet(false);
     if (!revert.isEmpty())
         commitValues(revert);   // 配置回到进入设置时的值（不弹窗、不整表重写）
-    if (m_imgProcLiveNote) {
-        m_imgProcLiveNote->setText(
+    if (m_imageProcLiveNote) {
+        m_imageProcLiveNote->setText(
             revert.isEmpty() ? tr("已关闭设置，图像处理页未保留即时改动。")
                              : tr("已放弃本次改动：图像处理页的即时项已回到进入设置时的状态。"));
-        m_imgProcLiveNote->show();
+        m_imageProcLiveNote->show();
     }
     if (m_viewLiveNote) {
         m_viewLiveNote->setText(
@@ -8793,7 +8782,7 @@ void SettingsDialog::probeImgProcDump(const QString &tag)
     }
     if (host)
         ts << "mainwin " << host->imageProcLiveStateDump() << "\n";
-    for (const QLabel *n : { m_imgProcLiveNote, m_viewLiveNote, m_browseLiveNote })
+    for (const QLabel *n : { m_imageProcLiveNote, m_viewLiveNote, m_browseLiveNote })
         ts << "note[" << (n && n->isVisible() ? "shown" : "hidden") << "]=\""
            << (n ? n->text() : QString()) << "\"\n";
     ts << "dialogVisible=" << (isVisible() ? 1 : 0) << "\n";

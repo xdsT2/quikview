@@ -432,8 +432,8 @@ private:
     QHash<QString, QVariant> m_imgProcBaseline;   // key → 进入设置时的档位（字符串/布尔）
     // 页内联「已即时生效」状态行：图像处理页 / 浏览页各一行（外观页沿用
     // m_browseLiveNote）。三项独立，切页时各自说话，不互相覆盖。
-    QLabel *m_imgProcLiveNote = nullptr;
-    QLabel *m_viewLiveNote = nullptr;
+    // 具体标签复用下方 m_viewLiveNote / m_imageProcLiveNote（批次21 建立），
+    // 批次05 改为统一由 addLiveNote(page) 贴到页首。
     QLabel *addLiveNote(QWidget *page);
     QLabel *liveNoteFor(const QString &key) const;
     void updateLiveNote(const QString &key, const QVariant &value);
