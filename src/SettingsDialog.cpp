@@ -7815,6 +7815,7 @@ void SettingsDialog::probeKeyLive(const QString &spec, const QString &outPath)
         } else {
             const KeyRow &r = m_keyRows.at(i);
             QSettings &s = Config::instance().settings();
+            const Config &cfg = Config::instance();
             const QString enabledFull = QStringLiteral("config/keyboard/%1_enabled").arg(action);
             const QString keyFull = QStringLiteral("config/keyboard/%1_key").arg(action);
             const QString state = r.stateLab ? r.stateLab->property("state").toString() : QString();
@@ -7825,6 +7826,14 @@ void SettingsDialog::probeKeyLive(const QString &spec, const QString &outPath)
                << "\"\n"
                << "row_state=" << (state.isEmpty() ? QStringLiteral("-") : state)
                << " state_text=" << (r.stateLab ? r.stateLab->text() : QString()) << "\n"
+               // 命令 ID 化（H1-7）后的真源：<CMD>_enabled / <CMD>_keys(_set)。
+               << "cmd=" << (r.cmd.isEmpty() ? QStringLiteral("-") : r.cmd)
+               << " cmd_enabled="
+               << (cfg.commandEnabled(r.cmd, !r.defHotkey.isEmpty() || cfg.commandKeysSaved(r.cmd))
+                       ? 1 : 0)
+               << " cmd_keys_saved=" << (cfg.commandKeysSaved(r.cmd) ? 1 : 0)
+               << " cmd_keys=\"" << cfg.commandKeys(r.cmd).join(QLatin1Char('|')) << "\"\n"
+               // 旧槽位镜像（降级回退用），确认两份数据不打架。
                << "cfg_enabled=" << (s.value(enabledFull).toBool() ? 1 : 0)
                << " cfg_enabled_present=" << (s.contains(enabledFull) ? 1 : 0)
                << " cfg_key=\"" << s.value(keyFull).toString()
@@ -7834,7 +7843,10 @@ void SettingsDialog::probeKeyLive(const QString &spec, const QString &outPath)
                                                              : QStringLiteral("-"))
                << "\n"
                << "pending_names=" << pendingChangeNames().join(QStringLiteral("|")) << "\n"
-               << "runtime_slideshow=" << (host && host->slideshowRunning() ? 1 : 0) << "\n";
+               << "runtime_slideshow=" << (host && host->slideshowRunning() ? 1 : 0) << "\n"
+               // 冲突时保存按钮由 refreshKeyConflictBanner 置灰：这里把它的可用态
+               // 一起记下来，「点保存被拦」既有按钮态证据、也有配置未变的证据。
+               << "btn_ok_enabled=" << (m_btnOk ? (m_btnOk->isEnabled() ? 1 : 0) : -1) << "\n";
             if (host)
                 ts << "keys=" << host->shortcutsReport() << "\n";
             ts << "dialog_open=" << (isVisible() ? 1 : 0) << "\n";
@@ -7914,7 +7926,16 @@ void SettingsDialog::probeKeyLive(const QString &spec, const QString &outPath)
             QKeyEvent esc(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
             QApplication::sendEvent(edit, &esc);
         } else if (step == QLatin1String("save") && m_btnOk) {
-            m_btnOk->click();   // 走 accept() → onAccepted() 唯一保存入口
+            if (!m_btnOk->isEnabled()) {
+                // 冲突态下保存按钮本来就点不动：显式记下来，别让「没反应」被读成链路断。
+                QFile f(out);
+                if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+                    f.write(QStringLiteral("[step%1] save_skipped=1 reason=btn_disabled\n")
+                                .arg(stepIndex).toUtf8());
+                }
+            } else {
+                m_btnOk->click();   // 走 accept() → onAccepted() 唯一保存入口
+            }
         } else if (step == QLatin1String("reapply") && host) {
             // 保存后按关窗同一函数重装热键表（真实关窗时由 onSettings / destroyed
             // 触发；探针里设置页对象还在，显式调一次以便同进程取证键位切换）。
@@ -7931,7 +7952,10 @@ void SettingsDialog::probeKeyLive(const QString &spec, const QString &outPath)
                 answerBox(tr("保存并关闭"));
             QMetaObject::invokeMethod(this, [this]() { reject(); }, Qt::QueuedConnection);
         }
-        QTimer::singleShot(320, this, [runner, stepIndex]() { (*runner)(stepIndex + 1); });
+        // QKeySequenceEdit 在「松键后 1 秒」才把录入定稿并发 keySequenceChanged，
+        // 录入步之后多等一会儿再 dump，否则读到的是「正在录入」而不是定稿结果。
+        const int gap = step.startsWith(QLatin1String("record:")) ? 1200 : 320;
+        QTimer::singleShot(gap, this, [runner, stepIndex]() { (*runner)(stepIndex + 1); });
     };
 
     // 先切到键盘页（按导航文案定位，避免写死页序号）；再开始执行。
