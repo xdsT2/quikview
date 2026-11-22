@@ -102,6 +102,11 @@ public:
     // 追加一步（--smoke ipstep:<k=v+…>）：不关窗，按配置键真实切档并 dump 一步。
     void probeImgProcApply(const QString &spec);
     void probeImgProcDump(const QString &tag);
+    // 验收探针（--smoke switchprobe:<cfgKey>=on|off）：按 cfgKey 定位任意开关并真实点击，
+    // dump 前后控件态 / Config getter（由调用方给）/ QSettings 原始值，验「改开关即时写盘」。
+    void probeOneSwitch(const QString &key, bool want,
+                        const std::function<bool()> &getter,
+                        const QString &outFile);
     explicit SettingsDialog(QWidget *parent = nullptr);
     ~SettingsDialog() override;
 

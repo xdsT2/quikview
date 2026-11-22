@@ -1064,7 +1064,9 @@ QList<QPair<QString, QString>> actionOptions()
         { QStringLiteral("close"),         QObject::tr("关闭窗口") },
         { QStringLiteral("context_menu"),  QObject::tr("上下文菜单") },
         { QStringLiteral("open"),          QObject::tr("打开") },
-        { QStringLiteral("openfolder"),    QObject::tr("打开文件夹") },
+        // 兼容旧配置的别名动作名（旧鼠标映射仍可指到它），行为与「打开」同一条入口。
+        // 独立 crop 命令已在 4b643ff 退役，不再列为可选动作。
+        { QStringLiteral("openfolder"),    QObject::tr("打开（备用键）") },
         { QStringLiteral("favorite"),      QObject::tr("收藏") },
         { QStringLiteral("del"),           QObject::tr("删除") },
     };
@@ -2916,6 +2918,16 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
                                  "etc/disable_screensaver", false, false);
     m_liveChecks.append({ noSaver, "etc/disable_screensaver", false, false });
 
+    // —— 启动（2026-11-21 启动恢复单）——
+    // 无文件参数启动时是否打开上次查看的图片。默认关闭：全新配置与缺少此键的
+    // 旧配置都按关闭处理，无参启动进欢迎页。与「记住浏览过的文件夹」
+    // （remember_browsed_folders，记目录）和窗口几何（config/win_*）各自独立，
+    // 互不推导；切换即写盘，下次无参启动按本次取值执行。
+    sec = beginSection(page, tr("启动"));
+    addSwitchRow(sec, tr("启动时恢复上次查看的图片"),
+                 tr("通过文件直接启动时，以选中的文件为准；下次启动生效"),
+                 "restore_last_file", false, false);
+
     sec = beginSection(page, tr("操作反馈"));
     auto *deleteConfirm = addSwitchRow(sec, tr("删除文件时确认"), QString(),
                                        "delete_confirm", false, true);
@@ -3729,7 +3741,9 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
     };
     static const KeyDef defs[] = {
         { "file", "open",        "Ctrl+O",     QT_TR_NOOP("打开") },
-        { "file", "openfolder",  "F",          QT_TR_NOOP("打开文件夹") },
+        // 「打开文件夹」并入统一「打开」后，F 仍是可用键位：本行是 open 的第二键位槽
+        // （槽位 id 沿用 openfolder，旧配置的键位/启用态继续生效，不会变成死键）。
+        { "file", "openfolder",  "F",          QT_TR_NOOP("打开（备用键）") },
         { "nav",  "next",        "Right",      QT_TR_NOOP("翻下一张") },
         { "nav",  "prev",        "Left",       QT_TR_NOOP("翻上一张") },
         { "nav",  "next_frame",  "Ctrl+Right", QT_TR_NOOP("下一帧") },
@@ -9816,6 +9830,67 @@ void SettingsDialog::probeCfgClick(const QString &spec)
             if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
                 f.write(out.toUtf8());
             grab().save(QStringLiteral("Temp/cfgclick-settings.png"));
+        });
+    });
+}
+
+// —— 验收探针（--smoke switchprobe:<cfgKey>=on|off[:page]）——
+// 2026-11-21 启动恢复单新增：与 setcfglive 同一条真实链路（PillToggle::click →
+// chkBind → applyLiveSetting → 写盘），但 getter 与配置键由调用方给，不写死键。
+// 通用页（page=0）先切页再点，保证量到的是用户看到的那一行。
+void SettingsDialog::probeOneSwitch(const QString &key, bool want,
+                                    const std::function<bool()> &getter,
+                                    const QString &outFile)
+{
+    QTimer::singleShot(400, this, [this, key, want, getter, outFile]() {
+        selectPage(0);   // 启动恢复开关在「通用」页
+        QTimer::singleShot(600, this, [this, key, want, getter, outFile]() {
+            QFile::remove(outFile);
+            // dump 不绑 this：close() 后对话框会被 WA_DeleteOnClose 销毁，
+            // 收尾那条「关窗不回滚」还要读配置真值。
+            const auto dump = [key, getter, outFile, guard = QPointer<SettingsDialog>(this)]
+                              (const char *tag) {
+                PillToggle *t = nullptr;
+                if (guard) {
+                    for (PillToggle *cand : guard->findChildren<PillToggle *>()) {
+                        if (cand->property("cfgKey").toString() == key) {
+                            t = cand;
+                            break;
+                        }
+                    }
+                }
+                QSettings &s = Config::instance().settings();
+                QFile f(outFile);
+                if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+                    QTextStream ts(&f);
+                    ts << '[' << tag << "] key=" << key
+                       << " found=" << (t ? 1 : 0)
+                       << " checked=" << ((t && t->isChecked()) ? "true" : "false")
+                       << " getter=" << (getter() ? "true" : "false")
+                       << " stored="
+                       << (s.contains(key) ? s.value(key).toString() : QStringLiteral("<absent>"))
+                       << " present=" << (s.contains(key) ? 1 : 0)
+                       << '\n';
+                }
+            };
+            dump("before");
+            PillToggle *t = nullptr;
+            for (PillToggle *cand : findChildren<PillToggle *>()) {
+                if (cand->property("cfgKey").toString() == key) {
+                    t = cand;
+                    break;
+                }
+            }
+            if (t && t->isChecked() != want) {
+                t->click();   // 真实点击链路：PillToggle::click → 写盘
+            }
+            QTimer::singleShot(500, this, [this, dump]() {
+                dump("after-click");
+                grab().save(QStringLiteral("Temp/restore-switch-settings.png"));
+                // 不点「保存设置」直接关：即时化语义下已写盘的值不应回滚
+                close();
+                QTimer::singleShot(400, qApp, [dump]() { dump("after-close-no-save"); });
+            });
         });
     });
 }

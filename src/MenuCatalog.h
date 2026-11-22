@@ -34,10 +34,12 @@ struct Node {
 };
 
 inline const Node kNodes[] = {
-    // —— 打开与定位（根组 + 4 个一级单命令）——
+    // —— 打开与定位（根组 + 3 个一级单命令）——
+    // 2026-11-21 打开入口单：原「打开文件夹…」并入「打开」——同一个选择器里既能
+    // 确认图片文件，也能确认文件夹，因此不再有独立的 open_folder 节点（设置大纲与
+    // 预览也随目录自动少一行，不会出现「大纲有、菜单没有」的分叉）。
     {"group_open",     "folder-open",  Section,true,  ""},
     {"open_image",     "image",        Single, true,  "group_open"},
-    {"open_folder",    "folder-open",  Single, true,  "group_open"},
     {"select_image",   "images",       Single, true,  "group_open"},
     {"locate_file",    "folder-target",Single, true,  "group_open"},
     // —— 常用动作（根组 + 3 个一级单命令）——
@@ -249,8 +251,7 @@ inline const char *labelSource(const QString &id)
     if (id == QLatin1String("group_task"))        return QT_TRANSLATE_NOOP("AppMenu", "任务菜单");
     if (id == QLatin1String("group_danger"))      return QT_TRANSLATE_NOOP("AppMenu", "危险操作");
     if (id == QLatin1String("group_app"))         return QT_TRANSLATE_NOOP("AppMenu", "应用");
-    if (id == QLatin1String("open_image"))        return QT_TRANSLATE_NOOP("AppMenu", "打开图片…");
-    if (id == QLatin1String("open_folder"))       return QT_TRANSLATE_NOOP("AppMenu", "打开文件夹…");
+    if (id == QLatin1String("open_image"))        return QT_TRANSLATE_NOOP("AppMenu", "打开…");
     if (id == QLatin1String("select_image"))      return QT_TRANSLATE_NOOP("AppMenu", "选择图片…");
     if (id == QLatin1String("locate_file"))       return QT_TRANSLATE_NOOP("AppMenu", "定位文件…");
     if (id == QLatin1String("image_info"))        return QT_TRANSLATE_NOOP("AppMenu", "图片信息");
@@ -306,7 +307,7 @@ inline QString sectionTitle(const QString &sectionId)
 inline const char *sectionOf(const Node &n)
 {
     const QLatin1String id(n.id);
-    if (id == QLatin1String("open_image") || id == QLatin1String("open_folder") ||
+    if (id == QLatin1String("open_image") ||
         id == QLatin1String("select_image") || id == QLatin1String("locate_file"))
         return "open";
     if (id == QLatin1String("image_info") || id == QLatin1String("copy_clipboard") ||
@@ -328,7 +329,6 @@ inline const char *sectionOf(const Node &n)
 inline const char *shortcutSource(const QString &id)
 {
     if (id == QLatin1String("open_image"))   return "F2";
-    if (id == QLatin1String("open_folder"))  return "F";
     if (id == QLatin1String("select_image")) return "Enter";
     if (id == QLatin1String("locate_file"))  return "Ctrl+Enter";
     if (id == QLatin1String("image_info"))   return "Tab";

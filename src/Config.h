@@ -180,9 +180,14 @@ public:
     bool winMaximized() const;
     void setWindowGeometry(int x, int y, int w, int h, bool maximized);
 
-    // 会话恢复：上次查看文件的绝对路径（空串=无会话）。默认开启，不设开关。
+    // 会话恢复：上次查看文件的绝对路径（空串=无会话）。
+    // 记录时机与开关无关（每次成功打开即写），是否在启动时恢复由下面的偏好决定：
+    // 「设置 → 通用 → 启动 → 启动时恢复上次查看的图片」，键 config/restore_last_file，
+    // 默认关闭（全新配置与缺此键的旧配置都按关闭处理）。与「记住浏览过的文件夹」
+    // 「窗口位置」三份偏好各自独立，互不推导。
     QString sessionLastFile() const;
     void setSessionLastFile(const QString &path);
+    bool restoreLastFileOnStart() const;
 
     // 遥测：恒 false（M0 直接禁死；未来若做，走 opt-in 并保留本开关）
     bool telemetryEnabled() const { return false; }

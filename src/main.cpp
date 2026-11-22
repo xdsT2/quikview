@@ -119,6 +119,13 @@ int main(int argc, char *argv[])
             s.setValue(QStringLiteral("etc/migrated_side_click"), true);
             s.setValue(QStringLiteral("config/mouse/click_side_pageturn"), true);
         }
+        // 一次性迁移（2026-11-21 打开入口单）：右键「打开文件夹…」已并入「打开」，
+        // 菜单目录里不再有 open_folder 节点，存量配置里的这个可见性开关已无消费点。
+        // 清掉，避免留一个「改了没反应」的过时配置项；标记键同样只写一次。
+        if (!s.contains(QStringLiteral("etc/migrated_open_folder_item"))) {
+            s.setValue(QStringLiteral("etc/migrated_open_folder_item"), true);
+            s.remove(QStringLiteral("config/appmenu/open_folder"));
+        }
     }
 
     QCommandLineParser parser;
@@ -303,8 +310,9 @@ int main(int argc, char *argv[])
     if (!files.isEmpty()) {
         // 命令行带文件启动：按图调窗（设置「根据图片大小调节窗口大小」）
         window.openFileFitting(files.first());
-    } else {
-        // 无命令行文件时才恢复上次会话；命令行显式指定优先于会话恢复。
+    } else if (Config::instance().restoreLastFileOnStart()) {
+        // 无命令行文件且用户打开了「启动时恢复上次查看的图片」才恢复会话；
+        // 默认关闭 → 无参启动进欢迎页。命令行显式指定始终优先于会话恢复。
         window.restoreSession();
     }
 

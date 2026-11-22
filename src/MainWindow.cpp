@@ -26,6 +26,7 @@
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
+#include <QEventLoop>
 #include <QEasingCurve>
 #include <QFile>
 #include <QFileDialog>
@@ -175,11 +176,16 @@ QIcon menuActionIcon(const char *id, bool active = false)
 CtxMenu *makeHamburgerMenu(QWidget *parent, int minWidth, bool nested = false){
     auto *menu = new CtxMenu(parent, CtxMenu::Presentation::OriginalActions);
     menu->setMinWidth(minWidth);
-    // 嵌套子菜单（父 popup 显示中弹出）不能开 WA_TranslucentBackground：
-    // Qt 嵌套 popup 会丢 per-pixel alpha，整窗渲染成黑块（用户实机回归），
-    // 顶层菜单维持透明圆角路径不变。
+    // 嵌套子菜单（父 popup 显示中弹出）的圆角处理（2026-11-21 子菜单四角单）：
+    // 走 polishSubmenu 的 rounded 分支——保留 per-pixel alpha、四角真透明。
+    // 旧做法是「不透明 + autoFillBackground 补面板色」，深色下看不出来，
+    // 但浅色主题下补出的方角是纯白（#ffffff）、页面是 #f3f4f6，
+    // 二级菜单四角会露出可见的白色方角（用户反馈图 3）。
+    // 该路径与查看器右键二级菜单同一套（2026-11-17 起已在 Win11 实测无黑块）；
+    // 若某版本 Windows 上嵌套 popup 再丢 per-pixel alpha、出现整窗黑块，
+    // 把这里的 true 改回 false 即回到不透明回退（四角会重新补成方角）。
     if (nested) {
-        UiStyle::polishSubmenu(menu);
+        UiStyle::polishSubmenu(menu, /*rounded=*/true);
     } else {
         UiStyle::polishMenu(menu);
     }
@@ -582,7 +588,6 @@ MainWindow::MainWindow(QWidget *parent)
     m_statusOverlay = new Chrome::StatusOverlay(this);
     m_emptyState = new Chrome::EmptyState(this);
     connect(m_emptyState, &Chrome::EmptyState::openClicked, this, &MainWindow::onOpen);
-    connect(m_emptyState, &Chrome::EmptyState::folderClicked, this, &MainWindow::onOpenFolder);
 
     // 「360° 查看」入口（派单 2026-11-20）：浮在底岛上方、只对完整球形图出现。
     // NoFocus 由 PanoChip 自己设置——画布的键盘焦点与快捷键不受影响。
@@ -1429,7 +1434,15 @@ void MainWindow::createActions()
     // —— 传 id 的 13 个动作 = 键盘页可配置动作（批次 D1），键位由 config/keyboard/* 下发
     actOpen = mk(tr("打开(&O)..."), QKeySequence::Open, &MainWindow::onOpen, QStringLiteral("open"));
     actOpen->setShortcuts({ QKeySequence::Open, QKeySequence(QStringLiteral("F2")) });
-    actOpenFolder = mk(tr("打开文件夹..."), QKeySequence(QStringLiteral("F")), &MainWindow::onOpenFolder, QStringLiteral("openfolder"));
+    // 「打开文件夹」不再是独立命令：选文件与选目录并入上面的统一「打开」。
+    // 但命令表（H1-7 命令 ID 化）仍保留 CMD_FILE_OPEN_FOLDER 一项，旧键位槽位
+    // openfolder（出厂 F）、旧鼠标动作 openfolder、存量快捷键配置都还会指到这里：
+    // 这里留一个不可见、不挂菜单的动作壳，行为与统一「打开」完全一致，
+    // 保证「F 还按得动、旧配置不变死键」，而界面上只有一个「打开」入口。
+    actOpenFolder = new QAction(tr("打开文件夹"), this);
+    actOpenFolder->setVisible(false);
+    connect(actOpenFolder, &QAction::triggered, this, &MainWindow::onOpen);
+    addAction(actOpenFolder);   // 与其它动作一样挂到窗口：否则 F 这类快捷键不生效
     actSaveAs = mk(tr("另存为…(&S)"), QKeySequence::SaveAs, &MainWindow::onSaveAs);
     actPrint = mk(tr("打印"), QKeySequence::Print, &MainWindow::onPrint);          // Ctrl+P
     actBatchConvert = mk(tr("批量转换(&B)"), QKeySequence(QStringLiteral("Ctrl+T")), &MainWindow::onBatchConvert);
@@ -2067,7 +2080,6 @@ QList<QPair<QString, QKeySequence>> MainWindow::fixedShortcutActions() const
 {
     const QSet<QAction *> configurable = {
         m_actions.value(QStringLiteral("open")),
-        m_actions.value(QStringLiteral("openfolder")),
         m_actions.value(QStringLiteral("next")),
         m_actions.value(QStringLiteral("prev")),
         m_actions.value(QStringLiteral("next_frame")),
@@ -2101,6 +2113,8 @@ QList<QPair<QString, QKeySequence>> MainWindow::fixedShortcutActions() const
 }
 
 // 冒烟取证（--smoke report 的 keys= 字段）：13 个可配置动作的当前键位。
+// openfolder 作为 F 备用键槽位仍在（旧配置键位继续生效），保留在报表里；
+// 独立 crop 命令已在 4b643ff 退役，不列入。
 QString MainWindow::shortcutsReport() const
 {
     static const char *const ids[] = {
@@ -2423,8 +2437,9 @@ QMenu *MainWindow::buildSystemMenu()
         menu->addAction(layers);
         menu->addSeparator();
     }
+    // 统一「打开」入口：原「打开文件夹」已并入 actOpen，actOpenFolder 只作
+    // 旧配置里 F 备用键的隐藏别名，不再作为独立菜单项出现。
     add(actOpen, "image");
-    add(actOpenFolder, "folder-open");
     add(actSaveAs, "save");
     menu->addSeparator();
     add(actSlideshow, "play");
@@ -2450,7 +2465,6 @@ QMenu *MainWindow::buildHamburgerMenu()
 
     // —— 文件 ——
     addHamburgerAction(menu, actOpen, "image");
-    addHamburgerAction(menu, actOpenFolder, "folder-open");
     addHamburgerAction(menu, actSaveAs, "save");
     menu->addSeparator();
 
@@ -2703,11 +2717,11 @@ QMenu *MainWindow::buildContextMenu()
     auto vis = [&cfg](const char *id) { return cfg.appMenuVisible(QLatin1String(id)); };
 
     // —— 顶部快捷区（解冻增量 2026-11-14）：与正文共用同一 QAction 实例 ——
-    // 固定顺序：打开图片、打开文件夹、复制到剪贴板、图片信息、删除；
-    // 每项由同一个可见性开关同时控制两个入口，五项默认开。文字行按正文
+    // 固定顺序：打开、复制到剪贴板、图片信息、删除（2026-11-21 打开入口单：
+    // 「打开文件夹」并入「打开」，快捷区同步去掉独立文件夹钮）；
+    // 每项由同一个可见性开关同时控制两个入口。文字行按正文
     // 顺序创建，快捷区在末尾按设计固定顺序组装。
     QAction *quickOpenImage = nullptr;
-    QAction *quickOpenFolder = nullptr;
     QAction *quickCopy = nullptr;
     QAction *quickInfo = nullptr;
     QAction *quickDelete = nullptr;
@@ -2715,14 +2729,11 @@ QMenu *MainWindow::buildContextMenu()
     // —— 打开与定位 ——
     // 根组 group_open 关掉时整段不出现；只有确实要加行时才落分隔线，
     // 否则空段会留下两条相邻分隔（开关层级修订后根组可整体关闭，必须防）。
-    if (vis("open_image") || vis("open_folder") || vis("select_image") || vis("locate_file")) {
+    if (vis("open_image") || vis("select_image") || vis("locate_file")) {
         beforeItem();
     }
     if (vis("open_image")) {
         quickOpenImage = cmdId(menu, "open_image", QStringLiteral("F2"), [this]() { onOpen(); });
-    }
-    if (vis("open_folder")) {
-        quickOpenFolder = cmdId(menu, "open_folder", QStringLiteral("F"), [this]() { onOpenFolder(); });
     }
     if (vis("select_image")) {
         cmdId(menu, "select_image", QStringLiteral("Enter"), [this]() { onPageSelect(); });
@@ -3038,13 +3049,10 @@ QMenu *MainWindow::buildContextMenu()
         }
     }
 
-    // 快捷区按设计固定顺序组装；五项全隐藏时整行与下方分隔一并省略
+    // 快捷区按设计固定顺序组装；四项全隐藏时整行与下方分隔一并省略
     QList<QAction *> quick;
     if (quickOpenImage) {
         quick << quickOpenImage;
-    }
-    if (quickOpenFolder) {
-        quick << quickOpenFolder;
     }
     if (quickCopy) {
         quick << quickCopy;
@@ -3385,8 +3393,11 @@ void MainWindow::openFile(const QString &path, bool transient)
 }
 
 // —— 会话恢复（config/session_last_file）——
-// 启动后调用一次：路径存在且扩展名在白名单内才打开，否则静默回空态（不弹错、不 toast）。
+// 启动后调用一次（main 里仅在「设置 → 通用 → 启动 → 启动时恢复上次查看的图片」
+// 打开时调用，默认关）：路径存在且扩展名在白名单内才打开，否则静默回空态（不弹错、不 toast）。
 // 用 openFile 而非 openFileFitting：会话恢复只回到该文件与目录页位，不改窗口大小。
+// 写入时机在 openFile（每次成功打开即写 session_last_file），与本偏好无关——
+// 用户先看图后开关，开关打开后仍能恢复到最近那张。
 void MainWindow::restoreSession()
 {
     const QString last = Config::instance().sessionLastFile();
@@ -5707,6 +5718,20 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             }
         }
     }
+    // switchprobe:<cfgKey>=on|off —— 启动恢复开关（2026-11-21 单）真实点击探针：
+    // 与 setcfglive 同链路，但 getter/键由这里给，dump 到 Temp/restore-live-probe.txt。
+    else if (c.startsWith(QLatin1String("switchprobe:"))) {
+        const QString spec = c.mid(12);
+        const int eq = spec.indexOf(u'=');
+        const QString key = eq < 0 ? spec.trimmed() : spec.left(eq).trimmed();
+        const bool want = eq >= 0 && spec.mid(eq + 1).trimmed() == QLatin1String("on");
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        dlg->probeOneSwitch(key, want,
+                            []() { return Config::instance().restoreLastFileOnStart(); },
+                            QStringLiteral("Temp/restore-live-probe.txt"));
+    }
     // appmenu:<id>[,<id>…] / appmenureset —— 应用内右键菜单可见性开关探针
     // （右键菜单派单 2026-11-14）：驱动「父关子灰 / 组关整树灰 / 父开全量 /
     // 恢复默认」等设置页状态，供截图与回归验证。
@@ -6059,6 +6084,236 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         if (dlg.exec() == QDialog::Accepted && !dlg.selectedFiles().isEmpty()) {
             openFileFitting(dlg.selectedFiles().first());
         }
+    }
+    // openpicker|<outdir>|<testdir>|<testfile> —— 统一「打开」选择器取证
+    // （2026-11-21 打开入口单）。用 | 分隔而非 :，Windows 路径本身带冒号。
+    // 走 makeOpenPickerDialog（与 onOpen 同一个构造函数），量三件事：
+    // ① 文件侧：accept 后 selectedFiles 命中测试文件，并抓一张选择器自渲染图；
+    // ② 文件夹侧：点「打开文件夹」钮后 folderTarget 等于测试目录、对话框已关闭；
+    // ③ 文案清单：确认钮/取消钮/自定义钮的实际文字，防「两个都叫打开」这类回归。
+    else if (c.startsWith(QLatin1String("openpicker|"))) {
+        const QStringList a = c.mid(11).split(QLatin1Char('|'));
+        const QString outDir = a.value(0);
+        const QString testDir = a.value(1);
+        const QString testFile = a.value(2);
+        if (outDir.isEmpty() || testDir.isEmpty() || testFile.isEmpty()) {
+            return;
+        }
+        QDir().mkpath(outDir);
+        auto wait = [](int ms) {
+            QEventLoop loop;
+            QTimer::singleShot(ms, &loop, &QEventLoop::quit);
+            loop.exec();
+        };
+        const QFileInfo wantFile(testFile);
+        const QFileInfo wantDir(testDir);
+
+        QStringList log;
+        // 分阶段落盘：探针中途若崩，stage 文件能指出停在哪一步（比「没日志」可判定）
+        const auto stage = [outDir](const char *t) {
+            QFile f(outDir + QStringLiteral("/open-picker-stage.txt"));
+            if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+                f.write(t);
+                f.write("\n");
+            }
+        };
+        stage("begin");
+        // —— ① 文件侧 ——
+        QString fileFolderTarget;
+        QFileDialog *fileDlg = makeOpenPickerDialog(&fileFolderTarget);
+        stage("dialog-built");
+        fileDlg->setDirectory(testDir);
+        fileDlg->selectFile(testFile);
+        fileDlg->show();
+        stage("shown");
+        wait(500);   // 等目录列表/按钮布局稳定再抓
+        stage("waited");
+        const QImage shot = fileDlg->grab().toImage();
+        stage("grabbed");
+        const QString shotPath = outDir + QStringLiteral("/open-picker-file.png");
+        shot.save(shotPath);
+        fileDlg->selectFile(testFile);
+        // accept() 是 protected slot：走元对象系统调用，等价于用户点「打开」
+        QMetaObject::invokeMethod(fileDlg, "accept", Qt::DirectConnection);
+        stage("accepted");
+        const QStringList sel = fileDlg->selectedFiles();
+        const bool filePickOk = !sel.isEmpty()
+                                && QFileInfo(sel.first()) == wantFile
+                                && fileFolderTarget.isEmpty();
+        // 文案清单：确认钮/取消钮/自定义钮的实际文字（防「两个都叫打开」回归）
+        QStringList texts;
+        for (QPushButton *b : fileDlg->findChildren<QPushButton *>()) {
+            texts << QStringLiteral("%1[%2]").arg(b->text(), b->objectName());
+        }
+        log << QStringLiteral("dialogTitle=%1").arg(fileDlg->windowTitle());
+        log << QStringLiteral("selectedFiles=%1")
+                   .arg(sel.isEmpty() ? QStringLiteral("<empty>") : sel.first());
+        log << QStringLiteral("filePick=%1")
+                   .arg(filePickOk ? QStringLiteral("PASS") : QStringLiteral("FAIL"));
+        log << QStringLiteral("screenshot=%1 size=%2x%3")
+                   .arg(shotPath).arg(shot.width()).arg(shot.height());
+        log << QStringLiteral("buttons=%1").arg(texts.join(QStringLiteral(", ")));
+        fileDlg->deleteLater();
+        stage("file-side-done");
+
+        // —— ② 文件夹侧 ——
+        stage("dir-side-begin");
+        QString dirTarget;
+        QFileDialog *dirDlg = makeOpenPickerDialog(&dirTarget);
+        dirDlg->setDirectory(testDir);
+        dirDlg->show();
+        stage("dir-shown");
+        wait(500);
+        QPushButton *folderBtn = dirDlg->findChild<QPushButton *>(QStringLiteral("openFolderButton"));
+        stage(folderBtn ? "dir-btn-found" : "dir-btn-missing");
+        bool folderPickOk = false;
+        if (folderBtn) {
+            folderBtn->click();
+            stage("dir-btn-clicked");
+            folderPickOk = !dirTarget.isEmpty() && QFileInfo(dirTarget) == wantDir
+                           && !dirDlg->isVisible();
+        }
+        log << QStringLiteral("folderButton=%1")
+                   .arg(folderBtn ? QStringLiteral("found") : QStringLiteral("MISSING"));
+        log << QStringLiteral("folderTarget=%1")
+                   .arg(dirTarget.isEmpty() ? QStringLiteral("<empty>") : dirTarget);
+        log << QStringLiteral("folderPick=%1")
+                   .arg(folderPickOk ? QStringLiteral("PASS") : QStringLiteral("FAIL"));
+        dirDlg->deleteLater();
+        stage("dir-side-done");
+
+        log << QStringLiteral("RESULT=%1")
+                   .arg(filePickOk && folderPickOk ? QStringLiteral("PASS")
+                                                   : QStringLiteral("FAIL"));
+        QFile f(outDir + QStringLiteral("/open-picker-log.txt"));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << log.join(QLatin1Char('\n')) << '\n';
+        }
+    }
+    // hamgroupmenu|<outbase> —— 三横线菜单二级（嵌套）子菜单四角取证
+    // （2026-11-21 子菜单修整单）。与 groupmenu 的区别：根菜单是顶栏三横线，
+    // 二级菜单走 makeHamburgerMenu(nested=true) 的 rounded 分支；采样四角，
+    // 四角颜色应与页面背景一致（真透明），而不是 #ffffff 方角或纯黑块。
+    else if (c.startsWith(QLatin1String("hamgroupmenu|"))) {
+        // 可选第三段：hamgroupmenu|<outbase>|keys —— 子菜单弹出后按键盘走两格再截屏
+        // （键盘路径与鼠标路径共用同一 popup，四角判定同样成立）。
+        const QStringList spec = c.mid(13).split(QLatin1Char('|'));
+        const QString outBase = spec.value(0).trimmed();
+        const bool withKeys = spec.value(1).trimmed() == QLatin1String("keys");
+        if (outBase.isEmpty()) {
+            return;
+        }
+        QDir().mkpath(QFileInfo(outBase).absolutePath());
+        // 清理启动期可能弹出的模态提示（如本机缺 libheif 链时的解码提示框）：
+        // 它盖在子菜单上会把四角采样量成弹窗底色，取证必须先清场。
+        if (QWidget *modal = QApplication::activeModalWidget()) {
+            modal->close();
+        }
+        QMenu *root = buildHamburgerMenu();
+        QMenu *sub = findSubmenuDeep(root->actions(), [this](QMenu *m) {
+            return m->actions().contains(actPrevFrame);
+        });
+        const QPoint base = mapToGlobal(QPoint(width() / 2 - 180, height() / 3));
+        root->popup(base);
+        if (sub) {
+            QTimer::singleShot(350, sub, [sub, base, root]() {
+                if (root->isVisible() && !sub->isVisible()) {
+                    sub->popup(base + QPoint(root->width() - 8, -6));
+                }
+            });
+        }
+        if (withKeys && sub) {
+            // 键盘：Down ×2 → 选中第二行，再 Up 回一格，证明键盘导航后仍可正常绘制
+            QTimer::singleShot(700, sub, [sub]() {
+                for (int i = 0; i < 2; ++i) {
+                    QKeyEvent ev(QEvent::KeyPress, Qt::Key_Down, Qt::NoModifier);
+                    QApplication::sendEvent(sub, &ev);
+                }
+            });
+            QTimer::singleShot(950, sub, [sub]() {
+                QKeyEvent ev(QEvent::KeyPress, Qt::Key_Up, Qt::NoModifier);
+                QApplication::sendEvent(sub, &ev);
+            });
+        }
+        // 1.2s 后真实截屏：嵌套 popup 的自渲染 grab 与屏幕合成结果可能不同，
+        // 四角透明/黑块只有真实屏抓才看得出来（沿用 groupmenu 的取证口径）。
+        QTimer::singleShot(1200, this, [this, root, sub, outBase]() {
+            QScreen *scr = sub ? QGuiApplication::screenAt(sub->geometry().center()) : nullptr;
+            if (!scr) {
+                scr = QGuiApplication::primaryScreen();
+            }
+            if (!scr) {
+                return;
+            }
+            const QImage shot = scr->grabWindow(0).toImage();
+            shot.save(outBase + QStringLiteral("-screen.png"));
+            QFile f(outBase + QStringLiteral("-pixels.txt"));
+            if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                return;
+            }
+            QTextStream ts(&f);
+            ts << "grab=" << shot.width() << "x" << shot.height() << "\n";
+            const QRect gr = root->geometry();
+            ts << "rootRect=" << gr.x() << "," << gr.y() << " " << gr.width() << "x"
+               << gr.height() << "\n";
+            if (!sub || !sub->isVisible()) {
+                ts << "subVisible=false\n";
+                ts << "RESULT=FAIL(no submenu)\n";
+                return;
+            }
+            const QRect gs = sub->geometry();
+            ts << "subRect=" << gs.x() << "," << gs.y() << " " << gs.width() << "x"
+               << gs.height() << "\n";
+            // 截屏是物理像素图，菜单 geometry 是逻辑像素：按「物理宽/逻辑宽」换算
+            // （Windows 显示缩放 100%/125%/150% 下 devicePixelRatio 拿不到真实比例）。
+            const QRect sg = scr->geometry();
+            const qreal sx = sg.width() > 0 ? qreal(shot.width()) / qreal(sg.width()) : 1.0;
+            const qreal sy = sg.height() > 0 ? qreal(shot.height()) / qreal(sg.height()) : 1.0;
+            auto px = [&shot, &sg, sx, sy](const QPoint &logical) {
+                const QPoint p(qRound((logical.x() - sg.x()) * sx),
+                               qRound((logical.y() - sg.y()) * sy));
+                return shot.pixelColor(p);
+            };
+            ts << "screenLogical=" << sg.width() << "x" << sg.height() << " scale=" << sx
+               << "x" << sy << "\n";
+            // 四角：内缩 2px 采样（避开 1px 描边与抗锯齿过渡带）
+            const QPoint pts[4] = {
+                QPoint(gs.left() + 2, gs.top() + 2),
+                QPoint(gs.right() - 2, gs.top() + 2),
+                QPoint(gs.left() + 2, gs.bottom() - 2),
+                QPoint(gs.right() - 2, gs.bottom() - 2),
+            };
+            const char *names[4] = { "cornerTL", "cornerTR", "cornerBL", "cornerBR" };
+            for (int i = 0; i < 4; ++i) {
+                ts << names[i] << '=' << px(pts[i]).name() << "\n";
+            }
+            ts << "subCenter=" << px(gs.center()).name() << "\n";
+            // 页面背景参考点：空状态左下角一块纯背景区（避开居中文字/按钮与底岛）。
+            // 探针在无图启动下跑（欢迎页），该点就是菜单圆角应该「露」出来的页面色。
+            const QPoint pagePt = mapToGlobal(QPoint(40, height() - 40));
+            const QColor page = px(pagePt);
+            ts << "pageBg=" << page.name() << " at=" << pagePt.x() << "," << pagePt.y()
+               << "\n";
+            // 判定：四角 ≈ 页面背景（三通道差和 ≤18）= 真透明；
+            // 纯白方角（#ffffff vs 页面 #f3f4f6 之类）差和约 12~18 之内也算通过，
+            // 故另加一条硬判：四角不得为纯白 #ffffff 且不得为纯黑 #000000。
+            bool ok = true;
+            for (int i = 0; i < 4; ++i) {
+                const QColor q = px(pts[i]);
+                const int d = qAbs(q.red() - page.red()) + qAbs(q.green() - page.green())
+                              + qAbs(q.blue() - page.blue());
+                if (d > 18) {
+                    ok = false;
+                }
+                if (q == QColor(Qt::white) || q == QColor(Qt::black)) {
+                    ok = false;
+                }
+            }
+            ts << "cornerVsPageMaxDelta=" << (ok ? QStringLiteral("<=18") : QStringLiteral(">18"))
+               << "\n";
+            ts << "RESULT=" << (ok ? QStringLiteral("PASS") : QStringLiteral("FAIL")) << "\n";
+        });
     }
     // settingscombo:<page>:<index> —— 切页并展开第 index 个可见下拉。
     // 顶栏回归的验收点：下拉是「设置对话框」的 popup，不是 TopBar 自有菜单，
@@ -6887,6 +7142,15 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                 const QRect av = scr->availableGeometry();
                 ts << "screen_avail=" << av.x() << ',' << av.y() << ',' << av.width() << ',' << av.height() << '\n';
             }
+        }
+    }
+    // winpos|x|y —— 把主窗口移到指定屏幕坐标（子菜单靠边翻转验收用：
+    // 窗口贴右边时二级菜单应向左翻，不再压屏外）。用 | 分隔，避免与
+    // --smoke 的逗号分命令冲突。
+    else if (c.startsWith(QLatin1String("winpos|"))) {
+        const QStringList a = c.mid(7).split(QLatin1Char('|'));
+        if (a.size() >= 3) {
+            move(a.value(1).trimmed().toInt(), a.value(2).trimmed().toInt());
         }
     }
     // PSD 图层验收探针（仅 --smoke 路径）：模拟面板/眼睛/单层预览操作
@@ -8612,14 +8876,90 @@ void MainWindow::onResize()
 // 文件操作
 // ---------------------------------------------------------------------------
 
+// 统一「打开」入口（2026-11-21 打开入口单）：顶栏 / 底栏 / 空状态 / 三横菜单 /
+// 查看器右键共用这一条路径。同一个对话框里两件事都能确认：
+//   「打开」= 选中的图片文件（沿用既有图片过滤器）；
+//   「打开文件夹」= 当前所在目录（或列表里选中的那个子目录），直接打开首张。
+// 原生 Windows 对话框一次只支持「选文件」或「选目录」其中一种模式，给不出两个
+// 确认动作，所以这里用 Qt 非原生选择器（与本文件 opendialog 探针同一套语义），
+// 外观由全局 QSS 统一；不新造选择器样式。
+// 选择器构造单独抽出：onOpen 与 `openpicker|` 探针共用同一个对话框，
+// 保证「验收量到的就是真实入口」——探针不从另一份复用逻辑里造一个长得像的框。
+QFileDialog *MainWindow::makeOpenPickerDialog(QString *folderTarget)
+{
+    auto *dlg = new QFileDialog(this, tr("打开图片或文件夹"));
+    dlg->setObjectName(QStringLiteral("openPickerDialog"));
+    dlg->setOption(QFileDialog::DontUseNativeDialog, true);
+    dlg->setAcceptMode(QFileDialog::AcceptOpen);
+    dlg->setFileMode(QFileDialog::ExistingFile);
+    dlg->setNameFilter(DirectoryLoader::imageFilter());
+    dlg->setLabelText(QFileDialog::Accept, tr("打开"));
+    dlg->setLabelText(QFileDialog::Reject, tr("取消"));
+    // 起始目录：当前图所在目录 > 上次浏览目录 > 系统默认
+    const QString startDir = !m_currentPath.isEmpty()
+                                 ? QFileInfo(m_currentPath).absolutePath()
+                                 : Config::instance().settings()
+                                       .value(QStringLiteral("config/last_open_dir"))
+                                       .toString();
+    if (!startDir.isEmpty() && QFileInfo(startDir).isDir()) {
+        dlg->setDirectory(startDir);
+    }
+
+    // 「打开文件夹」：ActionRole 自定义钮，只关闭对话框并把目标目录写回交给调用方；
+    // 不抢回车默认位，回车仍然是「打开文件」。QPointer 守住：对话框可能先被销毁。
+    QDialogButtonBox *box = dlg->findChild<QDialogButtonBox *>();
+    QPushButton *folderBtn = box ? box->addButton(tr("打开文件夹"),
+                                                  QDialogButtonBox::ActionRole)
+                                 : nullptr;
+    if (folderBtn) {
+        folderBtn->setObjectName(QStringLiteral("openFolderButton"));
+        folderBtn->setToolTip(tr("打开当前所在文件夹（或列表中选中的子文件夹）里的第一张图片"));
+        QPointer<QFileDialog> guard(dlg);
+        connect(folderBtn, &QPushButton::clicked, dlg, [guard, folderTarget]() {
+            if (!guard) {
+                return;
+            }
+            // 先看列表里是否选中了一个目录（单击子文件夹行），否则用当前目录
+            const QStringList picked = guard->selectedFiles();
+            const QString first = picked.isEmpty() ? QString() : picked.first();
+            const QString dir = (!first.isEmpty() && QFileInfo(first).isDir())
+                                    ? QFileInfo(first).absoluteFilePath()
+                                    : guard->directory().absolutePath();
+            if (folderTarget) {
+                *folderTarget = dir;
+            }
+            guard->reject();
+        });
+    }
+    return dlg;
+}
+
 void MainWindow::onOpen()
 {
-    const QString path = QFileDialog::getOpenFileName(
-        this, tr("打开图片"), QString(), DirectoryLoader::imageFilter());
-    if (!path.isEmpty()) {
-        // 文件→打开：按图片尺寸调窗（受设置「根据图片大小调节窗口大小」控制）
-        openFileFitting(path);
+    QString folderTarget;
+    QFileDialog *dlg = makeOpenPickerDialog(&folderTarget);
+    const int rc = dlg->exec();
+    const QStringList picked = dlg->selectedFiles();
+    dlg->deleteLater();
+
+    if (rc != QDialog::Accepted && folderTarget.isEmpty()) {
+        return;   // 取消：什么都不做
     }
+
+    if (!folderTarget.isEmpty()) {
+        openFolderFirstImage(folderTarget);
+        return;
+    }
+
+    const QString path = picked.value(0);
+    if (path.isEmpty()) {
+        return;
+    }
+    // 记住本次选择所在目录（只用于下次对话框起始位置，不影响其他偏好）
+    Config::instance().settings().setValue(QStringLiteral("config/last_open_dir"),
+                                           QFileInfo(path).absolutePath());
+    // 文件→打开：按图片尺寸调窗（受设置「根据图片大小调节窗口大小」控制）
+    openFileFitting(path);
 }
 
 QStringList MainWindow::listImagesInDir(const QString &dirPath)
@@ -8636,17 +8976,20 @@ QStringList MainWindow::listImagesInDir(const QString &dirPath)
     return out;
 }
 
-void MainWindow::onOpenFolder()
+// 选目录后的统一落点：目录里第一张可浏览图片直接上屏，目录索引照常建立，
+// 因此可以继续翻图/翻文件夹。空目录或无支持格式时给一条明确的 toast。
+void MainWindow::openFolderFirstImage(const QString &dir)
 {
-    const QString dir = QFileDialog::getExistingDirectory(this, tr("打开文件夹"));
     if (dir.isEmpty()) {
         return;
     }
     const QStringList files = listImagesInDir(dir);
     if (files.isEmpty()) {
-        m_toast->showMessage(tr("该文件夹没有可识别的图片"), Chrome::Toast::Tone::Warning);
+        m_toast->showMessage(tr("该文件夹没有可识别的图片：%1").arg(dir),
+                             Chrome::Toast::Tone::Warning);
         return;
     }
+    Config::instance().settings().setValue(QStringLiteral("config/last_open_dir"), dir);
     openFile(files.first());
 }
 

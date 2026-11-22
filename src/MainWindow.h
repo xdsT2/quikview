@@ -19,6 +19,8 @@
 #include "DirectoryLoader.h"
 #include "PanoMetadata.h"
 
+class QFileDialog;
+
 class ImageCanvas;
 class PanoChip;
 class ImageCache;
@@ -77,7 +79,8 @@ public:
     void restoreWindowGeometry();
     // 会话恢复（窗口几何与会话恢复单）：启动后调用一次。读 config/session_last_file，
     // 路径存在且扩展名在白名单才 openFile（非调窗），否则静默回空态、不弹错不 toast。
-    // main() 里在命令行带文件之后调用——命令行显式指定优先于会话恢复。
+    // main() 里在命令行带文件之后调用，且只在用户打开「启动时恢复上次查看的图片」
+    // （config/restore_last_file，默认关）时调用——命令行显式指定优先于会话恢复。
     void restoreSession();
     void openSettings() { onSettings(); }   // 调试/自动化：直接打开设置对话框
     void setZoomMode(int mode);             // 调试/自动化 + 菜单共用：0原始/1适合窗口/2适合宽度
@@ -153,8 +156,9 @@ protected:
 
 private slots:
     // 文件
+    // 统一「打开」入口（2026-11-21 打开入口单）：顶栏/底栏/空状态/菜单共用，
+    // 同一对话框里可确认图片文件，也可确认「打开文件夹」。
     void onOpen();
-    void onOpenFolder();
     void onSaveAs();
     void onPrint();
     void onBatchConvert();
@@ -395,9 +399,18 @@ private:
     QPoint probeLocalPoint() const;
     QStringList listSiblingFolders();   // 同级含图文件夹（名称序），文件夹跳转用
     static QStringList listImagesInDir(const QString &dirPath);
+    // 统一「打开」的目录落点：打开该目录里第一张可浏览图片并建立目录索引
+    // （可继续翻图）；空目录/无支持格式给明确 toast。
+    void openFolderFirstImage(const QString &dir);
+    // 统一「打开」选择器（文件 + 文件夹两个确认动作）的唯一构造函数。
+    // folderTarget 非空即用户点了「打开文件夹」；onOpen 与 openpicker 探针共用。
+    QFileDialog *makeOpenPickerDialog(QString *folderTarget);
 
     // —— 共享动作（唯一真源）——
     QAction *actOpen = nullptr;
+    // 「打开文件夹」并入统一「打开」（2026-11-21 打开入口单）后的兼容动作壳：
+    // 命令 CMD_FILE_OPEN_FOLDER、旧键位 openfolder、快捷键 F 仍指到这里，
+    // 行为与统一「打开」完全一致；不挂任何菜单，界面上只有那一个「打开」入口。
     QAction *actOpenFolder = nullptr;
     QAction *actSaveAs = nullptr;
     QAction *actPrint = nullptr;
