@@ -5511,6 +5511,15 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         dlg->show();
         dlg->probeCfgLive(c.mid(11));
     }
+    // cfgclick:<页名>|<key>=<值>+… —— 九页逐项即时化取证（2026-11-22）：
+    // 先按页签建页，再按绑定表定位开关/下拉走真实链路，逐项 dump 到
+    // Temp/cfgclick-probe.txt（控件态 / ini 原始值 / present / 运行态 / 是否达目标态）。
+    else if (c.startsWith(QLatin1String("cfgclick:"))) {
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        dlg->probeCfgClick(c.mid(9));
+    }
     // appmenu:<id>[,<id>…] / appmenureset —— 应用内右键菜单可见性开关探针
     // （右键菜单派单 2026-11-14）：驱动「父关子灰 / 组关整树灰 / 父开全量 /
     // 恢复默认」等设置页状态，供截图与回归验证。
