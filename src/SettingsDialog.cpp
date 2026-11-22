@@ -374,6 +374,15 @@ QString qvRegDefault(const QString &keyPath)
     return QString();
 }
 
+// 只读 HKEY_CURRENT_USER 下的默认值：Explorer 取缩略图时按用户注册优先，
+// 「被别家占用」必须按 HKCU 判断，不能只看 HKLM 写的是谁。
+QString qvRegDefaultUser(const QString &keyPath)
+{
+    QSettings reg(QStringLiteral("HKEY_CURRENT_USER\\") + keyPath,
+                  QSettings::NativeFormat);
+    return reg.value(QStringLiteral(".")).toString();
+}
+
 // 由「注册表指向的 DLL 路径 + 本安装 DLL 是否在」推导四态。
 // appDir 用来识别「指向本安装目录里的另一份 quikthumb*.dll」——那是同一套
 // 安装的旧版本号文件（升级后才换成当前版本），仍算本安装已注册，不能误报成
@@ -467,17 +476,37 @@ static ShellComponent probeShellMenu()
 }
 
 // 文件缩略图注册态（.ext\ShellEx\{类别} → 缩略图 CLSID → 本安装 DLL）
+// 被别家缩略图处理器占住时统一报 ShellOtherInstall + 占用方 CLSID：
+// 产品语义是「检测到被别人占用就提示、不接管」，所以不覆盖、只如实展示。
 static ShellComponent probeShellThumb(const QString &ext)
 {
     ShellComponent out;
     const QString appDir = QCoreApplication::applicationDirPath();
     const QString dll64 = qvShellDllInDir(appDir, false);
-    const QString bound = qvRegDefault(QStringLiteral(
+    const QString ourClsid =
+        QStringLiteral("{D8A1C4E2-7B35-4F69-92A4-5C6D7E8F1A2B}");
+    const QString extKey = QStringLiteral(
         "Software\\Classes\\%1\\ShellEx\\{e357fccd-a995-4576-b01f-234630154e96}")
-                                           .arg(ext));
-    const bool boundToUs =
-        bound.compare(QStringLiteral("{D8A1C4E2-7B35-4F69-92A4-5C6D7E8F1A2B}"),
-                      Qt::CaseInsensitive) == 0;
+                               .arg(ext);
+
+    // 用户级优先：HKCU 写着别家 CLSID 时 Explorer 用的是对方的缩略图，
+    // 这时哪怕 HKLM 写着本产品也不能报「已注册」。
+    const QString userBound = qvRegDefaultUser(extKey);
+    if (!userBound.isEmpty()
+        && userBound.compare(ourClsid, Qt::CaseInsensitive) != 0) {
+        out.state = ShellOtherInstall;
+        out.boundPath = userBound;
+        return out;
+    }
+
+    const QString bound = qvRegDefault(extKey);
+    const bool boundToUs = bound.compare(ourClsid, Qt::CaseInsensitive) == 0;
+    if (!bound.isEmpty() && !boundToUs && bound.startsWith(QLatin1Char('{'))) {
+        // HKLM 上是别家处理器的 CLSID（不是 DLL 路径）：同样是「被占用」
+        out.state = ShellOtherInstall;
+        out.boundPath = bound;
+        return out;
+    }
     const QString clsid = boundToUs
         ? qvRegDefault(QStringLiteral(
             "Software\\Classes\\CLSID\\{D8A1C4E2-7B35-4F69-92A4-5C6D7E8F1A2B}\\InprocServer32"))
@@ -5859,11 +5888,21 @@ void SettingsDialog::buildWindowsPage(QWidget *page)
         parts.controls->addWidget(value, 0, Qt::AlignVCenter);
     };
 
-    // —— 注册探测：右键命令（64+32 位）与 WebP/PSD/PSB 缩略图分开 ——
+    // —— 注册探测：右键命令（64+32 位）与 WebP/PSD/PSB/SVG 缩略图分开 ——
     const ShellComponent menu = probeShellMenu();
     const ShellComponent thumbWebp = probeShellThumb(QStringLiteral(".webp"));
     const ShellComponent thumbPsd = probeShellThumb(QStringLiteral(".psd"));
     const ShellComponent thumbPsb = probeShellThumb(QStringLiteral(".psb"));
+    // SVG 只做缩略图（主程序打不开 SVG、不注册右键菜单），单独探测一行
+    const ShellComponent thumbSvg = probeShellThumb(QStringLiteral(".svg"));
+
+    // boundPath 是带大括号的 CLSID ⇒ 占用方是别家缩略图处理器：用户级（HKCU）
+    // 优先，本产品「检测到被占用就不接管」，所以不覆盖、只提示。
+    // 是文件路径 ⇒ 本产品的另一个安装目录，沿用原来的「指向其他安装」。
+    auto isForeignHandler = [](const ShellComponent &c) {
+        return c.state == ShellOtherInstall
+               && c.boundPath.startsWith(QLatin1Char('{'));
+    };
 
     auto stateView = [](ShellRegState s, bool partial32) -> QPair<QString, const char *> {
         switch (s) {
@@ -5885,6 +5924,20 @@ void SettingsDialog::buildWindowsPage(QWidget *page)
     };
 
     QWidget *sec = beginSection(page, tr("注册状态"));
+    // 缩略图行统一构造：被别家处理器占住时文案换成「已被其他程序占用
+    // （不接管）」+「占用方：CLSID」，与「指向本产品另一个安装」区分开。
+    auto addThumbRow = [&](const QString &label, const ShellComponent &c,
+                           const QString &tip) {
+        auto view = stateView(c.state, false);
+        const bool foreign = isForeignHandler(c);
+        addStatusRow(sec, label,
+                     foreign ? tr("占用方：%1").arg(c.boundPath)
+                             : (c.state == ShellOtherInstall
+                                    ? tr("当前指向：%1").arg(c.boundPath)
+                                    : QString()),
+                     foreign ? tr("已被其他程序占用（不接管）") : view.first,
+                     foreign ? UiStyle::fluent::statusWarn() : view.second, tip);
+    };
     {
         const bool partial64 = menu.state == ShellRegistered
                                && menu.boundPath == QStringLiteral("64");
@@ -5896,32 +5949,12 @@ void SettingsDialog::buildWindowsPage(QWidget *page)
                      view.first, view.second,
                      tr("64/32 位扩展的 CLSID 与处理器绑定"));
     }
-    {
-        auto view = stateView(thumbWebp.state, false);
-        addStatusRow(sec, tr("WebP 缩略图"),
-                     thumbWebp.state == ShellOtherInstall
-                         ? tr("当前指向：%1").arg(thumbWebp.boundPath)
-                         : QString(),
-                     view.first, view.second, QString());
-    }
-    {
-        auto view = stateView(thumbPsd.state, false);
-        addStatusRow(sec, tr("PSD 缩略图"),
-                     thumbPsd.state == ShellOtherInstall
-                         ? tr("当前指向：%1").arg(thumbPsd.boundPath)
-                         : QString(),
-                     view.first, view.second,
-                     tr("缺少内嵌 JPEG 时回退默认图标"));
-    }
-    {
-        auto view = stateView(thumbPsb.state, false);
-        addStatusRow(sec, tr("PSB 缩略图"),
-                     thumbPsb.state == ShellOtherInstall
-                         ? tr("当前指向：%1").arg(thumbPsb.boundPath)
-                         : QString(),
-                     view.first, view.second,
-                     tr("缺少内嵌 JPEG 时回退默认图标"));
-    }
+    addThumbRow(tr("WebP 缩略图"), thumbWebp, QString());
+    addThumbRow(tr("PSD 缩略图"), thumbPsd, tr("缺少内嵌 JPEG 时回退默认图标"));
+    addThumbRow(tr("PSB 缩略图"), thumbPsb, tr("缺少内嵌 JPEG 时回退默认图标"));
+    // SVG：只做缩略图，不做文件关联、不挂右键菜单
+    addThumbRow(tr("SVG 缩略图"), thumbSvg,
+                tr("只注册缩略图（主程序打不开 SVG）；用户级注册优先，被占用时不接管"));
 
     // —— 开关区：仅当右键菜单处理器注册到本安装时可操作 ——
     const bool menuUsable = menu.state == ShellRegistered;
