@@ -428,7 +428,7 @@ private:
     void updateImageProcLiveNote(const QString &key, const QString &valueText);
     void applyCacheSizeLive(int mb);
     QHash<QString, QVariant> m_imageProcLiveBaseline;   // key → 进入设置时的值
-    QLabel *m_imageProcLiveNote = nullptr;              // 图像处理页内联状态行
+    // 状态行复用批次21 的 m_imageProcLiveNote（同一页只放一条）
     int m_cacheSizeApplied = 300;                       // 最近一次成功下发的缓存上限（MB）
 
     // —— 键盘自定义（批次 D1）冲突检测 ——

@@ -3607,18 +3607,8 @@ void SettingsDialog::buildImageProcPage(QWidget *page)
                                        "已开 Windows 自动颜色管理的屏幕跳过，跨屏自动重估"),
                                     "imageproc/monitor_icc", false, false);
     descToRowTip(iccMonitor, tr("无有效配置或转换失败时保持 sRGB 显示，原因见临时目录日志"));
-    // 批次04：页内即时状态行——不点保存也能看到「已即时生效 + 当前运行态读数」
-    // （插值/缩放/锐化、缓存上限与已用、预读启动与命中）。设置页是非模态窗，
-    // 背后画布的重采样/对齐变化同时也是可见的。
-    m_imageProcLiveNote = new QLabel(page);
-    m_imageProcLiveNote->setObjectName(QStringLiteral("noteLabel"));
-    m_imageProcLiveNote->setWordWrap(true);
-    m_imageProcLiveNote->hide();
-    // 插在页首而不是页尾：这一页有十几行（含 RAW / 色彩管理），状态行落在页尾
-    // 时用户切完开关根本看不到，等于没有「用户可见的即时反馈」。页首保证
-    // 任意滚动位置下切项后第一眼就能读到。
-    if (auto *v = qobject_cast<QVBoxLayout *>(page->layout()))
-        v->insertWidget(0, m_imageProcLiveNote);
+    // 批次04 复用批次21 建好的本页状态行（同一页只放一条，避免两条状态行各说一半）：
+    // 位置仍在 RAW 组下方、色彩管理上方，切完上方缓存/渲染项后无需滚动即可读到。
     applyPageRhythm(page);
 }
 
