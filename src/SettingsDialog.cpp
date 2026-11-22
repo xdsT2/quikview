@@ -1464,6 +1464,8 @@ QLabel#keyGroupTitle { color: @GenDesc@; font-size: 11px; font-weight: 600; }
 QLabel#keyRowState { font-size: 11px; }
 QLabel#keyRowState[state="editing"] { color: @GenAccent@; }
 QLabel#keyRowState[state="conflict"] { color: @GenError@; }
+/* 批次13：空热键行常驻只读说明（启用已灰显，原因用次要文字色，不抢焦点） */
+QLabel#keyRowState[state="empty"] { color: @GenDesc@; }
 
 /* 冲突红条（设计图 06）：深色 #382C2D / 浅色 #FDECEC，文字用状态红 */
 QWidget#keyBanner { background: @GenDangerBg@; border: 1px solid @GenDangerLine@;
@@ -3851,6 +3853,9 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
         kr.label = tr(def.label);
         kr.stateLab = stateLab;
         m_keyRows.append(kr);
+        // 批次13：行建好即按当前配置判定「启用」可用性（出厂空键的动作在没有任何
+        // 热键时灰显，避免出现勾了却永远按不动的假开关）。
+        refreshKeyRowAvail(m_keyRows.size() - 1);
         rl0->addWidget(row);
     }
 
@@ -6442,7 +6447,11 @@ void SettingsDialog::loadBindingsFromConfig(int chkFrom, int comboFrom, int keyF
         const KeyRow &r = m_keyRows.at(i);
         // 出厂无单键的动作（幻灯片）默认不启用，避免「勾着但热键为空」；
         // 已有配置仍以用户落盘值为准（P2 / D4）。
-        const bool enabledByDefault = !r.defHotkey.isEmpty();
+        // 批次13：口径与 MainWindow::applyShortcutConfig 对齐——运行态对
+        // config/keyboard/<CMD>_enabled 缺省取 true，所以「已保存过键位」的行
+        // 缺省也必须是勾选态，否则会出现「设置页显示未勾、按键却生效」的反向假开关。
+        const bool enabledByDefault = !r.defHotkey.isEmpty()
+                                      || (!r.cmd.isEmpty() && Config::instance().commandKeysSaved(r.cmd));
         // 命令 ID 化（H1-7）：启用与键位都从命令键读（config/keyboard/<CMD>_*）。
         // 命令键从未保存过时退回行内出厂值，与迁移前的「出厂行」显示一致。
         const Config &cfg = Config::instance();
@@ -6460,6 +6469,8 @@ void SettingsDialog::loadBindingsFromConfig(int chkFrom, int comboFrom, int keyF
                        r.defHotkey);
         }
         r.edit->setKeySequence(QKeySequence::fromString(key, QKeySequence::PortableText));
+        // 批次13：回填后按落盘值重算「启用」可用性（空键行灰显并说明原因）。
+        refreshKeyRowAvail(i);
         // 「操作」列只读：不再回读 keyboard/<action>_action（历史上被改绑过的配置
         // 会在下次保存时按固定动作覆写回去）。
     }
@@ -6745,8 +6756,11 @@ void SettingsDialog::connectInstantSignals(int chkFrom, int comboFrom, int keyFr
         const KeyRow &r = m_keyRows.at(i);
         const QString action = r.action;
         const QString cmd = r.cmd;
+        // 启用列只有裸勾选框（文字在左侧「操作」列），报错文案必须用动作显示名，
+        // 否则弹窗会是「「」未能即时生效」，用户看不出是哪一项。
+        const QString label = r.label;
         QCheckBox *cb = r.cb;
-        connect(cb, &QCheckBox::toggled, this, [this, action, cmd, cb](bool on) {
+        connect(cb, &QCheckBox::toggled, this, [this, action, cmd, label, cb](bool on) {
             if (m_loading)
                 return;
             // 命令 ID 化（H1-7）：真源是 keyboard/<CMD>_enabled；旧槽位键写同一值
@@ -6769,7 +6783,7 @@ void SettingsDialog::connectInstantSignals(int chkFrom, int comboFrom, int keyFr
                     applyInstantValue(key, !on);
                     QMessageBox::warning(this, tr("设置"),
                                          tr("「%1」未能即时生效：%2\n已恢复原值。")
-                                             .arg(cb->text(), error));
+                                             .arg(label.isEmpty() ? cb->text() : label, error));
                 }
             }
         });
@@ -7768,6 +7782,14 @@ bool SettingsDialog::onAccepted()
             // 命令映射缺失（理论上不会发生）：退回旧键行为，不留半套数据。
             changes.append({ QStringLiteral("keyboard/%1_key").arg(r.action), now });
         }
+        // 批次13：保存后热键为空的行不能留下「启用」，否则下次启动是勾着却按不动
+        // 的死项（applyShortcutConfig 拿不到键就跳过）。这里按最终键位自动清勾；
+        // 命令 ID 化后启用真源是 config/keyboard/<CMD>_enabled，写错槽位等于没写。
+        if (now.isEmpty() && r.cb->isChecked()) {
+            changes.append({ QStringLiteral("keyboard/%1_enabled")
+                                 .arg(r.cmd.isEmpty() ? r.action : r.cmd),
+                             false });
+        }
         // 动作固定；仅当历史改绑残留的旧值与目标动作不一致时才清理一次。
         const QString actionKey = QStringLiteral("keyboard/%1_action").arg(r.action);
         const QVariant storedAction = s.value(QStringLiteral("config/") + actionKey);
@@ -7908,13 +7930,54 @@ void SettingsDialog::refreshKeyConflictBanner()
     refreshKeyEditingState();
 }
 
+// 批次13：该行当前是否真的挂着键。口径与 MainWindow::applyShortcutConfig 一致：
+// 保存过 _key 时以保存值为准（空串 = 用户显式清空），从未保存则取出厂键位。
+bool SettingsDialog::keyRowHasEffectiveKey(int index) const
+{
+    if (index < 0 || index >= m_keyRows.size())
+        return false;
+    const KeyRow &r = m_keyRows.at(index);
+    const Config &cfg = Config::instance();
+    QString stored = r.defHotkey;
+    if (!r.cmd.isEmpty()) {
+        // 命令 ID 化（H1-7）：键位真源是 config/keyboard/<CMD>_keys；用户确认过
+        // 绑定（_keys_set）才以保存值为准，从未保存则仍看出厂键位。
+        if (cfg.commandKeysSaved(r.cmd))
+            stored = cfg.commandKeys(r.cmd).value(0);
+    } else if (cfg.hasActionKey(r.action)) {
+        // 命令映射缺失的降级路径：退回旧槽位键。
+        stored = cfg.actionKey(r.action);
+    }
+    return !QKeySequence::fromString(stored, QKeySequence::PortableText).isEmpty();
+}
+
+// 「启用」可用性：行内没有可用热键时灰显并给出原因，不让用户点出一个永远
+// 不响应的开关（出厂空键的幻灯片/裁剪行默认就落在这里）。
+void SettingsDialog::refreshKeyRowAvail(int index)
+{
+    if (index < 0 || index >= m_keyRows.size())
+        return;
+    const KeyRow &r = m_keyRows.at(index);
+    const bool hasKey = keyRowHasEffectiveKey(index);
+    if (r.cb->isEnabled() != hasKey)
+        r.cb->setEnabled(hasKey);
+    const QString tip = hasKey
+        ? tr("勾选即时生效：在热键栏按所录键即可触发，不必保存或重启")
+        : tr("本行还没有热键：先在热键栏录入并保存，再启用；空热键时勾选不会生效");
+    r.cb->setToolTip(tip);
+    if (r.row)
+        r.row->setToolTip(tip);
+    refreshKeyEditingState();
+}
+
 // 录入态：只有真正持有键盘焦点的热键框显示「正在录入」，页首说明同步切换。
 void SettingsDialog::refreshKeyEditingState()
 {
     if (m_keyRows.isEmpty())
         return;
     bool anyEditing = false;
-    for (const KeyRow &r : m_keyRows) {
+    for (int i = 0; i < m_keyRows.size(); ++i) {
+        const KeyRow &r = m_keyRows.at(i);
         const bool editing = r.edit
             && (r.edit->hasFocus() || (r.edit->focusProxy() && r.edit->focusProxy()->hasFocus()));
         if (r.row->property("editing").toBool() != editing) {
@@ -7928,10 +7991,15 @@ void SettingsDialog::refreshKeyEditingState()
         if (!r.stateLab)
             continue;
         if (r.row->property("conflict").toBool())
-            continue;   // 冲突优先，红字不被「正在录入」覆盖
+            continue;   // 冲突优先，红字不被「正在录入」/「无热键」覆盖
         if (editing) {
             r.stateLab->setText(tr("正在录入"));
             r.stateLab->setProperty("state", QStringLiteral("editing"));
+            r.stateLab->show();
+        } else if (!keyRowHasEffectiveKey(i)) {
+            // 批次13：空热键行常驻只读说明（启用已灰显，原因就在这里）。
+            r.stateLab->setText(tr("无热键"));
+            r.stateLab->setProperty("state", QStringLiteral("empty"));
             r.stateLab->show();
         } else {
             r.stateLab->setText(QString());
@@ -8175,6 +8243,206 @@ void SettingsDialog::probeSavePrompt(const QString &out)
     });
 
     reject();   // 阻塞在 box.exec()：外层的 --screenshot-ui 定时器仍会在嵌套循环里触发
+}
+
+// —— 批次13 键盘页即时化验收探针（--smoke kblive:<action>+<step>…）——
+// 全部走真实控件链路：点勾选 = QCheckBox::click → toggled → applyInstantValue
+// （写盘）+ MainWindow::applyLiveSetting（切换点重装热键表）；录入 = 向
+// QKeySequenceEdit 派发真实 QKeyEvent（与用户按键同一路径）；保存 = 保存按钮。
+// 每步把「勾选 / 可用 / 行内状态 / 配置原始值 / 运行态键位表 / 待保存提示」
+// 追加到 outPath，用于「设置页仍开着」的会话内取证。
+void SettingsDialog::probeKeyLive(const QString &spec, const QString &outPath)
+{
+    const QString out = outPath.isEmpty() ? QStringLiteral("Temp/key-live-probe.txt") : outPath;
+    // 失败注入（QUIKVIEW_TEST_LIVE_FAIL）与写盘失败会弹模态提示：挂自动点掉器，
+    // 否则 exec 卡住、后续 dump 永远不出。截图留证。
+    auto *autoOk = new QTimer(this);
+    autoOk->setInterval(120);
+    connect(autoOk, &QTimer::timeout, this, [this]() {
+        if (auto *mb = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+            mb->grab().save(QStringLiteral("Temp/key-live-msg.png"));
+            if (auto *ok = mb->button(QMessageBox::Ok))
+                ok->click();
+        }
+    });
+    autoOk->start();
+    // 关窗流程要 dump 关窗后的结果，对象留到进程退出（调用方设过 WA_DeleteOnClose）。
+    setAttribute(Qt::WA_DeleteOnClose, false);
+
+    QFile::remove(out);
+
+    const auto rowIndex = [this](const QString &action) {
+        for (int i = 0; i < m_keyRows.size(); ++i) {
+            if (m_keyRows.at(i).action == action)
+                return i;
+        }
+        return -1;
+    };
+    MainWindow *host = qobject_cast<MainWindow *>(parentWidget());
+
+    const auto dump = [this, out, rowIndex, host](const QString &tag, const QString &action) {
+        QString text;
+        QTextStream ts(&text);
+        ts << "[" << tag << "]\n";
+        const int i = rowIndex(action);
+        if (i < 0) {
+            ts << "action=" << action << " missing=1\n";
+        } else {
+            const KeyRow &r = m_keyRows.at(i);
+            QSettings &s = Config::instance().settings();
+            const Config &cfg = Config::instance();
+            const QString enabledFull = QStringLiteral("config/keyboard/%1_enabled").arg(action);
+            const QString keyFull = QStringLiteral("config/keyboard/%1_key").arg(action);
+            const QString state = r.stateLab ? r.stateLab->property("state").toString() : QString();
+            ts << "action=" << action << "\n"
+               << "checked=" << (r.cb->isChecked() ? 1 : 0)
+               << " cb_enabled=" << (r.cb->isEnabled() ? 1 : 0)
+               << " edit=\"" << r.edit->keySequence().toString(QKeySequence::PortableText)
+               << "\"\n"
+               << "row_state=" << (state.isEmpty() ? QStringLiteral("-") : state)
+               << " state_text=" << (r.stateLab ? r.stateLab->text() : QString()) << "\n"
+               // 命令 ID 化（H1-7）后的真源：<CMD>_enabled / <CMD>_keys(_set)。
+               << "cmd=" << (r.cmd.isEmpty() ? QStringLiteral("-") : r.cmd)
+               << " cmd_enabled="
+               << (cfg.commandEnabled(r.cmd, !r.defHotkey.isEmpty() || cfg.commandKeysSaved(r.cmd))
+                       ? 1 : 0)
+               << " cmd_keys_saved=" << (cfg.commandKeysSaved(r.cmd) ? 1 : 0)
+               << " cmd_keys=\"" << cfg.commandKeys(r.cmd).join(QLatin1Char('|')) << "\"\n"
+               // 旧槽位镜像（降级回退用），确认两份数据不打架。
+               << "cfg_enabled=" << (s.value(enabledFull).toBool() ? 1 : 0)
+               << " cfg_enabled_present=" << (s.contains(enabledFull) ? 1 : 0)
+               << " cfg_key=\"" << s.value(keyFull).toString()
+               << "\" cfg_key_present=" << (s.contains(keyFull) ? 1 : 0) << "\n"
+               << "pending="
+               << (m_footerNote && m_footerNote->isVisible() ? m_footerNote->text()
+                                                             : QStringLiteral("-"))
+               << "\n"
+               << "pending_names=" << pendingChangeNames().join(QStringLiteral("|")) << "\n"
+               << "runtime_slideshow=" << (host && host->slideshowRunning() ? 1 : 0) << "\n"
+               // 冲突时保存按钮由 refreshKeyConflictBanner 置灰：这里把它的可用态
+               // 一起记下来，「点保存被拦」既有按钮态证据、也有配置未变的证据。
+               << "btn_ok_enabled=" << (m_btnOk ? (m_btnOk->isEnabled() ? 1 : 0) : -1) << "\n";
+            if (host)
+                ts << "keys=" << host->shortcutsReport() << "\n";
+            ts << "dialog_open=" << (isVisible() ? 1 : 0) << "\n";
+        }
+        QFile f(out);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
+            f.write(text.toUtf8());
+    };
+
+    // 三选一确认框：先按目标按钮名挂一次性点击器，再走真实 reject()。
+    const auto answerBox = [this](const QString &wanted) {
+        QTimer::singleShot(200, this, [this, wanted]() {
+            QMessageBox *mb = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            if (!mb)
+                return;
+            for (QAbstractButton *b : mb->buttons()) {
+                if (b->text() == wanted) {
+                    b->click();
+                    return;
+                }
+            }
+        });
+    };
+
+    // 逐步执行（每步之间留一个事件循环，保证写盘/布局/热键重装都跑完）。
+    // 步骤链跨多次事件循环存活，用 shared_ptr 持有自身，避免悬空引用。
+    auto runner = std::make_shared<std::function<void(int)>>();
+    *runner = [this, spec, out, rowIndex, dump, answerBox, host, runner](int stepIndex) {
+        const QStringList parts = spec.split(u'+');
+        if (stepIndex >= parts.size()) {
+            // 结束：设置页自身截图（--screenshot 抓主窗口抓不到它）。
+            grab().save(QStringLiteral("Temp/key-live-settings.png"));
+            return;
+        }
+        const QString step = parts.at(stepIndex).trimmed();
+        const QString action = parts.value(0).trimmed();
+        const int i = rowIndex(action);
+        if (step.startsWith(QLatin1String("dump"))) {
+            const QString tag = step.mid(5).isEmpty() ? QStringLiteral("dump%1").arg(stepIndex)
+                                                      : step.mid(5).trimmed();
+            dump(tag, action);
+        } else if ((step == QLatin1String("on") || step == QLatin1String("off")) && i >= 0) {
+            const bool want = step == QLatin1String("on");
+            if (!m_keyRows.at(i).cb->isEnabled()) {
+                QFile f(out);
+                if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+                    f.write(QStringLiteral("[step%1] click_skipped=1 reason=cb_disabled\n")
+                                .arg(stepIndex).toUtf8());
+                }
+            } else if (m_keyRows.at(i).cb->isChecked() != want) {
+                m_keyRows.at(i).cb->click();   // 真实点击链路
+            }
+        } else if (step.startsWith(QLatin1String("record:")) && i >= 0) {
+            QKeySequenceEdit *edit = m_keyRows.at(i).edit;
+            const QKeySequence seq(step.mid(7).trimmed());
+            if (!seq.isEmpty()) {
+                edit->clear();
+                edit->setFocus(Qt::OtherFocusReason);
+                QApplication::processEvents();
+                const int key = seq[0].toCombined();
+                const Qt::KeyboardModifiers mods = Qt::KeyboardModifiers(key & Qt::KeyboardModifierMask);
+                const int baseKey = (key & ~Qt::KeyboardModifierMask);
+                QKeyEvent press(QEvent::KeyPress, baseKey, mods,
+                                seq.toString(QKeySequence::NativeText));
+                QApplication::sendEvent(edit, &press);
+                QKeyEvent release(QEvent::KeyRelease, baseKey, mods);
+                QApplication::sendEvent(edit, &release);
+                // 结束录制（等价用户按完键后离开输入框）：QKeySequenceEdit 在焦点
+                // 离开时才把草稿定稿并发 keySequenceChanged，冲突提示随之刷新。
+                edit->clearFocus();
+                QApplication::processEvents();
+            }
+        } else if (step == QLatin1String("clear") && i >= 0) {
+            QKeySequenceEdit *edit = m_keyRows.at(i).edit;
+            edit->setFocus(Qt::OtherFocusReason);
+            QApplication::processEvents();
+            QKeyEvent esc(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+            QApplication::sendEvent(edit, &esc);
+        } else if (step == QLatin1String("save") && m_btnOk) {
+            if (!m_btnOk->isEnabled()) {
+                // 冲突态下保存按钮本来就点不动：显式记下来，别让「没反应」被读成链路断。
+                QFile f(out);
+                if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+                    f.write(QStringLiteral("[step%1] save_skipped=1 reason=btn_disabled\n")
+                                .arg(stepIndex).toUtf8());
+                }
+            } else {
+                m_btnOk->click();   // 走 accept() → onAccepted() 唯一保存入口
+            }
+        } else if (step == QLatin1String("reapply") && host) {
+            // 保存后按关窗同一函数重装热键表（真实关窗时由 onSettings / destroyed
+            // 触发；探针里设置页对象还在，显式调一次以便同进程取证键位切换）。
+            host->reapplyShortcuts();
+        } else if (step.startsWith(QLatin1String("shot:"))) {
+            grab().save(QStringLiteral("Temp/%1").arg(step.mid(5).trimmed()));
+        } else if (step.startsWith(QLatin1String("close:"))) {
+            const QString how = step.mid(6).trimmed();
+            if (how == QLatin1String("discard"))
+                answerBox(tr("不保存"));
+            else if (how == QLatin1String("keep"))
+                answerBox(tr("继续编辑"));
+            else if (how == QLatin1String("save"))
+                answerBox(tr("保存并关闭"));
+            QMetaObject::invokeMethod(this, [this]() { reject(); }, Qt::QueuedConnection);
+        }
+        // QKeySequenceEdit 在「松键后 1 秒」才把录入定稿并发 keySequenceChanged，
+        // 录入步之后多等一会儿再 dump，否则读到的是「正在录入」而不是定稿结果。
+        const int gap = step.startsWith(QLatin1String("record:")) ? 1200 : 320;
+        QTimer::singleShot(gap, this, [runner, stepIndex]() { (*runner)(stepIndex + 1); });
+    };
+
+    // 先切到键盘页（按导航文案定位，避免写死页序号）；再开始执行。
+    QTimer::singleShot(350, this, [this]() {
+        for (QAbstractButton *b : m_tabs) {
+            if (b->text().contains(tr("键盘"))) {
+                b->click();
+                break;
+            }
+        }
+    });
+    QTimer::singleShot(700, this, [runner]() { (*runner)(1); });
 }
 
 // —— 批次22 即时化验收探针（--smoke etcprobe:<spec>）——

@@ -120,6 +120,15 @@ public:
     // 每次动作现读 config/<cfgKey>（设置页即时写盘后本会话即用新值）；失败时 error 说明原因。
     bool transferCurrentToFolder(const QString &cfgKey, bool moveFile, QString *dest,
                                  QString *error);
+    // 冒烟取证：13 个可配置动作的当前键位（PortableText，无键记 '-'）。
+    // 公开：设置页的 kblive 探针（probeKeyLive）在会话内要读运行态键位表。
+    QString shortcutsReport() const;
+    // 幻灯片是否正在放映（探针取证：真实按键后据此判断「开始 / 停止」是否发生）。
+    bool slideshowRunning() const { return m_slideshow; }
+    // 设置页关闭后重装热键表。与关窗链路（对话框 destroyed → applyShortcutConfig）
+    // 是同一个函数；验收探针需要在同一进程、设置页对象仍在时取证「保存后旧键
+    // 失效 / 新键生效」，因此单独开这个入口，不改生产路径。
+    void reapplyShortcuts();
 
     // 键盘页冲突检测数据源：13 个可配置动作之外、持有键位的动作清单
     // （每个快捷键一条，含副键；显示名已剥 & 助记符与 '\t' 后缀）。
@@ -272,8 +281,6 @@ private:
     // 键盘快捷键自定义（批次 D1）：按 config/keyboard/* 给 13 个可配置动作
     // 重装键位。启动（createActions 末尾）与设置页保存返回后各走一次。
     void applyShortcutConfig();
-    // 冒烟取证：13 个可配置动作的当前键位（PortableText，无键记 '-'）。
-    QString shortcutsReport() const;
     // preempt=true：显式跳转的抢占式加载（允许不等旧任务解完就启动新目标）；
     // 顺序翻页保持默认 false —— FIFO 逐张上屏，连按体感不变。
     void loadAsync(const QString &path, bool preempt = false);
