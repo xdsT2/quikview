@@ -95,3 +95,21 @@ translations/*.ts 中的界面文本为本项目自行撰写与翻译，不取�
 
 docs/ 下可能存在与第三方软件功能对照的技术文档。此类文档只描述
 "行为是什么"（可观察、可测量的功能规格），不含对方代码、素材或文本原文。
+
+===============================================================================
+七、参考的开源控件实现（Qlementine）
+===============================================================================
+
+设置弹窗的拨动开关（src/PillToggle.cpp）在绘制结构与状态划分上参考了
+**Qlementine** 的 Switch 控件：
+
+  上游：https://github.com/oclero/qlementine
+  文件：lib/src/widgets/Switch.cpp
+  许可：MIT，Copyright (c) 2022 Olivier Cléro <oclero@hotmail.com>
+  抓取日期：2026-11-22（dev 分支原文；上游未提供可直接引用的 release tag）
+  许可证全文与说明：third_party/qlementine/LICENSE.txt、third_party/qlementine/README.md
+
+参考内容限于「圆角轨道 + 圆形滑块」的绘制结构与状态划分（常态 / 悬停 / 按下 /
+禁用 / 焦点分别取色，滑块位置按比例插值，OutCubic 位置动画）。实现按本项目
+尺寸（轨道 40×22、滑块 16）与色板（src/UiStyle.h）重写，未整文件拷贝上游源码，
+未引入 Qlementine 库，也未替换应用的 QStyle。

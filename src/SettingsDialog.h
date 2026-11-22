@@ -120,6 +120,12 @@ public:
     // 的滚动/末组可达验收用；--smoke settingsgeo:<page>:<W>x<H>[:bottom][:fold]）。
     void probePageAtSize(int page, int w, int h, bool toBottom = false,
                          bool expandFormats = false);
+    // probeSwitchAcceptance(outDir, w, h)：开关统一规格验收（2026-11-22）。
+    // 逐页访问并把该页所有 PillToggle 的逻辑尺寸 / sizeHint / dpr / 物理尺寸 /
+    // 勾选与可用状态写入 outDir/switch-probe.txt；再跑四项交互自检（开关点击、
+    // 整行点击、空格、右键菜单父关子灰联动）与两张键盘焦点环截图；同时按当前
+    // 主题落盘一般页与右键菜单页整窗截图。w/h > 0 时先把窗口摆到该尺寸。
+    void probeSwitchAcceptance(const QString &outDir, int w = 0, int h = 0);
     // probeCtxToggle：切到上下文菜单页并点击 ctxmenu.<leaf> 开关（--smoke
     // settingsctx:<leaf>）。与真实鼠标点击同一条 PillToggle::toggled →
     // writeValues 链路，供资源管理器右键验收驱动设置页开关。
