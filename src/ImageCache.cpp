@@ -417,16 +417,29 @@ void ImageCache::emitPreview(const QString &path, const QImage &img, quint64 gen
     }, Qt::QueuedConnection);
 }
 
+void ImageCache::setPreviewModeLive(bool known, bool on)
+{
+    // 主线程写入、解码线程读取：只改两个原子量，不碰队列与缓存。
+    m_previewLiveKnown.store(known);
+    m_previewLiveOn.store(on);
+}
+
 void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
                                  quint64 generation)
 {
+    // 批次05 #24：提交任务时在 GUI 线程取一次「是否先出快帧」——会话内覆盖优先，
+    // 没有覆盖时读配置。这样解码线程不必再读 QSettings（跨线程读配置不安全），
+    // 且设置页切换的那一下对「下一次请求」立即成立。
+    const bool previewLive = m_previewLiveKnown.load();
+    const bool previewOn = previewLive ? m_previewLiveOn.load()
+                                       : Config::instance().previewMode();
     m_fullInFlight.insert(path, generation);
-    QtConcurrent::run(&m_decodePool, [this, path, previewSize, generation]() {
+    QtConcurrent::run(&m_decodePool, [this, path, previewSize, generation, previewOn]() {
         // 包内条目（.zip/.cbz 里的文件）：解压进内存 → QImageReader 从内存流解码。
         // 与文件路径同构：先按视口出一张快帧顶住连按，再解全图；解码完的字节即弃，
         // 全程不落盘（派单 §二.3 / §四.5 的内存峰值就落在这两条）。
         if (ArchiveStore::isEntryPath(path)) {
-            if (previewSize.isValid() && Config::instance().previewMode()) {
+            if (previewSize.isValid() && previewOn) {
                 QString ignored;
                 const QImage prev = ArchiveStore::decode(path, previewSize, &ignored);
                 if (!prev.isNull()) {
@@ -493,7 +506,7 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
         // 按比例解码，先按视口像素出一张顶住连按体感，全图随后替换。
         // HEIC/RAW 的 QImageReader 读不出 size()，自然跳过快帧，仍走各自 Loader。
         // 「先显示低品质图片以加速渲染」（C14）关闭时跳过这一级，等全图一次上屏。
-        if (previewSize.isValid() && Config::instance().previewMode()) {
+        if (previewSize.isValid() && previewOn) {
             QImageReader fast(path);
             fast.setAutoTransform(true);
             QSize src = fast.size();

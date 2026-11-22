@@ -3387,9 +3387,11 @@ Restored the original value; nothing was written to the config.</translation>
         </message>
         <message>
             <source>待保存：%1
-「不保存」只放弃这些草稿；浏览页的缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示会回到进入设置时的状态，其余即时设置保留。</source>
+
+「不保存」只放弃这些草稿；浏览页四项与图像处理/外观页的即时档位（插值、快帧策略、翻页效果、GIF 底色、画布背景）会回到进入设置时的状态，其余即时设置保留。</source>
             <translation>Pending: %1
-"Don't save" only discards these drafts; on the Browse page the zoom memory / filename overlay / animation frame info / hover tooltip revert to the state from when Settings was opened, all other live settings are kept.</translation>
+
+“Don't save” only discards these drafts; the four Browse-page items and the live choices on the Image Processing / Appearance pages (interpolation, fast-frame policy, page-turn effect, GIF backdrop, canvas backdrop) revert to the state from when Settings was opened; other live settings are kept.</translation>
         </message>
         <message>
             <source>保存并关闭</source>
@@ -3551,7 +3553,35 @@ Restored the original value; nothing was written to the config.</translation>
             <source>旋转/翻转立即写回原文件；RAW 与动图不受影响</source>
             <translation>Rotate/flip writes back to the original file immediately; RAW and animated images are not affected</translation>
         </message>
-    </context>
+            <message>
+            <source>双线性 (快)</source>
+            <translation>Bilinear (Fast)</translation>
+        </message>
+        <message>
+            <source>双三次 (平滑)</source>
+            <translation>Bicubic (Smooth)</translation>
+        </message>
+        <message>
+            <source>缩放重采样时使用；双线性最快、双三次为默认，Lanczos 最锐</source>
+            <translation>Used when resampling on zoom; Bilinear is fastest, Bicubic is the default, Lanczos is sharpest</translation>
+        </message>
+        <message>
+            <source>「%1」已即时生效：%2 · %3；无需保存，按「取消」/ Esc 会回到进入设置时的状态。</source>
+            <translation>“%1” is now live: %2 · %3; no save needed — Cancel / Esc restores the state from when Settings was opened.</translation>
+        </message>
+        <message>
+            <source>已放弃本次改动：图像处理页的即时项已回到进入设置时的状态。</source>
+            <translation>Changes discarded: the live items on the Image Processing page are back to the state from when Settings was opened.</translation>
+        </message>
+        <message>
+            <source>已放弃本次改动：翻页效果已回到进入设置时的档位。</source>
+            <translation>Changes discarded: the page-turn effect is back to the setting from when Settings was opened.</translation>
+        </message>
+        <message>
+            <source>已即时生效：%1 · %2</source>
+            <translation>Applied instantly: %1 · %2</translation>
+        </message>
+</context>
     <context>
         <name>ThumbnailBrowser</name>
         <message>

@@ -3387,9 +3387,11 @@ Valor original restaurado; nada se escribió en la configuración.</translation>
         </message>
         <message>
             <source>待保存：%1
-「不保存」只放弃这些草稿；浏览页的缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示会回到进入设置时的状态，其余即时设置保留。</source>
-            <translation>Pendiente: %1
-«No guardar» solo descarta estos borradores; en la página Ver, la memoria de zoom / capa de nombre de archivo / info de fotograma / sugerencia al pasar el ratón vuelven al estado al abrir Ajustes; los demás ajustes inmediatos se conservan.</translation>
+
+「不保存」只放弃这些草稿；浏览页四项与图像处理/外观页的即时档位（插值、快帧策略、翻页效果、GIF 底色、画布背景）会回到进入设置时的状态，其余即时设置保留。</source>
+            <translation>Sin guardar: %1
+
+«No guardar» solo descarta estos borradores; los cuatro elementos de la página Explorar y los ajustes inmediatos de las páginas Procesamiento de imagen / Apariencia (interpolación, política de imagen rápida, efecto de cambio de página, fondo GIF, fondo del lienzo) vuelven al estado de cuando abriste Ajustes; el resto de ajustes inmediatos se conserva.</translation>
         </message>
         <message>
             <source>保存并关闭</source>
@@ -3551,7 +3553,35 @@ Valor original restaurado; nada se escribió en la configuración.</translation>
             <source>旋转/翻转立即写回原文件；RAW 与动图不受影响</source>
             <translation>Girar/voltear escribe de inmediato en el archivo original; RAW e imágenes animadas no se ven afectados</translation>
         </message>
-    </context>
+            <message>
+            <source>双线性 (快)</source>
+            <translation>Bilineal (rápido)</translation>
+        </message>
+        <message>
+            <source>双三次 (平滑)</source>
+            <translation>Bicúbica (suave)</translation>
+        </message>
+        <message>
+            <source>缩放重采样时使用；双线性最快、双三次为默认，Lanczos 最锐</source>
+            <translation>Se usa al remuestrear con zoom; Bilineal es el más rápido, Bicúbica es el predeterminado, Lanczos el más nítido</translation>
+        </message>
+        <message>
+            <source>「%1」已即时生效：%2 · %3；无需保存，按「取消」/ Esc 会回到进入设置时的状态。</source>
+            <translation>«%1» ya se aplica al instante: %2 · %3; no hace falta guardar: «Cancelar»/Esc vuelve al estado de cuando abriste Ajustes.</translation>
+        </message>
+        <message>
+            <source>已放弃本次改动：图像处理页的即时项已回到进入设置时的状态。</source>
+            <translation>Cambios descartados: las opciones inmediatas de la página Procesamiento de imagen volvieron al estado de cuando abriste Ajustes.</translation>
+        </message>
+        <message>
+            <source>已放弃本次改动：翻页效果已回到进入设置时的档位。</source>
+            <translation>Cambios descartados: el efecto de cambio de página volvió al valor de cuando abriste Ajustes.</translation>
+        </message>
+        <message>
+            <source>已即时生效：%1 · %2</source>
+            <translation>Aplicado al instante: %1 · %2</translation>
+        </message>
+</context>
     <context>
         <name>ThumbnailBrowser</name>
         <message>
