@@ -6394,7 +6394,11 @@ void SettingsDialog::loadBindingsFromConfig(int chkFrom, int comboFrom, int keyF
         const KeyRow &r = m_keyRows.at(i);
         // 出厂无单键的动作（幻灯片 / 裁剪）默认不启用，避免「勾着但热键为空」；
         // 已有配置仍以用户落盘值为准（P2 / D4）。
-        const bool enabledByDefault = !r.defHotkey.isEmpty();
+        // 批次13：口径与 MainWindow::applyShortcutConfig 对齐——运行态对
+        // config/keyboard/<CMD>_enabled 缺省取 true，所以「已保存过键位」的行
+        // 缺省也必须是勾选态，否则会出现「设置页显示未勾、按键却生效」的反向假开关。
+        const bool enabledByDefault = !r.defHotkey.isEmpty()
+                                      || (!r.cmd.isEmpty() && Config::instance().commandKeysSaved(r.cmd));
         // 命令 ID 化（H1-7）：启用与键位都从命令键读（config/keyboard/<CMD>_*）。
         // 命令键从未保存过时退回行内出厂值，与迁移前的「出厂行」显示一致。
         const Config &cfg = Config::instance();
@@ -6688,8 +6692,11 @@ void SettingsDialog::connectInstantSignals(int chkFrom, int comboFrom, int keyFr
         const KeyRow &r = m_keyRows.at(i);
         const QString action = r.action;
         const QString cmd = r.cmd;
+        // 启用列只有裸勾选框（文字在左侧「操作」列），报错文案必须用动作显示名，
+        // 否则弹窗会是「「」未能即时生效」，用户看不出是哪一项。
+        const QString label = r.label;
         QCheckBox *cb = r.cb;
-        connect(cb, &QCheckBox::toggled, this, [this, action, cmd, cb](bool on) {
+        connect(cb, &QCheckBox::toggled, this, [this, action, cmd, label, cb](bool on) {
             if (m_loading)
                 return;
             // 命令 ID 化（H1-7）：真源是 keyboard/<CMD>_enabled；旧槽位键写同一值
@@ -6712,7 +6719,7 @@ void SettingsDialog::connectInstantSignals(int chkFrom, int comboFrom, int keyFr
                     applyInstantValue(key, !on);
                     QMessageBox::warning(this, tr("设置"),
                                          tr("「%1」未能即时生效：%2\n已恢复原值。")
-                                             .arg(cb->text(), error));
+                                             .arg(label.isEmpty() ? cb->text() : label, error));
                 }
             }
         });
@@ -7353,9 +7360,13 @@ bool SettingsDialog::onAccepted()
             changes.append({ QStringLiteral("keyboard/%1_key").arg(r.action), now });
         }
         // 批次13：保存后热键为空的行不能留下「启用」，否则下次启动是勾着却按不动
-        // 的死项（applyShortcutConfig 拿不到键就跳过）。这里按最终键位自动清勾。
-        if (now.isEmpty() && r.cb->isChecked())
-            changes.append({ QStringLiteral("keyboard/%1_enabled").arg(r.action), false });
+        // 的死项（applyShortcutConfig 拿不到键就跳过）。这里按最终键位自动清勾；
+        // 命令 ID 化后启用真源是 config/keyboard/<CMD>_enabled，写错槽位等于没写。
+        if (now.isEmpty() && r.cb->isChecked()) {
+            changes.append({ QStringLiteral("keyboard/%1_enabled")
+                                 .arg(r.cmd.isEmpty() ? r.action : r.cmd),
+                             false });
+        }
         // 动作固定；仅当历史改绑残留的旧值与目标动作不一致时才清理一次。
         const QString actionKey = QStringLiteral("keyboard/%1_action").arg(r.action);
         const QVariant storedAction = s.value(QStringLiteral("config/") + actionKey);
@@ -7504,7 +7515,16 @@ bool SettingsDialog::keyRowHasEffectiveKey(int index) const
         return false;
     const KeyRow &r = m_keyRows.at(index);
     const Config &cfg = Config::instance();
-    const QString stored = cfg.hasActionKey(r.action) ? cfg.actionKey(r.action) : r.defHotkey;
+    QString stored = r.defHotkey;
+    if (!r.cmd.isEmpty()) {
+        // 命令 ID 化（H1-7）：键位真源是 config/keyboard/<CMD>_keys；用户确认过
+        // 绑定（_keys_set）才以保存值为准，从未保存则仍看出厂键位。
+        if (cfg.commandKeysSaved(r.cmd))
+            stored = cfg.commandKeys(r.cmd).value(0);
+    } else if (cfg.hasActionKey(r.action)) {
+        // 命令映射缺失的降级路径：退回旧槽位键。
+        stored = cfg.actionKey(r.action);
+    }
     return !QKeySequence::fromString(stored, QKeySequence::PortableText).isEmpty();
 }
 
