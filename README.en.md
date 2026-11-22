@@ -9,7 +9,7 @@ QuikView is an open-source Windows image viewer with folder navigation, two-page
 
 > **Windows x64 downloads** · Choose the installer or portable ZIP from the [latest release](https://github.com/xdsT2/quikview/releases/latest). Extract and run the portable version without installing Qt.
 
-> **0.5.6** builds on the 0.5.5 interface final with a broad feature and polish pass: settings are reorganized into **nine pages** with export/import, ZIP/CBZ archives open as virtual folders, external directory changes refresh automatically, and window geometry plus the last viewed file are restored by default. It adds a cover page for two-page spreads, arrow-key-only scrolling, a `%1` template for the external editor, RAW+JPG grouping, four copy variants and `Ctrl+V` paste from the clipboard, auto-save on rotate, locked window size and print size on the info overlay. "At the first/last image" gains an **Ask** mode, middle-click vs drag and each scroll direction can be mapped independently, GIF transparency gains a custom colour, and display ICC support is added for SDR (only on screens with "automatic app colour management" turned off). The bottom control island, the Tab image info and the PSD layer panel now share one soft shadow, and the layer button only appears for PSD / PSB files. The 0.5.5 Fluent icon set, bottom-bar image overview, context-menu switch fix and `.svg` thumbnails remain. See the [changelog](CHANGELOG.md) and [release notes](https://github.com/xdsT2/quikview/releases/tag/v0.5.6).
+> **0.6.0** is a major feature release: an optional **360° panorama viewer** (separate process, installer section off by default), a reworked image overview with adaptive columns and full-card selection, SVG opening, live language / page-turn sound / RAW policy changes, stable command IDs for shortcuts with multiple bindings per command, a top bar blended into the canvas, unified menu and popup feedback, a new About page in settings (ten pages total), and a decode-only libheif that cuts the installer from about 148.3 MiB to 96.9 MiB. Everything from 0.5.6 remains: nine-page settings, ZIP/CBZ virtual folders, window and session restore, copy variants and clipboard paste, custom GIF background colour, and SDR display ICC. See the [changelog](CHANGELOG.md) and [release notes](https://github.com/xdsT2/quikview/releases/tag/v0.6.0).
 
 ![QuikView main window: top strip and bottom control capsule floating over the photo](docs/screenshots/01-main.webp)
 
@@ -135,9 +135,10 @@ Third-party libraries and trademark notices: see [NOTICE](NOTICE).
 
 ## Contributors
 
-QuikView was designed, implemented, tested and documented jointly by the author and the following AI collaboration tools (in order of participation):
+QuikView was designed, implemented, tested and documented jointly by the author and the following AI collaboration tools:
 
-ChatGPT, WorkBuddy, Trae, Doubao, ZCode, OpenCode.
+- **Agent platforms**: ChatGPT, WorkBuddy, Trae, Doubao, ZCode, OpenCode.
+- **Models**: DeepSeek-V4.1 flash, GLM-5.3 flash, GLM 5.3, ChatGPT 6.1 solo, ChatGPT 6.2 solo.
 
 ## Disclaimer
 

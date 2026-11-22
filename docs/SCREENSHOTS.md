@@ -2,7 +2,7 @@
 
 [← 返回 README](../README.md)
 
-> 本页图集基于 **QuikView 0.5.6** 界面（2026-11-21 重拍，tag `v0.5.6`）。
+> 本页图集基于 **QuikView 0.6.0** 界面（2026-11-22 重拍，tag `v0.6.0`）。
 
 以下截图全部由 **QuikView 自身渲染**（`--screenshot` 走 Qt 内部绘制，不是系统抓屏），
 所以不受显示器 DPI 缩放影响，和你在屏幕上看到的一致。
@@ -108,11 +108,11 @@ Originals are kept by default.
 
 ## 9. 设置 · Settings
 
-左侧九个分类，右侧就地生效的选项：通用、浏览、外观与显示、图像处理、键盘、鼠标与滚轮、查看器右键菜单、Windows 集成、扩展（另有「关于 QuikView」入口）。
+左侧十个分类，右侧就地生效的选项：通用、浏览、外观与显示、图像处理、键盘、鼠标与滚轮、查看器右键菜单、Windows 集成、扩展、关于。
 
-Nine categories on the left, options on the right: general, browsing, appearance & display, image
-processing, keyboard, mouse & wheel, viewer right-click menu, Windows integration, extensions
-(plus an About entry).
+Ten categories on the left, options on the right: general, browsing, appearance & display, image
+processing, keyboard, mouse & wheel, viewer right-click menu, Windows integration, extensions,
+and About.
 
 ![设置](screenshots/09-settings.webp)
 

@@ -9,7 +9,7 @@ QuikView 是一款开源的 Windows 看图器，支持目录翻页、双页阅�
 
 > **Windows x64 下载** · 到[最新发布页](https://github.com/xdsT2/quikview/releases/latest)选择安装版或便携 ZIP。便携版解压即可运行，无需另装 Qt。
 
-> **0.5.6** 在 0.5.5 界面定稿版之上补齐一批功能与收口：设置页重组为**九页**并支持导出 / 导入设置，ZIP / CBZ 可当虚拟目录直接打开，目录外部变更自动刷新，主窗口几何与上次查看文件默认恢复；新增双页封面、仅方向键滚动、编辑器 `%1` 参数模板、RAW+JPG 分组、复制四变体与 `Ctrl+V` 剪贴板取图、旋转后自动写回、锁定窗口大小与打印尺寸。交互上「到达首尾图片时」新增**询问**档，中键单击 / 拖动与滚轮上下方向分别映射，GIF 透明背景可自定义颜色，并加入显示器 ICC 的 SDR 验证支持（仅对关闭「自动管理应用颜色」的屏幕生效）。底部控制栏、Tab 图片信息和 PSD 图层面板统一柔和投影，顶栏图层按钮只在 PSD / PSB 时出现。0.5.5 的 Fluent 图标、底栏图片总览、上下文菜单开关修复与 `.svg` 缩略图仍在。完整清单见 [更新日志](CHANGELOG.md) 与 [发布说明](https://github.com/xdsT2/quikview/releases/tag/v0.5.6)。
+> **0.6.0** 是大版本更新：新增可选 **360° 全景查看器**（独立进程、设置页安装、安装向导默认不勾选），图片总览网格重做为自适应列数与整卡选中，新增 SVG 打开；界面语言、翻页音效、RAW 策略改为即时生效，快捷键迁移到稳定命令 ID 并支持一键多绑；顶栏改为与画布同色纯色，菜单与弹层反馈统一，设置侧栏新增「关于」页（十页），安装包改用纯解码 libheif 后体积从约 148.3 MiB 降到约 96.9 MiB。0.5.6 的九页设置、ZIP/CBZ 直读、窗口 / 会话记忆、复制与剪贴板、GIF 自定义底色和显示器 ICC 均保留。完整清单见 [更新日志](CHANGELOG.md) 与 [发布说明](https://github.com/xdsT2/quikview/releases/tag/v0.6.0)。
 
 ![QuikView 主窗口：顶部栏与底部控制胶囊浮在照片上](docs/screenshots/01-main.webp)
 
@@ -121,9 +121,10 @@ packaging/    NSIS 安装包脚本
 
 ## 致谢
 
-QuikView 由作者与以下 AI 协作工具共同完成设计、实现、测试与文档工作（按参与顺序）：
+QuikView 由作者与以下 AI 协作工具共同完成设计、实现、测试与文档工作：
 
-ChatGPT、WorkBuddy、Trae、豆包、ZCode、OpenCode。
+- **Agent 平台**：ChatGPT、WorkBuddy、Trae、豆包、ZCode、OpenCode。
+- **模型**：DeepSeek-V4.1 flash、GLM-5.3 flash、GLM 5.3、ChatGPT 6.1 solo、ChatGPT 6.2 solo。
 
 ## 免责声明
 
