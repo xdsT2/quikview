@@ -8959,6 +8959,180 @@ void SettingsDialog::probeCfgLive(const QString &spec)
     });
 }
 
+// —— 九页逐项即时化取证探针（--smoke cfgclick:<页名>|<key>=<值>+…）——
+// 九页台账收口用：逐项按真实控件链路切换，落一行可核的「控件态 / ini 原始值 /
+// present / 运行态 / 是否达到目标态」。开关与下拉统一走绑定表定位，不按文案猜。
+void SettingsDialog::probeCfgClick(const QString &spec)
+{
+    const int bar = spec.indexOf(u'|');
+    const QString page = bar < 0 ? QString() : spec.left(bar).trimmed();
+    const QStringList items = (bar < 0 ? spec : spec.mid(bar + 1))
+                                  .split(u'+', Qt::SkipEmptyParts);
+
+    QTimer::singleShot(350, this, [this, page, items]() {
+        if (!page.isEmpty()) {
+            // 页名可写文案片段，也可写 0 起的页序号（自动化传中文参数在
+            // Windows 命令行上容易踩编码，序号是最稳的定位方式）。
+            bool isIndex = false;
+            const int idx = page.toInt(&isIndex);
+            if (isIndex && idx >= 0 && idx < m_pages.size()) {
+                selectPage(idx);
+            } else {
+                const auto navs = findChildren<QPushButton *>(QStringLiteral("navItem"));
+                for (QPushButton *b : navs) {
+                    if (b->text().contains(page)) { b->click(); break; }
+                }
+            }
+        }
+        QTimer::singleShot(500, this, [this, page, items]() {
+            MainWindow *host = qobject_cast<MainWindow *>(parentWidget());
+            QString out;
+            QTextStream ts(&out);
+            int okCount = 0;
+            int missCount = 0;
+            ts << "[page=" << (page.isEmpty() ? QStringLiteral("(current)") : page)
+               << "] items=" << items.size() << "\n";
+            for (const QString &raw : items) {
+                const int eq = raw.indexOf(u'=');
+                if (eq <= 0) {
+                    ts << "item=" << raw << " ok=0 reason=bad-spec\n";
+                    ++missCount;
+                    continue;
+                }
+                const QString key = raw.left(eq).trimmed();
+                const QString want = raw.mid(eq + 1).trimmed();
+                QSettings &s = Config::instance().settings();
+                const QString full = QStringLiteral("config/") + key;
+
+                bool found = false;
+                bool ok = false;
+                QString uiState;
+                for (const ChkBind &b : m_chkBinds) {
+                    if (QString::fromLatin1(b.key) != key)
+                        continue;
+                    found = true;
+                    const bool wantOn = want.compare(QLatin1String("on"), Qt::CaseInsensitive) == 0;
+                    if (b.cb->isChecked() != wantOn && b.cb->isEnabled())
+                        b.cb->click();   // 真实链路：chkBind → applyLiveCheck → 写盘
+                    uiState = QStringLiteral("checked=%1")
+                                  .arg(b.cb->isChecked() ? QStringLiteral("true")
+                                                         : QStringLiteral("false"));
+                    ok = b.cb->isChecked() == wantOn;
+                    if (!b.cb->isEnabled())
+                        uiState += QStringLiteral(" disabled=1");
+                    break;
+                }
+                if (!found) {
+                    for (const ComboBind &b : m_comboBinds) {
+                        if (QString::fromLatin1(b.key) != key)
+                            continue;
+                        found = true;
+                        int idx = -1;
+                        for (int i = 0; i < b.combo->count(); ++i) {
+                            if (b.combo->itemData(i, Qt::UserRole).toString() == want) {
+                                idx = i;
+                                break;
+                            }
+                        }
+                        for (int i = 0; idx < 0 && i < b.combo->count(); ++i) {
+                            if (b.combo->itemText(i) == want) {
+                                idx = i;
+                                break;
+                            }
+                        }
+                        const int asIndex = want.toInt();
+                        if (idx < 0 && asIndex >= 0 && asIndex < b.combo->count())
+                            idx = asIndex;
+                        if (idx >= 0 && b.combo->currentIndex() != idx)
+                            b.combo->setCurrentIndex(idx);
+                        uiState = QStringLiteral("idx=%1 data=\"%2\"")
+                                      .arg(b.combo->currentIndex())
+                                      .arg(b.combo->currentData().toString());
+                        ok = idx >= 0 && b.combo->currentIndex() == idx;
+                        break;
+                    }
+                }
+                // 三类不挂在 m_chkBinds / m_comboBinds 上的行，按各自锚点补上：
+                // 主题（独立成员下拉）、查看器右键菜单（appMenuId 属性）、
+                // Windows 集成右键开关（accessibleName = "ctxmenu.<leaf>"）。
+                if (!found && key == QLatin1String("theme") && m_themeCombo) {
+                    found = true;
+                    int idx = -1;
+                    for (int i = 0; i < m_themeCombo->count(); ++i) {
+                        if (m_themeCombo->itemData(i).toString() == want) { idx = i; break; }
+                    }
+                    if (idx < 0)
+                        idx = want.toInt();
+                    if (idx >= 0 && idx < m_themeCombo->count()
+                        && m_themeCombo->currentIndex() != idx)
+                        m_themeCombo->setCurrentIndex(idx);
+                    uiState = QStringLiteral("idx=%1 data=\"%2\"")
+                                  .arg(m_themeCombo->currentIndex())
+                                  .arg(m_themeCombo->currentData().toString());
+                    ok = idx >= 0 && m_themeCombo->currentIndex() == idx;
+                }
+                if (!found && key.startsWith(QLatin1String("appmenu/"))) {
+                    const QString id = key.mid(8);
+                    const bool wantOn = want.compare(QLatin1String("on"), Qt::CaseInsensitive) == 0;
+                    for (PillToggle *t : findChildren<PillToggle *>()) {
+                        if (t->property("appMenuId").toString() != id)
+                            continue;
+                        found = true;
+                        if (t->isChecked() != wantOn && t->isEnabled())
+                            t->click();   // 真实链路：appMenuId 绑定 → 写盘 + 预览刷新
+                        uiState = QStringLiteral("checked=%1")
+                                      .arg(t->isChecked() ? QStringLiteral("true")
+                                                          : QStringLiteral("false"));
+                        ok = t->isChecked() == wantOn;
+                        if (!t->isEnabled())
+                            uiState += QStringLiteral(" disabled=1");
+                        break;
+                    }
+                }
+                if (!found && key.startsWith(QLatin1String("ctxmenu/"))) {
+                    const QString acc = QStringLiteral("ctxmenu.") + key.mid(8);
+                    const bool wantOn = want.compare(QLatin1String("on"), Qt::CaseInsensitive) == 0;
+                    for (PillToggle *t : findChildren<PillToggle *>()) {
+                        if (t->accessibleName() != acc)
+                            continue;
+                        found = true;
+                        if (t->isChecked() != wantOn && t->isEnabled())
+                            t->click();   // 真实链路：壳扩展同键写入
+                        uiState = QStringLiteral("checked=%1")
+                                      .arg(t->isChecked() ? QStringLiteral("true")
+                                                          : QStringLiteral("false"));
+                        ok = t->isChecked() == wantOn;
+                        if (!t->isEnabled())
+                            uiState += QStringLiteral(" disabled=1");
+                        break;
+                    }
+                }
+                if (!found) {
+                    ts << "item=" << key << " ok=0 reason=not-built-or-missing\n";
+                    ++missCount;
+                    continue;
+                }
+                const QVariant runtime = host ? host->liveSettingValue(key) : QVariant();
+                ts << "item=" << key << " " << uiState << " want=" << want
+                   << " stored=\"" << s.value(full).toString() << "\""
+                   << " present=" << (s.contains(full) ? 1 : 0)
+                   << " runtime="
+                   << (runtime.isValid() ? QStringLiteral("\"") + runtime.toString()
+                                                         + QStringLiteral("\"")
+                                         : QStringLiteral("(n/a)"))
+                   << " ok=" << (ok ? 1 : 0) << "\n";
+                okCount += ok ? 1 : 0;
+            }
+            ts << "[after] ok=" << okCount << " missing=" << missCount << "\n";
+            ts.flush();
+            QFile f(QStringLiteral("Temp/cfgclick-probe.txt"));
+            if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
+                f.write(out.toUtf8());
+            grab().save(QStringLiteral("Temp/cfgclick-settings.png"));
+        });
+    });
+}
+
 // —— 验收探针（--smoke keyreset）——
 void SettingsDialog::probeResetDefaults()
 {

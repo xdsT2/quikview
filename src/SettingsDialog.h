@@ -77,6 +77,12 @@ public:
     // 验收探针（--smoke setcfglive:<cfgKey>=on|off）：切到「图像处理」页，按 cfgKey
     // 真实点击开关，dump 前后「控件态 / Config getter / QSettings 原始值」到 Temp/。
     void probeCfgLive(const QString &spec);
+    // 九页逐项即时化取证探针（--smoke cfgclick:<页名>|<key>=<值>+<key>=<值>…）：
+    // 按页签先建页，再按绑定表（m_chkBinds / m_comboBinds）定位真实控件，
+    // 开关走 PillToggle::click、下拉走 setCurrentIndex 的同一条绑定链路，
+    // 每项 dump「控件态 / ini 原始值 / present / 主窗口运行态 / 是否达到目标态」。
+    // 页面用文案片段（如「外观与显示」）定位，或直接用 0 起的页序号；省略则用当前页。
+    void probeCfgClick(const QString &spec);
     // 批次21（#81 翻页音效 / #82 不打开 RAW / #83 JPEG 同名 RAW）即时化验收探针。
     // --smoke batch21probe:<g81|g82:<rawPath>|g83|close:<cancel|esc|x|save>>
     void probeBatch21(const QString &spec);
