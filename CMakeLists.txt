@@ -86,6 +86,9 @@ add_executable(quikview WIN32
     src/ThumbnailBrowser.h
     src/OverviewPanel.cpp
     src/OverviewPanel.h
+    # 总览分组口径（2026-11-22 派单）：尺寸只读文件头、拍摄日期只读 EXIF
+    src/ImageFacts.cpp
+    src/ImageFacts.h
     src/FrameNavigator.cpp
     src/FrameNavigator.h
     src/Theme.h

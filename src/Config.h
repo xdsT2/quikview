@@ -2,6 +2,7 @@
 
 #include <QSettings>
 #include <QColor>
+#include <QStringList>
 
 // 应用配置。设计对照逆向得到的 Honeyview config.ini 配置面，
 // 但刻意做三处改进（见 ARCHITECTURE.md「取舍」）：
@@ -73,6 +74,20 @@ public:
     bool hasActionKey(const QString &action) const;
     QString actionKey(const QString &action, const QString &def = QString()) const;
     QString actionBinding(const QString &action, const QString &def = QString()) const;
+
+    // 命令 ID 化的键位（派单 2026-11-18 H1-7）：config/keyboard/<CMD_ID>_enabled 与
+    // /<CMD_ID>_keys（QStringList，PortableText，支持一个命令多个键）。
+    // 显式语义另有一枚 /<CMD_ID>_keys_set：
+    //   缺 _keys_set = 从未保存过 → 运行期按 CommandCatalog 的出厂键位；
+    //   _keys_set=true    = 用户已确认过绑定 → 以 _keys 为准（空表 = 显式不绑键）。
+    // 旧键 config/keyboard/<槽位>_enabled/_key/_action 由构造函数一次性迁移
+    // （见 Config::migrateKeyboardToCommandIds），迁移规则写进回执。
+    bool commandEnabled(const QString &cmdId, bool def = true) const;
+    bool commandKeysSaved(const QString &cmdId) const;
+    QStringList commandKeys(const QString &cmdId) const;
+    // 设置页/迁移写盘点：persist=true 时立即 sync（迁移需要落盘）。
+    void setCommandKeys(const QString &cmdId, const QStringList &keys, bool enabled,
+                        bool persist);
 
     // 「使用强锐化滤镜」：lanczosResample 缩图后叠加一层固定强度 3×3
     // unsharp mask（ImageCanvas::doRefreshSampling）。默认关。
@@ -181,6 +196,8 @@ public:
 
 private:
     static QString defaultConfigPath();
+    // 旧键盘槽位键 → 命令 ID 键的一次性迁移（构造函数调用，幂等）。
+    void migrateKeyboardToCommandIds();
 
     QString m_configPath;
     QSettings m_settings;

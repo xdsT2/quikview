@@ -111,6 +111,10 @@ public:
     QString batch21RuntimeDump() const;
     // 回滚期间抑制「设置项 → 画布预览」的一次性动作（目前只有文件名浮层用到）。
     void setLivePreviewQuiet(bool quiet) { m_livePreviewQuiet = quiet; }
+    // 批次18：菜单「复制到 / 移动到 图片文件夹 N」与验收探针共用同一条动作链路。
+    // 每次动作现读 config/<cfgKey>（设置页即时写盘后本会话即用新值）；失败时 error 说明原因。
+    bool transferCurrentToFolder(const QString &cfgKey, bool moveFile, QString *dest,
+                                 QString *error);
 
     // 键盘页冲突检测数据源：14 个可配置动作之外、持有键位的动作清单
     // （每个快捷键一条，含副键；显示名已剥 & 助记符与 '\t' 后缀）。
@@ -237,6 +241,12 @@ private:
     void applyTopmost(bool top);
     void toggleFullscreen();         // 全屏/还原唯一入口：标题栏 · F11 · 中键 · smoke
     void createActions();
+    // 命令注册表（派单 2026-11-18 H1-7）：CMD_* 是快捷键、设置页、冒烟探针与后续
+    // 公开 CLI 的唯一动作入口。表在 src/CommandCatalog.h；这里负责把表里的每条命令
+    // 落到真实 QAction（或直接槽）上。triggerCommand 返回 false = 未知命令/未接线。
+    bool triggerCommand(const QString &cmdId, const QString &arg = QString());
+    QString commandReport() const;       // 命令 ID 全表 + 当前键位（取证）
+    QString commandCheckReport() const;  // 命令表 ↔ mk() 注册表对账（漏项/孤儿）
     QMenu *buildContextMenu();
     QMenu *buildBrowseMenu();
     QMenu *buildSlideshowMenu(CtxMenu *parentMenu = nullptr);
@@ -323,6 +333,11 @@ private:
     void toggleOverview();                   // 图片总览：网格选择 / 双击或 Enter 打开
     void closeOverview();
     void muteShortcutsForOverview(bool mute);
+    // 总览内的「分组方式」单选菜单（不分组 / 按日期 / 按图片大小）。
+    void showOverviewGroupMenu();
+    // 总览内页码 = 当前显示顺序里的位置 + 1；不在总览时就是目录下标 + 1。
+    int pageForIndex(int fileIndex) const;
+    void syncOverviewPage(int fileIndex);
     void rotateImage(int degrees);           // 原地旋转（保持缩放与视图中心）
     void resetGeometry();                    // 不旋转：清空旋转/翻转，回到源图
     void rebuildFromSource(const QPointF &anchor);   // 从源图重算净几何变换
@@ -444,6 +459,23 @@ private:
     // QAction——避免出现「菜单里没有入口」「设置页写着 Ctrl+A 但没绑定」这类分叉。
     QAction *actAlwaysOnTop = nullptr;
 
+    // —— 命令注册表落地（派单 2026-11-18 H1-7）——
+    // m_cmdActions：CMD_* → QAction（表里能落到 QAction 的命令都必须在这里；
+    // 全屏/上下文菜单/总览/缩略图栏/幻灯片开始 走 triggerCommand 的直接槽）。
+    QHash<QString, QAction *> m_cmdActions;
+    void registerCommands();
+    // 出厂无独立槽、但需要 QAction 承载键位的动作（mkFn 的返回值，原来被丢弃）
+    QAction *actClose = nullptr;          // 关闭 F4
+    QAction *actSlideshowStop = nullptr;  // 停止放映 Ctrl+0
+    QAction *actZoomStepIn = nullptr;     // 放大 1% Ctrl++
+    QAction *actZoomStepOut = nullptr;    // 缩小 1% Ctrl+-
+    QAction *actSelectImage = nullptr;    // 选择图片 Enter
+    QAction *actLocateFile = nullptr;     // 定位文件 Ctrl+Enter
+    QAction *actRandomNext = nullptr;     // 向后随机（Ctrl+Alt+PageDown）
+    QAction *actRandomPrev = nullptr;     // 向前随机（Ctrl+Alt+PageUp）
+    QAction *actRotate180 = nullptr;      // 旋转 180° Alt+Down
+    QAction *actInfoToggle = nullptr;     // 信息面板 Tab（actToggleMeta 的触发器）
+
     // —— 引擎成员 ——
     ImageCanvas *m_canvas = nullptr;
     ImageCache *m_cache = nullptr;
@@ -553,7 +585,8 @@ private:
     qint64 m_dirRefreshLastMs = -1;        // 最近一次「事件 → 列表应用」耗时
     qint64 m_dirRefreshScanMs = -1;        // 最近一次扫描线程耗时
     bool m_dirRefreshChanged = false;      // 最近一次重扫是否真的改了列表
-    // 设置页切 #83 时挂一句待播提示：重扫是异步的，落列表那一刻才说得准「现在几张」。
+    // 重扫收尾要说的一句话（批次21 #83 用）：设置页切「打开 JPEG 不打开同名 RAW」
+    // 后主动重扫当前目录，扫描是异步的，文案要等结果回来才算得准张数。
     QString m_dirRefreshNote;
     bool m_loadFailed = false;      // 目标图最终打开失败：状态保留到换图/重试
     QTimer *m_loadWaitTimer = nullptr;   // 200ms 未出画面 → 页码旁等待提示

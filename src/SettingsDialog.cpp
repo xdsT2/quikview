@@ -3,6 +3,8 @@
 
 #include "AppMenuPreview.h"
 #include "Chrome.h"
+#include "CommandCatalog.h"
+#include "DirectoryLoader.h"
 #include "LanguageRuntime.h"
 #include "PanoExtension.h"
 
@@ -997,14 +999,15 @@ private:
     bool m_wasEditing = false;
 };
 
-// 9 个页签的图标（顺序必须与 addPage 调用顺序一致；漏项会让其后全部错一格）
+// 10 个页签的图标（顺序必须与 addPage 调用顺序一致；漏项会让其后全部错一格）
 // 通用 / 浏览 / 外观与显示 / 图像处理 / 键盘 / 鼠标与滚轮 / 查看器右键菜单 /
-// Windows 集成 / 扩展。
+// Windows 集成 / 扩展 / 关于。
 NavGlyph navGlyphFor(int index)
 {
     static const NavGlyph glyphs[] = { NavGlyph::Gear, NavGlyph::Eye, NavGlyph::Image,
                                        NavGlyph::Doc, NavGlyph::Keyboard, NavGlyph::Mouse,
-                                       NavGlyph::ContextMenu, NavGlyph::Link, NavGlyph::More };
+                                       NavGlyph::ContextMenu, NavGlyph::Link, NavGlyph::More,
+                                       NavGlyph::Info };
     return (index >= 0 && index < int(sizeof(glyphs) / sizeof(glyphs[0])))
                ? glyphs[index]
                : NavGlyph::Menu;
@@ -1115,6 +1118,7 @@ QString withColorTokens(QString qss)
         { "@GenFooterLine@",   []{ return UiStyle::fluent::footerLine(); } },
         { "@GenText@",         []{ return UiStyle::fluent::text(); } },
         { "@GenDesc@",         []{ return UiStyle::fluent::desc(); } },
+        { "@GenLink@",         []{ return UiStyle::fluent::link(); } },
         { "@GenAccent@",       []{ return UiStyle::fluent::focus(); } },
         { "@GenOnAccent@",     []{ return UiStyle::fluent::navSelText(); } },
         { "@GenNavSel@",       []{ return UiStyle::fluent::navSelected(); } },
@@ -1459,6 +1463,15 @@ QKeySequenceEdit QLineEdit:disabled { color: @GenDisabled@; border-color: @GenCt
 /* 保存按钮在冲突时禁用：中性底 + 压暗文字，不保留强调描边 */
 QPushButton#btnPrimary:disabled { color: @GenDisabled@; border-color: @GenCtrlLine@;
     background: @GenCtrlBg@; }
+
+/* ===== 关于页链接行（2026-11-22）========================================
+   右侧直接可点的文字链：无底色、无描边，颜色只走 @GenLink@；
+   悬停加下划线但不改几何（避免整行跳动），焦点环只在键盘导航时出现。
+   行高沿用普通设置行：控件 26px + 行内边距 5*2 < 40px 下限，不抬高整行。 */
+QPushButton#linkBtn { background: #ff00ff; border: 0; }
+QPushButton#linkBtn:hover, QPushButton#linkBtn:pressed { background: #ff00ff; border: 0; }
+QPushButton#linkBtn[kbFocus="true"]:focus {
+    border: 2px solid @GenAccent@; border-radius: 4px; padding: 0; }
 )"));
 }
 
@@ -1687,6 +1700,11 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     // Windows 集成页要查资源管理器注册状态（四次注册表探测），放首屏最不划算。
     addLazyPage(tr("Windows 集成"), QString(), &SettingsDialog::buildWindowsPage);
     addLazyPage(tr("扩展"), QString(), &SettingsDialog::buildExtensionsPage);
+    m_extPageIndex = m_pages.size() - 1;
+    // 关于（2026-11-22 派单）：原侧栏底部的「关于 QuikView」弹窗入口改为普通
+    // 设置页，排在「扩展」下一行，选中态 / 行高 / 键盘焦点与其他页完全同一套。
+    addLazyPage(tr("关于"), QString(), &SettingsDialog::buildAboutPage);
+    m_aboutPageIndex = m_pages.size() - 1;
 
     // 页面内容不足一屏时，多余空间落在末尾弹簧上（否则各 section 会被均匀拉开）。
     // 弹簧必须在页面内容构建之后加（延后构建的页在 ensurePageBuilt 里补），
@@ -1694,25 +1712,9 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     finishPageLayout(0);
     mark("pages");
 
-    // 导航底部：分隔 + 关于
+    // 导航底部：弹簧把全部页签顶到上方。2026-11-22 起「关于」已是普通页，
+    // 底部不再有分隔线 + 「关于 QuikView」独立入口。
     m_navLayout->addStretch(1);
-    auto *navDivider = new QFrame(nav);
-    navDivider->setObjectName(QStringLiteral("navDivider"));
-    navDivider->setFixedHeight(1);
-    m_navLayout->addSpacing(9);
-    m_navLayout->addWidget(navDivider);
-    m_navLayout->addSpacing(9);
-    auto *btnAbout = new NavItemButton(tr("关于 QuikView"), NavGlyph::Info, nav, true);
-    m_btnAbout = btnAbout;
-    btnAbout->setObjectName(QStringLiteral("navItem"));
-    btnAbout->setCursor(Qt::PointingHandCursor);
-    btnAbout->setFixedHeight(kGenNavRowH);
-    m_navLayout->addWidget(btnAbout);
-    connect(btnAbout, &QPushButton::clicked, this, [this]() {
-        QMessageBox::about(this, tr("关于 QuikView"),
-                           tr("<b>QuikView</b> %1<br>轻量图片浏览器。")
-                               .arg(QCoreApplication::applicationVersion()));
-    });
 
     // —— footer：提示 … 恢复默认 / 取消 / 保存设置 ——
     auto *footer = new QFrame(this);
@@ -2003,7 +2005,6 @@ void SettingsDialog::updateContentColumnWidth()
     for (QAbstractButton *button : m_tabs) {
         button->setFixedHeight(navRowH);
     }
-    m_btnAbout->setFixedHeight(navRowH);
     const int padX = m_compact ? kGenCompactPadX : kGenColumnPadX;
     int colW = qMin(kGenContentMaxW, qMax(0, width() - navW - 1 - 2 * padX));
     if (outline) {
@@ -3110,7 +3111,7 @@ void SettingsDialog::buildViewPage(QWidget *page)
     // 图片文件夹（原「杂项 · 常用路径」）：两个快捷入口路径。
     sec = beginSection(page, tr("图片文件夹"));
     auto makeFolderRow = [this, sec](const QString &label, const QString &cfgKey,
-                                     QLineEdit **edit) {
+                                     QLineEdit **edit, bool live) {
         SettingRowParts parts = addSettingRow(sec, label, tr("留空表示不使用该文件夹"));
         *edit = new QLineEdit(parts.row);
         (*edit)->setFixedHeight(kInputH);
@@ -3121,15 +3122,43 @@ void SettingsDialog::buildViewPage(QWidget *page)
         auto *btnOpen = addButton(nullptr, tr("打开"));
         parts.controls->addWidget(btnBrowse, 0, Qt::AlignVCenter);
         parts.controls->addWidget(btnOpen, 0, Qt::AlignVCenter);
-        connect(btnBrowse, &QPushButton::clicked, this, [this, edit, cfgKey]() {
+        if (live) {
+            // 生效时机写进 tooltip，替换「选择后还要保存」的旧口径。
+            (*edit)->setToolTip(tr("输入或选择文件夹后立即生效，无需保存；留空表示不使用该文件夹"));
+            btnBrowse->setToolTip(tr("选好文件夹后立即生效，并马上用于本页「打开」与菜单动作"));
+            btnOpen->setToolTip(tr("用当前已生效的路径打开所在文件夹"));
+            m_photoFolder1Status = addHint(
+                sec, tr("未设置：复制到 / 移动到「图片文件夹 1」的动作不会执行。"));
+        }
+        connect(btnBrowse, &QPushButton::clicked, this, [this, edit, cfgKey, live]() {
             const QString d = QFileDialog::getExistingDirectory(
                 this, tr("选择一个文件夹."), (*edit)->text());
-            if (!d.isEmpty()) {
-                (*edit)->setText(d);
-                applyInstantValue(cfgKey, d);
+            if (d.isEmpty()) {
+                if (live && m_photoFolder1Status)
+                    m_photoFolder1Status->setText(
+                        tr("已取消选择，路径没有改动：%1")
+                            .arg((*edit)->text().trimmed().isEmpty()
+                                     ? tr("（仍为未设置）")
+                                     : QDir::toNativeSeparators((*edit)->text().trimmed())));
+                return;
             }
+            {
+                // 回填本身不触发「输入中」中间态，随后一次走完整链路。
+                const QSignalBlocker b(*edit);
+                (*edit)->setText(d);
+            }
+            if (live)
+                applyPhotoFolderLive(d);
+            else
+                applyInstantValue(cfgKey, d);
         });
-        connect(btnOpen, &QPushButton::clicked, this, [this, edit]() {
+        connect(btnOpen, &QPushButton::clicked, this, [this, edit, live]() {
+            if (live) {
+                // #74 读「已生效的路径」：先把输入框里的当前值落定，再打开，
+                // 保证同一页里选完就能用，不必关页或保存。
+                openPhotoFolderFromRow();
+                return;
+            }
             const QString d = (*edit)->text().trimmed();
             if (d.isEmpty()) {
                 QMessageBox::warning(this, tr("打开文件夹"), tr("请先填写文件夹路径。"));
@@ -3146,8 +3175,8 @@ void SettingsDialog::buildViewPage(QWidget *page)
             }
         });
     };
-    makeFolderRow(tr("图片文件夹 1"), QStringLiteral("etc/photo_folder_1"), &m_photoFolder1);
-    makeFolderRow(tr("图片文件夹 2"), QStringLiteral("etc/photo_folder_2"), &m_photoFolder2);
+    makeFolderRow(tr("图片文件夹 1"), QStringLiteral("etc/photo_folder_1"), &m_photoFolder1, true);
+    makeFolderRow(tr("图片文件夹 2"), QStringLiteral("etc/photo_folder_2"), &m_photoFolder2, false);
 
     // 书签（原「书签」整页并入）：只在浏览时产生与消费，跟翻页放同一页。
     sec = beginSection(page, tr("书签"));
@@ -3786,6 +3815,12 @@ void SettingsDialog::buildKeyboardPage(QWidget *page)
         kr.actionLab = actionLab;
         kr.row = row;
         kr.action = QString::fromUtf8(def.action);
+        // 旧槽位名 → 命令 ID（CommandCatalog 的 legacy 列）。键盘页从此按命令
+        // 读写键位；找不到映射时留空，读写退回旧键行为。
+        if (const CommandCatalog::Entry *ce =
+                CommandCatalog::findLegacy(kr.action)) {
+            kr.cmd = QString::fromLatin1(ce->id);
+        }
         kr.defHotkey = QString::fromUtf8(def.hotkey);
         kr.label = tr(def.label);
         kr.stateLab = stateLab;
@@ -4654,6 +4689,76 @@ void SettingsDialog::buildExtensionsPage(QWidget *page)
     applyPageRhythm(page);
 }
 
+// ===========================================================================
+// 关于页（派单 2026-11-22）
+// ===========================================================================
+// 原侧栏底部的「关于 QuikView」弹窗入口改成设置内的普通页面，层级沿用参考图：
+// 页标题「关于」→ QuikView 产品信息卡片 → 链接卡片。卡片 / 行高 / 字号 / 令牌
+// 全部复用 v2 母版，不另造样式；版本号取 QCoreApplication::applicationVersion()
+// （CMakeLists.txt 的 project(VERSION) 单一来源），界面里不写版本字面量。
+// 本页只有只读内容：不登记待保存项、不参与「恢复默认」、不会让页脚出现待保存提示。
+void SettingsDialog::buildAboutPage(QWidget *page)
+{
+    const QString version = QCoreApplication::applicationVersion();
+    // 只读值行：右侧右对齐的纯文字，和「Windows 集成」页的注册状态行同一形态。
+    const auto addValueRow = [this](QWidget *section, const QString &label,
+                                    const QString &value, const QString &tip,
+                                    bool muted) {
+        SettingRowParts parts = addSettingRow(section, label, QString());
+        auto *lab = new QLabel(value, parts.row);
+        lab->setObjectName(QStringLiteral("rowTag"));
+        lab->setWordWrap(false);
+        lab->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        lab->setStyleSheet(QStringLiteral("color:%1;font-size:%2px;")
+                               .arg(QLatin1String(muted ? UiStyle::fluent::desc()
+                                                        : UiStyle::fluent::text()))
+                               .arg(muted ? 11 : 13));
+        if (!tip.isEmpty()) {
+            lab->setToolTip(tip);
+            parts.row->setToolTip(tip);
+        }
+        parts.controls->addWidget(lab, 0, Qt::AlignVCenter);
+    };
+
+    // —— 产品信息 ——
+    QWidget *secProduct = beginSection(page, tr("QuikView"));
+    addValueRow(secProduct, tr("版本号"),
+                version.isEmpty() ? tr("未知") : version,
+                tr("当前程序版本，取自构建配置"), false);
+    addValueRow(secProduct, tr("开源许可"), QStringLiteral("MIT"),
+                tr("MIT 许可证，源码托管在 GitHub"), false);
+    addHint(secProduct, tr("QuikView 是开源的 Windows 图片查看器：C++ 与 Qt 6 构建，"
+                           "不收集使用数据，不含推广内容。"));
+
+    // —— 链接：首版只有官网与 GitHub 两行 ——
+    QWidget *secLinks = beginSection(page, tr("链接"));
+    // 官网地址以 QuikView 官网项目确认的正式地址为准；确认前保留标签、保持未启用，
+    // 不做可操作的假链接。
+    addValueRow(secLinks, tr("官网"), tr("未启用"), tr("正式地址确认前不可点"), true);
+    {
+        const QString repoUrl = QStringLiteral("https://github.com/xdsT2/quikview");
+        SettingRowParts parts = addSettingRow(secLinks, tr("GitHub"), QString());
+        auto *link = new QPushButton(repoUrl, parts.row);
+        link->setObjectName(QStringLiteral("linkBtn"));
+        link->setCursor(Qt::PointingHandCursor);
+        link->setAccessibleName(tr("打开 QuikView GitHub 仓库"));
+        link->setToolTip(repoUrl);
+        parts.controls->addWidget(link, 0, Qt::AlignVCenter);
+        connect(link, &QPushButton::clicked, this, [this, repoUrl]() {
+            // 外部网页：与语言页同一口径，只报告系统是否接受了打开请求，
+            // 网络可达性不在应用内验证。
+            if (!QDesktopServices::openUrl(QUrl(repoUrl))) {
+                QMessageBox::warning(this, tr("GitHub"),
+                                     tr("无法打开浏览器。请手动访问：\n%1").arg(repoUrl));
+            }
+        });
+    }
+    addHint(secLinks, tr("GitHub 在默认浏览器中打开；官网地址以 QuikView 官网项目确认的"
+                        "正式地址为准，确认前保持未启用。"));
+
+    applyPageRhythm(page);
+}
+
 void SettingsDialog::refreshExtensionsPage()
 {
     if (!m_extStatus || !m_extAction || !m_extProgress) {
@@ -4757,8 +4862,10 @@ void SettingsDialog::onExtensionsAction()
 
 void SettingsDialog::focusExtensionsPage()
 {
-    // 扩展页在九页里固定是最后一页（构造期 addLazyPage 顺序即导航顺序）。
-    const int idx = m_pages.size() - 1;
+    // 扩展页下标在构造期登记：2026-11-22 起「关于」排在它后面，不能再用末页。
+    const int idx = m_extPageIndex;
+    if (idx < 0 || idx >= m_pages.size())
+        return;
     selectPage(idx);
     if (m_extRow) {
         m_extRow->setFocusPolicy(Qt::StrongFocus);
@@ -6283,10 +6390,22 @@ void SettingsDialog::loadBindingsFromConfig(int chkFrom, int comboFrom, int keyF
         // 出厂无单键的动作（幻灯片 / 裁剪）默认不启用，避免「勾着但热键为空」；
         // 已有配置仍以用户落盘值为准（P2 / D4）。
         const bool enabledByDefault = !r.defHotkey.isEmpty();
-        r.cb->setChecked(bGet(QStringLiteral("keyboard/%1_enabled").arg(r.action).toLatin1().constData(),
-                              enabledByDefault));
-        const QString key = sGet(QStringLiteral("keyboard/%1_key").arg(r.action).toLatin1().constData(),
-                                 r.defHotkey);
+        // 命令 ID 化（H1-7）：启用与键位都从命令键读（config/keyboard/<CMD>_*）。
+        // 命令键从未保存过时退回行内出厂值，与迁移前的「出厂行」显示一致。
+        const Config &cfg = Config::instance();
+        r.cb->setChecked(r.cmd.isEmpty()
+                             ? bGet(QStringLiteral("keyboard/%1_enabled").arg(r.action)
+                                        .toLatin1().constData(),
+                                    enabledByDefault)
+                             : cfg.commandEnabled(r.cmd, enabledByDefault));
+        QString key = r.defHotkey;
+        if (!r.cmd.isEmpty() && cfg.commandKeysSaved(r.cmd)) {
+            // 键盘页只编辑「主键」；第 2..N 个键在 ini 里保留、保存时原样带回。
+            key = cfg.commandKeys(r.cmd).value(0);
+        } else if (r.cmd.isEmpty()) {
+            key = sGet(QStringLiteral("keyboard/%1_key").arg(r.action).toLatin1().constData(),
+                       r.defHotkey);
+        }
         r.edit->setKeySequence(QKeySequence::fromString(key, QKeySequence::PortableText));
         // 「操作」列只读：不再回读 keyboard/<action>_action（历史上被改绑过的配置
         // 会在下次保存时按固定动作覆写回去）。
@@ -6342,6 +6461,10 @@ void SettingsDialog::loadPageWidgets(QWidget *page)
         m_blurMaterial->setChecked(bGet("ui/blur_material", false));
     if (owns(m_gifColorBtn))
         syncGifColorRow();   // 色样与可点态按回填后的档位/颜色刷新
+    // 批次18：回填后立刻把「图片文件夹 1」当前可用性写进行内状态行，
+    // 免得刚打开设置页时还停在上一次的旧描述。
+    if (m_photoFolder1)
+        updatePhotoFolderStatus(m_photoFolder1->text(), true);
     m_loading = false;
 }
 
@@ -6557,12 +6680,20 @@ void SettingsDialog::connectInstantSignals(int chkFrom, int comboFrom, int keyFr
     for (int i = qMax(0, keyFrom); i < m_keyRows.size(); ++i) {
         const KeyRow &r = m_keyRows.at(i);
         const QString action = r.action;
+        const QString cmd = r.cmd;
         QCheckBox *cb = r.cb;
-        connect(cb, &QCheckBox::toggled, this, [this, action, cb](bool on) {
+        connect(cb, &QCheckBox::toggled, this, [this, action, cmd, cb](bool on) {
             if (m_loading)
                 return;
-            const QString key = QStringLiteral("keyboard/%1_enabled").arg(action);
+            // 命令 ID 化（H1-7）：真源是 keyboard/<CMD>_enabled；旧槽位键写同一值
+            // 供降级回退（旧版本只认旧键）。
+            const QString key = cmd.isEmpty()
+                                    ? QStringLiteral("keyboard/%1_enabled").arg(action)
+                                    : QStringLiteral("keyboard/%1_enabled").arg(cmd);
             applyInstantValue(key, on);
+            if (!cmd.isEmpty() && !action.isEmpty() && cmd != action) {
+                applyInstantValue(QStringLiteral("keyboard/%1_enabled").arg(action), on);
+            }
             // 运行态即时生效：失败时控件回退，避免「看是关、实际还能按」。
             if (MainWindow *host = qobject_cast<MainWindow *>(parentWidget())) {
                 QString error;
@@ -6584,6 +6715,108 @@ void SettingsDialog::connectInstantSignals(int chkFrom, int comboFrom, int keyFr
     }
 }
 
+// ---------------------------------------------------------------------------
+// 批次18：浏览页「图片文件夹 1」行（#72 输入 / #73 浏览… / #74 打开）
+// 一条链路：写盘（applyInstantValue，sync 后动作期现读）→ 下发运行态
+// （applyLiveSetting，失败回退不留半套）→ 行内状态行立刻说明「现在能不能用」。
+// ---------------------------------------------------------------------------
+void SettingsDialog::updatePhotoFolderStatus(const QString &path, bool applied)
+{
+    if (!m_photoFolder1Status)
+        return;
+    const QString p = path.trimmed();
+    QString text;
+    if (!applied) {
+        text = tr("正在应用：停止输入 0.3 秒后立即生效（无需保存）");
+    } else if (p.isEmpty()) {
+        text = tr("未设置：复制到 / 移动到「图片文件夹 1」与图片转换默认目录都不会使用空路径。");
+    } else {
+        const QFileInfo fi(p);
+        if (!fi.exists())
+            text = tr("路径不存在：%1 —— 动作时不会写入文件。").arg(QDir::toNativeSeparators(p));
+        else if (!fi.isDir())
+            text = tr("这不是文件夹：%1 —— 请改成文件夹路径。").arg(QDir::toNativeSeparators(p));
+        else
+            text = tr("已即时生效，无需保存：复制到 / 移动到 1、图片转换默认目录立即使用 %1。")
+                       .arg(QDir::toNativeSeparators(p));
+    }
+    m_photoFolder1Status->setText(text);
+}
+
+void SettingsDialog::applyPhotoFolderLive(const QString &path)
+{
+    if (m_loading || !m_photoFolder1)
+        return;
+    if (m_folderDebounce)
+        m_folderDebounce->stop();
+    const QString want = path.trimmed();
+    const QString current = Config::instance().settings()
+                                .value(QStringLiteral("config/etc/photo_folder_1"))
+                                .toString().trimmed();
+    if (want == current) {
+        updatePhotoFolderStatus(want, true);   // 值没变：不重复写盘，只刷新状态行
+        return;
+    }
+    MainWindow *host = qobject_cast<MainWindow *>(parentWidget());
+    QString error;
+    if (!host)
+        error = tr("未找到主窗口，无法下发运行态。");
+    if (!host || !host->applyLiveSetting(QStringLiteral("etc/photo_folder_1"), want, &error)) {
+        // 运行态拒绝：输入框与配置一起回到上一次成功的值，不留半套状态。
+        {
+            const QSignalBlocker b(m_photoFolder1);
+            m_photoFolder1->setText(current);
+        }
+        updatePhotoFolderStatus(current, true);
+        QMessageBox::warning(this, tr("设置"),
+                             tr("「图片文件夹 1」未能即时生效：%1\n已恢复原值。").arg(error));
+        return;
+    }
+    // 即时生效 + 立刻写盘：关闭窗口（含「不保存」）也保留该值。
+    applyInstantValue(QStringLiteral("etc/photo_folder_1"), want);
+    updatePhotoFolderStatus(want, true);
+}
+
+void SettingsDialog::openPhotoFolderFromRow()
+{
+    // 1) 先把输入框当前值落定（防抖可能还没到 0.3s），保证同页「打开」立即可用。
+    if (m_photoFolder1) {
+        if (m_folderDebounce)
+            m_folderDebounce->stop();
+        applyPhotoFolderLive(m_photoFolder1->text());
+    }
+    // 2) 读「已生效」的配置值，而不是只拿输入框文本：写盘与运行态是同一份数据。
+    const QString d = Config::instance().settings()
+                          .value(QStringLiteral("config/etc/photo_folder_1"))
+                          .toString().trimmed();
+    if (d.isEmpty()) {
+        updatePhotoFolderStatus(d, true);
+        QMessageBox::warning(this, tr("打开文件夹"),
+                             tr("请先填写文件夹路径，或点「浏览…」选择一个文件夹。"));
+        return;
+    }
+    const QFileInfo fi(d);
+    if (!fi.exists() || !fi.isDir()) {
+        updatePhotoFolderStatus(d, true);
+        QMessageBox::warning(this, tr("打开文件夹"),
+                             tr("文件夹不存在：\n%1").arg(QDir::toNativeSeparators(d)));
+        return;
+    }
+    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(d))) {
+        if (m_photoFolder1Status)
+            m_photoFolder1Status->setText(
+                tr("无法调用系统文件管理器打开：%1").arg(QDir::toNativeSeparators(d)));
+        QMessageBox::warning(this, tr("打开文件夹"),
+                             tr("无法调用系统文件管理器打开：\n%1")
+                                 .arg(QDir::toNativeSeparators(d)));
+        return;
+    }
+    // 成功态也留在页面上：模态提示关掉之后仍能看出「刚才那一下打开了哪个目录」。
+    if (m_photoFolder1Status)
+        m_photoFolder1Status->setText(
+            tr("已在文件管理器中打开：%1").arg(QDir::toNativeSeparators(d)));
+}
+
 void SettingsDialog::connectPageWidgets(QWidget *page)
 {
     // 页专属控件不进绑定表：在该页首次构建时连一次，只连这一页拥有的。
@@ -6602,9 +6835,31 @@ void SettingsDialog::connectPageWidgets(QWidget *page)
         });
     }
     if (owns(m_photoFolder1)) {
-        connect(m_photoFolder1, &QLineEdit::editingFinished, this, [this]() {
-            applyInstantValue(QStringLiteral("etc/photo_folder_1"), m_photoFolder1->text());
+        // #72 输入即生效：每敲一个字先亮「正在应用」，停止输入 0.3s 落盘 + 下发；
+        // 失焦 / 回车再兜一次（与防抖重复时会因值未变而跳过，不重复写盘）。
+        if (!m_folderDebounce) {
+            m_folderDebounce = new QTimer(this);
+            m_folderDebounce->setSingleShot(true);
+            m_folderDebounce->setInterval(300);
+            connect(m_folderDebounce, &QTimer::timeout, this, [this]() {
+                applyPhotoFolderLive(m_folderPendingText);
+            });
+        }
+        connect(m_photoFolder1, &QLineEdit::textChanged, this, [this](const QString &t) {
+            if (m_loading || !m_folderDebounce)
+                return;
+            m_folderPendingText = t;
+            updatePhotoFolderStatus(t, false);
+            m_folderDebounce->start();
         });
+        connect(m_photoFolder1, &QLineEdit::editingFinished, this, [this]() {
+            if (m_loading)
+                return;
+            if (m_folderDebounce)
+                m_folderDebounce->stop();
+            applyPhotoFolderLive(m_photoFolder1->text());
+        });
+        updatePhotoFolderStatus(m_photoFolder1->text(), true);
     }
     if (owns(m_photoFolder2)) {
         connect(m_photoFolder2, &QLineEdit::editingFinished, this, [this]() {
@@ -6981,7 +7236,6 @@ void SettingsDialog::updateBrowseLiveNote(const QString &key, bool value)
     note->show();
 }
 
-
 void SettingsDialog::captureBrowseLiveBaseline()
 {
     // 取值一律走 Config getter：默认值（缩放记忆 false / 浮层 false / 动画帧号 true /
@@ -7071,10 +7325,24 @@ bool SettingsDialog::onAccepted()
     QList<QPair<QString, QVariant>> changes;
     QSettings &s = Config::instance().settings();
     for (const KeyRow &r : m_keyRows) {
-        // _key 存 PortableText（"Ctrl+P"、"Right"…），MainWindow 按
-        // QKeySequence::fromString(…, PortableText) 读回。
+        // 命令 ID 化（H1-7）：主键写 config/keyboard/<CMD>_keys（QStringList，
+        // 支持多键：界面只编辑第一个，其余原样保留），并置 _keys_set 表示
+        // 「用户已确认过绑定」。旧槽位 _key 同步镜像主键，供降级回退旧版本。
         const QString now = r.edit->keySequence().toString(QKeySequence::PortableText);
-        if (now != m_keyBaseline.value(r.action)) {
+        if (now != m_keyBaseline.value(r.action) && !r.cmd.isEmpty()) {
+            QStringList next;
+            if (!now.isEmpty()) {
+                next.append(now);
+                const QStringList existing = Config::instance().commandKeys(r.cmd);
+                for (int i = 1; i < existing.size(); ++i) {
+                    next.append(existing.at(i));   // 第 2..N 个键不经界面编辑，保留
+                }
+            }
+            changes.append({ QStringLiteral("keyboard/%1_keys_set").arg(r.cmd), true });
+            changes.append({ QStringLiteral("keyboard/%1_keys").arg(r.cmd), next });
+            changes.append({ QStringLiteral("keyboard/%1_key").arg(r.action), now });
+        } else if (now != m_keyBaseline.value(r.action)) {
+            // 命令映射缺失（理论上不会发生）：退回旧键行为，不留半套数据。
             changes.append({ QStringLiteral("keyboard/%1_key").arg(r.action), now });
         }
         // 动作固定；仅当历史改绑残留的旧值与目标动作不一致时才清理一次。
@@ -7711,6 +7979,190 @@ void SettingsDialog::probeLanguageLive(const QString &root)
         (*steps)[(*idx)++]();
     });
     runner->start();
+}
+
+// —— 批次18 验收探针（--smoke folderprobe:<root>）——
+// 全部走真实控件链路：输入框 textChanged → 300ms 防抖 → applyPhotoFolderLive
+// （applyLiveSetting 下发 + applyInstantValue 写盘 + 行内状态行）；「浏览…」回填同一条；
+// 「打开」读已生效的配置值。root 由调用方给独立临时目录，样本图与落点都在里面。
+void SettingsDialog::probeFolderLive(const QString &root)
+{
+    QDir().mkpath(root);
+    const QString dirA = root + QStringLiteral("/valid-a");
+    const QString dirB = root + QStringLiteral("/valid-b");
+    QDir().mkpath(dirA);
+    QDir().mkpath(dirB);
+    const QString missing = root + QStringLiteral("/missing");
+    const QString logPath = root + QStringLiteral("/folder1-live-probe.txt");
+    const QString sample = root + QStringLiteral("/sample.png");
+    {
+        QImage img(24, 24, QImage::Format_ARGB32);
+        img.fill(QColor(198, 120, 48));
+        img.save(sample);
+    }
+    QFile::remove(logPath);
+
+    // 兜底截图位：任何非预期模态（例如失败注入下的「未能即时生效」）都留一张图。
+    m_probeModalShot = root + QStringLiteral("/99-modal.png");
+
+    const auto append = [logPath](const QString &line) {
+        QFile f(logPath);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
+            f.write(line.toUtf8());
+    };
+
+    MainWindow *host = qobject_cast<MainWindow *>(parentWidget());
+    if (host)
+        host->openFileFitting(sample);   // 真实打开一张图，下面的复制动作才有源文件
+
+    // 模态提示（空 / 不存在两态）：先截图再关掉，避免 exec 把后续步骤卡死。
+    auto *autoOk = new QTimer(this);
+    autoOk->setInterval(150);
+    connect(autoOk, &QTimer::timeout, this, [this]() {
+        if (auto *mb = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+            if (!m_probeModalShot.isEmpty())
+                mb->grab().save(m_probeModalShot);
+            mb->close();
+        }
+    });
+    autoOk->start();
+
+    const auto dump = [this, append](const QString &tag) {
+        QSettings &s = Config::instance().settings();
+        const QString key = QStringLiteral("config/etc/photo_folder_1");
+        const QString line =
+            QStringLiteral("[%1] edit=%2 stored=%3 present=%4 status=%5\n")
+                .arg(tag,
+                     m_photoFolder1 ? m_photoFolder1->text() : QStringLiteral("-"),
+                     s.value(key).toString(),
+                     s.contains(key) ? QStringLiteral("1") : QStringLiteral("0"),
+                     m_photoFolder1Status ? m_photoFolder1Status->text()
+                                         : QStringLiteral("-"));
+        append(line);
+    };
+    // 复制动作走菜单同一实现（transferCurrentToFolder 现读 config），落点即运行态证据。
+    const auto copyCheck = [host, append](const QString &tag) {
+        QString dest;
+        QString error;
+        const bool ok = host ? host->transferCurrentToFolder(
+                                   QStringLiteral("config/etc/photo_folder_1"), false, &dest, &error)
+                             : false;
+        append(QStringLiteral("[%1] copy_ok=%2 dest=%3 dest_exists=%4 error=%5\n")
+                   .arg(tag, ok ? QStringLiteral("1") : QStringLiteral("0"), dest,
+                        (!dest.isEmpty() && QFileInfo::exists(dest)) ? QStringLiteral("1")
+                                                                     : QStringLiteral("0"),
+                        error));
+    };
+    const auto grabPage = [this, root, append](const QString &name) {
+        const bool ok = grab().save(root + QLatin1Char('/') + name);
+        append(QStringLiteral("[shot] %1 ok=%2\n")
+                   .arg(name, ok ? QStringLiteral("1") : QStringLiteral("0")));
+    };
+    // 顺序步骤（每 700ms 一步，走真实控件；模态提示由上面的定时器收掉）。
+    auto *steps = new QList<std::function<void()>>;
+    steps->append([this]() {
+        for (QPushButton *b : findChildren<QPushButton *>(QStringLiteral("navItem")))
+            if (b->text().contains(tr("浏览"))) { b->click(); break; }
+    });
+    steps->append([dump, grabPage]() { dump(QStringLiteral("initial")); grabPage(QStringLiteral("00-initial.png")); });
+    steps->append([this, missing]() { m_photoFolder1->setText(missing); });
+    steps->append([dump, copyCheck, grabPage]() {
+        dump(QStringLiteral("invalid-typed"));
+        copyCheck(QStringLiteral("invalid"));
+        grabPage(QStringLiteral("01-invalid.png"));
+    });
+    steps->append([this]() { m_photoFolder1->setText(QString()); });
+    steps->append([dump, copyCheck, grabPage]() {
+        dump(QStringLiteral("empty"));
+        copyCheck(QStringLiteral("empty"));
+        grabPage(QStringLiteral("02-empty.png"));
+    });
+    steps->append([this, dirA]() { m_photoFolder1->setText(dirA); });
+    steps->append([dump, copyCheck, grabPage]() {
+        dump(QStringLiteral("valid-a"));
+        copyCheck(QStringLiteral("valid-a"));
+        grabPage(QStringLiteral("03-valid-a.png"));
+    });
+    steps->append([this, dirB]() { m_photoFolder1->setText(dirB); });
+    steps->append([dump, copyCheck, grabPage]() {
+        dump(QStringLiteral("valid-b"));
+        copyCheck(QStringLiteral("valid-b"));
+        grabPage(QStringLiteral("04-valid-b.png"));
+    });
+    steps->append([this, root]() {
+        m_photoFolder1->setText(QString());
+        m_probeModalShot = root + QStringLiteral("/05-open-empty.png");
+        for (QPushButton *b : m_photoFolder1->parentWidget()->findChildren<QPushButton *>())
+            if (b->text() == tr("打开")) { b->click(); break; }
+    });
+    steps->append([dump]() { dump(QStringLiteral("open-empty")); });
+    steps->append([this, root, missing]() {
+        m_probeModalShot = root + QStringLiteral("/06-open-missing.png");
+        m_photoFolder1->setText(missing);
+        QTimer::singleShot(250, this, [this]() {
+            for (QPushButton *b : m_photoFolder1->parentWidget()->findChildren<QPushButton *>())
+                if (b->text() == tr("打开")) { b->click(); break; }
+        });
+    });
+    steps->append([dump]() { dump(QStringLiteral("open-missing")); });
+    steps->append([this, root, dirA]() {
+        m_probeModalShot = root + QStringLiteral("/07-open-valid.png");
+        m_photoFolder1->setText(dirA);
+        QTimer::singleShot(250, this, [this]() {
+            for (QPushButton *b : m_photoFolder1->parentWidget()->findChildren<QPushButton *>())
+                if (b->text() == tr("打开")) { b->click(); break; }
+        });
+    });
+    steps->append([dump, grabPage]() {
+        dump(QStringLiteral("open-valid"));
+        grabPage(QStringLiteral("08-final.png"));
+    });
+    steps->append([this]() { close(); });
+
+    auto *runner = new QTimer(this);
+    auto *idx = new int(0);
+    runner->setInterval(700);
+    connect(runner, &QTimer::timeout, this, [runner, idx, steps]() {
+        if (*idx >= steps->size()) {
+            runner->stop();
+            runner->deleteLater();
+            delete steps;
+            delete idx;
+            return;
+        }
+        (*steps)[(*idx)++]();
+    });
+    runner->start();
+}
+
+// —— 新进程读回探针（--smoke folderrestore:<root>）——
+void SettingsDialog::probeFolderRestore(const QString &root)
+{
+    QDir().mkpath(root);
+    auto *timer = new QTimer(this);
+    timer->setSingleShot(true);
+    timer->setInterval(900);
+    connect(timer, &QTimer::timeout, this, [this, root]() {
+        for (QPushButton *b : findChildren<QPushButton *>(QStringLiteral("navItem")))
+            if (b->text().contains(tr("浏览"))) { b->click(); break; }
+        QTimer::singleShot(600, this, [this, root]() {
+            QSettings &s = Config::instance().settings();
+            const QString key = QStringLiteral("config/etc/photo_folder_1");
+            QFile f(root + QStringLiteral("/folder1-restore.txt"));
+            if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                QTextStream ts(&f);
+                ts << "edit=" << (m_photoFolder1 ? m_photoFolder1->text() : QStringLiteral("-"))
+                   << " stored=" << s.value(key).toString()
+                   << " present=" << (s.contains(key) ? 1 : 0)
+                   << " status=" << (m_photoFolder1Status ? m_photoFolder1Status->text()
+                                                          : QStringLiteral("-"))
+                   << "\n";
+            }
+            grab().save(root + QStringLiteral("/09-restore.png"));
+            close();
+        });
+    });
+    timer->start();
 }
 
 // —— 批次21 即时化验收探针（--smoke batch21probe:<mode>[:<arg>]）——

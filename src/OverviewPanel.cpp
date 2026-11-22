@@ -7,12 +7,14 @@
 #include <QFontMetrics>
 #include <QHelpEvent>
 #include <QKeyEvent>
+#include <QMap>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QTimer>
 #include <QToolTip>
 #include <QWheelEvent>
+#include <algorithm>
 
 #include "UiStyle.h"
 #include "ImageCache.h"
@@ -30,7 +32,53 @@ constexpr int kMaxPending = 8;
 // 缩略图内边距（图片与卡片边缘之间的呼吸），与原型 .qv-tile 的 padding 同量级。
 constexpr int kThumbPadX = 0;
 constexpr int kThumbPadY = 2;
+
+// 分组标题：小号文字 + 组间留白（派单 2026-11-22 §两种分组）。
+// 首组贴顶栏呼吸位，不再额外加一段上留白，避免总览顶部空一大块。
+constexpr int kHeadH = 20;
+constexpr int kHeadGapTop = 18;
+constexpr int kHeadGapBottom = 8;
+
+// 大小三档（派单 §按图片大小）：小于 2 MP / 2 至不足 8 MP / 8 MP 及以上。
+// MP 按 100 万像素计（与相机/系统口径一致），不是 2^20。
+constexpr qint64 kTwoMp = 2000000LL;
+constexpr qint64 kEightMp = 8000000LL;
+constexpr int kSizeBucketCount = 3;
+
+QString sizeBucketTitle(int bucket)
+{
+    switch (bucket) {
+    case 0: return QCoreApplication::translate("OverviewPanel", "小于 2 MP");
+    case 1: return QCoreApplication::translate("OverviewPanel", "2 至不足 8 MP");
+    default: return QCoreApplication::translate("OverviewPanel", "8 MP 及以上");
+    }
 }
+
+// 未知大小返回 -1：调用方单独收一桶并始终置底。
+int sizeBucketOf(const ImageFacts &facts)
+{
+    if (!facts.hasSize()) {
+        return -1;
+    }
+    const qint64 px = facts.pixelCount();
+    if (px < kTwoMp) {
+        return 0;
+    }
+    if (px < kEightMp) {
+        return 1;
+    }
+    return 2;
+}
+
+const char *groupModeName(OverviewPanel::GroupMode mode)
+{
+    switch (mode) {
+    case OverviewPanel::GroupMode::Date: return "date";
+    case OverviewPanel::GroupMode::Size: return "size";
+    default: return "none";
+    }
+}
+} // namespace
 
 OverviewPanel::OverviewPanel(ImageCache *cache, QWidget *parent)
     : QWidget(parent)
@@ -49,14 +97,16 @@ void OverviewPanel::setFiles(const QStringList &files, int currentIndex)
     if (m_files != files) {
         m_files = files;
         m_images.clear();
-        for (int &index : m_pending)
-            index = -1;
+        m_pending.clear();   // 旧目录在飞的缩略图回来后按路径找不到落点，直接丢弃
         m_failed.clear();
         m_hover = -1;
+        rebuildOrder();
     }
     setCurrent(currentIndex);
-    if (m_files.isEmpty())
+    if (m_files.isEmpty()) {
         m_scroll = 0;
+    }
+    m_scroll = qBound(0, m_scroll, maxScroll());
     update();
 }
 
@@ -69,9 +119,261 @@ void OverviewPanel::setCurrent(int index)
     update();
 }
 
+// —— 分组状态（2026-11-22 派单）————————————————————————————
+QString OverviewPanel::groupTitle(GroupMode mode)
+{
+    switch (mode) {
+    case GroupMode::Date: return tr("按日期");
+    case GroupMode::Size: return tr("按图片大小");
+    default: return tr("不分组");
+    }
+}
+
+QString OverviewPanel::groupDirectionText() const
+{
+    switch (m_mode) {
+    case GroupMode::Date: return m_ascending ? tr("从旧到新") : tr("从新到旧");
+    case GroupMode::Size: return m_ascending ? tr("从小到大") : tr("从大到小");
+    default: return QString();
+    }
+}
+
+void OverviewPanel::selectGroupMode(GroupMode mode)
+{
+    if (mode == m_mode) {
+        // 再点当前项：反转方向；「不分组」没有方向可翻，保持原位。
+        if (mode == GroupMode::None) {
+            return;
+        }
+        m_ascending = !m_ascending;
+    } else {
+        // 切到另一项用该项的初始方向（日期从新到旧、大小从大到小）。
+        m_mode = mode;
+        m_ascending = false;
+    }
+    rebuildOrder();
+    invalidateLayout();
+    // 切换方式或反转时保留同一文件的选中状态，并滚到它仍可见的位置。
+    ensureVisiblePosition(currentPosition());
+    update();
+    emit orderChanged();
+}
+
+void OverviewPanel::setGroupMode(GroupMode mode, bool ascending)
+{
+    m_mode = mode;
+    m_ascending = mode == GroupMode::None ? false : ascending;
+    rebuildOrder();
+    invalidateLayout();
+    ensureVisiblePosition(currentPosition());
+    update();
+    emit orderChanged();
+}
+
+void OverviewPanel::resetGrouping()
+{
+    m_mode = GroupMode::None;
+    m_ascending = false;
+    rebuildOrder();
+    invalidateLayout();
+    update();
+    emit orderChanged();
+}
+
+// 只重排「显示顺序」：m_images / m_failed 仍按文件下标保存，换分组不会重新解码缩略图。
+void OverviewPanel::rebuildOrder()
+{
+    const int n = m_files.size();
+    m_layoutDirty = true;
+    m_hover = -1;
+    m_order.resize(n);
+    m_posOf.fill(-1, n);
+    m_groupTitles.clear();
+    m_groupCounts.clear();
+    if (n == 0) {
+        m_order.clear();
+        return;
+    }
+
+    if (m_mode == GroupMode::None) {
+        for (int i = 0; i < n; ++i) {
+            m_order[i] = i;
+            m_posOf[i] = i;
+        }
+        m_groupTitles.append(QString());   // 空标题 = 不画分组标题
+        m_groupCounts.append(n);
+        return;
+    }
+
+    // 头部事实按路径缓存：切到另一种分组、来回反转都不必重新读文件。
+    QVector<ImageFacts> facts(n);
+    for (int i = 0; i < n; ++i) {
+        const QString &path = m_files.at(i);
+        auto it = m_facts.find(path);
+        if (it == m_facts.end()) {
+            it = m_facts.insert(path, readImageFacts(path));
+        }
+        facts[i] = it.value();
+    }
+
+    QVector<int> order;
+    order.reserve(n);
+
+    if (m_mode == GroupMode::Date) {
+        // 按拍摄日期的日历日聚组；同一天保持目录相对顺序（按目录顺序 append）。
+        QMap<QDate, QVector<int>> byDay;
+        QVector<int> undated;
+        for (int i = 0; i < n; ++i) {
+            if (facts.at(i).hasDate()) {
+                byDay[facts.at(i).shotDate].append(i);
+            } else {
+                undated.append(i);
+            }
+        }
+        const QList<QDate> days = byDay.keys();   // QMap 键已按日期升序
+        for (int k = 0; k < days.size(); ++k) {
+            const QDate day = days.at(m_ascending ? k : days.size() - 1 - k);
+            const QVector<int> &bucket = byDay[day];
+            m_groupTitles.append(day.toString(QStringLiteral("yyyy年M月d日")));
+            m_groupCounts.append(bucket.size());
+            order += bucket;
+        }
+        // 缺日期单列「无拍摄日期」，两个方向都置底。
+        if (!undated.isEmpty()) {
+            m_groupTitles.append(tr("无拍摄日期"));
+            m_groupCounts.append(undated.size());
+            order += undated;
+        }
+    } else {
+        QVector<QVector<int>> buckets(kSizeBucketCount);
+        QVector<int> unknown;
+        for (int i = 0; i < n; ++i) {
+            const int bucket = sizeBucketOf(facts.at(i));
+            if (bucket < 0) {
+                unknown.append(i);
+            } else {
+                buckets[bucket].append(i);
+            }
+        }
+        for (int k = 0; k < kSizeBucketCount; ++k) {
+            const int bucket = m_ascending ? k : kSizeBucketCount - 1 - k;
+            QVector<int> files = buckets.at(bucket);
+            if (files.isEmpty()) {
+                continue;
+            }
+            // 大小组内按实际总像素数排序（方向与档位一致）；同值保持目录相对顺序。
+            std::stable_sort(files.begin(), files.end(), [&facts, this](int a, int b) {
+                const qint64 pa = facts.at(a).pixelCount();
+                const qint64 pb = facts.at(b).pixelCount();
+                return m_ascending ? pa < pb : pa > pb;
+            });
+            m_groupTitles.append(sizeBucketTitle(bucket));
+            m_groupCounts.append(files.size());
+            order += files;
+        }
+        // 未知大小单列置底。
+        if (!unknown.isEmpty()) {
+            m_groupTitles.append(tr("未知大小"));
+            m_groupCounts.append(unknown.size());
+            order += unknown;
+        }
+    }
+
+    m_order = order;
+    for (int pos = 0; pos < m_order.size(); ++pos) {
+        m_posOf[m_order.at(pos)] = pos;
+    }
+}
+
+int OverviewPanel::positionOf(int fileIndex) const
+{
+    if (fileIndex < 0 || fileIndex >= m_posOf.size()) {
+        return -1;
+    }
+    return m_posOf.at(fileIndex);
+}
+
+int OverviewPanel::fileAtPosition(int position) const
+{
+    if (position < 0 || position >= m_order.size()) {
+        return -1;
+    }
+    return m_order.at(position);
+}
+
+bool OverviewPanel::stepPosition(int delta)
+{
+    if (m_order.isEmpty() || delta == 0) {
+        return false;
+    }
+    const int pos = currentPosition();
+    const int next = qBound(0, (pos < 0 ? 0 : pos) + delta, m_order.size() - 1);
+    if (next == pos) {
+        return false;   // 已在当前顺序的首/末张
+    }
+    setCurrent(m_order.at(next));
+    emit selected(m_current);
+    ensureVisiblePosition(next);
+    update();
+    return true;
+}
+
+const OverviewPanel::Layout &OverviewPanel::layout() const
+{
+    if (m_layoutDirty) {
+        rebuildLayout();
+    }
+    return m_layout;
+}
+
+// 布局：按组依次"标题行 + 若干行卡片"，全部用内容坐标（未减滚动量）。
+// 单元格矩形在这里一次算好，绘制 / 命中 / 缩略图预取都只读这份缓存。
+void OverviewPanel::rebuildLayout() const
+{
+    m_layout.cells.clear();
+    m_layout.groups.clear();
+    m_layout.contentH = 0;
+    m_layoutDirty = false;
+
+    const Metrics m = metrics();
+    const int n = m_order.size();
+    m_layout.cells.resize(n);
+    int y = m.top;
+    int pos = 0;
+    for (int g = 0; g < m_groupCounts.size(); ++g) {
+        const int count = m_groupCounts.at(g);
+        if (count <= 0) {
+            continue;
+        }
+        GroupRun run;
+        run.title = m_groupTitles.value(g);
+        run.firstPos = pos;
+        run.count = count;
+        if (!run.title.isEmpty()) {
+            const int headTop = y + (pos == 0 ? 0 : kHeadGapTop);
+            run.head = QRect(m.gridX, headTop, qMax(1, width() - 2 * m.gridX), kHeadH);
+            y = headTop + kHeadH + kHeadGapBottom;
+        }
+        run.gridTop = y;
+        const int rows = (count + m.cols - 1) / m.cols;
+        for (int i = 0; i < count; ++i) {
+            const int row = i / m.cols;
+            const int col = i % m.cols;
+            m_layout.cells[pos + i] = QRect(m.gridX + col * (m.cellW + m.gapX),
+                                            y + row * (m.cellH + m.gapY),
+                                            m.cellW, m.cellH);
+        }
+        y += rows * m.cellH + (rows - 1) * m.gapY;
+        run.gridBottom = y;
+        m_layout.groups.append(run);
+        pos += count;
+    }
+    m_layout.contentH = n == 0 ? 0 : y + m.bottomReserve;
+}
+
 void OverviewPanel::revealCurrent()
 {
-    ensureVisible(m_current);
+    ensureVisiblePosition(currentPosition());
     update();
 }
 
@@ -83,35 +385,34 @@ void OverviewPanel::scrollToEnd()
 
 // 目标卡超出可视带就朝对应方向滚到「整卡可见」，仍在带内则一像素都不动
 // ——拖浏览进度时既跟手，又不会每拖一格就把网格重新居中。
-void OverviewPanel::ensureVisible(int index)
+void OverviewPanel::ensureVisiblePosition(int position)
 {
-    if (index < 0)
+    if (position < 0) {
         return;
+    }
     const Metrics m = metrics();
-    const QRect cell = cellRect(index);
+    const QRect cell = cellRect(position);
+    if (cell.isNull()) {
+        return;
+    }
     const int bandTop = m.top;
     const int bandBottom = height() - m.bottomReserve;
-    if (cell.bottom() > bandBottom)
+    if (cell.bottom() > bandBottom) {
         m_scroll += cell.bottom() - bandBottom;
-    else if (cell.top() < bandTop)
+    } else if (cell.top() < bandTop) {
         m_scroll += cell.top() - bandTop;
+    }
     m_scroll = qBound(0, m_scroll, maxScroll());
 }
 
-int OverviewPanel::rowCount() const
+void OverviewPanel::ensureVisible(int fileIndex)
 {
-    if (m_files.isEmpty())
-        return 0;
-    return (m_files.size() + metrics().cols - 1) / metrics().cols;
+    ensureVisiblePosition(positionOf(fileIndex));
 }
 
 int OverviewPanel::contentHeight() const
 {
-    const Metrics m = metrics();
-    const int rows = rowCount();
-    if (rows <= 0)
-        return 0;
-    return m.top + rows * m.cellH + (rows - 1) * m.gapY + m.bottomReserve;
+    return layout().contentH;
 }
 
 int OverviewPanel::maxScroll() const
@@ -148,23 +449,22 @@ OverviewPanel::Metrics OverviewPanel::metrics() const
     return m;
 }
 
-QRect OverviewPanel::cellRect(int index) const
+QRect OverviewPanel::cellRect(int position) const
 {
-    if (index < 0 || index >= m_files.size())
+    const Layout &l = layout();
+    if (position < 0 || position >= l.cells.size()) {
         return QRect();
-    const Metrics m = metrics();
-    const int row = index / m.cols;
-    const int col = index % m.cols;
-    return QRect(m.gridX + col * (m.cellW + m.gapX),
-                 m.top + row * (m.cellH + m.gapY) - m_scroll,
-                 m.cellW, m.cellH);
+    }
+    const QRect cell = l.cells.at(position);
+    return QRect(cell.x(), cell.y() - m_scroll, cell.width(), cell.height());
 }
 
-QRect OverviewPanel::imageRect(int index) const
+QRect OverviewPanel::imageRect(int position) const
 {
-    const QRect cell = cellRect(index);
-    if (cell.isNull())
+    const QRect cell = cellRect(position);
+    if (cell.isNull()) {
         return QRect();
+    }
     const Metrics m = metrics();
     return QRect(cell.x() + m.cardPadX,
                  cell.y() + m.cardPadTop,
@@ -172,23 +472,37 @@ QRect OverviewPanel::imageRect(int index) const
                  qMax(1, m.imageH));
 }
 
-int OverviewPanel::indexAt(const QPoint &pos) const
+// 命中：先按纵向落到某一组，再在组内按格阵换算——组标题与组间留白不算命中。
+int OverviewPanel::positionAt(const QPoint &pos) const
 {
     const Metrics m = metrics();
     const int relX = pos.x() - m.gridX;
-    const int relY = pos.y() - m.top + m_scroll;
-    if (relX < 0 || relY < 0)
+    if (relX < 0) {
         return -1;
+    }
     const int hStride = m.cellW + m.gapX;
-    const int vStride = m.cellH + m.gapY;
     const int col = relX / hStride;
-    const int row = relY / vStride;
-    if (relX - col * hStride >= m.cellW || relY - row * vStride >= m.cellH)
-        return -1;   // 落在格间距里：不算命中，悬停不闪
-    if (col >= m.cols)
-        return -1;
-    const int index = row * m.cols + col;
-    return index >= 0 && index < m_files.size() ? index : -1;
+    if (col >= m.cols || relX - col * hStride >= m.cellW) {
+        return -1;   // 落在列间距里：不算命中，悬停不闪
+    }
+    const int vStride = m.cellH + m.gapY;
+    const int contentY = pos.y() + m_scroll;
+    for (const GroupRun &run : layout().groups) {
+        if (contentY < run.gridTop || contentY >= run.gridBottom) {
+            continue;
+        }
+        const int dy = contentY - run.gridTop;
+        const int row = dy / vStride;
+        if (dy - row * vStride >= m.cellH) {
+            return -1;   // 行间距
+        }
+        const int inGroup = row * m.cols + col;
+        if (inGroup < 0 || inGroup >= run.count) {
+            return -1;   // 末行右侧的空位
+        }
+        return run.firstPos + inGroup;
+    }
+    return -1;
 }
 
 void OverviewPanel::schedulePreviews()
@@ -214,14 +528,21 @@ void OverviewPanel::requestVisible()
     const int top = -160;              // 视口上方少量预取
     const int bottom = height() + 160; // 视口下方少量预取
     const QSize decode(qMin(420, m.cellW * 2), qMin(320, m.imageH * 2));
-    for (int i = 0; i < m_files.size() && m_pending.size() < kMaxPending; ++i) {
-        const QRect cell = cellRect(i);
-        if (cell.bottom() < top || cell.top() > bottom)
+    const Layout &l = layout();
+    for (int pos = 0; pos < m_order.size() && m_pending.size() < kMaxPending; ++pos) {
+        if (pos >= l.cells.size()) {
+            break;
+        }
+        const QRect cell = cellRect(pos);
+        if (cell.bottom() < top || cell.top() > bottom) {
             continue;
-        const QString &path = m_files.at(i);
-        if (m_images.contains(i) || m_failed.contains(i) || m_pending.contains(path))
+        }
+        const int index = m_order.at(pos);
+        const QString &path = m_files.at(index);
+        if (m_images.contains(index) || m_failed.contains(index) || m_pending.contains(path)) {
             continue;
-        m_pending.insert(path, i);
+        }
+        m_pending.insert(path, index);
         m_cache->requestThumbnail(path, decode);
     }
 }
@@ -234,10 +555,11 @@ void OverviewPanel::onThumbReady(const QString &path, const QImage &image)
     const int index = it.value();
     m_pending.erase(it);
     if (index >= 0) {
-        if (image.isNull())
+        if (image.isNull()) {
             m_failed.insert(index);
-        else
+        } else {
             m_images.insert(index, new QImage(image));
+        }
         update();
     }
     schedulePreviews();
@@ -251,6 +573,7 @@ void OverviewPanel::paintEvent(QPaintEvent *)
     p.fillRect(rect(), UiStyle::overview::canvas());
 
     const Metrics m = metrics();
+    const Layout &l = layout();
     const QColor body = UiStyle::body();
     const QColor muted = UiStyle::muted();
     const QFont nameFont = UiStyle::font(13);
@@ -259,14 +582,32 @@ void OverviewPanel::paintEvent(QPaintEvent *)
     const int clipBottom = height() - 64;
     p.save();
     p.setClipRect(QRect(0, 0, width(), qMax(0, clipBottom)));
-    for (int i = 0; i < m_files.size(); ++i) {
-        const QRect cell = cellRect(i);
-        if (cell.bottom() < 0 || cell.top() >= clipBottom)
+
+    // 组标题：小号文字 + 组间留白；不分组时没有标题，这一段自然空转。
+    p.setFont(UiStyle::font(12));
+    for (const GroupRun &run : l.groups) {
+        if (run.title.isEmpty()) {
             continue;
+        }
+        QRect head = run.head;
+        head.moveTop(head.top() - m_scroll);
+        if (head.bottom() < m.top || head.top() >= clipBottom) {
+            continue;
+        }
+        p.setPen(muted);
+        p.drawText(head, Qt::AlignLeft | Qt::AlignVCenter, run.title);
+    }
+
+    for (int pos = 0; pos < l.cells.size(); ++pos) {
+        const QRect cell = cellRect(pos);
+        if (cell.bottom() < 0 || cell.top() >= clipBottom) {
+            continue;
+        }
         // 顶边被顶栏压住的部分照样要画（上滚时能看到半张卡），只跳过完全离屏的。
-        const QRect area = imageRect(i);
-        const bool selected = i == m_current;
-        const bool hovered = i == m_hover;
+        const QRect area = imageRect(pos);
+        const int index = m_order.at(pos);
+        const bool selected = index == m_current;
+        const bool hovered = pos == m_hover;
 
         // 整卡底板：悬停轻底，选中实底——不是只沿缩略图像素边缘围一圈线。
         if (selected || hovered) {
@@ -278,7 +619,7 @@ void OverviewPanel::paintEvent(QPaintEvent *)
 
         // 缩略图按原始宽高比等比放进卡片图片区，不拉伸。
         QRect fitted = area.adjusted(kThumbPadX, kThumbPadY, -kThumbPadX, -kThumbPadY);
-        if (const QImage *image = m_images.object(i)) {
+        if (const QImage *image = m_images.object(index)) {
             const QSize scaled = image->size().scaled(fitted.size(), Qt::KeepAspectRatio);
             fitted = QRect(fitted.center().x() - scaled.width() / 2,
                            fitted.center().y() - scaled.height() / 2,
@@ -289,11 +630,11 @@ void OverviewPanel::paintEvent(QPaintEvent *)
         clip.addRoundedRect(QRectF(fitted), kThumbRadius, kThumbRadius);
         p.save();
         p.setClipPath(clip);
-        if (const QImage *image = m_images.object(i)) {
+        if (const QImage *image = m_images.object(index)) {
             p.drawImage(fitted, *image);
         } else {
             p.fillPath(clip, UiStyle::overview::thumbPlaceholder());
-            if (m_failed.contains(i)) {
+            if (m_failed.contains(index)) {
                 p.setPen(muted);
                 p.setFont(UiStyle::font(12));
                 p.drawText(fitted, Qt::AlignCenter, tr("无法预览"));
@@ -308,7 +649,7 @@ void OverviewPanel::paintEvent(QPaintEvent *)
                                  cell.y() + m.cardPadTop + m.imageH + 1,
                                  qMax(1, cell.width() - 2 * m.cardPadX),
                                  m.nameH - 1);
-            const QString name = QFileInfo(m_files.at(i)).fileName();
+            const QString name = QFileInfo(m_files.at(index)).fileName();
             p.setFont(nameFont);
             const QFontMetrics fm(nameFont);
             if (selected) {
@@ -358,20 +699,20 @@ void OverviewPanel::mousePressEvent(QMouseEvent *event)
         return;
     }
     m_keyboardFocus = false;
-    const int index = indexAt(event->position().toPoint());
-    if (index >= 0) {
-        setCurrent(index);
-        emit selected(index);
+    const int pos = positionAt(event->position().toPoint());
+    if (pos >= 0) {
+        setCurrent(m_order.at(pos));
+        emit selected(m_current);
     }
     event->accept();
 }
 
 void OverviewPanel::mouseDoubleClickEvent(QMouseEvent *event)
 {
-    const int index = indexAt(event->position().toPoint());
-    if (event->button() == Qt::LeftButton && index >= 0) {
-        setCurrent(index);
-        emit activated(index);
+    const int pos = positionAt(event->position().toPoint());
+    if (event->button() == Qt::LeftButton && pos >= 0) {
+        setCurrent(m_order.at(pos));
+        emit activated(m_current);
         event->accept();
         return;
     }
@@ -380,12 +721,15 @@ void OverviewPanel::mouseDoubleClickEvent(QMouseEvent *event)
 
 void OverviewPanel::probeDoubleClick(int index)
 {
-    if (index < 0 || index >= m_files.size())
+    const int pos = positionOf(index);
+    if (pos < 0) {
         return;
-    ensureVisible(index);
-    const QRect cell = cellRect(index);
-    if (cell.isEmpty())
+    }
+    ensureVisiblePosition(pos);
+    const QRect cell = cellRect(pos);
+    if (cell.isEmpty()) {
         return;
+    }
     const QPointF local = cell.center();
     const QPointF global = mapToGlobal(cell.center());
     QMouseEvent press(QEvent::MouseButtonPress, local, global, Qt::LeftButton,
@@ -398,18 +742,24 @@ void OverviewPanel::probeDoubleClick(int index)
 
 void OverviewPanel::probeFollow(int index)
 {
+    const int pos = positionOf(index);
+    if (pos < 0) {
+        return;
+    }
     setCurrent(index);
-    ensureVisible(index);
+    ensureVisiblePosition(pos);
     update();
 }
 
 QString OverviewPanel::probeMetrics() const
 {
     const Metrics m = metrics();
-    const QRect cell = cellRect(m_current);
+    const int pos = currentPosition();
+    const QRect cell = cellRect(pos);
+    const Layout &l = layout();
     return QStringLiteral("cols=%1 cellW=%2 cellH=%3 imageH=%4 gridX=%5 scroll=%6 max=%7 "
-                          "current=%8 cell=%9,%10 %11x%12 height=%13 imgs=%14 pending=%15 failed=%16 "
-                          "visible=%17")
+                          "current=%8 pos=%9 cell=%10,%11 %12x%13 height=%14 imgs=%15 pending=%16 failed=%17 "
+                          "visible=%18 group=%19 asc=%20 groups=%21 content=%22")
         .arg(m.cols)
         .arg(m.cellW)
         .arg(m.cellH)
@@ -418,6 +768,7 @@ QString OverviewPanel::probeMetrics() const
         .arg(m_scroll)
         .arg(maxScroll())
         .arg(m_current)
+        .arg(pos)
         .arg(cell.x())
         .arg(cell.y())
         .arg(cell.width())
@@ -426,18 +777,22 @@ QString OverviewPanel::probeMetrics() const
         .arg(m_images.size())
         .arg(m_pending.size())
         .arg(m_failed.size())
-        .arg(isVisible() ? 1 : 0);
+        .arg(isVisible() ? 1 : 0)
+        .arg(QString::fromLatin1(groupModeName(m_mode)))
+        .arg(m_ascending ? 1 : 0)
+        .arg(l.groups.size())
+        .arg(l.contentH);
 }
 
 void OverviewPanel::mouseMoveEvent(QMouseEvent *event)
 {
-    const int index = indexAt(event->position().toPoint());
-    if (index != m_hover) {
-        m_hover = index;
+    const int pos = positionAt(event->position().toPoint());
+    if (pos != m_hover) {
+        m_hover = pos;
         update();
     }
     // 卡片本身就是点击目标（整个格子，不是图片像素），悬停给手型。
-    setCursor(index >= 0 ? Qt::PointingHandCursor : Qt::ArrowCursor);
+    setCursor(pos >= 0 ? Qt::PointingHandCursor : Qt::ArrowCursor);
     QWidget::mouseMoveEvent(event);
 }
 
@@ -461,21 +816,26 @@ void OverviewPanel::wheelEvent(QWheelEvent *event)
     event->accept();
 }
 
+// 键盘方向键按「当前可见顺序」走位：左右 = 顺序前后一格，上下 = 跨一行。
 void OverviewPanel::moveSelection(int dx, int dy)
 {
-    if (m_files.isEmpty())
+    if (m_order.isEmpty()) {
         return;
-    const int cols = metrics().cols;
-    int index = m_current < 0 ? 0 : m_current;
-    if (dx != 0)
-        index = qBound(0, index + dx, m_files.size() - 1);
-    if (dy != 0)
-        index = qBound(0, index + dy * cols, m_files.size() - 1);
-    if (index != m_current) {
-        setCurrent(index);
-        emit selected(index);
     }
-    ensureVisible(index);
+    const int cols = metrics().cols;
+    const int before = currentPosition();
+    int pos = before < 0 ? 0 : before;
+    if (dx != 0) {
+        pos = qBound(0, pos + dx, m_order.size() - 1);
+    }
+    if (dy != 0) {
+        pos = qBound(0, pos + dy * cols, m_order.size() - 1);
+    }
+    if (pos != before) {
+        setCurrent(m_order.at(pos));
+        emit selected(m_current);
+    }
+    ensureVisiblePosition(pos);
     update();
 }
 
@@ -524,18 +884,18 @@ void OverviewPanel::keyPressEvent(QKeyEvent *event)
         event->accept();
         return;
     case Qt::Key_Home:
-        if (!m_files.isEmpty()) {
-            setCurrent(0);
-            emit selected(0);
-            ensureVisible(0);
+        if (!m_order.isEmpty()) {
+            setCurrent(m_order.first());
+            emit selected(m_current);
+            ensureVisiblePosition(0);
         }
         event->accept();
         return;
     case Qt::Key_End:
-        if (!m_files.isEmpty()) {
-            setCurrent(m_files.size() - 1);
-            emit selected(m_files.size() - 1);
-            ensureVisible(m_files.size() - 1);
+        if (!m_order.isEmpty()) {
+            setCurrent(m_order.last());
+            emit selected(m_current);
+            ensureVisiblePosition(m_order.size() - 1);
         }
         event->accept();
         return;
@@ -547,9 +907,10 @@ void OverviewPanel::keyPressEvent(QKeyEvent *event)
 
 void OverviewPanel::resizeEvent(QResizeEvent *event)
 {
+    invalidateLayout();   // 列数变了，单元格坐标要重排
     m_scroll = qBound(0, m_scroll, maxScroll());
     // 列数变了，选中格可能被挤出可视带：尺寸变化后把它拉回视野（不改滚动原点语义）。
-    ensureVisible(m_current);
+    ensureVisiblePosition(currentPosition());
     QWidget::resizeEvent(event);
 }
 

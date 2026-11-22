@@ -3,10 +3,13 @@
 #
 # 背景：MSYS2 的 libheif 1.23.6 把 9 个编解码器写进静态导入表
 #   （aom/dav1d/de265/kvazaar/openh264/rav1e/SvtAv1Enc/x264/x265），
-#   部署目录被连带要求放进 x265(21.6MB)/SvtAv1Enc(7.2MB)/aom(9.2MB)/rav1e(3.4MB)/x264(1.9MB) 等
-#   编码器 DLL，合计约 44.8MB——而本程序只解码 HEIC/AVIF，从不编码。
+#   部署目录被连带要求放进 x265(21.62MB)/aom(9.24MB)/SvtAv1Enc(7.22MB)/cryptopp(4.38MB)
+#   /rav1e(3.36MB)/x264(1.93MB)/openh264(0.86MB)/openjph(0.62MB)/kvazaar(0.54MB)/openjp2(0.50MB)，
+#   合计约 50.3MB——而本程序只解码 HEIC/AVIF，从不编码。
 # 做法：从源码构建 libheif，精确关闭全部编码器与 JPEG2000/HTJ2K（HEIC/AVIF 不需要），
-#   保留 HEVC（libde265）与 AV1（dav1d + aom）解码。
+#   保留 HEVC（libde265）与 AV1（dav1d）解码。
+#   不保留 aom 解码器：AVIF 的 AV1 解码由 dav1d 全权负责（libheif 内部优先 dav1d），
+#   aom 只是同一格式的第二个解码器，多带 9.24MB 却不解码任何 dav1d 解不了的文件。
 #
 # 用法（在仓库根目录执行）：
 #   tools/build-libheif.sh [源码目录] [安装前缀]
@@ -56,15 +59,14 @@ cmake -S "$SRC_WIN" -B "$(cygpath -m "$BUILD_DIR")" -G Ninja \
     \
     -DWITH_LIBDE265=ON \
     -DWITH_DAV1D=ON \
-    -DWITH_AOM_DECODER=ON \
     -DWITH_LIBSHARPYUV=ON \
     -DWITH_JPEG_DECODER=ON \
     \
     -DWITH_LIBDE265_PLUGIN=OFF \
     -DWITH_DAV1D_PLUGIN=OFF \
-    -DWITH_AOM_DECODER_PLUGIN=OFF \
     -DWITH_JPEG_DECODER_PLUGIN=OFF \
     \
+    -DWITH_AOM_DECODER=OFF \
     -DWITH_X265=OFF \
     -DWITH_X264=OFF \
     -DWITH_AOM_ENCODER=OFF \
@@ -88,6 +90,11 @@ cmake -S "$SRC_WIN" -B "$(cygpath -m "$BUILD_DIR")" -G Ninja \
 # ---- 3. 构建 + 安装 ----
 cmake --build "$BUILD_DIR"
 cmake --install "$BUILD_DIR"
+
+# MSYS2 的发布库是 stripped 的；自建产物带符号表，不剥会白占约 1.3MB（3.4MB → 2.1MB）
+if [ -f "$PREFIX/bin/libheif.dll" ]; then
+    strip --strip-unneeded "$PREFIX/bin/libheif.dll" 2>/dev/null || true
+fi
 
 # ---- 4. 导入表对比 ----
 NEW_DLL="$PREFIX/bin/libheif.dll"

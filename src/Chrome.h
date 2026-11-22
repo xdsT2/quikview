@@ -225,6 +225,11 @@ public:
     void setPage(int current, int total);
     // 图片总览入口的选中态（总览打开时保持按下样式）。
     void setOverviewActive(bool active);
+    // 总览内的分组态：为真时按钮点亮（Filled 图标 + 中性底板）。
+    void setGroupingActive(bool active);
+    // 分组按钮的局部矩形（总览打开时该位置是「分组方式」，关闭时是「缩略图栏」），
+    // 菜单以上缘对齐它弹出。
+    QRect groupButtonRect() const;
     // 进度块（滑杆 + 页码）几何，ControlBar 局部坐标。连续翻页加载反馈用它
     // 把「正在打开第 N 张」锚到页码旁；胶囊隐藏时调用方自行回落画布底部。
     QRect progressRect() const;
@@ -255,6 +260,8 @@ signals:
     void openClicked();
     void listClicked();
     void overviewClicked();
+    // 总览内的「分组方式」入口（与「缩略图栏」同位置，按总览状态切换）
+    void groupByClicked();
     void zoomInClicked();
     void zoomOutClicked();
     void zoomToggleClicked();   // 缩放胶囊：100% ↔ 适合窗口 循环切换
@@ -287,7 +294,7 @@ protected:
 
 private:
     enum class Action {
-        None, Open, List, Overview, ZoomOut, ZoomValue, ZoomIn,
+        None, Open, List, GroupBy, Overview, ZoomOut, ZoomValue, ZoomIn,
         Rotate, Fullscreen, Prev, PageSlider, PageValue, Next, Lock
     };
     struct Item {
@@ -315,6 +322,7 @@ private:
     int m_press = -1;
     bool m_dragging = false;
     bool m_overviewActive = false;
+    bool m_groupingActive = false;   // 总览内已按日期/大小分组（按钮点亮）
     QElapsedTimer m_previewClock;
     bool m_locked = false;
     bool m_weakened = false;

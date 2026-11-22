@@ -1485,6 +1485,26 @@ void ControlBar::setOverviewActive(bool active)
     update();
 }
 
+void ControlBar::setGroupingActive(bool active)
+{
+    if (m_groupingActive == active) {
+        return;
+    }
+    m_groupingActive = active;
+    update();
+}
+
+// 总览内外同位置的那颗按钮：总览打开是「分组方式」，关闭是「缩略图栏」。
+QRect ControlBar::groupButtonRect() const
+{
+    for (const Item &it : items()) {
+        if (it.action == Action::GroupBy || it.action == Action::List) {
+            return it.rect;
+        }
+    }
+    return QRect();
+}
+
 void ControlBar::setZoomState(const QString &text, int kind)
 {
     if (m_zoomText == text && m_zoomKind == kind) {
@@ -1611,9 +1631,11 @@ QVector<ControlBar::Item> ControlBar::items() const
         place(Action::Open, kIslandBtn);
         x += kIslandInnerGap;
         // 图片总览入口紧挨缩略图条入口（2026-11-19 定稿：打开、总览、缩略图条）。
+        // 总览打开后同一格位切成「分组方式」（2026-11-22 派单）：按钮尺寸不变，
+        // 退出总览仍回到「缩略图栏」。
         place(Action::Overview, kIslandBtn);
         x += kIslandInnerGap;
-        place(Action::List, kIslandBtn);
+        place(m_overviewActive ? Action::GroupBy : Action::List, kIslandBtn);
         x += kIslandGroupGap;
     }
 
@@ -1716,6 +1738,7 @@ QString ControlBar::tipText(Action action) const
     switch (action) {
     case Action::Open: return tr("打开");
     case Action::List: return tr("缩略图栏");
+    case Action::GroupBy: return tr("分组方式");
     case Action::Overview: return tr("图片总览");
     case Action::ZoomOut: return tr("缩小");
     case Action::ZoomValue:
@@ -1871,7 +1894,8 @@ void ControlBar::paintEvent(QPaintEvent *)
         st.pressed = (m_press == i);
         st.focus = (m_keyboardFocus && m_focus == i);
         st.checked = (it.action == Action::Lock && m_locked)
-                     || (it.action == Action::Overview && m_overviewActive);
+                     || (it.action == Action::Overview && m_overviewActive)
+                     || (it.action == Action::GroupBy && m_groupingActive);
 
         ButtonPalette pal;
         // 定稿：按钮底板 30×30、圆角 7。
@@ -1935,6 +1959,12 @@ void ControlBar::paintEvent(QPaintEvent *)
         switch (it.action) {
         case Action::Open: drawIcon(p, "folder-open", icon, drawInk, iconStyle); break;
         case Action::List: drawIcon(p, "list", icon, drawInk, iconStyle); break;
+        case Action::GroupBy:
+            // 总览内的分组入口：已分组时 Filled 图标表达「正在分组」，底板走 checked 中性底。
+            drawIcon(p, "sort", icon, drawInk,
+                     (m_groupingActive || st.pressed) ? AppIcon::Style::Filled
+                                                      : AppIcon::Style::Regular);
+            break;
         case Action::Overview:
             drawIcon(p, "apps", icon, drawInk,
                      (m_overviewActive || st.pressed) ? AppIcon::Style::Filled
@@ -1960,6 +1990,7 @@ void ControlBar::activate(Action action, Qt::MouseButton button)
     switch (action) {
     case Action::Open: emit openClicked(); break;
     case Action::List: emit listClicked(); break;
+    case Action::GroupBy: emit groupByClicked(); break;
     case Action::Overview: emit overviewClicked(); break;
     case Action::ZoomIn: emit zoomInClicked(); break;
     case Action::ZoomOut: emit zoomOutClicked(); break;

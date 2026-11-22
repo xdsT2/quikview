@@ -235,6 +235,9 @@ inline const char *frameLine()   { return pick("#3f4042", "#d0d0d3"); }
 inline const char *footerLine()  { return pick("rgba(255,255,255,0.07)", "rgba(0,0,0,0.07)"); }
 inline const char *text()        { return pick("#f4f4f4", "#202124"); }
 inline const char *desc()        { return pick("#a5a7ac", "#616367"); }
+// 链接文字：与 UiStyle::linkText() 同值（深 #55c0f0 / 浅 #0b6f9f，浅色对白 5.55:1）。
+// QSS 用 const char* 形态，设置 › 关于页的链接行取这一枚。
+inline const char *link()        { return pick("#55c0f0", "#0b6f9f"); }
 inline const char *navSelected() { return "#1688f8"; }   // 深浅同色，明亮纯蓝整行选中
 inline const char *navSelText()  { return pick("#ffffff", "#071625"); }
 inline const char *focus()       { return "#1688f8"; }   // 键盘焦点环
@@ -867,3 +870,4 @@ QLabel#layerHint { color: #9ba0a5; font-size: 11px; background: rgba(255,255,255
 }
 
 } // namespace UiStyle
+

@@ -1,5 +1,6 @@
 #include "Config.h"
 
+#include "CommandCatalog.h"
 #include "MenuCatalog.h"
 #include "quik_config_keys.h"
 
@@ -9,6 +10,7 @@
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFileInfo>
+#include <QKeySequence>
 #include <QStandardPaths>
 
 Config::Config(const QString &path)
@@ -72,6 +74,146 @@ Config::Config(const QString &path)
         m_settings.setValue(QStringLiteral("config/mouse/btn_middle_drag"),
                             middleWorked ? QStringLiteral("pan") : QStringLiteral("none"));
         m_settings.setValue(mouseMigrated, true);
+        m_settings.sync();
+    }
+
+    migrateKeyboardToCommandIds();
+}
+
+// 键盘槽位 → 命令 ID 的一次性迁移（派单 2026-11-18 H1-7）。
+// 旧语义（MainWindow::applyShortcutConfig 批次 D1）：
+//   <槽位>_enabled 缺省 true；<槽位>_key 缺 = 出厂完整键位；_key 存在且等于出厂
+//   主键且 _action==槽位 = 仍按出厂完整键位（副键 PageUp/Backspace/* 保留）；
+//   其余 _key = 只装这一个键（清空串 = 显式不绑）；_action != 槽位 = 该键贡献给
+//   目标动作。
+// 迁移规则（逐槽，结果按「目标命令」聚合）：
+//   1) 槽位既无 _enabled 又无 _key → 用户从未动过，不写新键（运行期仍取出厂表，
+//      与「出厂行」语义一致，方向键滚动让位逻辑不受影响）；
+//   2) 有 _key 且等值出厂主键且绑自身 → 写出厂完整键位表；
+//   3) 其余有 _key → 写该单键（空串写成空表 = 显式不绑）；
+//   4) 有 _enabled 但无 _key → 写出厂完整键位表，同时写 _enabled；
+//   5) _action 指向别的槽位 → 键贡献给目标命令（目标命令的 _enabled = 任一贡献
+//      槽位启用；旧版逐槽启用只影响该槽自己的贡献，这里做了等价折叠）。
+// 迁移后旧键原样保留（供降级回退），打 config/etc/keyboard_cmd_ids_migrated 标记，
+// 之后一律以命令 ID 键为准，不重复迁移。
+void Config::migrateKeyboardToCommandIds()
+{
+    const QString marker = QStringLiteral("config/etc/keyboard_cmd_ids_migrated");
+    if (m_settings.value(marker, false).toBool()) {
+        return;
+    }
+
+    QHash<QString, QStringList> keysByCmd;
+    QHash<QString, bool> enabledByCmd;   // 任一贡献槽位启用即为 true
+    QStringList touched;
+
+    for (const CommandCatalog::Entry &e : CommandCatalog::kEntries) {
+        const QString slot = CommandCatalog::legacySlotOf(e);
+        if (slot.isEmpty()) {
+            continue;
+        }
+        const QString enabledKey = QStringLiteral("config/keyboard/%1_enabled").arg(slot);
+        const QString keyKey = QStringLiteral("config/keyboard/%1_key").arg(slot);
+        const QString actionKey = QStringLiteral("config/keyboard/%1_action").arg(slot);
+        const bool hasEnabled = m_settings.contains(enabledKey);
+        const bool hasKey = m_settings.contains(keyKey);
+        if (!hasEnabled && !hasKey) {
+            continue;   // 从未动过 → 出厂表，不写新键
+        }
+
+        const bool enabled = m_settings.value(enabledKey, true).toBool();
+        const QString stored = m_settings.value(keyKey).toString();
+        const QString binding = m_settings.value(actionKey, slot).toString();
+
+        QString cmd = QString::fromLatin1(e.id);
+        if (binding != slot) {
+            const CommandCatalog::Entry *target = CommandCatalog::findLegacy(binding);
+            if (target) {
+                cmd = QString::fromLatin1(target->id);
+            }
+        }
+
+        QStringList keys;
+        const QStringList factory = CommandCatalog::factoryKeys(e);
+        const QKeySequence storedSeq =
+            QKeySequence::fromString(stored, QKeySequence::PortableText);
+        const QKeySequence factoryPrimary =
+            factory.isEmpty()
+                ? QKeySequence()
+                : QKeySequence::fromString(factory.first(), QKeySequence::PortableText);
+        if (!hasKey) {
+            keys = factory;
+        } else if (binding == slot && !stored.isEmpty() && storedSeq == factoryPrimary
+                   && !factoryPrimary.isEmpty()) {
+            keys = factory;   // 配回出厂主键：恢复出厂完整表（含副键）
+        } else if (!stored.isEmpty()) {
+            keys.append(stored);
+        }
+
+        if (!touched.contains(cmd)) {
+            touched.append(cmd);
+            keysByCmd.insert(cmd, QStringList());
+            enabledByCmd.insert(cmd, false);
+        }
+        if (enabled) {
+            QStringList &dst = keysByCmd[cmd];
+            for (const QString &k : keys) {
+                if (!dst.contains(k)) {
+                    dst.append(k);
+                }
+            }
+            enabledByCmd[cmd] = true;
+        }
+    }
+
+    if (!touched.isEmpty()) {
+        for (const QString &cmd : touched) {
+            const QString base = QStringLiteral("config/keyboard/%1").arg(cmd);
+            m_settings.setValue(base + QStringLiteral("_enabled"), enabledByCmd.value(cmd));
+            m_settings.setValue(base + QStringLiteral("_keys_set"), true);
+            m_settings.setValue(base + QStringLiteral("_keys"), keysByCmd.value(cmd));
+        }
+    }
+    m_settings.setValue(marker, true);
+    m_settings.sync();
+}
+
+bool Config::commandEnabled(const QString &cmdId, bool def) const
+{
+    return m_settings
+        .value(QStringLiteral("config/keyboard/%1_enabled").arg(cmdId), def)
+        .toBool();
+}
+
+bool Config::commandKeysSaved(const QString &cmdId) const
+{
+    return m_settings
+        .value(QStringLiteral("config/keyboard/%1_keys_set").arg(cmdId), false)
+        .toBool();
+}
+
+QStringList Config::commandKeys(const QString &cmdId) const
+{
+    QStringList out;
+    const QVariant v =
+        m_settings.value(QStringLiteral("config/keyboard/%1_keys").arg(cmdId));
+    for (const QString &raw : v.toStringList()) {   // 空串 = 该位无键，直接跳过
+        const QString t = raw.trimmed();
+        if (!t.isEmpty()) {
+            out.append(t);
+        }
+    }
+    return out;
+}
+
+void Config::setCommandKeys(const QString &cmdId, const QStringList &keys, bool enabled,
+                            bool persist)
+{
+    const QString base = QStringLiteral("config/keyboard/%1").arg(cmdId);
+    m_settings.setValue(base + QStringLiteral("_keys_set"), true);
+    m_settings.setValue(base + QStringLiteral("_keys"), keys);
+    m_settings.setValue(base + QStringLiteral("_enabled"), enabled);
+    if (persist) {
         m_settings.sync();
     }
 }

@@ -31,6 +31,7 @@ class QSpinBox;
 class InputModeWatcher;
 class PillToggle;
 class QStackedWidget;
+class QTimer;
 class QVBoxLayout;
 class QWidget;
 
@@ -76,6 +77,14 @@ public:
     // 批次21（#81 翻页音效 / #82 不打开 RAW / #83 JPEG 同名 RAW）即时化验收探针。
     // --smoke batch21probe:<g81|g82:<rawPath>|g83|close:<cancel|esc|x|save>>
     void probeBatch21(const QString &spec);
+    // 批次18 验收探针（--smoke folderprobe:<root>）：切到「浏览」页的「图片文件夹 1」行，
+    // 走真实输入框 / 「浏览…」回填 / 「打开」按钮链路，逐态 dump「输入框 / 配置原始值 /
+    // 行内状态行 / 真实复制落点」到 <root>/folder1-live-probe.txt，并抓设置窗截图。
+    // root 由调用方给独立临时目录（样本图与落点都在里面，不碰用户图片目录）。
+    void probeFolderLive(const QString &root);
+    // 重启读回探针（--smoke folderrestore:<root>）：新进程按隔离 ini 打开设置页，
+    // dump「输入框回填值 / 配置原始值」到 <root>/folder1-restore.txt 并截图。
+    void probeFolderRestore(const QString &root);
     explicit SettingsDialog(QWidget *parent = nullptr);
     ~SettingsDialog() override;
 
@@ -223,7 +232,7 @@ private:
     // 只把紧凑/标准档的组间距与行高落到单页（延后构建的页建完时补一次）。
     void applyCompactMetricsToPage(QWidget *page);
 
-    // —— 九个页面 ——
+    // —— 十个页面 ——
     void buildGeneralPage(QWidget *page);
     void buildViewPage(QWidget *page);
     void buildAppearancePage(QWidget *page);
@@ -232,6 +241,9 @@ private:
     void buildMousePage(QWidget *page);
     void buildWindowsPage(QWidget *page);
     void buildExtensionsPage(QWidget *page);
+    // 关于页（2026-11-22）：产品信息卡片 + 链接卡片，全部为只读内容，
+    // 不参与待保存项与「恢复默认」。
+    void buildAboutPage(QWidget *page);
     // 组件行实时状态（下载进度 / 已安装版本 / 失败原因）；连 PanoExt::Manager 的信号，
     // 页面没建时直接返回（懒构建）。
     void refreshExtensionsPage();
@@ -446,7 +458,6 @@ private:
     QWidget *m_navRail = nullptr;
     QWidget *m_titleBar = nullptr;
     QWidget *m_footer = nullptr;
-    QPushButton *m_btnAbout = nullptr;
     bool m_compact = false;
     // 输入来源追踪：只有键盘导航才让控件显示焦点环（v2 焦点规则）。
     friend class InputModeWatcher;
@@ -468,6 +479,8 @@ private:
     QPushButton *m_extAction = nullptr;    // 安装 / 取消 / 卸载 / 重试
     QLabel *m_extWhereHint = nullptr;      // 安装位置与清理范围的说明
     QString m_extLastStatusText;           // 供外部深连高亮对照
+    int m_extPageIndex = -1;               // 扩展页下标（2026-11-22 起「关于」排在它后面）
+    int m_aboutPageIndex = -1;             // 关于页下标（验收探针定位用）
     std::function<void(int)> m_layoutAppMenuOutline;
     std::function<std::function<void()>()> m_saveAppMenuScroll;
     std::function<void()> m_refreshAppMenuStyle;
@@ -532,6 +545,10 @@ private:
         QLabel *actionLab;                // 「操作」列只读展示（2026-11-04 用户拍板：
         QWidget *row;                     // 动作不允许改，只有勾选与热键可改）
         QString action;
+        // 命令 ID 化（派单 2026-11-18 H1-7）：行绑定的命令（CMD_*）。键位与启用
+        // 状态读写 config/keyboard/<cmd>_keys / _enabled；action 只作旧槽位名
+        // （冲突检测基准与降级镜像键），不再充当配置真源。
+        QString cmd;
         QString defHotkey;                // 出厂键位（PortableText，与 MainWindow 一致）
         QString label;                    // 动作显示名（冲突提示用）
         QLabel *stateLab = nullptr;       // 键帽右侧「正在录入 / 冲突」行内状态
@@ -550,18 +567,28 @@ private:
     QList<MouseRow> m_mouseRows;
     QComboBox *m_maxBookmarks = nullptr;  // 书签页
     QLineEdit *m_photoFolder1 = nullptr;
-    QLineEdit *m_photoFolder2 = nullptr;
-    QLineEdit *m_editorPath = nullptr;    // 杂项页
-    QPushButton *m_btnExportSettings = nullptr;   // 杂项页：导出设置
-    QPushButton *m_btnImportSettings = nullptr;   // 杂项页：导入设置
-    Chrome::Toast *m_toast = nullptr;             // 设置窗内轻提示（导出/导入结果）
-    QComboBox *m_language = nullptr;      // 语言页
+    // 批次18：图片文件夹 1 行（#72 输入框 / #73 浏览… / #74 打开）共用一条即时链路。
+    // 输入用 300ms 防抖写盘 + 下发运行态；行下方状态行常驻「是否可用」，
+    // 让设置页开着时就能看出来，而不是关页后才生效。
+    QLabel *m_photoFolder1Status = nullptr;
+    QTimer *m_folderDebounce = nullptr;          // 输入防抖（停止输入 0.3s 落盘）
+    QString m_folderPendingText;                 // 防抖期间待应用的文本
+    QString m_probeModalShot;                    // 探针：模态提示截图落点（空=不截）
+    void applyPhotoFolderLive(const QString &path);
+    void updatePhotoFolderStatus(const QString &path, bool applied);
     // —— 批次23 #87/#88/#89：语言页三项即时化 ——
     void applyLanguageSelection();                    // 选中即装载 + 重译 + 写盘
     void refreshLanguageStatus();                     // 行内「当前档位 / 生效语言」
     void setLanguageStatus(const QString &text);
     void openLanguageFolderNow(QPushButton *btn);     // #89 建目录 + 交给系统
     void openDownloadPageNow(QPushButton *btn);       // #88 发布页 + 结果态
+    void openPhotoFolderFromRow();
+    QLineEdit *m_photoFolder2 = nullptr;
+    QLineEdit *m_editorPath = nullptr;    // 杂项页
+    QPushButton *m_btnExportSettings = nullptr;   // 杂项页：导出设置
+    QPushButton *m_btnImportSettings = nullptr;   // 杂项页：导入设置
+    Chrome::Toast *m_toast = nullptr;             // 设置窗内轻提示（导出/导入结果）
+    QComboBox *m_language = nullptr;      // 语言页
     // 批次23 #87/#88/#89：语言页三行的行内状态（页面内即时反馈，不靠弹窗/外部程序）
     QLabel *m_langStatus = nullptr;
     QLabel *m_langFolderStatus = nullptr;

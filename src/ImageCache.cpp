@@ -97,22 +97,6 @@ void ImageCache::requestFull(const QString &path, const QSize &previewSize, bool
         // 显式跳转：进入新代次。此刻之前提交的所有结果只入缓存、不再上屏。
         ++m_generation;
     }
-    // 「不打开 RAW 图片文件」= 请求这一层就拒：缓存里有（预读早就解过的）也必须
-    // 拿掉，否则从邻居预读切过去会直接命中缓存、绕开下面所有解码守卫，开关看着像
-    // 没生效。这里只拦 RAW，JPEG/PNG 等照旧；与解码线程里的那道守卫同一口径。
-    if (isRawFilePath(path) && Config::instance().noRawLoad()) {
-        m_fullCache.remove(path);
-        if (path == m_preloadPath) {
-            m_preloadPath.clear();
-            m_preloadPromote = false;
-        }
-        QMetaObject::invokeMethod(this, [this, path]() {
-            emit loadFailed(path,
-                            QCoreApplication::translate("ImageCache", "无法解码"),
-                            LoadErrorCategory::None);
-        }, Qt::QueuedConnection);
-        return;
-    }
     if (path == m_preloadPath) {
         // 预读正在解这一页：升级为「要上屏」，解完直接按序发出，不另起任务
         // （否则同一页两个解码，先到的可能是后一页，画面会回跳）
@@ -472,31 +456,22 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
                 }
             }
         }
-        // RAW 不走通用 QImageReader：NEF/CR2/DNG 本身就是 TIFF 容器，Qt 的 tiff
-        // 插件会按内容嗅探读出内嵌预览（Nikon D1 是 160×120）并「成功」返回，
-        // libraw 全尺寸解码就永远轮不到，画面一直停在小缩略图。缩略图这一级由
-        // 上面 raw_thumbnail 链路负责，这里只做全尺寸解码，职责分开。
-        QImage img;
+        QImageReader reader(path);
+        reader.setAutoTransform(true);
+        QImage img = reader.read();
         QString readerError;
-        if (!rawFile) {
-            QImageReader reader(path);
-            reader.setAutoTransform(true);
-            img = reader.read();
-            if (img.isNull()) {
-                const QByteArray formats = QImageReader::supportedImageFormats().join(',');
-                readerError = QStringLiteral("QImageReader: %1; format=%2; supported=%3")
-                                  .arg(reader.errorString(),
-                                       QString::fromLatin1(reader.format()),
-                                       formats);
-            }
+        if (img.isNull()) {
+            const QByteArray formats = QImageReader::supportedImageFormats().join(',');
+            readerError = QStringLiteral("QImageReader: %1; format=%2; supported=%3")
+                              .arg(reader.errorString(),
+                                   QString::fromLatin1(reader.format()),
+                                   QString::fromLatin1(formats));
         }
-        // RAW 全尺寸解码同样留在本后台线程，避免回主线程同步解把窗口卡住；
-        // 「不打开 RAW」时 requestFull 已拦截，这里是并发/在飞任务的兜底。
-        if (rawFile && !Config::instance().noRawLoad()) {
+        // QImageReader 不认 RAW：全尺寸解码也留在本后台线程，避免回主线程
+        // 同步解把窗口卡住（「不打开 RAW」时跳过，交给 onLoadFailed 提示）。
+        if (img.isNull() && rawFile && !Config::instance().noRawLoad()) {
             QString rawErr;
             img = loadRawImage(path, &rawErr, Config::instance().hdrTonemap());
-            if (img.isNull() && !rawErr.isEmpty())
-                readerError = rawErr;   // RAW 自己的失败原因比一句「无法解码」有用
         }
         QMetaObject::invokeMethod(this, [this, path, img, readerError, generation]() {
             finishFullDecode(path, img, generation, readerError);

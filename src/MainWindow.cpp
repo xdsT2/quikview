@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 
+#include "CommandCatalog.h"
 #include "FlipProbe.h"
 #include "PerfProbe.h"
 #include "ThemeProbe.h"
@@ -81,7 +82,7 @@
 #include "ImageCanvas.h"
 #include "MenuCatalog.h"
 #include "PsdLoader.h"
-#include "SvgLoader.h"      // 矢量 SVG：QSvgRenderer 栅格化（派单 2026-11-18）
+#include "SvgLoader.h"
 #include "LayerPanel.h"
 #include "ImageEffects.h"
 #include "MetadataPanel.h"
@@ -134,7 +135,6 @@ void probeAppend(const QString &line)
         ts << line << "\n";
     }
 }
-
 
 void markTopBarMenu(QMenu *menu)
 {
@@ -357,10 +357,19 @@ MainWindow::MainWindow(QWidget *parent)
     });
     connect(m_overview, &OverviewPanel::escapePressed, this, &MainWindow::closeOverview);
     // 总览内单击选中时，底栏页码跟随选中项（定稿截图 24/24 的语义）。
+    // 分组后页码是「显示顺序里的位置」，不是目录下标（2026-11-22 派单）。
     connect(m_overview, &OverviewPanel::selected, this, [this](int index) {
         if (m_control && m_dir && m_dir->isValid()) {
-            m_control->setPage(index + 1, m_dir->count());
+            m_control->setPage(pageForIndex(index), m_dir->count());
         }
+    });
+    // 切换分组 / 反转方向后，同一条显示顺序换了，页码按当前选中文件重算。
+    connect(m_overview, &OverviewPanel::orderChanged, this, [this]() {
+        if (!m_control || !m_dir || !m_dir->isValid()) {
+            return;
+        }
+        m_control->setGroupingActive(m_overview->groupMode() != OverviewPanel::GroupMode::None);
+        syncOverviewPage(m_overview->currentIndex());
     });
 
     // PSD 图层：工具栏一级入口（仅 PSD 可见）+ 右侧浮层面板。
@@ -460,6 +469,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_control, &Chrome::ControlBar::openClicked, this, &MainWindow::onOpen);
     connect(m_control, &Chrome::ControlBar::listClicked, this, &MainWindow::toggleBrowserPanel);
     connect(m_control, &Chrome::ControlBar::overviewClicked, this, &MainWindow::toggleOverview);
+    // 总览内同一格位是「分组方式」：弹出单选菜单，不改按钮尺寸。
+    connect(m_control, &Chrome::ControlBar::groupByClicked, this, &MainWindow::showOverviewGroupMenu);
     connect(m_control, &Chrome::ControlBar::zoomInClicked, this, &MainWindow::onZoomIn);
     connect(m_control, &Chrome::ControlBar::zoomOutClicked, this, &MainWindow::onZoomOut);
     connect(m_control, &Chrome::ControlBar::zoomToggleClicked, this, &MainWindow::onZoomCapsuleToggle);
@@ -478,10 +489,14 @@ MainWindow::MainWindow(QWidget *parent)
         if (!m_dir || !m_dir->isValid() || index < 1 || index > m_dir->count()) {
             return;
         }
-        if (index - 1 == m_dir->index()) {
+        // 总览内页码 = 显示顺序里的位置；落点先换回真实文件下标（2026-11-22 派单）。
+        const int fileIndex = (m_overview && m_overview->isVisible())
+                                  ? m_overview->fileAtPosition(index - 1)
+                                  : index - 1;
+        if (fileIndex < 0 || fileIndex >= m_dir->count() || fileIndex == m_dir->index()) {
             return;
         }
-        m_dir->setIndex(index - 1);
+        m_dir->setIndex(fileIndex);
         jumpTo(m_dir->current());
     });
     // 拖动中跟手预览：经过的每一张都出一帧（Chrome 侧已按 ≥60ms 节流）。
@@ -496,7 +511,11 @@ MainWindow::MainWindow(QWidget *parent)
             if (m_preloadTimer) {
                 m_preloadTimer->stop();
             }
-            m_overview->probeFollow(index - 1);
+            // 页码是显示顺序里的位置，要换回真实文件下标再定位（2026-11-22 派单）。
+            const int fileIndex = m_overview->fileAtPosition(index - 1);
+            if (fileIndex >= 0) {
+                m_overview->probeFollow(fileIndex);
+            }
             return;
         }
         if (m_preloadTimer) {
@@ -830,6 +849,8 @@ void MainWindow::toggleOverview()
         m_browser->setExpanded(false);
     }
     m_overviewStatusWasVisible = m_statusOverlay && m_statusOverlay->isVisible();
+    // 每次打开的总览都从「不分组」开始，用目录原有浏览顺序（派单 §入口和初始值）。
+    m_overview->resetGrouping();
     m_overview->setFiles(files, hasDir ? m_dir->index() : -1);
     m_overview->show();
     m_overview->raise();
@@ -837,6 +858,8 @@ void MainWindow::toggleOverview()
     m_overview->setFocus(Qt::OtherFocusReason);
     if (m_control) {
         m_control->setOverviewActive(true);
+        m_control->setGroupingActive(false);
+        syncOverviewPage(hasDir ? m_dir->index() : -1);
     }
     if (m_statusOverlay) {
         m_statusOverlay->hide();
@@ -856,7 +879,12 @@ void MainWindow::closeOverview()
     }
     m_overview->hide();
     if (m_control) {
+        // 退出总览：同一格位恢复「缩略图栏」，页码也回到目录下标口径。
         m_control->setOverviewActive(false);
+        m_control->setGroupingActive(false);
+        if (m_dir && m_dir->isValid()) {
+            m_control->setPage(m_dir->index() + 1, m_dir->count());
+        }
     }
     muteShortcutsForOverview(false);
     if (m_statusOverlay) {
@@ -867,6 +895,73 @@ void MainWindow::closeOverview()
         m_canvas->setFocus(Qt::OtherFocusReason);
     }
     applyChromeLayout();
+}
+
+// 总览内页码：分组后是「显示顺序里的位置 + 1」，不分组时与目录下标一致；
+// 总览关闭时不走这里（页面对应目录下标，由各调用点按 pageForIndex 统一给值）。
+int MainWindow::pageForIndex(int fileIndex) const
+{
+    if (m_overview && m_overview->isVisible()) {
+        const int pos = m_overview->positionOf(fileIndex);
+        if (pos >= 0) {
+            return pos + 1;
+        }
+    }
+    return fileIndex + 1;
+}
+
+void MainWindow::syncOverviewPage(int fileIndex)
+{
+    if (!m_control || !m_dir || !m_dir->isValid() || fileIndex < 0) {
+        return;
+    }
+    m_control->setPage(pageForIndex(fileIndex), m_dir->count());
+}
+
+// 总览内的「分组方式」单选菜单（2026-11-22 派单 §入口和初始值）：
+// 三项单选、当前项打勾；当前分组项右侧标排序方向，再点它即反转。
+// 菜单只从底栏同一格位弹出，不改按钮尺寸与位置。
+void MainWindow::showOverviewGroupMenu()
+{
+    if (!m_overview || !m_overview->isVisible() || !m_control) {
+        return;
+    }
+    auto *menu = new CtxMenu(this);
+    menu->setMinWidth(224);
+    menu->setAttribute(Qt::WA_DeleteOnClose);
+
+    auto *group = new QActionGroup(menu);
+    group->setExclusive(true);
+
+    const OverviewPanel::GroupMode current = m_overview->groupMode();
+    const QString direction = m_overview->groupDirectionText();
+    static const char *const kIcons[] = { "minus", "clock", "size" };
+    const OverviewPanel::GroupMode modes[] = {
+        OverviewPanel::GroupMode::None,
+        OverviewPanel::GroupMode::Date,
+        OverviewPanel::GroupMode::Size,
+    };
+    for (int i = 0; i < 3; ++i) {
+        const OverviewPanel::GroupMode mode = modes[i];
+        QAction *action = menu->addAction(OverviewPanel::groupTitle(mode));
+        action->setCheckable(true);
+        action->setChecked(mode == current);
+        action->setProperty(CtxMenu::kIconProp, QLatin1String(kIcons[i]));
+        // 排序方向只跟在当前分组项后面（不分组没有方向）。
+        if (mode == current && !direction.isEmpty()) {
+            action->setProperty(CtxMenu::kShortcutProp, direction);
+        }
+        group->addAction(action);
+        // 点当前项 = 反转方向；点另一项 = 切过去并用该项初始方向（由 Panel 判定）。
+        connect(action, &QAction::triggered, this, [this, mode]() {
+            m_overview->selectGroupMode(mode);
+        });
+    }
+
+    // 弹在按钮上方：菜单底边留 8px 呼吸，与底岛其它悬浮层一致。
+    const QRect anchor = m_control->groupButtonRect();
+    const QPoint global = m_control->mapToGlobal(anchor.topLeft());
+    menu->popup(QPoint(global.x(), global.y() - menu->sizeHint().height() - 8));
 }
 
 void MainWindow::muteShortcutsForOverview(bool mute)
@@ -1374,7 +1469,9 @@ void MainWindow::createActions()
     connect(actQuit, &QAction::triggered, this, [this]() { close(); });
     addAction(actQuit);   // 不挂到窗口快捷键不参与分发（此前 Ctrl+Q 是死的）
     // Honeyview：F4 = 关闭
-    mkFn(tr("关闭"), QKeySequence(QStringLiteral("F4")), [this]() { close(); });
+    // 命令化（派单 2026-11-18 H1-7）：mkFn 的返回值原来直接丢弃，命令表要用它
+    // 承载 CMD_FILE_CLOSE 的键位与触发，所以这里起个名字。
+    actClose = mkFn(tr("关闭"), QKeySequence(QStringLiteral("F4")), [this]() { close(); });
 
     // 视图：缩放三兄弟一个互斥组；双页两项是**另一个**独立勾选组（可勾选、可同时勾选）。
     // 两维正交：缩放决定「怎么适配」，双页决定「显示几页」，菜单/画面/内部状态三者同步。
@@ -1441,7 +1538,7 @@ void MainWindow::createActions()
     m_actions.insert(QStringLiteral("slideshow"), actSlideshow);   // 键盘页可配置（出厂无键）
     connect(actSlideshow, &QAction::toggled, this, &MainWindow::setSlideshow);
     // Ctrl+0 = 停止放映；Ctrl+1..9 = 以 N 秒间隔开始（对照原版 MENUSTR_SLIDESHOW_*）
-    mk(tr("停止放映"), QKeySequence(QStringLiteral("Ctrl+0")), &MainWindow::onSlideshowStop);
+    actSlideshowStop = mk(tr("停止放映"), QKeySequence(QStringLiteral("Ctrl+0")), &MainWindow::onSlideshowStop);
     for (int s = 1; s <= 9; ++s) {
         mkFn(tr("%1 秒放映").arg(s), QKeySequence(QStringLiteral("Ctrl+%1").arg(s)),
            [this, s]() { onSlideshowInterval(s); });
@@ -1451,10 +1548,12 @@ void MainWindow::createActions()
     actToggleMeta->setCheckable(true);
     // Tab = 信息面板开关（对照原版）。Chrome 工具栏的 Tab 焦点导航分支已删，
     // 避免工具栏吃掉 Tab 导致快捷键失效。
-    auto *toggleInfo = new QAction(this);
-    toggleInfo->setShortcut(QKeySequence(Qt::Key_Tab));
-    addAction(toggleInfo);
-    connect(toggleInfo, &QAction::triggered, this, [this]() { onTabPressed(); });
+    // 命令化（H1-7）：Tab 动作原来是无名 QAction，命令表要按 CMD_WINDOW_INFO_PANEL
+    // 引用它，所以保留成员指针。
+    actInfoToggle = new QAction(this);
+    actInfoToggle->setShortcut(QKeySequence(Qt::Key_Tab));
+    addAction(actInfoToggle);
+    connect(actInfoToggle, &QAction::triggered, this, [this]() { onTabPressed(); });
     // 浮层几何依赖可见性（隐藏时 applyChromeLayout 跳过它），显示后要立刻排一次。
     // 显示走 showHud（110ms 开启动效），关闭走 dismiss（85ms 淡出）。
     connect(actToggleMeta, &QAction::toggled, this, [this](bool on) {
@@ -1509,7 +1608,7 @@ void MainWindow::createActions()
     actRotateRight = mk(tr("顺时针旋转 90°"), QKeySequence(QStringLiteral("Alt+Right")), &MainWindow::onRotateRight);
     // 不旋转 Alt+Up / 旋转 180° Alt+Down（MENUSTR_ROTATION_NONE/180）
     mk(tr("不旋转"), QKeySequence(QStringLiteral("Alt+Up")), &MainWindow::resetGeometry);
-    mkFn(tr("旋转 180°"), QKeySequence(QStringLiteral("Alt+Down")), [this]() { rotateImage(180); });
+    actRotate180 = mkFn(tr("旋转 180°"), QKeySequence(QStringLiteral("Alt+Down")), [this]() { rotateImage(180); });
     // 翻转：Ctrl+M 水平 / Ctrl+F 垂直（MENUSTR_IMAGE_PRICESSING_MIRROR/FLIP）
     actFlipH = mk(tr("水平翻转"), QKeySequence(QStringLiteral("Ctrl+M")), &MainWindow::onFlipH);
     actFlipV = mk(tr("垂直翻转"), QKeySequence(QStringLiteral("Ctrl+F")), &MainWindow::onFlipV);
@@ -1530,18 +1629,18 @@ void MainWindow::createActions()
     // 100% 也响应 *（MENUSTR_ZOOM_100）；0 仍是主键
     actActualSize->setShortcuts({ QKeySequence(QStringLiteral("0")), QKeySequence(QStringLiteral("*")) });
     // 1% 步进（MENUSTR_ZOOM_IN_1/OUT_1）
-    mkFn(tr("放大 (1%)"), QKeySequence(QStringLiteral("Ctrl++")), [this]() {
+    actZoomStepIn = mkFn(tr("放大 (1%)"), QKeySequence(QStringLiteral("Ctrl++")), [this]() {
         if (!m_currentImage.isNull()) {
             m_canvas->setZoom(m_canvas->zoom() + 0.01);
         }
     });
-    mkFn(tr("缩小 (1%)"), QKeySequence(QStringLiteral("Ctrl+-")), [this]() {
+    actZoomStepOut = mkFn(tr("缩小 (1%)"), QKeySequence(QStringLiteral("Ctrl+-")), [this]() {
         if (!m_currentImage.isNull()) {
             m_canvas->setZoom(m_canvas->zoom() - 0.01);
         }
     });
     // 选择图片 Enter（MENUSTR_PAGESELECT）：裁剪模式下 Enter 先落地选区
-    mkFn(tr("选择图片"), QKeySequence(Qt::Key_Return), [this]() {
+    actSelectImage = mkFn(tr("选择图片"), QKeySequence(Qt::Key_Return), [this]() {
         if (m_cropMode) {
             applyCrop();
             return;
@@ -1556,17 +1655,17 @@ void MainWindow::createActions()
         onPageSelect();
     });
     // 定位文件 Ctrl+Enter（MENUSTR_OPEN_FILEPOSITION）
-    mkFn(tr("定位文件"), QKeySequence(QStringLiteral("Ctrl+Return")), [this]() {
+    actLocateFile = mkFn(tr("定位文件"), QKeySequence(QStringLiteral("Ctrl+Return")), [this]() {
         if (m_currentPath.isEmpty()) {
             return;
         }
         QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(m_currentPath).absolutePath()));
     });
     // 随机跳转 Ctrl+Alt+PageDown/Up（MENUSTR_PAGEMOVE_RAND_*）
-    mkFn(tr("向后随机转到某张图片"), QKeySequence(QStringLiteral("Ctrl+Alt+PageDown")),
-       [this]() { onJumpRandom(true); });
-    mkFn(tr("向前随机转到某张图片"), QKeySequence(QStringLiteral("Ctrl+Alt+PageUp")),
-       [this]() { onJumpRandom(false); });
+    actRandomNext = mkFn(tr("向后随机转到某张图片"), QKeySequence(QStringLiteral("Ctrl+Alt+PageDown")),
+                         [this]() { onJumpRandom(true); });
+    actRandomPrev = mkFn(tr("向前随机转到某张图片"), QKeySequence(QStringLiteral("Ctrl+Alt+PageUp")),
+                         [this]() { onJumpRandom(false); });
     // 编辑书签 F3（MENUSTR_BOOKMARK_EDIT）
     mk(tr("编辑书签"), QKeySequence(QStringLiteral("F3")), &MainWindow::onEditBookmarks);
 
@@ -1623,8 +1722,228 @@ void MainWindow::createActions()
     actSortDesc->setCheckable(true);
     connect(actSortDesc, &QAction::toggled, this, &MainWindow::onSortDescending);
 
+    // 命令注册表：先把 CMD_* 落到真实动作，再按命令键位下发。
+    // 顺序不能反——applyShortcutConfig 依赖 m_cmdActions 已建好。
+    registerCommands();
     // 键盘快捷键自定义：启动即按 config/keyboard/* 下发（无配置 = 出厂键位，行为不变）
     applyShortcutConfig();
+}
+
+// ---------------------------------------------------------------------------
+// 命令注册表落地（派单 2026-11-18 H1-7：命令行参数与快捷键命令 ID 化）
+// ---------------------------------------------------------------------------
+// 表在 src/CommandCatalog.h，是「用户可执行动作」的唯一清单。这里只负责把每条
+// 命令接到真实执行路径：能落到 QAction 的走 m_cmdActions，四个没有独立 QAction
+// 的（全屏 / 上下文菜单 / 总览 / 缩略图栏）和带参数的幻灯片在 triggerCommand
+// 里直接调槽。新增动作时先加表项，再加这里的映射，冒烟 cmdcheck 会抓漏项。
+void MainWindow::registerCommands()
+{
+    const struct {
+        const char *cmd;
+        QAction *act;
+    } map[] = {
+        { Cmd::FileOpen, actOpen },
+        { Cmd::FileOpenFolder, actOpenFolder },
+        { Cmd::FileSaveAs, actSaveAs },
+        { Cmd::FilePrint, actPrint },
+        { Cmd::FileBatchConvert, actBatchConvert },
+        { Cmd::FileClose, actClose },
+        { Cmd::FileQuit, actQuit },
+        { Cmd::FileDelete, actDelete },
+        { Cmd::FileCopyToFolder, actCopyToFolder },
+        { Cmd::FileOpenWithEditor, actOpenWithEditor },
+        { Cmd::FileWallpaper, actWallpaper },
+        { Cmd::FileSelect, actSelectImage },
+        { Cmd::FileLocate, actLocateFile },
+        { Cmd::CopyClipboard, actCopyToClipboard },
+        { Cmd::CopyExif, actCopyExif },
+        { Cmd::CopyPath, actCopyImagePath },
+        { Cmd::CopyVisible, actCopyVisibleImage },
+        { Cmd::CopyImageFile, actCopyImageFile },
+        { Cmd::PasteClipboard, actPasteImage },
+        { Cmd::PageNext, actNext },
+        { Cmd::PagePrev, actPrev },
+        { Cmd::PageNext10, actNext10 },
+        { Cmd::PagePrev10, actPrev10 },
+        { Cmd::PageFirst, actFirst },
+        { Cmd::PageLast, actLast },
+        { Cmd::FolderNext, actNextFolder },
+        { Cmd::FolderPrev, actPrevFolder },
+        { Cmd::FrameNext, actNextFrame },
+        { Cmd::FramePrev, actPrevFrame },
+        { Cmd::PageRandomNext, actRandomNext },
+        { Cmd::PageRandomPrev, actRandomPrev },
+        { Cmd::ZoomIn, actZoomIn },
+        { Cmd::ZoomOut, actZoomOut },
+        { Cmd::ZoomActual, actActualSize },
+        { Cmd::ZoomFit, actFit },
+        { Cmd::ZoomFitWidth, actFitWidth },
+        { Cmd::ZoomStepIn, actZoomStepIn },
+        { Cmd::ZoomStepOut, actZoomStepOut },
+        { Cmd::ZoomLock, actZoomLock },
+        { Cmd::TwoPageL2R, actTwoL2R },
+        { Cmd::TwoPageR2L, actTwoR2L },
+        { Cmd::RotateLeft, actRotateLeft },
+        { Cmd::RotateRight, actRotateRight },
+        { Cmd::Rotate180, actRotate180 },
+        { Cmd::RotateNone, nullptr },   // 不旋转：mk() 未留指针，走 triggerCommand 直调
+        { Cmd::FlipH, actFlipH },
+        { Cmd::FlipV, actFlipV },
+        { Cmd::Crop, actCrop },
+        { Cmd::Resize, actResize },
+        { Cmd::Negative, actNegative },
+        { Cmd::Gamma, actGamma },
+        { Cmd::StretchSmall, actStretchSmall },
+        { Cmd::EffectNone, actEffectNone },
+        { Cmd::EffectSoften, actEffectSoften },
+        { Cmd::EffectSharpen, actEffectSharpen },
+        { Cmd::InterpBilinear, actInterpFast },
+        { Cmd::InterpBicubic, actInterpSmooth },
+        { Cmd::InterpLanczos, actInterpLanczos },
+        { Cmd::SlideshowToggle, actSlideshow },
+        { Cmd::SlideshowStop, actSlideshowStop },
+        { Cmd::BookmarkToggle, actFavorite },
+        { Cmd::BookmarkEdit, nullptr },   // 编辑书签：mk() 未留指针，走直调
+        { Cmd::SortName, actSortName },
+        { Cmd::SortTime, actSortTime },
+        { Cmd::SortSize, actSortSize },
+        { Cmd::SortType, actSortType },
+        { Cmd::SortDesc, actSortDesc },
+        { Cmd::OnTop, actAlwaysOnTop },
+        { Cmd::InfoPanel, actInfoToggle },
+        { Cmd::DarkMode, actDark },
+        { Cmd::Settings, actSettings },
+        { Cmd::About, actAbout },
+    };
+    for (const auto &m : map) {
+        const QString id = QString::fromLatin1(m.cmd);
+        if (!m.act) {
+            continue;   // 该命令走 triggerCommand 的直调分支
+        }
+        m_cmdActions.insert(id, m.act);
+    }
+}
+
+// 命令执行的唯一入口。快捷键（QAction）、设置页鼠标映射、冒烟探针、后续公开
+// CLI 都从这里走，保证「同一条命令在任何入口行为一致」。
+bool MainWindow::triggerCommand(const QString &cmdId, const QString &arg)
+{
+    // 1) 没有独立 QAction 的命令：直接走既有槽，不新增第二条执行路径。
+    if (cmdId == QLatin1String(Cmd::Fullscreen)) {
+        toggleFullscreen();
+        return true;
+    }
+    if (cmdId == QLatin1String(Cmd::ContextMenu)) {
+        QMenu *menu = buildContextMenu();
+        menu->popup(QCursor::pos());
+        connect(menu, &QMenu::aboutToHide, menu, &QObject::deleteLater);
+        return true;
+    }
+    if (cmdId == QLatin1String(Cmd::RotateNone)) {
+        resetGeometry();
+        return true;
+    }
+    if (cmdId == QLatin1String(Cmd::BookmarkEdit)) {
+        onEditBookmarks();
+        return true;
+    }
+    // 幻灯片按秒数开始：一个命令 + 参数（CLI `-ss:N` 与出厂 Ctrl+1..9 共用）。
+    if (cmdId == QLatin1String(Cmd::SlideshowStart)) {
+        bool ok = false;
+        const int sec = arg.toInt(&ok);
+        if (!ok || sec < 1 || sec > 9) {
+            return false;
+        }
+        onSlideshowInterval(sec);
+        return true;
+    }
+
+    // 2) 常规命令：落到 QAction。
+    QAction *act = m_cmdActions.value(cmdId);
+    if (!act) {
+        qWarning() << "[command] 未知或未接线的命令:" << cmdId;
+        return false;
+    }
+    act->trigger();
+    return true;
+}
+
+// 命令 ID 全表 + 当前键位（冒烟 `cmdreport`）。一行一条，便于回执对账与后续 CLI 文档。
+QString MainWindow::commandReport() const
+{
+    QStringList lines;
+    for (const CommandCatalog::Entry &e : CommandCatalog::kEntries) {
+        const QString id = QString::fromLatin1(e.id);
+        const QAction *act = m_cmdActions.value(id);
+        QStringList keys;
+        if (act) {
+            for (const QKeySequence &s : act->shortcuts()) {
+                keys << s.toString(QKeySequence::PortableText);
+            }
+        }
+        lines << QStringLiteral("%1|group=%2|legacy=%3|wired=%4|configurable=%5|keys=%6|label=%7")
+                     .arg(id, CommandCatalog::groupTitle(e.group),
+                          e.legacy ? QString::fromLatin1(e.legacy) : QString(),
+                          act ? QStringLiteral("action") : QStringLiteral("direct"),
+                          e.configurable ? QStringLiteral("1") : QStringLiteral("0"),
+                          keys.isEmpty() ? QStringLiteral("-") : keys.join(QLatin1Char(';')),
+                          CommandCatalog::label(e));
+    }
+    return lines.join(QLatin1Char('\n'));
+}
+
+// 命令表 ↔ 动作注册表对账（冒烟 `cmdcheck`）：验收第 1 条的证据来源。
+// 检查三件事：
+//   1) 表里每条 configurable 命令都必须有真实动作（键位下发才有落点）；
+//   2) 历史 m_actions 的 14 个槽位必须都能映射到一条命令（改名不漏旧配置）；
+//   3) 表里 legacy 值不得重复（否则旧 ini 迁移会二义）。
+QString MainWindow::commandCheckReport() const
+{
+    QStringList problems;
+    int configurable = 0;
+    int wired = 0;
+    for (const CommandCatalog::Entry &e : CommandCatalog::kEntries) {
+        const QString id = QString::fromLatin1(e.id);
+        const bool hasAction = m_cmdActions.contains(id);
+        const bool direct = id == QLatin1String(Cmd::Fullscreen)
+                            || id == QLatin1String(Cmd::ContextMenu)
+                            || id == QLatin1String(Cmd::RotateNone)
+                            || id == QLatin1String(Cmd::BookmarkEdit)
+                            || id == QLatin1String(Cmd::SlideshowStart);
+        if (hasAction || direct) {
+            ++wired;
+        } else {
+            problems << QStringLiteral("未接线:%1").arg(id);
+        }
+        if (e.configurable) {
+            ++configurable;
+            if (!m_actions.contains(QString::fromLatin1(e.legacy ? e.legacy : ""))) {
+                problems << QStringLiteral("可改绑命令缺旧槽:%1").arg(id);
+            }
+        }
+    }
+    for (auto it = m_actions.constBegin(); it != m_actions.constEnd(); ++it) {
+        if (!CommandCatalog::findLegacy(it.key())) {
+            problems << QStringLiteral("旧槽无命令映射:%1").arg(it.key());
+        }
+    }
+    QStringList seen;
+    for (const CommandCatalog::Entry &e : CommandCatalog::kEntries) {
+        if (!e.legacy || !e.legacy[0]) {
+            continue;
+        }
+        const QString slot = QString::fromLatin1(e.legacy);
+        if (seen.contains(slot)) {
+            problems << QStringLiteral("旧槽重复:%1").arg(slot);
+        }
+        seen << slot;
+    }
+    return QStringLiteral("commands=%1 wired=%2 configurable=%3 legacy_slots=%4 problems=%5")
+        .arg(CommandCatalog::count())
+        .arg(wired)
+        .arg(configurable)
+        .arg(seen.size())
+        .arg(problems.isEmpty() ? QStringLiteral("-") : problems.join(QLatin1Char(',')));
 }
 
 // ---------------------------------------------------------------------------
@@ -1648,63 +1967,42 @@ struct SlotDef {
 
 // 出厂槽位表。改动任何一个动作的出厂键位须同步设置页键盘页的 defs 表。
 // 注意：变量名不能用 slots——它是 Qt 的空宏。
+// 出厂槽位表（历史 14 个可改绑槽位）由命令注册表派生：键 = 旧槽位名（设置页冲突
+// 检测与冒烟 keys= 仍按槽位名取值），值 = CommandCatalog 里的出厂键位。
+// 命令 ID 化（H1-7）之后这里不再单独维护第二份键位清单，改键位只改注册表。
+// 注意：变量名不能用 slots——它是 Qt 的空宏。
 const QList<SlotDef> &shortcutSlotDefs()
 {
-    static const QList<SlotDef> defs = {
-        { "open",        { QKeySequence::Open, QKeySequence(QStringLiteral("F2")) } },
-        { "openfolder",  { QKeySequence(QStringLiteral("F")) } },
-        { "next",        { QKeySequence(Qt::Key_Right), QKeySequence(Qt::Key_PageDown) } },
-        { "prev",        { QKeySequence(Qt::Key_Left), QKeySequence(Qt::Key_PageUp),
-                           QKeySequence(Qt::Key_Backspace) } },
-        { "next_frame",  { QKeySequence(QStringLiteral("Ctrl+Right")) } },
-        { "prev_frame",  { QKeySequence(QStringLiteral("Ctrl+Left")) } },
-        { "zoom_in",     { QKeySequence::ZoomIn, QKeySequence(QStringLiteral("+")) } },
-        { "zoom_out",    { QKeySequence::ZoomOut, QKeySequence(QStringLiteral("-")) } },
-        { "actual_size", { QKeySequence(QStringLiteral("0")), QKeySequence(QStringLiteral("*")) } },
-        { "fit",         { QKeySequence(QStringLiteral("9")) } },
-        { "slideshow",   {} },
-        { "crop",        {} },
-        { "favorite",    { QKeySequence(QStringLiteral("B")) } },
-        { "del",         { QKeySequence::Delete } },
-    };
+    static const QList<SlotDef> defs = [] {
+        QList<SlotDef> list;
+        for (const CommandCatalog::Entry &e : CommandCatalog::kEntries) {
+            if (!e.configurable) {
+                continue;
+            }
+            const QString slot = CommandCatalog::legacySlotOf(e);
+            if (slot.isEmpty()) {
+                continue;
+            }
+            QList<QKeySequence> keys;
+            for (const QString &k : CommandCatalog::factoryKeys(e)) {
+                keys.append(QKeySequence::fromString(k, QKeySequence::PortableText));
+            }
+            list.append({ e.legacy, keys });
+        }
+        return list;
+    }();
     return defs;
 }
 
-// 「仅方向键滚动」与键盘自定义的冲突规则：出厂方向键让位给滚动；但用户显式
-// 把「上一张/下一张」改绑到方向键时，以键盘自定义优先（不剥键，仍走翻页）。
-// 判定依据与 applyShortcutConfig 下发时的口径一致：未保存过 _key = 出厂键位。
-bool slotKeepsArrowKey(const Config &cfg, const QString &slot, Qt::Key key)
+// 「仅方向键滚动」（键 config/arrow_keys_scroll）：出厂 ←/→ 不再承担翻页，改由
+// MainWindow::keyPressEvent 做水平滚动。键盘自定义优先：用户显式把「上一张/下一张」
+// 存过方向键时以命令键位为准（不剥键）。判定口径 = 命令键位是否已显式保存。
+bool commandKeepsArrowKey(const Config &cfg, const QString &cmdId, const QString &arrow)
 {
-    if (!cfg.hasActionKey(slot)) {
-        return false;
+    if (!cfg.commandKeysSaved(cmdId)) {
+        return false;   // 从未保存 → 出厂键位，方向键让位给滚动
     }
-    if (cfg.actionBinding(slot, slot) != slot) {
-        return false;   // 槽位被挪用给别的动作，说明用户动过这组键
-    }
-    const QKeySequence saved =
-        QKeySequence::fromString(cfg.actionKey(slot), QKeySequence::PortableText);
-    return saved == QKeySequence(key);
-}
-
-void stripFactoryArrow(QHash<QString, QList<QKeySequence>> &perAction,
-                       const Config &cfg, const QString &action,
-                       Qt::Key key, const QString &slot)
-{
-    if (slotKeepsArrowKey(cfg, slot, key)) {
-        return;
-    }
-    auto it = perAction.find(action);
-    if (it == perAction.end()) {
-        return;
-    }
-    QList<QKeySequence> kept;
-    const QKeySequence target(key);
-    for (const QKeySequence &s : it.value()) {
-        if (s != target) {
-            kept.append(s);   // 副键（PageUp/PageDown/Backspace）原样保留
-        }
-    }
-    it.value() = kept;
+    return cfg.commandKeys(cmdId).contains(arrow);
 }
 } // namespace
 
@@ -1712,69 +2010,54 @@ void MainWindow::applyShortcutConfig()
 {
     const Config &cfg = Config::instance();
 
-    // 先全部清空再统一安装：槽位被挪用/禁用时，原动作不留旧键
-    for (const SlotDef &d : shortcutSlotDefs()) {
-        if (QAction *a = m_actions.value(QString::fromLatin1(d.slot))) {
-            a->setShortcuts({});
-        }
-    }
-
-    // 按「目标动作」聚合，而不是逐槽位 setShortcuts：多个槽位可以指向同一个
-    // 动作（如「打开」改绑到「打开文件夹」），而 setShortcuts 是替换语义，
-    // 逐槽安装会让后遍历的槽位把先前写入的键覆盖掉（第 15 期 P0 bug）。
-    // 同一动作收到重复键只装一次，避免 Qt 的 ambiguous shortcut 警告。
-    QHash<QString, QList<QKeySequence>> perAction;
-    for (const SlotDef &d : shortcutSlotDefs()) {
-        const QString slot = QString::fromLatin1(d.slot);
-        if (!cfg.actionEnabled(slot, true)) {
-            continue;   // 槽位禁用：动作保持无键
-        }
-        const QString target = cfg.actionBinding(slot, slot);
-        if (!m_actions.contains(target)) {
+    // 命令 ID 化（H1-7）：只重装注册表里 configurable 的 14 条命令。
+    // 其余命令的键位仍由 createActions 出厂设置，键盘页不暴露（回执给建议）。
+    // 一条命令多个键：config/keyboard/<CMD>_keys 是 QStringList，按命令一次安装，
+    // 天然支持「翻页 = Right + PageDown + 自定义 N」这种多键绑定。
+    for (const CommandCatalog::Entry &e : CommandCatalog::kEntries) {
+        if (!e.configurable) {
             continue;
         }
-        // 空串只在「键曾被写入过」时表示显式未绑定；缺失键仍回退出厂表，
-        // 兼容从未保存过键盘页的旧配置。
-        const bool savedKey = cfg.hasActionKey(slot);
-        const QString stored = cfg.actionKey(slot);
-        const QKeySequence seq = QKeySequence::fromString(stored, QKeySequence::PortableText);
-        QList<QKeySequence> &keys = perAction[target];
-        if (!savedKey) {
-            // 从未保存：恢复完整出厂表（含副键，行为与旧版一致）
-            for (const QKeySequence &k : d.defaults) {
-                if (!keys.contains(k))
-                    keys.append(k);
+        const QString id = QString::fromLatin1(e.id);
+        QAction *act = m_cmdActions.value(id);
+        if (!act) {
+            continue;
+        }
+        act->setShortcuts({});   // 先清空：禁用/改绑时不留旧键
+        if (!cfg.commandEnabled(id, true)) {
+            continue;
+        }
+        QList<QKeySequence> keys;
+        if (!cfg.commandKeysSaved(id)) {
+            // 从未保存过键位 → 出厂完整表（含 PageUp/Backspace/* 等副键）
+            for (const QString &k : CommandCatalog::factoryKeys(e)) {
+                keys.append(QKeySequence::fromString(k, QKeySequence::PortableText));
             }
-            continue;
-        }
-        if (target == slot && !stored.isEmpty() && seq == d.defaults.value(0)) {
-            // 配回出厂主键：恢复完整出厂表（副键保留）
-            for (const QKeySequence &k : d.defaults) {
-                if (!keys.contains(k))
-                    keys.append(k);
+        } else {
+            for (const QString &k : cfg.commandKeys(id)) {
+                const QKeySequence seq =
+                    QKeySequence::fromString(k, QKeySequence::PortableText);
+                if (!seq.isEmpty() && !keys.contains(seq)) {
+                    keys.append(seq);
+                }
             }
-            continue;
         }
-        if (!seq.isEmpty() && !keys.contains(seq)) {
-            keys.append(seq);
+        if (cfg.arrowKeysScroll()) {
+            if (id == QLatin1String(Cmd::PagePrev)) {
+                if (!commandKeepsArrowKey(cfg, id, QStringLiteral("Left"))) {
+                    keys.removeAll(QKeySequence(Qt::Key_Left));
+                }
+            } else if (id == QLatin1String(Cmd::PageNext)) {
+                if (!commandKeepsArrowKey(cfg, id, QStringLiteral("Right"))) {
+                    keys.removeAll(QKeySequence(Qt::Key_Right));
+                }
+            }
         }
-    }
-    // 「仅方向键滚动」（键 config/arrow_keys_scroll，启动时读取一次）：出厂 ←/→
-    // 不再承担翻页，改由 MainWindow::keyPressEvent 做水平滚动。键盘自定义优先：
-    // 用户显式把 prev/next 改绑到方向键时不剥键。
-    if (cfg.arrowKeysScroll()) {
-        stripFactoryArrow(perAction, cfg, QStringLiteral("prev"), Qt::Key_Left,
-                          QStringLiteral("prev"));
-        stripFactoryArrow(perAction, cfg, QStringLiteral("next"), Qt::Key_Right,
-                          QStringLiteral("next"));
-    }
-    for (auto it = perAction.constBegin(); it != perAction.constEnd(); ++it) {
-        if (QAction *dst = m_actions.value(it.key()))
-            dst->setShortcuts(it.value());
+        act->setShortcuts(keys);
     }
 }
 
-// 14 个可配置动作的出厂键位全表（设置页冲突检测用）。
+// configurable 动作的出厂键位全表（设置页冲突检测用）。
 QHash<QString, QList<QKeySequence>> MainWindow::factoryShortcutLists() const
 {
     QHash<QString, QList<QKeySequence>> out;
@@ -2004,6 +2287,44 @@ QMenu *MainWindow::buildEditMenu()
 }
 
 // 复制到：图片文件夹 1 / 2、移动到 1、路径定义、打开文件夹 1（5 项）
+// 复制 / 移动到「图片文件夹 N」的真实动作（菜单项与批次18 验收探针共用）：
+// 目标目录每次动作现读配置，设置页即时写盘后本会话内立刻落到新目录。
+bool MainWindow::transferCurrentToFolder(const QString &cfgKey, bool moveFile, QString *dest,
+                                         QString *error)
+{
+    const QString dir = Config::instance().settings().value(cfgKey).toString().trimmed();
+    if (dir.isEmpty()) {
+        if (error)
+            *error = tr("请先在「设置 → 浏览」中配置图片文件夹");
+        return false;
+    }
+    if (m_currentPath.isEmpty()) {
+        if (error)
+            *error = tr("当前没有打开的图片");
+        return false;
+    }
+    if (!QFileInfo(dir).isDir()) {
+        if (error)
+            *error = tr("图片文件夹不存在或不完整：%1").arg(QDir::toNativeSeparators(dir));
+        return false;
+    }
+    const QString d = QDir(dir).filePath(QFileInfo(m_currentPath).fileName());
+    if (dest)
+        *dest = d;
+    if (QFileInfo::exists(d)) {
+        if (error)
+            *error = tr("目标已存在：%1").arg(QDir::toNativeSeparators(d));
+        return false;
+    }
+    const bool ok = moveFile ? QFile::rename(m_currentPath, d) : QFile::copy(m_currentPath, d);
+    if (!ok) {
+        if (error)
+            *error = tr("操作失败：%1").arg(QDir::toNativeSeparators(d));
+        return false;
+    }
+    return true;
+}
+
 QMenu *MainWindow::buildCopytoMenu(CtxMenu *parentMenu)
 {
     auto *styled = parentMenu ? makeHamburgerMenu(parentMenu, 238, /*nested=*/true) : nullptr;
@@ -2011,32 +2332,14 @@ QMenu *MainWindow::buildCopytoMenu(CtxMenu *parentMenu)
     auto transferTo = [this, menu, styled](const QString &label, const QString &shortcut,
                                    const QString &key, bool moveFile) {
         QAction *action = addMenuItem(menu, label, shortcut, [this, key, moveFile]() {
-            const QString dir = Config::instance().settings().value(key).toString();
-            if (dir.isEmpty()) {
-                m_toast->showMessage(tr("请先在 设置 → 杂项 中配置图片文件夹"),
-                                     Chrome::Toast::Tone::Warning);
-                return;
-            }
-            if (m_currentPath.isEmpty()) {
-                return;
-            }
-            const QString dest = QDir(dir).filePath(QFileInfo(m_currentPath).fileName());
-            if (QFileInfo::exists(dest)) {
-                m_toast->showMessage(tr("目标已存在：%1").arg(dest),
-                                     Chrome::Toast::Tone::Warning);
-                return;
-            }
-            const bool ok = moveFile ? QFile::rename(m_currentPath, dest)
-                                     : QFile::copy(m_currentPath, dest);
-            if (!ok) {
-                m_toast->showMessage(tr("操作失败：%1").arg(dest),
-                                     Chrome::Toast::Tone::Error);
-            } else if (moveFile) {
-                m_toast->showMessage(tr("已移动到：%1").arg(dest),
+            QString dest;
+            QString error;
+            if (transferCurrentToFolder(key, moveFile, &dest, &error)) {
+                m_toast->showMessage(moveFile ? tr("已移动到：%1").arg(dest)
+                                              : tr("已复制到：%1").arg(dest),
                                      Chrome::Toast::Tone::Success);
             } else {
-                m_toast->showMessage(tr("已复制到：%1").arg(dest),
-                                     Chrome::Toast::Tone::Success);
+                m_toast->showMessage(error, Chrome::Toast::Tone::Warning);
             }
         });
         if (styled)
@@ -2052,9 +2355,10 @@ QMenu *MainWindow::buildCopytoMenu(CtxMenu *parentMenu)
     QAction *paths = addMenuItem(menu, tr("图片文件夹 路径定义"), QString(), [this]() { onSettings(); });
     QAction *openFolder = addMenuItem(menu, tr("打开 图片文件夹 1"), QString(), [this]() {
         const QString dir = Config::instance().settings()
-                                .value(QStringLiteral("config/etc/photo_folder_1")).toString();
-        if (dir.isEmpty() || !QFileInfo::exists(dir)) {
-            m_toast->showMessage(tr("请先在 设置 → 杂项 中配置图片文件夹"),
+                                .value(QStringLiteral("config/etc/photo_folder_1"))
+                                .toString().trimmed();
+        if (dir.isEmpty() || !QFileInfo(dir).isDir()) {
+            m_toast->showMessage(tr("请先在「设置 → 浏览」中配置图片文件夹"),
                                  Chrome::Toast::Tone::Warning);
             return;
         }
@@ -3020,7 +3324,7 @@ void MainWindow::openFile(const QString &path, bool transient)
             const int shown = m_dir->files().indexOf(m_displayedPath);
             if (shown >= 0) {
                 m_displayedIndex = shown;
-                m_control->setPage(shown + 1, m_dir->count());
+                m_control->setPage(pageForIndex(shown), m_dir->count());
                 m_browser->setCurrent(shown);
                 if (m_overview) {
                     m_overview->setCurrent(shown);
@@ -3297,8 +3601,6 @@ void MainWindow::startDirectoryRefresh(bool skipRawKnown, bool skipRawValue)
     }
     const int sortMode = m_dir->sort();
     const bool sortDesc = m_dir->sortDescending();
-    // 设置页切换 #83 那一刻配置还没写盘：沿用调用方传下来的值，
-    // 其余口径（目录事件触发的重扫）仍然现读配置。
     const bool skipRaw = skipRawKnown ? skipRawValue : Config::instance().skipRawWhenJpg();
     const bool groupRaw = Config::instance().groupRawJpg();
     const bool showRaw = Config::instance().groupShowRaw();
@@ -3372,7 +3674,7 @@ void MainWindow::applyDirectoryRefresh(const DirectoryLoader::Index &idx,
         }
         m_displayedIndex = newIndex;
         if (m_control) {
-            m_control->setPage(newIndex + 1, int(files.size()));
+            m_control->setPage(pageForIndex(newIndex), int(files.size()));
         }
         updatePageCounter();
         if (wasMissing && anchor == m_displayedPath) {
@@ -3402,7 +3704,7 @@ void MainWindow::applyDirectoryRefresh(const DirectoryLoader::Index &idx,
         m_browser->setFiles(files, fallback);
         if (m_overview) m_overview->setFiles(files, fallback);
         m_displayedIndex = fallback;
-        if (m_control) m_control->setPage(fallback + 1, int(files.size()));
+        if (m_control) m_control->setPage(pageForIndex(fallback), int(files.size()));
         updatePageCounter();
         return;
     }
@@ -3419,7 +3721,7 @@ void MainWindow::applyDirectoryRefresh(const DirectoryLoader::Index &idx,
     }
     m_displayedIndex = fallback;
     if (m_control) {
-        m_control->setPage(files.isEmpty() ? 0 : fallback + 1, int(files.size()));
+        m_control->setPage(files.isEmpty() ? 0 : pageForIndex(fallback), int(files.size()));
     }
     updatePageCounter();
     if (firstNotice && m_toast) {
@@ -3455,7 +3757,7 @@ void MainWindow::onToggleGroupShowRaw(bool on)
         m_overview->setFiles(m_dir->files(), i);
     }
     if (m_control && i >= 0) {
-        m_control->setPage(i + 1, m_dir->count());
+        m_control->setPage(pageForIndex(i), m_dir->count());
     }
     if (!target.isEmpty() && target != m_displayedPath) {
         jumpTo(target);
@@ -3497,7 +3799,7 @@ void MainWindow::rebuildDirectoryForGrouping()
         }
         m_displayedIndex = i;
         if (m_control) {
-            m_control->setPage(i + 1, m_dir->count());
+            m_control->setPage(pageForIndex(i), m_dir->count());
         }
         m_browser->setCurrent(i);
         if (m_overview) {
@@ -4025,7 +4327,7 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     // 胶囊第一行 = 翻页进度（对齐原型 #pageSlider）；单张目录时控件自动禁用。
     // 页码与滑杆对应「已显示」的图：慢图等待期间页码停在上一张，目标页码由
     // 等待提示表达（派单 §二：页码与已显示图片对应）。
-    m_control->setPage(m_displayedIndex + 1, m_dir->count());
+    m_control->setPage(pageForIndex(m_displayedIndex), m_dir->count());
     // 包内条目：大小/时间从 zip 中央目录注入（虚拟路径没有磁盘 stat）
     m_metadata->showImage(path, image, ArchiveStore::entryBytes(path),
                           ArchiveStore::entryModified(path));
@@ -4720,7 +5022,7 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         const int index = c.mid(9).toInt();
         if (index >= 0 && index < (m_dir ? m_dir->count() : 0)) {
             m_overview->setCurrent(index);
-            if (m_control) m_control->setPage(index + 1, m_dir->count());
+            if (m_control) m_control->setPage(pageForIndex(index), m_dir->count());
         }
     }
     else if (c == QLatin1String("ovopen") && m_overview && m_overview->isVisible()) {
@@ -4736,9 +5038,10 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     else if (c == QLatin1String("ovend") && m_overview && m_overview->isVisible()) {
         // 验收探针：选中最后一张并滚到底，核对末排与文件名可见性。
         if (m_dir && m_dir->count() > 0) {
-            m_overview->setCurrent(m_dir->count() - 1);
+            const int last = m_dir->count() - 1;
+            m_overview->setCurrent(last);
             if (m_control) {
-                m_control->setPage(m_dir->count(), m_dir->count());
+                m_control->setPage(pageForIndex(last), m_dir->count());
             }
         }
         m_overview->scrollToEnd();
@@ -4785,6 +5088,61 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     else if (c.startsWith(QLatin1String("ovfollow:")) && m_overview
              && m_overview->isVisible()) {
         m_overview->probeFollow(c.mid(9).toInt());
+    }
+    // —— 分组验收探针（2026-11-22 派单）——
+    // ovgroup:none|date|size —— 与点菜单同一入口（点当前项即反转，故连发两次 = 反转一次）
+    else if (c.startsWith(QLatin1String("ovgroup:")) && m_overview
+             && m_overview->isVisible()) {
+        const QString arg = c.mid(8).trimmed();
+        if (arg == QLatin1String("none")) {
+            m_overview->selectGroupMode(OverviewPanel::GroupMode::None);
+        } else if (arg == QLatin1String("date")) {
+            m_overview->selectGroupMode(OverviewPanel::GroupMode::Date);
+        } else if (arg == QLatin1String("size")) {
+            m_overview->selectGroupMode(OverviewPanel::GroupMode::Size);
+        }
+    }
+    // ovgroupreset —— 退出分组回到目录顺序（等价切到「不分组」）
+    else if (c == QLatin1String("ovgroupreset") && m_overview && m_overview->isVisible()) {
+        m_overview->setGroupMode(OverviewPanel::GroupMode::None, false);
+    }
+    // ovgroupmenu —— 打开底栏「分组方式」单选菜单（配合 --screenshot-ui 抓勾与方向）
+    else if (c == QLatin1String("ovgroupmenu")) {
+        showOverviewGroupMenu();
+    }
+    // ovpos —— 当前显示顺序摘要落盘（位置 ↔ 文件名、组标题、方向）
+    else if (c == QLatin1String("ovpos") && m_overview) {
+        QFile f(QStringLiteral("Temp/overview-order.txt"));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << m_overview->probeMetrics() << "\n";
+            if (m_dir) {
+                const QStringList files = m_dir->files();
+                for (int pos = 0; pos < m_overview->positionCount(); ++pos) {
+                    const int idx = m_overview->fileAtPosition(pos);
+                    if (idx < 0 || idx >= files.size()) continue;
+                    ts << "pos=" << pos + 1 << " file=" << idx + 1 << " "
+                       << QFileInfo(files.at(idx)).fileName()
+                       << (idx == m_overview->currentIndex() ? "  <selected>" : "") << "\n";
+                }
+            }
+        }
+    }
+    // ovkey:Left|Right|Up|Down|Home|End —— 走 OverviewPanel 真实 keyPressEvent，
+    // 核对键盘导航与当前可见顺序一致。
+    else if (c.startsWith(QLatin1String("ovkey:")) && m_overview && m_overview->isVisible()) {
+        const QString key = c.mid(6).trimmed();
+        Qt::Key code = Qt::Key_unknown;
+        if (key == QLatin1String("Left")) code = Qt::Key_Left;
+        else if (key == QLatin1String("Right")) code = Qt::Key_Right;
+        else if (key == QLatin1String("Up")) code = Qt::Key_Up;
+        else if (key == QLatin1String("Down")) code = Qt::Key_Down;
+        else if (key == QLatin1String("Home")) code = Qt::Key_Home;
+        else if (key == QLatin1String("End")) code = Qt::Key_End;
+        if (code != Qt::Key_unknown) {
+            QKeyEvent event(QEvent::KeyPress, code, Qt::NoModifier);
+            QApplication::sendEvent(m_overview, &event);
+        }
     }
     // ovdragpress:N / ovdragto:N / ovdragrelease —— 对底栏滑杆合成真实鼠标序列，
     // 走 ControlBar::applyPageFromX → pagePreviewRequested → 网格跟随的完整链路。
@@ -5108,6 +5466,16 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         dlg->show();
         dlg->probeEtcLive(c.mid(9));
     }
+    // folderprobe:<root> —— 批次18「图片文件夹 1」行（#72/#73/#74）即时化验收：
+    // 走真实输入框 / 「浏览…」回填 / 「打开」按钮链路，逐态把「输入框 / 配置原始值 /
+    // 行内状态行 / 真实复制落点」dump 到 <root>/folder1-live-probe.txt 并抓截图。
+    // root 传独立临时目录，样本图与落点都在里面，不碰用户图片目录。
+    else if (c.startsWith(QLatin1String("folderprobe:"))) {
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        dlg->probeFolderLive(c.mid(12).trimmed());
+    }
     // langprobe:<root> —— 批次23 语言页三项（#87/#88/#89）即时化验收：逐档切换
     // 界面语言（含缺 .qm 回退）、打开语言文件夹三态、下载更多语言两态；外部打开
     // 走 QUIKVIEW_TEST_OPENURL 注入，不真拉起浏览器 / 文件管理器。
@@ -5116,6 +5484,14 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         dlg->setAttribute(Qt::WA_DeleteOnClose);
         dlg->show();
         dlg->probeLanguageLive(c.mid(10).trimmed());
+    }
+    // folderrestore:<root> —— 新进程按同一隔离 ini 重新打开设置页，dump 输入框回填值
+    // 与配置原始值，证明「关闭重开 / 进程重启读回一致」。
+    else if (c.startsWith(QLatin1String("folderrestore:"))) {
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        dlg->probeFolderRestore(c.mid(14).trimmed());
     }
     // batch21probe:<mode>[:<arg>] —— 批次21 即时化验收（#81/#82/#83）：
     // 打开设置页走真实点击链路，切换后 dump 控件态/getter/落盘值/页面状态行/
@@ -6279,6 +6655,44 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             writeWatchReport(out);
         }
     }
+    // —— 命令注册表取证（派单 2026-11-18 H1-7 第一阶段）——
+    // cmd:<CMD_ID>[:<arg>] —— 走 triggerCommand 真执行一次命令，结果追加落盘，
+    // 用来证明「快捷键/鼠标/探针/后续 CLI 共用同一张动作表」不是纸面约定。
+    else if (c.startsWith(QLatin1String("cmd:"))) {
+        const QStringList a = c.mid(4).split(QLatin1Char(':'));
+        const QString id = a.value(0).trimmed();
+        const QString arg = a.value(1).trimmed();
+        const bool ok = triggerCommand(id, arg);
+        QFile f(QStringLiteral("Temp/command-trigger.txt"));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << "cmd=" << id << " arg=" << arg << " ok=" << (ok ? 1 : 0)
+               << " idx=" << (m_dir ? m_dir->index() : -1) << '/' << (m_dir ? m_dir->count() : 0)
+               << "\n";
+        }
+    }
+    // cmdreport[:out] —— 命令 ID 全表 + 当前键位（回执「ID 全表」证据）
+    else if (c.startsWith(QLatin1String("cmdreport"))) {
+        QString out = QStringLiteral("Temp/command-report.txt");
+        if (c.startsWith(QLatin1String("cmdreport:")))
+            out = c.mid(10).trimmed();
+        QFile f(out);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << commandReport() << "\n";
+        }
+    }
+    // cmdcheck[:out] —— 命令表与 mk() 注册表对账（验收第 1 条的漏项证据）
+    else if (c.startsWith(QLatin1String("cmdcheck"))) {
+        QString out = QStringLiteral("Temp/command-check.txt");
+        if (c.startsWith(QLatin1String("cmdcheck:")))
+            out = c.mid(9).trimmed();
+        QFile f(out);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << commandCheckReport() << "\n";
+        }
+    }
     else if (c == QLatin1String("report")) {
         QFile f(QStringLiteral("Temp/zoom-report.txt"));
         if (f.open(QIODevice::Append | QIODevice::Text)) {
@@ -6479,6 +6893,15 @@ void MainWindow::onPrev()
     if (!m_dir->isValid()) {
         return;
     }
+    // 总览内左右翻页沿「当前显示顺序」走，只移动网格选中、不换画布图（2026-11-22）。
+    if (m_overview && m_overview->isVisible()) {
+        if (m_overview->stepPosition(-1)) {
+            syncOverviewPage(m_overview->currentIndex());
+        } else if (m_toast) {
+            m_toast->showMessage(tr("已经是第一张图片"));
+        }
+        return;
+    }
     // 双页阅览一次翻一跨页（2 张），普通浏览是 1 张；封面模式下封面页只走 1 张
     const int step = spreadBackwardStep();
     const int before = m_dir->index();
@@ -6500,6 +6923,15 @@ void MainWindow::onPrev()
 void MainWindow::onNext()
 {
     if (!m_dir->isValid()) {
+        return;
+    }
+    // 总览内左右翻页沿「当前显示顺序」走，只移动网格选中、不换画布图（2026-11-22）。
+    if (m_overview && m_overview->isVisible()) {
+        if (m_overview->stepPosition(1)) {
+            syncOverviewPage(m_overview->currentIndex());
+        } else if (m_toast) {
+            m_toast->showMessage(tr("已经是最后一张图片"));
+        }
         return;
     }
     const int step = spreadForwardStep();
@@ -8067,45 +8499,20 @@ void MainWindow::onToggleFavorite()
     }
 }
 
-// 鼠标按键映射（C9~C12）：动作名 → 已有槽。none/pan 不在这里出现（画布已过滤）。
+// 鼠标按键映射（C9~C12）：旧动作名 → 命令 ID → triggerCommand。
+// 命令 ID 化（H1-7）之后不再维护第二份「动作名 → 槽」分支表：旧鼠标配置里的
+// next/prev/fullscreen/close/context_menu… 全部由 CommandCatalog::findLegacy
+// 解析成命令（.alias 就是为这几个非键盘动作名准备的），行为与改动前逐项一致。
+// none / pan 仍由画布侧过滤，不到这里。
 void MainWindow::onMouseAction(const QString &action)
 {
-    if (action == QLatin1String("next")) {
-        onNext();
-    } else if (action == QLatin1String("prev")) {
-        onPrev();
-    } else if (action == QLatin1String("next_frame")) {
-        onNextFrame();
-    } else if (action == QLatin1String("prev_frame")) {
-        onPrevFrame();
-    } else if (action == QLatin1String("zoom_in")) {
-        onZoomIn();
-    } else if (action == QLatin1String("zoom_out")) {
-        onZoomOut();
-    } else if (action == QLatin1String("actual_size")) {
-        setZoomMode(0);
-    } else if (action == QLatin1String("fit")) {
-        setZoomMode(1);
-    } else if (action == QLatin1String("slideshow")) {
-        if (actSlideshow) actSlideshow->trigger();
-    } else if (action == QLatin1String("fullscreen")) {
-        toggleFullscreen();
-    } else if (action == QLatin1String("close")) {
-        close();
-    } else if (action == QLatin1String("context_menu")) {
-        QMenu *menu = buildContextMenu();
-        menu->popup(QCursor::pos());
-        connect(menu, &QMenu::aboutToHide, menu, &QObject::deleteLater);
-    } else if (action == QLatin1String("open")) {
-        onOpen();
-    } else if (action == QLatin1String("openfolder")) {
-        onOpenFolder();
-    } else if (action == QLatin1String("crop")) {
-        onCrop();
-    } else if (action == QLatin1String("favorite")) {
-        onToggleFavorite();
-    } else if (action == QLatin1String("del")) {
-        onDeleteFile();
+    const CommandCatalog::Entry *e = CommandCatalog::findLegacy(action);
+    if (!e) {
+        qWarning() << "[mouse] 未知动作:" << action;
+        return;
+    }
+    if (!triggerCommand(QString::fromLatin1(e->id))) {
+        qWarning() << "[mouse] 命令未接线:" << QString::fromLatin1(e->id);
     }
 }
 
@@ -8270,6 +8677,32 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         return true;
     }
 
+    // —— 全量即时化批次18 · 浏览页「图片文件夹 1」行（#72）——
+    // 消费点全是「动作期现读 Config」：菜单「复制到 / 移动到 1」与「打开 1」走
+    // buildCopytoMenu（每次展开重建），转换对话框默认值走 BatchConvertDialog。
+    // 设置页写盘 sync() 后本会话内即读到新值，这里只做可用性判定 + 探针留痕；
+    // 空值与失效路径都允许保存（入口自行提示，不会把文件写错目录）。
+    if (key == QLatin1String("etc/photo_folder_1")) {
+        const QString path = value.toString().trimmed();
+        const bool isDir = !path.isEmpty() && QFileInfo(path).isDir();
+        if (qEnvironmentVariableIsSet("QUIKVIEW_ETC_PROBE")) {
+            const QString out = qEnvironmentVariable("QUIKVIEW_FOLDER_PROBE_LOG",
+                                                     QStringLiteral("Temp/etc-photo-folder-live.txt"));
+            if (QFile f(out); f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+                QTextStream ts(&f);
+                ts << "apply path=" << path
+                   << " empty=" << (path.isEmpty() ? 1 : 0)
+                   << " isdir=" << (isDir ? 1 : 0)
+                   << " current=" << QFileInfo(m_currentPath).fileName()
+                   << " copy_dest="
+                   << (isDir ? QDir(path).filePath(QFileInfo(m_currentPath).fileName())
+                             : QStringLiteral("-"))
+                   << "\n";
+            }
+        }
+        return true;
+    }
+
     // —— 全量即时化批次22 · 杂项页三项（#84/#85/#86）——
     // 三项运行态都在动作期读 Config（单一 QSettings 实例），设置页 applyInstantValue
     // 写盘 sync() 后本会话内 getter 立即读到新值；这里补「会话内可见 / 即时动作」。
@@ -8351,7 +8784,6 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         return true;
     }
 
-    // —— 全量即时化批次21 · RAW 打开策略即时项（#82 不打开 RAW / #83 JPEG 同名 RAW）——
     if (key == QLatin1String("etc/no_raw_load")) {
         // #82：消费点在解码线程与 onLoadFailed 两处现读 Config。这里给页面内可见反馈，
         // 并说明「当前已显示的图不会被撤掉」——设置项关的是「打开」，不是「换掉画面」。
