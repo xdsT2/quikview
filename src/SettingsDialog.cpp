@@ -1465,13 +1465,9 @@ QPushButton#btnPrimary:disabled { color: @GenDisabled@; border-color: @GenCtrlLi
     background: @GenCtrlBg@; }
 
 /* ===== 关于页链接行（2026-11-22）========================================
-   右侧直接可点的文字链：无底色、无描边，颜色只走 @GenLink@；
-   悬停加下划线但不改几何（避免整行跳动），焦点环只在键盘导航时出现。
-   行高沿用普通设置行：控件 26px + 行内边距 5*2 < 40px 下限，不抬高整行。 */
-QPushButton#linkBtn { background: #ff00ff; border: 0; }
-QPushButton#linkBtn:hover, QPushButton#linkBtn:pressed { background: #ff00ff; border: 0; }
-QPushButton#linkBtn[kbFocus="true"]:focus {
-    border: 2px solid @GenAccent@; border-radius: 4px; padding: 0; }
+   链接按钮的样式写在控件内联（取值 UiStyle::fluent::link() / focus()），
+   这里不留 #linkBtn 规则：懒构建页上窗口级 QSS 命中不到该按钮的文字色与
+   底色（2026-11-22 实测只压掉边框），两处各写一份只会互相打架。 */
 )"));
 }
 
@@ -4190,6 +4186,14 @@ void SettingsDialog::probeAppMenuWindow(const QString &out, int w, int h, const 
                                 break;
                             }
                         }
+                    } else if (step.startsWith(QLatin1String("focusobj="))) {
+                        // 按 objectName 直接聚焦（关于页 GitHub 链接的键盘焦点取证）：
+                        // 先发一次按键让 InputModeWatcher 切到键盘模式，再设焦点。
+                        QKeyEvent wake(QEvent::KeyPress, Qt::Key_F13, Qt::NoModifier);
+                        QApplication::sendEvent(this, &wake);
+                        if (QWidget *w = findChild<QWidget *>(step.mid(9)))
+                            w->setFocus(Qt::ShortcutFocusReason);
+                        QApplication::processEvents();
                     } else if (step.startsWith(QLatin1String("preview="))) {
                         // 打开常驻预览的二级浮层（取证：两级菜单与浮动位置）
                         if (auto *pv = qobject_cast<AppMenuPreview *>(m_appMenuPreview)) {
@@ -4743,6 +4747,19 @@ void SettingsDialog::buildAboutPage(QWidget *page)
         link->setCursor(Qt::PointingHandCursor);
         link->setAccessibleName(tr("打开 QuikView GitHub 仓库"));
         link->setToolTip(repoUrl);
+        // 文字链的外观就地写令牌：窗口级 #linkBtn QSS 在懒构建页上命中不到
+        // 文字色与底色（只压掉边框，实测 2026-11-22），会退化成灰字方框按钮。
+        // 普通态左右各留 2px，焦点态把 2px 边框补到同一位置，环不压字也不抖。
+        // 悬停/按下只有指针形状反馈：Qt QSS 不支持 text-decoration，
+        // 不给链接另外造一套下划线几何，避免行高跳动。
+        link->setFocusPolicy(Qt::TabFocus);   // 指针点击不抢焦点，环只随键盘来
+        link->setStyleSheet(QStringLiteral(
+            "QPushButton{background:transparent;border:0;padding:0 2px;font-size:13px;color:%1;}"
+            "QPushButton:hover,QPushButton:pressed{background:transparent;border:0;"
+            "padding:0 2px;color:%1;}"
+            "QPushButton:focus{border:2px solid %2;border-radius:4px;padding:0;}")
+                                    .arg(QLatin1String(UiStyle::fluent::link()),
+                                         QLatin1String(UiStyle::fluent::focus())));
         parts.controls->addWidget(link, 0, Qt::AlignVCenter);
         connect(link, &QPushButton::clicked, this, [this, repoUrl]() {
             // 外部网页：与语言页同一口径，只报告系统是否接受了打开请求，
