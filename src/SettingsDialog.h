@@ -99,6 +99,10 @@ public:
     // probeResetDefaults：点 footer「恢复默认」并自动确认，走 onReset 同一条链路。
     void probeKeyConflict();
     void probeResetDefaults();
+    // probeSavePrompt(out)：造一条待保存草稿（键盘页「删除」改绑到不冲突的
+    // Ctrl+Alt+F12）后调真实 reject()，弹「保存更改？」三选一；在嵌套循环里把
+    // 按钮的排版顺序 / 角色 / 默认钮 / 初始焦点 / 几何落盘到 out（第 4 批弹窗验收）。
+    void probeSavePrompt(const QString &out);
     // probeOpenCombo：切到第 page 页并展开其中第 index 个可见下拉，用于
     // 「设置里的下拉展开时主顶栏是否被误唤出」的截图验收；同时把各下拉的
     // 序号/当前值写到 Temp/settings-combos.txt，避免靠猜索引取错控件。

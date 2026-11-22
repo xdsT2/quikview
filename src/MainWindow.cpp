@@ -1,6 +1,7 @@
 #include "MainWindow.h"
 
 #include "CommandCatalog.h"
+#include "DialogShell.h"
 #include "FlipProbe.h"
 #include "PerfProbe.h"
 #include "ThemeProbe.h"
@@ -53,6 +54,7 @@
 #include <QRandomGenerator>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QStackedWidget>
 #include <QSet>
 #include <QScreen>
 #include <QWindow>
@@ -5969,6 +5971,34 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         auto *dlg = new BatchConvertDialog(m_dir->files(), this);
         dlg->setAttribute(Qt::WA_DeleteOnClose);
         dlg->show();
+        // 非模态：--screenshot-ui 在没有模态框时按 activeWindow 取图，主窗口已激活，
+        // 不主动抢焦点就会截成主窗口而不是本对话框。
+        dlg->raise();
+        dlg->activateWindow();
+    }
+    // —— 二级界面第 4 批（弹窗）验收探针，2026-11-22 ——
+    // gammadlg：走真实入口 onGamma()（模态 exec），--screenshot-ui 截 activeModalWidget。
+    // 需要先有一张图（--smoke 首图就绪后才派发命令，天然满足）。
+    else if (c == QLatin1String("gammadlg")) {
+        onGamma();
+    }
+    // bookmarksdlg：走真实入口 onEditBookmarks()（F3 同一槽，模态 exec）。
+    // 列表要有内容才看得出行样式，先攒书签：--smoke fav,next,fav,bookmarksdlg
+    else if (c == QLatin1String("bookmarksdlg")) {
+        onEditBookmarks();
+    }
+    // saveprompt[:out]：设置窗造一条待保存草稿后走真实 reject() 链路弹
+    // 「保存更改？」三选一；按钮顺序/默认/焦点由 SettingsDialog 探针落盘。
+    else if (c.startsWith(QLatin1String("saveprompt"))) {
+        QString out = QStringLiteral("Temp/saveprompt.txt");
+        if (c.startsWith(QLatin1String("saveprompt:")))
+            out = c.mid(11).trimmed();
+        auto *dlg = new SettingsDialog(this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+        dlg->raise();
+        dlg->activateWindow();
+        QTimer::singleShot(700, dlg, [dlg, out]() { dlg->probeSavePrompt(out); });
     }
     // 验收探针：模拟 Tab 开关信息面板（走 actToggleMeta toggled 同一链路），
     // 用于对比「smoke info 直开」与「Tab 切换」两条路径下面板几何差异
@@ -7781,27 +7811,117 @@ void MainWindow::onPageSelect()
 }
 
 // 编辑书签（F3）：列出已存书签，支持打开 / 删除选中 / 全部删除。
+// 2026-11-22 第 4 批（弹窗统一）：原先是「原生标题栏 + QDialogButtonBox」的裸 QDialog，
+// 和图片转换 / Gamma 两套骨架不是一回事（没有自绘标题栏、没有底栏分隔、危险动作与
+// 主操作同等重量、"Close" 还是英文）。现改为 UiShell::DialogShell 外壳：
+//   · 标题栏 43px（→ 与其它二级界面同高同字）；
+//   · 主体：说明行 +（右侧）条数 + 书签列表；
+//   · 底栏：左「全部删除」(危险文字钮) + 「改动即时保存」提示，右「删除选中/关闭/打开」；
+//   · 语义不变：没有保存按钮，任何删除立即落盘并刷新菜单。
 void MainWindow::onEditBookmarks()
 {
-    QDialog dlg(this);
+    UiShell::DialogShell dlg(this);
     dlg.setWindowTitle(tr("编辑书签"));
     dlg.setModal(true);
-    dlg.setStyleSheet(UiStyle::dialogQss());
-    dlg.resize(620, 420);
+    dlg.resize(620, 440);
+    dlg.setStyleSheet(UiShell::DialogShell::shellQss() + QStringLiteral(R"(
+QListWidget#bookmarkList { padding: 4px; outline: 0; }
+QListWidget#bookmarkList::item { padding: 7px 8px; border-radius: 4px; }
+)"));
 
     auto *root = new QVBoxLayout(&dlg);
-    root->setContentsMargins(18, 16, 18, 14);
-    root->setSpacing(10);
+    root->setContentsMargins(0, 0, 0, 0);
+    root->setSpacing(0);
 
-    auto *hint = new QLabel(tr("双击一行可直接打开；书签就是收藏过的图片路径。"), &dlg);
-    hint->setStyleSheet(QStringLiteral("color:%1;font-size:12px;")
-                            .arg(QLatin1String(UiStyle::HintText)));
-    root->addWidget(hint);
+    // —— 标题栏 43px ——
+    auto *titleBar = new QWidget(&dlg);
+    titleBar->setObjectName(QStringLiteral("dlgTitleBar"));
+    titleBar->setFixedHeight(UiStyle::TitleBarH);
+    dlg.attachTitleBar(titleBar);
+    auto *tb = new QHBoxLayout(titleBar);
+    tb->setContentsMargins(18, 0, 14, 0);
+    tb->setSpacing(9);
+    auto *title = new QLabel(tr("编辑书签"), titleBar);
+    title->setObjectName(QStringLiteral("dlgTitle"));
+    tb->addWidget(title);
+    tb->addStretch(1);
+    auto *closeX = new QPushButton(QStringLiteral("\u2715"), titleBar);
+    closeX->setObjectName(QStringLiteral("closeBtn"));
+    closeX->setFixedSize(32, 30);
+    closeX->setCursor(Qt::PointingHandCursor);
+    QObject::connect(closeX, &QPushButton::clicked, &dlg, &QDialog::reject);
+    tb->addWidget(closeX);
+    root->addWidget(titleBar);
 
-    auto *list = new QListWidget(&dlg);
+    // —— 主体：说明行 + 列表 ——
+    auto *body = new QWidget(&dlg);
+    auto *bl = new QVBoxLayout(body);
+    bl->setContentsMargins(20, 16, 20, 14);
+    bl->setSpacing(8);
+
+    auto *head = new QHBoxLayout;
+    head->setSpacing(8);
+    auto *hint = new QLabel(tr("双击一行可直接打开；书签就是收藏过的图片路径。"), body);
+    hint->setObjectName(QStringLiteral("hint"));
+    head->addWidget(hint);
+    head->addStretch(1);
+    auto *countLabel = new QLabel(body);
+    countLabel->setObjectName(QStringLiteral("footerNote"));
+    head->addWidget(countLabel);
+    bl->addLayout(head);
+
+    auto *list = new QListWidget(body);
+    list->setObjectName(QStringLiteral("bookmarkList"));
     list->setAlternatingRowColors(false);
     list->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    root->addWidget(list, 1);
+    // 路径很长：单行 + 中间省略 + 关横向滚动条，别让列表底下压一条 h-scrollbar
+    list->setTextElideMode(Qt::ElideMiddle);
+    list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    list->setUniformItemSizes(true);
+
+    // 空列表用独立占位页，不再往列表里塞一条「不可选行」——
+    // 塞行会在全删后既要重建行、又要处理选中/计数口径，占位页更干净。
+    auto *stack = new QStackedWidget(body);
+    stack->addWidget(list);
+    auto *emptyPage = new QLabel(tr("还没有书签。在查看器里按 B，可把当前图片加为书签。"), stack);
+    emptyPage->setObjectName(QStringLiteral("hint"));
+    emptyPage->setAlignment(Qt::AlignCenter);
+    emptyPage->setWordWrap(true);
+    stack->addWidget(emptyPage);
+    bl->addWidget(stack, 1);
+    root->addWidget(body, 1);
+
+    // —— 底栏 62px ——
+    auto *footer = new QWidget(&dlg);
+    footer->setObjectName(QStringLiteral("dlgFooter"));
+    footer->setFixedHeight(UiStyle::FooterH);
+    auto *fl = new QHBoxLayout(footer);
+    fl->setContentsMargins(18, 0, 18, 0);
+    fl->setSpacing(9);
+    auto *clearBtn = new QPushButton(tr("全部删除"), footer);
+    clearBtn->setObjectName(QStringLiteral("btnDangerText"));
+    clearBtn->setCursor(Qt::PointingHandCursor);
+    fl->addWidget(clearBtn);
+    auto *note = new QLabel(tr("改动即时保存"), footer);
+    note->setObjectName(QStringLiteral("footerNote"));
+    fl->addWidget(note);
+    fl->addStretch(1);
+    auto *delBtn = new QPushButton(tr("删除选中"), footer);
+    delBtn->setObjectName(QStringLiteral("genNeutral"));
+    delBtn->setCursor(Qt::PointingHandCursor);
+    fl->addWidget(delBtn);
+    auto *closeBtn = new QPushButton(tr("关闭"), footer);
+    closeBtn->setObjectName(QStringLiteral("genNeutral"));
+    closeBtn->setCursor(Qt::PointingHandCursor);
+    QObject::connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
+    fl->addWidget(closeBtn);
+    auto *openBtn = new QPushButton(tr("打开"), footer);
+    openBtn->setObjectName(QStringLiteral("btnPrimary"));
+    openBtn->setCursor(Qt::PointingHandCursor);
+    fl->addWidget(openBtn);
+    root->addWidget(footer);
+
+    // 占位行（空列表）：不可选但保留解除引用，靠 disabled 前景色压成说明文字
 
     const QStringList favs = Config::instance().favorites();
     for (const QString &f : favs) {
@@ -7809,24 +7929,36 @@ void MainWindow::onEditBookmarks()
         item->setData(Qt::UserRole, f);
         item->setToolTip(f);
     }
-    if (favs.isEmpty()) {
-        auto *empty = new QListWidgetItem(tr("（还没有书签，按 B 可把当前图片加为书签）"), list);
-        empty->setFlags(Qt::NoItemFlags);
-    }
 
-    auto *buttons = new QDialogButtonBox(&dlg);
-    auto *openBtn = buttons->addButton(tr("打开"), QDialogButtonBox::ActionRole);
-    auto *delBtn = buttons->addButton(tr("删除选中"), QDialogButtonBox::DestructiveRole);
-    auto *clearBtn = buttons->addButton(tr("全部删除"), QDialogButtonBox::DestructiveRole);
-    buttons->addButton(QDialogButtonBox::Close);
-    for (auto *b : buttons->buttons()) {
-        b->setCursor(Qt::PointingHandCursor);
-        b->setMinimumWidth(88);
-    }
-    root->addWidget(buttons);
+    const auto rowCount = [list]() {
+        int n = 0;
+        for (int i = 0; i < list->count(); ++i) {
+            if (!list->item(i)->data(Qt::UserRole).toString().isEmpty()) {
+                ++n;
+            }
+        }
+        return n;
+    };
+    const auto syncState = [list, stack, countLabel, clearBtn, delBtn, openBtn, rowCount]() {
+        const int n = rowCount();
+        countLabel->setText(n > 0 ? tr("共 %1 条").arg(n) : QString());
+        clearBtn->setEnabled(n > 0);
+        stack->setCurrentIndex(n > 0 ? 0 : 1);
+        const auto sel = list->selectedItems();
+        bool anySel = false;
+        for (auto *it : sel) {
+            if (!it->data(Qt::UserRole).toString().isEmpty()) {
+                anySel = true;
+                break;
+            }
+        }
+        delBtn->setEnabled(anySel);
+        openBtn->setEnabled(anySel);
+    };
+    QObject::connect(list, &QListWidget::itemSelectionChanged, &dlg, syncState);
 
     // 书签改动立即落盘：对话框关掉以后菜单里的「最近/书签」列表要跟着变。
-    auto persist = [this, list]() {
+    auto persist = [this, list, syncState]() {
         QStringList out;
         for (int i = 0; i < list->count(); ++i) {
             const QString p = list->item(i)->data(Qt::UserRole).toString();
@@ -7836,10 +7968,10 @@ void MainWindow::onEditBookmarks()
         }
         Config::instance().settings().setValue(QStringLiteral("favorites"), out);
         refreshLibraryMenus();
-        return out.size();
+        syncState();
     };
 
-    connect(openBtn, &QPushButton::clicked, &dlg, [this, list]() {
+    QObject::connect(openBtn, &QPushButton::clicked, &dlg, [this, list]() {
         auto *cur = list->currentItem();
         if (!cur || cur->data(Qt::UserRole).toString().isEmpty()) {
             return;
@@ -7851,7 +7983,7 @@ void MainWindow::onEditBookmarks()
         }
         jumpTo(p);
     });
-    connect(list, &QListWidget::itemDoubleClicked, &dlg, [this](QListWidgetItem *item) {
+    QObject::connect(list, &QListWidget::itemDoubleClicked, &dlg, [this](QListWidgetItem *item) {
         if (!item) {
             return;
         }
@@ -7865,18 +7997,24 @@ void MainWindow::onEditBookmarks()
         }
         jumpTo(p);
     });
-    connect(delBtn, &QPushButton::clicked, &dlg, [list, persist]() {
+    QObject::connect(delBtn, &QPushButton::clicked, &dlg, [list, persist]() {
         const auto sel = list->selectedItems();
         for (auto *it : sel) {
             delete it;
         }
         persist();
     });
-    connect(clearBtn, &QPushButton::clicked, &dlg, [list, persist]() {
+    QObject::connect(clearBtn, &QPushButton::clicked, &dlg, [list, persist]() {
         list->clear();
         persist();
     });
-    connect(buttons, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+
+    syncState();
+    // 首行选中，键盘上下即可挑；打开按钮随即可用（与设计原型的「默认可用」一致）
+    if (rowCount() > 0) {
+        list->setCurrentRow(0);
+        list->setFocus();
+    }
     dlg.exec();
 }
 
