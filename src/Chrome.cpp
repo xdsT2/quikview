@@ -1017,9 +1017,12 @@ void TopBar::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
-    p.fillRect(rect(), QColor(QString::fromLatin1(UiStyle::fluent::titleBarBg())));
-    p.fillRect(QRect(0, height() - 1, width(), 1),
-               (UiStyle::isLight() ? QColor(0, 0, 0, 22) : QColor(255, 255, 255, 18)));
+    // 背景与画布同源（2026-11-20 顶栏同色派单，按果核参考修订）：
+    //   · 空态、纯色画布：顶栏铺画布纯色 solid()，与画布连续、无分隔线；
+    //   · 棋盘画布：棋盘只铺画布区域，顶栏保持同主题纯色 solid()，
+    //     交界由材质自然区分，同样不画横向分隔线。
+    // 三种场景都用同一令牌，深浅主题各自取值。
+    p.fillRect(rect(), UiStyle::canvas::solid(UiStyle::isLight()));
 
     // 应用标识：22×22 蓝色圆角方块 + Q
     const QRectF logo(kTopMargin, (height() - kTopLogoW) / 2.0, kTopLogoW, kTopLogoW);
