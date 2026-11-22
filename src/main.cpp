@@ -340,10 +340,14 @@ int main(int argc, char *argv[])
             QWidget *target = QApplication::activePopupWidget();
             if (!target) target = QApplication::activeModalWidget();
             if (!target) {
-                // 非模态对话框：取最后一个可见的顶层窗口
+                // 非模态对话框：取最后一个可见的顶层窗口。
+                // QDialog 的 windowType 是 Qt::Dialog 而不是 Qt::Window，
+                // 只认 Window 会漏掉非模态 QDialog（会被截成主窗口）。
                 const auto tops = QApplication::topLevelWidgets();
                 for (QWidget *w : tops) {
-                    if (w != &window && w->isVisible() && w->windowType() == Qt::Window) {
+                    const Qt::WindowType type = w->windowType();
+                    if (w != &window && w->isVisible()
+                        && (type == Qt::Window || type == Qt::Dialog)) {
                         target = w;
                     }
                 }

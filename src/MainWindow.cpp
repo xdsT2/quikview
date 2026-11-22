@@ -6038,6 +6038,10 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         auto *dlg = new BatchConvertDialog(m_dir->files(), this);
         dlg->setAttribute(Qt::WA_DeleteOnClose);
         dlg->show();
+        // 非模态：--screenshot-ui 在没有模态框时按 activeWindow 取图，主窗口已激活，
+        // 不主动抢焦点就会截成主窗口而不是本对话框。
+        dlg->raise();
+        dlg->activateWindow();
     }
     // —— 二级界面第 4 批（弹窗）验收探针，2026-11-22 ——
     // gammadlg：走真实入口 onGamma()（模态 exec），--screenshot-ui 截 activeModalWidget。
