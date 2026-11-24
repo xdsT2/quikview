@@ -495,7 +495,7 @@ inline QString darkAppQss()
 QDialog { background: %1; color: #f2f2f2; }
 QWidget { color: #f2f2f2; }
 
-QMenu { background: @menuBg@; color: @menuText@; border: 1px solid @menuLine@;
+QMenu { background: @menuBg@; color: @menuText@;
         border-radius: 8px; padding: 4px; }
 QMenu::item { height: 32px; padding: 0 18px 0 26px; border-radius: 6px; font-size: 14px; }
 QMenu::item:selected { background: @menuHover@; }
@@ -508,7 +508,7 @@ QMenu::indicator:checked { image: url(:/ui/check-light.png); }
 QMenu::right-arrow { width: 12px; height: 12px; right: 8px;
                      image: url(:/ui/chevron-right.png); }
 
-QToolTip { background: @tipBg@; color: @tipText@; border: 1px solid @menuLine@;
+QToolTip { background: @tipBg@; color: @tipText@;
            border-radius: 6px; padding: 6px 8px; }
 
 QScrollBar:vertical { background: transparent; width: 10px; margin: 2px; }
@@ -534,7 +534,7 @@ QComboBox:hover { border-color: #686d75; }
 QComboBox:focus { border-color: #55c0f0; }
 QComboBox::drop-down { border: 0; width: 22px; }
 QComboBox::down-arrow { image: url(:/ui/chevron-down.png); width: 12px; height: 12px; }
-QComboBox QAbstractItemView { background: @menuBg@; color: @menuText@; border: 1px solid @menuLine@;
+QComboBox QAbstractItemView { background: @menuBg@; color: @menuText@;
     border-radius: 8px; padding: 4px; outline: 0; selection-background-color: @menuHover@;
     selection-color: @menuText@; }
 
@@ -611,7 +611,7 @@ inline QString lightAppQss()
 QDialog { background: #f2f3f5; color: #1b1b1b; }
 QWidget { color: #1b1b1b; }
 
-QMenu { background: @menuBg@; color: @menuText@; border: 1px solid @menuLine@;
+QMenu { background: @menuBg@; color: @menuText@;
         border-radius: 8px; padding: 4px; }
 QMenu::item { height: 32px; padding: 0 18px 0 26px; border-radius: 6px; font-size: 14px; }
 QMenu::item:selected { background: @menuHover@; color: @menuText@; }
@@ -623,7 +623,7 @@ QMenu::indicator:checked { image: url(:/ui/check.png); }
 QMenu::right-arrow { width: 12px; height: 12px; right: 8px;
                      image: url(:/ui/chevron-right.png); }
 
-QToolTip { background: @tipBg@; color: @tipText@; border: 1px solid @menuLine@;
+QToolTip { background: @tipBg@; color: @tipText@;
            border-radius: 6px; padding: 6px 8px; }
 
 QScrollBar:vertical { background: transparent; width: 10px; margin: 2px; }
@@ -649,7 +649,7 @@ QComboBox:hover { border-color: #6b6b6b; }
 QComboBox:focus { border-color: #1689bd; }
 QComboBox::drop-down { border: 0; width: 22px; }
 QComboBox::down-arrow { image: url(:/ui/chevron-down.png); width: 12px; height: 12px; }
-QComboBox QAbstractItemView { background: @menuBg@; color: @menuText@; border: 1px solid @menuLine@;
+QComboBox QAbstractItemView { background: @menuBg@; color: @menuText@;
     border-radius: 8px; padding: 4px; outline: 0; selection-background-color: @menuHover@;
     selection-color: @menuText@; }
 

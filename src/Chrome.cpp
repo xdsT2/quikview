@@ -2386,7 +2386,7 @@ void EmptyState::paintEvent(QPaintEvent *)
 
     const int top = (height() - 340) / 2;
     const QRectF iconRect(width() / 2.0 - 38, top, 76, 76);
-    p.setPen(QPen((UiStyle::isLight() ? QColor(0,0,0,31) : QColor(255,255,255,31)), 1));
+    p.setPen(Qt::NoPen);
     p.setBrush(QColor(QString::fromLatin1(UiStyle::pick("#232323", "#f4f4f4"))));
     p.drawRoundedRect(iconRect, 18, 18);
     drawIcon(p, "image",
@@ -2586,7 +2586,7 @@ void Toast::paintEvent(QPaintEvent *)
     // 右下角贴右缘 20px；顶部居中保持原位
     const qreal x = m_corner ? (width() - w - 20.0) : ((width() - w) / 2.0);
     const QRectF r(x, 0, w, 30);
-    p.setPen(QPen(QColor(QString::fromLatin1(UiStyle::pick("#555555", "#aaaaaa"))), 1));
+    p.setPen(Qt::NoPen);
     p.setBrush(QColor(QString::fromLatin1(UiStyle::pick("#383838", "#c7c7c7"))));
     p.drawRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), 7, 7);
 
@@ -2665,7 +2665,7 @@ void ZoomBadge::paintEvent(QPaintEvent *)
     }
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
-    p.setPen(QPen((UiStyle::isLight() ? QColor(0,0,0,26) : QColor(255,255,255,26)), 1));
+    p.setPen(Qt::NoPen);
     p.setBrush(QColor(QString::fromLatin1(UiStyle::pick("#282a2d", "#dfe1e3"))));
     p.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), 6, 6);
     p.setFont(uiFont(11));
