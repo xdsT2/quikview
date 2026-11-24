@@ -39,8 +39,8 @@ constexpr int kQuickSepBelow = 1;  // 快捷区下方 1px 分隔（左右内收 
 constexpr int kQuickGapBelow  = 4; // 分隔线距首个正文行
 constexpr int kQuickReserve = kQuickAreaH + kQuickSepBelow + kQuickGapBelow; // 44
 constexpr int kQuickBtnRadius = 6; // 反馈底圆角
-// 按下底：深 #171819 / 浅 #DCDDE1（规格 §顶部快捷区）
-inline QColor quickPressedBg() { return UiStyle::color(UiStyle::pick("#171819", "#dcdde1")); }
+// 按下底：转发全局反馈套系 feedback::press()，不再本地维护色对。
+inline QColor quickPressedBg() { return UiStyle::feedback::press(); }
 
 // 设计指定的菜单专属色（规格 §视觉与交互；UiStyle 现有令牌没有这两个角色，
 // 本文件内联登记，不改共享令牌表）。
