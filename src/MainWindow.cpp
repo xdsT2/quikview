@@ -807,6 +807,7 @@ void MainWindow::applyChromeLayout()
     m_topBar->raise();
     if (m_loadStatus && m_loadStatus->isVisible())
         positionLoadStatus();   // 页码旁状态标签跟胶囊/窗口几何走
+    updateStatusBottomInset();
 }
 
 // 画布可视区：21:15 交办——图片客户区上下恒为 0，画布直接通顶通底，
@@ -901,6 +902,36 @@ void MainWindow::relocateBrowser(bool shown, bool animate)
     const int duration = Chrome::reducedMotion() ? 80 : (shown ? 130 : 95);
     startPanelPosAnim(m_browserMoveAnim, m_browser,
                       QPoint(m_browser->x(), targetY), duration, animate);
+    if (m_browserMoveAnim) {
+        disconnect(m_browserMoveAnim, &QPropertyAnimation::valueChanged, this, nullptr);
+        connect(m_browserMoveAnim, &QPropertyAnimation::valueChanged, this,
+                [this] { updateStatusBottomInset(); });
+    }
+    updateStatusBottomInset();
+}
+
+// 底栏收起且胶片栏展开时，胶片栏下探会侵入底部文字带（inset=0 文字 y=H-25..H-9）；
+// 此时把两角文字整体抬到胶片栏上缘之上，间隙 8px（沿用避让胶囊的 8px hud 间距惯例）。
+// 底栏常显 / 胶片栏未展开时 inset 回 0，文字保持真实底角 25px 位置。
+// 动画期间按胶片栏当前 y() 逐帧跟随：文字下缘永远在胶片栏上缘之上留 8px，任何一帧都不
+// 落在胶片栏矩形内；不依赖把 StatusOverlay 抬到胶片栏之上压字。
+void MainWindow::updateStatusBottomInset()
+{
+    if (!m_statusOverlay) {
+        return;
+    }
+    int inset = 0;
+    const bool browserUp = m_browser && m_browser->isExpanded();
+    if (browserUp && !dockChromeShown()) {
+        const int filmTop = m_browser->y();
+        const int filmBottom = filmTop + m_browser->height();
+        const int textTop0 = height() - 25;          // inset=0 时文字带上缘
+        if (filmBottom > textTop0) {
+            const int gap = 8;
+            inset = (height() - 9) - (filmTop - gap);
+        }
+    }
+    m_statusOverlay->setBottomInset(qMax(0, inset));
 }
 
 void MainWindow::toggleBrowserPanel()
@@ -912,6 +943,8 @@ void MainWindow::toggleBrowserPanel()
     // 展开落位按当前底栏可见状态取锚点：收起期间切过底栏，重开不能停在旧锚点。
     if (m_browser->isExpanded()) {
         applyChromeLayout();
+    } else {
+        updateStatusBottomInset();
     }
 }
 

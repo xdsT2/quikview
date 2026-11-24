@@ -397,6 +397,9 @@ private:
     // 工具栏显隐时把已打开的浮层/胶片栏搬到对应锚点；时长与缓动复用工具栏那一套。
     void relocateTopPanels(bool shown, bool animate);
     void relocateBrowser(bool shown, bool animate);
+    // 胶片栏侵入底部文字带时把 StatusOverlay 两角文字抬到胶片栏上缘之上；按胶片栏当前
+    // 位置逐帧跟随位移动画，保证整段动画期间文字不落在胶片栏矩形内。
+    void updateStatusBottomInset();
     void startPanelPosAnim(QPropertyAnimation *&anim, QWidget *w, const QPoint &target,
                            int duration, bool animate);
     void toggleTopLock();
