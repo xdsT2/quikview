@@ -679,6 +679,7 @@ MainWindow::MainWindow(QWidget *parent)
     applyRuntimeSettings();
     applyChromeLayout();
     updateCanvasLogo();
+    cleanupTempClipDirs();
     m_chromeTimer->start();
 
     // 显示器 ICC 跨屏重估（SDR 验证版，翻页批次 2）：窗口移到另一块屏幕时
@@ -9240,6 +9241,16 @@ void MainWindow::onCopyImageFile()
     m_toast->showMessage(tr("已复制图像文件"), Chrome::Toast::Tone::Success);
 }
 
+// 前向声明：下方粘贴槽引用的匿名命名空间助手定义在文件后部（拖放链同区）。
+namespace {
+QString firstLocalFileInText(const QString &text);
+QString savePastedImage(const QImage &image, const QString &subDir,
+                        const QString &prefix, QString *errOut);
+void cleanupTempDir(const QString &dirPath, const QString &prefix,
+                    const QString &currentPath, int maxCount, int maxAgeDays);
+QImage readDibFromClipboard();
+}
+
 // Ctrl+V 从剪贴板取图：优先级 图像 > 文件 URL > 文本路径 > toast。
 // 临时 PNG 落 %TEMP%\quikview-clip\，文件名带日期+序号，不污染图片目录；
 // 不进「最近打开」（绕过 addRecentFile），翻页仍按临时目录的同目录逻辑处理。
@@ -9253,35 +9264,43 @@ void MainWindow::onPasteFromClipboard()
     }
 
     QString path;
+    QString saveError;
+    const bool hadImage = mime->hasImage();
+    QImage image;
 
-    // ① 图像数据（截图场景）：落临时 PNG
-    if (mime->hasImage()) {
-        QVariant data = mime->imageData();
-        QImage image = data.value<QImage>();
+    // ① 图像数据（截图场景）：QImage → QPixmap → Win32 DIB 回退，落临时 PNG。
+    if (hadImage || mime->hasFormat(QLatin1String("image/png"))
+        || mime->hasFormat(QLatin1String("image/bmp"))
+        || mime->hasFormat(QLatin1String("image/jpeg"))) {
+        const QVariant data = mime->imageData();
+        image = data.value<QImage>();
         if (image.isNull()) {
             image = data.value<QPixmap>().toImage();
         }
-        if (!image.isNull()) {
-            const QString dir = QDir::tempPath() + QStringLiteral("/quikview-clip");
-            if (QDir().mkpath(dir)) {
-                const QString stamp = QDateTime::currentDateTime().toString(
-                    QStringLiteral("yyyyMMdd-HHmmss"));
-                for (int seq = 1; seq < 1000; ++seq) {
-                    const QString name = QStringLiteral("clip-%1-%2.png")
-                        .arg(stamp).arg(seq, 3, 10, QLatin1Char('0'));
-                    const QString candidate = dir + QLatin1Char('/') + name;
-                    if (!QFileInfo::exists(candidate)) {
-                        if (image.save(candidate, "PNG")) {
-                            path = candidate;
-                        }
-                        break;
-                    }
-                }
-            }
+    }
+    // 回退：Qt variant 为空，或解出的图丢掉了 alpha 通道（裸 32bpp DIB 常被压成
+    // RGB32）时，直读原生 CF_DIB/CF_DIBV5 字节手工解码，保留掩码与 alpha 口径。
+    if (image.isNull() || !image.hasAlphaChannel()) {
+        const QImage dibImage = readDibFromClipboard();
+        if (!dibImage.isNull()) {
+            image = dibImage;
         }
     }
 
-    // ② 文件 URL 列表（资源管理器 Ctrl+C 的文件）：取第一个支持的图片
+    if (!image.isNull()) {
+        path = savePastedImage(image, QStringLiteral("quikview-clip"),
+                               QStringLiteral("clip"), &saveError);
+        if (path.isEmpty()) {
+            // 有图但落盘失败：与「剪贴板无图」区分提示；不再下沉到 URL/文本分支。
+            qWarning() << "[paste] save failed:" << saveError
+                       << "formats=" << mime->formats();
+            m_toast->showMessage(tr("图片保存到临时目录失败"), Chrome::Toast::Tone::Error);
+            return;
+        }
+    }
+
+    // ② 文件 URL 列表（资源管理器 Ctrl+C 的文件）：取第一个支持的图片。
+    // 多张文件当前只开首张、不入队（F9：多图入队牵动浏览/翻页链路，本次不改）。
     if (path.isEmpty() && mime->hasUrls()) {
         const QList<QUrl> urls = mime->urls();
         for (const QUrl &url : urls) {
@@ -9296,7 +9315,7 @@ void MainWindow::onPasteFromClipboard()
         }
     }
 
-    // ③ 纯文本且是存在的图片文件路径
+    // ③ 纯文本路径：先单行直判，失败再复用拖放链的多行 uri-list 解析助手。
     if (path.isEmpty() && mime->hasText()) {
         QString text = mime->text().trimmed();
         if (text.startsWith(QLatin1String("file://"), Qt::CaseInsensitive)) {
@@ -9304,11 +9323,19 @@ void MainWindow::onPasteFromClipboard()
         }
         if (MainWindow::isSupportedImagePath(text)) {
             path = text;
+        } else {
+            path = firstLocalFileInText(mime->text());
         }
     }
 
     if (path.isEmpty()) {
-        m_toast->showMessage(tr("剪贴板中没有图片"), Chrome::Toast::Tone::Warning);
+        // 失败分层：hasImage 但解码落空 / 剪贴板确实无图；formats 落日志便于诊断。
+        qWarning() << "[paste] no usable image, formats=" << mime->formats();
+        if (hadImage) {
+            m_toast->showMessage(tr("剪贴板中的图片无法解码"), Chrome::Toast::Tone::Warning);
+        } else {
+            m_toast->showMessage(tr("剪贴板中没有图片"), Chrome::Toast::Tone::Warning);
+        }
         return;
     }
 
@@ -9316,6 +9343,15 @@ void MainWindow::onPasteFromClipboard()
     const bool transient = path.startsWith(
         QDir::tempPath() + QStringLiteral("/quikview-clip/"), Qt::CaseInsensitive);
     openFile(path, transient);
+}
+
+void MainWindow::cleanupTempClipDirs()
+{
+    const QString temp = QDir::tempPath();
+    cleanupTempDir(temp + QStringLiteral("/quikview-clip"), QStringLiteral("clip-"),
+                   m_currentPath, 20, 7);
+    cleanupTempDir(temp + QStringLiteral("/QuikView"), QStringLiteral("drop-"),
+                   m_currentPath, 20, 7);
 }
 
 void MainWindow::onSetWallpaper()
@@ -10568,6 +10604,208 @@ QString firstLocalFileInText(const QString &text)
         }
     }
     return {};
+}
+
+#ifdef Q_OS_WIN
+// 颜色掩码：取出最低位 lo 与分量位数 bits。
+void dibMaskRange(quint32 mask, int &lo, int &bits)
+{
+    lo = 0; bits = 0;
+    if (!mask) return;
+    while (!(mask & (1u << lo))) ++lo;
+    int hi = lo;
+    while (mask & (1u << hi)) ++hi;
+    bits = hi - lo;
+}
+
+int dibExpand(quint32 val, quint32 mask, int lo, int bits)
+{
+    if (!mask) return 0;
+    const quint32 max = (bits >= 32) ? 0xFFFFFFFFu : ((1u << bits) - 1);
+    const quint32 v = (val & mask) >> lo;
+    return int(round(double(v) * 255.0 / double(max)));
+}
+
+// 手工解析 CF_DIB / CF_DIBV5 字节（BITMAPINFO + 像素）。Qt variant 解不出裸
+// 32bpp DIB 时走这条回退；只补取像素，落盘后仍走 openFile，不另开内存图通道。
+QImage imageFromDibBytes(const unsigned char *dib, size_t sz)
+{
+    if (!dib || sz < 40) return {};
+    const auto *bh = reinterpret_cast<const BITMAPINFOHEADER *>(dib);
+    if (bh->biSize < 40 || static_cast<size_t>(bh->biSize) > sz) return {};
+    const int w = bh->biWidth;
+    int h = bh->biHeight;
+    const bool topDown = h < 0;
+    if (topDown) h = -h;
+    const int bpp = bh->biBitCount;
+    const size_t headerSize = bh->biSize;
+    if (w <= 0 || h <= 0 || (bpp != 24 && bpp != 32)) return {};
+
+    quint32 rm = 0, gm = 0, bm = 0, am = 0;
+    size_t pixOff = headerSize;
+    if (bpp == 32 && bh->biCompression == BI_BITFIELDS) {
+        if (headerSize >= sizeof(BITMAPV5HEADER)) {
+            const auto *v5 = reinterpret_cast<const BITMAPV5HEADER *>(dib);
+            rm = v5->bV5RedMask; gm = v5->bV5GreenMask;
+            bm = v5->bV5BlueMask; am = v5->bV5AlphaMask;
+        } else {
+            const quint32 *m = reinterpret_cast<const quint32 *>(dib + headerSize);
+            rm = m[0]; gm = m[1]; bm = m[2];
+            pixOff = headerSize + 12;
+        }
+    }
+    if (!rm) rm = 0x00FF0000;
+    if (!gm) gm = 0x0000FF00;
+    if (!bm) bm = 0x000000FF;
+    // 32bpp 未登记 alpha 掩码时，按 BGRA 惯例把第 4 字节当作 alpha。
+    if (bpp == 32 && !am) am = 0xFF000000;
+    if (pixOff > sz) return {};
+
+    int rLo, rW, gLo, gW, bLo, bW, aLo, aW;
+    dibMaskRange(rm, rLo, rW); dibMaskRange(gm, gLo, gW);
+    dibMaskRange(bm, bLo, bW); dibMaskRange(am, aLo, aW);
+
+    const int rowBytes = ((w * bpp + 31) / 32) * 4;
+    const unsigned char *pix = dib + pixOff;
+
+    QImage img(w, h, QImage::Format_RGBA8888);
+    for (int y = 0; y < h; ++y) {
+        const int srcY = topDown ? y : (h - 1 - y);
+        const unsigned char *row = pix + static_cast<size_t>(srcY) * rowBytes;
+        uchar *dst = img.scanLine(y);
+        for (int x = 0; x < w; ++x) {
+            if (bpp == 32) {
+                const quint32 val = reinterpret_cast<const quint32 *>(row)[x];
+                dst[x*4+0] = static_cast<uchar>(dibExpand(val, rm, rLo, rW));
+                dst[x*4+1] = static_cast<uchar>(dibExpand(val, gm, gLo, gW));
+                dst[x*4+2] = static_cast<uchar>(dibExpand(val, bm, bLo, bW));
+                dst[x*4+3] = am ? static_cast<uchar>(dibExpand(val, am, aLo, aW)) : uchar(255);
+            } else {
+                const unsigned char *p = row + x * 3;
+                dst[x*4+0] = p[2]; dst[x*4+1] = p[1]; dst[x*4+2] = p[0];
+                dst[x*4+3] = 255;
+            }
+        }
+    }
+    return img;
+}
+
+// 直读剪贴板原生 DIB（CF_DIB=8 / CF_DIBV5=17）。owner 已退出、取数落空时返回空。
+QImage readDibFromClipboard()
+{
+    QImage out;
+    if (!OpenClipboard(nullptr)) {
+        return {};
+    }
+    const UINT formats[] = { CF_DIB, CF_DIBV5 };
+    for (UINT fmt : formats) {
+        HANDLE h = GetClipboardData(fmt);
+        if (!h) {
+            continue;
+        }
+        const size_t sz = GlobalSize(h);
+        void *p = GlobalLock(h);
+        if (p && sz >= 40) {
+            out = imageFromDibBytes(static_cast<const unsigned char *>(p), sz);
+        }
+        GlobalUnlock(h);
+        if (!out.isNull()) {
+            break;
+        }
+    }
+    CloseClipboard();
+    return out;
+}
+#else
+inline QImage readDibFromClipboard() { return {}; }
+#endif
+
+// 临时位图落盘：毫秒时间戳 + 序号避让 + NewOnly 独占创建（不覆盖既有文件）；
+// 编码失败即删刚建的残缺候选。返回路径，空串=失败，errOut 填失败原因。
+QString savePastedImage(const QImage &image, const QString &subDir,
+                         const QString &prefix, QString *errOut)
+{
+    if (image.isNull()) {
+        if (errOut) *errOut = QStringLiteral("image-null");
+        return {};
+    }
+    const QString dir = QDir::tempPath() + QLatin1Char('/') + subDir;
+    if (!QDir().mkpath(dir)) {
+        if (errOut) *errOut = QStringLiteral("mkpath-failed");
+        return {};
+    }
+    const QString stamp = QDateTime::currentDateTime().toString(
+        QStringLiteral("yyyyMMdd-HHmmss-zzz"));
+    for (int seq = 1; seq <= 9999; ++seq) {
+        const QString name = QStringLiteral("%1-%2-%3.png")
+            .arg(prefix, stamp)
+            .arg(seq, 3, 10, QLatin1Char('0'));
+        // prefix 为不含尾连字符的名前缀（如 clip），拼接出 clip-<stamp>-001.png
+        const QString candidate = dir + QLatin1Char('/') + name;
+        QFile f(candidate);
+        if (!f.open(QIODevice::WriteOnly | QIODevice::NewOnly)) {
+            continue;  // 已被占用（含多进程同时落盘）：换下一个序号
+        }
+        if (image.save(&f, "PNG")) {
+            f.close();
+            return candidate;
+        }
+        f.close();
+        QFile::remove(candidate);  // 清掉 0 字节 / 残缺候选，不占名
+    }
+    if (errOut) *errOut = QStringLiteral("save-failed");
+    return {};
+}
+
+// 临时目录清理：只枚举 prefix*.png，按数量+年龄双阈值，先把待删清单写进日志再删；
+// currentPath（当前正在显示的图）跳过；canonical 前缀校验，越出目录一律不碰。
+void cleanupTempDir(const QString &dirPath, const QString &prefix,
+                    const QString &currentPath, int maxCount, int maxAgeDays)
+{
+    QDir dir(dirPath);
+    if (!dir.exists()) {
+        return;
+    }
+    const QString absRoot = dir.absolutePath() + QLatin1Char('/');
+    const QFileInfoList entries = dir.entryInfoList(
+        QStringList{ prefix + QStringLiteral("*.png") }, QDir::Files, QDir::Time);
+    if (entries.isEmpty()) {
+        return;
+    }
+    const QDateTime now = QDateTime::currentDateTime();
+    const qint64 ageLimitSec = static_cast<qint64>(maxAgeDays) * 24 * 3600;
+    const QString curCanon = QFileInfo(currentPath).canonicalFilePath();
+
+    QStringList victims;
+    for (const QFileInfo &fi : entries) {
+        const QString abs = fi.absoluteFilePath();
+        if (!abs.startsWith(absRoot, Qt::CaseInsensitive)) {
+            continue;  // 越出目录，不删
+        }
+        if (!curCanon.isEmpty()
+            && QFileInfo(abs).canonicalFilePath() == curCanon) {
+            continue;  // 跳过当前显示的那张
+        }
+        victims << abs;
+    }
+
+    QStringList toDelete;
+    for (int i = 0; i < victims.size(); ++i) {
+        const QFileInfo fi(victims[i]);
+        const qint64 ageSec = fi.lastModified().secsTo(now);
+        const bool overAge = ageSec > ageLimitSec;
+        const bool overCount = victims.size() > maxCount && i >= maxCount;
+        if (overAge || overCount) {
+            toDelete << victims[i];
+        }
+    }
+    // 先清单后删除：清单留痕，范围可审计。
+    for (const QString &p : toDelete) {
+        qWarning() << "[paste-temp] cleanup delete:" << p;
+    }
+    for (const QString &p : toDelete) {
+        QFile::remove(p);
+    }
 }
 
 } // namespace
