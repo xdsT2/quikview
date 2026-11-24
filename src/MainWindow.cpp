@@ -846,6 +846,8 @@ void MainWindow::toggleOverview()
     m_overviewStatusWasVisible = m_statusOverlay && m_statusOverlay->isVisible();
     // 每次打开的总览都从「不分组」开始，用目录原有浏览顺序（派单 §入口和初始值）。
     m_overview->resetGrouping();
+    // 卡片档位每次回到中间档；总览缩放独立于单图倍率，进出总览不改画布状态。
+    m_overview->resetZoomStep();
     m_overview->setFiles(files, hasDir ? m_dir->index() : -1);
     m_overview->show();
     m_overview->raise();
@@ -855,6 +857,7 @@ void MainWindow::toggleOverview()
         m_control->setOverviewActive(true);
         m_control->setGroupingActive(false);
         syncOverviewPage(hasDir ? m_dir->index() : -1);
+        syncOverviewZoomCapsule();
     }
     if (m_statusOverlay) {
         m_statusOverlay->hide();
@@ -882,6 +885,8 @@ void MainWindow::closeOverview()
         }
     }
     muteShortcutsForOverview(false);
+    // 退出总览：胶囊回到画布真实倍率/适配状态，不再显示缩略图档位。
+    syncZoomCapsule();
     if (m_statusOverlay) {
         m_statusOverlay->setVisible(m_overviewStatusWasVisible);
         m_statusOverlay->raise();
@@ -966,10 +971,18 @@ void MainWindow::muteShortcutsForOverview(bool mute)
         const auto actions = findChildren<QAction *>();
         for (QAction *a : actions) {
             if (a && !a->shortcut().isEmpty() && a->isEnabled()) {
+                // 缩放加减在总览态保留启用：底栏 ＋/－ 与 Ctrl＋/－ 分流到总览卡片缩放。
+                // 其余带键动作（含 1% 步进）临时停用，避免总览内改图或弹窗。
+                if (a == actZoomIn || a == actZoomOut) {
+                    continue;
+                }
                 a->setEnabled(false);
                 m_overviewMutedActions.append(a);
             }
         }
+        // 总览档位是离散的：按住不连跳，抑制快捷键自动重复；单击仍然正常触发一次。
+        if (actZoomIn) actZoomIn->setAutoRepeat(false);
+        if (actZoomOut) actZoomOut->setAutoRepeat(false);
     } else {
         for (QAction *a : m_overviewMutedActions) {
             if (a) {
@@ -977,6 +990,8 @@ void MainWindow::muteShortcutsForOverview(bool mute)
             }
         }
         m_overviewMutedActions.clear();
+        if (actZoomIn) actZoomIn->setAutoRepeat(true);
+        if (actZoomOut) actZoomOut->setAutoRepeat(true);
     }
 }
 
@@ -1632,12 +1647,16 @@ void MainWindow::createActions()
     // 100% 也响应 *（MENUSTR_ZOOM_100）；0 仍是主键
     actActualSize->setShortcuts({ QKeySequence(QStringLiteral("0")), QKeySequence(QStringLiteral("*")) });
     // 1% 步进（MENUSTR_ZOOM_IN_1/OUT_1）
+    // 1% 步进只在普通看图态生效；总览态 Ctrl＋/－ 归属总览卡片缩放（见 onZoomIn/Out），
+    // 这里再挡一道，防止与主放大动作的歧义键位分发落到本动作误改画布倍率。
     actZoomStepIn = mkFn(tr("放大 (1%)"), QKeySequence(QStringLiteral("Ctrl++")), [this]() {
+        if (m_overview && m_overview->isVisible()) return;
         if (!m_currentImage.isNull()) {
             m_canvas->setZoom(m_canvas->zoom() + 0.01);
         }
     });
     actZoomStepOut = mkFn(tr("缩小 (1%)"), QKeySequence(QStringLiteral("Ctrl+-")), [this]() {
+        if (m_overview && m_overview->isVisible()) return;
         if (!m_currentImage.isNull()) {
             m_canvas->setZoom(m_canvas->zoom() - 0.01);
         }
@@ -2569,11 +2588,13 @@ QMenu *MainWindow::buildHamburgerMenu()
     addMenuItem(zoom, tr("缩小"), QStringLiteral("−"), [this]() { onZoomOut(); });
     addMenuItem(zoom, tr("100%"), QString(), [this]() { setZoomMode(0); });
     addMenuItem(zoom, tr("放大 (1%)"), QStringLiteral("Ctrl++"), [this]() {
+        if (m_overview && m_overview->isVisible()) return;
         if (!m_currentImage.isNull()) {
             m_canvas->setZoom(m_canvas->zoom() + 0.01);
         }
     });
     addMenuItem(zoom, tr("缩小 (1%)"), QStringLiteral("Ctrl+−"), [this]() {
+        if (m_overview && m_overview->isVisible()) return;
         if (!m_currentImage.isNull()) {
             m_canvas->setZoom(m_canvas->zoom() - 0.01);
         }
@@ -2913,11 +2934,13 @@ QMenu *MainWindow::buildContextMenu()
               QStringLiteral("Ctrl+K"), false);
         cmdId(zoom, "zoom_100", QString(), [this]() { setZoomMode(0); });
         cmdId(zoom, "zoom_in1", QStringLiteral("Ctrl++"), [this]() {
+            if (m_overview && m_overview->isVisible()) return;
             if (!m_currentImage.isNull()) {
                 m_canvas->setZoom(m_canvas->zoom() + 0.01);
             }
         });
         cmdId(zoom, "zoom_out1", QStringLiteral("Ctrl+−"), [this]() {
+            if (m_overview && m_overview->isVisible()) return;
             if (!m_currentImage.isNull()) {
                 m_canvas->setZoom(m_canvas->zoom() - 0.01);
             }
@@ -4732,14 +4755,38 @@ void MainWindow::onActivateImage(int index)
 void MainWindow::onFit()        { setZoomMode(1); }
 void MainWindow::onFitWidth()  { setZoomMode(2); }
 void MainWindow::onActualSize() { setZoomMode(0); }
-void MainWindow::onZoomIn()    { m_canvas->zoomIn(); }
-void MainWindow::onZoomOut()   { m_canvas->zoomOut(); }
+void MainWindow::onZoomIn()
+{
+    // 总览打开时，底栏 ＋ 与 Ctrl＋ 同一套入口：放大缩略图卡片一档；否则照常缩放当前图片。
+    if (m_overview && m_overview->isVisible()) {
+        if (m_overview->zoomStepIn()) {
+            syncOverviewZoomCapsule();
+        }
+        return;
+    }
+    m_canvas->zoomIn();
+}
+
+void MainWindow::onZoomOut()
+{
+    if (m_overview && m_overview->isVisible()) {
+        if (m_overview->zoomStepOut()) {
+            syncOverviewZoomCapsule();
+        }
+        return;
+    }
+    m_canvas->zoomOut();
+}
 
 // 底岛缩放胶囊点击：任何非 100% 的状态第一步都回原始尺寸，之后在
 // 100% ↔ 适合窗口 之间循环（42% → 100% → 适合 → 100% → …）。
 // 状态真源是画布标志（与左下缩放浮标同源）：滚轮手动缩放后胶囊跟实际画面走。
 void MainWindow::onZoomCapsuleToggle()
 {
+    // 总览态胶囊只显示缩略图档位，不参与画布 100% ↔ 适合窗口 的循环切换。
+    if (m_overview && m_overview->isVisible()) {
+        return;
+    }
     if (!m_canvas || m_currentImage.isNull()) {
         return;
     }
@@ -4767,6 +4814,19 @@ void MainWindow::syncZoomCapsule()
     } else {
         m_control->setZoomState(QStringLiteral("%1%").arg(qRound(z * 100.0)), 0);
     }
+}
+
+// 总览态胶囊：显示缩略图档位（n/5），kind=3 为总览档位语义——不再报画布倍率，
+// 点击也不触发 100% ↔ 适合窗口 循环。退出总览后由 syncZoomCapsule() 恢复画布状态。
+void MainWindow::syncOverviewZoomCapsule()
+{
+    if (!m_control || !m_overview) {
+        return;
+    }
+    m_control->setZoomState(
+        tr("%1 / %2").arg(m_overview->zoomStep() + 1)
+                     .arg(OverviewPanel::zoomStepCount),
+        3);
 }
 
 // 缩放维度统一入口：0=原始 1=适合窗口 2=适合宽度。只改缩放，不动双页。
@@ -5092,6 +5152,13 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             m_overview->setCurrent(index);
             if (m_control) m_control->setPage(pageForIndex(index), m_dir->count());
         }
+    }
+    else if (c == QLatin1String("ovzoomin") && m_overview && m_overview->isVisible()) {
+        // 验收探针：走与底栏/快捷键相同的 onZoomIn 分流路径，放大缩略图一档。
+        onZoomIn();
+    }
+    else if (c == QLatin1String("ovzoomout") && m_overview && m_overview->isVisible()) {
+        onZoomOut();
     }
     else if (c == QLatin1String("ovopen") && m_overview && m_overview->isVisible()) {
         const int index = m_overview->currentIndex();

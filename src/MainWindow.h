@@ -346,6 +346,7 @@ private:
     void toggleAlwaysOnTop();
     void refreshZoomBadge(qreal z);           // 缩放浮标文案：当前缩放方式/百分比
     void syncZoomCapsule();                   // 底岛缩放胶囊：按画布真实状态同步文案与语义
+    void syncOverviewZoomCapsule();           // 总览态胶囊：显示缩略图档位，不误报画布倍率
     void applyChromeLayout();
     void updateCanvasInsets();               // 缩略图栏展开时让出左侧可视区
     void toggleBrowserPanel();
