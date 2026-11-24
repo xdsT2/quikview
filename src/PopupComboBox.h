@@ -41,7 +41,7 @@ public:
         QRect r = opt.rect.adjusted(2, 1, -2, -1);
         if (hot) {
             p->setPen(Qt::NoPen);
-            p->setBrush(UiStyle::fluent::hoverColor());
+            p->setBrush(UiStyle::feedback::hover());
             p->drawRoundedRect(r, 6, 6);
         }
         if (!enabled)

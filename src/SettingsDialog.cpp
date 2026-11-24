@@ -1155,6 +1155,8 @@ QString withColorTokens(QString qss)
         { "@GenNavSel@",       []{ return UiStyle::fluent::navSelected(); } },
         { "@ComboPressed@",    []{ return UiStyle::feedback::pressHex(); } },
         { "@GenHover@",        []{ return UiStyle::feedback::hoverHex(); } },
+        { "@fbHover@",         []{ return UiStyle::feedback::hoverHex(); } },
+        { "@fbPress@",         []{ return UiStyle::feedback::pressHex(); } },
         { "@GenCtrlBg@",       []{ return UiStyle::fluent::controlBg(); } },
         { "@GenCtrlLine@",     []{ return UiStyle::fluent::controlLine(); } },
         { "@GenDisabled@",     []{ return UiStyle::fluent::disabled(); } },
@@ -1375,7 +1377,7 @@ QPushButton#btnSubtle:hover, QPushButton#genNeutral:hover { background: @GenHove
 QPushButton#btnPrimary { background: @GenCtrlBg@; color: @GenText@;
     border: 1px solid @GenCtrlLine@; border-radius: 7px; min-height: 30px;
     padding: 0 12px; font-size: 13px; font-weight: 600; }
-QPushButton#btnPrimary:hover { background: @GenHover@; }
+QPushButton#btnPrimary:hover { background: @fbHover@; }
 QPushButton#btnPrimary[kbFocus="true"]:focus, QPushButton#btnSubtle[kbFocus="true"]:focus,
 QPushButton#genNeutral[kbFocus="true"]:focus { border: 2px solid @GenAccent@; padding: 0 9px; }
 
@@ -1403,8 +1405,8 @@ QLabel#setNote[fluent="v2"] { font-size: 11px; color: @GenDesc@; }
 QPushButton[fluent="v2"] { background: @GenCtrlBg@; color: @GenText@;
     border: 1px solid @GenCtrlLine@; border-radius: 7px;
     min-height: 30px; max-height: 30px; padding: 0 12px; font-size: 13px; }
-QPushButton[fluent="v2"]:hover, QPushButton[fluent="v2"]:pressed {
-    background: @GenHover@; }
+QPushButton[fluent="v2"]:hover { background: @fbHover@; }
+QPushButton[fluent="v2"]:pressed { background: @fbPress@; }
 QPushButton[fluent="v2"][kbFocus="true"]:focus { border: 2px solid @GenAccent@;
     padding: 0 9px; }
 QPushButton[fluent="v2"]:disabled { color: @GenDisabled@;
@@ -1415,8 +1417,8 @@ QComboBox[fluent="v2"] { background: @GenCtrlBg@; color: @GenText@;
     min-height: 30px; max-height: 30px; font-size: 13px;
     padding: 0 26px 0 9px; }
 QComboBox[fluent="v2"]:focus { border-color: @GenCtrlLine@; }
-QComboBox[fluent="v2"]:hover { background: @GenHover@; border-color: @GenDesc@; }
-QComboBox[fluent="v2"]:pressed { background: @ComboPressed@; border-color: @GenDesc@; }
+QComboBox[fluent="v2"]:hover { background: @fbHover@; border-color: @GenDesc@; }
+QComboBox[fluent="v2"]:pressed { background: @fbPress@; border-color: @GenDesc@; }
 QComboBox[fluent="v2"][kbFocus="true"]:focus {
     border: 2px solid @GenAccent@; padding: 0 25px 0 8px; }
 /* 菜单展开不画焦点环：字段保持普通描边，环只在键盘导航进入时出现。 */

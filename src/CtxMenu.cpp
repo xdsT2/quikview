@@ -485,7 +485,7 @@ void CtxMenu::paintEvent(QPaintEvent *event)
     const bool arrowCol = anySubmenu(acts);
     const QColor colText = UiStyle::hud::valText();
     const QColor colDisabled = QColor(UiStyle::menuDisabled());
-    const QColor colHover = QColor(UiStyle::menuHover());
+    const QColor colHover = UiStyle::feedback::hover();
     const QPoint cursor = mapFromGlobal(QCursor::pos());
 
     // —— 顶部快捷区（解冻增量）：32×32 按钮 + 16px 图标，悬停/按下/焦点/
