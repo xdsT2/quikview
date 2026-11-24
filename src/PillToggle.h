@@ -10,8 +10,11 @@ class QVariantAnimation;
 //
 // 视觉母版与绘制结构参考 Qlementine 的 Switch（MIT）：
 //   https://github.com/oclero/qlementine/blob/dev/lib/src/widgets/Switch.cpp
-//   抓取日期 2026-11-22；上游为 QAbstractButton + QStyle 取色，此处只取几何与
-//   状态结构，颜色接 QuikView 现有色板（见 NOTICE 第七节）。
+//   初次抓取 2026-11-22；不可变锚点（2026-11-24 核对）：release tag v1.5.2，
+//   commit 7825161fce66ac5a49bc0ffe39ab13df5ff8ff4a；快照 SHA256 见
+//   src/PillToggle.cpp 文件头与 NOTICE 第七节。
+//   上游为 QAbstractButton + QStyle 取色，此处仅参考绘制结构与状态划分，
+//   几何与颜色均为本项目自定，颜色接 QuikView 现有色板（见 NOTICE 第七节）。
 //
 // 统一规格（所有设置页同一套，不再分 mini / 大纲放大档）：
 //   轨道 40×22、圆角 11、滑块 16×16、滑块内边距 3、轨道描边 1；
