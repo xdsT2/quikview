@@ -5866,7 +5866,7 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         auto *dlg = new SettingsDialog(this);
         dlg->setAttribute(Qt::WA_DeleteOnClose);
         dlg->show();
-        dlg->probeCtxToggle(c.mid(13));
+        dlg->probeCtxToggle(c.mid(12));
     }
     // setio:<steps> —— 设置导出/导入验收探针（需求池 H1-3）：把原生文件对话框
     // 换成探针给的路径，其余链路与「导出设置 / 导入设置」两个按钮完全相同。
