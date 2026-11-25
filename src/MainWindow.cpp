@@ -9391,18 +9391,40 @@ void MainWindow::onDeleteFile()
             return;
         }
     }
-    if (!QFile::moveToTrash(m_currentPath)) {
-        QMessageBox::warning(this, tr("删除失败"), tr("无法删除文件：%1").arg(m_currentPath));
+    const QString deletedPath = m_currentPath;
+    if (!QFile::moveToTrash(deletedPath)) {
+        QMessageBox::warning(this, tr("删除失败"), tr("无法删除文件：%1").arg(deletedPath));
         return;
+    }
+    stopAnimation();
+    if (m_frames) {
+        m_frames->clear();
+    }
+    if (m_cache) {
+        m_cache->forgetPath(deletedPath);
     }
     if (m_dir->count() > 1) {
         onNext();
     } else {
         m_currentPath.clear();
+        m_displayedPath.clear();
+        m_displayedIndex = -1;
+        m_sourceImage = QImage();
         m_currentImage = QImage();
+        m_originalImage = QImage();
+        m_dir->setFilesAndIndex({}, -1);
         m_canvas->clear();
         updateCanvasLogo();
         m_browser->setFiles({}, -1);
+        if (m_control) {
+            m_control->setPage(0, 0);
+        }
+        if (m_statusOverlay) {
+            m_statusOverlay->hide();
+        }
+        if (m_panoChip) {
+            m_panoChip->hide();
+        }
         if (m_overview) {
             closeOverview();
             m_overview->setFiles({}, -1);
@@ -11264,6 +11286,15 @@ void MainWindow::dropEvent(QDropEvent *event)
     }
     if (path.isEmpty()) {
         // 4) 认不出来就静默忽略：不弹错、不崩溃，也别把无效内容顶上去
+        return;
+    }
+
+    if (QFileInfo(path).isDir()) {
+        acceptDropAsCopy(event);
+        openFolderFirstImage(path);
+        return;
+    }
+    if (!isSupportedImagePath(path)) {
         return;
     }
 
