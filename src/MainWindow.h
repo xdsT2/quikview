@@ -297,6 +297,9 @@ private:
     // 防抖后的目录事件 → 后台重扫；同一时刻只跑一个扫描，期间新事件置脏补跑。
     // 回调（onWatchedDirectoryChanged）里不扫描、不解码。
     void onWatchedDirectoryChanged();
+    // 启动时清理粘贴/拖放遗留的临时 PNG：只在各自临时目录内、按数量+年龄双阈值，
+    // 先落清单到日志再删，跳过当前正在显示的那张；越出目录一律不碰。
+    void cleanupTempClipDirs();
     // skipRawKnown=true 时按调用方给的值扫（批次21 #83：设置页切换的那一刻
     // 配置还没写盘，按 getter 读会拿旧值，重扫出来的列表就还是旧口径）。
     void startDirectoryRefresh(bool skipRawKnown = false, bool skipRawValue = false);
