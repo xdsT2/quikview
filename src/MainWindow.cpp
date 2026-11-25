@@ -1582,13 +1582,14 @@ void MainWindow::createActions()
     actOpen->setShortcuts({ QKeySequence::Open, QKeySequence(QStringLiteral("F2")) });
     // 「打开文件夹」不再是独立命令：选文件与选目录并入上面的统一「打开」。
     // 但命令表（H1-7 命令 ID 化）仍保留 CMD_FILE_OPEN_FOLDER 一项，旧键位槽位
-    // openfolder（出厂 F）、旧鼠标动作 openfolder、存量快捷键配置都还会指到这里：
-    // 这里留一个不可见、不挂菜单的动作壳，行为与统一「打开」完全一致，
-    // 保证「F 还按得动、旧配置不变死键」，而界面上只有一个「打开」入口。
-    actOpenFolder = new QAction(tr("打开文件夹"), this);
-    actOpenFolder->setVisible(false);
-    connect(actOpenFolder, &QAction::triggered, this, &MainWindow::onOpen);
-    addAction(actOpenFolder);   // 与其它动作一样挂到窗口：否则 F 这类快捷键不生效
+    // openfolder（出厂 F）、旧鼠标动作 openfolder、存量快捷键配置都还会指到这里。
+    // 必须走与其余可配置动作同一条 mk() 登记路径：addAction 挂窗口进 QShortcutMap
+    // 分发，id=openfolder 进 m_actions（键盘页改绑、冲突基线、keys= 报表、cmdcheck
+    // 对账都按这个槽位取动作）。动作不挂任何菜单/工具栏，界面上仍只有统一「打开」
+    // 一个入口；保持默认可见——此前 setVisible(false) 的不可见壳不参与窗口快捷键
+    // 分发，F 与自定义备用键物理按不动（本单 2026-11-25 修复）。
+    actOpenFolder = mk(tr("打开文件夹"), QKeySequence(QStringLiteral("F")),
+                       &MainWindow::onOpen, QStringLiteral("openfolder"));
     actSaveAs = mk(tr("另存为…(&S)"), QKeySequence::SaveAs, &MainWindow::onSaveAs);
     actPrint = mk(tr("打印"), QKeySequence::Print, &MainWindow::onPrint);          // Ctrl+P
     actBatchConvert = mk(tr("批量转换(&B)"), QKeySequence(QStringLiteral("Ctrl+T")), &MainWindow::onBatchConvert);
@@ -2230,6 +2231,7 @@ QList<QPair<QString, QKeySequence>> MainWindow::fixedShortcutActions() const
 {
     const QSet<QAction *> configurable = {
         m_actions.value(QStringLiteral("open")),
+        m_actions.value(QStringLiteral("openfolder")),
         m_actions.value(QStringLiteral("next")),
         m_actions.value(QStringLiteral("prev")),
         m_actions.value(QStringLiteral("next_frame")),
@@ -2588,7 +2590,7 @@ QMenu *MainWindow::buildSystemMenu()
         menu->addSeparator();
     }
     // 统一「打开」入口：原「打开文件夹」已并入 actOpen，actOpenFolder 只作
-    // 旧配置里 F 备用键的隐藏别名，不再作为独立菜单项出现。
+    // 旧配置里 F 备用键的动作别名，不进本菜单，不作为独立菜单项出现。
     add(actOpen, "image");
     add(actSaveAs, "save");
     menu->addSeparator();
