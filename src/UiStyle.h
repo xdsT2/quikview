@@ -160,6 +160,20 @@ inline QColor navText()    { return color(pick("#bfc3c8", "#4a4d51")); }
 // 与浮层 mapLink 同一取值，两处别各改各的。
 inline QColor linkText()   { return color(pick("#55c0f0", "#0b6f9f")); }
 
+// —— 交互反馈底色（2026-11-24 返工：全局唯一一套中性反馈套系）——
+// 一套「悬停底 / 按下底 / 开启底板」：顶底栏自绘按钮、设置与弹窗按钮、下拉触发器、
+// 下拉项与菜单项都从这里取；其余命名空间的反馈色（fluent::hover/controlPressed、
+// menuHover、控件内本地 pick() 色对）只做转发别名，不再各自维护取值。
+// 开启态只留中性底板，状态由 Filled 图标表达；强调色 / 禁用态 / 勾选标记色不在此套系。
+namespace feedback {
+inline const char *hoverHex()  { return pick("#35373b", "#e7e9eb"); }
+inline const char *pressHex()  { return pick("#292b2f", "#dcdfe2"); }
+inline const char *plateHex()  { return pick("#3a3c3e", "#e2e4e6"); }
+inline QColor hover()  { return color(hoverHex()); }
+inline QColor press()  { return color(pressHex()); }
+inline QColor plate()  { return color(plateHex()); }
+} // namespace feedback
+
 // —— 浮动表面 / 文字分层（UI-001 §3.1，2026-11-13）——
 // 菜单、下拉、提示、弹层、面板统一从这里取值，界面代码不再写裸色。
 // 深色沿用既有石墨阶（色值逐字节不变，保证深色零回归）；浅色改走 Fluent 浅色阶，
@@ -168,8 +182,8 @@ inline const char *surfaceMenu()   { return pick("#242528", "#ffffff"); }
 inline const char *surfaceSoft()   { return pick("#2a2c30", "#fafafb"); }
 inline const char *menuLine()      { return pick("rgba(255,255,255,0.14)", "rgba(0,0,0,0.14)"); }
 inline const char *menuText()      { return pick("#f2f2f2", "#1b1b1c"); }
-// 菜单/下拉选中底：2026-11-22 起与 feedback::hover() 同一取值，全局只留一套悬停底。
-inline const char *menuHover()     { return pick("#35373b", "#e7e9eb"); }
+// 菜单/下拉悬停底：feedback::hover() 的别名，转发主套系，不再单独维护色对。
+inline const char *menuHover()     { return feedback::hoverHex(); }
 inline const char *menuDisabled()  { return pick("#6f747a", "#8c9096"); }
 inline const char *menuSeparator() { return pick("rgba(255,255,255,0.085)", "rgba(0,0,0,0.08)"); }
 inline const char *tipBg()         { return pick("#2a2c30", "#ffffff"); }
@@ -241,8 +255,10 @@ inline const char *link()        { return pick("#55c0f0", "#0b6f9f"); }
 inline const char *navSelected() { return "#1688f8"; }   // 深浅同色，明亮纯蓝整行选中
 inline const char *navSelText()  { return pick("#ffffff", "#071625"); }
 inline const char *focus()       { return "#1688f8"; }   // 键盘焦点环
-inline const char *controlPressed() { return pick("#242526", "#d9d9dc"); }
-inline const char *hover()       { return pick("#2c2e30", "#e4e4e6"); }
+// 反馈色（悬停/按下）转发全局唯一套系 feedback；controlBg 是常态控件底色，
+// 不属于反馈态，保留独立语义，不并入反馈套系。
+inline const char *controlPressed() { return feedback::pressHex(); }
+inline const char *hover()       { return feedback::hoverHex(); }
 inline const char *controlBg()   { return pick("#3b3c3e", "#f0f0f1"); }
 inline const char *controlLine() { return pick("#4c4d50", "#d5d5d8"); }
 inline const char *switchOn()    { return "#32d66b"; }   // 开启：绿色，深浅同色
@@ -387,16 +403,7 @@ inline QColor nameChip() { return isLight() ? QColor(0x0b, 0x5f, 0xa8) : QColor(
 inline QColor nameChipText() { return QColor(Qt::white); }
 } // namespace overview
 
-// —— 交互反馈底色（2026-11-22 全局字体与交互样式统一）——
-// 一套中性「悬停底 / 按下底 / 开启底板」，顶底栏自绘按钮、设置与弹窗按钮、
-// 下拉触发器与菜单项都从这里取，避免各控件自带一套中间色。
-// 开启态只留中性底板，不再叠强调色底+描边：状态由 Filled 图标表达（图一）。
-namespace feedback {
-inline QColor hover() { return isLight() ? QColor(0xe7, 0xe9, 0xeb) : QColor(0x35, 0x37, 0x3b); }
-inline QColor press() { return isLight() ? QColor(0xdc, 0xdf, 0xe2) : QColor(0x29, 0x2b, 0x2f); }
-// 开启/持续态底板：比悬停略实一档，仍属中性，不带色相。
-inline QColor plate() { return isLight() ? QColor(0xe2, 0xe4, 0xe6) : QColor(0x3a, 0x3c, 0x40); }
-} // namespace feedback
+// 交互反馈套系 feedback 已上移到本文件前部（浮动表面令牌之前），见 namespace feedback。
 
 // —— 尺寸令牌 ——
 inline constexpr int RadiusDialog = 10;
@@ -488,7 +495,7 @@ inline QString darkAppQss()
 QDialog { background: %1; color: #f2f2f2; }
 QWidget { color: #f2f2f2; }
 
-QMenu { background: @menuBg@; color: @menuText@; border: 1px solid @menuLine@;
+QMenu { background: @menuBg@; color: @menuText@;
         border-radius: 8px; padding: 4px; }
 QMenu::item { height: 32px; padding: 0 18px 0 26px; border-radius: 6px; font-size: 14px; }
 QMenu::item:selected { background: @menuHover@; }
@@ -501,7 +508,7 @@ QMenu::indicator:checked { image: url(:/ui/check-light.png); }
 QMenu::right-arrow { width: 12px; height: 12px; right: 8px;
                      image: url(:/ui/chevron-right.png); }
 
-QToolTip { background: @tipBg@; color: @tipText@; border: 1px solid @menuLine@;
+QToolTip { background: @tipBg@; color: @tipText@;
            border-radius: 6px; padding: 6px 8px; }
 
 QScrollBar:vertical { background: transparent; width: 10px; margin: 2px; }
@@ -527,7 +534,7 @@ QComboBox:hover { border-color: #686d75; }
 QComboBox:focus { border-color: #55c0f0; }
 QComboBox::drop-down { border: 0; width: 22px; }
 QComboBox::down-arrow { image: url(:/ui/chevron-down.png); width: 12px; height: 12px; }
-QComboBox QAbstractItemView { background: @menuBg@; color: @menuText@; border: 1px solid @menuLine@;
+QComboBox QAbstractItemView { background: @menuBg@; color: @menuText@;
     border-radius: 8px; padding: 4px; outline: 0; selection-background-color: @menuHover@;
     selection-color: @menuText@; }
 
@@ -576,7 +583,7 @@ QTreeWidget, QTreeView, QListView, QTableWidget { background: #1e2023; color: #d
     alternate-background-color: #222427; selection-background-color: rgba(85,192,240,0.18);
     selection-color: #ffffff; }
 /* 列表/树的悬停只在行上给浅底，不做整体缩放（交互状态统一规范 P0-3） */
-QTreeView::item:hover, QListView::item:hover, QTableWidget::item:hover { background: #33363b; }
+QTreeView::item:hover, QListView::item:hover, QTableWidget::item:hover { background: @fbHover@; }
 QTreeView::item:selected, QListView::item:selected, QTableWidget::item:selected {
     background: rgba(85,192,240,0.18); color: #ffffff; }
 QHeaderView::section { background: #292b2f; color: #9ca2aa; border: 0;
@@ -604,7 +611,7 @@ inline QString lightAppQss()
 QDialog { background: #f2f3f5; color: #1b1b1b; }
 QWidget { color: #1b1b1b; }
 
-QMenu { background: @menuBg@; color: @menuText@; border: 1px solid @menuLine@;
+QMenu { background: @menuBg@; color: @menuText@;
         border-radius: 8px; padding: 4px; }
 QMenu::item { height: 32px; padding: 0 18px 0 26px; border-radius: 6px; font-size: 14px; }
 QMenu::item:selected { background: @menuHover@; color: @menuText@; }
@@ -616,7 +623,7 @@ QMenu::indicator:checked { image: url(:/ui/check.png); }
 QMenu::right-arrow { width: 12px; height: 12px; right: 8px;
                      image: url(:/ui/chevron-right.png); }
 
-QToolTip { background: @tipBg@; color: @tipText@; border: 1px solid @menuLine@;
+QToolTip { background: @tipBg@; color: @tipText@;
            border-radius: 6px; padding: 6px 8px; }
 
 QScrollBar:vertical { background: transparent; width: 10px; margin: 2px; }
@@ -642,7 +649,7 @@ QComboBox:hover { border-color: #6b6b6b; }
 QComboBox:focus { border-color: #1689bd; }
 QComboBox::drop-down { border: 0; width: 22px; }
 QComboBox::down-arrow { image: url(:/ui/chevron-down.png); width: 12px; height: 12px; }
-QComboBox QAbstractItemView { background: @menuBg@; color: @menuText@; border: 1px solid @menuLine@;
+QComboBox QAbstractItemView { background: @menuBg@; color: @menuText@;
     border-radius: 8px; padding: 4px; outline: 0; selection-background-color: @menuHover@;
     selection-color: @menuText@; }
 
@@ -693,7 +700,7 @@ QTreeWidget, QTreeView, QListView, QTableWidget { background: #ffffff; color: #2
     border: 1px solid rgba(0,0,0,0.08); border-radius: 6px;
     alternate-background-color: #f7f8f9; selection-background-color: rgba(22,136,248,0.14);
     selection-color: #101113; }
-QTreeView::item:hover, QListView::item:hover, QTableWidget::item:hover { background: #f0f1f3; }
+QTreeView::item:hover, QListView::item:hover, QTableWidget::item:hover { background: @fbHover@; }
 QTreeView::item:selected, QListView::item:selected, QTableWidget::item:selected {
     background: rgba(22,136,248,0.14); color: #101113; }
 QHeaderView::section { background: #f2f3f5; color: #5f6368; border: 0;

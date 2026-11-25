@@ -140,9 +140,7 @@ void setPointerCursor(QWidget *w, bool pointer)
 // 全部只画，不动几何：按压缩放通过 painter 变换完成，rect 本身永远不变。
 // ---------------------------------------------------------------------------
 
-// 交接单 §7 指定的两个状态底色；其余颜色取自 UiStyle 令牌。
-inline QColor kHoverBg() { return QColor(QString::fromLatin1(UiStyle::pick("#45484d", "#e9ebed"))); }   // Hover
-inline QColor kPressBg() { return QColor(QString::fromLatin1(UiStyle::pick("#292b2f", "#dfe1e3"))); }   // Pressed
+// 状态底色统一取自全局反馈套系 UiStyle::feedback（hover/press/plate），不再本地维护兜底色对。
 
 constexpr int kHoverMs = 80;               // Hover 淡入
 constexpr int kPressMs = 65;               // 按下压暗
@@ -184,10 +182,10 @@ constexpr int kTipSlack = 16;     // 预留 Qt 显示时自带的偏移，保证
 struct ButtonPalette {
     QColor base = QColor(0, 0, 0, 0);          // 常态底（alpha=0 表示无）
     QColor baseBorder = QColor(0, 0, 0, 0);    // 常态描边
-    QColor hover = kHoverBg();                   // Hover 底
-    QColor press = kPressBg();                   // Pressed 底
-    QColor checkedBg = QColor(85, 192, 240, 31);    // 锁定 / 选中底
-    QColor checkedBorder = QColor(85, 192, 240, 64); // 锁定 / 选中描边
+    QColor hover = UiStyle::feedback::hover();   // Hover 底（全局反馈套系）
+    QColor press = UiStyle::feedback::press();  // Pressed 底（全局反馈套系）
+    QColor checkedBg = QColor(0, 0, 0, 0);      // 锁定 / 选中底（调用点覆盖为 feedback::plate()）
+    QColor checkedBorder = QColor(0, 0, 0, 0);  // 锁定 / 选中描边（透明，不留蓝色兜底）
     QColor ink = QColor(0xd9, 0xda, 0xdd);     // 常态前景
     QColor checkedInk;                         // 锁定 / 选中前景（无效则用 ink）
     qreal radius = kRadius;
@@ -1054,8 +1052,8 @@ void TopBar::paintEvent(QPaintEvent *)
                                                : QColor(QString::fromLatin1(UiStyle::pick("#c9c9c9", "#333333")));
         } else if (b.action == Action::Minimize || b.action == Action::Maximize) {
             pal.radius = 0;
-            pal.hover = QColor(QString::fromLatin1(UiStyle::pick("#343539", "#e9ebed")));
-            pal.press = QColor(QString::fromLatin1(UiStyle::pick("#2a2b2e", "#dfe1e3")));
+            pal.hover = UiStyle::feedback::hover();
+            pal.press = UiStyle::feedback::press();
             pal.ink = QColor(QString::fromLatin1(UiStyle::pick("#c9c9c9", "#333333")));
         } else if (b.action == Action::TopLock) {
             // 顶栏闭锁：保持透明底；悬停仍是中性圆（与底栏明确区分）。
@@ -1819,9 +1817,10 @@ void ControlBar::paintEvent(QPaintEvent *)
         if (it.action == Action::ZoomValue) {
             // 缩放胶囊：中性深底常亮，悬停提亮、按下加深，只走颜色过渡——
             // 不套 beginButton 的按压缩放，也不占蓝色选中态，避免与锁定、进度滑杆抢重点。
-            const QColor base(QString::fromLatin1(UiStyle::pick("#35373b", "#e7e9eb")));
-            const QColor hot(QString::fromLatin1(UiStyle::pick("#3e4147", "#dcdfe2")));
-            const QColor down(QString::fromLatin1(UiStyle::pick("#2a2c30", "#cfd3d7")));
+            // 常亮胶囊底 = 开启底板 plate；悬停 hover、按下 press，统一走反馈套系。
+            const QColor base = UiStyle::feedback::plate();
+            const QColor hot = UiStyle::feedback::hover();
+            const QColor down = UiStyle::feedback::press();
             QColor bg = base;
             const qreal over = qMax(v.hover, v.press);
             if (over > 0.004) {
@@ -2387,7 +2386,7 @@ void EmptyState::paintEvent(QPaintEvent *)
 
     const int top = (height() - 340) / 2;
     const QRectF iconRect(width() / 2.0 - 38, top, 76, 76);
-    p.setPen(QPen((UiStyle::isLight() ? QColor(0,0,0,31) : QColor(255,255,255,31)), 1));
+    p.setPen(Qt::NoPen);
     p.setBrush(QColor(QString::fromLatin1(UiStyle::pick("#232323", "#f4f4f4"))));
     p.drawRoundedRect(iconRect, 18, 18);
     drawIcon(p, "image",
@@ -2587,7 +2586,7 @@ void Toast::paintEvent(QPaintEvent *)
     // 右下角贴右缘 20px；顶部居中保持原位
     const qreal x = m_corner ? (width() - w - 20.0) : ((width() - w) / 2.0);
     const QRectF r(x, 0, w, 30);
-    p.setPen(QPen(QColor(QString::fromLatin1(UiStyle::pick("#555555", "#aaaaaa"))), 1));
+    p.setPen(Qt::NoPen);
     p.setBrush(QColor(QString::fromLatin1(UiStyle::pick("#383838", "#c7c7c7"))));
     p.drawRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), 7, 7);
 
@@ -2666,7 +2665,7 @@ void ZoomBadge::paintEvent(QPaintEvent *)
     }
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
-    p.setPen(QPen((UiStyle::isLight() ? QColor(0,0,0,26) : QColor(255,255,255,26)), 1));
+    p.setPen(Qt::NoPen);
     p.setBrush(QColor(QString::fromLatin1(UiStyle::pick("#282a2d", "#dfe1e3"))));
     p.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), 6, 6);
     p.setFont(uiFont(11));
