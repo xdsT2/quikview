@@ -15,7 +15,10 @@ class QImageReader;
 class FrameNavigator
 {
 public:
+    FrameNavigator() = default;
     ~FrameNavigator();
+    FrameNavigator(const FrameNavigator &) = delete;
+    FrameNavigator &operator=(const FrameNavigator &) = delete;
 
     // 打开文件，若为多帧（GIF/MNG/TIFF）则持有 reader，否则清空。
     void open(const QString &path);

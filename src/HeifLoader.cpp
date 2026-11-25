@@ -32,6 +32,9 @@ constexpr uint8_t kBayer8x8[64] = {
 QImage ditherRgb16LeToRgb888(const uint8_t *data, size_t stride, int w, int h, int rangeBits)
 {
     QImage out(w, h, QImage::Format_RGB888);
+    if (out.isNull()) {
+        return QImage();
+    }
     const int shift = qBound(0, rangeBits - 8, 8);
     const int step = 1 << shift;
     uint8_t thresh[64];
@@ -82,6 +85,9 @@ QImage toneMapRgb16LeToRgb888(const uint8_t *data, size_t stride, int w, int h)
     const ToneMap::Curve16 curve = ToneMap::buildCurve16(samples);
 
     QImage out(w, h, QImage::Format_RGB888);
+    if (out.isNull()) {
+        return QImage();
+    }
     for (int y = 0; y < h; ++y) {
         const uint8_t *src = data + static_cast<size_t>(y) * stride;
         uint8_t *dst = out.scanLine(y);
@@ -120,7 +126,18 @@ QImage loadHeifImage(const QString &path, QString *errorOut, bool toneMapSdr)
     heif_image_handle *handle = nullptr;
     err = heif_context_get_primary_image_handle(ctx, &handle);
     if (err.code != heif_error_Ok || !handle) {
+        if (handle) heif_image_handle_release(handle);
         if (errorOut) *errorOut = QCoreApplication::translate("HeifLoader", "libheif 获取主图像失败：%1").arg(QString::fromUtf8(err.message));
+        heif_context_free(ctx);
+        return QImage();
+    }
+
+    const int handleW = heif_image_handle_get_width(handle);
+    const int handleH = heif_image_handle_get_height(handle);
+    if (handleW <= 0 || handleH <= 0 || handleW > 30000 || handleH > 30000
+        || uint64_t(handleW) * uint64_t(handleH) > 100000000ULL) {
+        if (errorOut) *errorOut = QCoreApplication::translate("HeifLoader", "libheif 图像尺寸超出限制");
+        heif_image_handle_release(handle);
         heif_context_free(ctx);
         return QImage();
     }
@@ -136,10 +153,15 @@ QImage loadHeifImage(const QString &path, QString *errorOut, bool toneMapSdr)
                                       : heif_chroma_interleaved_RGB,
                             nullptr);
     if (err.code != heif_error_Ok && highDepth) {
+        if (img) {
+            heif_image_release(img);
+            img = nullptr;
+        }
         highDepth = false;
         err = heif_decode_image(handle, &img, heif_colorspace_RGB, heif_chroma_interleaved_RGB, nullptr);
     }
     if (err.code != heif_error_Ok || !img) {
+        if (img) heif_image_release(img);
         if (errorOut) *errorOut = QCoreApplication::translate("HeifLoader", "libheif 解码失败：%1").arg(QString::fromUtf8(err.message));
         heif_image_handle_release(handle);
         heif_context_free(ctx);
@@ -148,18 +170,13 @@ QImage loadHeifImage(const QString &path, QString *errorOut, bool toneMapSdr)
 
     size_t stride = 0;
     const uint8_t *data = heif_image_get_plane_readonly2(img, heif_channel_interleaved, &stride);
-    if (!data || stride == 0) {
-        if (errorOut) *errorOut = QCoreApplication::translate("HeifLoader", "libheif 取像素平面失败");
-        heif_image_release(img);
-        heif_image_handle_release(handle);
-        heif_context_free(ctx);
-        return QImage();
-    }
-
     const int w = heif_image_get_width(img, heif_channel_interleaved);
     const int h = heif_image_get_height(img, heif_channel_interleaved);
-    if (w <= 0 || h <= 0) {
-        if (errorOut) *errorOut = QCoreApplication::translate("HeifLoader", "libheif 图像尺寸无效");
+    const size_t minStride = (w > 0) ? static_cast<size_t>(w) * (highDepth ? 6u : 3u) : 0u;
+    if (!data || w <= 0 || h <= 0 || w > 30000 || h > 30000
+        || uint64_t(w) * uint64_t(h) > 100000000ULL
+        || stride < minStride) {
+        if (errorOut) *errorOut = QCoreApplication::translate("HeifLoader", "libheif 图像尺寸或行距无效");
         heif_image_release(img);
         heif_image_handle_release(handle);
         heif_context_free(ctx);
@@ -175,10 +192,12 @@ QImage loadHeifImage(const QString &path, QString *errorOut, bool toneMapSdr)
     } else {
         // interleaved_RGB 为 8 位、每像素 3 字节；stride 可能带 padding，逐行拷贝。
         out = QImage(w, h, QImage::Format_RGB888);
-        constexpr int bytesPerPixel = 3;
-        for (int y = 0; y < h; ++y) {
-            std::memcpy(out.scanLine(y), data + static_cast<size_t>(y) * stride,
-                        static_cast<size_t>(w) * bytesPerPixel);
+        if (!out.isNull()) {
+            constexpr int bytesPerPixel = 3;
+            for (int y = 0; y < h; ++y) {
+                std::memcpy(out.scanLine(y), data + static_cast<size_t>(y) * stride,
+                            static_cast<size_t>(w) * bytesPerPixel);
+            }
         }
     }
 
