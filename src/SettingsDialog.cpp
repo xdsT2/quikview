@@ -2006,8 +2006,7 @@ void SettingsDialog::selectPage(int index)
 void SettingsDialog::updateGeneralHeaderSpacing()
 {
     // v2：所有页都无页头分隔线；标准档 8+8，紧凑档 6+6。
-    const bool outline = m_appMenuPageIndex >= 0 && m_stack->currentIndex() == m_appMenuPageIndex;
-    const int gap = outline && !m_compact ? 9 : m_compact ? kGenCompactHeadGap : 8;
+    const int gap = m_compact ? kGenCompactHeadGap : 8;
     if (m_headGapTop)
         m_headGapTop->changeSize(0, gap);
     if (m_headGapBottom)
@@ -2025,12 +2024,11 @@ void SettingsDialog::updateContentColumnWidth()
     // 卡片不变宽，只有两侧留白变大；窗口变窄时列跟着收，不再叠第二层内边距。
     const bool outline = m_appMenuPageIndex >= 0 && m_stack->currentIndex() == m_appMenuPageIndex;
     const int extraWidth = qBound(0, width() - kDlgMinW, kDlgW - kDlgMinW);
-    const int navW = outline
-        ? 188 + (kNavW - 188) * extraWidth / (kDlgW - kDlgMinW)
-        : m_compact ? kGenCompactNavW : kNavW;
+    // 公共外壳按窗口宽度切档，切换页面时保持原位。
+    const int navW = m_compact ? kGenCompactNavW : kNavW;
     m_navRail->setFixedWidth(navW);
-    m_titleBar->setFixedHeight(outline || m_compact ? kGenCompactTitleH : kTitleBarH);
-    m_footer->setFixedHeight(outline || m_compact ? kGenCompactFooterH : kFooterH);
+    m_titleBar->setFixedHeight(m_compact ? kGenCompactTitleH : kTitleBarH);
+    m_footer->setFixedHeight(m_compact ? kGenCompactFooterH : kFooterH);
     const bool shortNav = m_compact || height() < 720;
     const int navRowH = shortNav ? kGenCompactNavRowH : kGenNavRowH;
     m_navLayout->setSpacing(shortNav ? kGenCompactNavSpacing : kGenNavSpacing);
@@ -2069,7 +2067,7 @@ void SettingsDialog::updateContentColumnWidth()
     }
     m_contentColumn->setFixedWidth(colW);
     m_contentLay->setContentsMargins(0, m_compact ? kGenCompactPaneTop : kGenPaneTop,
-                                    0, outline ? 16 : 12);
+                                    0, 12);
 
     // 底栏提示对齐到内容列左缘：footer 左边距 + 恢复默认按钮宽 + 布局间距
     // 是固定量（实测合计 20），其余交给弹性间隔，提示文字起点 = 卡片左缘。
