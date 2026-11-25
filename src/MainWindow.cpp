@@ -767,15 +767,25 @@ void MainWindow::applyChromeLayout()
         m_zoomBadge->move(x + 12, y + h - m_zoomBadge->height() - 34);
         m_zoomBadge->raise();
     }
-    if (m_browser)
-        m_browser->place(width(), (m_control ? m_control->y() : y + h) - 8);
+    const bool topShown = topChromeShown();
+    const bool dockShown = dockChromeShown();
 
-    // 图片信息 HUD：设计定稿锚点左上——窗口模式左 16、顶栏(38)下缘 14；
-    // 全屏距左上 12–16（取左 16/上 14）。折叠/切图只改高度，锚点不动。
+    if (m_browser) {
+        // 底栏收起：胶片栏本体下缘距内容区下缘 16；底栏常显时仍避让胶囊 8px。
+        const int browserBottom = (m_control && dockShown) ? m_control->y() - 8 : y + h - 16;
+        if (m_browserMoveAnim)
+            m_browserMoveAnim->stop();
+        m_browser->place(width(), browserBottom);
+    }
+
+    // 图片信息 HUD：设计定稿锚点左上——窗口态左 16；顶栏常显时在顶栏(38)下缘 14，
+    // 顶栏收起时本体上缘距内容区上缘 16。全屏保持既有 14 不动。折叠/切图只改高度，锚点不动。
     if (m_metadata && m_metadata->isVisible()) {
         const int left = 16;
-        const int top = full ? 14 : 52;
+        const int top = full ? 14 : (topShown ? 52 : 16);
         // HUD 宽度受窗口可用宽约束（极窄窗不画出界），约束变了要重排再取 hint
+        if (m_metaMoveAnim)
+            m_metaMoveAnim->stop();
         m_metadata->setAvailableWidth(w - left - 8);
         const QSize hint = m_metadata->sizeHint();
         m_metadata->setGeometry(x + left, y + top, hint.width(), hint.height());
@@ -783,10 +793,12 @@ void MainWindow::applyChromeLayout()
     }
     if (m_layerPanel && m_layerPanel->isVisible()) {
         const int pw = m_layerPanel->width();
-        const int top = full ? 10 : 52;
+        const int top = full ? 10 : (topShown ? 52 : 16);
         // 控制栏淡入时会升到最上层。始终给它留空间，避免图层列表随显隐跳动。
         const int bottom = m_control ? m_control->y() - 8 : y + h - 14;
         const int ph = qMin(m_layerPanel->preferredHeight(), bottom - (y + top));
+        if (m_layerMoveAnim)
+            m_layerMoveAnim->stop();
         m_layerPanel->setGeometry(x + w - pw - 14, y + top, pw, ph);
         m_layerPanel->raise();
     }
@@ -796,6 +808,7 @@ void MainWindow::applyChromeLayout()
     m_topBar->raise();
     if (m_loadStatus && m_loadStatus->isVisible())
         positionLoadStatus();   // 页码旁状态标签跟胶囊/窗口几何走
+    updateStatusBottomInset();
 }
 
 // 画布可视区：21:15 交办——图片客户区上下恒为 0，画布直接通顶通底，
@@ -815,12 +828,125 @@ void MainWindow::updateCanvasInsets()
     m_canvas->setContentMargins(margins);
 }
 
+bool MainWindow::topChromeShown() const
+{
+    return m_topPhase == ChromePhase::Visible || m_topPhase == ChromePhase::Showing;
+}
+
+bool MainWindow::dockChromeShown() const
+{
+    return m_dockPhase == ChromePhase::Visible || m_dockPhase == ChromePhase::Showing;
+}
+
+// 浮层位移动画：时长与缓动取对应工具栏显隐那一套；中断重入时以当前位置为起点
+// 反向续动（setStartValue(当前 pos)），不排队、不用一次性定时跳变。
+void MainWindow::startPanelPosAnim(QPropertyAnimation *&anim, QWidget *w,
+                                   const QPoint &target, int duration, bool animate)
+{
+    if (!w) {
+        return;
+    }
+    if (!anim) {
+        anim = new QPropertyAnimation(w, "pos", this);
+        anim->setEasingCurve(QEasingCurve::OutCubic);
+    }
+    anim->stop();
+    if (!animate) {
+        w->move(target);
+        return;
+    }
+    const QPoint current = w->pos();
+    if (current == target) {
+        return;
+    }
+    anim->setStartValue(current);
+    anim->setEndValue(target);
+    anim->setDuration(duration);
+    anim->setEasingCurve(QEasingCurve::OutCubic);
+    anim->start();
+}
+
+// 顶栏显隐联动：信息浮层 / 图层浮层上缘跟随顶栏实际可见状态。窗口态锚点：常显 52
+// （顶栏 38 + 14 间隙），收起 16；全屏保持既有 14/10，不参与本联动。
+void MainWindow::relocateTopPanels(bool shown, bool animate)
+{
+    const bool full = isFullScreen();
+    const int fw = full ? 0 : 1;
+    const int x = fw;
+    const int y = fw;
+    const int w = width() - 2 * fw;
+    if (m_metadata && m_metadata->isVisible()) {
+        const int top = full ? 14 : (shown ? 52 : 16);
+        startPanelPosAnim(m_metaMoveAnim, m_metadata, QPoint(x + 16, y + top), 180, animate);
+    }
+    if (m_layerPanel && m_layerPanel->isVisible()) {
+        const int pw = m_layerPanel->width();
+        const int top = full ? 10 : (shown ? 52 : 16);
+        startPanelPosAnim(m_layerMoveAnim, m_layerPanel,
+                          QPoint(x + w - pw - 14, y + top), 180, animate);
+    }
+}
+
+// 底栏显隐联动：胶片栏下缘跟随胶囊实际可见状态。常显避让胶囊 8px；收起时本体下缘
+// 距内容区下缘 16。时长/缓动取 m_dockFade 同一套（显示 130 / 隐藏 95，减少动效 80ms，
+// OutCubic）。面板自身开合与本联动独立：未打开时跳过，之后再开由 applyChromeLayout 落位。
+void MainWindow::relocateBrowser(bool shown, bool animate)
+{
+    if (!m_browser || !m_browser->isVisible()) {
+        return;
+    }
+    const int fw = isFullScreen() ? 0 : 1;
+    const int y = fw;
+    const int h = height() - 2 * fw;
+    const int bottom = (m_control && shown) ? m_control->y() - 8 : y + h - 16;
+    const int targetY = bottom - m_browser->height();
+    const int duration = Chrome::reducedMotion() ? 80 : (shown ? 130 : 95);
+    startPanelPosAnim(m_browserMoveAnim, m_browser,
+                      QPoint(m_browser->x(), targetY), duration, animate);
+    if (m_browserMoveAnim) {
+        disconnect(m_browserMoveAnim, &QPropertyAnimation::valueChanged, this, nullptr);
+        connect(m_browserMoveAnim, &QPropertyAnimation::valueChanged, this,
+                [this] { updateStatusBottomInset(); });
+    }
+    updateStatusBottomInset();
+}
+
+// 底栏收起且胶片栏展开时，胶片栏下探会侵入底部文字带（inset=0 文字 y=H-25..H-9）；
+// 此时把两角文字整体抬到胶片栏上缘之上，间隙 8px（沿用避让胶囊的 8px hud 间距惯例）。
+// 底栏常显 / 胶片栏未展开时 inset 回 0，文字保持真实底角 25px 位置。
+// 动画期间按胶片栏当前 y() 逐帧跟随：文字下缘永远在胶片栏上缘之上留 8px，任何一帧都不
+// 落在胶片栏矩形内；不依赖把 StatusOverlay 抬到胶片栏之上压字。
+void MainWindow::updateStatusBottomInset()
+{
+    if (!m_statusOverlay) {
+        return;
+    }
+    int inset = 0;
+    const bool browserUp = m_browser && m_browser->isExpanded();
+    if (browserUp && !dockChromeShown()) {
+        const int filmTop = m_browser->y();
+        const int filmBottom = filmTop + m_browser->height();
+        const int textTop0 = height() - 25;          // inset=0 时文字带上缘
+        if (filmBottom > textTop0) {
+            const int gap = 8;
+            inset = (height() - 9) - (filmTop - gap);
+        }
+    }
+    m_statusOverlay->setBottomInset(qMax(0, inset));
+}
+
 void MainWindow::toggleBrowserPanel()
 {
     if (!m_browser) {
         return;
     }
     m_browser->setExpanded(!m_browser->isExpanded());
+    // 展开落位按当前底栏可见状态取锚点：收起期间切过底栏，重开不能停在旧锚点。
+    if (m_browser->isExpanded()) {
+        applyChromeLayout();
+    } else {
+        updateStatusBottomInset();
+    }
 }
 
 // 图片总览（2026-11-19 定稿）：网格选中、双击 / Enter 打开、Esc 返回。
@@ -1039,6 +1165,8 @@ void MainWindow::setTopChromeVisible(bool visible, bool animate)
         }
     };
     apply(m_topBar, m_captionOpacity, m_captionFade);
+    // 顶栏目标状态变了，已打开的信息/图层浮层跟着搬到对应锚点（未打开的等下次开屏落位）。
+    relocateTopPanels(visible, animate);
 }
 
 void MainWindow::setDockVisible(bool visible, bool animate)
@@ -1085,6 +1213,8 @@ void MainWindow::setDockVisible(bool visible, bool animate)
             m_control->hide();
         }
     }
+    // 胶囊目标状态变了，已打开的胶片栏跟着搬到对应锚点。
+    relocateBrowser(visible, animate);
 }
 
 void MainWindow::toggleTopLock()
@@ -5341,6 +5471,72 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     else if (c == QLatin1String("lockdock")) { if (!m_dockLocked) toggleDockLock(); }
     else if (c == QLatin1String("unlocktop")) { if (m_topLocked) toggleTopLock(); }
     else if (c == QLatin1String("unlockdock")) { if (m_dockLocked) toggleDockLock(); }
+    // topshow/tophide/dockshow/dockhide —— 联动验收探针：直接驱动显隐状态机（不走热区
+    // 150ms 滞回），相位赋值与 updateTopProximity/updateDockProximity 同一套；已在目标态
+    // 时不重写相位，避免动画未启动、finished 回调不复位而把相位卡在 Hiding/Showing。
+    else if (c == QLatin1String("topshow")) {
+        m_topHideTimer->stop();
+        if (m_topPhase != ChromePhase::Visible && m_topPhase != ChromePhase::Showing) {
+            setTopChromeVisible(true);
+            m_topPhase = ChromePhase::Showing;
+        }
+    }
+    else if (c == QLatin1String("tophide")) {
+        m_topHideTimer->stop();
+        if (m_topPhase != ChromePhase::Hidden) {
+            setTopChromeVisible(false);
+            m_topPhase = ChromePhase::Hiding;
+        }
+    }
+    else if (c == QLatin1String("dockshow")) {
+        m_dockHideTimer->stop();
+        if (m_dockPhase != ChromePhase::Visible && m_dockPhase != ChromePhase::Showing) {
+            setDockVisible(true);
+            m_dockPhase = ChromePhase::Showing;
+        }
+    }
+    else if (c == QLatin1String("dockhide")) {
+        m_dockHideTimer->stop();
+        if (m_dockPhase != ChromePhase::Hidden) {
+            setDockVisible(false);
+            m_dockPhase = ChromePhase::Hiding;
+        }
+    }
+    // chromeflip:top|dock:<次数>:<间隔ms> —— 进程内快速反复显隐，验证浮层位移从中途
+    // 位置反向续动、最终收敛到锚点（与 burst: 同一定时器套路）。
+    else if (c.startsWith(QLatin1String("chromeflip:"))) {
+        const QStringList a = c.mid(11).split(QLatin1Char(':'));
+        const QString which = a.value(0);
+        const int n = a.value(1).toInt();
+        const int gap = a.value(2).toInt();
+        if ((which == QLatin1String("top") || which == QLatin1String("dock"))
+            && n > 0 && gap > 0) {
+            auto *flipTimer = new QTimer(this);
+            auto *count = new int(0);
+            auto *show = new bool(true);
+            connect(flipTimer, &QTimer::timeout, this, [this, flipTimer, count, show, which, n]() {
+                if (*count >= n) {
+                    flipTimer->stop();
+                    flipTimer->deleteLater();
+                    delete count;
+                    delete show;
+                    return;
+                }
+                ++(*count);
+                if (which == QLatin1String("top")) {
+                    m_topHideTimer->stop();
+                    setTopChromeVisible(*show);
+                    m_topPhase = *show ? ChromePhase::Showing : ChromePhase::Hiding;
+                } else {
+                    m_dockHideTimer->stop();
+                    setDockVisible(*show);
+                    m_dockPhase = *show ? ChromePhase::Showing : ChromePhase::Hiding;
+                }
+                *show = !*show;
+            });
+            flipTimer->start(gap);
+        }
+    }
     else if (c == QLatin1String("pin")) { toggleAlwaysOnTop(); }
     else if (c == QLatin1String("hamburger")) {
         QMenu *menu = buildHamburgerMenu();
@@ -5478,6 +5674,31 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     else if (c.startsWith(QLatin1String("cshot:"))) {
         if (m_canvas)
             m_canvas->grab().save(c.mid(6).trimmed());
+    }
+    // wshot:<png> —— 抓主窗口本体（顶/底栏与浮层都在），联动验收按可见/收起两态各取证一张。
+    else if (c.startsWith(QLatin1String("wshot:"))) {
+        grab().save(c.mid(6).trimmed());
+    }
+    // wdump —— 临时取证：列出直接子控件类名/几何/可见性，定位残留浮层归属。
+    else if (c == QLatin1String("wdump")) {
+        QFile f(QStringLiteral("Temp/zoom-report.txt"));
+        if (f.open(QIODevice::Append | QIODevice::Text)) {
+            QTextStream ts(&f);
+            const auto tops = QApplication::topLevelWidgets();
+            for (QWidget *t : tops) {
+                ts << "  top=" << t->metaObject()->className()
+                   << " geo=" << t->x() << ',' << t->y() << ',' << t->width() << ',' << t->height()
+                   << " vis=" << (t->isVisible() ? 1 : 0)
+                   << " win=" << static_cast<int>(t->windowType()) << '\n';
+            }
+            const auto kids = findChildren<QWidget *>();
+            for (QWidget *kid : kids) {
+                ts << "  child=" << kid->metaObject()->className()
+                   << " name=" << kid->objectName()
+                   << " geo=" << kid->x() << ',' << kid->y() << ',' << kid->width() << ',' << kid->height()
+                   << " vis=" << (kid->isVisible() ? 1 : 0) << '\n';
+            }
+        }
     }
     // zoomto:<pct> —— 缩放到指定百分比（插值档差异在 25%~50% 最明显）
     else if (c.startsWith(QLatin1String("zoomto:"))) {
@@ -7437,12 +7658,20 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                // 滞回与防闪烁只能靠它验证，截图看不出中间态
                << " dock=" << static_cast<int>(m_dockPhase)
                << " filmstrip=" << (m_browser && m_browser->isExpanded() ? 1 : 0)
+               << " filmgeo=" << (m_browser && m_browser->isVisible()
+                                     ? QStringLiteral("%1,%2,%3,%4").arg(m_browser->x())
+                                           .arg(m_browser->y())
+                                           .arg(m_browser->width())
+                                           .arg(m_browser->height())
+                                     : QStringLiteral("-"))
                << " filmcurrent=" << (m_browser ? m_browser->currentIndex() : -1)
                << " filminview=" << (m_browser && m_browser->currentInView() ? 1 : 0)
                << " dockbottom=" << (m_control ? height() - m_control->y() : -1)
                << " dockvis=" << (m_control && m_control->isVisible() ? 1 : 0)
                << " dockop=" << (m_dockOpacity ? QString::number(m_dockOpacity->progress(), 'f', 2) : QStringLiteral("na"))
                << " top=" << static_cast<int>(m_topPhase)
+               << " topvis=" << (m_topBar && m_topBar->isVisible() ? 1 : 0)
+               << " topop=" << (m_captionOpacity ? QString::number(m_captionOpacity->opacity(), 'f', 2) : QStringLiteral("na"))
                // 弹窗归属（显隐回归断言用）：popup 表示当前确有弹层，
                // popuptop 表示它是顶栏自有菜单。两者都不参与显隐判定本身。
                << " popup=" << (QApplication::activePopupWidget() ? 1 : 0)

@@ -395,6 +395,17 @@ private:
     void onOpenPano();
     void setTopChromeVisible(bool visible, bool animate = true);
     void setDockVisible(bool visible, bool animate = true);
+    // 工具栏实际可见状态（Visible/Showing 算可见）；浮层位置联动只认这两个相位。
+    bool topChromeShown() const;
+    bool dockChromeShown() const;
+    // 工具栏显隐时把已打开的浮层/胶片栏搬到对应锚点；时长与缓动复用工具栏那一套。
+    void relocateTopPanels(bool shown, bool animate);
+    void relocateBrowser(bool shown, bool animate);
+    // 胶片栏侵入底部文字带时把 StatusOverlay 两角文字抬到胶片栏上缘之上；按胶片栏当前
+    // 位置逐帧跟随位移动画，保证整段动画期间文字不落在胶片栏矩形内。
+    void updateStatusBottomInset();
+    void startPanelPosAnim(QPropertyAnimation *&anim, QWidget *w, const QPoint &target,
+                           int duration, bool animate);
     void toggleTopLock();
     void toggleDockLock();
     void updateChromeProximity();
@@ -576,6 +587,10 @@ private:
     HudEffect *m_dockOpacity = nullptr;
     QPropertyAnimation *m_captionFade = nullptr;
     QPropertyAnimation *m_dockFade = nullptr;
+    // 浮层/胶片栏跟随工具栏显隐的位移动画（pos）；中断重入从当前位置反向续动。
+    QPropertyAnimation *m_metaMoveAnim = nullptr;
+    QPropertyAnimation *m_layerMoveAnim = nullptr;
+    QPropertyAnimation *m_browserMoveAnim = nullptr;
     bool m_topLocked = false;
     bool m_dockLocked = false;
     bool m_topVisible = true;
