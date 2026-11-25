@@ -105,7 +105,7 @@ void PanoGlobe::resizeEvent(QResizeEvent *)
 }
 
 // 等距柱状 → 透视：屏幕上每个像素反投一条视线，落到球面求经纬度后双线性取样。
-// 方向向量不需要归一化——经度/纬度只依赖分量比值，省掉每像素一次 sqrt。
+// 纬度取视线与水平面的夹角；未归一化视线的纵分量不能直接求反正弦。
 void PanoGlobe::renderFrame(double scale)
 {
     if (m_src.isNull() || width() <= 0 || height() <= 0) {
@@ -151,7 +151,7 @@ void PanoGlobe::renderFrame(double scale)
             const double z2 = -cx * sinY + z1 * cosY;
             const double y2 = y1;
             const double lon = std::atan2(x2, z2);
-            const double lat = std::asin(clampd(y2, -1.0, 1.0));
+            const double lat = std::atan2(y2, std::sqrt(cx * cx + z1 * z1));
             const double u = 0.5 + lon / (2.0 * M_PI);
             const double v = 0.5 - lat / M_PI;
 
@@ -280,9 +280,12 @@ void PanoGlobe::wheelEvent(QWheelEvent *event)
         return;
     }
     // 上滚拉近（视野变小），每档 3°，夹在 20°~110°。
-    m_fov = clampd(m_fov - (steps / 120.0) * 3.0, kMinFov, kMaxFov);
-    renderFrame(1.0);
-    m_settleTimer->stop();
-    emit viewChanged();
+    const double nextFov = clampd(m_fov - (steps / 120.0) * 3.0, kMinFov, kMaxFov);
     event->accept();
+    if (nextFov == m_fov)
+        return;
+    m_fov = nextFov;
+    renderFrame(kInteractiveScale);
+    scheduleFullQuality();
+    emit viewChanged();
 }
