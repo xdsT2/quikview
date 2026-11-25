@@ -117,17 +117,18 @@ PanoExt::Manager::Manager(QObject *parent)
     });
     connect(qApp, &QCoreApplication::aboutToQuit, this, [this]() {
         m_timeout->stop();
-        if (m_reply) {
-            m_reply->disconnect(this);
-            m_reply->abort();
-            m_reply->deleteLater();
-            m_reply = nullptr;
+        if (m_net) {
+            m_net->disconnect(this);
         }
-        if (m_shaReply) {
-            m_shaReply->disconnect(this);
-            m_shaReply->abort();
-            m_shaReply->deleteLater();
+        if (QNetworkReply *r = m_reply) {
+            m_reply = nullptr;
+            r->disconnect(this);
+            r->abort();
+        }
+        if (QNetworkReply *sr = m_shaReply) {
             m_shaReply = nullptr;
+            sr->disconnect(this);
+            sr->abort();
         }
         delete m_net;
         m_net = nullptr;

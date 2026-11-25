@@ -154,7 +154,7 @@ HRESULT ExtractPsdThumbJpeg(IStream* stm, std::vector<BYTE>* jpeg) {
             if (!ReadBytes(stm, buf, kPreviewHdr > sizeof(buf) ? sizeof(buf) : kPreviewHdr))
                 return E_FAIL;
             if (kPreviewHdr > sizeof(buf)) {
-                ULONG rest = kPreviewHdr - sizeof(buf);
+                ULONG rest = kPreviewHdr - (ULONG)sizeof(buf);
                 while (rest) {
                     ULONG c = rest > sizeof(buf) ? sizeof(buf) : rest;
                     if (!ReadBytes(stm, buf, c)) return E_FAIL;

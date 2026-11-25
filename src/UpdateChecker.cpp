@@ -199,11 +199,13 @@ UpdateChecker::UpdateChecker(QObject *parent)
             });
     connect(qApp, &QCoreApplication::aboutToQuit, this, [this]() {
         m_timeout->stop();
-        if (m_reply) {
-            m_reply->disconnect(this);
-            m_reply->abort();
-            m_reply->deleteLater();
+        if (m_nam) {
+            m_nam->disconnect(this);
+        }
+        if (QNetworkReply *r = m_reply) {
             m_reply = nullptr;
+            r->disconnect(this);
+            r->abort();
         }
         delete m_nam;
         m_nam = nullptr;

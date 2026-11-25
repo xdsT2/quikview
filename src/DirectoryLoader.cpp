@@ -578,8 +578,8 @@ DirectoryLoader::Index DirectoryLoader::buildIndexArchive(const QString &archive
         const QString fullPath = prefix + entry->name;
         out.files << fullPath;
         RawJpgGroup::Entry ge;
-        ge.primary = fullPath;
         ge.members << fullPath;
+        ge.grouped = false;
         out.entries << ge;
     }
     if (!anchorEntry.isEmpty()) {

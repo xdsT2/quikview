@@ -3,7 +3,9 @@
 
 #include "ToneMap.h"
 
+#ifdef HAS_LIBHEIF
 #include <libheif/heif.h>
+#endif
 
 #include <QFileInfo>
 
@@ -11,6 +13,7 @@
 #include <cmath>
 #include <cstring>
 
+#ifdef HAS_LIBHEIF
 namespace {
 
 // 8x8 Bayer 矩阵（0..63），高位深→8bit 有序抖动用。
@@ -206,3 +209,10 @@ QImage loadHeifImage(const QString &path, QString *errorOut, bool toneMapSdr)
     heif_context_free(ctx);
     return out;
 }
+#else
+QImage loadHeifImage(const QString &, QString *errorOut, bool)
+{
+    if (errorOut) *errorOut = QCoreApplication::translate("HeifLoader", "当前构建未启用 libheif，无法解码 HEIC/AVIF");
+    return QImage();
+}
+#endif

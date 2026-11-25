@@ -3,7 +3,9 @@
 
 #include "ToneMap.h"
 
+#ifdef HAS_LIBRAW
 #include <libraw/libraw.h>
+#endif
 
 #include <QByteArray>
 #include <QFileInfo>
@@ -12,6 +14,7 @@
 #include <climits>
 #include <cmath>
 
+#ifdef HAS_LIBRAW
 namespace {
 
 int openRawFile(LibRaw &raw, const QString &path)
@@ -201,6 +204,13 @@ QImage loadRawImage(const QString &path, QString *errorOut, bool toneMapSdr)
     raw.recycle();
     return img;
 }
+#else
+QImage loadRawImage(const QString &, QString *errorOut, bool)
+{
+    if (errorOut) *errorOut = QCoreApplication::translate("RawImageLoader", "当前构建未启用 libraw，无法解码 RAW");
+    return QImage();
+}
+#endif
 
 bool isRawFilePath(const QString &path)
 {
@@ -214,6 +224,7 @@ bool isRawFilePath(const QString &path)
 
 QImage loadRawThumbnail(const QString &path)
 {
+#ifdef HAS_LIBRAW
     LibRaw raw;
     if (openRawFile(raw, path) != LIBRAW_SUCCESS) {
         return QImage();
@@ -240,4 +251,8 @@ QImage loadRawThumbnail(const QString &path)
     }
     raw.recycle();
     return img;
+#else
+    Q_UNUSED(path);
+    return QImage();
+#endif
 }
