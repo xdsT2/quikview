@@ -370,6 +370,7 @@ private:
     void onStretchSmall(bool on);
     void setInterpolationMode(const QString &mode);
     void toggleZoomLock();                   // 锁定缩放（Ctrl+K）：翻页沿用同一比例
+    void onLocateFile();
     void onPageSelect();                     // 选择图片（Enter）：按序号跳转
     void onEditBookmarks();                  // 编辑书签（F3）：书签管理对话框
     bool isSpreadMode() const;               // 智能双页阅览（m_spreadMode 3/4 且非 0）

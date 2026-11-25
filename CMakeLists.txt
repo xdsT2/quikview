@@ -180,7 +180,7 @@ if(WIN32)
     # WM_NCCALCSIZE 最大化修正用到 GetDpiForWindow / GetSystemMetricsForDpi（Win10 1607+）
     target_compile_definitions(quikview PRIVATE _WIN32_WINNT=0x0A00 WINVER=0x0A00)
     # 翻页音效（pageturn_wav）走 winmm PlaySound（MainWindow.cpp 运行时合成 WAV）
-    target_link_libraries(quikview PRIVATE winmm)
+    target_link_libraries(quikview PRIVATE winmm shell32 ole32)
 
     # 开发构建也必须可直接运行：把 Qt 图像格式插件稳定部署到 exe 同级目录。
     # 发行 staging 仍由 tools/package.sh 负责完整依赖闭包；这里明确排除 qjp2，

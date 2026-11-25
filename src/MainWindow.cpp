@@ -118,6 +118,7 @@
 #define NOMINMAX   // Qt 的 os_defines.h 已经定义过，避免重定义告警
 #endif
 #include <windows.h>
+#include <shlobj.h>
 #include <psapi.h>   // GetProcessMemoryInfo：archreport 的内存峰值取证
 namespace {
 inline short xFromLparam(long v) { return static_cast<short>(LOWORD(v)); }
@@ -1809,10 +1810,7 @@ void MainWindow::createActions()
     });
     // 定位文件 Ctrl+Enter（MENUSTR_OPEN_FILEPOSITION）
     actLocateFile = mkFn(tr("定位文件"), QKeySequence(QStringLiteral("Ctrl+Return")), [this]() {
-        if (m_currentPath.isEmpty()) {
-            return;
-        }
-        QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(m_currentPath).absolutePath()));
+        onLocateFile();
     });
     // 随机跳转 Ctrl+Alt+PageDown/Up（MENUSTR_PAGEMOVE_RAND_*）
     actRandomNext = mkFn(tr("向后随机转到某张图片"), QKeySequence(QStringLiteral("Ctrl+Alt+PageDown")),
@@ -2892,10 +2890,7 @@ QMenu *MainWindow::buildContextMenu()
     }
     if (vis("locate_file")) {
         cmdId(menu, "locate_file", QStringLiteral("Ctrl+Enter"), [this]() {
-            if (m_currentPath.isEmpty()) {
-                return;
-            }
-            QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(m_currentPath).absolutePath()));
+            onLocateFile();
         });
     }
     pendingSep = true;
@@ -8743,6 +8738,33 @@ void MainWindow::toggleZoomLock()
 }
 
 // 选择图片（原版 MENUSTR_PAGESELECT / Enter）：按序号跳到序列里的某一张。
+void MainWindow::onLocateFile()
+{
+    if (m_currentPath.isEmpty())
+        return;
+
+    // 包内图片没有独立的资源管理器条目，定位到实际存在的压缩包。
+    const QString archivePath = ArchiveStore::archivePathOf(m_currentPath);
+    const QFileInfo file(archivePath.isEmpty() ? m_currentPath : archivePath);
+#ifdef Q_OS_WIN
+    const QString nativePath = QDir::toNativeSeparators(file.absoluteFilePath());
+    const HRESULT initialized = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    if (SUCCEEDED(initialized) || initialized == RPC_E_CHANGED_MODE) {
+        PIDLIST_ABSOLUTE item = nullptr;
+        HRESULT result = SHParseDisplayName(reinterpret_cast<LPCWSTR>(nativePath.utf16()),
+                                            nullptr, &item, 0, nullptr);
+        if (SUCCEEDED(result))
+            result = SHOpenFolderAndSelectItems(item, 0, nullptr, 0);
+        CoTaskMemFree(item);
+        if (SUCCEEDED(initialized))
+            CoUninitialize();
+        if (SUCCEEDED(result))
+            return;
+    }
+#endif
+    QDesktopServices::openUrl(QUrl::fromLocalFile(file.absolutePath()));
+}
+
 void MainWindow::onPageSelect()
 {
     if (!m_dir || !m_dir->isValid() || m_dir->count() <= 1) {
