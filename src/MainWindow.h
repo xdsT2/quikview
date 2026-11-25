@@ -154,11 +154,15 @@ protected:
                      qint64 *result) override;
     void changeEvent(QEvent *event) override;
 
+    // 「打开」选择器由哪个界面入口发起：决定对话框存续期间点亮哪一个按钮；
+    // None = 菜单 / 快捷键 / F2 等无可见按钮的入口（不点亮任何按钮）。
+    enum class OpenSource { None, TopBar, ControlBar, EmptyState };
+
 private slots:
     // 文件
     // 统一「打开」入口（2026-11-21 打开入口单）：顶栏/底栏/空状态/菜单共用，
     // 同一对话框里可确认图片文件，也可确认「打开文件夹」。
-    void onOpen();
+    void onOpen(OpenSource source = OpenSource::None);
     void onSaveAs();
     void onPrint();
     void onBatchConvert();
@@ -420,6 +424,8 @@ private:
     // 统一「打开」选择器（文件 + 文件夹两个确认动作）的唯一构造函数。
     // folderTarget 非空即用户点了「打开文件夹」；onOpen 与 openpicker 探针共用。
     QFileDialog *makeOpenPickerDialog(QString *folderTarget);
+    // 复位三个「打开」入口的选择器存续填充态（对话框关闭 / 早退 / 无按钮入口时调用）。
+    void resetOpenPickerActive();
 
     // —— 共享动作（唯一真源）——
     QAction *actOpen = nullptr;

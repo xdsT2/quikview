@@ -87,6 +87,8 @@ add_executable(quikview WIN32
     src/ThumbnailBrowser.h
     src/OverviewPanel.cpp
     src/OverviewPanel.h
+    src/OpenPicker.cpp
+    src/OpenPicker.h
     # 总览分组口径（2026-11-22 派单）：尺寸只读文件头、拍摄日期只读 EXIF
     src/ImageFacts.cpp
     src/ImageFacts.h
@@ -152,6 +154,10 @@ target_link_libraries(quikview PRIVATE
     dwmapi
     # archreport 的进程峰值工作集（GetProcessMemoryInfo）走 psapi
     psapi
+    # 原生 IFileOpenDialog / IFileDialogCustomize（2026-11-25 原生对话框替换单）
+    ole32
+    shell32
+    uuid
 )
 
 if(LIBRAW_FOUND)
@@ -275,6 +281,15 @@ set_target_properties(quikview-pano PROPERTIES
 # dock / top / popup 等状态字段（不靠截图判定）。用例间工作目录、临时配置互相隔离。
 include(CTest)
 if(BUILD_TESTING)
+    # OpenPicker 纯函数无窗口单测（筛选表构造 / 文件夹目标解析），不弹原生框。
+    add_executable(quikview-openpicker-test tests/unit/openpicker_test.cpp src/OpenPicker.cpp)
+    target_include_directories(quikview-openpicker-test PRIVATE src)
+    target_link_libraries(quikview-openpicker-test PRIVATE Qt6::Core)
+    if(WIN32)
+        target_link_libraries(quikview-openpicker-test PRIVATE ole32 shell32 uuid)
+    endif()
+    add_test(NAME openpicker.pure COMMAND quikview-openpicker-test)
+
     include("${CMAKE_CURRENT_SOURCE_DIR}/tests/chrome_popup_cases.cmake")
     foreach(_chrome_case IN LISTS QUIKVIEW_CHROME_CASES)
         add_test(NAME chrome_popup.${_chrome_case}

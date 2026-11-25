@@ -99,6 +99,7 @@
 #include "Theme.h"
 #include "ThumbnailBrowser.h"
 #include "OverviewPanel.h"
+#include "OpenPicker.h"
 #include "ArchiveStore.h"   // 压缩包（ZIP/CBZ）虚拟目录：打开/标题/包内解码
 #include "ZipArchive.h"
 #include "Wallpaper.h"
@@ -430,7 +431,8 @@ MainWindow::MainWindow(QWidget *parent)
     // —— 铬件：38px 单行顶栏 + 44px 底部控制岛 ——
     m_topBar = new Chrome::TopBar(this);
     m_topBar->setTitle(tr("未打开图片"));
-    connect(m_topBar, &Chrome::TopBar::openClicked, this, &MainWindow::onOpen);
+    connect(m_topBar, &Chrome::TopBar::openClicked, this,
+            [this] { onOpen(OpenSource::TopBar); });
     connect(m_topBar, &Chrome::TopBar::browseMenuRequested, this, [this](const QPoint &g) {
         QMenu *menu = buildBrowseMenu();
         markTopBarMenu(menu);
@@ -462,7 +464,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     m_control = new Chrome::ControlBar(this);
 
-    connect(m_control, &Chrome::ControlBar::openClicked, this, &MainWindow::onOpen);
+    connect(m_control, &Chrome::ControlBar::openClicked, this,
+            [this] { onOpen(OpenSource::ControlBar); });
     connect(m_control, &Chrome::ControlBar::listClicked, this, &MainWindow::toggleBrowserPanel);
     connect(m_control, &Chrome::ControlBar::overviewClicked, this, &MainWindow::toggleOverview);
     // 总览内同一格位是「分组方式」：弹出单选菜单，不改按钮尺寸。
@@ -587,7 +590,8 @@ MainWindow::MainWindow(QWidget *parent)
     m_zoomBadge = new Chrome::ZoomBadge(this);
     m_statusOverlay = new Chrome::StatusOverlay(this);
     m_emptyState = new Chrome::EmptyState(this);
-    connect(m_emptyState, &Chrome::EmptyState::openClicked, this, &MainWindow::onOpen);
+    connect(m_emptyState, &Chrome::EmptyState::openClicked, this,
+            [this] { onOpen(OpenSource::EmptyState); });
 
     // 「360° 查看」入口（派单 2026-11-20）：浮在底岛上方、只对完整球形图出现。
     // NoFocus 由 PanoChip 自己设置——画布的键盘焦点与快捷键不受影响。
@@ -1578,7 +1582,15 @@ void MainWindow::createActions()
 
     // 文件（快捷键对照 Honeyview 语言表 MENUSTR_*，下同）
     // —— 传 id 的 13 个动作 = 键盘页可配置动作（批次 D1），键位由 config/keyboard/* 下发
-    actOpen = mk(tr("打开(&O)..."), QKeySequence::Open, &MainWindow::onOpen, QStringLiteral("open"));
+    // 菜单 / 快捷键入口无可见按钮：走 None 源，不点亮任何「打开」按钮。
+    {
+        auto *openAct = new QAction(tr("打开(&O)..."), this);
+        openAct->setShortcut(QKeySequence::Open);
+        connect(openAct, &QAction::triggered, this, [this] { onOpen(OpenSource::None); });
+        addAction(openAct);
+        m_actions.insert(QStringLiteral("open"), openAct);
+        actOpen = openAct;
+    }
     actOpen->setShortcuts({ QKeySequence::Open, QKeySequence(QStringLiteral("F2")) });
     // 「打开文件夹」不再是独立命令：选文件与选目录并入上面的统一「打开」。
     // 但命令表（H1-7 命令 ID 化）仍保留 CMD_FILE_OPEN_FOLDER 一项，旧键位槽位
@@ -1587,7 +1599,8 @@ void MainWindow::createActions()
     // 保证「F 还按得动、旧配置不变死键」，而界面上只有一个「打开」入口。
     actOpenFolder = new QAction(tr("打开文件夹"), this);
     actOpenFolder->setVisible(false);
-    connect(actOpenFolder, &QAction::triggered, this, &MainWindow::onOpen);
+    connect(actOpenFolder, &QAction::triggered, this,
+            [this] { onOpen(OpenSource::None); });
     addAction(actOpenFolder);   // 与其它动作一样挂到窗口：否则 F 这类快捷键不生效
     actSaveAs = mk(tr("另存为…(&S)"), QKeySequence::SaveAs, &MainWindow::onSaveAs);
     actPrint = mk(tr("打印"), QKeySequence::Print, &MainWindow::onPrint);          // Ctrl+P
@@ -9231,32 +9244,73 @@ QFileDialog *MainWindow::makeOpenPickerDialog(QString *folderTarget)
     return dlg;
 }
 
-void MainWindow::onOpen()
+void MainWindow::resetOpenPickerActive()
 {
-    QString folderTarget;
-    QFileDialog *dlg = makeOpenPickerDialog(&folderTarget);
-    const int rc = dlg->exec();
-    const QStringList picked = dlg->selectedFiles();
-    dlg->deleteLater();
+    if (m_topBar) {
+        m_topBar->setOpenPickerActive(false);
+    }
+    if (m_control) {
+        m_control->setOpenPickerActive(false);
+    }
+    if (m_emptyState) {
+        m_emptyState->setOpenPickerActive(false);
+    }
+}
 
-    if (rc != QDialog::Accepted && folderTarget.isEmpty()) {
-        return;   // 取消：什么都不做
+void MainWindow::onOpen(OpenSource source)
+{
+    // 先清掉其余入口的存续态：菜单 / F2 / 快捷键等无按钮入口，以及上一轮异常早退的防御复位。
+    resetOpenPickerActive();
+    // 只点亮发起的那一个入口；未被发起的「打开」按钮保持 Regular。
+    switch (source) {
+    case OpenSource::TopBar:
+        if (m_topBar) m_topBar->setOpenPickerActive(true);
+        break;
+    case OpenSource::ControlBar:
+        if (m_control) m_control->setOpenPickerActive(true);
+        break;
+    case OpenSource::EmptyState:
+        if (m_emptyState) m_emptyState->setOpenPickerActive(true);
+        break;
+    case OpenSource::None:
+        break;
     }
 
-    if (!folderTarget.isEmpty()) {
-        openFolderFirstImage(folderTarget);
+    // 先把填充态同步刷出来再弹原生模态框：原生框会盖住主窗，模态期间主窗可能不重绘，
+    // 否则图标要等对话框关闭后才「跳」成填充，等于没做。
+    repaint();
+
+    // 起始目录：当前图所在目录 > 上次浏览目录 > 系统默认（沿用既有规则）。
+    const QString startDir = !m_currentPath.isEmpty()
+                                 ? QFileInfo(m_currentPath).absolutePath()
+                                 : Config::instance().settings()
+                                       .value(QStringLiteral("config/last_open_dir"))
+                                       .toString();
+
+    const OpenPicker::Result res = OpenPicker::showNativeDialog(
+        reinterpret_cast<void *>(winId()), startDir,
+        DirectoryLoader::imageExtensions(),
+        { QStringLiteral("*.zip"), QStringLiteral("*.cbz") },
+        tr("打开文件夹"), tr("打开图片或文件夹"));
+
+    // 对话框生命周期结束（确认选图 / 确认打开文件夹 / 取消 / Esc / 右上角关闭 / 早退）：
+    // 发起按钮一律恢复线性。复位放在业务分支之前，任何 return 都不会留下常亮。
+    resetOpenPickerActive();
+
+    if (res.outcome == OpenPicker::Outcome::Folder) {
+        openFolderFirstImage(res.folder);
         return;
     }
 
-    const QString path = picked.value(0);
-    if (path.isEmpty()) {
-        return;
+    if (res.outcome != OpenPicker::Outcome::File || res.file.isEmpty()) {
+        return;   // 取消 / 空结果：什么都不做
     }
+
     // 记住本次选择所在目录（只用于下次对话框起始位置，不影响其他偏好）
     Config::instance().settings().setValue(QStringLiteral("config/last_open_dir"),
-                                           QFileInfo(path).absolutePath());
+                                           QFileInfo(res.file).absolutePath());
     // 文件→打开：按图片尺寸调窗（受设置「根据图片大小调节窗口大小」控制）
-    openFileFitting(path);
+    openFileFitting(res.file);
 }
 
 QStringList MainWindow::listImagesInDir(const QString &dirPath)
