@@ -366,7 +366,7 @@ bool DirectoryLoader::applyIndex(const Index &idx)
     // 显示路径按「运行期」的显示模式重算，而不是照抄扫描时的值：用户可能在
     // 扫描在飞的过程中勾了「显示原始数据」，落地时以最新意图为准。
     m_files = RawJpgGroup::displayFiles(m_entries, m_showRaw);
-    m_index = idx.anchor;
+    m_index = m_files.isEmpty() ? -1 : qBound(0, idx.anchor, int(m_files.size()) - 1);
     return m_index >= 0;
 }
 
@@ -573,8 +573,14 @@ DirectoryLoader::Index DirectoryLoader::buildIndexArchive(const QString &archive
 
     const QString prefix = ArchiveStore::entryPathPrefix(archivePath);
     out.files.reserve(list.size());
+    out.entries.reserve(list.size());
     for (const ZipArchive::Entry *entry : list) {
-        out.files << prefix + entry->name;
+        const QString fullPath = prefix + entry->name;
+        out.files << fullPath;
+        RawJpgGroup::Entry ge;
+        ge.primary = fullPath;
+        ge.members << fullPath;
+        out.entries << ge;
     }
     if (!anchorEntry.isEmpty()) {
         out.anchor = int(out.files.indexOf(prefix + anchorEntry));

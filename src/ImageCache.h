@@ -31,6 +31,7 @@ class ImageCache : public QObject
     Q_OBJECT
 public:
     explicit ImageCache(QObject *parent = nullptr);
+    ~ImageCache() override;
 
     QImage cachedFull(const QString &path) const;
     // preempt=true：显式跳转（打开/换目录/滑杆落点/缩略图/书签/首尾/快速反向）。
@@ -122,6 +123,7 @@ private:
     // QtConcurrent 默认按逻辑核数并发，连按/预读会把 CPU 打满，抢占时也未必
     // 立刻拿得到线程。这里的上限就是「线程数按实测有上限」的落点。
     QThreadPool m_decodePool;
+    QThreadPool m_dragPool;
     QSize m_previewSize;        // 快帧目标尺寸（视口像素）
     // 预读：同一时刻也只跑 1 个（与全图解码共用「单飞」），排到的路径放这里。
     QList<QString> m_preloadQueue;
