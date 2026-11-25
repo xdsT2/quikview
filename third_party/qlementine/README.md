@@ -3,15 +3,25 @@ Qlementine — 参考的开源控件实现
 
 上游仓库：https://github.com/oclero/qlementine
 许可：MIT（版权 Olivier Cléro <oclero@hotmail.com>，全文见同目录 LICENSE.txt）
-抓取日期：2026-11-22
-抓取分支：dev（上游未提供可直接引用的 release tag，且 GitHub commits API
-         在本机不可达，因此按 dev 分支原文核对，未编造版本号）
+初次抓取日期：2026-11-22（dev 分支原文；当时未留存 commit sha）
+不可变锚点（2026-11-24 核对，经 git ls-remote 取到上游 release tag）：
+  release tag：v1.5.2
+  commit：7825161fce66ac5a49bc0ffe39ab13df5ff8ff4a
+          （2026-10-05T18:27:53+02:00，Merge pull request #192 from oclero/dev）
+  快照校验哈希（SHA256）：
+    lib/src/widgets/Switch.cpp
+      C1BA13C8C5E9B8CC1933AF1CEC9593F6FF1CA6DE209374C1D4901119F28BAA3A
+    lib/include/oclero/qlementine/style/Theme.hpp
+      AE41BFFCC7829679FB1CD0C3335A3D6A6315F1EFCE51E449377DE74C10C10D3A
 
 本项目参考的文件
 ----------------
-lib/src/widgets/Switch.cpp        （开关的轨道/滑块几何与状态划分）
-lib/src/style/Theme.hpp           （controlHeightLarge / controlHeightSmall、
-                                   borderWidth 等尺寸字段含义，仅作理解用）
+lib/src/widgets/Switch.cpp        （开关的轨道/滑块绘制结构与状态划分）
+lib/include/oclero/qlementine/style/Theme.hpp
+                                   （controlHeightLarge / controlHeightSmall、
+                                   borderWidth 等尺寸字段含义，仅作理解用；
+                                   v1.5.2 下实际路径。旧记录曾写
+                                   lib/src/style/Theme.hpp，该路径在 v1.5.2 不存在）
 
 使用范围与方式
 --------------

@@ -5,12 +5,22 @@
 //   SPDX-FileCopyrightText: Olivier Cléro <oclero@hotmail.com>
 //   SPDX-License-Identifier: MIT
 //   来源：https://github.com/oclero/qlementine/blob/dev/lib/src/widgets/Switch.cpp
-//   抓取日期：2026-11-22（上游未提供可用 tag/commit，按 dev 分支原文对齐）
+//   初次抓取日期：2026-11-22（当时按 dev 分支原文对齐，未留存 commit sha）
+//   不可变锚点（2026-11-24 核对）：release tag v1.5.2，commit
+//     7825161fce66ac5a49bc0ffe39ab13df5ff8ff4a
+//     （2026-10-05T18:27:53+02:00，Merge pull request #192 from oclero/dev）
+//   锚点快照校验哈希（SHA256）：
+//     lib/src/widgets/Switch.cpp
+//       C1BA13C8C5E9B8CC1933AF1CEC9593F6FF1CA6DE209374C1D4901119F28BAA3A
+//     lib/include/oclero/qlementine/style/Theme.hpp（v1.5.2 中主题头文件实际路径）
+//       AE41BFFCC7829679FB1CD0C3335A3D6A6315F1EFCE51E449377DE74C10C10D3A
 // 上游用一个 QAbstractButton 子类自绘「圆角轨道 + 圆形滑块」，几何取
 // theme.controlHeightLarge × controlHeightSmall，滑块直径 = 轨道高 - 内边距 2 倍，
 // 滑块左界 = 轨道左 + 内边距 + 可滑动余量 * 位置比例；悬停 / 按下 / 禁用 / 焦点
-// 只换色不换形，位置动画 OutCubic。这里保留该几何与状态结构，颜色改接
-// QuikView 色板（UiStyle::fluent），不引入 Qlementine 的 QStyle。
+// 只换色不换形，位置动画 OutCubic。此处仅参考该绘制结构与状态划分逻辑，
+// 几何为本项目自定（轨道 40×22、滑块 16、内边距 3；上游默认 28×16、滑块 12、
+// 内边距 2），颜色改接 QuikView 色板（UiStyle::fluent），不引入 Qlementine 的
+// QStyle；未整文件拷贝上游源码，未引入上游库。
 // 详见 NOTICE 第七节与 third_party/qlementine/。
 
 #include "PillToggle.h"
