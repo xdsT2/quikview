@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QFontMetrics>
 #include <QHash>
 #include <QMenu>
 #include <QRect>
@@ -8,9 +9,9 @@
 // 应用内右键菜单与顶栏三横菜单共用的自绘层。
 // ---------------------------------------------------------------------------
 // 只接管绘制与尺寸，导航/级联/快捷键/Esc 仍走 QMenu 原生行为：
-//   - 行高 30px、菜单圆角 10px、行圆角 6px、分隔线上下各 4px（几何仍由
+//   - 行高 32px、菜单圆角 10px、行圆角 6px、分隔线上下各 4px（几何仍由
 //     全局 QSS 的 QMenu 规则给出，绘制在 actionGeometry 的行矩形内完成）；
-//   - 16px 线性图标（MenuIcons）+ 13px 标签 + 11px 右对齐快捷键列（最小 76px）；
+//   - 16px 线性图标（MenuIcons）+ 14px 标签 + 12px 右对齐快捷键列（最小 76px）；
 //   - 勾选用勾、单选用实心圆点，画在快捷键列左侧的独立位置；
 //   - 正文键盘选中与悬停共用行底色；
 //   - 危险行（删除）：图标危险色、悬停低饱和危险底，文字保持中性；
@@ -58,16 +59,20 @@ public:
 
 protected:
     void paintEvent(QPaintEvent *event) override;
+    void showEvent(QShowEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
-    bool event(QEvent *event) override;
 
 private:
     QString displayLabel(const QAction *action) const;
     QString displayShortcut(const QAction *action) const;
     bool hasShortcutColumn(const QList<QAction *> &actions) const;
+    // 与 paintEvent 同口径复算行内列宽预算；返回需要提示的完整文本，未截断返回空串。
+    QString actionToolTip(const QAction *action, const QRect &row,
+                          bool shortcutCol, bool arrowCol,
+                          const QFontMetrics &fmL, const QFontMetrics &fmS) const;
     // 快捷区几何：按钮矩形（删除前短分隔占位）、短分隔 x、下方分隔线 y。
     // 锚点取首条正文行的 actionGeometry（QSS padding 不进 contentsMargins，
     // 以正文行布局为唯一真源，保证绘制/命中/正文三者严格一致）。

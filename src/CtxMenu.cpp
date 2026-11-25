@@ -1,5 +1,5 @@
 // CtxMenu 自绘实现（右键菜单派单 2026-11-14）。
-// 几何（行高 30/内边距/分隔）沿用全局 QSS 的 QMenu 规则，这里只重画内容；
+// 几何（行高 32px/内边距/分隔）沿用全局 QSS 的 QMenu 规则，这里只重画内容；
 // 命中区域因此与绘制严格一致（都来自 actionGeometry）。
 
 #include "CtxMenu.h"
@@ -8,17 +8,17 @@
 #include "UiStyle.h"
 
 #include <QActionGroup>
-#include <QHelpEvent>
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
-#include <QToolTip>
+#include <QShowEvent>
 
 namespace {
 
 // —— 规格取值（完整设计规格与默认开关表.md §视觉与交互）——
-constexpr int kRowH        = 30;
+// 行高不在本文件另存常量：由全局 QSS `QMenu::item { height: 32px }`（UiStyle.h
+// 深色/浅色两套）给出，行矩形取自 actionGeometry；本类只在其内重画内容。
 constexpr int kIconSize    = 16;
 constexpr int kIconPadX    = 8;    // 行内左右各 8px
 constexpr int kIconTextGap = 8;
@@ -107,6 +107,9 @@ CtxMenu::CtxMenu(QWidget *parent, Presentation presentation)
 {
     // 标签 14px（2026-11-22 统一字号）：菜单尺寸与绘制同源（QSS 字号不作用于本菜单排版）。
     setFont(UiStyle::font(14));
+    // QMenu 默认吞掉 action tooltip；显式打开后由基类自管的悬停链路弹出，
+    // 不走 popup 激活期间被封的 QHelpEvent 通道。
+    setToolTipsVisible(true);
 }
 
 void CtxMenu::setActionIcon(const QAction *action, const char *iconId)
@@ -393,28 +396,80 @@ void CtxMenu::keyPressEvent(QKeyEvent *event)
     QMenu::keyPressEvent(event);
 }
 
-bool CtxMenu::event(QEvent *ev)
+QString CtxMenu::actionToolTip(const QAction *a, const QRect &row,
+                               bool shortcutCol, bool arrowCol,
+                               const QFontMetrics &fmL, const QFontMetrics &fmS) const
 {
-    // 快捷区悬停提示：动作名称和实际生效快捷键（设计 12/15 的「打开图片 (F2)」）
-    if (ev->type() == QEvent::ToolTip && !m_quick.isEmpty()) {
-        auto *he = static_cast<QHelpEvent *>(ev);
-        const int idx = quickIndexAt(he->pos());
-        if (idx >= 0) {
-            QAction *a = m_quick.at(idx);
-            if (a->isEnabled()) {
-                QString tip = displayLabel(a);
-                const QString sc = displayShortcut(a);
-                if (!sc.isEmpty()) {
-                    tip += QStringLiteral(" (%1)").arg(sc);
-                }
-                QToolTip::showText(he->globalPos(), tip, this, quickButtonRect(idx));
-            } else {
-                QToolTip::hideText();
-            }
-            return true;
-        }
+    const QString label = displayLabel(a);
+    const QString shortcut = displayShortcut(a);
+
+    // 列几何与 paintEvent 一致：图标 → 标签 → 勾/点列 → 快捷键列 → 箭头。
+    const qreal x = row.left() + kIconPadX + kIconSize + kIconTextGap;
+    qreal arrowRight = 0;
+    if (arrowCol && a->menu()) {
+        arrowRight = row.right() - kIconPadX;
     }
-    return QMenu::event(ev);
+    qreal shortcutRight = arrowRight > 0 ? arrowRight - kArrowW - 6
+                                         : row.right() - kIconPadX;
+    qreal shortcutLeft = 0;
+    if (shortcutCol) {
+        const int sw = qMax(kMinShortcutW, fmS.horizontalAdvance(shortcut) + 10);
+        shortcutLeft = shortcutRight - sw;
+    }
+    qreal labelRight = shortcutCol ? shortcutLeft - 6 : shortcutRight - 6;
+    if (!shortcutCol && (a->isCheckable() || hasFlag(a, kRadioProp))) {
+        labelRight -= 18;   // 勾/点列预留（与 sizeHint 的 18px 同口径）
+    }
+    const int labelAvail = qMax(0, int(labelRight - x));
+    const int scAvail = qMax(0, int(shortcutRight - shortcutLeft));
+    const bool labelTrunc = labelAvail > 0
+        && fmL.elidedText(label, Qt::ElideRight, labelAvail) != label;
+    const bool scTrunc = shortcutCol && !shortcut.isEmpty()
+        && fmS.elidedText(shortcut, Qt::ElideRight, scAvail) != shortcut;
+
+    QString tip;
+    if (labelTrunc) {
+        tip = label;
+    }
+    if (scTrunc) {
+        tip = tip.isEmpty() ? shortcut : tip + QStringLiteral("\n") + shortcut;
+    }
+    return tip;
+}
+
+void CtxMenu::showEvent(QShowEvent *event)
+{
+    QMenu::showEvent(event);
+
+    // 菜单原生 tooltip 通道：按当前行布局复算截断，只给真被省略的行挂完整文本；
+    // 未截断行清空，避免正常行悬停被提示打扰。列宽口径与 paintEvent / actionToolTip
+    // 保持同一份，不另算一套。
+    const QList<QAction *> acts = actions();
+    const QFont fLabel = UiStyle::font(14);
+    const QFont fShort = UiStyle::font(12);
+    const QFontMetrics fmL(fLabel);
+    const QFontMetrics fmS(fShort);
+    const bool shortcutCol = hasShortcutColumn(acts);
+    const bool arrowCol = anySubmenu(acts);
+    for (QAction *a : acts) {
+        if (a->isSeparator()) {
+            continue;
+        }
+        const QRect row = actionGeometry(a);
+        QString tip;
+        const bool quick = m_quick.contains(a);
+        if (quick) {
+            // 快捷区是纯图标按钮：保留「名称 (快捷键)」提示，走原生通道。
+            tip = displayLabel(a);
+            const QString sc = displayShortcut(a);
+            if (!sc.isEmpty()) {
+                tip += QStringLiteral(" (%1)").arg(sc);
+            }
+        } else {
+            tip = actionToolTip(a, row, shortcutCol, arrowCol, fmL, fmS);
+        }
+        a->setToolTip(tip);
+    }
 }
 
 QSize CtxMenu::sizeHint() const
@@ -595,7 +650,7 @@ void CtxMenu::paintEvent(QPaintEvent *event)
             rowPath.addRoundedRect(QRectF(row).adjusted(1, 1, -1, -1), kRowRadius, kRowRadius);
             p.fillPath(rowPath, rowBg);
         }
-        // —— 列布局（规格：图标 16 → 8px → 标签 13px → 勾/点列 → 快捷键列(≥76) → 箭头）——
+        // —— 列布局（规格：图标 16 → 8px → 标签 14px → 勾/点列 → 快捷键列(≥76) → 箭头）——
         const qreal iconX = row.left() + kIconPadX;
         const qreal iconY = row.center().y() - kIconSize / 2.0;
         qreal x = iconX + kIconSize + kIconTextGap;
@@ -624,13 +679,17 @@ void CtxMenu::paintEvent(QPaintEvent *event)
         // 标签（危险行文字保持中性主文色，规格 §视觉与交互）
         p.setFont(fLabel);
         p.setPen(enabled ? colText : colDisabled);
-        int labelAvail = int(row.width());
-        if (shortcutCol) {
-            labelAvail = int(shortcutLeft - x - 6);
+        // 列宽预算：先扣快捷键列实占宽度；无快捷键列时给勾/点列预留。超长按右省略，
+        // 完整文本由菜单原生 tooltip 通道给出（showEvent 按同口径判定后挂到 action）。
+        qreal labelRight = shortcutCol ? shortcutLeft - 6 : shortcutRight - 6;
+        if (!shortcutCol && (a->isCheckable() || hasFlag(a, kRadioProp))) {
+            labelRight -= 18;
         }
+        const int labelAvail = qMax(0, int(labelRight - x));
+        const QString labelShown = fmL.elidedText(label, Qt::ElideRight, labelAvail);
         p.drawText(QRectF(x, row.top(), labelAvail, row.height()),
-                   Qt::AlignVCenter | Qt::AlignLeft | (context ? 0 : Qt::TextShowMnemonic), label);
-        x += fmL.horizontalAdvance(label);
+                   Qt::AlignVCenter | Qt::AlignLeft | (context ? 0 : Qt::TextShowMnemonic), labelShown);
+        x += fmL.horizontalAdvance(labelShown);
         if (context && hasFlag(a, kLockProp)) {
             drawLock(p, QPointF(x + 8, row.center().y()), shortcutColor());
         }
@@ -644,12 +703,14 @@ void CtxMenu::paintEvent(QPaintEvent *event)
             drawCheck(p, QPointF(markX, row.center().y()), enabled ? colText : colDisabled, radio);
         }
 
-        // 快捷键（11px 右对齐）
+        // 快捷键（12px 右对齐；超长按列宽右省略，完整文本走 tooltip）
         if (shortcutCol && !shortcut.isEmpty()) {
             p.setFont(fShort);
             p.setPen(enabled ? shortcutColor() : colDisabled);
-            p.drawText(QRectF(shortcutLeft, row.top(), shortcutRight - shortcutLeft, row.height()),
-                       Qt::AlignVCenter | Qt::AlignRight, shortcut);
+            const int scAvail = qMax(0, int(shortcutRight - shortcutLeft));
+            const QString shortcutShown = fmS.elidedText(shortcut, Qt::ElideRight, scAvail);
+            p.drawText(QRectF(shortcutLeft, row.top(), scAvail, row.height()),
+                       Qt::AlignVCenter | Qt::AlignRight, shortcutShown);
         }
 
         // 级联箭头 12px
