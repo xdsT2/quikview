@@ -1715,11 +1715,13 @@ QString ControlBar::tipText(Action action) const
     case Action::List: return tr("缩略图栏");
     case Action::GroupBy: return tr("分组方式");
     case Action::Overview: return tr("图片总览");
-    case Action::ZoomOut: return tr("缩小");
+    case Action::ZoomOut: return m_overviewActive ? tr("缩小缩略图") : tr("缩小");
     case Action::ZoomValue:
+        // 总览态（kind=3）：胶囊只显示缩略图档位，点击不循环切画布。
+        if (m_zoomKind == 3) return tr("缩略图大小");
         // 提示跟着下一步操作走：100% 时点它去适合窗口，其余状态都先回原始尺寸。
         return m_zoomKind == 1 ? tr("适合窗口") : tr("查看原始尺寸（100%）");
-    case Action::ZoomIn: return tr("放大");
+    case Action::ZoomIn: return m_overviewActive ? tr("放大缩略图") : tr("放大");
     case Action::Rotate: return tr("旋转：左键逆时针 90°，右键顺时针 90°");
     case Action::Fullscreen: return tr("全屏 / 还原 (F11)");
     case Action::Prev: return tr("上一张图片 (←)");

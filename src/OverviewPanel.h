@@ -53,6 +53,15 @@ public:
     // 按可见顺序平移选中（底栏左右翻页）；到边界返回 false，调用方给提示。
     bool stepPosition(int delta);
 
+    // —— 卡片缩放档位（2026-11-25 派单：底栏 ＋/－ 与 Ctrl＋/－ 共用）——
+    // 5 档离散档位，中间档 = 现有默认卡片尺寸；加号变大、减号变小，列数随网格自适应。
+    static constexpr int zoomStepCount = 5;
+    static constexpr int defaultZoomStep = 2;
+    int zoomStep() const { return m_zoomStep; }
+    bool zoomStepIn();    // 放大一档；已在最大档返回 false（不越界、不抖动）
+    bool zoomStepOut();   // 缩小一档；已在最小档返回 false
+    void resetZoomStep(); // 每次打开总览回到中间档（与单图倍率互不影响）
+
     // 打开时把当前图片定位到可视区域（只滚到可见，不强行居中）。
     void revealCurrent();
     // 验收探针：滚到内容末端（验证末排缩略图与文件名可见）。
@@ -143,6 +152,7 @@ private:
     int m_current = -1;        // 文件下标（与目录一致，打开图片沿用它）
     int m_hover = -1;          // 可见位置
     int m_scroll = 0;
+    int m_zoomStep = defaultZoomStep;   // 卡片缩放档位（中间档起步）
     bool m_updateQueued = false;
     bool m_keyboardFocus = false;   // 最近一次交互来自键盘（焦点环只在键盘可见时出）
 

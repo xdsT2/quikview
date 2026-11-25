@@ -497,6 +497,18 @@
             <translation>Zoom Out</translation>
         </message>
         <message>
+            <source>缩小缩略图</source>
+            <translation>Shrink thumbnails</translation>
+        </message>
+        <message>
+            <source>放大缩略图</source>
+            <translation>Enlarge thumbnails</translation>
+        </message>
+        <message>
+            <source>缩略图大小</source>
+            <translation>Thumbnail size</translation>
+        </message>
+        <message>
             <source>适合窗口</source>
             <translation>Fit to Window</translation>
         </message>

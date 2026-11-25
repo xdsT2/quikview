@@ -23,7 +23,17 @@ namespace {
 // 网格与卡片数值来自用户确认原型（图片总览-用户确认网格原型.html）：
 // 列最小 145px、列间距 18px、行间距 26px、瓦片高 155px 档、缩略图最大高 113px、
 // 卡片圆角 11px、缩略图圆角 5px。这里按 Qt 逻辑像素落地，间距/高度取整即可对齐。
-constexpr int kMinCellW = 145;
+// 卡片缩放档位（2026-11-25 派单）：5 档离散尺寸，中间档（索引 2）= 返工原型默认值。
+// minCellW = 网格列宽下限（越大列数越少、卡片越大）；imageHMin/Max = 缩略图高度上下限。
+// 列数仍按可用宽度自适应，窄窗触边时自动减列，图片纵横比不变。
+struct ZoomStepSpec { int minCellW; int imageHMin; int imageHMax; };
+constexpr ZoomStepSpec kZoomSteps[OverviewPanel::zoomStepCount] = {
+    { 108, 64,  88  },   // 0 最小
+    { 126, 72,  106 },   // 1 较小
+    { 145, 80,  146 },   // 2 默认（返工原型基准）
+    { 172, 88,  170 },   // 3 较大
+    { 204, 96,  196 },   // 4 最大
+};
 constexpr int kTileRadius = 10;
 constexpr int kThumbRadius = 5;
 constexpr int kNameChipRadius = 5;
@@ -371,6 +381,72 @@ void OverviewPanel::rebuildLayout() const
     m_layout.contentH = n == 0 ? 0 : y + m.bottomReserve;
 }
 
+// 卡片放大一档：列数随之减少、卡片变大；已在最大档直接返回 false，不重排、不抖动。
+bool OverviewPanel::zoomStepIn()
+{
+    if (m_zoomStep >= zoomStepCount - 1) {
+        return false;
+    }
+    // 缩放前记录选中格在视口里的纵向位置比例，布局重建后按同一比例回滚，
+    // 尽量维持当前视口；原本可见的选中格继续保持可见。
+    const int pos = currentPosition();
+    const QRect before = pos >= 0 ? cellRect(pos) : QRect();
+    const qreal rel = before.isNull() ? 0.0
+                    : qBound(0.0, qreal(before.top()) / qMax(1, height()), 1.0);
+    ++m_zoomStep;
+    invalidateLayout();
+    m_scroll = qBound(0, m_scroll, maxScroll());
+    if (pos >= 0) {
+        const QRect after = cellRect(pos);
+        if (!after.isNull()) {
+            const int targetTop = qRound(rel * height());
+            m_scroll = qBound(0, m_scroll + after.top() - targetTop, maxScroll());
+        }
+        ensureVisiblePosition(pos);
+    }
+    update();
+    schedulePreviews();
+    return true;
+}
+
+// 卡片缩小一档：列数随之增多、卡片变小；已在最小档返回 false。
+bool OverviewPanel::zoomStepOut()
+{
+    if (m_zoomStep <= 0) {
+        return false;
+    }
+    const int pos = currentPosition();
+    const QRect before = pos >= 0 ? cellRect(pos) : QRect();
+    const qreal rel = before.isNull() ? 0.0
+                    : qBound(0.0, qreal(before.top()) / qMax(1, height()), 1.0);
+    --m_zoomStep;
+    invalidateLayout();
+    m_scroll = qBound(0, m_scroll, maxScroll());
+    if (pos >= 0) {
+        const QRect after = cellRect(pos);
+        if (!after.isNull()) {
+            const int targetTop = qRound(rel * height());
+            m_scroll = qBound(0, m_scroll + after.top() - targetTop, maxScroll());
+        }
+        ensureVisiblePosition(pos);
+    }
+    update();
+    schedulePreviews();
+    return true;
+}
+
+void OverviewPanel::resetZoomStep()
+{
+    if (m_zoomStep == defaultZoomStep) {
+        return;
+    }
+    m_zoomStep = defaultZoomStep;
+    invalidateLayout();
+    m_scroll = qBound(0, m_scroll, maxScroll());
+    update();
+    schedulePreviews();
+}
+
 void OverviewPanel::revealCurrent()
 {
     ensureVisiblePosition(currentPosition());
@@ -429,13 +505,14 @@ OverviewPanel::Metrics OverviewPanel::metrics() const
     m.marginX = qBound(20, qRound(width() * 0.042), 96);
     m.gapX = 18;
     m.gapY = 26;
+    const ZoomStepSpec &spec = kZoomSteps[qBound(0, m_zoomStep, zoomStepCount - 1)];
     const int avail = qMax(0, width() - 2 * m.marginX);
-    int cols = (avail + m.gapX) / (kMinCellW + m.gapX);
+    int cols = (avail + m.gapX) / (spec.minCellW + m.gapX);
     m.cols = qMax(1, cols);
     m.cellW = qMax(72, (avail - (m.cols - 1) * m.gapX) / m.cols);
-    // 缩略图高度随格宽走（原型 146 宽对 110 高 ≈ 0.75），下限保住窄窗可读性，
-    // 上限 146 防止超宽显示器把缩略图无限放大。
-    m.imageH = qBound(80, qRound(m.cellW * 0.75), 146);
+    // 缩略图高度随格宽走（原型 146 宽对 110 高 ≈ 0.75）；上下限按当前档位取，
+    // 下限保住窄窗可读性，上限防止超宽显示器 / 最大档把缩略图无限放大。
+    m.imageH = qBound(spec.imageHMin, qRound(m.cellW * 0.75), spec.imageHMax);
     m.cardPadX = 10;
     m.cardPadTop = 10;
     m.cardPadBottom = 6;
@@ -783,9 +860,10 @@ QString OverviewPanel::probeMetrics() const
     const int pos = currentPosition();
     const QRect cell = cellRect(pos);
     const Layout &l = layout();
-    return QStringLiteral("cols=%1 cellW=%2 cellH=%3 imageH=%4 gridX=%5 scroll=%6 max=%7 "
-                          "current=%8 pos=%9 cell=%10,%11 %12x%13 height=%14 imgs=%15 pending=%16 failed=%17 "
-                          "visible=%18 group=%19 asc=%20 groups=%21 content=%22")
+    return QStringLiteral("step=%1 cols=%2 cellW=%3 cellH=%4 imageH=%5 gridX=%6 scroll=%7 max=%8 "
+                          "current=%9 pos=%10 cell=%11,%12 %13x%14 height=%15 imgs=%16 pending=%17 failed=%18 "
+                          "visible=%19 group=%20 asc=%21 groups=%22 content=%23")
+        .arg(m_zoomStep)
         .arg(m.cols)
         .arg(m.cellW)
         .arg(m.cellH)
