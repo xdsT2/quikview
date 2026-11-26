@@ -893,6 +893,56 @@ void Config::addRecentFile(const QString &path)
     m_settings.setValue(QStringLiteral("recent_files"), recent);
 }
 
+int Config::photoFolderCount() const
+{
+    int count = qBound(kMinPhotoFolders,
+                       m_settings.value(QStringLiteral("config/etc/photo_folder_count"), 2).toInt(),
+                       kMaxPhotoFolders);
+    for (int i = count + 1; i <= kMaxPhotoFolders; ++i) {
+        if (!photoFolder(i).isEmpty()) {
+            count = i;
+        }
+    }
+    return count;
+}
+
+QString Config::photoFolder(int index1Based) const
+{
+    if (index1Based < kMinPhotoFolders || index1Based > kMaxPhotoFolders) {
+        return QString();
+    }
+    return m_settings.value(QStringLiteral("config/etc/photo_folder_%1").arg(index1Based))
+        .toString()
+        .trimmed();
+}
+
+QStringList Config::photoFolders() const
+{
+    const int n = photoFolderCount();
+    QStringList out;
+    out.reserve(n);
+    for (int i = 1; i <= n; ++i) {
+        out.append(photoFolder(i));
+    }
+    return out;
+}
+
+void Config::setPhotoFolders(const QStringList &folders)
+{
+    const int n = qBound(kMinPhotoFolders, int(folders.size()), kMaxPhotoFolders);
+    m_settings.setValue(QStringLiteral("config/etc/photo_folder_count"), n);
+    for (int i = 1; i <= kMaxPhotoFolders; ++i) {
+        const QString key = QStringLiteral("config/etc/photo_folder_%1").arg(i);
+        if (i <= n) {
+            const QString val = (i - 1 < folders.size()) ? folders.at(i - 1).trimmed() : QString();
+            m_settings.setValue(key, val);
+        } else {
+            m_settings.remove(key);
+        }
+    }
+    m_settings.sync();
+}
+
 // —— 窗口几何（整数键，不用 saveGeometry）——
 // 键名带 config/ 前缀，与其余键同命名空间；便携模式随 config.ini 走。
 bool Config::hasWindowGeometry() const

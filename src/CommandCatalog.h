@@ -45,6 +45,8 @@ inline constexpr const char *FileQuit            = "CMD_FILE_QUIT";
 inline constexpr const char *FileDelete          = "CMD_FILE_DELETE";
 inline constexpr const char *FileRename          = "CMD_FILE_RENAME";
 inline constexpr const char *FileCopyToFolder    = "CMD_FILE_COPY_TO_FOLDER";
+inline constexpr const char *FileMoveToFolder    = "CMD_FILE_MOVE_TO_FOLDER";
+inline constexpr const char *PhotoFolderPanel    = "CMD_PHOTO_FOLDER_PANEL";
 inline constexpr const char *FileOpenWithEditor  = "CMD_FILE_OPEN_WITH_EDITOR";
 inline constexpr const char *FileWallpaper       = "CMD_FILE_SET_WALLPAPER";
 inline constexpr const char *FileSelect          = "CMD_FILE_SELECT";
@@ -197,6 +199,10 @@ inline const Entry kEntries[] = {
       QT_TRANSLATE_NOOP("MainWindow", "重命名…"),                "F6",            false, false },
     { Cmd::FileCopyToFolder,   GroupFile,      "",           "",    "MainWindow",
       QT_TRANSLATE_NOOP("MainWindow", "复制到 图片文件夹"),       "Ins",           false, false },
+    { Cmd::FileMoveToFolder,   GroupFile,      "",           "",    "MainWindow",
+      QT_TRANSLATE_NOOP("MainWindow", "移动到 图片文件夹 1"),     "Ctrl+Ins",      false, false },
+    { Cmd::PhotoFolderPanel,   GroupFile,      "",           "",    "MainWindow",
+      QT_TRANSLATE_NOOP("MainWindow", "照片文件夹面板…"),         "Alt+P",         false, false },
     { Cmd::FileOpenWithEditor, GroupFile,      "",           "",    "MainWindow",
       QT_TRANSLATE_NOOP("MainWindow", "用图像编辑器打开"),        "Ctrl+E",        false, false },
     { Cmd::FileWallpaper,      GroupFile,      "",           "",    "MainWindow",

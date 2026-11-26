@@ -20,6 +20,7 @@
 #include "PanoMetadata.h"
 
 class QFileDialog;
+class PhotoFolderPanel;
 
 class ImageCanvas;
 class PanoChip;
@@ -176,6 +177,8 @@ private slots:
     void onDeleteFile();
     void onRename();
     void onCopyToFolder();
+    void onMoveToFolder();
+    void onTogglePhotoFolderPanel();
     void onOpenWithEditor();
     void onCopyToClipboard();
     // 复制四变体（复制与剪贴板三件）：四键均沿用现有 Ctrl+C 空态口径
@@ -348,6 +351,8 @@ private:
     void onToggleMaximize();      // 最大化/还原唯一入口（锁定时拦下）
     void setSlideshow(bool on);
     void applyCrop();
+    void executePhotoFolderTransfer(const QString &cfgKey, bool moveFile);
+    void openPhotoFolderIndex(int index1Based);
     void refreshLibraryMenus();
     void applyEffect();
     void resetEffect();
@@ -454,6 +459,7 @@ private:
     // 无法拖动」）。改为 show() 后主窗口保持可交互，关闭收尾走 finishSettings()。
     // QPointer 天然处理「用户点 × 已销毁」的悬空，重复 F5 也能识别已开着的实例。
     QPointer<QDialog> m_settingsDlg;
+    QPointer<PhotoFolderPanel> m_photoFolderPanel;
     void finishSettings();   // 设置关闭后重放运行态（原 exec() 之后的收尾）
     // 打开设置时把运行态（有图、勾选、互斥当前值、可用性）一次性推给
     // 「查看器右键菜单」的常驻预览，避免设置页自己维护第二份动作真源。
@@ -464,6 +470,8 @@ private:
     QAction *actDelete = nullptr;
     QAction *actRename = nullptr;
     QAction *actCopyToFolder = nullptr;
+    QAction *actMoveToFolder = nullptr;
+    QAction *actPhotoFolderPanel = nullptr;
     QAction *actOpenWithEditor = nullptr;
     QAction *actCopyToClipboard = nullptr;
     QAction *actCopyExif = nullptr;

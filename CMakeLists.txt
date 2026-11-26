@@ -65,6 +65,8 @@ add_executable(quikview WIN32
     src/BatchRename.h
     src/RenameDialog.cpp
     src/RenameDialog.h
+    src/PhotoFolderPanel.cpp
+    src/PhotoFolderPanel.h
     # 压缩包直读（派单 2026-11-18）：自研中央目录解析 + 复用 psd_sdk 内置 miniz
     src/ZipArchive.cpp
     src/ZipArchive.h
@@ -316,6 +318,11 @@ if(BUILD_TESTING)
     target_include_directories(quikview-batchrename-test PRIVATE src)
     target_link_libraries(quikview-batchrename-test PRIVATE Qt6::Core)
     add_test(NAME batchrename.pure COMMAND quikview-batchrename-test)
+
+    add_executable(quikview-photofolders-test tests/unit/photo_folders_test.cpp src/Config.cpp)
+    target_include_directories(quikview-photofolders-test PRIVATE src ${CMAKE_CURRENT_SOURCE_DIR}/shared)
+    target_link_libraries(quikview-photofolders-test PRIVATE Qt6::Gui)
+    add_test(NAME photofolders.pure COMMAND quikview-photofolders-test)
 
     include("${CMAKE_CURRENT_SOURCE_DIR}/tests/chrome_popup_cases.cmake")
     foreach(_chrome_case IN LISTS QUIKVIEW_CHROME_CASES)

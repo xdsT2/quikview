@@ -165,6 +165,14 @@ public:
     bool autoBookmark() const;        // 打开图片时自动加入书签（默认 false）
     void addRecentFile(const QString &path);
 
+    // 照片文件夹（H1-1）：1–20 个可配目标文件夹；兼容旧两格 config/etc/photo_folder_1/2。
+    static constexpr int kMinPhotoFolders = 1;
+    static constexpr int kMaxPhotoFolders = 20;
+    int photoFolderCount() const;
+    QString photoFolder(int index1Based) const;
+    QStringList photoFolders() const;
+    void setPhotoFolders(const QStringList &folders);
+
     // 检查更新
     bool checkUpdatesOnStartup() const;      // 启动时自动检查（默认开，5s 延迟 / 24h 限频）
     qint64 lastUpdateCheck() const;          // 上次检查时间（epoch 秒，0 = 从未）

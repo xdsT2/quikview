@@ -4,6 +4,7 @@
 #include "DialogShell.h"
 #include "FlipProbe.h"
 #include "PerfProbe.h"
+#include "PhotoFolderPanel.h"
 #include "RenameDialog.h"
 #include "ThemeProbe.h"
 
@@ -1670,6 +1671,8 @@ void MainWindow::createActions()
     actDelete = mk(tr("删除"), QKeySequence::Delete, &MainWindow::onDeleteFile, QStringLiteral("del"));   // Del
     actRename = mk(tr("重命名…"), QKeySequence(QStringLiteral("F6")), &MainWindow::onRename);
     actCopyToFolder = mk(tr("复制到 图片文件夹"), QKeySequence(QStringLiteral("Ins")), &MainWindow::onCopyToFolder);
+    actMoveToFolder = mk(tr("移动到 图片文件夹 1"), QKeySequence(QStringLiteral("Ctrl+Ins")), &MainWindow::onMoveToFolder);
+    actPhotoFolderPanel = mk(tr("照片文件夹面板…"), QKeySequence(QStringLiteral("Alt+P")), &MainWindow::onTogglePhotoFolderPanel);
     actOpenWithEditor = mk(tr("用图像编辑器打开"), QKeySequence(QStringLiteral("Ctrl+E")), &MainWindow::onOpenWithEditor);
     actCopyToClipboard = mk(tr("复制到剪贴板"), QKeySequence::Copy, &MainWindow::onCopyToClipboard);
     // 复制四变体（复制与剪贴板三件）：键位对齐 BandiView；固定键位不进键盘自定义表
@@ -1973,6 +1976,8 @@ void MainWindow::registerCommands()
         { Cmd::FileDelete, actDelete },
         { Cmd::FileRename, actRename },
         { Cmd::FileCopyToFolder, actCopyToFolder },
+        { Cmd::FileMoveToFolder, actMoveToFolder },
+        { Cmd::PhotoFolderPanel, actPhotoFolderPanel },
         { Cmd::FileOpenWithEditor, actOpenWithEditor },
         { Cmd::FileWallpaper, actWallpaper },
         { Cmd::FileSelect, actSelectImage },
@@ -2589,15 +2594,7 @@ QMenu *MainWindow::buildCopytoMenu(CtxMenu *parentMenu)
     auto transferTo = [this, menu, style](const QString &label, const QString &shortcut,
                                    const QString &key, bool moveFile) {
         QAction *action = addMenuItem(menu, label, shortcut, [this, key, moveFile]() {
-            QString dest;
-            QString error;
-            if (transferCurrentToFolder(key, moveFile, &dest, &error)) {
-                m_toast->showMessage(moveFile ? tr("已移动到：%1").arg(dest)
-                                              : tr("已复制到：%1").arg(dest),
-                                     Chrome::Toast::Tone::Success);
-            } else {
-                m_toast->showMessage(error, Chrome::Toast::Tone::Warning);
-            }
+            executePhotoFolderTransfer(key, moveFile);
         });
         style(action, moveFile ? "folder-next" : "copy");
     };
@@ -2605,20 +2602,28 @@ QMenu *MainWindow::buildCopytoMenu(CtxMenu *parentMenu)
                QStringLiteral("config/etc/photo_folder_1"), false);
     transferTo(tr("复制到 图片文件夹 2"), QString(),
                QStringLiteral("config/etc/photo_folder_2"), false);
-    transferTo(tr("移动到 图片文件夹 1"), QString(),
+    transferTo(tr("移动到 图片文件夹 1"), QStringLiteral("Ctrl+Insert"),
                QStringLiteral("config/etc/photo_folder_1"), true);
+    const QStringList extraFolders = Config::instance().photoFolders();
+    for (int i = 2; i < extraFolders.size(); ++i) {
+        const QString dirPath = extraFolders.at(i);
+        if (dirPath.isEmpty()) {
+            continue;
+        }
+        const int idx1 = i + 1;
+        const QString key = QStringLiteral("config/etc/photo_folder_%1").arg(idx1);
+        const QString folderName = QFileInfo(dirPath).fileName();
+        const QString tag = folderName.isEmpty() ? dirPath : folderName;
+        transferTo(tr("复制到 %1 (%2)").arg(idx1).arg(tag), QString(), key, false);
+        transferTo(tr("移动到 %1 (%2)").arg(idx1).arg(tag), QString(), key, true);
+    }
     menu->addSeparator();
+    QAction *panelAct = addMenuItem(menu, tr("照片文件夹面板…"), QStringLiteral("Alt+P"),
+                                    [this]() { onTogglePhotoFolderPanel(); });
+    style(panelAct, "folder");
     QAction *paths = addMenuItem(menu, tr("图片文件夹 路径定义"), QString(), [this]() { onSettings(); });
     QAction *openFolder = addMenuItem(menu, tr("打开 图片文件夹 1"), QString(), [this]() {
-        const QString dir = Config::instance().settings()
-                                .value(QStringLiteral("config/etc/photo_folder_1"))
-                                .toString().trimmed();
-        if (dir.isEmpty() || !QFileInfo(dir).isDir()) {
-            m_toast->showMessage(tr("请先在「设置 → 浏览」中配置图片文件夹"),
-                                 Chrome::Toast::Tone::Warning);
-            return;
-        }
-        QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
+        openPhotoFolderIndex(1);
     });
     style(paths, "sliders");
     style(openFolder, "folder-open");
@@ -5430,6 +5435,17 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             dlg->show();
             QTimer::singleShot(180, dlg, [dlg, out]() {
                 dlg->grab().save(out);
+            });
+        }
+    }
+    else if (c.startsWith(QLatin1String("photofolders:"))) {
+        const QString out = c.mid(13).trimmed();
+        onTogglePhotoFolderPanel();
+        if (m_photoFolderPanel) {
+            QTimer::singleShot(180, m_photoFolderPanel, [this, out]() {
+                if (m_photoFolderPanel && !out.isEmpty()) {
+                    m_photoFolderPanel->grab().save(out);
+                }
             });
         }
     }
@@ -9928,6 +9944,103 @@ void MainWindow::onCopyToFolder()
     }
 }
 
+void MainWindow::executePhotoFolderTransfer(const QString &cfgKey, bool moveFile)
+{
+    const QString srcPath = m_currentPath;
+    QString dest;
+    QString error;
+    if (!transferCurrentToFolder(cfgKey, moveFile, &dest, &error)) {
+        if (m_toast) {
+            m_toast->showMessage(error, Chrome::Toast::Tone::Warning);
+        }
+        return;
+    }
+    if (moveFile) {
+        stopAnimation();
+        if (m_frames) {
+            m_frames->clear();
+        }
+        if (m_cache && !srcPath.isEmpty()) {
+            m_cache->forgetPath(srcPath);
+        }
+        if (m_dir && m_dir->count() > 1) {
+            onNext();
+        } else {
+            m_currentPath.clear();
+            m_displayedPath.clear();
+            m_displayedIndex = -1;
+            m_sourceImage = QImage();
+            m_currentImage = QImage();
+            m_originalImage = QImage();
+            if (m_dir) {
+                m_dir->setFilesAndIndex({}, -1);
+            }
+            m_canvas->clear();
+            updateCanvasLogo();
+            m_browser->setFiles({}, -1);
+            if (m_control) {
+                m_control->setPage(0, 0);
+            }
+            if (m_statusOverlay) {
+                m_statusOverlay->hide();
+            }
+            setWindowTitle(QStringLiteral("QuikView"));
+            m_topBar->setTitle(tr("未打开图片"));
+        }
+        startDirectoryRefresh();
+    }
+    if (m_toast) {
+        m_toast->showMessage(moveFile ? tr("已移动到：%1").arg(dest)
+                                      : tr("已复制到：%1").arg(dest),
+                             Chrome::Toast::Tone::Success);
+    }
+}
+
+void MainWindow::openPhotoFolderIndex(int index1Based)
+{
+    const QString dir = Config::instance().photoFolder(index1Based);
+    if (dir.isEmpty() || !QFileInfo(dir).isDir()) {
+        if (m_toast) {
+            m_toast->showMessage(tr("图片文件夹 %1 未配置或不存在").arg(index1Based),
+                                 Chrome::Toast::Tone::Warning);
+        }
+        return;
+    }
+    QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
+}
+
+void MainWindow::onMoveToFolder()
+{
+    executePhotoFolderTransfer(QStringLiteral("config/etc/photo_folder_1"), true);
+}
+
+void MainWindow::onTogglePhotoFolderPanel()
+{
+    if (!m_photoFolderPanel) {
+        m_photoFolderPanel = new PhotoFolderPanel(this);
+        connect(m_photoFolderPanel, &PhotoFolderPanel::copyRequested, this, [this](int idx1) {
+            executePhotoFolderTransfer(QStringLiteral("config/etc/photo_folder_%1").arg(idx1), false);
+        });
+        connect(m_photoFolderPanel, &PhotoFolderPanel::moveRequested, this, [this](int idx1) {
+            executePhotoFolderTransfer(QStringLiteral("config/etc/photo_folder_%1").arg(idx1), true);
+        });
+        connect(m_photoFolderPanel, &PhotoFolderPanel::openRequested, this, [this](int idx1) {
+            openPhotoFolderIndex(idx1);
+        });
+    }
+    if (m_photoFolderPanel->isVisible()) {
+        m_photoFolderPanel->hide();
+        return;
+    }
+    m_photoFolderPanel->refreshThemeStyles();
+    m_photoFolderPanel->reloadFromConfig();
+    const QRect fg = frameGeometry();
+    m_photoFolderPanel->move(fg.center() - m_photoFolderPanel->rect().center());
+    m_photoFolderPanel->show();
+    m_photoFolderPanel->raise();
+    m_photoFolderPanel->activateWindow();
+}
+
 namespace {
 // 「设置 → 杂项 → 图像编辑器」的参数模板切分（key config/etc/image_editor）：
 //   * 空格/制表符分隔，双引号内的空格不切 —— "D:\a b\viewer.exe" "%1" 不会被拆散；
@@ -10873,6 +10986,8 @@ void MainWindow::refreshThemeSurfaces()
         m_metadata->refreshThemeStyle();
     if (m_layerPanel)
         m_layerPanel->setStyleSheet(UiStyle::panelQss());
+    if (m_photoFolderPanel)
+        m_photoFolderPanel->refreshThemeStyles();
     if (m_topBar)
         m_topBar->update();
     if (m_control)
