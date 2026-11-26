@@ -43,6 +43,7 @@ inline constexpr const char *FileBatchConvert    = "CMD_FILE_BATCH_CONVERT";
 inline constexpr const char *FileClose           = "CMD_FILE_CLOSE";
 inline constexpr const char *FileQuit            = "CMD_FILE_QUIT";
 inline constexpr const char *FileDelete          = "CMD_FILE_DELETE";
+inline constexpr const char *FileRename          = "CMD_FILE_RENAME";
 inline constexpr const char *FileCopyToFolder    = "CMD_FILE_COPY_TO_FOLDER";
 inline constexpr const char *FileOpenWithEditor  = "CMD_FILE_OPEN_WITH_EDITOR";
 inline constexpr const char *FileWallpaper       = "CMD_FILE_SET_WALLPAPER";
@@ -192,6 +193,8 @@ inline const Entry kEntries[] = {
       QT_TRANSLATE_NOOP("MainWindow", "退出(&Q)"),               "X;Ctrl+Q",      false, false },
     { Cmd::FileDelete,         GroupFile,      "del",        "",    "MainWindow",
       QT_TRANSLATE_NOOP("MainWindow", "删除"),                   "Del",           true,  false },
+    { Cmd::FileRename,         GroupFile,      "",           "",    "MainWindow",
+      QT_TRANSLATE_NOOP("MainWindow", "重命名…"),                "F6",            false, false },
     { Cmd::FileCopyToFolder,   GroupFile,      "",           "",    "MainWindow",
       QT_TRANSLATE_NOOP("MainWindow", "复制到 图片文件夹"),       "Ins",           false, false },
     { Cmd::FileOpenWithEditor, GroupFile,      "",           "",    "MainWindow",

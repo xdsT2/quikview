@@ -61,6 +61,10 @@ add_executable(quikview WIN32
     src/RotateAutoSave.h
     src/Wallpaper.cpp
     src/Wallpaper.h
+    src/BatchRename.cpp
+    src/BatchRename.h
+    src/RenameDialog.cpp
+    src/RenameDialog.h
     # 压缩包直读（派单 2026-11-18）：自研中央目录解析 + 复用 psd_sdk 内置 miniz
     src/ZipArchive.cpp
     src/ZipArchive.h
@@ -307,6 +311,11 @@ if(BUILD_TESTING)
     target_include_directories(quikview-minimap-test PRIVATE src)
     target_link_libraries(quikview-minimap-test PRIVATE Qt6::Core)
     add_test(NAME minimap.pure COMMAND quikview-minimap-test)
+
+    add_executable(quikview-batchrename-test tests/unit/batch_rename_test.cpp src/BatchRename.cpp)
+    target_include_directories(quikview-batchrename-test PRIVATE src)
+    target_link_libraries(quikview-batchrename-test PRIVATE Qt6::Core)
+    add_test(NAME batchrename.pure COMMAND quikview-batchrename-test)
 
     include("${CMAKE_CURRENT_SOURCE_DIR}/tests/chrome_popup_cases.cmake")
     foreach(_chrome_case IN LISTS QUIKVIEW_CHROME_CASES)

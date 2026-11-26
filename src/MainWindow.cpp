@@ -4,6 +4,7 @@
 #include "DialogShell.h"
 #include "FlipProbe.h"
 #include "PerfProbe.h"
+#include "RenameDialog.h"
 #include "ThemeProbe.h"
 
 #include <QFutureWatcher>
@@ -1667,6 +1668,7 @@ void MainWindow::createActions()
     // 书签菜单：添加书签 B（原型），勾选/取消勾选由 onToggleFavorite 承担
     actFavorite = mk(tr("添加书签"), QKeySequence(QStringLiteral("B")), &MainWindow::onToggleFavorite, QStringLiteral("favorite"));
     actDelete = mk(tr("删除"), QKeySequence::Delete, &MainWindow::onDeleteFile, QStringLiteral("del"));   // Del
+    actRename = mk(tr("重命名…"), QKeySequence(QStringLiteral("F6")), &MainWindow::onRename);
     actCopyToFolder = mk(tr("复制到 图片文件夹"), QKeySequence(QStringLiteral("Ins")), &MainWindow::onCopyToFolder);
     actOpenWithEditor = mk(tr("用图像编辑器打开"), QKeySequence(QStringLiteral("Ctrl+E")), &MainWindow::onOpenWithEditor);
     actCopyToClipboard = mk(tr("复制到剪贴板"), QKeySequence::Copy, &MainWindow::onCopyToClipboard);
@@ -1969,6 +1971,7 @@ void MainWindow::registerCommands()
         { Cmd::FileClose, actClose },
         { Cmd::FileQuit, actQuit },
         { Cmd::FileDelete, actDelete },
+        { Cmd::FileRename, actRename },
         { Cmd::FileCopyToFolder, actCopyToFolder },
         { Cmd::FileOpenWithEditor, actOpenWithEditor },
         { Cmd::FileWallpaper, actWallpaper },
@@ -2683,6 +2686,7 @@ QMenu *MainWindow::buildHamburgerMenu()
     // —— 文件 ——
     addHamburgerAction(menu, actOpen, "image");
     addHamburgerAction(menu, actSaveAs, "save");
+    addHamburgerAction(menu, actRename, "pencil");
     menu->addSeparator();
 
     // —— 幻灯片播放 › ——
@@ -5401,6 +5405,32 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         const QStringList parts = c.mid(12).split(QLatin1Char(':'));
         if (parts.size() == 2 && m_canvas) {
             m_canvas->navigateMinimapNormalized(parts[0].toDouble(), parts[1].toDouble());
+        }
+    }
+    else if (c.startsWith(QLatin1String("renamedlg:"))) {
+        const QString arg = c.mid(10);
+        const int sep = arg.lastIndexOf(QLatin1Char(':'));
+        if (sep > 0) {
+            const QString out = arg.left(sep);
+            const QString mode = arg.mid(sep + 1);
+            QStringList files;
+            if (m_dir) {
+                for (const QString &p : m_dir->files()) {
+                    if (!ArchiveStore::isEntryPath(p)) {
+                        files.append(p);
+                    }
+                }
+            }
+            auto *dlg = new RenameDialog(m_currentPath, files, this);
+            dlg->setAttribute(Qt::WA_DeleteOnClose);
+            dlg->probeSetPattern(
+                mode == QLatin1String("conflict") ? QStringLiteral("same_name")
+                                                  : QStringLiteral("{name}_{index:03}"),
+                true);
+            dlg->show();
+            QTimer::singleShot(180, dlg, [dlg, out]() {
+                dlg->grab().save(out);
+            });
         }
     }
     else if (c == QLatin1String("ovend") && m_overview && m_overview->isVisible()) {
@@ -9819,6 +9849,56 @@ void MainWindow::onDeleteFile()
         setWindowTitle(QStringLiteral("QuikView"));
         m_topBar->setTitle(tr("未打开图片"));
         m_toast->showMessage(tr("已删除"), Chrome::Toast::Tone::Success);
+    }
+}
+
+void MainWindow::onRename()
+{
+    if (m_currentPath.isEmpty()) {
+        return;
+    }
+    if (ArchiveStore::isEntryPath(m_currentPath)) {
+        if (m_toast) {
+            m_toast->showMessage(tr("压缩包内图片不支持重命名"), Chrome::Toast::Tone::Info);
+        }
+        return;
+    }
+    QStringList dirFiles;
+    if (m_dir) {
+        for (const QString &p : m_dir->files()) {
+            if (!ArchiveStore::isEntryPath(p)) {
+                dirFiles.append(p);
+            }
+        }
+    }
+    if (dirFiles.isEmpty()) {
+        dirFiles.append(m_currentPath);
+    }
+    RenameDialog dlg(m_currentPath, dirFiles, this);
+    if (dlg.exec() != QDialog::Accepted) {
+        return;
+    }
+    const BatchRename::ExecuteResult &res = dlg.result();
+    if (!res.ok || res.renamedCount <= 0) {
+        return;
+    }
+    if (m_cache) {
+        for (auto it = res.pathMap.cbegin(); it != res.pathMap.cend(); ++it) {
+            m_cache->forgetPath(it.key());
+        }
+    }
+    if (res.pathMap.contains(m_currentPath)) {
+        const QString nextPath = res.pathMap.value(m_currentPath);
+        m_currentPath = nextPath;
+        m_displayedPath = nextPath;
+        updateStatus(nextPath);
+        updateInfoOverlay();
+        updatePanoProbe(nextPath);
+    }
+    startDirectoryRefresh();
+    if (m_toast) {
+        m_toast->showMessage(tr("已重命名 %1 个文件").arg(res.renamedCount),
+                             Chrome::Toast::Tone::Success);
     }
 }
 
