@@ -10700,7 +10700,10 @@ void MainWindow::onAbout()
     QMessageBox::about(this, tr("关于 QuikView"),
                        tr("<h3>QuikView</h3>"
                           "<p>版本 %1</p>"
-                          "<p>MIT 许可证开源，零遥测、零推广。</p>")
+                          "<p>MIT 许可证开源，零遥测、零推广。</p>"
+                          "<p>官网：<a href=\"https://xdst2.github.io/quikview/\">https://xdst2.github.io/quikview/</a><br>"
+                          "GitHub：<a href=\"https://github.com/xdsT2/quikview\">https://github.com/xdsT2/quikview</a><br>"
+                          "QQ 交流群：1134122173</p>")
                            .arg(QStringLiteral(QUIKVIEW_VERSION)));
 }
 

@@ -8,8 +8,9 @@ QuikView 是一款开源的 Windows 看图器，支持目录翻页、双页阅�
 **简体中文** | [English](README.en.md)
 
 > **Windows x64 下载** · 到[最新发布页](https://github.com/xdsT2/quikview/releases/latest)选择安装版或便携 ZIP。便携版解压即可运行，无需另装 Qt。
+> **官方网站**：[https://xdst2.github.io/quikview/](https://xdst2.github.io/quikview/) · **QQ 交流群**：`1134122173`
 
-> **0.6.0** 是大版本更新：新增可选 **360° 全景查看器**（独立进程、设置页安装、安装向导默认不勾选），图片总览网格重做为自适应列数与整卡选中，新增 SVG 打开；界面语言、翻页音效、RAW 策略改为即时生效，快捷键迁移到稳定命令 ID 并支持一键多绑；顶栏改为与画布同色纯色，菜单与弹层反馈统一，设置侧栏新增「关于」页（十页），安装包改用纯解码 libheif 后体积从约 148.3 MiB 降到约 96.9 MiB。0.5.6 的九页设置、ZIP/CBZ 直读、窗口 / 会话记忆、复制与剪贴板、GIF 自定义底色和显示器 ICC 均保留。完整清单见 [更新日志](CHANGELOG.md) 与 [发布说明](https://github.com/xdsT2/quikview/releases/tag/v0.6.0)。
+> **0.6.1** 是 0.6.0 的增量更新：启动恢复改为可选、默认关闭（升级后无参启动进欢迎页）；「打开」改用 Windows 原生文件对话框并合为一个入口，F / 自定义备用键修好；顶栏移除书签 / 幻灯片 / 编辑 / 复制到四个入口（功能仍在三横菜单、右键与快捷键），独立裁剪命令退役；十个设置项改为即时生效（强锐化、缓存、插值、翻页效果、幻灯片启用等），六个下拉与四个弹窗统一 Fluent 外壳，开关统一 40×22；总览缩略图支持五档缩放与缓存自适应，剪贴板增加裸位图解码与启动清理，「定位文件」在资源管理器中直接选中图片；全景修正仰视 / 俯视投影，关于页启用官网与 QQ 交流群。完整清单见 [更新日志](CHANGELOG.md) 与 [发布说明](https://github.com/xdsT2/quikview/releases/tag/v0.6.1)。
 
 ![QuikView 主窗口：顶部栏与底部控制胶囊浮在照片上](docs/screenshots/01-main.webp)
 
@@ -107,6 +108,7 @@ translations/ 语言文件（9 种语言的 .ts）
 resources/    图标与界面素材（全部原创绘制，见 docs/ATTRIBUTION.md）
 config/       便携配置（config.ini，不入库）
 docs/         截图、素材来源与设计规范
+website/      官方静态网站源码（部署至 https://xdst2.github.io/quikview/）
 packaging/    NSIS 安装包脚本
 ```
 

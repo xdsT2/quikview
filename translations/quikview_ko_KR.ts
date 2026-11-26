@@ -1,4 +1,4 @@
-<?xml version="1.0" ?>
+<?xml version='1.0' encoding='utf-8'?>
 <TS version="2.1" language="ko_KR" sourcelanguage="zh_CN">
     <context>
         <name>AppMenu</name>
@@ -1639,6 +1639,10 @@
             <source>图像编辑器路径无效，已改用系统默认程序打开</source>
             <translation>이미지 편집기 경로가 잘못되어 시스템 기본 프로그램으로 열었습니다.</translation>
         </message>
+        <message>
+            <source>&lt;h3&gt;QuikView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 许可证开源，零遥测、零推广。&lt;/p&gt;&lt;p&gt;官网：&lt;a href="https://xdst2.github.io/quikview/"&gt;https://xdst2.github.io/quikview/&lt;/a&gt;&lt;br&gt;GitHub：&lt;a href="https://github.com/xdsT2/quikview"&gt;https://github.com/xdsT2/quikview&lt;/a&gt;&lt;br&gt;QQ 交流群：1134122173&lt;/p&gt;</source>
+            <translation>&lt;h3&gt;QuikView&lt;/h3&gt;&lt;p&gt;버전 %1&lt;/p&gt;&lt;p&gt;MIT 라이선스 오픈소스, 원격 측정 및 광고 없음.&lt;/p&gt;&lt;p&gt;공식 웹사이트: &lt;a href="https://xdst2.github.io/quikview/"&gt;https://xdst2.github.io/quikview/&lt;/a&gt;&lt;br&gt;GitHub: &lt;a href="https://github.com/xdsT2/quikview"&gt;https://github.com/xdsT2/quikview&lt;/a&gt;&lt;br&gt;QQ 그룹: 1134122173&lt;/p&gt;</translation>
+        </message>
     </context>
     <context>
         <name>MetadataPanel</name>
@@ -2098,17 +2102,14 @@
             <source>重启后生效；每 24 小时最多检查一次</source>
             <translation>다시 시작 후 적용되며 24시간에 최대 1회 확인</translation>
         </message>
-
         <message>
             <source>通用</source>
             <translation>일반</translation>
         </message>
-
         <message>
             <source>翻页音效</source>
             <translation>페이지 넘김 효과음</translation>
         </message>
-
         <message>
             <source>外观与显示</source>
             <translation>모양 및 디스플레이</translation>
@@ -3553,7 +3554,7 @@ https://github.com/xdsT2/quikview</translation>
             <source>旋转/翻转立即写回原文件；RAW 与动图不受影响</source>
             <translation>회전/뒤집기는 원본 파일에 즉시 기록됩니다. RAW 및 애니메이션 이미지는 적용되지 않습니다</translation>
         </message>
-            <message>
+        <message>
             <source>双线性 (快)</source>
             <translation>쌍선형 (빠름)</translation>
         </message>
@@ -3581,7 +3582,77 @@ https://github.com/xdsT2/quikview</translation>
             <source>已即时生效：%1 · %2</source>
             <translation>즉시 적용: %1 · %2</translation>
         </message>
-</context>
+        <message>
+            <source>关于</source>
+            <translation>정보</translation>
+        </message>
+        <message>
+            <source>版本号</source>
+            <translation>버전</translation>
+        </message>
+        <message>
+            <source>未知</source>
+            <translation>알 수 없음</translation>
+        </message>
+        <message>
+            <source>当前程序版本，取自构建配置</source>
+            <translation>빌드 구성에서 가져온 현재 프로그램 버전</translation>
+        </message>
+        <message>
+            <source>开源许可</source>
+            <translation>오픈소스 라이선스</translation>
+        </message>
+        <message>
+            <source>MIT 许可证，源码托管在 GitHub</source>
+            <translation>MIT 라이선스, 소스 코드는 GitHub에서 호스팅</translation>
+        </message>
+        <message>
+            <source>QuikView 是开源的 Windows 图片查看器：C++ 与 Qt 6 构建，不收集使用数据，不含推广内容。</source>
+            <translation>QuikView는 C++ 및 Qt 6으로 제작된 오픈소스 Windows 이미지 뷰어입니다. 사용 데이터를 수집하지 않으며 광고가 없습니다.</translation>
+        </message>
+        <message>
+            <source>链接</source>
+            <translation>링크</translation>
+        </message>
+        <message>
+            <source>官网</source>
+            <translation>공식 웹사이트</translation>
+        </message>
+        <message>
+            <source>打开 QuikView 官网</source>
+            <translation>QuikView 공식 웹사이트 열기</translation>
+        </message>
+        <message>
+            <source>打开 QuikView GitHub 仓库</source>
+            <translation>QuikView GitHub 저장소 열기</translation>
+        </message>
+        <message>
+            <source>无法打开浏览器。请手动访问：
+%1</source>
+            <translation>브라우저를 열 수 없습니다. 직접 방문하세요:
+%1</translation>
+        </message>
+        <message>
+            <source>QQ 交流群</source>
+            <translation>QQ 그룹</translation>
+        </message>
+        <message>
+            <source>点击复制 QQ 群号：%1</source>
+            <translation>클릭하여 QQ 그룹 번호 복사: %1</translation>
+        </message>
+        <message>
+            <source>复制 QuikView QQ 交流群号</source>
+            <translation>QuikView QQ 그룹 번호 복사</translation>
+        </message>
+        <message>
+            <source>%1（已复制）</source>
+            <translation>%1 (복사됨)</translation>
+        </message>
+        <message>
+            <source>官网与 GitHub 在默认浏览器中打开；点击 QQ 交流群号可复制到剪贴板。</source>
+            <translation>공식 웹사이트와 GitHub는 기본 브라우저에서 열리며, QQ 그룹 번호를 클릭하면 클립보드에 복사됩니다.</translation>
+        </message>
+    </context>
     <context>
         <name>ThumbnailBrowser</name>
         <message>

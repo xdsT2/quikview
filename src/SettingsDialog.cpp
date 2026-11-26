@@ -13,6 +13,7 @@
 #include <QAbstractButton>
 #include <QApplication>
 #include <QCheckBox>
+#include <QClipboard>
 #include <QColorDialog>
 #include <QComboBox>
 #include <QCoreApplication>
@@ -4780,44 +4781,85 @@ void SettingsDialog::buildAboutPage(QWidget *page)
     addHint(secProduct, tr("QuikView 是开源的 Windows 图片查看器：C++ 与 Qt 6 构建，"
                            "不收集使用数据，不含推广内容。"));
 
-    // —— 链接：首版只有官网与 GitHub 两行 ——
+    // —— 链接：官网、GitHub 与 QQ 交流群 ——
     QWidget *secLinks = beginSection(page, tr("链接"));
-    // 官网地址以 QuikView 官网项目确认的正式地址为准；确认前保留标签、保持未启用，
-    // 不做可操作的假链接。
-    addValueRow(secLinks, tr("官网"), tr("未启用"), tr("正式地址确认前不可点"), true);
-    {
-        const QString repoUrl = QStringLiteral("https://github.com/xdsT2/quikview");
-        SettingRowParts parts = addSettingRow(secLinks, tr("GitHub"), QString());
-        auto *link = new QPushButton(repoUrl, parts.row);
-        link->setObjectName(QStringLiteral("linkBtn"));
+    const QString linkQss = QStringLiteral(
+        "QPushButton{background:transparent;border:0;padding:0 2px;font-size:13px;color:%1;}"
+        "QPushButton:hover,QPushButton:pressed{background:transparent;border:0;"
+        "padding:0 2px;color:%1;}"
+        "QPushButton:focus{border:2px solid %2;border-radius:4px;padding:0;}")
+        .arg(QLatin1String(UiStyle::fluent::link()),
+             QLatin1String(UiStyle::fluent::focus()));
+
+    const auto addLinkRow = [this, secLinks, &linkQss](
+                                const QString &label,
+                                const QString &text,
+                                const QString &tip,
+                                const QString &objName,
+                                const QString &accName,
+                                std::function<void(QPushButton *)> onClick) {
+        SettingRowParts parts = addSettingRow(secLinks, label, QString());
+        auto *link = new QPushButton(text, parts.row);
+        link->setObjectName(objName);
         link->setCursor(Qt::PointingHandCursor);
-        link->setAccessibleName(tr("打开 QuikView GitHub 仓库"));
-        link->setToolTip(repoUrl);
+        link->setAccessibleName(accName);
+        link->setToolTip(tip);
         // 文字链的外观就地写令牌：窗口级 #linkBtn QSS 在懒构建页上命中不到
         // 文字色与底色（只压掉边框，实测 2026-11-22），会退化成灰字方框按钮。
         // 普通态左右各留 2px，焦点态把 2px 边框补到同一位置，环不压字也不抖。
         // 悬停/按下只有指针形状反馈：Qt QSS 不支持 text-decoration，
         // 不给链接另外造一套下划线几何，避免行高跳动。
         link->setFocusPolicy(Qt::TabFocus);   // 指针点击不抢焦点，环只随键盘来
-        link->setStyleSheet(QStringLiteral(
-            "QPushButton{background:transparent;border:0;padding:0 2px;font-size:13px;color:%1;}"
-            "QPushButton:hover,QPushButton:pressed{background:transparent;border:0;"
-            "padding:0 2px;color:%1;}"
-            "QPushButton:focus{border:2px solid %2;border-radius:4px;padding:0;}")
-                                    .arg(QLatin1String(UiStyle::fluent::link()),
-                                         QLatin1String(UiStyle::fluent::focus())));
+        link->setStyleSheet(linkQss);
         parts.controls->addWidget(link, 0, Qt::AlignVCenter);
-        connect(link, &QPushButton::clicked, this, [this, repoUrl]() {
-            // 外部网页：与语言页同一口径，只报告系统是否接受了打开请求，
-            // 网络可达性不在应用内验证。
-            if (!QDesktopServices::openUrl(QUrl(repoUrl))) {
-                QMessageBox::warning(this, tr("GitHub"),
-                                     tr("无法打开浏览器。请手动访问：\n%1").arg(repoUrl));
-            }
+        connect(link, &QPushButton::clicked, this, [link, cb = std::move(onClick)]() {
+            cb(link);
         });
-    }
-    addHint(secLinks, tr("GitHub 在默认浏览器中打开；官网地址以 QuikView 官网项目确认的"
-                        "正式地址为准，确认前保持未启用。"));
+        return link;
+    };
+
+    const auto openExternalUrl = [this](const QString &title, const QString &url) {
+        // 外部网页：与语言页同一口径，只报告系统是否接受了打开请求，
+        // 网络可达性不在应用内验证。
+        if (!QDesktopServices::openUrl(QUrl(url))) {
+            QMessageBox::warning(this, title,
+                                 tr("无法打开浏览器。请手动访问：\n%1").arg(url));
+        }
+    };
+
+    const QString websiteUrl = QStringLiteral("https://xdst2.github.io/quikview/");
+    addLinkRow(tr("官网"), websiteUrl, websiteUrl,
+               QStringLiteral("websiteLinkBtn"), tr("打开 QuikView 官网"),
+               [openExternalUrl, this, websiteUrl](QPushButton *) {
+                   openExternalUrl(tr("官网"), websiteUrl);
+               });
+
+    const QString repoUrl = QStringLiteral("https://github.com/xdsT2/quikview");
+    addLinkRow(tr("GitHub"), repoUrl, repoUrl,
+               QStringLiteral("linkBtn"), tr("打开 QuikView GitHub 仓库"),
+               [openExternalUrl, this, repoUrl](QPushButton *) {
+                   openExternalUrl(tr("GitHub"), repoUrl);
+               });
+
+    const QString qqGroup = QStringLiteral("1134122173");
+    auto qqCopyGen = std::make_shared<quint64>(0);
+    addLinkRow(tr("QQ 交流群"), qqGroup, tr("点击复制 QQ 群号：%1").arg(qqGroup),
+               QStringLiteral("qqGroupBtn"), tr("复制 QuikView QQ 交流群号"),
+               [qqGroup, qqCopyGen](QPushButton *btn) {
+                   if (QClipboard *cb = QApplication::clipboard()) {
+                       cb->setText(qqGroup);
+                   }
+                   const quint64 gen = ++(*qqCopyGen);
+                   btn->setText(tr("%1（已复制）").arg(qqGroup));
+                   QPointer<QPushButton> safeBtn(btn);
+                   QTimer::singleShot(2000, btn, [safeBtn, qqGroup, qqCopyGen, gen]() {
+                       if (safeBtn && *qqCopyGen == gen) {
+                           safeBtn->setText(qqGroup);
+                       }
+                   });
+               });
+
+    addHint(secLinks, tr("官网与 GitHub 在默认浏览器中打开；点击 QQ 交流群号可复制到剪贴板。"));
 
     applyPageRhythm(page);
 }

@@ -1,4 +1,4 @@
-<?xml version="1.0" ?>
+<?xml version='1.0' encoding='utf-8'?>
 <TS version="2.1" language="de_DE" sourcelanguage="zh_CN">
     <context>
         <name>AppMenu</name>
@@ -1639,6 +1639,10 @@
             <source>图像编辑器路径无效，已改用系统默认程序打开</source>
             <translation>Ungültiger Pfad zum Bildeditor; mit dem Standardprogramm des Systems geöffnet.</translation>
         </message>
+        <message>
+            <source>&lt;h3&gt;QuikView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 许可证开源，零遥测、零推广。&lt;/p&gt;&lt;p&gt;官网：&lt;a href="https://xdst2.github.io/quikview/"&gt;https://xdst2.github.io/quikview/&lt;/a&gt;&lt;br&gt;GitHub：&lt;a href="https://github.com/xdsT2/quikview"&gt;https://github.com/xdsT2/quikview&lt;/a&gt;&lt;br&gt;QQ 交流群：1134122173&lt;/p&gt;</source>
+            <translation>&lt;h3&gt;QuikView&lt;/h3&gt;&lt;p&gt;Version %1&lt;/p&gt;&lt;p&gt;Open Source unter MIT-Lizenz, ohne Telemetrie und Werbung.&lt;/p&gt;&lt;p&gt;Website: &lt;a href="https://xdst2.github.io/quikview/"&gt;https://xdst2.github.io/quikview/&lt;/a&gt;&lt;br&gt;GitHub: &lt;a href="https://github.com/xdsT2/quikview"&gt;https://github.com/xdsT2/quikview&lt;/a&gt;&lt;br&gt;QQ-Gruppe: 1134122173&lt;/p&gt;</translation>
+        </message>
     </context>
     <context>
         <name>MetadataPanel</name>
@@ -2098,17 +2102,14 @@
             <source>重启后生效；每 24 小时最多检查一次</source>
             <translation>Wirkt nach Neustart; höchstens einmal alle 24 Stunden</translation>
         </message>
-
         <message>
             <source>通用</source>
             <translation>Allgemein</translation>
         </message>
-
         <message>
             <source>翻页音效</source>
             <translation>Blätterton</translation>
         </message>
-
         <message>
             <source>外观与显示</source>
             <translation>Darstellung &amp; Anzeige</translation>
@@ -3553,7 +3554,7 @@ Ursprungswert wiederhergestellt; nichts in die Konfiguration geschrieben.</trans
             <source>旋转/翻转立即写回原文件；RAW 与动图不受影响</source>
             <translation>Drehen/Spiegeln schreibt sofort in die Originaldatei zurück; RAW und animierte Bilder sind nicht betroffen</translation>
         </message>
-            <message>
+        <message>
             <source>双线性 (快)</source>
             <translation>Bilinear (schnell)</translation>
         </message>
@@ -3581,7 +3582,77 @@ Ursprungswert wiederhergestellt; nichts in die Konfiguration geschrieben.</trans
             <source>已即时生效：%1 · %2</source>
             <translation>Sofort aktiv: %1 · %2</translation>
         </message>
-</context>
+        <message>
+            <source>关于</source>
+            <translation>Über</translation>
+        </message>
+        <message>
+            <source>版本号</source>
+            <translation>Version</translation>
+        </message>
+        <message>
+            <source>未知</source>
+            <translation>Unbekannt</translation>
+        </message>
+        <message>
+            <source>当前程序版本，取自构建配置</source>
+            <translation>Aktuelle Programmversion aus der Build-Konfiguration</translation>
+        </message>
+        <message>
+            <source>开源许可</source>
+            <translation>Open-Source-Lizenz</translation>
+        </message>
+        <message>
+            <source>MIT 许可证，源码托管在 GitHub</source>
+            <translation>MIT-Lizenz, Quellcode auf GitHub gehostet</translation>
+        </message>
+        <message>
+            <source>QuikView 是开源的 Windows 图片查看器：C++ 与 Qt 6 构建，不收集使用数据，不含推广内容。</source>
+            <translation>QuikView ist ein Open-Source-Bildbetrachter für Windows auf Basis von C++ und Qt 6 – ohne Datenerfassung und ohne Werbung.</translation>
+        </message>
+        <message>
+            <source>链接</source>
+            <translation>Links</translation>
+        </message>
+        <message>
+            <source>官网</source>
+            <translation>Website</translation>
+        </message>
+        <message>
+            <source>打开 QuikView 官网</source>
+            <translation>Offizielle QuikView-Website öffnen</translation>
+        </message>
+        <message>
+            <source>打开 QuikView GitHub 仓库</source>
+            <translation>QuikView-GitHub-Repository öffnen</translation>
+        </message>
+        <message>
+            <source>无法打开浏览器。请手动访问：
+%1</source>
+            <translation>Browser konnte nicht geöffnet werden. Bitte manuell öffnen:
+%1</translation>
+        </message>
+        <message>
+            <source>QQ 交流群</source>
+            <translation>QQ-Gruppe</translation>
+        </message>
+        <message>
+            <source>点击复制 QQ 群号：%1</source>
+            <translation>Klicken, um die QQ-Gruppennummer zu kopieren: %1</translation>
+        </message>
+        <message>
+            <source>复制 QuikView QQ 交流群号</source>
+            <translation>QuikView-QQ-Gruppennummer kopieren</translation>
+        </message>
+        <message>
+            <source>%1（已复制）</source>
+            <translation>%1 (Kopiert)</translation>
+        </message>
+        <message>
+            <source>官网与 GitHub 在默认浏览器中打开；点击 QQ 交流群号可复制到剪贴板。</source>
+            <translation>Website und GitHub öffnen sich im Standardbrowser; ein Klick auf die QQ-Gruppennummer kopiert sie in die Zwischenablage.</translation>
+        </message>
+    </context>
     <context>
         <name>ThumbnailBrowser</name>
         <message>

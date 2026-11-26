@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuikView · 开源的 Windows 看图器</title>
+<meta name="description" content="QuikView 是一款开源的 Windows 看图器：目录翻页、双页阅览、RAW / HEIC / AVIF 支持、EXIF 信息、批量转换与资源管理器集成。C++ 与 Qt 6 构建，MIT 许可证，零遥测。">
+<meta name="theme-color" content="#171a17">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/style.css?v=0.6.0">
+</head>
+<body>
+
+<header class="site-header" id="top">
+  <div class="wrap header-inner">
+    <a class="brand" href="#top" aria-label="QuikView 首页">
+      <span class="brand-mark">QV</span>
+      <span class="brand-text">QuikView</span>
+    </a>
+
+    <nav class="nav" id="nav">
+      <a href="#features">功能</a>
+      <a href="#gallery">界面</a>
+      <a href="#formats">格式</a>
+      <a href="#download">下载</a>
+      <a href="#updates">更新记录</a>
+    </nav>
+
+    <div class="header-actions">
+      <button class="icon-btn" id="theme-toggle" type="button" aria-label="切换深浅主题" title="切换深浅主题">
+        <svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.2v2.6M12 19.2v2.6M2.2 12h2.6M19.2 12h2.6M4.9 4.9l1.9 1.9M17.2 17.2l1.9 1.9M19.1 4.9l-1.9 1.9M6.8 17.2l-1.9 1.9"/></svg>
+        <svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.6A8.6 8.6 0 1 1 9.4 3.5a6.9 6.9 0 0 0 11.1 11.1Z"/></svg>
+      </button>
+      <a class="btn btn-ghost hide-sm" href="https://github.com/xdsT2/quikview" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.36 1.09 2.93.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.95 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.4 9.4 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.85-2.34 4.7-4.57 4.95.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>
+        GitHub
+      </a>
+      <a class="btn btn-primary hide-sm" href="#download">下载</a>
+      <button class="icon-btn nav-toggle" id="nav-toggle" type="button" aria-controls="nav" aria-label="打开菜单" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-copy">
+
+        <h1>Windows <span>看图器</span></h1>
+        <p class="lede">
+          打开一张图，就能翻看同一文件夹里的照片。支持双页阅读、查看拍摄参数和批量转换。
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary btn-lg" href="#download">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 20h16"/></svg>
+            下载 v0.6.0
+          </a>
+          <a class="btn btn-ghost btn-lg" href="https://github.com/xdsT2/quikview" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.36 1.09 2.93.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.95 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.4 9.4 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.85-2.34 4.7-4.57 4.95.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>
+            浏览源码
+          </a>
+        </div>
+        <p class="hero-meta">Windows 10 / 11 x64</p>
+      </div>
+
+      <figure class="hero-shot">
+        <div class="window">
+          <img src="assets/img/v0.6.0/01-main.webp" width="1080" height="815" alt="QuikView v0.6.0 主窗口，显示顶栏和底部控制栏" fetchpriority="high">
+        </div>
+        <figcaption>QuikView v0.6.0 主窗口</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="section" id="features">
+    <div class="wrap">
+      <header class="section-head">
+
+        <h2>功能</h2>
+      </header>
+
+      <div class="feature-grid">
+        <article class="feature">
+          <h3>按文件夹翻图</h3>
+          <p>打开一张图片后，可以继续翻看同一文件夹里的其他图片。</p>
+        </article>
+
+        <article class="feature">
+          <h3>直接打开 RAW、HEIC 与 SVG</h3>
+          <p>PNG / JPEG / WebP / TIFF / ICO / SVG 之外，直读 RAW 与 HEIC / AVIF，PSD 也能出缩略图，可选 360° 全景查看。</p>
+        </article>
+
+        <article class="feature">
+          <h3>双页阅览</h3>
+          <p>把画册或漫画的相邻两页并排显示，也可以随时切回单页。</p>
+        </article>
+
+        <article class="feature">
+          <h3>EXIF / GPS / 直方图</h3>
+          <p>查看照片的拍摄参数和直方图。有 GPS 信息时，可在地图上查看拍摄地点。</p>
+        </article>
+
+        <article class="feature">
+          <h3>图片总览</h3>
+          <p>用网格浏览文件夹里的照片。双击或按回车打开选中的图片，按 Esc 返回看图。</p>
+        </article>
+
+        <article class="feature">
+          <h3>资源管理器集成</h3>
+          <p>安装版会在资源管理器中提供缩略图和 QuikView 右键菜单。</p>
+        </article>
+
+        <article class="feature">
+          <h3>9 种界面语言</h3>
+          <p>支持简体中文、繁体中文、英语、日语、韩语、法语、德语、西班牙语和俄语。</p>
+        </article>
+
+        <article class="feature">
+          <h3>轻量与零遥测</h3>
+          <p>安装包约 29 MB，设置修改即时生效；便携版解压后即可运行，配置保存在程序目录。</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Gallery -->
+  <section class="section section-alt" id="gallery">
+    <div class="wrap">
+      <header class="section-head">
+
+        <h2>界面截图</h2>
+        <p class="section-sub">选择缩略图切换界面，点击大图查看细节。</p>
+      </header>
+
+      <div class="gallery">
+        <div class="gallery-stage">
+          <img id="gallery-img" src="assets/img/v0.6.0/02-overview.webp" width="1080" height="815" alt="图片总览">
+          <button class="stage-btn prev" id="gallery-prev" type="button" aria-label="上一张">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+          </button>
+          <button class="stage-btn next" id="gallery-next" type="button" aria-label="下一张">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+          </button>
+          <div class="stage-caption">
+            <strong id="gallery-title">图片总览</strong>
+            <span id="gallery-desc">v0.6.0 重做网格，按文件夹快速定位照片</span>
+          </div>
+        </div>
+
+        <div class="thumbs" id="thumbs" role="tablist" aria-label="界面截图"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Formats -->
+  <section class="section" id="formats">
+    <div class="wrap">
+      <div class="split">
+        <div class="split-copy">
+
+          <h2>支持的图片格式</h2>
+          <ul class="check-list">
+            <li>相机 RAW：DNG / NEF / CR2 / ARW / RW2 等</li>
+            <li>HEIC / AVIF</li>
+            <li>矢量与全景：直接打开 SVG，支持可选 360° 全景查看</li>
+            <li>动画与多页：GIF 逐帧、多页 TIFF</li>
+            <li>PSD / PSB 内嵌缩略图与图层预览</li>
+          </ul>
+        </div>
+
+        <div class="format-cloud" aria-label="支持的格式">
+          <span class="fmt">PNG</span>
+          <span class="fmt">JPEG</span>
+          <span class="fmt">WebP</span>
+          <span class="fmt">RAW</span>
+          <span class="fmt">TIFF</span>
+          <span class="fmt">HEIC</span>
+          <span class="fmt">AVIF</span>
+          <span class="fmt">SVG</span>
+          <span class="fmt">GIF</span>
+          <span class="fmt">BMP</span>
+          <span class="fmt">ICO</span>
+          <span class="fmt">PSD</span>
+          <span class="fmt">JXL</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Download -->
+  <section class="section section-alt" id="download">
+    <div class="wrap">
+      <header class="section-head">
+
+        <h2>下载 QuikView</h2>
+        <p class="section-sub">v0.6.0 · 2026-11-22 · Windows 10 / 11 x64</p>
+      </header>
+
+      <div class="download-grid">
+        <article class="dl-card">
+          <div class="dl-head">
+            <h3>安装版</h3>
+          </div>
+          <p>安装后可在资源管理器中使用缩略图和右键菜单（约 29 MB）。</p>
+          <a class="btn btn-primary" href="https://github.com/xdsT2/quikview/releases/download/v0.6.0/QuikView-0.6.0-setup.exe">下载安装包</a>
+          <p class="file-name">QuikView-0.6.0-setup.exe</p>
+        </article>
+
+        <article class="dl-card">
+          <div class="dl-head">
+            <h3>便携 ZIP</h3>
+          </div>
+          <p>解压后运行 QuikView，配置保存在程序目录。</p>
+          <a class="btn btn-ghost" href="https://github.com/xdsT2/quikview/releases/download/v0.6.0/quikview-0.6.0-win64.zip" target="_blank" rel="noopener">下载便携包</a>
+          <p class="file-name">quikview-0.6.0-win64.zip</p>
+        </article>
+
+        <article class="dl-card">
+          <div class="dl-head">
+            <h3>校验文件</h3>
+          </div>
+          <p>用 SHA-256 清单核对下载的文件。</p>
+          <a class="btn btn-ghost" href="https://github.com/xdsT2/quikview/releases/download/v0.6.0/SHA256SUMS.txt">下载 SHA-256 清单</a>
+          <p class="file-name">SHA256SUMS.txt</p>
+        </article>
+      </div>
+
+      <p class="dl-note">
+        <a href="https://github.com/xdsT2/quikview/releases/tag/v0.6.0">v0.6.0 发布页</a> ·
+        <a href="https://github.com/xdsT2/quikview/releases">历史版本</a>
+      </p>
+      <p class="dl-note">
+        安装与卸载无需重启。遇到问题请到
+        <a href="https://github.com/xdsT2/quikview/issues" target="_blank" rel="noopener">Issues</a>
+        反馈，或加入 QQ 交流群：<strong>1134122173</strong>
+        <button type="button" class="qq-inline-btn" data-qq="1134122173" data-qq-label="复制群号" data-qq-copied="已复制">复制群号</button>。
+      </p>
+    </div>
+  </section>
+
+  <section class="section" id="updates">
+    <div class="wrap">
+      <header class="section-head">
+        <h2>更新记录</h2>
+      </header>
+      <article class="release">
+        <header>
+          <h3>v0.6.0</h3>
+          <time datetime="2026-11-22">2026-11-22</time>
+        </header>
+        <ul>
+          <li>新增可选 360° 全景查看器组件与 SVG 直接打开，重做图片总览网格。</li>
+          <li>界面语言、翻页音效与 RAW 打开策略支持即时生效，快捷键命令 ID 化。</li>
+          <li>顶栏与画布同色并统一菜单、弹层反馈，设置新增「关于」页（共十个分类）。</li>
+          <li>启用自建纯解码 libheif，安装包体积由 39.6 MB 瘦身至约 29 MB。</li>
+        </ul>
+        <a href="https://github.com/xdsT2/quikview/releases/tag/v0.6.0">查看 v0.6.0 完整更新说明</a>
+      </article>
+
+      <article class="release">
+        <header>
+          <h3>v0.5.6</h3>
+          <time datetime="2026-11-21">2026-11-21</time>
+        </header>
+        <ul>
+          <li>直接打开 ZIP 和 CBZ 压缩包，像浏览文件夹一样翻看里面的图片。</li>
+          <li>设置重分为九个分类，支持导出和导入设置。</li>
+          <li>再次启动时，恢复上次查看的图片和窗口位置。</li>
+          <li>可以分别为中键点击、拖动以及滚轮上下设置操作。翻到首尾时也可以选择先询问。</li>
+        </ul>
+        <a href="https://github.com/xdsT2/quikview/releases/tag/v0.5.6">查看 v0.5.6 完整更新说明</a>
+      </article>
+
+      <article class="release">
+        <header>
+          <h3>v0.5.5</h3>
+          <time datetime="2026-11-19">2026-11-19</time>
+        </header>
+        <ul>
+          <li>统一工具栏、菜单和设置页的功能图标。</li>
+          <li>Windows 资源管理器可以显示 SVG 文件的缩略图。</li>
+          <li>图片打不开时，会提示是文件损坏、格式暂不支持，还是 PSD 只有兼容预览。</li>
+        </ul>
+        <a href="https://github.com/xdsT2/quikview/releases/tag/v0.5.5">查看 v0.5.5 完整更新说明</a>
+      </article>
+    </div>
+  </section>
+
+  <!-- Open source -->
+  <section class="section" id="opensource">
+    <div class="wrap">
+      <div class="oss">
+        <div class="oss-copy">
+
+          <h2>关于 QuikView</h2>
+          <p class="section-sub">
+            QuikView 使用 C++ 和 Qt 6 开发，采用 MIT 许可证。项目源码和开发计划在 GitHub 上公开。
+          </p>
+          <div class="oss-actions">
+            <a class="btn btn-primary" href="https://github.com/xdsT2/quikview" target="_blank" rel="noopener">查看源码</a>
+            <a class="btn btn-ghost" href="https://github.com/xdsT2/quikview/blob/main/ROADMAP.md" target="_blank" rel="noopener">路线图</a>
+            <button class="btn btn-ghost" type="button" data-qq="1134122173" data-qq-label="QQ 交流群：1134122173" data-qq-copied="已复制群号：1134122173">QQ 交流群：1134122173</button>
+          </div>
+          <p class="disclaimer">
+            本项目为独立实现，与 Honeyview / Bandisoft 无任何从属、授权或背书关系。
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <div class="footer-brand">
+      <span class="brand-mark">QV</span>
+      <div>
+        <p class="footer-name">QuikView</p>
+        <p class="footer-tag">开源的 Windows 看图器</p>
+      </div>
+    </div>
+    <nav class="footer-links">
+      <a href="#features">功能</a>
+      <a href="#gallery">界面</a>
+      <a href="#download">下载</a>
+      <a href="https://github.com/xdsT2/quikview" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/xdsT2/quikview/blob/main/LICENSE" target="_blank" rel="noopener">MIT 许可证</a>
+    </nav>
+    <p class="footer-note">© 2026 QuikView · QQ 交流群 1134122173</p>
+  </div>
+</footer>
+
+<div class="lightbox" id="lightbox" aria-hidden="true">
+  <button class="lb-close" id="lb-close" type="button" aria-label="关闭">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img id="lb-img" src="assets/img/v0.6.0/02-overview.webp" alt="">
+  <p id="lb-cap"></p>
+</div>
+
+<script src="assets/js/app.js?v=0.6.0"></script>
+</body>
+</html>

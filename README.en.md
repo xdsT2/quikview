@@ -8,8 +8,9 @@ QuikView is an open-source Windows image viewer with folder navigation, two-page
 [简体中文](README.md) | **English**
 
 > **Windows x64 downloads** · Choose the installer or portable ZIP from the [latest release](https://github.com/xdsT2/quikview/releases/latest). Extract and run the portable version without installing Qt.
+> **Website**: [https://xdst2.github.io/quikview/](https://xdst2.github.io/quikview/) · **QQ Group**: `1134122173`
 
-> **0.6.0** is a major feature release: an optional **360° panorama viewer** (separate process, installer section off by default), a reworked image overview with adaptive columns and full-card selection, SVG opening, live language / page-turn sound / RAW policy changes, stable command IDs for shortcuts with multiple bindings per command, a top bar blended into the canvas, unified menu and popup feedback, a new About page in settings (ten pages total), and a decode-only libheif that cuts the installer from about 148.3 MiB to 96.9 MiB. Everything from 0.5.6 remains: nine-page settings, ZIP/CBZ virtual folders, window and session restore, copy variants and clipboard paste, custom GIF background colour, and SDR display ICC. See the [changelog](CHANGELOG.md) and [release notes](https://github.com/xdsT2/quikview/releases/tag/v0.6.0).
+> **0.6.1** is an incremental update over 0.6.0: session restore on startup is now optional and off by default (upgrades open to the welcome page); the Open action uses a native Windows file dialog with a single entry point, and the F / custom alternate key now works; four shortcuts (bookmarks, slideshow, edit, copy-to) are removed from the top bar (still in the menu, context menu and hotkeys) and the standalone crop command is retired; ten settings become live (sharpness, caching, interpolation, page-turn effect, slideshow enable, etc.), six dropdowns and four dialogs share a Fluent shell, and switches are standardized to 40x22; the overview gains five thumbnail-size steps and adaptive caching, the clipboard accepts raw DIB bitmaps with startup cleanup, and Reveal in Explorer selects the current image; the panorama viewer fixes pole projection, and the About page links to the website and QQ group. See the [changelog](CHANGELOG.md) and [release notes](https://github.com/xdsT2/quikview/releases/tag/v0.6.1).
 
 ![QuikView main window: top strip and bottom control capsule floating over the photo](docs/screenshots/01-main.webp)
 
@@ -120,6 +121,7 @@ translations/ .ts language files (9 languages)
 resources/    icons and UI artwork, all drawn for this project (see docs/ATTRIBUTION.md)
 config/       portable configuration (config.ini, not tracked)
 docs/         screenshots, asset provenance, design guidelines
+website/      official static website source (https://xdst2.github.io/quikview/)
 packaging/    NSIS installer script
 ```
 

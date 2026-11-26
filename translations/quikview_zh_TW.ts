@@ -1,4 +1,4 @@
-<?xml version="1.0" ?>
+<?xml version='1.0' encoding='utf-8'?>
 <TS version="2.1" language="zh_TW" sourcelanguage="zh_CN">
     <context>
         <name>AppMenu</name>
@@ -1639,6 +1639,10 @@
             <source>图像编辑器路径无效，已改用系统默认程序打开</source>
             <translation>影像編輯器路徑無效，已改用系統預設程式開啟</translation>
         </message>
+        <message>
+            <source>&lt;h3&gt;QuikView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 许可证开源，零遥测、零推广。&lt;/p&gt;&lt;p&gt;官网：&lt;a href="https://xdst2.github.io/quikview/"&gt;https://xdst2.github.io/quikview/&lt;/a&gt;&lt;br&gt;GitHub：&lt;a href="https://github.com/xdsT2/quikview"&gt;https://github.com/xdsT2/quikview&lt;/a&gt;&lt;br&gt;QQ 交流群：1134122173&lt;/p&gt;</source>
+            <translation>&lt;h3&gt;QuikView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 授權開源，零遙測、零推廣。&lt;/p&gt;&lt;p&gt;官方網站：&lt;a href="https://xdst2.github.io/quikview/"&gt;https://xdst2.github.io/quikview/&lt;/a&gt;&lt;br&gt;GitHub：&lt;a href="https://github.com/xdsT2/quikview"&gt;https://github.com/xdsT2/quikview&lt;/a&gt;&lt;br&gt;QQ 交流群：1134122173&lt;/p&gt;</translation>
+        </message>
     </context>
     <context>
         <name>MetadataPanel</name>
@@ -2098,17 +2102,14 @@
             <source>重启后生效；每 24 小时最多检查一次</source>
             <translation>重新啟動後生效；每 24 小時最多檢查一次</translation>
         </message>
-
         <message>
             <source>通用</source>
             <translation>一般</translation>
         </message>
-
         <message>
             <source>翻页音效</source>
             <translation>翻頁音效</translation>
         </message>
-
         <message>
             <source>外观与显示</source>
             <translation>外觀與顯示</translation>
@@ -3553,7 +3554,7 @@ https://github.com/xdsT2/quikview</translation>
             <source>旋转/翻转立即写回原文件；RAW 与动图不受影响</source>
             <translation>旋轉/翻轉立即寫回原始檔案；RAW 與動畫圖片不受影響</translation>
         </message>
-            <message>
+        <message>
             <source>双线性 (快)</source>
             <translation>雙線性 (快速)</translation>
         </message>
@@ -3581,7 +3582,77 @@ https://github.com/xdsT2/quikview</translation>
             <source>已即时生效：%1 · %2</source>
             <translation>已即時生效：%1 · %2</translation>
         </message>
-</context>
+        <message>
+            <source>关于</source>
+            <translation>關於</translation>
+        </message>
+        <message>
+            <source>版本号</source>
+            <translation>版本號</translation>
+        </message>
+        <message>
+            <source>未知</source>
+            <translation>未知</translation>
+        </message>
+        <message>
+            <source>当前程序版本，取自构建配置</source>
+            <translation>目前程式版本，取自建置組態</translation>
+        </message>
+        <message>
+            <source>开源许可</source>
+            <translation>開源授權</translation>
+        </message>
+        <message>
+            <source>MIT 许可证，源码托管在 GitHub</source>
+            <translation>MIT 授權，原始碼託管於 GitHub</translation>
+        </message>
+        <message>
+            <source>QuikView 是开源的 Windows 图片查看器：C++ 与 Qt 6 构建，不收集使用数据，不含推广内容。</source>
+            <translation>QuikView 是開源的 Windows 圖片檢視器：使用 C++ 與 Qt 6 建置，不收集使用資料，不含推廣內容。</translation>
+        </message>
+        <message>
+            <source>链接</source>
+            <translation>連結</translation>
+        </message>
+        <message>
+            <source>官网</source>
+            <translation>官方網站</translation>
+        </message>
+        <message>
+            <source>打开 QuikView 官网</source>
+            <translation>開啟 QuikView 官方網站</translation>
+        </message>
+        <message>
+            <source>打开 QuikView GitHub 仓库</source>
+            <translation>開啟 QuikView GitHub 儲存庫</translation>
+        </message>
+        <message>
+            <source>无法打开浏览器。请手动访问：
+%1</source>
+            <translation>無法開啟瀏覽器。請手動造訪：
+%1</translation>
+        </message>
+        <message>
+            <source>QQ 交流群</source>
+            <translation>QQ 交流群</translation>
+        </message>
+        <message>
+            <source>点击复制 QQ 群号：%1</source>
+            <translation>點擊複製 QQ 群號：%1</translation>
+        </message>
+        <message>
+            <source>复制 QuikView QQ 交流群号</source>
+            <translation>複製 QuikView QQ 交流群號</translation>
+        </message>
+        <message>
+            <source>%1（已复制）</source>
+            <translation>%1（已複製）</translation>
+        </message>
+        <message>
+            <source>官网与 GitHub 在默认浏览器中打开；点击 QQ 交流群号可复制到剪贴板。</source>
+            <translation>官方網站與 GitHub 在預設瀏覽器中開啟；點擊 QQ 交流群號可複製到剪貼簿。</translation>
+        </message>
+    </context>
     <context>
         <name>ThumbnailBrowser</name>
         <message>
