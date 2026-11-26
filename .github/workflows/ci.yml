@@ -41,14 +41,21 @@ jobs:
         with:
           msystem: MINGW64
           update: true
+          # 不用 toolchain 包组：pacman 组选择提示在 --noconfirm 下仍会弹出，
+          # 把后续包名当成选择输入吞掉（update:true 同步新库后必现）。逐个列包。
           install: >-
-            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-binutils
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-headers
+            mingw-w64-x86_64-crt
+            mingw-w64-x86_64-libstdc++
+            mingw-w64-x86_64-winpthreads
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-ninja
-            mingw-w64-x86_64-qt6-base-6
-            mingw-w64-x86_64-qt6-tools-6
-            mingw-w64-x86_64-qt6-svg-6
-            mingw-w64-x86_64-qt6-imageformats-6
+            mingw-w64-x86_64-qt6-base
+            mingw-w64-x86_64-qt6-tools
+            mingw-w64-x86_64-qt6-svg
+            mingw-w64-x86_64-qt6-imageformats
             mingw-w64-x86_64-libraw
             mingw-w64-x86_64-libheif
 
