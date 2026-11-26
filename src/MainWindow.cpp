@@ -8669,8 +8669,9 @@ void MainWindow::layoutPlayBar()
 // ---------------------------------------------------------------------------
 
 // 动画帧上屏。不能走 ImageCanvas::setPixmap——那会 fitToWindow() 重置缩放，
-// 用户播放中一缩放就被打回适合窗口。改用 PreservingView + 视口中心锚点：
-// GIF 各帧同尺寸，缩放比例、平移位置、浏览方式在帧切换后原样保留。
+// 用户播放中一缩放就被打回适合窗口。走 replacePixmapInPlace 原地换图：
+// 自动播放中同尺寸帧不重建 scene，缩放比例、平移位置、浏览方式原样保留；
+// 帧尺寸变化或手动翻帧时由接口内部回退保视图路径。
 void MainWindow::showAnimFrame(const QImage &img)
 {
     // GIF 透明底色（键 "config/imageproc/gif_transparent"）：帧与首帧走同一铺底，
