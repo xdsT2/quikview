@@ -25,7 +25,7 @@ RenameDialog::RenameDialog(const QString &currentFile,
     , m_dirFiles(dirFiles)
 {
     setWindowTitle(tr("重命名"));
-    setStyleSheet(UiShell::DialogShell::shellQss() + QStringLiteral(R"(
+    setStyleSheet(UiShell::DialogShell::shellQss() + UiStyle::resolveQss(QStringLiteral(R"(
 QLabel#dlgSubtitle { color: @GenDesc@; font-size: 12px; }
 QLabel#renameSummary { color: @GenDesc@; font-size: 12px; }
 QLabel#renameError { color: @GenError@; background: @GenDangerBg@;
@@ -36,7 +36,7 @@ QPushButton#tokenBtn:hover { background: @GenHover@; }
 QPushButton#tokenBtn:pressed { background: @GenPressed@; }
 QTableWidget#renameTable { background: @GenCardBg@; border: 1px solid @GenCardLine@;
     border-radius: 6px; gridline-color: @GenRowLine@; }
-)"));
+)")));
     setMinimumSize(640, 480);
     resize(680, 520);
 
