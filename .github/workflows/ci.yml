@@ -78,6 +78,7 @@ jobs:
       - name: 打包
         env:
           QUIKVIEW_CI_SKIP_SHELL32: "1"
+          QUIKVIEW_CI_BUILD_SMOKE: "1"
         run: bash tools/package.sh build dist
 
       - name: 上传构建产物
