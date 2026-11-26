@@ -9,6 +9,7 @@
 #include <QThreadPool>
 #include <QTimer>
 
+#include "MinimapMath.h"
 #include "ZoomMotion.h"
 
 class QGraphicsPixmapItem;
@@ -111,6 +112,15 @@ public:
     // 悬停两侧仍出鼠标手型、点击两侧仍翻页——只是没有箭头这个视觉提示。
     void setSideArrowsEnabled(bool on);
     bool sideArrowsEnabled() const { return m_sideArrowsEnabled; }
+
+    // 鸟瞰图（B2）：仅当图片溢出视口时显示在画布右下角；支持点击/拖动定位。
+    void setMinimapEnabled(bool on);
+    bool minimapEnabled() const { return m_minimapEnabled; }
+    void setMinimapBottomInset(int px);
+    bool minimapVisible() const;
+    QRect minimapRect() const;
+    QRectF minimapHighlightRect() const;
+    bool navigateMinimapNormalized(qreal nx, qreal ny);
 
     void fitToWindow();
     void fitToWidth();                    // 浏览模式 2：按图宽缩放，垂直可滚
@@ -319,4 +329,10 @@ private:
     class SideArrow;
     SideArrow *m_arrowPrev = nullptr;   // 悬停带内 160ms 淡入，纯视觉不接鼠标
     SideArrow *m_arrowNext = nullptr;
+    class Minimap;
+    Minimap *m_minimap = nullptr;
+    bool m_minimapEnabled = true;
+    int m_minimapBottomInset = 14;
+    void updateMinimap();
+    void placeMinimap();
 };

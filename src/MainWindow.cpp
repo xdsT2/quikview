@@ -972,6 +972,19 @@ void MainWindow::updateStatusBottomInset()
         }
     }
     m_statusOverlay->setBottomInset(qMax(0, inset));
+    if (m_canvas) {
+        int minimapInset = 32;
+        if (m_control && dockChromeShown() && width() < 920) {
+            minimapInset = qMax(minimapInset, height() - m_control->y() + 10);
+        }
+        if (m_playBar && m_playBar->isVisible() && width() < 760) {
+            minimapInset = qMax(minimapInset, height() - m_playBar->y() + 10);
+        }
+        if (m_browser && m_browser->isVisible()) {
+            minimapInset = qMax(minimapInset, height() - m_browser->y() + 10);
+        }
+        m_canvas->setMinimapBottomInset(minimapInset);
+    }
 }
 
 void MainWindow::toggleBrowserPanel()
@@ -2720,6 +2733,13 @@ QMenu *MainWindow::buildHamburgerMenu()
     auto *view = addHamburgerSubmenu(menu, tr("浏览与显示"), "browse");
     addCheckableItem(view, tr("缩略图"), QString(),
                      m_browser && m_browser->isExpanded(), [this]() { toggleBrowserPanel(); });
+    addCheckableItem(view, tr("显示鸟瞰图"), QString(),
+                     Config::instance().showMinimap(), [this](bool on) {
+        Config::instance().settings().setValue(QStringLiteral("config/view/show_minimap"), on);
+        if (m_canvas) {
+            m_canvas->setMinimapEnabled(on);
+        }
+    });
     view->addSeparator();
     addHamburgerAction(view, actPrev, "chev-left");
     addHamburgerAction(view, actNext, "chev-right");
@@ -3350,6 +3370,9 @@ void MainWindow::applyRuntimeSettings()
     // 队列里的浮标立即收掉，之后 zoomChanged 不再触发显示。
     if (m_zoomBadge && !cfg.showZoomControl()) {
         m_zoomBadge->hide();
+    }
+    if (m_canvas) {
+        m_canvas->setMinimapEnabled(cfg.showMinimap());
     }
     // EXIF / 文件信息小字体（键 "config/view/exif_small_font"）：信息面板键值行
     // 12px ↔ 10px，底部状态行 11px ↔ 10px；切换后立即按最近一张图重建。
@@ -5360,6 +5383,25 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     }
     else if (c == QLatin1String("ovesc")) {
         closeOverview();
+    }
+    else if (c == QLatin1String("minimapstate")) {
+        QFile f(QStringLiteral("Temp/minimap-state.txt"));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            const QRect mr = m_canvas ? m_canvas->minimapRect() : QRect();
+            const QRectF hl = m_canvas ? m_canvas->minimapHighlightRect() : QRectF();
+            ts << "visible=" << (m_canvas && m_canvas->minimapVisible() ? 1 : 0)
+               << " zoom=" << (m_canvas ? m_canvas->zoom() : 0.0)
+               << " rect=" << mr.x() << "," << mr.y() << "," << mr.width() << "," << mr.height()
+               << " hl=" << hl.x() << "," << hl.y() << "," << hl.width() << "," << hl.height()
+               << "\n";
+        }
+    }
+    else if (c.startsWith(QLatin1String("minimapjump:"))) {
+        const QStringList parts = c.mid(12).split(QLatin1Char(':'));
+        if (parts.size() == 2 && m_canvas) {
+            m_canvas->navigateMinimapNormalized(parts[0].toDouble(), parts[1].toDouble());
+        }
     }
     else if (c == QLatin1String("ovend") && m_overview && m_overview->isVisible()) {
         // 验收探针：选中最后一张并滚到底，核对末排与文件名可见性。

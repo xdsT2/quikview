@@ -34,6 +34,7 @@ add_executable(quikview WIN32
     src/Config.h
     src/ImageCanvas.cpp
     src/ImageCanvas.h
+    src/MinimapMath.h
     src/ZoomMotion.cpp
     src/ZoomMotion.h
     src/ImageCache.cpp
@@ -301,6 +302,11 @@ if(BUILD_TESTING)
     add_executable(quikview-zoommotion-test tests/unit/zoom_motion_test.cpp src/ZoomMotion.cpp)
     target_include_directories(quikview-zoommotion-test PRIVATE src)
     add_test(NAME zoommotion.pure COMMAND quikview-zoommotion-test)
+
+    add_executable(quikview-minimap-test tests/unit/minimap_math_test.cpp)
+    target_include_directories(quikview-minimap-test PRIVATE src)
+    target_link_libraries(quikview-minimap-test PRIVATE Qt6::Core)
+    add_test(NAME minimap.pure COMMAND quikview-minimap-test)
 
     include("${CMAKE_CURRENT_SOURCE_DIR}/tests/chrome_popup_cases.cmake")
     foreach(_chrome_case IN LISTS QUIKVIEW_CHROME_CASES)

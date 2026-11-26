@@ -40,6 +40,7 @@ public:
     bool showTooltip() const;          // 悬浮工具提示总开关（默认显示）
     bool showAnimControl() const;      // 动图播放控制栏 + 信息行帧号（第 x/y 帧）是否显示（默认显示，语义为超集）
     bool showZoomControl() const;      // 缩放百分比浮标是否显示（默认显示）
+    bool showMinimap() const;          // 长图/放大图右下角鸟瞰导航器（默认显示）
     bool exifSmallFont() const;        // EXIF / 文件信息用小字体（默认 12px，开则 10px）
     bool alwaysOnTop() const;          // 总在最前
     bool escExit() const;              // 按 ESC 退出

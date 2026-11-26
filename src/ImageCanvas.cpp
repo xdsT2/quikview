@@ -17,6 +17,7 @@
 #include <QMetaObject>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPainterPath>
 #include <QPixmap>
 #include <QRunnable>
 #include <QThreadPool>
@@ -433,6 +434,140 @@ private:
     bool m_shown = false;
 };
 
+// ---------------------------------------------------------------------------
+// 鸟瞰图（B2）：长图 / 放大图溢出视口时在右下角显示交互缩略导航。
+// 父对象为 ImageCanvas（非 viewport），滚动条平移不会把控件拖走。
+// ---------------------------------------------------------------------------
+class ImageCanvas::Minimap : public QWidget
+{
+public:
+    explicit Minimap(ImageCanvas *canvas)
+        : QWidget(canvas)
+        , m_canvas(canvas)
+    {
+        setCursor(Qt::PointingHandCursor);
+        setMouseTracking(true);
+        hide();
+    }
+
+    void updateLayout(const MinimapMath::MinimapLayout &layout, const QPixmap &source)
+    {
+        m_layout = layout;
+        if (!layout.visible || source.isNull()) {
+            hide();
+            return;
+        }
+        const int pad = 6;
+        const int tw = qMax(1, qRound(layout.thumbSize.width()));
+        const int th = qMax(1, qRound(layout.thumbSize.height()));
+        const qreal dpr = devicePixelRatioF();
+        const qint64 key = source.cacheKey();
+        if (m_thumb.isNull() || m_sourceKey != key || m_thumbLogicalSize != QSize(tw, th)
+            || !qFuzzyCompare(m_thumbDpr, dpr)) {
+            QPixmap scaled = source.scaled(qRound(tw * dpr), qRound(th * dpr),
+                                           Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+            scaled.setDevicePixelRatio(dpr);
+            m_thumb = scaled;
+            m_sourceKey = key;
+            m_thumbLogicalSize = QSize(tw, th);
+            m_thumbDpr = dpr;
+        }
+        setFixedSize(tw + pad * 2, th + pad * 2);
+        update();
+    }
+
+    QRectF highlightRect() const { return m_layout.highlightRect; }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        if (!m_layout.visible || m_thumb.isNull()) {
+            return;
+        }
+        const int pad = 6;
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+
+        const QRectF card(0.5, 0.5, width() - 1.0, height() - 1.0);
+        p.setBrush(UiStyle::filmstripSurface());
+        p.setPen(QPen(UiStyle::filmstripEdge(), 1.0));
+        p.drawRoundedRect(card, 8.0, 8.0);
+
+        const QRectF thumbRect(pad, pad, m_layout.thumbSize.width(), m_layout.thumbSize.height());
+        p.save();
+        QPainterPath clip;
+        clip.addRoundedRect(thumbRect, 4.0, 4.0);
+        p.setClipPath(clip);
+        p.drawPixmap(thumbRect.topLeft(), m_thumb);
+
+        const QRectF hl = m_layout.highlightRect.translated(pad, pad);
+        QPainterPath veil;
+        veil.setFillRule(Qt::OddEvenFill);
+        veil.addRect(thumbRect);
+        veil.addRect(hl);
+        p.fillPath(veil, QColor(0, 0, 0, UiStyle::isLight() ? 55 : 85));
+
+        p.setBrush(UiStyle::interactiveSoft());
+        p.setPen(QPen(UiStyle::interactive(), 1.5));
+        p.drawRect(hl.adjusted(0.5, 0.5, -0.5, -0.5));
+        p.restore();
+    }
+
+    void mousePressEvent(QMouseEvent *event) override
+    {
+        if (event->button() == Qt::LeftButton) {
+            m_dragging = true;
+            setCursor(Qt::ClosedHandCursor);
+            jumpAt(event->position());
+            event->accept();
+            return;
+        }
+        QWidget::mousePressEvent(event);
+    }
+
+    void mouseMoveEvent(QMouseEvent *event) override
+    {
+        if (m_dragging && (event->buttons() & Qt::LeftButton)) {
+            jumpAt(event->position());
+            event->accept();
+            return;
+        }
+        QWidget::mouseMoveEvent(event);
+    }
+
+    void mouseReleaseEvent(QMouseEvent *event) override
+    {
+        if (m_dragging && event->button() == Qt::LeftButton) {
+            m_dragging = false;
+            setCursor(Qt::PointingHandCursor);
+            event->accept();
+            return;
+        }
+        QWidget::mouseReleaseEvent(event);
+    }
+
+private:
+    void jumpAt(const QPointF &localPos)
+    {
+        if (!m_canvas || !m_layout.visible) {
+            return;
+        }
+        const int pad = 6;
+        const qreal nx = (localPos.x() - pad) / qMax(1.0, m_layout.thumbSize.width());
+        const qreal ny = (localPos.y() - pad) / qMax(1.0, m_layout.thumbSize.height());
+        m_canvas->navigateMinimapNormalized(nx, ny);
+    }
+
+    ImageCanvas *m_canvas = nullptr;
+    MinimapMath::MinimapLayout m_layout;
+    QPixmap m_thumb;
+    qint64 m_sourceKey = 0;
+    QSize m_thumbLogicalSize;
+    qreal m_thumbDpr = 0.0;
+    bool m_dragging = false;
+};
+
 ImageCanvas::ImageCanvas(QWidget *parent)
     : QGraphicsView(parent)
 {
@@ -468,6 +603,7 @@ ImageCanvas::ImageCanvas(QWidget *parent)
     m_arrowNext = new SideArrow(SideArrow::Next, viewport());
     m_arrowPrev->hide();
     m_arrowNext->hide();
+    m_minimap = new Minimap(this);
 
     // 交互收尾：拖窗口边界停止 150ms 后补做一次重采样（只补当前 m_zoom）
     m_sampleFlush.setSingleShot(true);
@@ -534,6 +670,7 @@ void ImageCanvas::setCanvasBackdrop(int kind)
     m_checkerTile = QPixmap();   // 强制按当前主题/DPR 重铺 tile
     m_tileDpr = 0.0;
     viewport()->update();
+    updateMinimap();
 }
 
 void ImageCanvas::setImageShadowEnabled(bool on)
@@ -717,6 +854,97 @@ void ImageCanvas::setSideArrowsEnabled(bool on)
         return;
     }
     refreshEdgeHover();   // 开：按当前真实光标位置补一次，光标停在带内就立刻显示
+}
+
+void ImageCanvas::setMinimapEnabled(bool on)
+{
+    if (m_minimapEnabled == on) {
+        return;
+    }
+    m_minimapEnabled = on;
+    updateMinimap();
+}
+
+void ImageCanvas::setMinimapBottomInset(int px)
+{
+    const int clamped = qMax(14, px);
+    if (m_minimapBottomInset == clamped) {
+        return;
+    }
+    m_minimapBottomInset = clamped;
+    placeMinimap();
+}
+
+bool ImageCanvas::minimapVisible() const
+{
+    return m_minimap && m_minimap->isVisible();
+}
+
+QRect ImageCanvas::minimapRect() const
+{
+    return m_minimap ? m_minimap->geometry() : QRect();
+}
+
+QRectF ImageCanvas::minimapHighlightRect() const
+{
+    return m_minimap ? m_minimap->highlightRect() : QRectF();
+}
+
+bool ImageCanvas::navigateMinimapNormalized(qreal nx, qreal ny)
+{
+    if (!m_item || m_sourcePixmap.isNull()) {
+        return false;
+    }
+    const QSizeF isz = m_sourcePixmap.deviceIndependentSize();
+    if (isz.width() <= 0.0 || isz.height() <= 0.0) {
+        return false;
+    }
+    const QPointF scenePt = MinimapMath::thumbPointToScene(
+        QPointF(qBound(0.0, nx, 1.0) * 100.0, qBound(0.0, ny, 1.0) * 100.0),
+        QSizeF(100.0, 100.0), isz);
+    stopZoomAnimation();
+    if (longStripLock()) {
+        centerOn(isz.width() * 0.5, scenePt.y());
+        pinHorizontalCenter();
+    } else {
+        centerOn(scenePt);
+    }
+    updateMinimap();
+    return true;
+}
+
+void ImageCanvas::updateMinimap()
+{
+    if (!m_minimap) {
+        return;
+    }
+    if (!m_minimapEnabled || !m_item || m_sourcePixmap.isNull() || m_cropMode) {
+        m_minimap->hide();
+        return;
+    }
+    const QSizeF isz = m_sourcePixmap.deviceIndependentSize();
+    const QRectF visScene = mapToScene(viewport()->rect()).boundingRect();
+    const MinimapMath::MinimapLayout layout =
+        MinimapMath::computeLayout(isz, visScene, m_zoom, QSizeF(viewport()->size()));
+    m_minimap->updateLayout(layout, m_sourcePixmap);
+    if (!layout.visible) {
+        m_minimap->hide();
+        return;
+    }
+    placeMinimap();
+    m_minimap->show();
+    m_minimap->raise();
+}
+
+void ImageCanvas::placeMinimap()
+{
+    if (!m_minimap || !m_minimap->isVisible()) {
+        return;
+    }
+    const QRect vp = viewport()->geometry();
+    const int x = qMax(vp.left() + 8, vp.right() + 1 - 14 - m_minimap->width());
+    const int y = qMax(vp.top() + 8, vp.bottom() + 1 - m_minimapBottomInset - m_minimap->height());
+    m_minimap->move(x, y);
 }
 
 void ImageCanvas::setPixmapAnimated(const QPixmap &pixmap, int mode, bool fitAfter)
@@ -1021,6 +1249,7 @@ void ImageCanvas::setPixmap(const QPixmap &pixmap, bool fitAfter)
         m_logo->hide();
     }
     refreshEdgeHover();   // 空态→有图等切换后，按当前光标位置重算箭头
+    updateMinimap();
 }
 
 void ImageCanvas::setPixmapPreservingView(const QPixmap &pixmap, const QPointF &anchorNorm,
@@ -1057,6 +1286,7 @@ void ImageCanvas::setPixmapPreservingView(const QPixmap &pixmap, const QPointF &
              r.top() + qBound(0.0, anchorNorm.y(), 1.0) * r.height());
     emit zoomChanged(m_zoom);
     refreshEdgeHover();
+    updateMinimap();
 }
 
 void ImageCanvas::replacePixmapInPlace(const QPixmap &pixmap, bool animated)
@@ -1112,6 +1342,7 @@ void ImageCanvas::clear()
     if (m_logo) {
         m_logo->show();
     }
+    updateMinimap();
 }
 
 // 画布自由拖动：sceneRect = 图片矩形四周加「2 倍视口（物理像素）」padding。
@@ -1397,6 +1628,7 @@ void ImageCanvas::setCropMode(bool on)
     } else {
         unsetCursor();
     }
+    updateMinimap();
 }
 
 QRect ImageCanvas::selectionRect() const
@@ -1460,6 +1692,7 @@ void ImageCanvas::fitToWindowGeom()
     // 防御（窗口尺寸变化竞态），真正可观测的消费点在 fitToWidth / zoomActual。
     applyAlignTopIfLarge();
     emit zoomChanged(m_zoom);
+    updateMinimap();
 }
 
 // 浏览模式 2：宽度贴合 viewport（含滚动条边距），高度超出则顶部对齐可滚，
@@ -1509,6 +1742,7 @@ void ImageCanvas::fitToWidthGeom()
         centerOn(m_item);
     }
     emit zoomChanged(m_zoom);
+    updateMinimap();
 }
 
 void ImageCanvas::zoomIn()
@@ -1631,6 +1865,7 @@ void ImageCanvas::applyZoomAtInternal(qreal zoom, const QPoint &anchorViewportPt
     if (!deferSampling) {
         refreshSampling();
     }
+    updateMinimap();
 }
 
 void ImageCanvas::stopZoomAnimation()
@@ -2091,6 +2326,9 @@ void ImageCanvas::scrollContentsBy(int dx, int dy)
     if ((dx != 0 || dy != 0) && m_arrowPrev) {
         placeEdgeArrows();
     }
+    if (dx != 0 || dy != 0) {
+        updateMinimap();
+    }
 }
 
 void ImageCanvas::leaveEvent(QEvent *event)
@@ -2140,4 +2378,5 @@ void ImageCanvas::resizeEvent(QResizeEvent *event)
     }
     placeEdgeArrows();
     refreshEdgeHover();   // 窗口/视口变化后，箭头矩形随动，按真实光标重算
+    updateMinimap();
 }

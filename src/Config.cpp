@@ -369,6 +369,11 @@ bool Config::showZoomControl() const
     return m_settings.value(QStringLiteral("config/view/show_zoom_control"), true).toBool();
 }
 
+bool Config::showMinimap() const
+{
+    return m_settings.value(QStringLiteral("config/view/show_minimap"), true).toBool();
+}
+
 bool Config::exifSmallFont() const
 {
     // 设置页「用小字体显示 EXIF / 文件信息」：true = 10px，默认 12px。
