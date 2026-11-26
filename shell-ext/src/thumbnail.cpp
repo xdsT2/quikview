@@ -142,7 +142,7 @@ HRESULT ExtractPsdThumbJpeg(IStream* stm, std::vector<BYTE>* jpeg) {
         if (!ReadBytes(stm, buf, 4)) return E_FAIL;
         consumed += 4;
         const ULONG dataLen = ReadU32BE(buf);
-        if (dataLen > 32u * 1024 * 1024) return E_FAIL;
+        if (dataLen > 8u * 1024 * 1024 || dataLen > irLen - consumed) return E_FAIL;
 
         if (id == 0x040C) {
             // 缩略图资源：前 28 字节是预览头（width/height/...），之后是 JPEG
@@ -154,7 +154,7 @@ HRESULT ExtractPsdThumbJpeg(IStream* stm, std::vector<BYTE>* jpeg) {
             if (!ReadBytes(stm, buf, kPreviewHdr > sizeof(buf) ? sizeof(buf) : kPreviewHdr))
                 return E_FAIL;
             if (kPreviewHdr > sizeof(buf)) {
-                ULONG rest = kPreviewHdr - sizeof(buf);
+                ULONG rest = kPreviewHdr - (ULONG)sizeof(buf);
                 while (rest) {
                     ULONG c = rest > sizeof(buf) ? sizeof(buf) : rest;
                     if (!ReadBytes(stm, buf, c)) return E_FAIL;
@@ -181,12 +181,17 @@ HRESULT ExtractPsdThumbJpeg(IStream* stm, std::vector<BYTE>* jpeg) {
 HRESULT FinishThumb(QvPtr<IWICImagingFactory>& factory,
                    IWICBitmapFrameDecode* frame, UINT cx,
                    HBITMAP* phbm, WTS_ALPHATYPE* pat) {
+    if (cx > 2048) cx = 2048;
     UINT srcW = 0, srcH = 0;
-    frame->GetSize(&srcW, &srcH);
-    if (srcW == 0 || srcH == 0) return E_FAIL;
+    if (FAILED(frame->GetSize(&srcW, &srcH))) return E_FAIL;
+    if (srcW == 0 || srcH == 0 || srcW > 32768 || srcH > 32768
+        || (UINT64)srcW * (UINT64)srcH > 100000000ULL) {
+        return E_FAIL;
+    }
 
     UINT dstW = 0, dstH = 0;
     FitSize(srcW, srcH, cx, &dstW, &dstH);
+    if (dstW == 0 || dstH == 0 || dstW > 2048 || dstH > 2048) return E_FAIL;
 
     QvPtr<IWICBitmapSource> embedded;
     IWICBitmapSource* source = frame;
@@ -227,7 +232,12 @@ HRESULT FinishThumb(QvPtr<IWICImagingFactory>& factory,
         return E_OUTOFMEMORY;
     }
     const UINT stride = dstW * 4;
-    hr = converter->CopyPixels(nullptr, stride, stride * dstH, (BYTE*)pvBits);
+    const UINT64 cbBuffer = (UINT64)stride * (UINT64)dstH;
+    if (cbBuffer > 0xFFFFFFFFULL) {
+        DeleteObject(hbm);
+        return E_FAIL;
+    }
+    hr = converter->CopyPixels(nullptr, stride, (UINT)cbBuffer, (BYTE*)pvBits);
     if (FAILED(hr)) {
         DeleteObject(hbm);
         return hr;
@@ -282,7 +292,7 @@ STDMETHODIMP_(ULONG) QuikThumbProvider::Release() {
 STDMETHODIMP QuikThumbProvider::Load(IStream* pStm, DWORD /*grfMode*/) {
     try {
         if (!pStm) return E_INVALIDARG;
-        if (m_stream) m_stream->Release();
+        if (m_stream) return HRESULT_FROM_WIN32(ERROR_ALREADY_INITIALIZED);
         m_stream = pStm;
         m_stream->AddRef();
         return S_OK;
@@ -320,25 +330,29 @@ STDMETHODIMP QuikThumbProvider::GetThumbnail(UINT cx, HBITMAP* phbm,
         std::vector<BYTE> jpeg;
         hr = ExtractPsdThumbJpeg(m_stream, &jpeg);
         if (SUCCEEDED(hr) && !jpeg.empty()) {
-            HGLOBAL hg = GlobalAlloc(GPTR, jpeg.size());
+            HGLOBAL hg = GlobalAlloc(GMEM_MOVEABLE, jpeg.size());
             if (hg) {
                 void* p = GlobalLock(hg);
                 if (p) {
                     memcpy(p, jpeg.data(), jpeg.size());
                     GlobalUnlock(hg);
-                }
-                QvPtr<IStream> mem;
-                if (SUCCEEDED(CreateStreamOnHGlobal(hg, TRUE, &mem))) {
-                    QvPtr<IWICBitmapDecoder> jdec;
-                    hr = factory->CreateDecoderFromStream(
-                        mem.Get(), nullptr, WICDecodeMetadataCacheOnDemand, &jdec);
-                    if (SUCCEEDED(hr)) {
-                        QvPtr<IWICBitmapFrameDecode> frame;
-                        hr = jdec->GetFrame(0, &frame);
+                    QvPtr<IStream> mem;
+                    if (SUCCEEDED(CreateStreamOnHGlobal(hg, TRUE, &mem))) {
+                        QvPtr<IWICBitmapDecoder> jdec;
+                        hr = factory->CreateDecoderFromStream(
+                            mem.Get(), nullptr, WICDecodeMetadataCacheOnDemand, &jdec);
                         if (SUCCEEDED(hr)) {
-                            return FinishThumb(factory, frame.Get(), cx, phbm, pat);
+                            QvPtr<IWICBitmapFrameDecode> frame;
+                            hr = jdec->GetFrame(0, &frame);
+                            if (SUCCEEDED(hr)) {
+                                return FinishThumb(factory, frame.Get(), cx, phbm, pat);
+                            }
                         }
+                    } else {
+                        GlobalFree(hg);
                     }
+                } else {
+                    GlobalFree(hg);
                 }
             }
             // 旁路失败：继续走下面的常规路径（Explorer 不认识 PSD 时会回退默认）

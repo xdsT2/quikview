@@ -79,6 +79,13 @@ ImageCache::ImageCache(QObject *parent)
     // 全图解码专用池：最多 2 条并行 = 在飞的旧任务 + 抢占式新目标各一条。
     // 这是「线程数按实测有上限」的落点：再快也不允许无限并发抢 CPU。
     m_decodePool.setMaxThreadCount(2);
+    m_dragPool.setMaxThreadCount(1);
+}
+
+ImageCache::~ImageCache()
+{
+    m_decodePool.waitForDone();
+    m_dragPool.waitForDone();
 }
 
 void ImageCache::setFullCacheLimit(int mb)
@@ -328,7 +335,7 @@ void ImageCache::startDragDecode()
     const QSize size = m_dragSize;
     m_dragPending.clear();
     m_dragInFlight = path;
-    QtConcurrent::run([this, path, size]() {
+    QtConcurrent::run(&m_dragPool, [this, path, size]() {
         QImage img;
         if (ArchiveStore::isEntryPath(path)) {
             QString ignored;
@@ -433,8 +440,12 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
     const bool previewLive = m_previewLiveKnown.load();
     const bool previewOn = previewLive ? m_previewLiveOn.load()
                                        : Config::instance().previewMode();
+    const bool noRaw = Config::instance().noRawLoad();
+    const bool rawThumb = Config::instance().rawThumbnail();
+    const bool hdrTonemap = Config::instance().hdrTonemap();
     m_fullInFlight.insert(path, generation);
-    QtConcurrent::run(&m_decodePool, [this, path, previewSize, generation, previewOn]() {
+    QtConcurrent::run(&m_decodePool, [this, path, previewSize, generation, previewOn,
+                                      noRaw, rawThumb, hdrTonemap]() {
         // 包内条目（.zip/.cbz 里的文件）：解压进内存 → QImageReader 从内存流解码。
         // 与文件路径同构：先按视口出一张快帧顶住连按，再解全图；解码完的字节即弃，
         // 全程不落盘（派单 §二.3 / §四.5 的内存峰值就落在这两条）。
@@ -486,7 +497,7 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
         // Qt 的 tiff 插件按内容嗅探能读出内嵌预览（常见 160×120），先前的守卫只挡
         // libraw，结果开关打开仍然上屏，等于没关。这里不给任何解码路径留口子，
         // 直接按失败回主线程 → onLoadFailed 给「已在设置中禁用 RAW 解码」。
-        if (rawFile && Config::instance().noRawLoad()) {
+        if (rawFile && noRaw) {
             QMetaObject::invokeMethod(this, [this, path, generation]() {
                 finishFullDecode(path, QImage(), generation, QString(),
                                  LoadErrorCategory::None);
@@ -496,7 +507,7 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
         // RAW 内嵌缩略图优先上屏（键 "config/etc/raw_thumbnail"，默认开）：
         // libraw unpack_thumb 通常几十毫秒，先顶住首屏，全尺寸随后在同一后台
         // 线程继续解。「不打开 RAW」时连缩略图也不出，交给 onLoadFailed 提示。
-        if (rawFile && Config::instance().rawThumbnail() && !Config::instance().noRawLoad()) {
+        if (rawFile && rawThumb && !noRaw) {
             const QImage thumb = loadRawThumbnail(path);
             if (!thumb.isNull()) {
                 emitPreview(path, thumb, generation);
@@ -550,9 +561,9 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
         }
         // RAW 全尺寸解码同样留在本后台线程，避免回主线程同步解把窗口卡住；
         // 「不打开 RAW」时 requestFull 已拦截，这里是并发/在飞任务的兜底。
-        if (rawFile && !Config::instance().noRawLoad()) {
+        if (rawFile && !noRaw) {
             QString rawErr;
-            img = loadRawImage(path, &rawErr, Config::instance().hdrTonemap());
+            img = loadRawImage(path, &rawErr, hdrTonemap);
             if (img.isNull() && !rawErr.isEmpty())
                 readerError = rawErr;   // RAW 自己的失败原因比一句「无法解码」有用
         }
@@ -640,7 +651,8 @@ void ImageCache::forgetPath(const QString &path)
     if (path.isEmpty()) {
         return;
     }
-    m_minGen.insert(path, m_generation + 1);
+    ++m_generation;
+    m_minGen.insert(path, m_generation);
 
     m_fullCache.remove(path);
     m_dragCache.remove(path);
@@ -741,7 +753,8 @@ void ImageCache::requestThumbnail(const QString &path, const QSize &size)
             return;
         }
         if (!img.isNull())
-            m_thumbCache.insert(key, new QImage(img));
+            m_thumbCache.insert(key, new QImage(img),
+                                static_cast<int>(qMax<qint64>(1, qMin<qint64>(img.sizeInBytes(), qint64(INT_MAX)))));
         emit thumbnailReady(path, img);
     });
     watcher->setFuture(future);

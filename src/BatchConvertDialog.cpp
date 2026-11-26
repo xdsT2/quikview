@@ -3,6 +3,7 @@
 
 #include <QApplication>
 #include <QButtonGroup>
+#include <QCloseEvent>
 #include <QComboBox>
 #include <QDesktopServices>
 #include <QDir>
@@ -450,12 +451,12 @@ void BatchConvertDialog::buildUi()
     auto *fl = new QHBoxLayout(footer);
     fl->setContentsMargins(18, 0, 18, 0);
     fl->setSpacing(9);
-    auto *resetBtn = new QPushButton(tr("重置"), footer);
-    resetBtn->setObjectName(QStringLiteral("btnSubtle"));
-    resetBtn->setFixedHeight(32);
-    resetBtn->setCursor(Qt::PointingHandCursor);
-    connect(resetBtn, &QPushButton::clicked, this, &BatchConvertDialog::onReset);
-    fl->addWidget(resetBtn);
+    m_resetBtn = new QPushButton(tr("重置"), footer);
+    m_resetBtn->setObjectName(QStringLiteral("btnSubtle"));
+    m_resetBtn->setFixedHeight(32);
+    m_resetBtn->setCursor(Qt::PointingHandCursor);
+    connect(m_resetBtn, &QPushButton::clicked, this, &BatchConvertDialog::onReset);
+    fl->addWidget(m_resetBtn);
     auto *note = new QLabel(tr("原始文件会保留不变"), footer);
     note->setObjectName(QStringLiteral("footerNote"));
     fl->addWidget(note);
@@ -702,7 +703,9 @@ void BatchConvertDialog::onConvert()
         targetW = qMax(1, qRound(double(targetH) * m_srcW / m_srcH));
     }
     const bool needScale = targetW > 0 || targetH > 0;
-    const QString prefix = m_prefix->text();
+    QString prefix = m_prefix->text();
+    prefix.replace(QLatin1Char('/'), QLatin1Char('_'));
+    prefix.replace(QLatin1Char('\\'), QLatin1Char('_'));
 
     m_progressArea->setVisible(true);
     m_progress->setRange(0, m_files.size());
@@ -711,6 +714,9 @@ void BatchConvertDialog::onConvert()
     m_running = true;
     m_cancelRequested = false;
     m_convertBtn->setText(tr("取消"));
+    if (m_resetBtn) {
+        m_resetBtn->setEnabled(false);
+    }
     adjustSize();
     QApplication::processEvents();
 
@@ -763,16 +769,20 @@ void BatchConvertDialog::onConvert()
             }
         }
 
-        // 输出路径
+        // 输出路径：不覆盖原始文件及已有文件（Windows 下忽略大小写比较）
         QString outDir = resolveOutputDir(src);
         QDir().mkpath(outDir);
-        QString outPath = QDir(outDir).absoluteFilePath(
-            prefix + QFileInfo(src).completeBaseName() + QLatin1Char('.') + ext);
-        // 不覆盖原始文件：同名同路径时补后缀
-        if (QFileInfo(outPath).absoluteFilePath() == QFileInfo(src).absoluteFilePath()) {
-            outPath = QDir(outDir).absoluteFilePath(
-                prefix + QFileInfo(src).completeBaseName() + QStringLiteral("_converted.")
-                + ext);
+        const QString stem = prefix + QFileInfo(src).completeBaseName();
+        const QFileInfo srcFi(src);
+        QString outPath = QDir(outDir).absoluteFilePath(stem + QLatin1Char('.') + ext);
+        if (QFileInfo::exists(outPath) || QFileInfo(outPath) == srcFi) {
+            QString candidate = QDir(outDir).absoluteFilePath(
+                stem + QStringLiteral("_converted.") + ext);
+            for (int n = 2; (QFileInfo::exists(candidate) || QFileInfo(candidate) == srcFi) && n < 10000; ++n) {
+                candidate = QDir(outDir).absoluteFilePath(
+                    stem + QStringLiteral("_converted_%1.").arg(n) + ext);
+            }
+            outPath = candidate;
         }
         if (img.save(outPath, ext.toLatin1().constData(), quality)) {
             ++ok;
@@ -788,6 +798,9 @@ void BatchConvertDialog::onConvert()
     m_running = false;
     m_convertBtn->setText(tr("开始"));
     m_convertBtn->setEnabled(true);
+    if (m_resetBtn) {
+        m_resetBtn->setEnabled(true);
+    }
 
     if (m_cancelRequested) {
         m_progressText->setText(tr("已取消：成功 %1 / 共 %2 张")
@@ -802,6 +815,29 @@ void BatchConvertDialog::onConvert()
                                  .arg(ok)
                                  .arg(m_files.size())
                                  .arg(failed > 0 ? tr("（失败 %1 张）").arg(failed) : QString()));
+}
+
+void BatchConvertDialog::reject()
+{
+    if (m_running) {
+        m_cancelRequested = true;
+        m_convertBtn->setEnabled(false);
+        m_progressText->setText(tr("正在取消…"));
+        return;
+    }
+    UiShell::DialogShell::reject();
+}
+
+void BatchConvertDialog::closeEvent(QCloseEvent *event)
+{
+    if (m_running) {
+        m_cancelRequested = true;
+        m_convertBtn->setEnabled(false);
+        m_progressText->setText(tr("正在取消…"));
+        event->ignore();
+        return;
+    }
+    UiShell::DialogShell::closeEvent(event);
 }
 
 // ---------------------------------------------------------------------------

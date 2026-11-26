@@ -12,6 +12,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <cmath>
+#include <memory>
 #include <vector>
 
 #include "svg_raster.h"
@@ -174,26 +176,29 @@ HRESULT SvgRenderThumb(IStream* stm, UINT cx, HBITMAP* phbm,
     if (FAILED(hr)) return hr;
 
     // nsvgParse 会就地改写输入串，所以传 text 的可写缓冲（活到 parse 之后）
-    NSVGimage* img = nsvgParse(text.data(), "px", 96.0f);
+    std::unique_ptr<NSVGimage, decltype(&nsvgDelete)> img(
+        nsvgParse(text.data(), "px", 96.0f), &nsvgDelete);
     if (!img) return E_FAIL;
 
     float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
     float cw = img->width, ch = img->height;
-    if (!(cw > 0) || !(ch > 0)) {
-        if (!ContentBounds(img, &x0, &y0, &x1, &y1)) {
-            nsvgDelete(img);
+    if (!std::isfinite(cw) || !std::isfinite(ch) || !(cw > 0) || !(ch > 0)) {
+        if (!ContentBounds(img.get(), &x0, &y0, &x1, &y1)) {
             return E_FAIL;   // 空文档
         }
         cw = x1 - x0;
         ch = y1 - y0;
     }
-    if (!(cw > 0) || !(ch > 0)) {
-        nsvgDelete(img);
+    if (!std::isfinite(cw) || !std::isfinite(ch) || !(cw > 0) || !(ch > 0)) {
         return E_FAIL;
     }
 
     // 目标尺寸：等比缩进 cx 盒（矢量允许放大，最长边=cx）
+    if (cx > kMaxRasterEdge) cx = kMaxRasterEdge;
     float scale = (float)cx / (cw > ch ? cw : ch);
+    if (!std::isfinite(scale) || !(scale > 0.0f)) {
+        return E_FAIL;
+    }
     UINT dstW = (UINT)(cw * scale + 0.5f);
     UINT dstH = (UINT)(ch * scale + 0.5f);
     if (dstW == 0) dstW = 1;
@@ -209,15 +214,15 @@ HRESULT SvgRenderThumb(IStream* stm, UINT cx, HBITMAP* phbm,
         scale *= cap;
     }
 
-    NSVGrasterizer* rast = nsvgCreateRasterizer();
+    std::unique_ptr<NSVGrasterizer, decltype(&nsvgDeleteRasterizer)> rast(
+        nsvgCreateRasterizer(), &nsvgDeleteRasterizer);
     if (!rast) {
-        nsvgDelete(img);
         return E_OUTOFMEMORY;
     }
 
     std::vector<BYTE> rgba((size_t)dstW * dstH * 4);
     // nanosvg 的输出原点即画布原点；画布尺寸与 viewBox 的换算已由解析器做掉
-    nsvgRasterize(rast, img, 0.0f, 0.0f, scale, rgba.data(), (int)dstW,
+    nsvgRasterize(rast.get(), img.get(), 0.0f, 0.0f, scale, rgba.data(), (int)dstW,
                   (int)dstH, (int)dstW * 4);
 
     // 写进 CreateDIBSection 缓冲：RGBA 非预乘 → BGRA 预乘（Explorer 要 ARGB 预乘）
@@ -254,8 +259,6 @@ HRESULT SvgRenderThumb(IStream* stm, UINT cx, HBITMAP* phbm,
         *pat = WTSAT_ARGB;
     }
 
-    nsvgDeleteRasterizer(rast);
-    nsvgDelete(img);
     if (!hbm || !pvBits) {
         if (hbm) DeleteObject(hbm);
         return E_OUTOFMEMORY;

@@ -38,12 +38,23 @@ FileStamp stampOf(const QString &path)
     return stamp;
 }
 
-// 虚拟路径的快速判据：包文件后缀后面紧跟 '/'。这一条不过就不必取锁，
+// 虚拟路径的快速判据：包文件后缀后面紧跟 '/' 或 '\'。这一条不过就不必取锁，
 // 解码热路径（每张图若干次）不会被注册表的互斥量反复拦住。
 bool looksVirtual(const QString &path)
 {
     return path.contains(QLatin1String(".zip/"), Qt::CaseInsensitive)
-           || path.contains(QLatin1String(".cbz/"), Qt::CaseInsensitive);
+           || path.contains(QLatin1String(".cbz/"), Qt::CaseInsensitive)
+           || path.contains(QLatin1String(".zip\\"), Qt::CaseInsensitive)
+           || path.contains(QLatin1String(".cbz\\"), Qt::CaseInsensitive);
+}
+
+QString canonicalKey(const QString &absPath)
+{
+#ifdef Q_OS_WIN
+    return absPath.toLower();
+#else
+    return absPath;
+#endif
 }
 
 QString message(const char *text)
@@ -102,24 +113,29 @@ bool ArchiveStore::splitEntryPath(const QString &path, QString *archivePath, QSt
     if (path.isEmpty() || !looksVirtual(path)) {
         return false;
     }
+    QString normPath = path;
+    normPath.replace(QLatin1Char('\\'), QLatin1Char('/'));
     QMutexLocker lock(&s_mutex);
-    QString best;
+    QString bestKey;
+    QString bestArchivePath;
     for (auto it = s_archives.constBegin(); it != s_archives.constEnd(); ++it) {
         const QString &key = it.key();
+        const QString candPath = (it.value() && !it.value()->path().isEmpty()) ? it.value()->path() : key;
         // 条目名里允许出现 '/'（第二阶段子目录递归），所以按最长前缀匹配
-        if (path.size() > key.size() + 1 && path.at(key.size()) == QLatin1Char('/')
-            && path.startsWith(key, Qt::CaseInsensitive) && key.size() > best.size()) {
-            best = key;
+        if (normPath.size() > candPath.size() + 1 && normPath.at(candPath.size()) == QLatin1Char('/')
+            && normPath.startsWith(candPath, Qt::CaseInsensitive) && candPath.size() > bestArchivePath.size()) {
+            bestKey = key;
+            bestArchivePath = candPath;
         }
     }
-    if (best.isEmpty()) {
+    if (bestKey.isEmpty()) {
         return false;
     }
     if (archivePath) {
-        *archivePath = best;
+        *archivePath = bestArchivePath;
     }
     if (entryName) {
-        *entryName = path.mid(best.size() + 1);
+        *entryName = normPath.mid(bestArchivePath.size() + 1);
     }
     return true;
 }
@@ -163,27 +179,31 @@ QSharedPointer<ZipArchive> ArchiveStore::open(const QString &archivePath, QStrin
         }
         return {};
     }
-    const QString key = normalized(archivePath);
-    const FileStamp stamp = stampOf(key);
+    const QString normPath = normalized(archivePath);
+    const QString key = canonicalKey(normPath);
+    const FileStamp stamp = stampOf(normPath);
 
-    QMutexLocker lock(&s_mutex);
-    const auto existing = s_archives.constFind(key);
-    if (existing != s_archives.constEnd() && existing.value() && existing.value()->isOpen()
-        && g_stamps.value(key) == stamp) {
-        g_lru.removeAll(key);
-        g_lru.prepend(key);
-        if (status) {
-            *status = ZipArchive::Status::Ok;
+    {
+        QMutexLocker lock(&s_mutex);
+        const auto existing = s_archives.constFind(key);
+        if (existing != s_archives.constEnd() && existing.value() && existing.value()->isOpen()
+            && g_stamps.value(key) == stamp) {
+            g_lru.removeAll(key);
+            g_lru.prepend(key);
+            if (status) {
+                *status = ZipArchive::Status::Ok;
+            }
+            return existing.value();
         }
-        return existing.value();
+        // 同一个路径的旧包（文件被覆盖后）：先摘掉，避免拿到过期条目表
+        s_archives.remove(key);
+        g_lru.removeAll(key);
+        g_stamps.remove(key);
     }
-    // 同一个路径的旧包（文件被覆盖后）：先摘掉，避免拿到过期条目表
-    s_archives.remove(key);
-    g_lru.removeAll(key);
 
     auto archive = QSharedPointer<ZipArchive>::create();
     QString openError;
-    if (!archive->open(key, &openError)) {
+    if (!archive->open(normPath, &openError)) {
         if (status) {
             *status = archive->status();
         }
@@ -196,15 +216,33 @@ QSharedPointer<ZipArchive> ArchiveStore::open(const QString &archivePath, QStrin
         *status = ZipArchive::Status::Ok;
     }
 
+    QMutexLocker lock(&s_mutex);
+    const auto raced = s_archives.constFind(key);
+    if (raced != s_archives.constEnd() && raced.value() && raced.value()->isOpen()
+        && g_stamps.value(key) == stamp) {
+        g_lru.removeAll(key);
+        g_lru.prepend(key);
+        return raced.value();
+    }
+
     // 上限淘汰：只丢「非当前浏览」的旧包，mmap/QFile 句柄不堆积
     g_lru.removeAll(key);
     g_lru.prepend(key);
     while (g_lru.size() > kMaxOpenArchives) {
-        const QString victim = g_lru.takeLast();
-        if (victim != s_active) {
-            s_archives.remove(victim);
-            g_stamps.remove(victim);
+        int victimIdx = -1;
+        for (int i = g_lru.size() - 1; i >= 0; --i) {
+            const QString &cand = g_lru.at(i);
+            if (cand != s_active && cand != key) {
+                victimIdx = i;
+                break;
+            }
         }
+        if (victimIdx < 0) {
+            break;
+        }
+        const QString victim = g_lru.takeAt(victimIdx);
+        s_archives.remove(victim);
+        g_stamps.remove(victim);
     }
     s_archives.insert(key, archive);
     g_stamps.insert(key, stamp);
@@ -213,7 +251,7 @@ QSharedPointer<ZipArchive> ArchiveStore::open(const QString &archivePath, QStrin
 
 void ArchiveStore::setActive(const QString &archivePath)
 {
-    const QString key = normalized(archivePath);
+    const QString key = canonicalKey(normalized(archivePath));
     QMutexLocker lock(&s_mutex);
     s_active = key;
     if (s_archives.contains(key)) {
@@ -242,7 +280,7 @@ QSharedPointer<ZipArchive> ArchiveStore::lookup(const QString &entryPath, QStrin
         *entryName = entry;
     }
     QMutexLocker lock(&s_mutex);
-    return s_archives.value(archivePath);
+    return s_archives.value(canonicalKey(archivePath));
 }
 
 QByteArray ArchiveStore::readEntry(const QString &entryPath, QString *error)

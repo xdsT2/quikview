@@ -84,11 +84,12 @@ QByteArray spliceExifOrientation1(const QByteArray &orig, const QByteArray &newJ
     if (rd16(orig, tiff + 2, le) != 42)
         return QByteArray();
     const quint32 ifd0 = rd32(orig, tiff + 4, le);
-    const int ifdAbs = tiff + int(ifd0);
-    if (ifd0 < 8 || ifdAbs + 2 > seg + segLen)
+    const quint64 tiffSize = quint64(segLen - 10);
+    if (ifd0 < 8 || quint64(ifd0) + 2 > tiffSize)
         return QByteArray();
+    const int ifdAbs = tiff + int(ifd0);
     const quint16 n = rd16(orig, ifdAbs, le);
-    if (ifdAbs + 2 + int(n) * 12 + 4 > seg + segLen)
+    if (quint64(ifd0) + 2 + quint64(n) * 12 + 4 > tiffSize)
         return QByteArray();
 
     QByteArray tiffData = orig.mid(tiff, segLen - 10);   // 纯 TIFF 块（去掉 marker2+len2+Exif6）
@@ -99,7 +100,7 @@ QByteArray spliceExifOrientation1(const QByteArray &orig, const QByteArray &newJ
         if (rd16(tiffData, e, le) == 0x0112) {
             const quint16 type = rd16(tiffData, e + 2, le);
             const quint32 cnt = rd32(tiffData, e + 4, le);
-            if (type != 3 || cnt < 1)
+            if (type != 3 || cnt != 1)
                 return QByteArray();
             wr16(tiffData, e + 8, 1, le);   // SHORT count=1：值内联
             patched = true;
@@ -126,6 +127,8 @@ QByteArray spliceExifOrientation1(const QByteArray &orig, const QByteArray &newJ
     }
     QByteArray payload("Exif\0\0", 6);
     payload += tiffData;
+    if (payload.size() + 2 > 0xFFFF)
+        return QByteArray();
     QByteArray app1;
     app1.resize(2 + 2 + payload.size());
     app1[0] = char(0xFF);
@@ -220,6 +223,11 @@ bool writeBack(const QString &path, const QImage &image, QString &err)
     }
     if (fmt == "JPEG") {
         const QByteArray orig = readAll(path);
+        if (orig.isEmpty()) {
+            QFile::remove(tmp);
+            err = QCoreApplication::translate("RotateAutoSave", "读取原文件失败");
+            return false;
+        }
         int segLen = 0;
         if (findExifApp1(orig, segLen) >= 0) {
             const QByteArray patched = spliceExifOrientation1(orig, readAll(tmp));

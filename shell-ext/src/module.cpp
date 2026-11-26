@@ -79,8 +79,14 @@ public:
         }
         return E_NOINTERFACE;
     }
-    STDMETHODIMP_(ULONG) AddRef() override { return 2; }
-    STDMETHODIMP_(ULONG) Release() override { return 2; }
+    STDMETHODIMP_(ULONG) AddRef() override {
+        DllAddLock();
+        return 2;
+    }
+    STDMETHODIMP_(ULONG) Release() override {
+        DllReleaseLock();
+        return 1;
+    }
     STDMETHODIMP CreateInstance(IUnknown* outer, REFIID riid,
                                 void** ppv) override {
         try {
@@ -120,8 +126,14 @@ public:
         }
         return E_NOINTERFACE;
     }
-    STDMETHODIMP_(ULONG) AddRef() override { return 2; }
-    STDMETHODIMP_(ULONG) Release() override { return 2; }
+    STDMETHODIMP_(ULONG) AddRef() override {
+        DllAddLock();
+        return 2;
+    }
+    STDMETHODIMP_(ULONG) Release() override {
+        DllReleaseLock();
+        return 1;
+    }
     STDMETHODIMP CreateInstance(IUnknown* outer, REFIID riid,
                                 void** ppv) override {
         try {
@@ -227,11 +239,14 @@ void DeleteHandlerKeyIfOurs(const wchar_t* key) {
         return;
     }
     wchar_t val[64] = {};
-    DWORD cb = sizeof(val);
-    const LONG rc = RegQueryValueExW(hk, nullptr, nullptr, nullptr, (BYTE*)val,
+    DWORD type = 0;
+    DWORD cb = sizeof(val) - sizeof(wchar_t);
+    const LONG rc = RegQueryValueExW(hk, nullptr, nullptr, &type, (BYTE*)val,
                                      &cb);
     RegCloseKey(hk);
-    if (rc == ERROR_SUCCESS && lstrcmpiW(val, kCtxClsidString) == 0) {
+    val[_countof(val) - 1] = L'\0';
+    if (rc == ERROR_SUCCESS && (type == REG_SZ || type == REG_EXPAND_SZ)
+        && lstrcmpiW(val, kCtxClsidString) == 0) {
         RegDeleteKeyW(HKEY_LOCAL_MACHINE, key);
     }
 }
@@ -288,11 +303,14 @@ bool PerUserHandlerIsForeign(const wchar_t* ext) {
         return false;
     }
     wchar_t val[128] = {};
-    DWORD cb = sizeof(val);
+    DWORD type = 0;
+    DWORD cb = sizeof(val) - sizeof(wchar_t);
     const LONG rc =
-        RegQueryValueExW(hk, nullptr, nullptr, nullptr, (BYTE*)val, &cb);
+        RegQueryValueExW(hk, nullptr, nullptr, &type, (BYTE*)val, &cb);
     RegCloseKey(hk);
-    if (rc != ERROR_SUCCESS || val[0] == L'\0') return false;
+    val[_countof(val) - 1] = L'\0';
+    if (rc == ERROR_MORE_DATA) return true;
+    if (rc != ERROR_SUCCESS || (type != REG_SZ && type != REG_EXPAND_SZ) || val[0] == L'\0') return false;
     return lstrcmpiW(val, kClsidString) != 0;
 }
 
@@ -334,11 +352,14 @@ LONG UnregisterShellExKeys() {
                 continue;
             }
             wchar_t val[64] = {};
-            DWORD cb = sizeof(val);
-            const LONG rc = RegQueryValueExW(hk, nullptr, nullptr, nullptr,
+            DWORD type = 0;
+            DWORD cb = sizeof(val) - sizeof(wchar_t);
+            const LONG rc = RegQueryValueExW(hk, nullptr, nullptr, &type,
                                              (BYTE*)val, &cb);
             RegCloseKey(hk);
-            if (rc == ERROR_SUCCESS && lstrcmpiW(val, kClsidString) == 0) {
+            val[_countof(val) - 1] = L'\0';
+            if (rc == ERROR_SUCCESS && (type == REG_SZ || type == REG_EXPAND_SZ)
+                && lstrcmpiW(val, kClsidString) == 0) {
                 RegDeleteKeyW(HKEY_LOCAL_MACHINE, key);
             }
         }
@@ -390,7 +411,7 @@ QV_EXPORT DllGetClassObject(REFCLSID rclsid, REFIID riid, void** ppv) {
 }
 
 QV_EXPORT DllCanUnloadNow(void) {
-    return g_cLock == 0 ? S_OK : S_FALSE;
+    return InterlockedCompareExchange(&g_cLock, 0, 0) == 0 ? S_OK : S_FALSE;
 }
 
 // 自注册只覆盖本位数控视图；脚本（scripts/*.ps1）负责一次注册 64+32 双视图，
