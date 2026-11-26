@@ -5619,6 +5619,63 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             QApplication::sendEvent(vp, &release);
         }
     }
+    // panpress:x:y:btn / panmove:x:y / panrelease:x:y:btn —— 合成真实鼠标序列驱动
+    // 画布拖动（btn 1=左键 2=中键；坐标为 viewport 内坐标），仅 --smoke 取证用。
+    else if (c.startsWith(QLatin1String("panpress:"))) {
+        if (!m_canvas) return;
+        const QStringList a = c.mid(9).split(QLatin1Char(':'));
+        const QPoint p(a.value(0).toInt(), a.value(1).toInt());
+        m_panProbeButton = a.value(2).toInt() == 2 ? Qt::MiddleButton : Qt::LeftButton;
+        QWidget *vp = m_canvas->viewport();
+        QMouseEvent press(QEvent::MouseButtonPress, QPointF(p),
+                          QPointF(vp->mapToGlobal(p)), m_panProbeButton,
+                          m_panProbeButton, Qt::NoModifier);
+        QApplication::sendEvent(vp, &press);
+    }
+    else if (c.startsWith(QLatin1String("panmove:"))) {
+        if (!m_canvas) return;
+        const QStringList a = c.mid(8).split(QLatin1Char(':'));
+        const QPoint p(a.value(0).toInt(), a.value(1).toInt());
+        QWidget *vp = m_canvas->viewport();
+        QMouseEvent move(QEvent::MouseMove, QPointF(p),
+                         QPointF(vp->mapToGlobal(p)), Qt::NoButton,
+                         m_panProbeButton, Qt::NoModifier);
+        QApplication::sendEvent(vp, &move);
+    }
+    else if (c.startsWith(QLatin1String("panrelease:"))) {
+        if (!m_canvas) return;
+        const QStringList a = c.mid(11).split(QLatin1Char(':'));
+        const QPoint p(a.value(0).toInt(), a.value(1).toInt());
+        QWidget *vp = m_canvas->viewport();
+        QMouseEvent release(QEvent::MouseButtonRelease, QPointF(p),
+                            QPointF(vp->mapToGlobal(p)), m_panProbeButton,
+                            Qt::NoButton, Qt::NoModifier);
+        QApplication::sendEvent(vp, &release);
+    }
+    // cropenter / cropstate —— 探针：进入裁剪模式 / 落盘当前模式与选区（仅 --smoke 取证）。
+    else if (c == QLatin1String("cropenter")) {
+        onCrop();
+    }
+    else if (c == QLatin1String("cropstate")) {
+        QFile f(QStringLiteral("Temp/crop.txt"));
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            const QRect r = m_canvas ? m_canvas->selectionRect() : QRect();
+            ts << "cropmode=" << (m_cropMode ? 1 : 0)
+               << " selection=" << r.x() << "," << r.y() << "," << r.width() << "," << r.height()
+               << "\n";
+        }
+    }
+    // swapimg:<path>:<animated> —— 探针：经 replacePixmapInPlace 换一张不同尺寸图，
+    // 实测回退保视图分支（animated=0 非动画 / animated=1 尺寸不一致），仅 --smoke 取证。
+    else if (c.startsWith(QLatin1String("swapimg:"))) {
+        if (!m_canvas) return;
+        const QStringList a = c.mid(8).split(QLatin1Char(':'));
+        const QImage img(a.value(0));
+        if (!img.isNull()) {
+            m_canvas->replacePixmapInPlace(QPixmap::fromImage(img), a.value(1).toInt() == 1);
+        }
+    }
     else if (c == QLatin1String("ctrldragstart") || c.startsWith(QLatin1String("ctrldragto:"))
              || c == QLatin1String("ctrldragend")) {
         // 用真实 QMouseEvent 驱动底岛滑杆：按下 / 拖动 / 松手走同一条业务路径。
@@ -7721,6 +7778,52 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << "\n";
         }
     }
+    // animreport[:out] —— 动画播放探针：逐帧 tick 时刻/延迟统计丢帧与卡顿，
+    // 仅 --smoke 取证用；不落配置、不参与产品行为。
+    else if (c.startsWith(QLatin1String("animreport"))) {
+        QString out = QStringLiteral("Temp/anim-report.txt");
+        if (c.startsWith(QLatin1String("animreport:"))) {
+            out = c.mid(11).trimmed();
+        }
+        QFile f(out);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            const int n = m_animTraceMs.size();
+            const qint64 span = n > 1 ? m_animTraceMs.last() - m_animTraceMs.first() : 0;
+            qint64 nominal = 0;
+            for (int d : m_animTraceDelay) {
+                nominal += d;
+            }
+            qint64 minIv = -1, maxIv = -1, sumIv = 0;
+            int late = 0;
+            for (int i = 1; i < n; ++i) {
+                const qint64 iv = m_animTraceMs[i] - m_animTraceMs[i - 1];
+                sumIv += iv;
+                if (minIv < 0 || iv < minIv) minIv = iv;
+                if (maxIv < 0 || iv > maxIv) maxIv = iv;
+                const int d = m_animTraceDelay.value(i, 100);
+                if (iv > qRound(d * 1.5)) ++late;
+            }
+            ts << "playing=" << (m_animPlaying ? 1 : 0)
+               << " ticks=" << n
+               << " span_ms=" << span
+               << " nominal_ms=" << nominal
+               << " frame=" << (m_frames ? m_frames->frameIndex() : -1)
+               << " frames_total=" << (m_frames ? m_frames->frameCount() : 0)
+               << " behind=" << m_animBehind
+               << " late=" << late;
+            if (n > 1) {
+                ts << " iv_min=" << minIv
+                   << " iv_avg=" << QString::number(sumIv / qreal(n - 1), 'f', 1)
+                   << " iv_max=" << maxIv;
+            }
+            ts << "\n";
+            for (int i = 0; i < n; ++i) {
+                ts << i << " t=" << m_animTraceMs[i]
+                   << " delay=" << m_animTraceDelay[i] << "\n";
+            }
+        }
+    }
     // topaudit[:out] —— 顶栏结构取证：按钮 id/提示/命中区 + 文件名块。
     // 顶栏四入口移除后据此断言：没有 2..5 号残留槽、文件名块接到右组前。
     else if (c.startsWith(QLatin1String("topaudit"))) {
@@ -8340,15 +8443,10 @@ void MainWindow::showAnimFrame(const QImage &img)
                          && QFileInfo(m_currentPath).suffix().compare(QLatin1String("gif"),
                                                                      Qt::CaseInsensitive) == 0;
     const QImage display = gifPath ? applyGifBackdrop(img) : img;
-    const qreal z = m_canvas->zoom();
-    const QRectF sr = m_canvas->sceneRect();
-    const QPointF center = m_canvas->mapToScene(m_canvas->viewport()->rect().center());
-    QPointF anchor(0.5, 0.5);
-    if (sr.width() > 1.0 && sr.height() > 1.0) {
-        anchor = QPointF(center.x() / sr.width(), center.y() / sr.height());
-    }
     m_currentImage = display;
-    m_canvas->setPixmapPreservingView(QPixmap::fromImage(display), anchor, z, false, false);
+    // 逐帧上屏走原地换图：自动播放中（m_animPlaying）同尺寸帧不重建 scene，
+    // 视图/裁剪/叠加层原样保住；帧尺寸变化或手动翻帧时由接口内部回退保视图路径。
+    m_canvas->replacePixmapInPlace(QPixmap::fromImage(display), m_animPlaying);
 }
 
 // "0" 默认调色板 = 不铺底，透明区透出画布底色；1/2/3 = 白/黑/固定中灰；
@@ -8408,6 +8506,9 @@ void MainWindow::startAnimation()
     m_animPlaying = true;
     m_animClock.start();
     m_animNextDeadline = 0;
+    m_animTraceMs.clear();
+    m_animTraceDelay.clear();
+    m_animBehind = 0;
     m_animTimer->start(1);
 }
 
@@ -8445,7 +8546,11 @@ void MainWindow::animationTick()
         // 落后已超过一个周期（解码/绘制太慢）：放弃追帧重新对齐，
         // 避免「连发补偿」变成全速空转。
         m_animNextDeadline = now + delay;
+        ++m_animBehind;
     }
+    // 播放探针：逐帧记账（时刻 / 延迟），animreport 落盘统计丢帧与卡顿。
+    m_animTraceMs.append(now);
+    m_animTraceDelay.append(delay);
     m_animTimer->start(int(qMax<qint64>(1, m_animNextDeadline - now)));
 }
 
