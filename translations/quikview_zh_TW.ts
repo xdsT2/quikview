@@ -2489,12 +2489,12 @@
             <translation>隱藏頂端選單時，按 Shift+Tab 切換檔案名稱浮層</translation>
         </message>
         <message>
-            <source>显示动画帧号</source>
-            <translation>顯示動畫影格編號</translation>
+            <source>显示动画播放控制</source>
+            <translation>顯示動畫播放控制</translation>
         </message>
         <message>
-            <source>GIF / MNG 底部信息行显示「第 n/N 帧」</source>
-            <translation>GIF / MNG 底部資訊列顯示「第 n/N 影格」</translation>
+            <source>GIF / MNG 时显示底部播放控制栏，并在信息行显示「第 n/N 帧」；关闭后两者一并隐藏</source>
+            <translation type="unfinished">GIF / MNG 底部資訊列顯示「第 n/N 影格」</translation>
         </message>
         <message>
             <source>显示缩放浮标</source>

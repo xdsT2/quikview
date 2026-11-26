@@ -21,6 +21,7 @@
 #include <QPen>
 #include <QPropertyAnimation>
 #include <QStringList>
+#include <QTextStream>
 #include <QTimer>
 #include <QVariantAnimation>
 #include <QToolTip>
@@ -2317,6 +2318,395 @@ void ControlBar::wheelEvent(QWheelEvent *e)
     const int idx = hitIndex(e->position().toPoint());
     const bool onSlider = (idx >= 0 && idx < list.size()
                            && list[idx].action == Action::PageSlider);
+    const int delta = e->angleDelta().y();
+    if (onSlider && sliderEnabled()) {
+        if (delta > 0) {
+            emit prevClicked();
+        } else if (delta < 0) {
+            emit nextClicked();
+        }
+    }
+    e->accept();
+}
+
+
+// ===========================================================================
+// GIF / MNG 播放控制栏
+// ===========================================================================
+
+namespace {
+constexpr int kPlayBarH = 40;
+constexpr int kPlayBarBtn = 30;
+constexpr int kPlayBarGap = 5;
+constexpr int kPlayBarPadX = 8;
+constexpr int kPlayBarSliderW = 150;
+constexpr int kPlayBarSliderGap = 12;
+constexpr qreal kPlayBarRadius = 14.0;
+} // namespace
+
+PlayBar::PlayBar(QWidget *parent)
+    : QWidget(parent)
+{
+    setAttribute(Qt::WA_TranslucentBackground);
+    setAttribute(Qt::WA_NoSystemBackground);
+    setFocusPolicy(Qt::NoFocus);
+    setFixedHeight(kPlayBarH);
+    setGraphicsEffect(new HudEffect(this, kPlayBarRadius));
+    setAccessibleName(tr("动画播放控制栏"));
+    setAccessibleDescription(tr("首帧、上一帧、播放暂停、下一帧、末帧与帧进度滑条"));
+    m_feedback = new ButtonFeedback(this);
+    connect(m_feedback, &ButtonFeedback::changed, this, [this]() { update(); });
+    m_tip = new TooltipHint(this);
+}
+
+int PlayBar::preferredWidth() const
+{
+    return 2 * kPlayBarPadX + 5 * kPlayBarBtn + 4 * kPlayBarGap
+           + kPlayBarSliderGap + kPlayBarSliderW;
+}
+
+void PlayBar::setState(int index, int total, bool playing)
+{
+    m_total = qMax(0, total);
+    m_index = m_total > 0 ? qBound(0, index, m_total - 1) : 0;
+    m_playing = playing;
+    update();
+}
+
+QVector<PlayBar::Item> PlayBar::items() const
+{
+    QVector<Item> out;
+    const int y = (kPlayBarH - kPlayBarBtn) / 2;
+    int x = kPlayBarPadX;
+    auto place = [&](Action a) {
+        out.append(Item{ a, QRect(x, y, kPlayBarBtn, kPlayBarBtn) });
+        x += kPlayBarBtn + kPlayBarGap;
+    };
+    place(Action::First);
+    place(Action::Prev);
+    place(Action::Play);
+    place(Action::Next);
+    place(Action::Last);
+    x -= kPlayBarGap;
+    out.append(Item{ Action::FrameSlider,
+                     QRect(x + kPlayBarSliderGap, y, kPlayBarSliderW, kPlayBarBtn) });
+    return out;
+}
+
+int PlayBar::hitIndex(const QPoint &pos) const
+{
+    const QVector<Item> list = items();
+    for (int i = 0; i < list.size(); ++i) {
+        if (list[i].rect.contains(pos)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+QRect PlayBar::sliderRect() const
+{
+    const QVector<Item> list = items();
+    for (const Item &it : list) {
+        if (it.action == Action::FrameSlider) {
+            return it.rect;
+        }
+    }
+    return QRect();
+}
+
+QRect PlayBar::playButtonRect() const
+{
+    const QVector<Item> list = items();
+    for (const Item &it : list) {
+        if (it.action == Action::Play) {
+            return it.rect;
+        }
+    }
+    return QRect();
+}
+
+int PlayBar::frameFromX(int x) const
+{
+    const QRect track = sliderRect();
+    if (track.isNull() || !sliderEnabled()) {
+        return m_index;
+    }
+    const qreal left = track.left() + 7.0;
+    const qreal right = track.right() - 7.0;
+    const qreal ratio = qBound(0.0, (x - left) / qMax(1.0, right - left), 1.0);
+    return qBound(0, qRound(ratio * (m_total - 1)), m_total - 1);
+}
+
+QString PlayBar::tipText(Action action) const
+{
+    switch (action) {
+    case Action::First: return canJumpEnds() ? tr("首帧") : tr("首帧（帧数未知）");
+    case Action::Prev: return tr("上一帧");
+    case Action::Play: return m_playing ? tr("暂停") : tr("播放");
+    case Action::Next: return tr("下一帧");
+    case Action::Last: return canJumpEnds() ? tr("末帧") : tr("末帧（帧数未知）");
+    case Action::FrameSlider:
+        return sliderEnabled() ? tr("帧进度：拖动定位到帧") : tr("帧进度：帧数未知");
+    default: break;
+    }
+    return QString();
+}
+
+QString PlayBar::layoutDump() const
+{
+    const QVector<Item> list = items();
+    QString out;
+    QTextStream ts(&out);
+    ts << "index=" << m_index << " total=" << m_total << " playing=" << (m_playing ? 1 : 0)
+       << " slider=" << (sliderEnabled() ? 1 : 0) << " ends=" << (canJumpEnds() ? 1 : 0) << "\n";
+    for (const Item &it : list) {
+        const char *name = "?";
+        switch (it.action) {
+        case Action::First: name = "first"; break;
+        case Action::Prev: name = "prev"; break;
+        case Action::Play: name = "play"; break;
+        case Action::Next: name = "next"; break;
+        case Action::Last: name = "last"; break;
+        case Action::FrameSlider: name = "slider"; break;
+        default: break;
+        }
+        ts << name << " rect=" << it.rect.left() << "," << it.rect.top() << ","
+           << it.rect.width() << "x" << it.rect.height() << "\n";
+    }
+    return out;
+}
+
+void PlayBar::activate(Action action)
+{
+    switch (action) {
+    case Action::First:
+        if (canJumpEnds()) emit firstClicked();
+        break;
+    case Action::Prev: emit prevClicked(); break;
+    case Action::Play: emit playToggleClicked(); break;
+    case Action::Next: emit nextClicked(); break;
+    case Action::Last:
+        if (canJumpEnds()) emit lastClicked();
+        break;
+    default: break;
+    }
+}
+
+void PlayBar::paintEvent(QPaintEvent *)
+{
+    QPainter p(this);
+    p.setRenderHint(QPainter::Antialiasing, true);
+
+    const QRectF capsule(0.5, 0.5, width() - 1.0, kPlayBarH - 1.0);
+    p.setPen(QPen((UiStyle::isLight() ? QColor(0, 0, 0, 28) : QColor(255, 255, 255, 30)), 1));
+    p.setBrush(UiStyle::isLight() ? QColor(250, 250, 251, 242)
+                                  : QColor(31, 32, 35, 227));
+    p.drawRoundedRect(capsule, kPlayBarRadius, kPlayBarRadius);
+
+    const QVector<Item> list = items();
+    const QColor ink = QColor(QString::fromLatin1(UiStyle::pick("#d7d9dc", "#26282a")));
+    const QColor accent = UiStyle::accent();
+
+    for (int i = 0; i < list.size(); ++i) {
+        const Item &it = list.at(i);
+        const QRect r = it.rect;
+        BtnVisual v = m_feedback->visual(i);
+
+        if (it.action == Action::FrameSlider) {
+            p.save();
+            const bool enabled = sliderEnabled();
+            if (!enabled) {
+                p.setOpacity(p.opacity() * 0.58);
+            }
+            const qreal y = r.center().y() + 0.5;
+            const qreal left = r.left() + 7.0;
+            const qreal right = r.right() - 7.0;
+            QColor idle(QString::fromLatin1(UiStyle::pick("#626365", "#c4c8cc")));
+            if (v.press > 0.004) {
+                idle = blendColor(idle, QColor(0x8a, 0x8e, 0x94), 0.55 * v.press);
+            }
+            p.setPen(QPen(idle, 3, Qt::SolidLine, Qt::RoundCap));
+            p.drawLine(QPointF(left, y), QPointF(right, y));
+            const qreal ratio = enabled ? m_index / qMax(1.0, qreal(m_total - 1)) : 0.0;
+            const qreal thumbX = left + ratio * (right - left);
+            if (enabled) {
+                const QColor fill(QString::fromLatin1(UiStyle::pick("#61b1ff", "#1688f8")));
+                p.setPen(QPen(fill, 3, Qt::SolidLine, Qt::RoundCap));
+                p.drawLine(QPointF(left, y), QPointF(thumbX, y));
+            }
+            const qreal grow = 1.0 + qMax(0.12 * v.hover, 0.22 * v.press);
+            QColor thumb(QStringLiteral("#f5f5f5"));
+            if (!enabled) {
+                thumb = QColor(QString::fromLatin1(UiStyle::pick("#8a8e94", "#a8acb1")));
+            } else if (qMax(v.hover, v.press) > 0.01) {
+                thumb = blendColor(thumb, accent, qMax(v.hover, v.press));
+            }
+            p.setPen(Qt::NoPen);
+            p.setBrush(thumb);
+            p.drawEllipse(QPointF(thumbX, y), 5.5 * grow, 5.5 * grow);
+            p.restore();
+            continue;
+        }
+
+        const bool endsDisabled = (it.action == Action::First || it.action == Action::Last)
+                                  && !canJumpEnds();
+        BtnState st;
+        st.hover = (m_hover == i);
+        st.pressed = (m_press == i);
+        st.disabled = endsDisabled;
+
+        ButtonPalette pal;
+        pal.radius = 7;
+        pal.hover = UiStyle::feedback::hover();
+        pal.press = UiStyle::feedback::press();
+        pal.ink = ink;
+        pal.checkedBg = UiStyle::feedback::plate();
+        pal.checkedBorder = QColor(0, 0, 0, 0);
+        pal.checkedInk = QColor(QString::fromLatin1(UiStyle::pick("#ffffff", "#101214")));
+
+        const QPointF center = r.center();
+        beginButton(p, QRectF(r), st, v, pal);
+        const QColor drawInk = buttonInk(st, pal);
+        const qreal iconS = 18.0 * (1.0 - 0.02 * v.press);
+        const QRectF icon(center.x() - iconS / 2, center.y() - iconS / 2, iconS, iconS);
+        const AppIcon::Style iconStyle = st.pressed ? AppIcon::Style::Filled
+                                                    : AppIcon::Style::Regular;
+
+        switch (it.action) {
+        case Action::First: drawIcon(p, "first", icon, drawInk, iconStyle); break;
+        case Action::Prev: drawIcon(p, "chevron-left", icon, drawInk, iconStyle); break;
+        case Action::Play:
+            if (m_playing) {
+                drawIcon(p, "stop", icon, drawInk, AppIcon::Style::Regular);
+            } else {
+                drawIcon(p, "play", icon, drawInk, AppIcon::Style::Filled);
+            }
+            break;
+        case Action::Next: drawIcon(p, "chevron-right", icon, drawInk, iconStyle); break;
+        case Action::Last: drawIcon(p, "last", icon, drawInk, iconStyle); break;
+        default: break;
+        }
+        endButton(p);
+    }
+}
+
+void PlayBar::mousePressEvent(QMouseEvent *e)
+{
+    m_tip->hideNow();
+    const QVector<Item> list = items();
+    const int idx = hitIndex(e->pos());
+    const Action action = (idx >= 0 && idx < list.size()) ? list[idx].action : Action::None;
+
+    if (e->button() != Qt::LeftButton) {
+        QWidget::mousePressEvent(e);
+        return;
+    }
+    m_press = idx;
+    m_feedback->setPressed(idx);
+    if (action == Action::FrameSlider && sliderEnabled()) {
+        m_dragging = true;
+        m_pressFrame = m_index;
+        const int f = frameFromX(e->pos().x());
+        if (f != m_index) {
+            m_index = f;
+            m_previewClock.restart();
+            emit framePreviewRequested(m_index);
+        }
+        update();
+        return;
+    }
+    update();
+    QWidget::mousePressEvent(e);
+}
+
+void PlayBar::mouseMoveEvent(QMouseEvent *e)
+{
+    if (m_dragging && (e->buttons() & Qt::LeftButton)) {
+        m_tip->hideNow();
+        const int f = frameFromX(e->pos().x());
+        if (f != m_index) {
+            m_index = f;
+            if (!m_previewClock.isValid() || m_previewClock.elapsed() >= 60) {
+                m_previewClock.restart();
+                emit framePreviewRequested(m_index);
+            }
+            update();
+        }
+        return;
+    }
+    const QVector<Item> list = items();
+    m_hover = -1;
+    for (int i = 0; i < list.size(); ++i) {
+        if (list[i].rect.contains(e->pos())) {
+            m_hover = i;
+            break;
+        }
+    }
+    m_feedback->setHover(m_hover);
+    if (m_hover >= 0 && list[m_hover].action == Action::FrameSlider) {
+        setCursor(sliderEnabled() ? Qt::SizeHorCursor : Qt::ArrowCursor);
+    } else {
+        setPointerCursor(this, m_hover >= 0);
+    }
+    if (e->buttons() != Qt::NoButton) {
+        m_tip->hideNow();
+    } else if (m_hover >= 0) {
+        const Item &it = list.at(m_hover);
+        m_tip->hover(tipText(it.action), e->globalPosition().toPoint());
+    } else {
+        m_tip->hideNow();
+    }
+    update();
+    QWidget::mouseMoveEvent(e);
+}
+
+void PlayBar::mouseReleaseEvent(QMouseEvent *e)
+{
+    const int pressedIndex = m_press;
+    m_press = -1;
+    m_feedback->setPressed(-1);
+    if (m_dragging) {
+        m_dragging = false;
+        update();
+        if (pressedIndex >= 0 && pressedIndex < items().size()
+            && items()[pressedIndex].action == Action::FrameSlider
+            && m_index != m_pressFrame) {
+            emit frameRequested(m_index);
+        }
+        m_pressFrame = m_index;
+        QWidget::mouseReleaseEvent(e);
+        return;
+    }
+    update();
+    if (e->button() != Qt::LeftButton || pressedIndex < 0
+        || pressedIndex != hitIndex(e->pos())) {
+        QWidget::mouseReleaseEvent(e);
+        return;
+    }
+    const QVector<Item> list = items();
+    if (pressedIndex < list.size()) {
+        activate(list[pressedIndex].action);
+    }
+    QWidget::mouseReleaseEvent(e);
+}
+
+void PlayBar::leaveEvent(QEvent *)
+{
+    m_hover = -1;
+    m_feedback->setHover(-1);
+    setPointerCursor(this, false);
+    m_tip->hideNow();
+    update();
+}
+
+void PlayBar::wheelEvent(QWheelEvent *e)
+{
+    m_tip->hideNow();
+    const QVector<Item> list = items();
+    const int idx = hitIndex(e->position().toPoint());
+    const bool onSlider = (idx >= 0 && idx < list.size()
+                           && list[idx].action == Action::FrameSlider);
     const int delta = e->angleDelta().y();
     if (onSlider && sliderEnabled()) {
         if (delta > 0) {

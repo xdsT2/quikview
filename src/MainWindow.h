@@ -48,6 +48,7 @@ class QPropertyAnimation;
 namespace Chrome {
 class TopBar;
 class ControlBar;
+class PlayBar;
 class Toast;
 class ZoomBadge;
 class StatusOverlay;
@@ -221,6 +222,11 @@ private slots:
     // 帧
     void onNextFrame();
     void onPrevFrame();
+    // 播放控制栏：播放/暂停、首帧、末帧、滑条定位（0-based）。
+    void onPlayPause();
+    void onFirstFrame();
+    void onLastFrame();
+    void onSeekFrame(int index);
     // 动图自动播放（P0：GIF）
     void startAnimation();
     void stopAnimation();
@@ -391,6 +397,10 @@ private:
     void refreshSpread();                    // 按当前索引重新拼接跨页
     void updateCanvasLogo();
     void updateInfoOverlay();
+    // 播放控制栏：当前图是否 eligible（多帧可播、非双页、设置开关开）；同步栏上状态。
+    bool playBarEligible() const;
+    void syncPlayBarState();
+    void layoutPlayBar();   // 并入既有铬件几何重排：底栏上方居中，收起时 16px 底边距
     // —— 360° 全景（派单 2026-11-20）——
     // 识别只读 JPEG 头部的 XMP，异步跑在线程池里；m_panoGen 是代次令牌，
     // 快速翻图时旧结果回来直接丢弃（「连续切到普通图时旧图的入口不会留在新图上」）。
@@ -552,6 +562,13 @@ private:
     QElapsedTimer m_animClock;
     qint64 m_animNextDeadline = 0;
     bool m_animPlaying = false;
+    // 动画播放探针（仅 --smoke animreport 取证用，不参与产品行为）：
+    // 逐帧记录 tick 时刻与帧延迟，落盘统计丢帧/卡顿；落后对齐次数单独记账。
+    QVector<qint64> m_animTraceMs;
+    QVector<int> m_animTraceDelay;
+    int m_animBehind = 0;
+    // 画布拖动探针记录按住的按键（panpress/panmove/panrelease，仅 --smoke 用）。
+    Qt::MouseButton m_panProbeButton = Qt::LeftButton;
     QMenu *m_favMenu = nullptr;
     QMenu *m_recentMenu = nullptr;
 
@@ -561,6 +578,7 @@ private:
     // 现有的 `if (m_caption)` 判空检查直接生效。
     QPointer<Chrome::TopBar> m_topBar;
     QPointer<Chrome::ControlBar> m_control;
+    QPointer<Chrome::PlayBar> m_playBar;
     Chrome::Toast *m_toast = nullptr;
     // Shift+TAB 文件名浮层（惰性创建，挂在画布 viewport 顶部居中）
     QLabel *m_nameOverlay = nullptr;

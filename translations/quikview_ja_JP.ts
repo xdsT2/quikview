@@ -2489,12 +2489,12 @@
             <translation>上部メニューを隠しているとき、Shift+Tab でファイル名オーバーレイを切り替え</translation>
         </message>
         <message>
-            <source>显示动画帧号</source>
-            <translation>アニメーションのフレーム番号を表示</translation>
+            <source>显示动画播放控制</source>
+            <translation type="unfinished">アニメーションのフレーム番号を表示</translation>
         </message>
         <message>
-            <source>GIF / MNG 底部信息行显示「第 n/N 帧」</source>
-            <translation>GIF / MNG の下部情報行に「フレーム n/N」を表示</translation>
+            <source>GIF / MNG 时显示底部播放控制栏，并在信息行显示「第 n/N 帧」；关闭后两者一并隐藏</source>
+            <translation type="unfinished">GIF / MNG の下部情報行に「フレーム n/N」を表示</translation>
         </message>
         <message>
             <source>显示缩放浮标</source>
