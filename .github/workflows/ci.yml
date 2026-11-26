@@ -62,8 +62,14 @@ jobs:
       # 报 target not found，但包在 mingw64 仓库确实存在（-any 架构）。单独一步更易诊断。
       - name: 安装 Qt 图像格式插件
         run: |
-          pacman -S --noconfirm mingw-w64-x86_64-qt6-imageformats
-          ls /mingw64/share/qt6/plugins/imageformats/ || true
+          echo "=== pacman -Ss qt6-imageformats ==="
+          pacman -Ss qt6-imageformats || true
+          echo "=== pacman -Si (精确) ==="
+          pacman -Si mingw-w64-x86_64-qt6-imageformats || true
+          echo "=== 已装 qt6 包 ==="
+          pacman -Q | grep -i qt6 || true
+          echo "=== 仓库配置 ==="
+          cat /etc/pacman.conf | grep -A2 '^\[mingw64\]'
 
       - name: 配置
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/mingw64
