@@ -2489,12 +2489,12 @@
             <translation>Quand le menu du haut est masqué, Maj+Tab bascule l'overlay du nom de fichier</translation>
         </message>
         <message>
-            <source>显示动画帧号</source>
-            <translation>Afficher les numéros de frame</translation>
+            <source>显示动画播放控制</source>
+            <translation type="unfinished">Afficher les numéros de frame</translation>
         </message>
         <message>
-            <source>GIF / MNG 底部信息行显示「第 n/N 帧」</source>
-            <translation>La ligne d'infos du bas des GIF/MNG montre « Frame n/N »</translation>
+            <source>GIF / MNG 时显示底部播放控制栏，并在信息行显示「第 n/N 帧」；关闭后两者一并隐藏</source>
+            <translation type="unfinished">La ligne d'infos du bas des GIF/MNG montre « Frame n/N »</translation>
         </message>
         <message>
             <source>显示缩放浮标</source>

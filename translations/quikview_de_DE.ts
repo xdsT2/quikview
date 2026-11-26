@@ -2489,12 +2489,12 @@
             <translation>Bei verborgenem oberem Menü schaltet Shift+Tab das Datei-Overlay um</translation>
         </message>
         <message>
-            <source>显示动画帧号</source>
-            <translation>Frame-Nummern zeigen</translation>
+            <source>显示动画播放控制</source>
+            <translation type="unfinished">Frame-Nummern zeigen</translation>
         </message>
         <message>
-            <source>GIF / MNG 底部信息行显示「第 n/N 帧」</source>
-            <translation>Die untere Infozeile von GIF/MNG zeigt „Frame n/N“</translation>
+            <source>GIF / MNG 时显示底部播放控制栏，并在信息行显示「第 n/N 帧」；关闭后两者一并隐藏</source>
+            <translation type="unfinished">Die untere Infozeile von GIF/MNG zeigt „Frame n/N“</translation>
         </message>
         <message>
             <source>显示缩放浮标</source>

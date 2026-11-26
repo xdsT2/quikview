@@ -3318,9 +3318,9 @@ void SettingsDialog::buildAppearancePage(QWidget *page)
     auto *overlayName = addSwitchRow(sec, tr("显示文件名浮层"),
                                      tr("隐藏顶端菜单时按 Shift+Tab 显隐"),
                                      "view/overlay_filename", false, false);
-    auto *animInfo = addSwitchRow(sec, tr("显示动画帧号"), QString(),
+    auto *animInfo = addSwitchRow(sec, tr("显示动画播放控制"), QString(),
                                   "view/show_anim_control", false, true);
-    descToRowTip(animInfo, tr("GIF / MNG 在底部信息行显示「第 n/N 帧」"));
+    descToRowTip(animInfo, tr("GIF / MNG 时显示底部播放控制栏，并在信息行显示「第 n/N 帧」；关闭后两者一并隐藏"));
     auto *zoomInfo = addSwitchRow(sec, tr("显示缩放浮标"), QString(),
                                   "view/show_zoom_control", false, true);
     auto *tooltip = addSwitchRow(sec, tr("显示鼠标悬浮提示"), QString(),

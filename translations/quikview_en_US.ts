@@ -2501,12 +2501,12 @@
             <translation>When the top menu is hidden, Shift+Tab toggles the filename overlay</translation>
         </message>
         <message>
-            <source>显示动画帧号</source>
-            <translation>Show animation frame numbers</translation>
+            <source>显示动画播放控制</source>
+            <translation>Show animation playback controls</translation>
         </message>
         <message>
-            <source>GIF / MNG 底部信息行显示「第 n/N 帧」</source>
-            <translation>The bottom info line of GIF/MNG shows "Frame n/N"</translation>
+            <source>GIF / MNG 时显示底部播放控制栏，并在信息行显示「第 n/N 帧」；关闭后两者一并隐藏</source>
+            <translation>Show the playback bar for GIF/MNG and the frame number in the info line; turning it off hides both</translation>
         </message>
         <message>
             <source>显示缩放浮标</source>

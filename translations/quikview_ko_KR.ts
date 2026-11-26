@@ -2489,12 +2489,12 @@
             <translation>위쪽 메뉴가 숨겨져 있을 때 Shift+Tab으로 파일 이름 오버레이 전환</translation>
         </message>
         <message>
-            <source>显示动画帧号</source>
-            <translation>애니메이션 프레임 번호 표시</translation>
+            <source>显示动画播放控制</source>
+            <translation type="unfinished">애니메이션 프레임 번호 표시</translation>
         </message>
         <message>
-            <source>GIF / MNG 底部信息行显示「第 n/N 帧」</source>
-            <translation>GIF / MNG 아래쪽 정보 행에 "프레임 n/N" 표시</translation>
+            <source>GIF / MNG 时显示底部播放控制栏，并在信息行显示「第 n/N 帧」；关闭后两者一并隐藏</source>
+            <translation type="unfinished">GIF / MNG 아래쪽 정보 행에 "프레임 n/N" 표시</translation>
         </message>
         <message>
             <source>显示缩放浮标</source>

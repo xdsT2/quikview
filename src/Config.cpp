@@ -356,8 +356,9 @@ bool Config::showTooltip() const
 
 bool Config::showAnimControl() const
 {
-    // 设置页「不显示动画信息控制」是反选（inverted），key 存正向语义：
-    // true = 显示动图帧信息（默认）。消费点在 MainWindow::updateInfoOverlay。
+    // key 存正向语义：true = 显示动图播放控制栏 + 信息行帧号（默认）。
+    // 2026-11-26 起语义为超集：同一开关同时管辖播放控制栏与帧号行；老配置无需迁移，
+    // 旧 false 用户两者一并隐藏。消费点在 updateInfoOverlay 与 syncPlayBarState。
     return m_settings.value(QStringLiteral("config/view/show_anim_control"), true).toBool();
 }
 

@@ -526,6 +526,19 @@ MainWindow::MainWindow(QWidget *parent)
     });
     connect(m_cache, &ImageCache::dragPreviewReady, this, &MainWindow::onDragPreviewReady);
 
+    // GIF / MNG 播放控制栏：只对可播动图出现，几何由 applyChromeLayout 统一排布。
+    m_playBar = new Chrome::PlayBar(this);
+    connect(m_playBar, &Chrome::PlayBar::firstClicked, this, &MainWindow::onFirstFrame);
+    connect(m_playBar, &Chrome::PlayBar::prevClicked, this, &MainWindow::onPrevFrame);
+    connect(m_playBar, &Chrome::PlayBar::playToggleClicked, this, &MainWindow::onPlayPause);
+    connect(m_playBar, &Chrome::PlayBar::nextClicked, this, &MainWindow::onNextFrame);
+    connect(m_playBar, &Chrome::PlayBar::lastClicked, this, &MainWindow::onLastFrame);
+    // 拖滑条松手：定位到目标帧并保持暂停；点播放从该帧继续。
+    connect(m_playBar, &Chrome::PlayBar::frameRequested, this, &MainWindow::onSeekFrame);
+    // 拖动跟手预览：节流后即时上屏，松手仍由 frameRequested 落一次最终帧。
+    connect(m_playBar, &Chrome::PlayBar::framePreviewRequested, this, &MainWindow::onSeekFrame);
+    m_playBar->hide();
+
     // 画布两侧箭头带点击翻页（对齐原版 40px 侧边带）：首尾行为由
     // onPrev/onNext 复用 config/edge_action，不另写一套
     connect(m_canvas, &ImageCanvas::edgeTurnRequested, this, [this](int delta) {
@@ -775,9 +788,17 @@ void MainWindow::applyChromeLayout()
     const bool topShown = topChromeShown();
     const bool dockShown = dockChromeShown();
 
+    // GIF 播放控制栏：贴底栏上方居中；底栏收起时与浏览器同为 16px 底边距。
+    // 几何并入本套重排，不另起一套定位。
+    layoutPlayBar();
+
     if (m_browser) {
         // 底栏收起：胶片栏本体下缘距内容区下缘 16；底栏常显时仍避让胶囊 8px。
-        const int browserBottom = (m_control && dockShown) ? m_control->y() - 8 : y + h - 16;
+        // 播放栏出现时胶片栏再抬到播放栏上缘之上（8px 间隙）。
+        int browserBottom = (m_control && dockShown) ? m_control->y() - 8 : y + h - 16;
+        if (m_playBar && m_playBar->isVisible()) {
+            browserBottom = m_playBar->y() - 8;
+        }
         if (m_browserMoveAnim)
             m_browserMoveAnim->stop();
         m_browser->place(width(), browserBottom);
@@ -903,7 +924,10 @@ void MainWindow::relocateBrowser(bool shown, bool animate)
     const int fw = isFullScreen() ? 0 : 1;
     const int y = fw;
     const int h = height() - 2 * fw;
-    const int bottom = (m_control && shown) ? m_control->y() - 8 : y + h - 16;
+    int bottom = (m_control && shown) ? m_control->y() - 8 : y + h - 16;
+    if (m_playBar && m_playBar->isVisible()) {
+        bottom = m_playBar->y() - 8;
+    }
     const int targetY = bottom - m_browser->height();
     const int duration = Chrome::reducedMotion() ? 80 : (shown ? 130 : 95);
     startPanelPosAnim(m_browserMoveAnim, m_browser,
@@ -935,6 +959,16 @@ void MainWindow::updateStatusBottomInset()
         if (filmBottom > textTop0) {
             const int gap = 8;
             inset = (height() - 9) - (filmTop - gap);
+        }
+    }
+    // 播放栏出现时同样避让底部文字带：文字下缘抬到播放栏上缘之上留 8px。
+    if (m_playBar && m_playBar->isVisible()) {
+        const int pbTop = m_playBar->y();
+        const int pbBottom = pbTop + m_playBar->height();
+        const int textTop0 = height() - 25;
+        if (pbBottom > textTop0) {
+            const int gap = 8;
+            inset = qMax(inset, (height() - 9) - (pbTop - gap));
         }
     }
     m_statusOverlay->setBottomInset(qMax(0, inset));
@@ -1218,8 +1252,12 @@ void MainWindow::setDockVisible(bool visible, bool animate)
             m_control->hide();
         }
     }
+    // 播放栏并入同一套重排：底栏展开抬到胶囊上方，收起落回 16px 底边距。
+    // 先排播放栏，胶片栏再按播放栏新上缘避让。
+    layoutPlayBar();
     // 胶囊目标状态变了，已打开的胶片栏跟着搬到对应锚点。
     relocateBrowser(visible, animate);
+    updateStatusBottomInset();
 }
 
 void MainWindow::toggleTopLock()
@@ -3748,6 +3786,8 @@ void MainWindow::loadAsync(const QString &path, bool preempt)
 {
     m_currentPath = path;
     m_frames->clear();
+    // 切换目标即收起旧播放栏、清零旧帧状态；新图 showImage 时再按新图重置。
+    syncPlayBarState();
     // 探针：记录「输入时刻」与目标文件名（mode 由 burst 命令设置，默认 load）。
     FlipProbe::input(QFileInfo(path).fileName(), m_flipMode.toUtf8().constData());
     // 快帧目标 = 视口像素：连按时先上缩放解码的快帧顶住体感。
@@ -4228,6 +4268,10 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error,
         m_loadFailed = true;
         m_lastFailureText = text;   // 验收探针读真实上屏文案，不去猜
         hideLoadStatus();
+        // 失败图上不残留旧动图的播放栏与帧状态。
+        stopAnimation();
+        syncPlayBarState();
+        applyChromeLayout();
         if (m_currentImage.isNull()) {
             if (m_emptyState) {
                 m_emptyState->setStatus(text, true);
@@ -4582,6 +4626,9 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     } else {
         stopAnimation();
     }
+    // 播放栏按新图重置显隐与帧状态，再并入既有铬件几何重排一次。
+    syncPlayBarState();
+    applyChromeLayout();
     // 按图调窗：仅「启动带文件 / 文件→打开」路径触发一次（fitWindowToImage 内部
     // 自清理 m_fitWindowPending 并受设置「根据图片大小调节窗口大小」控制）
     fitWindowToImage();
@@ -7824,6 +7871,72 @@ void MainWindow::runSmokeCommand(const QString &cmd)
             }
         }
     }
+    // playbarstate[:out] —— 播放控制栏取证：可见性/帧号/总帧/播放态/本地几何，
+    // 仅 --smoke 通道落盘，不参与产品行为。
+    else if (c.startsWith(QLatin1String("playbarstate"))) {
+        QString out = QStringLiteral("Temp/playbar-state.txt");
+        if (c.startsWith(QLatin1String("playbarstate:"))) {
+            out = c.mid(13).trimmed();
+        }
+        QFile f(out);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            const bool vis = m_playBar && m_playBar->isVisible();
+            ts << "visible=" << (vis ? 1 : 0)
+               << " playing=" << (m_playBar ? (m_playBar->playing() ? 1 : 0) : -1)
+               << " index=" << (m_playBar ? m_playBar->frameIndex() : -1)
+               << " total=" << (m_playBar ? m_playBar->frameTotal() : -1)
+               << " slider=" << (m_playBar && m_playBar->sliderEnabled() ? 1 : 0)
+               << " eligible=" << (playBarEligible() ? 1 : 0)
+               << " file_index=" << (m_dir ? m_dir->index() : -1)
+               << " file_total=" << (m_dir ? m_dir->count() : 0) << "\n";
+            ts << "window=" << width() << "x" << height()
+               << "@" << pos().x() << "," << pos().y() << "\n";
+            if (m_control) {
+                ts << "control=" << m_control->geometry().left() << ","
+                   << m_control->geometry().top() << ","
+                   << m_control->geometry().width() << "x"
+                   << m_control->geometry().height()
+                   << " visible=" << (m_control->isVisible() ? 1 : 0) << "\n";
+            }
+            if (m_browser) {
+                ts << "browser=" << m_browser->geometry().left() << ","
+                   << m_browser->geometry().top() << ","
+                   << m_browser->geometry().width() << "x"
+                   << m_browser->geometry().height()
+                   << " visible=" << (m_browser->isVisible() ? 1 : 0) << "\n";
+            }
+            if (m_statusOverlay) {
+                ts << "status=" << m_statusOverlay->geometry().left() << ","
+                   << m_statusOverlay->geometry().top() << ","
+                   << m_statusOverlay->geometry().width() << "x"
+                   << m_statusOverlay->geometry().height() << "\n";
+            }
+            if (m_playBar) {
+                ts << "playbar=" << m_playBar->geometry().left() << ","
+                   << m_playBar->geometry().top() << ","
+                   << m_playBar->geometry().width() << "x"
+                   << m_playBar->geometry().height() << "\n";
+                ts << m_playBar->layoutDump();
+            }
+            if (m_canvas) {
+                const QPointF c = m_canvas->viewCenterNormalized();
+                ts << "canvas_zoom=" << QString::number(m_canvas->zoom(), 'f', 3)
+                   << " canvas_center=" << QString::number(c.x(), 'f', 3) << ","
+                   << QString::number(c.y(), 'f', 3) << "\n";
+            }
+        }
+    }
+    // frameseek:<index> / framefirst / framelast / framerev / framefwd /
+    // frameplaypause —— 播放栏动作的冒烟通道，走真实槽位，仅 --smoke 用。
+    else if (c.startsWith(QLatin1String("frameseek:"))) {
+        onSeekFrame(c.mid(10).toInt());
+    }
+    else if (c == QLatin1String("frameplaypause")) onPlayPause();
+    else if (c == QLatin1String("framefirst")) onFirstFrame();
+    else if (c == QLatin1String("framelast")) onLastFrame();
+    else if (c == QLatin1String("framerev")) onPrevFrame();
+    else if (c == QLatin1String("framefwd")) onNextFrame();
     // topaudit[:out] —— 顶栏结构取证：按钮 id/提示/命中区 + 文件名块。
     // 顶栏四入口移除后据此断言：没有 2..5 号残留槽、文件名块接到右组前。
     else if (c.startsWith(QLatin1String("topaudit"))) {
@@ -8415,6 +8528,7 @@ void MainWindow::onNextFrame()
     }
     showAnimFrame(img);
     updateInfoOverlay();
+    syncPlayBarState();
 }
 
 void MainWindow::onPrevFrame()
@@ -8426,6 +8540,128 @@ void MainWindow::onPrevFrame()
     }
     showAnimFrame(img);
     updateInfoOverlay();
+    syncPlayBarState();
+}
+
+// 播放/暂停统一入口：按钮、空格、菜单命令都走这里，播放钮图标与可访问状态由此同步。
+void MainWindow::onPlayPause()
+{
+    if (!m_frames || !m_frames->hasFrames() || !m_frames->animatable()) {
+        return;
+    }
+    if (m_animPlaying) {
+        stopAnimation();
+        m_toast->showMessage(tr("已暂停 · 空格继续"));
+    } else {
+        startAnimation();
+        m_toast->showMessage(tr("GIF 播放中 · 空格暂停"));
+    }
+    syncPlayBarState();
+}
+
+void MainWindow::onFirstFrame()
+{
+    stopAnimation();
+    if (!m_frames || m_frames->frameCount() < 2) {
+        return;
+    }
+    const QImage img = m_frames->frameAt(0);
+    if (img.isNull()) {
+        return;
+    }
+    showAnimFrame(img);
+    updateInfoOverlay();
+    syncPlayBarState();
+}
+
+void MainWindow::onLastFrame()
+{
+    stopAnimation();
+    if (!m_frames || m_frames->frameCount() < 2) {
+        return;
+    }
+    const QImage img = m_frames->frameAt(m_frames->frameCount() - 1);
+    if (img.isNull()) {
+        return;
+    }
+    showAnimFrame(img);
+    updateInfoOverlay();
+    syncPlayBarState();
+}
+
+// 滑条定位（0-based）：拖动即暂停，松手定位到目标帧并保持暂停；点播放从该帧继续。
+void MainWindow::onSeekFrame(int index)
+{
+    stopAnimation();
+    if (!m_frames) {
+        return;
+    }
+    const int total = m_frames->frameCount();
+    if (total < 2) {
+        return;
+    }
+    const int clamped = qBound(0, index, total - 1);
+    const QImage img = m_frames->frameAt(clamped);
+    if (img.isNull()) {
+        return;
+    }
+    showAnimFrame(img);
+    updateInfoOverlay();
+    syncPlayBarState();
+}
+
+// 当前图是否该出播放栏：多帧且可播、非双页阅览、设置「动画播放控制」开关打开。
+bool MainWindow::playBarEligible() const
+{
+    if (!m_frames || !m_frames->hasFrames() || !m_frames->animatable()) {
+        return false;
+    }
+    if (isSpreadMode()) {
+        return false;
+    }
+    // 与底部信息行帧号共用 view/show_anim_control 开关（运行态覆盖优先）。
+    const bool show = m_liveAnimControlOverrideSet
+                          ? m_liveAnimControlOverride
+                          : Config::instance().showAnimControl();
+    return show;
+}
+
+// 把当前帧号 / 总帧数 / 播放状态推给播放栏；不 eligible 时收起并清零旧帧状态。
+void MainWindow::syncPlayBarState()
+{
+    if (!m_playBar) {
+        return;
+    }
+    if (!playBarEligible()) {
+        m_playBar->setState(0, 0, false);
+        m_playBar->hide();
+        return;
+    }
+    m_playBar->setState(m_frames->frameIndex(), m_frames->frameCount(), m_animPlaying);
+    m_playBar->setVisible(true);
+}
+
+// 播放栏几何：底栏展开时贴其上方 8px；收起时与浏览器同为 16px 底边距。
+// 底栏显隐切换（锁定 / 热区 / 总览）走 setDockVisible 统一回到这里重排。
+void MainWindow::layoutPlayBar()
+{
+    if (!m_playBar) {
+        return;
+    }
+    if (!playBarEligible()) {
+        m_playBar->hide();
+        return;
+    }
+    const int pw = m_playBar->preferredWidth();
+    const int ph = m_playBar->height();
+    // 用目标态 m_dockVisible 判定：setDockVisible 内先排播放栏、相位随后才置位，
+    // 读相位会拿到上一轮的旧状态（锁定/热区切换瞬间播放栏落错锚点）。
+    const int py = (m_control && m_dockVisible)
+                       ? m_control->y() - 8 - ph
+                       : height() - 16 - ph;
+    const int px = qBound(8, (width() - pw) / 2, width() - pw - 8);
+    m_playBar->setGeometry(px, py, pw, ph);
+    m_playBar->raise();
 }
 
 // ---------------------------------------------------------------------------
@@ -8510,6 +8746,7 @@ void MainWindow::startAnimation()
     m_animTraceDelay.clear();
     m_animBehind = 0;
     m_animTimer->start(1);
+    syncPlayBarState();
 }
 
 void MainWindow::stopAnimation()
@@ -8518,6 +8755,7 @@ void MainWindow::stopAnimation()
     if (m_animTimer) {
         m_animTimer->stop();
     }
+    syncPlayBarState();
 }
 
 // 单发定时器 tick：推一帧、按文件自带延迟重设下一次间隔。
@@ -8536,6 +8774,7 @@ void MainWindow::animationTick()
     }
     showAnimFrame(img);
     updateInfoOverlay();
+    syncPlayBarState();
     int delay = m_frames->lastDelay();
     if (delay <= 10) {
         delay = 100;    // 0/超短延迟按 GIF 惯例当 100ms，防 busy-loop
@@ -10092,9 +10331,12 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
     if (key == QLatin1String("view/show_anim_control")) {
         // SET-04 浏览页批次：运行态覆盖，会话内不写配置；帧号行由
         // updateInfoOverlay() 立即重排，模态设置页打开时也能看到信息行变化。
+        // 该开关同时管辖播放控制栏（语义为超集）：显隐变化后一并重排。
         m_liveAnimControlOverride = value.toBool();
         m_liveAnimControlOverrideSet = true;
         updateInfoOverlay();
+        syncPlayBarState();
+        applyChromeLayout();
         return true;
     }
 
@@ -10820,6 +11062,9 @@ void MainWindow::finishSettings()
     m_slideshowTimer->setInterval(Config::instance().slideshowIntervalMs());
     applyRuntimeSettings();
     applyShortcutConfig();   // 键盘自定义：保存立即生效；取消时配置已回滚，重装回旧值
+    // 设置页关闭后按最终配置回补播放栏显隐与几何。
+    syncPlayBarState();
+    applyChromeLayout();
 }
 
 void MainWindow::onAbout()
@@ -10970,15 +11215,9 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
         event->accept();
         return;
     case Qt::Key_Space:
-        // 空格：多帧动图 = 播放/暂停；静态图保持原行为（下一张）
+        // 空格：多帧动图 = 播放/暂停（统一入口，播放钮状态同步）；静态图保持原行为（下一张）
         if (m_frames && m_frames->hasFrames() && m_frames->animatable()) {
-            if (m_animPlaying) {
-                stopAnimation();
-                m_toast->showMessage(tr("已暂停 · 空格继续"));
-            } else {
-                startAnimation();
-                m_toast->showMessage(tr("GIF 播放中 · 空格暂停"));
-            }
+            onPlayPause();
             return;
         }
         onNext();

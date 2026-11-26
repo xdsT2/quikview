@@ -2489,12 +2489,12 @@
             <translation>Когда верхнее меню скрыто, Shift+Tab переключает наложение имени файла</translation>
         </message>
         <message>
-            <source>显示动画帧号</source>
-            <translation>Показывать номера кадров</translation>
+            <source>显示动画播放控制</source>
+            <translation type="unfinished">Показывать номера кадров</translation>
         </message>
         <message>
-            <source>GIF / MNG 底部信息行显示「第 n/N 帧」</source>
-            <translation>Нижняя строка GIF/MNG показывает «Кадр n/N»</translation>
+            <source>GIF / MNG 时显示底部播放控制栏，并在信息行显示「第 n/N 帧」；关闭后两者一并隐藏</source>
+            <translation type="unfinished">Нижняя строка GIF/MNG показывает «Кадр n/N»</translation>
         </message>
         <message>
             <source>显示缩放浮标</source>
