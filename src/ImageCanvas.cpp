@@ -490,6 +490,11 @@ ImageCanvas::ImageCanvas(QWidget *parent)
             emit mouseActionRequested(act);
         }
     });
+
+    // 平滑缩放步进（D1）：16ms 节拍按真实经过毫秒推进，收尾后再触发 Lanczos 重采样。
+    m_zoomTimer.setTimerType(Qt::PreciseTimer);
+    m_zoomTimer.setInterval(16);
+    connect(&m_zoomTimer, &QTimer::timeout, this, &ImageCanvas::stepZoomAnimation);
 }
 
 void ImageCanvas::setLogoVisible(bool on)
@@ -988,6 +993,7 @@ void ImageCanvas::reapplyMonitorIcc()
 
 void ImageCanvas::setPixmap(const QPixmap &pixmap, bool fitAfter)
 {
+    stopZoomAnimation();
     m_sourcePixmap = pixmap;
     m_sourceImage = pixmap.toImage();   // 隐式共享（raster 后端不复制像素），后台线程只读
     scene()->clear();
@@ -1020,6 +1026,7 @@ void ImageCanvas::setPixmap(const QPixmap &pixmap, bool fitAfter)
 void ImageCanvas::setPixmapPreservingView(const QPixmap &pixmap, const QPointF &anchorNorm,
                                           qreal zoom, bool fitWindow, bool fitWidth)
 {
+    stopZoomAnimation();
     const bool hadItem = (m_item != nullptr);
     m_sourcePixmap = pixmap;
     m_sourceImage = pixmap.toImage();   // 隐式共享，同 setPixmap
@@ -1098,6 +1105,7 @@ QPointF ImageCanvas::viewCenterNormalized() const
 
 void ImageCanvas::clear()
 {
+    stopZoomAnimation();
     scene()->clear();
     m_item = nullptr;
     m_rubber = nullptr;
@@ -1376,6 +1384,9 @@ void ImageCanvas::applySampleResult(quint64 generation, QImage result, const QSi
 
 void ImageCanvas::setCropMode(bool on)
 {
+    if (on) {
+        stopZoomAnimation();
+    }
     m_cropMode = on;
     clearSelection();
     setDragMode(on ? QGraphicsView::NoDrag : QGraphicsView::ScrollHandDrag);
@@ -1416,6 +1427,7 @@ void ImageCanvas::fitToWindow()
 
 void ImageCanvas::fitToWindowGeom()
 {
+    stopZoomAnimation();
     if (!m_item) {
         return;
     }
@@ -1462,6 +1474,7 @@ void ImageCanvas::fitToWidth()
 
 void ImageCanvas::fitToWidthGeom()
 {
+    stopZoomAnimation();
     if (!m_item) {
         return;
     }
@@ -1500,16 +1513,17 @@ void ImageCanvas::fitToWidthGeom()
 
 void ImageCanvas::zoomIn()
 {
-    applyZoomAt(m_zoom * 1.25, viewport()->rect().center());
+    animateZoomBy(1.25, viewport()->rect().center());
 }
 
 void ImageCanvas::zoomOut()
 {
-    applyZoomAt(m_zoom * 0.8, viewport()->rect().center());
+    animateZoomBy(0.8, viewport()->rect().center());
 }
 
 void ImageCanvas::zoomActual()
 {
+    stopZoomAnimation();
     applyZoomAt(1.0, viewport()->rect().center());
     // 100% 显示且图片高于视口：按设置显示顶部（关=保持居中，即 applyZoomAt 的锚点结果）
     applyAlignTopIfLarge();
@@ -1555,6 +1569,7 @@ void ImageCanvas::applyAlignTopWhenLargeLive(bool on)
 
 void ImageCanvas::setZoom(qreal zoom)
 {
+    stopZoomAnimation();
     applyZoomAt(zoom, viewport()->rect().center());
 }
 
@@ -1582,6 +1597,12 @@ void ImageCanvas::keepScenePointAt(const QPointF &scenePt, const QPoint &viewpor
 
 void ImageCanvas::applyZoomAt(qreal zoom, const QPoint &anchorViewportPt)
 {
+    stopZoomAnimation();
+    applyZoomAtInternal(zoom, anchorViewportPt, false);
+}
+
+void ImageCanvas::applyZoomAtInternal(qreal zoom, const QPoint &anchorViewportPt, bool deferSampling)
+{
     if (!m_item || zoom <= 0.0) {
         return;
     }
@@ -1607,7 +1628,65 @@ void ImageCanvas::applyZoomAt(qreal zoom, const QPoint &anchorViewportPt)
     // （insets 收完 viewport 已定型，这里算出的 padding 是最终值）。
     updateSceneRect();
     keepScenePointAt(anchorScene, viewport()->mapFrom(this, anchorWindowPt));
-    refreshSampling();
+    if (!deferSampling) {
+        refreshSampling();
+    }
+}
+
+void ImageCanvas::stopZoomAnimation()
+{
+    if (m_zoomTimer.isActive()) {
+        m_zoomTimer.stop();
+    }
+    if (m_zoomMotion.active) {
+        ZoomMotion::reset(m_zoomMotion, m_zoom);
+    }
+}
+
+void ImageCanvas::animateZoomBy(qreal factor, const QPoint &anchorViewportPt)
+{
+    if (!m_item || factor <= 0.0) {
+        return;
+    }
+    const qreal base = m_zoomMotion.active ? qreal(m_zoomMotion.target) : m_zoom;
+    const qreal minZ = qMin(kMinZoom, m_zoom);
+    const qreal target = qBound(minZ, base * factor, kMaxZoom);
+    if (qFuzzyCompare(target, base) && !m_zoomMotion.active) {
+        return;
+    }
+    m_zoomAnchorScene = mapToScene(anchorViewportPt);
+    m_zoomAnchorWindow = viewport()->mapTo(this, anchorViewportPt);
+    ZoomMotion::push(m_zoomMotion, m_zoom, target, 120.0);
+    if (!m_zoomMotion.active) {
+        applyZoomAtInternal(target, anchorViewportPt, false);
+        return;
+    }
+    if (!m_zoomTimer.isActive()) {
+        m_zoomClock.restart();
+        m_zoomTimer.start();
+    }
+    // 首帧立即推进 1ms，给用户零延迟反馈。
+    stepZoomAnimation();
+}
+
+void ImageCanvas::stepZoomAnimation()
+{
+    if (!m_item || !m_zoomMotion.active) {
+        stopZoomAnimation();
+        return;
+    }
+    const double rawDt = m_zoomClock.isValid() ? double(m_zoomClock.restart()) : 16.0;
+    const double dtMs = qBound(1.0, rawDt, 64.0);
+    const bool stillRunning = ZoomMotion::step(m_zoomMotion, dtMs);
+    const qreal nextZoom = qreal(ZoomMotion::current(m_zoomMotion));
+    const QPoint vpAnchor = viewport()->mapFrom(this, m_zoomAnchorWindow);
+    applyZoomAtInternal(nextZoom, vpAnchor, /*deferSampling=*/stillRunning);
+    // 动画帧内把最新锚点锁回起点，避免首帧 insets 收起时漂移。
+    keepScenePointAt(m_zoomAnchorScene, viewport()->mapFrom(this, m_zoomAnchorWindow));
+    if (!stillRunning) {
+        m_zoomTimer.stop();
+        refreshSampling();
+    }
 }
 
 void ImageCanvas::wheelEvent(QWheelEvent *event)
@@ -1627,7 +1706,7 @@ void ImageCanvas::wheelEvent(QWheelEvent *event)
     }
     if (act == QLatin1String("zoom_in") || act == QLatin1String("zoom_out")) {
         const qreal factor = act == QLatin1String("zoom_in") ? 1.25 : 0.8;
-        applyZoomAt(m_zoom * factor, event->position().toPoint());
+        animateZoomBy(factor, event->position().toPoint());
         event->accept();
         return;
     }
@@ -1809,6 +1888,7 @@ void ImageCanvas::mousePressEvent(QMouseEvent *event)
         return;
     }
     if (event->button() == Qt::MiddleButton) {
+        stopZoomAnimation();
         // 翻页批次 2：中键拖动与单击独立。拖动=pan 档才进入平移；单击判定
         // 只要映射了非 none 动作就记账（松手时按位移/时长判定）。裁剪模式
         // 与未打开图片不参与单击（保持原行为）。
@@ -1847,6 +1927,7 @@ void ImageCanvas::mousePressEvent(QMouseEvent *event)
     }
     // 左键按下先记账：松手时才判断「点击」还是「拖拽平移」（见 mouseReleaseEvent）
     if (event->button() == Qt::LeftButton) {
+        stopZoomAnimation();
         m_pressTracked = m_item != nullptr && !m_sourcePixmap.isNull() && !m_cropMode;
         m_pressPos = event->pos();
         m_pressClock.restart();
@@ -1914,6 +1995,7 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent *event)
         return;
     }
     if (event->button() == Qt::MiddleButton) {
+        stopZoomAnimation();
         if (m_panning) {
             m_panning = false;
             unsetCursor();

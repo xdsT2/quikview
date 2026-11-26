@@ -34,6 +34,8 @@ add_executable(quikview WIN32
     src/Config.h
     src/ImageCanvas.cpp
     src/ImageCanvas.h
+    src/ZoomMotion.cpp
+    src/ZoomMotion.h
     src/ImageCache.cpp
     src/ImageCache.h
     src/DirectoryLoader.cpp
@@ -295,6 +297,10 @@ if(BUILD_TESTING)
         target_link_libraries(quikview-openpicker-test PRIVATE ole32 shell32 uuid)
     endif()
     add_test(NAME openpicker.pure COMMAND quikview-openpicker-test)
+
+    add_executable(quikview-zoommotion-test tests/unit/zoom_motion_test.cpp src/ZoomMotion.cpp)
+    target_include_directories(quikview-zoommotion-test PRIVATE src)
+    add_test(NAME zoommotion.pure COMMAND quikview-zoommotion-test)
 
     include("${CMAKE_CURRENT_SOURCE_DIR}/tests/chrome_popup_cases.cmake")
     foreach(_chrome_case IN LISTS QUIKVIEW_CHROME_CASES)

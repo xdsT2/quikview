@@ -9,6 +9,8 @@
 #include <QThreadPool>
 #include <QTimer>
 
+#include "ZoomMotion.h"
+
 class QGraphicsPixmapItem;
 class QGraphicsRectItem;
 class QLabel;
@@ -116,6 +118,8 @@ public:
     void zoomOut();
     void zoomActual();
     qreal zoom() const { return m_zoom; }
+    qreal targetZoom() const { return m_zoomMotion.active ? qreal(m_zoomMotion.target) : m_zoom; }
+    bool isZoomAnimating() const { return m_zoomMotion.active; }
     void setZoom(qreal zoom);
     // 以 anchorViewportPt（视口坐标）为锚点应用缩放，进入手动模式且不触发 Fit。
     // 滚轮用鼠标位置，按钮/键盘/滑杆用视口中心。
@@ -193,6 +197,10 @@ protected:
 private:
     // 把场景点重新对回指定的视口点（用于边距/缩放变化后还原缩放锚点）
     void keepScenePointAt(const QPointF &scenePt, const QPoint &viewportPt);
+    void applyZoomAtInternal(qreal zoom, const QPoint &anchorViewportPt, bool deferSampling);
+    void animateZoomBy(qreal factor, const QPoint &anchorViewportPt);
+    void stopZoomAnimation();
+    void stepZoomAnimation();
     // Lanczos：缩小显示时按目标尺寸重采样一次，用 devicePixelRatio 保持逻辑尺寸
     // 不变（scene 几何、fit/center/归一化锚点全都不受影响），只提高采样质量。
     // 重采样本身跑在专用单线程池里（见 SamplingTask），GUI 线程只投任务和应用结果；
@@ -280,6 +288,12 @@ private:
     bool m_sampleRunning = false;    // 线程池里是否有任务在跑（单飞）
     QThreadPool m_samplePool;        // 专用单线程池：重采样不占 GUI 线程，也不抢全局池
     qreal m_zoom = 1.0;
+    // 平滑缩放动画（D1）：log-space 匀速叠加引擎 + 60Hz 定时器；拖动/切图/重置时即停。
+    ZoomMotion::State m_zoomMotion;
+    QTimer m_zoomTimer;
+    QElapsedTimer m_zoomClock;
+    QPointF m_zoomAnchorScene;
+    QPoint m_zoomAnchorWindow;
     // 长图首次装图时的一次性意图：由 fitToWindowGeom 消费成一次 fitToWidth，
     // 让条漫从「适合宽度」起读。用户随后主动选「适合窗口」不会再被改写。
     bool m_pendingLongStripFitWidth = false;
