@@ -1052,16 +1052,34 @@ void ImageCanvas::setPixmapPreservingView(const QPixmap &pixmap, const QPointF &
     refreshEdgeHover();
 }
 
-void ImageCanvas::replacePixmapInPlace(const QPixmap &pixmap)
+void ImageCanvas::replacePixmapInPlace(const QPixmap &pixmap, bool animated)
 {
-    if (!m_item || pixmap.deviceIndependentSize() != m_sourcePixmap.deviceIndependentSize()) {
-        setPixmapPreservingView(pixmap, viewCenterNormalized(), zoom(), false, false);
+    // 空态（无 item）：直接走保视图路径装图；hadItem=false 时其内部会按 fit 装图。
+    if (!m_item || pixmap.isNull()) {
+        setPixmapPreservingView(pixmap, viewCenterNormalized(), zoom(),
+                                m_fitToWindow, m_fitWidth);
         return;
     }
-    m_sourcePixmap = pixmap;
-    m_sourceImage = pixmap.toImage();   // 隐式共享，同 setPixmap
-    invalidateSampling();
-    doRefreshSampling();
+    const bool sameSize = pixmap.deviceIndependentSize()
+                          == m_sourcePixmap.deviceIndependentSize();
+
+    // 动画逐帧快路径：同尺寸不重建 scene，只更新源与 item 位图。裁剪选区、叠加层、
+    // 滚动条位置、光标、fit 标志全部原样保留；不发 zoomChanged、不投异步 Lanczos。
+    if (animated && sameSize) {
+        m_sourcePixmap = pixmap;
+        m_sourceImage = pixmap.toImage();   // 隐式共享，同 setPixmap
+        invalidateSampling();   // 作废旧源在飞的重采样结果；此路径不投新任务
+        m_item->setPixmap(toMonitorSpace(m_sourcePixmap));
+        // 采样模式与当前插值档对齐（口径同 setInterpolationMode）；不重建 item/effect。
+        m_item->setTransformationMode(m_interp == InterpBilinear ? Qt::FastTransformation
+                                                                : Qt::SmoothTransformation);
+        return;
+    }
+
+    // 其余分支：帧尺寸变化（GIF 允许各帧不同尺寸）或非动画预览（PSD 图层切换）。
+    // 回退保视图换图：锚点取视口中心，fit 标志与当前缩放保持现状，视图必须保住。
+    setPixmapPreservingView(pixmap, viewCenterNormalized(), zoom(),
+                            m_fitToWindow, m_fitWidth);
 }
 
 QPointF ImageCanvas::viewCenterNormalized() const

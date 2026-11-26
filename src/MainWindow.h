@@ -552,6 +552,13 @@ private:
     QElapsedTimer m_animClock;
     qint64 m_animNextDeadline = 0;
     bool m_animPlaying = false;
+    // 动画播放探针（仅 --smoke animreport 取证用，不参与产品行为）：
+    // 逐帧记录 tick 时刻与帧延迟，落盘统计丢帧/卡顿；落后对齐次数单独记账。
+    QVector<qint64> m_animTraceMs;
+    QVector<int> m_animTraceDelay;
+    int m_animBehind = 0;
+    // 画布拖动探针记录按住的按键（panpress/panmove/panrelease，仅 --smoke 用）。
+    Qt::MouseButton m_panProbeButton = Qt::LeftButton;
     QMenu *m_favMenu = nullptr;
     QMenu *m_recentMenu = nullptr;
 

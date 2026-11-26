@@ -37,7 +37,11 @@ public:
     void setPixmapPreservingView(const QPixmap &pixmap, const QPointF &anchorNorm,
                                  qreal zoom, bool fitWindow, bool fitWidth);
     // 视口中心落在当前图片内的归一化坐标（0..1），无图时返回 (0.5, 0.5)
-    void replacePixmapInPlace(const QPixmap &pixmap);
+    // 原地换图：animated=true 且帧尺寸不变时走快路径——只更新源与 item 位图，
+    // 不重建 scene、不动滚动条/光标/fit 标志、不发 zoomChanged、不投异步重采样，
+    // 裁剪选区与叠加层状态原样保留；尺寸不一致或 animated=false 时回退保视图换图
+    // （锚点=视口中心，fit 标志与当前缩放保持现状）。
+    void replacePixmapInPlace(const QPixmap &pixmap, bool animated = false);
     QPointF viewCenterNormalized() const;
     void clear();
     void setSmooth(bool on);
