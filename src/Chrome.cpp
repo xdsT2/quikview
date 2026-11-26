@@ -697,6 +697,26 @@ void TopBar::setLayerState(bool available, bool open)
     update();
 }
 
+void TopBar::setOpenPickerActive(bool active)
+{
+    if (m_openPickerActive == active) {
+        return;
+    }
+    m_openPickerActive = active;
+    update();
+}
+
+QRect TopBar::openButtonRect() const
+{
+    const QVector<Btn> list = buttons();
+    for (const Btn &b : list) {
+        if (b.action == Action::Open) {
+            return b.rect;
+        }
+    }
+    return QRect();
+}
+
 int TopBar::idForAction(Action action)
 {
     switch (action) {
@@ -1029,7 +1049,8 @@ void TopBar::paintEvent(QPaintEvent *)
         st.disabled = b.disabled;
         st.danger = (b.action == Action::Close);
         st.checked = (b.action == Action::Pin && m_pinned)
-                     || (b.action == Action::Layers && m_layersOpen);
+                     || (b.action == Action::Layers && m_layersOpen)
+                     || (b.action == Action::Open && m_openPickerActive);
 
         BtnVisual v = m_feedback->visual(i);
         ButtonPalette pal;
@@ -1087,7 +1108,12 @@ void TopBar::paintEvent(QPaintEvent *)
                                 : QRectF(b.rect.x() + 10, center.y() - iconS / 2, iconS, iconS);
 
         switch (b.action) {
-        case Action::Open: drawIcon(p, "folder-open", icon, drawInk, iconStyle); break;
+        case Action::Open:
+            // 选择器存续期间保持 Filled（与 Layers 同一持续态范式）；按下瞬时填充照旧。
+            drawIcon(p, "folder-open", icon, drawInk,
+                     (m_openPickerActive || st.pressed) ? AppIcon::Style::Filled
+                                                        : AppIcon::Style::Regular);
+            break;
         case Action::Browse: drawIcon(p, "apps", icon, drawInk, iconStyle); break;
         case Action::Layers:
             // 面板展开是持续状态：展开期间保持 filled，收起回 regular；按下瞬时填充。
@@ -1467,6 +1493,26 @@ void ControlBar::setGroupingActive(bool active)
     }
     m_groupingActive = active;
     update();
+}
+
+void ControlBar::setOpenPickerActive(bool active)
+{
+    if (m_openPickerActive == active) {
+        return;
+    }
+    m_openPickerActive = active;
+    update();
+}
+
+QRect ControlBar::openButtonRect() const
+{
+    const QVector<Item> list = items();
+    for (const Item &it : list) {
+        if (it.action == Action::Open) {
+            return it.rect;
+        }
+    }
+    return QRect();
 }
 
 // 总览内外同位置的那颗按钮：总览打开是「分组方式」，关闭是「缩略图栏」。
@@ -1873,7 +1919,8 @@ void ControlBar::paintEvent(QPaintEvent *)
         st.focus = (m_keyboardFocus && m_focus == i);
         st.checked = (it.action == Action::Lock && m_locked)
                      || (it.action == Action::Overview && m_overviewActive)
-                     || (it.action == Action::GroupBy && m_groupingActive);
+                     || (it.action == Action::GroupBy && m_groupingActive)
+                     || (it.action == Action::Open && m_openPickerActive);
 
         ButtonPalette pal;
         // 定稿：按钮底板 30×30、圆角 7。
@@ -1935,7 +1982,12 @@ void ControlBar::paintEvent(QPaintEvent *)
                                                     : AppIcon::Style::Regular;
 
         switch (it.action) {
-        case Action::Open: drawIcon(p, "folder-open", icon, drawInk, iconStyle); break;
+        case Action::Open:
+            // 选择器存续期间保持 Filled（与 Overview/GroupBy 同一持续态范式）；按下瞬时填充照旧。
+            drawIcon(p, "folder-open", icon, drawInk,
+                     (m_openPickerActive || st.pressed) ? AppIcon::Style::Filled
+                                                         : AppIcon::Style::Regular);
+            break;
         case Action::List: drawIcon(p, "list", icon, drawInk, iconStyle); break;
         case Action::GroupBy:
             // 总览内的分组入口：已分组时 Filled 图标表达「正在分组」，底板走 checked 中性底。
@@ -2373,6 +2425,20 @@ void EmptyState::setStatus(const QString &text, bool isError)
     update();
 }
 
+void EmptyState::setOpenPickerActive(bool active)
+{
+    if (m_openPickerActive == active) {
+        return;
+    }
+    m_openPickerActive = active;
+    update();
+}
+
+QRect EmptyState::openButtonRect() const
+{
+    return primaryRect();
+}
+
 QRect EmptyState::primaryRect() const
 {
     const int y = (height() - 340) / 2;
@@ -2435,7 +2501,8 @@ void EmptyState::paintEvent(QPaintEvent *)
     p.drawRoundedRect(QRectF(primary).adjusted(0.5, 0.5, -0.5, -0.5), 6, 6);
     drawIcon(p, "folder-open",
              QRectF(primary.x() + 18, primary.center().y() - 8, 16, 16),
-             QColor(Qt::white));
+             QColor(Qt::white),
+             m_openPickerActive ? AppIcon::Style::Filled : AppIcon::Style::Regular);
     p.setFont(uiFont(12, QFont::DemiBold));
     p.setPen(QColor(Qt::white));
     p.drawText(QRect(primary.x() + 40, primary.y(), primary.width() - 44, primary.height()),

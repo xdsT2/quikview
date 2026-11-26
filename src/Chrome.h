@@ -132,6 +132,11 @@ public:
     void setLayerButtonVisible(bool visible);
     void setLayerState(bool available, bool open);
     bool layersAvailable() const { return m_layersAvailable; }
+    // 「打开」选择器对话框存续期间，本顶栏发起按钮保持 Filled（2026-11-25 填充态跟随生命周期单）。
+    void setOpenPickerActive(bool active);
+    bool isOpenPickerActive() const { return m_openPickerActive; }
+    // 取证探针：Open 按钮本地矩形（找不到返回空矩形）。
+    QRect openButtonRect() const;
 
     // 窄窗收起探针：0打开 1浏览 2图层 3顶栏锁 4置顶 5三横菜单
     // 6最小化 7最大化 8关闭
@@ -203,6 +208,7 @@ private:
     bool m_showLayers = false;
     bool m_layersAvailable = false;
     bool m_layersOpen = false;
+    bool m_openPickerActive = false;
     int m_hover = -1;
     int m_press = -1;
     int m_focus = -1;
@@ -226,6 +232,11 @@ public:
     void setOverviewActive(bool active);
     // 总览内的分组态：为真时按钮点亮（Filled 图标 + 中性底板）。
     void setGroupingActive(bool active);
+    // 「打开」选择器对话框存续期间，本底栏发起按钮保持 Filled（2026-11-25 填充态跟随生命周期单）。
+    void setOpenPickerActive(bool active);
+    bool isOpenPickerActive() const { return m_openPickerActive; }
+    // 取证探针：Open 按钮本地矩形（找不到返回空矩形）。
+    QRect openButtonRect() const;
     // 分组按钮的局部矩形（总览打开时该位置是「分组方式」，关闭时是「缩略图栏」），
     // 菜单以上缘对齐它弹出。
     QRect groupButtonRect() const;
@@ -322,6 +333,7 @@ private:
     bool m_dragging = false;
     bool m_overviewActive = false;
     bool m_groupingActive = false;   // 总览内已按日期/大小分组（按钮点亮）
+    bool m_openPickerActive = false;  // 「打开」选择器存续期间本按钮保持 Filled
     QElapsedTimer m_previewClock;
     bool m_locked = false;
     bool m_weakened = false;
@@ -379,6 +391,11 @@ public:
     // 空状态里直接给出「正在打开 …」或「无法打开 … 文件名 + 原因」。
     // 空文本隐藏该行；isError 用警示色。换图/重试由 MainWindow 调 setStatus("").
     void setStatus(const QString &text, bool isError = false);
+    // 「打开」选择器对话框存续期间，空状态主按钮图标保持 Filled（2026-11-25 填充态跟随生命周期单）。
+    void setOpenPickerActive(bool active);
+    bool isOpenPickerActive() const { return m_openPickerActive; }
+    // 取证探针：主按钮本地矩形。
+    QRect openButtonRect() const;
 
 signals:
     // 统一「打开」入口（2026-11-21）：一个按钮同时承担「选图片」与「选文件夹」，
@@ -398,6 +415,7 @@ private:
     int m_press = -1;
     QString m_status;
     bool m_statusError = false;
+    bool m_openPickerActive = false;
 };
 
 // ============================ 消息提示 ============================
