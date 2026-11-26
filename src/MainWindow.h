@@ -424,9 +424,10 @@ private:
 
     // —— 共享动作（唯一真源）——
     QAction *actOpen = nullptr;
-    // 「打开文件夹」并入统一「打开」（2026-11-21 打开入口单）后的兼容动作壳：
+    // 「打开文件夹」并入统一「打开」（2026-11-21 打开入口单）后的兼容动作：
     // 命令 CMD_FILE_OPEN_FOLDER、旧键位 openfolder、快捷键 F 仍指到这里，
-    // 行为与统一「打开」完全一致；不挂任何菜单，界面上只有那一个「打开」入口。
+    // 行为与统一「打开」完全一致；走 mk() 登记进 m_actions，不挂任何菜单，
+    // 界面上只有那一个「打开」入口。
     QAction *actOpenFolder = nullptr;
     QAction *actSaveAs = nullptr;
     QAction *actPrint = nullptr;
