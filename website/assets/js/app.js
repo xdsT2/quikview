@@ -644,6 +644,7 @@
     var n = lines.length;
 
     while (i < n) {
+      var startIdx = i;
       var line = lines[i];
       var trimmed = line.trim();
 
@@ -664,9 +665,9 @@
         continue;
       }
 
-      var h4 = trimmed.match(/^####\s+(.+)$/);
-      if (h4) {
-        html.push('<h5 class="cl-subhead">' + renderInline(h4[1]) + "</h5>");
+      var hx = trimmed.match(/^#{1,6}\s+(.+)$/);
+      if (hx) {
+        html.push('<h5 class="cl-subhead">' + renderInline(hx[1]) + "</h5>");
         i += 1;
         continue;
       }
@@ -705,6 +706,7 @@
       if (/^[-*+]\s+/.test(trimmed) || /^\d+\.\s+/.test(trimmed)) {
         var isOrdered = /^\d+\.\s+/.test(trimmed);
         var tag = isOrdered ? "ol" : "ul";
+        var baseIndent = line.length - line.replace(/^\s+/, "").length;
         var listItems = [];
 
         while (i < n) {
@@ -712,9 +714,9 @@
           var curTrim = cur.trim();
           var indent = cur.length - cur.replace(/^\s+/, "").length;
           var topMatch = isOrdered
-            ? (indent < 2 && curTrim.match(/^\d+\.\s+(.+)$/))
-            : (indent < 2 && curTrim.match(/^[-*+]\s+(.+)$/));
-          var subMatch = indent >= 2 && curTrim.match(/^(?:[-*+]|\d+\.)\s+(.+)$/);
+            ? (indent <= baseIndent && curTrim.match(/^\d+\.\s+(.+)$/))
+            : (indent <= baseIndent && curTrim.match(/^[-*+]\s+(.+)$/));
+          var subMatch = indent > baseIndent && curTrim.match(/^(?:[-*+]|\d+\.)\s+(.+)$/);
 
           if (topMatch) {
             listItems.push({ html: renderInline(topMatch[1]), subs: [] });
@@ -733,27 +735,36 @@
           }
         }
 
-        var lHtml = ['<' + tag + ' class="cl-list">'];
-        listItems.forEach(function (item) {
-          var subHtml = item.subs.length
-            ? '<ul class="cl-sublist">' + item.subs.map(function (s) { return "<li>" + s + "</li>"; }).join("") + "</ul>"
-            : "";
-          lHtml.push("<li>" + item.html + subHtml + "</li>");
-        });
-        lHtml.push("</" + tag + ">");
-        html.push(lHtml.join(""));
+        if (listItems.length > 0) {
+          var lHtml = ['<' + tag + ' class="cl-list">'];
+          listItems.forEach(function (item) {
+            var subHtml = item.subs.length
+              ? '<ul class="cl-sublist">' + item.subs.map(function (s) { return "<li>" + s + "</li>"; }).join("") + "</ul>"
+              : "";
+            lHtml.push("<li>" + item.html + subHtml + "</li>");
+          });
+          lHtml.push("</" + tag + ">");
+          html.push(lHtml.join(""));
+        }
+        if (i === startIdx) {
+          html.push('<p class="cl-prose">' + renderInline(trimmed) + "</p>");
+          i += 1;
+        }
         continue;
       }
 
-      var paraLines = [];
+      var paraLines = [trimmed];
+      i += 1;
       while (i < n) {
         var pt = lines[i].trim();
-        if (!pt || /^(-{3,}|\*{3,}|_{3,})$/.test(pt) || /^(#{1,4}\s|>|```|[-*+]\s|\d+\.\s|\|)/.test(pt)) break;
+        if (!pt || /^(-{3,}|\*{3,}|_{3,})$/.test(pt) || /^(#{1,6}\s|>|```|[-*+]\s|\d+\.\s|\|)/.test(pt)) break;
         paraLines.push(pt);
         i += 1;
       }
-      if (paraLines.length) {
-        html.push('<p class="cl-prose">' + paraLines.map(renderInline).join(" ") + "</p>");
+      html.push('<p class="cl-prose">' + paraLines.map(renderInline).join(" ") + "</p>");
+
+      if (i === startIdx) {
+        i += 1;
       }
     }
 
@@ -769,7 +780,7 @@
     var seenHeading = false;
 
     lines.forEach(function (line) {
-      var h3 = line.match(/^###\s+(.+)$/);
+      var h3 = line.match(/^#{2,3}\s+(.+)$/);
       if (h3) {
         seenHeading = true;
         if (currentSection) sections.push(currentSection);
