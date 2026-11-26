@@ -55,9 +55,15 @@ jobs:
             mingw-w64-x86_64-qt6-base
             mingw-w64-x86_64-qt6-tools
             mingw-w64-x86_64-qt6-svg
-            mingw-w64-x86_64-qt6-imageformats
             mingw-w64-x86_64-libraw
             mingw-w64-x86_64-libheif
+
+      # qt6-imageformats 单独装：setup-msys2 的批量 install 在 update:true 下
+      # 报 target not found，但包在 mingw64 仓库确实存在（-any 架构）。单独一步更易诊断。
+      - name: 安装 Qt 图像格式插件
+        run: |
+          pacman -S --noconfirm mingw-w64-x86_64-qt6-imageformats
+          ls /mingw64/share/qt6/plugins/imageformats/ || true
 
       - name: 配置
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/mingw64
