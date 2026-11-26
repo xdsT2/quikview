@@ -39,46 +39,21 @@ jobs:
       - name: 安装工具链与依赖
         uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
+          msystem: UCRT64
           update: true
-          # 不用 toolchain 包组：pacman 组选择提示在 --noconfirm 下仍会弹出，
-          # 把后续包名当成选择输入吞掉（update:true 同步新库后必现）。逐个列包。
           install: >-
-            mingw-w64-x86_64-binutils
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-headers
-            mingw-w64-x86_64-crt
-            mingw-w64-x86_64-libstdc++
-            mingw-w64-x86_64-winpthreads
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-ninja
-            mingw-w64-x86_64-libraw
-            mingw-w64-x86_64-libheif
-
-      # MSYS2 最新数据库（Qt 6.12）已从 mingw64 移除 qt6-imageformats，
-      # 而 qt6-base 只带 qjpeg/qgif/qico，缺 CI 构建必需的 qwebp/qtiff。
-      # 锁定四个 Qt 包到 6.9.2（数据库虽不列，但仓库仍保留历史包文件），
-      # 从固定 URL 安装，保证四个包同版本、ABI 一致。
-      - name: 安装 Qt 6.9.2（含 imageformats 插件）
-        run: |
-          BASE=https://repo.msys2.org/mingw/mingw64
-          for pkg in qt6-base qt6-tools qt6-svg qt6-imageformats; do
-            curl -fL -o "/tmp/${pkg}.pkg.tar.zst" \
-              "$BASE/mingw-w64-x86_64-${pkg}-6.9.2-1-any.pkg.tar.zst"
-          done
-          pacman -U --noconfirm /tmp/qt6-base.pkg.tar.zst \
-            /tmp/qt6-tools.pkg.tar.zst /tmp/qt6-svg.pkg.tar.zst \
-            /tmp/qt6-imageformats.pkg.tar.zst
-          ls /mingw64/share/qt6/plugins/imageformats/
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-qt6-base
+            mingw-w64-ucrt-x86_64-qt6-tools
+            mingw-w64-ucrt-x86_64-qt6-svg
+            mingw-w64-ucrt-x86_64-qt6-imageformats
+            mingw-w64-ucrt-x86_64-libraw
+            mingw-w64-ucrt-x86_64-libheif
 
       - name: 配置
-        env:
-          PATH: /mingw64/bin:${{ env.PATH }}
-        run: |
-          echo "=== uic 依赖检查 ==="
-          ldd /mingw64/share/qt6/bin/uic.exe | grep -i 'not found' || true
-          /mingw64/share/qt6/bin/uic.exe -h >/dev/null && echo "uic OK" || echo "uic FAILED"
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/mingw64
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/ucrt64
 
       - name: 编译
         run: cmake --build build
