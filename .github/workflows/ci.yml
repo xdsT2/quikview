@@ -53,7 +53,7 @@ jobs:
             mingw-w64-ucrt-x86_64-libheif
 
       - name: 配置
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/ucrt64
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/ucrt64 -DQUIKVIEW_REQUIRE_ALL_IMAGEFORMATS=OFF
 
       - name: 编译
         run: cmake --build build
