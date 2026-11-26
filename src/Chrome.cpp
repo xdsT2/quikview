@@ -395,11 +395,7 @@ void ButtonFeedback::reset()
     if (m_timer->isActive()) {
         m_timer->stop();
     }
-    if (m_vals.isEmpty()) {
-        return;
-    }
-    m_vals.clear();
-    emit changed();
+    snap();
 }
 
 BtnVisual ButtonFeedback::visual(int index) const
@@ -1470,11 +1466,8 @@ void ControlBar::setLocked(bool locked)
         return;
     }
     m_locked = locked;
-    // 锁按钮恒为最后一项：用 checked 插值驱动两层视觉（透明底/蓝圆）交叉淡化。
-    const QVector<Item> list = items();
-    if (!list.isEmpty()) {
-        m_feedback->setChecked(list.size() - 1, locked);
-    }
+    // 锁图标的插值按动作标识保存，与窄窗换档后的按钮位置无关。
+    m_feedback->setChecked(static_cast<int>(Action::Lock), locked);
     update();
 }
 
@@ -1633,8 +1626,6 @@ void ControlBar::recomputeWidth()
     }
     m_preferredWidth = width;
     setFixedWidth(width);
-    // 档位切换会移动锁按钮的索引（恒为最后一项），同步选中态插值目标。
-    m_feedback->setChecked(list.isEmpty() ? -1 : list.size() - 1, m_locked);
     update();
 }
 
@@ -1941,7 +1932,7 @@ void ControlBar::paintEvent(QPaintEvent *)
         if (it.action == Action::Lock) {
             // 锁定态交叉淡化：透明底（开）↔ 中性底板 + 白色 Filled 锁（锁），
             // 2026-11-22 起不再用蓝底，避免与进度条抢重点。
-            const qreal chk = v.checked;
+            const qreal chk = m_feedback->visual(static_cast<int>(Action::Lock)).checked;
             const qreal lockS = 18.0 * (1.0 - 0.02 * v.press);
             if (chk < 0.999) {
                 p.save();

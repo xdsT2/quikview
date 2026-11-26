@@ -67,7 +67,7 @@ public:
     void setHover(int index);      // -1 = 无悬停（会淡出）
     void setPressed(int index);    // -1 = 松开（100ms 恢复，不弹跳）
     void setChecked(int index, bool on); // 选中态目标（锁定按钮交叉淡化）
-    void reset();                  // 立即收回全部状态（禁用 / 失去焦点）
+    void reset();                  // 清除悬停与按压，选中态落到目标值
     BtnVisual visual(int index) const;
     int pressedIndex() const { return m_pressed; }
 
