@@ -52,24 +52,24 @@ jobs:
             mingw-w64-x86_64-winpthreads
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-ninja
-            mingw-w64-x86_64-qt6-base
-            mingw-w64-x86_64-qt6-tools
-            mingw-w64-x86_64-qt6-svg
             mingw-w64-x86_64-libraw
             mingw-w64-x86_64-libheif
 
-      # qt6-imageformats 单独装：setup-msys2 的批量 install 在 update:true 下
-      # 报 target not found，但包在 mingw64 仓库确实存在（-any 架构）。单独一步更易诊断。
-      - name: 安装 Qt 图像格式插件
+      # MSYS2 最新数据库（Qt 6.12）已从 mingw64 移除 qt6-imageformats，
+      # 而 qt6-base 只带 qjpeg/qgif/qico，缺 CI 构建必需的 qwebp/qtiff。
+      # 锁定四个 Qt 包到 6.9.2（数据库虽不列，但仓库仍保留历史包文件），
+      # 从固定 URL 安装，保证四个包同版本、ABI 一致。
+      - name: 安装 Qt 6.9.2（含 imageformats 插件）
         run: |
-          echo "=== pacman -Ss qt6-imageformats ==="
-          pacman -Ss qt6-imageformats || true
-          echo "=== pacman -Si (精确) ==="
-          pacman -Si mingw-w64-x86_64-qt6-imageformats || true
-          echo "=== 已装 qt6 包 ==="
-          pacman -Q | grep -i qt6 || true
-          echo "=== 仓库配置 ==="
-          cat /etc/pacman.conf | grep -A2 '^\[mingw64\]'
+          BASE=https://repo.msys2.org/mingw/mingw64
+          for pkg in qt6-base qt6-tools qt6-svg qt6-imageformats; do
+            curl -fL -o "/tmp/${pkg}.pkg.tar.zst" \
+              "$BASE/mingw-w64-x86_64-${pkg}-6.9.2-1-any.pkg.tar.zst"
+          done
+          pacman -U --noconfirm /tmp/qt6-base.pkg.tar.zst \
+            /tmp/qt6-tools.pkg.tar.zst /tmp/qt6-svg.pkg.tar.zst \
+            /tmp/qt6-imageformats.pkg.tar.zst
+          ls /mingw64/share/qt6/plugins/imageformats/
 
       - name: 配置
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/mingw64
