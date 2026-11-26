@@ -46,20 +46,20 @@
   /* ---------- gallery ---------- */
 
   var shots = [
-    { file: "01-main.webp", title: "主窗口", desc: "顶栏与画布同色，搭配底部控制栏" },
-    { file: "02-overview.webp", title: "图片总览", desc: "v0.6.0 重做网格，按文件夹快速定位照片" },
-    { file: "02-thumbnails.webp", title: "缩略图浏览", desc: "在底部缩略图栏切换图片" },
+    { file: "01-main.webp", title: "主窗口", desc: "精简顶栏与画布同色，搭配底部控制胶囊" },
+    { file: "02-thumbnails.webp", title: "缩略图浏览", desc: "底部横向胶片栏，按需异步生成缩略图" },
     { file: "03-info.webp", title: "图片信息", desc: "EXIF / GPS / 直方图，Tab 呼出" },
-    { file: "04-svg.webp", title: "SVG 矢量查看", desc: "直接打开并无损查看 SVG 矢量图" },
-    { file: "05-psd.webp", title: "PSD / PSB 图层", desc: "查看内嵌缩略图与图层预览" },
     { file: "04-spread.webp", title: "双页阅览", desc: "画册、漫画并排看" },
-    { file: "05-zoom.webp", title: "缩放与平移", desc: "滚轮缩放、拖拽平移、一键适配窗口" },
-    { file: "06-effects.webp", title: "图像效果", desc: "反色 / Gamma / 旋转 / 插值" },
-    { file: "07-context-menu.webp", title: "右键菜单", desc: "按功能分组，统一悬浮与点击反馈" },
-    { file: "08-convert.webp", title: "批量转换", desc: "PNG / JPEG / BMP / WebP / TIFF" },
-    { file: "09-settings.webp", title: "设置", desc: "十个分类，修改即时生效并支持导入导出" },
-    { file: "10-about.webp", title: "关于页", desc: "设置新增「关于」分类，查看版本与组件信息" },
-    { file: "11-start.webp", title: "启动画面", desc: "拖入图片、选择文件或打开文件夹" }
+    { file: "05-zoom.webp", title: "1:1 看像素", desc: "滚轮缩放、拖拽平移、原图细节不抹平" },
+    { file: "06-effects.webp", title: "图像效果", desc: "反色 / Gamma / 旋转 / 插值算法" },
+    { file: "07-context-menu.webp", title: "右键菜单", desc: "Fluent 统一样式，标签与快捷键右省略" },
+    { file: "08-convert.webp", title: "批量转换", desc: "PNG / JPEG / BMP / WebP / TIFF 与裁剪" },
+    { file: "09-settings.webp", title: "设置", desc: "十个分类、40×22 统一开关，十余项即时生效" },
+    { file: "10-context-menu-settings.webp", title: "查看器右键菜单", desc: "按组大纲管理与右侧实时预览" },
+    { file: "11-start.webp", title: "启动画面", desc: "拖入图片，或点「打开」选图 / 文件夹" },
+    { file: "12-overview.webp", title: "图片总览", desc: "支持五档缩略图缩放与自适应缓存" },
+    { file: "13-svg.webp", title: "SVG 矢量查看", desc: "直接打开并渲染 SVG 矢量图" },
+    { file: "14-about.webp", title: "关于页", desc: "显示版本号、官网链接与 QQ 交流群" }
   ];
 
   var stageImg = document.getElementById("gallery-img");
@@ -76,7 +76,7 @@
     btn.setAttribute("aria-label", shot.title);
     btn.setAttribute("aria-selected", i === current ? "true" : "false");
     var img = document.createElement("img");
-    img.src = "assets/img/v0.6.0/" + shot.file;
+    img.src = "assets/img/v0.6.1/" + shot.file;
     img.alt = shot.title;
     img.loading = "lazy";
     img.width = 320;
@@ -92,11 +92,11 @@
     stageImg.classList.add("swapping");
     var pre = new Image();
     pre.onload = function () {
-      stageImg.src = "assets/img/v0.6.0/" + shot.file;
+      stageImg.src = "assets/img/v0.6.1/" + shot.file;
       stageImg.alt = shot.title;
       stageImg.classList.remove("swapping");
     };
-    pre.src = "assets/img/v0.6.0/" + shot.file;
+    pre.src = "assets/img/v0.6.1/" + shot.file;
     stageTitle.textContent = shot.title;
     stageDesc.textContent = shot.desc;
     Array.prototype.forEach.call(thumbsWrap.children, function (btn, idx) {
@@ -119,7 +119,7 @@
 
   function openLightbox() {
     var shot = shots[current];
-    lbImg.src = "assets/img/v0.6.0/" + shot.file;
+    lbImg.src = "assets/img/v0.6.1/" + shot.file;
     lbImg.alt = shot.title;
     lbCap.textContent = shot.title + " — " + shot.desc;
     lightbox.classList.add("open");

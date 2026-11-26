@@ -7,7 +7,7 @@
 <meta name="description" content="QuikView 是一款开源的 Windows 看图器：目录翻页、双页阅览、RAW / HEIC / AVIF 支持、EXIF 信息、批量转换与资源管理器集成。C++ 与 Qt 6 构建，MIT 许可证，零遥测。">
 <meta name="theme-color" content="#171a17">
 <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="assets/css/style.css?v=0.6.0">
+<link rel="stylesheet" href="assets/css/style.css?v=0.6.1">
 </head>
 <body>
 
@@ -57,7 +57,7 @@
         <div class="hero-actions">
           <a class="btn btn-primary btn-lg" href="#download">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 20h16"/></svg>
-            下载 v0.6.0
+            下载 v0.6.1
           </a>
           <a class="btn btn-ghost btn-lg" href="https://github.com/xdsT2/quikview" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.36 1.09 2.93.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.95 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.4 9.4 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.85-2.34 4.7-4.57 4.95.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>
@@ -69,9 +69,9 @@
 
       <figure class="hero-shot">
         <div class="window">
-          <img src="assets/img/v0.6.0/01-main.webp" width="1080" height="815" alt="QuikView v0.6.0 主窗口，显示顶栏和底部控制栏" fetchpriority="high">
+          <img src="assets/img/v0.6.1/01-main.webp" width="1080" height="815" alt="QuikView v0.6.1 主窗口，显示精简顶栏和底部控制栏" fetchpriority="high">
         </div>
-        <figcaption>QuikView v0.6.0 主窗口</figcaption>
+        <figcaption>QuikView v0.6.1 主窗口</figcaption>
       </figure>
     </div>
   </section>
@@ -139,7 +139,7 @@
 
       <div class="gallery">
         <div class="gallery-stage">
-          <img id="gallery-img" src="assets/img/v0.6.0/02-overview.webp" width="1080" height="815" alt="图片总览">
+          <img id="gallery-img" src="assets/img/v0.6.1/02-thumbnails.webp" width="1080" height="815" alt="缩略图浏览">
           <button class="stage-btn prev" id="gallery-prev" type="button" aria-label="上一张">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
           </button>
@@ -147,8 +147,8 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
           </button>
           <div class="stage-caption">
-            <strong id="gallery-title">图片总览</strong>
-            <span id="gallery-desc">v0.6.0 重做网格，按文件夹快速定位照片</span>
+            <strong id="gallery-title">缩略图浏览</strong>
+            <span id="gallery-desc">底部横向胶片栏，按需异步生成缩略图</span>
           </div>
         </div>
 
@@ -198,7 +198,7 @@
       <header class="section-head">
 
         <h2>下载 QuikView</h2>
-        <p class="section-sub">v0.6.0 · 2026-11-22 · Windows 10 / 11 x64</p>
+        <p class="section-sub">v0.6.1 · 2026-11-26 · Windows 10 / 11 x64</p>
       </header>
 
       <div class="download-grid">
@@ -207,8 +207,8 @@
             <h3>安装版</h3>
           </div>
           <p>安装后可在资源管理器中使用缩略图和右键菜单（约 29 MB）。</p>
-          <a class="btn btn-primary" href="https://github.com/xdsT2/quikview/releases/download/v0.6.0/QuikView-0.6.0-setup.exe">下载安装包</a>
-          <p class="file-name">QuikView-0.6.0-setup.exe</p>
+          <a class="btn btn-primary" href="https://github.com/xdsT2/quikview/releases/download/v0.6.1/QuikView-0.6.1-setup.exe">下载安装包</a>
+          <p class="file-name">QuikView-0.6.1-setup.exe</p>
         </article>
 
         <article class="dl-card">
@@ -216,8 +216,8 @@
             <h3>便携 ZIP</h3>
           </div>
           <p>解压后运行 QuikView，配置保存在程序目录。</p>
-          <a class="btn btn-ghost" href="https://github.com/xdsT2/quikview/releases/download/v0.6.0/quikview-0.6.0-win64.zip" target="_blank" rel="noopener">下载便携包</a>
-          <p class="file-name">quikview-0.6.0-win64.zip</p>
+          <a class="btn btn-ghost" href="https://github.com/xdsT2/quikview/releases/download/v0.6.1/quikview-0.6.1-win64.zip" target="_blank" rel="noopener">下载便携包</a>
+          <p class="file-name">quikview-0.6.1-win64.zip</p>
         </article>
 
         <article class="dl-card">
@@ -225,13 +225,13 @@
             <h3>校验文件</h3>
           </div>
           <p>用 SHA-256 清单核对下载的文件。</p>
-          <a class="btn btn-ghost" href="https://github.com/xdsT2/quikview/releases/download/v0.6.0/SHA256SUMS.txt">下载 SHA-256 清单</a>
+          <a class="btn btn-ghost" href="https://github.com/xdsT2/quikview/releases/download/v0.6.1/SHA256SUMS.txt">下载 SHA-256 清单</a>
           <p class="file-name">SHA256SUMS.txt</p>
         </article>
       </div>
 
       <p class="dl-note">
-        <a href="https://github.com/xdsT2/quikview/releases/tag/v0.6.0">v0.6.0 发布页</a> ·
+        <a href="https://github.com/xdsT2/quikview/releases/tag/v0.6.1">v0.6.1 发布页</a> ·
         <a href="https://github.com/xdsT2/quikview/releases">历史版本</a>
       </p>
       <p class="dl-note">
@@ -248,6 +248,20 @@
       <header class="section-head">
         <h2>更新记录</h2>
       </header>
+      <article class="release">
+        <header>
+          <h3>v0.6.1</h3>
+          <time datetime="2026-11-26">2026-11-26</time>
+        </header>
+        <ul>
+          <li>启动恢复改为可选且默认关闭（可在「设置 → 通用」开启）；「打开」改用 Windows 原生文件对话框并合并单一入口，顶栏精简为「打开 / 浏览」。</li>
+          <li>统一六个下拉菜单与四个弹窗的 Fluent 外壳、40×22 开关与右键菜单右省略；新增十项设置即时生效。</li>
+          <li>图片总览支持五档缩略图缩放与缓存自适应；剪贴板新增裸位图解码与启动自动清理；「定位文件」在资源管理器中直接选中图片。</li>
+          <li>全景查看器修正极区投影与滚轮缩放；设置「关于」页正式启用官网链接与 QQ 交流群（1134122173）。</li>
+        </ul>
+        <a href="https://github.com/xdsT2/quikview/releases/tag/v0.6.1">查看 v0.6.1 完整更新说明</a>
+      </article>
+
       <article class="release">
         <header>
           <h3>v0.6.0</h3>
@@ -340,10 +354,10 @@
   <button class="lb-close" id="lb-close" type="button" aria-label="关闭">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
   </button>
-  <img id="lb-img" src="assets/img/v0.6.0/02-overview.webp" alt="">
+  <img id="lb-img" src="assets/img/v0.6.1/02-thumbnails.webp" alt="">
   <p id="lb-cap"></p>
 </div>
 
-<script src="assets/js/app.js?v=0.6.0"></script>
+<script src="assets/js/app.js?v=0.6.1"></script>
 </body>
 </html>
