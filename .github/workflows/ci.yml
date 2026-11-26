@@ -72,7 +72,13 @@ jobs:
           ls /mingw64/share/qt6/plugins/imageformats/
 
       - name: 配置
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/mingw64
+        env:
+          PATH: /mingw64/bin:${{ env.PATH }}
+        run: |
+          echo "=== uic 依赖检查 ==="
+          ldd /mingw64/share/qt6/bin/uic.exe | grep -i 'not found' || true
+          /mingw64/share/qt6/bin/uic.exe -h >/dev/null && echo "uic OK" || echo "uic FAILED"
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/mingw64
 
       - name: 编译
         run: cmake --build build
