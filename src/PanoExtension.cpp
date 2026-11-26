@@ -17,8 +17,16 @@
 #include <QRegularExpression>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QTemporaryFile>
 #include <QTimer>
 #include <QUrl>
+
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
 
 namespace {
 
@@ -107,6 +115,24 @@ PanoExt::Manager::Manager(QObject *parent)
         if (m_reply || m_shaReply)
             setFailure(tr("组件下载超时，请检查网络后重试"));
     });
+    connect(qApp, &QCoreApplication::aboutToQuit, this, [this]() {
+        m_timeout->stop();
+        if (m_net) {
+            m_net->disconnect(this);
+        }
+        if (QNetworkReply *r = m_reply) {
+            m_reply = nullptr;
+            r->disconnect(this);
+            r->abort();
+        }
+        if (QNetworkReply *sr = m_shaReply) {
+            m_shaReply = nullptr;
+            sr->disconnect(this);
+            sr->abort();
+        }
+        delete m_net;
+        m_net = nullptr;
+    });
 }
 
 QString PanoExt::Manager::exePath()
@@ -137,8 +163,6 @@ PanoExt::Status PanoExt::Manager::status() const
     s.percent = m_percent;
     if (m_state == State::Installing) {
         s.state = State::Installing;
-    } else if (m_state == State::Failed) {
-        s.state = State::Failed;
     } else if (QFile::exists(exePath())) {
         s.state = State::Installed;
         s.version = readVersionFile(versionFilePath());
@@ -146,6 +170,8 @@ PanoExt::Status PanoExt::Manager::status() const
             s.version = QStringLiteral("未知");
         s.path = exePath();
         s.compatible = versionCompatible(s.version);
+    } else if (m_state == State::Failed) {
+        s.state = State::Failed;
     } else {
         s.state = State::NotInstalled;
     }
@@ -223,7 +249,7 @@ void PanoExt::Manager::cancelInstall()
 
 void PanoExt::Manager::startInstall()
 {
-    if (m_state == State::Installing)
+    if (!m_net || m_state == State::Installing)
         return;
     m_error.clear();
     m_percent = 0;
@@ -232,6 +258,11 @@ void PanoExt::Manager::startInstall()
     if (source.isEmpty()) {
         setFailure(tr("组件下载源未配置。请运行安装包并勾选「360° 全景查看器」，"
                       "或在 config.ini 里配置 config/ext/pano_source 后重试。"));
+        return;
+    }
+
+    if (source.startsWith(QLatin1String("\\\\")) || source.startsWith(QLatin1String("//"))) {
+        setFailure(tr("不支持 UNC 网络共享路径作为组件下载源"));
         return;
     }
 
@@ -248,7 +279,19 @@ void PanoExt::Manager::startInstall()
         return;
     }
 
-    QNetworkRequest req{QUrl(source)};
+    const QUrl srcUrl(source);
+    const bool fromEnv = !qgetenv("QUIKVIEW_PANO_SOURCE").isEmpty();
+    const bool isHttps = srcUrl.scheme().compare(QLatin1String("https"), Qt::CaseInsensitive) == 0;
+    const bool isLocalHttp = fromEnv
+                             && srcUrl.scheme().compare(QLatin1String("http"), Qt::CaseInsensitive) == 0
+                             && (srcUrl.host() == QLatin1String("127.0.0.1")
+                                 || srcUrl.host().compare(QLatin1String("localhost"), Qt::CaseInsensitive) == 0);
+    if (!srcUrl.isValid() || (!isHttps && !isLocalHttp)) {
+        setFailure(tr("组件下载源仅支持 HTTPS 地址"));
+        return;
+    }
+
+    QNetworkRequest req{srcUrl};
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                      QNetworkRequest::NoLessSafeRedirectPolicy);
     req.setTransferTimeout(kTransferTimeoutMs);
@@ -259,6 +302,7 @@ void PanoExt::Manager::startInstall()
             [this](qint64 got, qint64 total) {
                 if (m_state != State::Installing)
                     return;
+                m_timeout->start();
                 if (total > 0) {
                     // 下载只占进度的 90%，剩下 10% 留给校验与写盘。
                     const int p = static_cast<int>(qMin<qint64>(90, got * 90 / total));
@@ -272,7 +316,7 @@ void PanoExt::Manager::startInstall()
                 }
             });
 
-    connect(m_reply, &QNetworkReply::finished, this, [this, source]() {
+    connect(m_reply, &QNetworkReply::finished, this, [this, srcUrl]() {
         QNetworkReply *r = m_reply;
         m_reply = nullptr;
         if (!r)
@@ -313,10 +357,13 @@ void PanoExt::Manager::startInstall()
         }
 
         // 先取同址 .sha256；没有摘要就没有可信校验，一律按校验失败处理。
-        QNetworkRequest shaReq{QUrl(source + QStringLiteral(".sha256"))};
+        QUrl shaUrl(srcUrl);
+        shaUrl.setPath(shaUrl.path() + QStringLiteral(".sha256"));
+        QNetworkRequest shaReq{shaUrl};
         shaReq.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                             QNetworkRequest::NoLessSafeRedirectPolicy);
         shaReq.setTransferTimeout(kTransferTimeoutMs);
+        m_timeout->start();
         m_shaReply = m_net->get(shaReq);
         connect(m_shaReply, &QNetworkReply::finished, this, [this, bytes]() {
             QNetworkReply *sr = m_shaReply;
@@ -331,7 +378,7 @@ void PanoExt::Manager::startInstall()
                 setFailure(tr("组件包缺少校验摘要，已拒绝安装"));
                 return;
             }
-            const QString sha = QString::fromUtf8(sr->readAll()).trimmed()
+            const QString sha = QString::fromUtf8(sr->read(4096)).trimmed()
                                     .section(QLatin1Char(' '), 0, 0)
                                     .section(QLatin1Char('\t'), 0, 0);
             verifyAndExtract(bytes, sha);
@@ -346,12 +393,16 @@ void PanoExt::Manager::finishInstallFromFile(const QString &zipPath, const QStri
         setFailure(tr("无法读取本地组件包：%1").arg(zipPath));
         return;
     }
+    if (z.size() <= 0 || z.size() > kMaxPackageBytes) {
+        setFailure(tr("本地组件包为空或超出预期大小"));
+        return;
+    }
     const QByteArray bytes = z.readAll();
     z.close();
     QFile s(shaPath);
     QString sha;
     if (s.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        sha = QString::fromUtf8(s.readAll()).trimmed().section(QLatin1Char(' '), 0, 0)
+        sha = QString::fromUtf8(s.read(4096)).trimmed().section(QLatin1Char(' '), 0, 0)
                   .section(QLatin1Char('\t'), 0, 0);
         s.close();
     }
@@ -371,20 +422,37 @@ void PanoExt::Manager::verifyAndExtract(const QByteArray &zipBytes, const QStrin
         return;
     }
 
-    // ZipArchive 只认文件：把已校验的字节落到临时文件再解析。
-    const QString tmpZip = downloadTempPath();
-    QFile tmp(tmpZip);
-    if (!tmp.open(QIODevice::WriteOnly)) {
+    // ZipArchive 只认文件：使用独占临时文件落盘后再解析并复核摘要。
+    const QString tmpDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+    QTemporaryFile tmp(QDir(tmpDir).filePath(QStringLiteral("quikview-pano-XXXXXX.zip")));
+    if (!tmp.open()) {
         setFailure(tr("无法写入临时文件"));
         return;
     }
-    tmp.write(zipBytes);
+    if (tmp.write(zipBytes) != zipBytes.size() || !tmp.flush()) {
+        setFailure(tr("无法写入临时文件"));
+        return;
+    }
+    const QString tmpZip = tmp.fileName();
     tmp.close();
+
+    {
+        QFile verifyFile(tmpZip);
+        if (!verifyFile.open(QIODevice::ReadOnly)) {
+            setFailure(tr("无法读取临时文件"));
+            return;
+        }
+        QCryptographicHash hasher(QCryptographicHash::Sha256);
+        if (!hasher.addData(&verifyFile)
+            || QString::fromLatin1(hasher.result().toHex()).compare(expectedSha, Qt::CaseInsensitive) != 0) {
+            setFailure(tr("组件包校验失败（摘要不一致），已保留原有状态"));
+            return;
+        }
+    }
 
     ZipArchive zip;
     QString zipError;
     if (!zip.open(tmpZip, &zipError)) {
-        QFile::remove(tmpZip);
         setFailure(tr("组件包不是有效的 zip：%1").arg(zipError));
         return;
     }
@@ -400,7 +468,7 @@ void PanoExt::Manager::verifyAndExtract(const QByteArray &zipBytes, const QStrin
             verIndex = i;
     }
     if (exeIndex < 0 || verIndex < 0) {
-        QFile::remove(tmpZip);
+        zip.close();
         setFailure(tr("组件包内容不完整（缺少 quikview-pano.exe 或 pano-version.txt）"));
         return;
     }
@@ -409,7 +477,7 @@ void PanoExt::Manager::verifyAndExtract(const QByteArray &zipBytes, const QStrin
     const QByteArray exeBytes = zip.read(zip.entries().at(exeIndex), &readError);
     const QByteArray verBytes = zip.read(zip.entries().at(verIndex), &readError);
     zip.close();
-    QFile::remove(tmpZip);
+    tmp.remove();
     if (exeBytes.isEmpty() || verBytes.isEmpty()) {
         setFailure(tr("组件包解压失败：%1").arg(readError));
         return;
@@ -445,6 +513,16 @@ void PanoExt::Manager::verifyAndExtract(const QByteArray &zipBytes, const QStrin
     }
 
     const QString exeFinal = exePath();
+#ifdef Q_OS_WIN
+    const std::wstring tmpW = QDir::toNativeSeparators(exeTmp).toStdWString();
+    const std::wstring finalW = QDir::toNativeSeparators(exeFinal).toStdWString();
+    if (!MoveFileExW(tmpW.c_str(), finalW.c_str(),
+                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        QFile::remove(exeTmp);
+        setFailure(tr("旧组件正在运行或被占用，已保留原有状态，请关闭全景窗口后重试"));
+        return;
+    }
+#else
     if (QFile::exists(exeFinal) && !QFile::remove(exeFinal)) {
         QFile::remove(exeTmp);
         setFailure(tr("旧组件正在运行或被占用，请先关闭全景窗口再重试"));
@@ -455,6 +533,7 @@ void PanoExt::Manager::verifyAndExtract(const QByteArray &zipBytes, const QStrin
         setFailure(tr("组件文件改名失败，已保留原有状态"));
         return;
     }
+#endif
 
     QFile vf(versionFilePath());
     if (vf.open(QIODevice::WriteOnly | QIODevice::Text)) {

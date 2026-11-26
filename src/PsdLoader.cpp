@@ -28,6 +28,9 @@
 #include "PsdFixedSizeString.h"
 
 #include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <limits>
 
 namespace {
 
@@ -58,15 +61,16 @@ QImage makeImage(int w, int h, const void *r, const void *g, const void *b,
     QImage img(w, h, hasAlpha ? QImage::Format_ARGB32 : QImage::Format_RGB32);
     if (img.isNull()) return {};
     QRgb *px = reinterpret_cast<QRgb *>(img.bits());
-    auto get = [&](const void *p, int i) -> uchar {
+    auto get = [&](const void *p, size_t i) -> uchar {
         if (!p) return 0;
         if (sampleBytes == 1) return uchar(static_cast<const uchar *>(p)[i]);
         if (sampleBytes == 2) return uchar(static_cast<const uint16_t *>(p)[i] >> 8);
         const float v = static_cast<const float *>(p)[i];
-        return uchar(std::min(255, std::max(0, int(v * 255.0f))));
+        const float clamped = std::isfinite(v) ? std::clamp(v, 0.0f, 1.0f) : 0.0f;
+        return uchar(std::lround(clamped * 255.0f));
     };
-    const int total = w * h;
-    for (int i = 0; i < total; ++i)
+    const size_t total = static_cast<size_t>(w) * static_cast<size_t>(h);
+    for (size_t i = 0; i < total; ++i)
         px[i] = qRgba(get(r, i), get(g, i), get(b, i), hasAlpha ? get(a, i) : 255);
     return img;
 }
@@ -100,54 +104,62 @@ PsdDocument load(const QString &path, bool withLayerPixels)
         return out;
     }
 
-    const int w = int(doc->width);
-    const int h = int(doc->height);
-    out.canvasSize = QSize(w, h);
+    const uint32_t rawW = doc->width;
+    const uint32_t rawH = doc->height;
     const unsigned bits = doc->bitsPerChannel;
-    const int sampleBytes = bits == 8 ? 1 : (bits == 16 ? 2 : 4);
-    const bool rgb = (doc->colorMode == psd::colorMode::RGB);
-    if (w <= 0 || h <= 0) {
+    const unsigned channels = doc->channelCount;
+    if (rawW == 0 || rawH == 0 || rawW > 30000u || rawH > 30000u
+        || uint64_t(rawW) * uint64_t(rawH) > 100000000ULL) {
         psd::DestroyDocument(doc, &allocator);
         file.Close();
-        out.error = QCoreApplication::translate("PsdLoader", "PSD 画布尺寸异常");
+        out.error = QCoreApplication::translate("PsdLoader", "PSD 画布尺寸异常或超出限制");
         out.errorCategory = LoadErrorCategory::Corrupt;   // 头部读到了，但尺寸字段不可用
         return out;
     }
+    if (bits != 8 && bits != 16 && bits != 32) {
+        psd::DestroyDocument(doc, &allocator);
+        file.Close();
+        out.error = QCoreApplication::translate("PsdLoader", "不支持的 PSD 位深（%1 bit）").arg(bits);
+        out.errorCategory = LoadErrorCategory::Unsupported;
+        return out;
+    }
+    // psd_sdk ReadImageDataSectionRLE 内部使用 channelSize[256] 栈数组；PSD 规范上限 56 通道。
+    if (channels < 3 || channels > 56) {
+        psd::DestroyDocument(doc, &allocator);
+        file.Close();
+        out.error = QCoreApplication::translate("PsdLoader", "不支持的 PSD 通道数（%1）").arg(channels);
+        out.errorCategory = LoadErrorCategory::Unsupported;
+        return out;
+    }
+    const int w = int(rawW);
+    const int h = int(rawH);
+    out.canvasSize = QSize(w, h);
+    const int sampleBytes = bits == 8 ? 1 : (bits == 16 ? 2 : 4);
+    const bool rgb = (doc->colorMode == psd::colorMode::RGB);
     // 前置隔离：psd_sdk 的 ParseLayerMaskSection 在 ZIP 压缩的层结构上会死循环
-    // （实测 psd-zip.psd 挂起 18s+）。ZIP 属边界样本，这里直接明确报错，
-    // 绝不让进程进入会挂起的第三方路径；能力限制由回执如实记录。
-    // 顺带把 Image Data 段起点与压缩方式留出来，后面的「有没有内嵌预览」判定要用。
-    int imgStart = -1;
+    // （实测 psd-zip.psd 挂起 18s+）。直接从 psd_sdk 已解析的 section 偏移读 2 字节压缩字，
+    // 既避免整文件 readAll() 也不受 PSB 64 位段长与有符号偏移溢出的影响。
+    const qint64 imgStart = (doc->imageDataSection.offset <= uint64_t(std::numeric_limits<qint64>::max()))
+        ? qint64(doc->imageDataSection.offset)
+        : -1;
     int compression = -1;
-    int layerSectionLen = -1;
     qint64 fileBytes = 0;
     {
         QFile probe(path);
         if (probe.open(QIODevice::ReadOnly)) {
-            const QByteArray d = probe.readAll();
-            fileBytes = d.size();
-            auto be32 = [&](int q) -> quint32 {
-                if (q < 0 || q + 4 > d.size()) return 0;
-                const uchar *p = reinterpret_cast<const uchar *>(d.constData()) + q;
-                return (quint32(p[0]) << 24) | (quint32(p[1]) << 16)
-                       | (quint32(p[2]) << 8) | quint32(p[3]);
-            };
-            int q = 26;
-            q += 4 + int(be32(q));   // color mode data
-            q += 4 + int(be32(q));   // image resources
-            layerSectionLen = int(be32(q));
-            q += 4 + layerSectionLen;   // layer & mask info -> Image Data 起点
-            if (q + 2 <= d.size()) {
-                imgStart = q;
-                compression = (int(uchar(d.at(q))) << 8) | int(uchar(d.at(q + 1)));
-                if (compression == 2 || compression == 3) {
-                    out.error = QCoreApplication::translate("PsdLoader", "ZIP 压缩的 PSD 暂不支持（已隔离第三方解析器的挂起路径）");
-                    // 文件本身是好的，只是压缩方式不在支持范围 → 「不支持」而不是「损坏」
-                    out.errorCategory = LoadErrorCategory::Unsupported;
-                    out.limitations << QCoreApplication::translate("PsdLoader", "ZIP / ZIP+Prediction 未接入，文件未修改");
-                    psd::DestroyDocument(doc, &allocator);
-                    file.Close();
-                    return out;
+            fileBytes = probe.size();
+            if (imgStart >= 0 && imgStart + 2 <= fileBytes && probe.seek(imgStart)) {
+                uchar hdr[2] = {};
+                if (probe.read(reinterpret_cast<char *>(hdr), 2) == 2) {
+                    compression = (int(hdr[0]) << 8) | int(hdr[1]);
+                    if (compression == 2 || compression == 3) {
+                        out.error = QCoreApplication::translate("PsdLoader", "ZIP 压缩的 PSD 暂不支持（已隔离第三方解析器的挂起路径）");
+                        out.errorCategory = LoadErrorCategory::Unsupported;
+                        out.limitations << QCoreApplication::translate("PsdLoader", "ZIP / ZIP+Prediction 未接入，文件未修改");
+                        psd::DestroyDocument(doc, &allocator);
+                        file.Close();
+                        return out;
+                    }
                 }
             }
         }
@@ -167,7 +179,8 @@ PsdDocument load(const QString &path, bool withLayerPixels)
     // 不解码，只决定报哪一类。
     // 「没有图层段」的合成图钉文件（layerSectionLen==0，如 shell-ext 的 test-thumb.psd）
     // 维持改前行为：照常解析，避免把既有 chrome_popup 回归用例一起改了。
-    const bool layered = (layerSectionLen > 0);
+    const bool layered = (doc->layerMaskInfoSection.length > 0);
+    bool abortedCorrupt = false;
     {
         const qint64 after = (imgStart >= 0) ? (fileBytes - imgStart) : -1;
         const qint64 minBytes = (compression == 0)
@@ -185,6 +198,7 @@ PsdDocument load(const QString &path, bool withLayerPixels)
             out.error = QCoreApplication::translate("PsdLoader", "缺少可用的原始合成预览（保存 PSD 时请开启「最大兼容」）");
             out.errorCategory = LoadErrorCategory::NoCompatPreview;
         } else if (shortImageData) {
+            abortedCorrupt = true;
             out.error = (compression != 0 && compression != 1)
                             ? QCoreApplication::translate("PsdLoader", "图像数据段头无效（压缩方式未知）")
                             : QCoreApplication::translate("PsdLoader", "图像数据不完整（文件可能被截断或写入中断）");
@@ -199,13 +213,21 @@ PsdDocument load(const QString &path, bool withLayerPixels)
                 const void *p3 = hasAlpha ? section->images[3].data : nullptr;
                 out.composite = makeImage(w, h, p0, p1, p2, p3, sampleBytes, hasAlpha);
             }
-            psd::DestroyImageDataSection(section, &allocator);
+            if (section) {
+                psd::DestroyImageDataSection(section, &allocator);
+            }
             if (out.composite.isNull()) {
                 out.error = QCoreApplication::translate("PsdLoader", "缺少可用的原始合成预览（保存 PSD 时请开启「最大兼容」）");
                 // PSD/PSB 专属类别：文件结构解析成功，只是没拿到可用的兼容性预览
                 out.errorCategory = LoadErrorCategory::NoCompatPreview;
             }
         }
+    }
+
+    if (abortedCorrupt) {
+        psd::DestroyDocument(doc, &allocator);
+        file.Close();
+        return out;
     }
 
     // ---- 图层树与单层像素 ----
@@ -215,8 +237,12 @@ PsdDocument load(const QString &path, bool withLayerPixels)
         for (unsigned i = 0; i < lms->layerCount; ++i) {
             psd::Layer *L = &lms->layers[i];
             PsdLayer layer;
-            const int lw = int(L->right - L->left);
-            const int lh = int(L->bottom - L->top);
+            const int64_t lw64 = int64_t(L->right) - int64_t(L->left);
+            const int64_t lh64 = int64_t(L->bottom) - int64_t(L->top);
+            const bool validLayerSize = (lw64 > 0 && lh64 > 0 && lw64 <= 30000 && lh64 <= 30000
+                                         && uint64_t(lw64) * uint64_t(lh64) <= 100000000ULL);
+            const int lw = validLayerSize ? int(lw64) : 0;
+            const int lh = validLayerSize ? int(lh64) : 0;
             layer.bounds = QRect(int(L->left), int(L->top), lw, lh);
             layer.visible = L->isVisible;
             layer.opacity = int(L->opacity);

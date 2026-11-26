@@ -473,6 +473,7 @@ typedef struct NSVGparser
 	char pathFlag;
 	char defsFlag;
 	char styleFlag;
+	int styleDepth;
 } NSVGparser;
 
 static void nsvg__xformIdentity(float* t)
@@ -1611,10 +1612,14 @@ static int nsvg__parseMatrix(float* xform, const char* str)
 
 static int nsvg__parseTranslate(float* xform, const char* str)
 {
-	float args[2];
+	float args[2] = {0.0f, 0.0f};
 	float t[6];
 	int na = 0;
 	int len = nsvg__parseTransformArgs(str, args, 2, &na);
+	if (na == 0) {
+		nsvg__xformIdentity(xform);
+		return len;
+	}
 	if (na == 1) args[1] = 0.0;
 
 	nsvg__xformSetTranslation(t, args[0], args[1]);
@@ -1624,10 +1629,14 @@ static int nsvg__parseTranslate(float* xform, const char* str)
 
 static int nsvg__parseScale(float* xform, const char* str)
 {
-	float args[2];
+	float args[2] = {1.0f, 1.0f};
 	int na = 0;
 	float t[6];
 	int len = nsvg__parseTransformArgs(str, args, 2, &na);
+	if (na == 0) {
+		nsvg__xformIdentity(xform);
+		return len;
+	}
 	if (na == 1) args[1] = args[0];
 	nsvg__xformSetScale(t, args[0], args[1]);
 	memcpy(xform, t, sizeof(float)*6);
@@ -1636,10 +1645,14 @@ static int nsvg__parseScale(float* xform, const char* str)
 
 static int nsvg__parseSkewX(float* xform, const char* str)
 {
-	float args[1];
+	float args[1] = {0.0f};
 	int na = 0;
 	float t[6];
 	int len = nsvg__parseTransformArgs(str, args, 1, &na);
+	if (na == 0) {
+		nsvg__xformIdentity(xform);
+		return len;
+	}
 	nsvg__xformSetSkewX(t, args[0]/180.0f*NSVG_PI);
 	memcpy(xform, t, sizeof(float)*6);
 	return len;
@@ -1647,10 +1660,14 @@ static int nsvg__parseSkewX(float* xform, const char* str)
 
 static int nsvg__parseSkewY(float* xform, const char* str)
 {
-	float args[1];
+	float args[1] = {0.0f};
 	int na = 0;
 	float t[6];
 	int len = nsvg__parseTransformArgs(str, args, 1, &na);
+	if (na == 0) {
+		nsvg__xformIdentity(xform);
+		return len;
+	}
 	nsvg__xformSetSkewY(t, args[0]/180.0f*NSVG_PI);
 	memcpy(xform, t, sizeof(float)*6);
 	return len;
@@ -1658,11 +1675,15 @@ static int nsvg__parseSkewY(float* xform, const char* str)
 
 static int nsvg__parseRotate(float* xform, const char* str)
 {
-	float args[3];
+	float args[3] = {0.0f, 0.0f, 0.0f};
 	int na = 0;
 	float m[6];
 	float t[6];
 	int len = nsvg__parseTransformArgs(str, args, 3, &na);
+	if (na == 0) {
+		nsvg__xformIdentity(xform);
+		return len;
+	}
 	if (na == 1)
 		args[1] = args[2] = 0.0f;
 	nsvg__xformIdentity(m);
@@ -1833,6 +1854,9 @@ static void nsvg__parseStyle(NSVGparser* p, const char* str);
 static void nsvg__applyClassStyles(NSVGparser* p, const char* value)
 {
 	const char* cur = value;
+	if (p->styleDepth >= 8)
+		return;
+	p->styleDepth++;
 	while (*cur) {
 		const char* classStart;
 		size_t classLen;
@@ -1854,6 +1878,7 @@ static void nsvg__applyClassStyles(NSVGparser* p, const char* value)
 			}
 		}
 	}
+	p->styleDepth--;
 }
 
 static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
@@ -1963,6 +1988,9 @@ static int nsvg__parseNameValue(NSVGparser* p, const char* start, const char* en
 	if (n) memcpy(value, val, n);
 	value[n] = 0;
 
+	if (strcmp(name, "style") == 0 || strcmp(name, "class") == 0)
+		return 0;
+
 	return nsvg__parseAttr(p, name, value);
 }
 
@@ -1971,6 +1999,9 @@ static void nsvg__parseStyle(NSVGparser* p, const char* str)
 	const char* start;
 	const char* end;
 
+	if (p->styleDepth >= 8)
+		return;
+	p->styleDepth++;
 	while (*str) {
 		// Left Trim
 		while(*str && nsvg__isspace(*str)) ++str;
@@ -1985,6 +2016,7 @@ static void nsvg__parseStyle(NSVGparser* p, const char* str)
 		nsvg__parseNameValue(p, start, end);
 		if (*str) ++str;
 	}
+	p->styleDepth--;
 }
 
 static void nsvg__parseAttribs(NSVGparser* p, const char** attr)
@@ -2781,8 +2813,10 @@ static void nsvg__parseGradient(NSVGparser* p, const char** attr, signed char ty
 					grad->spread = NSVG_SPREAD_REPEAT;
 			} else if (strcmp(attr[i], "xlink:href") == 0) {
 				const char *href = attr[i+1];
-				strncpy(grad->ref, href+1, 62);
-				grad->ref[62] = '\0';
+				if (href && href[0] == '#') {
+					strncpy(grad->ref, href+1, 62);
+					grad->ref[62] = '\0';
+				}
 			}
 		}
 	}

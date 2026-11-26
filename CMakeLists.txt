@@ -205,6 +205,7 @@ if(WIN32)
         "${QUIKVIEW_QT_PREFIX}/plugins/imageformats"
         "${QUIKVIEW_QT_PREFIX}/share/qt6/plugins/imageformats"
         "${QUIKVIEW_COMPILER_PREFIX}/share/qt6/plugins/imageformats")
+    option(QUIKVIEW_REQUIRE_ALL_IMAGEFORMATS "Fail configure when optional Qt imageformat plugins are missing" ON)
     set(QUIKVIEW_IMAGEFORMAT_PLUGINS
         qjpeg.dll qgif.dll qico.dll qwebp.dll qtiff.dll
         qicns.dll qmng.dll qtga.dll qwbmp.dll)
@@ -213,7 +214,12 @@ if(WIN32)
         find_file(_plugin_source NAMES "${_plugin}"
             PATHS ${QUIKVIEW_IMAGEFORMAT_DIRS} NO_DEFAULT_PATH)
         if(NOT _plugin_source)
-            message(FATAL_ERROR "Qt image format plugin missing: ${_plugin}; searched ${QUIKVIEW_IMAGEFORMAT_DIRS}")
+            if(QUIKVIEW_REQUIRE_ALL_IMAGEFORMATS)
+                message(FATAL_ERROR "Qt image format plugin missing: ${_plugin}; searched ${QUIKVIEW_IMAGEFORMAT_DIRS}")
+            else()
+                message(WARNING "Qt image format plugin missing (skipped): ${_plugin}; searched ${QUIKVIEW_IMAGEFORMAT_DIRS}")
+                continue()
+            endif()
         endif()
         add_custom_command(TARGET quikview POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:quikview>/imageformats"

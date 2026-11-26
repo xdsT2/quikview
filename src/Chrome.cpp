@@ -1026,6 +1026,8 @@ void TopBar::paintEvent(QPaintEvent *)
     p.setPen(QColor(Qt::white));
     p.drawText(logo, Qt::AlignCenter, QStringLiteral("Q"));
 
+    const QVector<Btn> list = buttons();
+
     // 文件名：优先省略；零宽时整段不画
     if (m_filenameRect.width() > 2) {
         p.setFont(uiFont(12));
@@ -1035,7 +1037,6 @@ void TopBar::paintEvent(QPaintEvent *)
         p.drawText(m_filenameRect, Qt::AlignVCenter | Qt::AlignLeft, elided);
     }
 
-    const QVector<Btn> list = buttons();
     const QColor ink = QColor(QString::fromLatin1(UiStyle::pick("#d9dadd", "#2a2c30")));
     const QColor mutedInk = QColor(QString::fromLatin1(UiStyle::pick("#8e9297", "#6b7075")));
     const QColor accent = UiStyle::accent();
@@ -1826,6 +1827,7 @@ void ControlBar::paintEvent(QPaintEvent *)
         BtnVisual v = m_feedback->visual(i);
 
         if (it.action == Action::PageSlider) {
+            p.save();
             const bool enabled = sliderEnabled();
             if (!enabled) {
                 p.setOpacity(p.opacity() * 0.58);
@@ -1859,6 +1861,7 @@ void ControlBar::paintEvent(QPaintEvent *)
             p.setPen(Qt::NoPen);
             p.setBrush(thumb);
             p.drawEllipse(QPointF(thumbX, y), 5.5 * grow, 5.5 * grow);
+            p.restore();
             continue;
         }
 

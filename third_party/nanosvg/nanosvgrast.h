@@ -223,9 +223,10 @@ static void nsvg__resetPool(NSVGrasterizer* r)
 static unsigned char* nsvg__alloc(NSVGrasterizer* r, int size)
 {
 	unsigned char* buf;
-	if (size > NSVG__MEMPAGE_SIZE) return NULL;
+	if (size <= 0 || size > NSVG__MEMPAGE_SIZE) return NULL;
 	if (r->curpage == NULL || r->curpage->size+size > NSVG__MEMPAGE_SIZE) {
 		r->curpage = nsvg__nextPage(r, r->curpage);
+		if (r->curpage == NULL) return NULL;
 	}
 	buf = &r->curpage->mem[r->curpage->size];
 	r->curpage->size += size;
@@ -252,9 +253,11 @@ static void nsvg__addPathPoint(NSVGrasterizer* r, float x, float y, int flags)
 	}
 
 	if (r->npoints+1 > r->cpoints) {
-		r->cpoints = r->cpoints > 0 ? r->cpoints * 2 : 64;
-		r->points = (NSVGpoint*)realloc(r->points, sizeof(NSVGpoint) * r->cpoints);
-		if (r->points == NULL) return;
+		int nextCap = r->cpoints > 0 ? r->cpoints * 2 : 64;
+		NSVGpoint* nextBuf = (NSVGpoint*)realloc(r->points, sizeof(NSVGpoint) * nextCap);
+		if (nextBuf == NULL) return;
+		r->cpoints = nextCap;
+		r->points = nextBuf;
 	}
 
 	pt = &r->points[r->npoints];
@@ -267,9 +270,11 @@ static void nsvg__addPathPoint(NSVGrasterizer* r, float x, float y, int flags)
 static void nsvg__appendPathPoint(NSVGrasterizer* r, NSVGpoint pt)
 {
 	if (r->npoints+1 > r->cpoints) {
-		r->cpoints = r->cpoints > 0 ? r->cpoints * 2 : 64;
-		r->points = (NSVGpoint*)realloc(r->points, sizeof(NSVGpoint) * r->cpoints);
-		if (r->points == NULL) return;
+		int nextCap = r->cpoints > 0 ? r->cpoints * 2 : 64;
+		NSVGpoint* nextBuf = (NSVGpoint*)realloc(r->points, sizeof(NSVGpoint) * nextCap);
+		if (nextBuf == NULL) return;
+		r->cpoints = nextCap;
+		r->points = nextBuf;
 	}
 	r->points[r->npoints] = pt;
 	r->npoints++;
@@ -278,9 +283,10 @@ static void nsvg__appendPathPoint(NSVGrasterizer* r, NSVGpoint pt)
 static void nsvg__duplicatePoints(NSVGrasterizer* r)
 {
 	if (r->npoints > r->cpoints2) {
+		NSVGpoint* nextBuf = (NSVGpoint*)realloc(r->points2, sizeof(NSVGpoint) * r->npoints);
+		if (nextBuf == NULL) return;
 		r->cpoints2 = r->npoints;
-		r->points2 = (NSVGpoint*)realloc(r->points2, sizeof(NSVGpoint) * r->cpoints2);
-		if (r->points2 == NULL) return;
+		r->points2 = nextBuf;
 	}
 
 	memcpy(r->points2, r->points, sizeof(NSVGpoint) * r->npoints);
@@ -294,11 +300,15 @@ static void nsvg__addEdge(NSVGrasterizer* r, float x0, float y0, float x1, float
 	// Skip horizontal edges
 	if (y0 == y1)
 		return;
+	if (r->nedges >= 1000000)
+		return;
 
 	if (r->nedges+1 > r->cedges) {
-		r->cedges = r->cedges > 0 ? r->cedges * 2 : 64;
-		r->edges = (NSVGedge*)realloc(r->edges, sizeof(NSVGedge) * r->cedges);
-		if (r->edges == NULL) return;
+		int nextCap = r->cedges > 0 ? r->cedges * 2 : 64;
+		NSVGedge* nextBuf = (NSVGedge*)realloc(r->edges, sizeof(NSVGedge) * nextCap);
+		if (nextBuf == NULL) return;
+		r->cedges = nextCap;
+		r->edges = nextBuf;
 	}
 
 	e = &r->edges[r->nedges];
@@ -767,10 +777,19 @@ static void nsvg__flattenShapeStroke(NSVGrasterizer* r, NSVGshape* shape, float 
 			closed = 1;
 		}
 
+		float allDashLen = 0.0f;
 		if (shape->strokeDashCount > 0) {
+			for (j = 0; j < shape->strokeDashCount; j++)
+				allDashLen += shape->strokeDashArray[j];
+			if (shape->strokeDashCount & 1)
+				allDashLen *= 2.0f;
+		}
+		if (shape->strokeDashCount > 0 && allDashLen > 0.0f
+			&& (allDashLen * scale) >= 0.25f && (allDashLen * scale) < 1e20f) {
 			int idash = 0, dashState = 1;
-			float totalDist = 0, dashLen, allDashLen, dashOffset;
+			float totalDist = 0, dashLen, dashOffset;
 			NSVGpoint cur;
+			int dashIters = 0;
 
 			if (closed)
 				nsvg__appendPathPoint(r, r->points[0]);
@@ -782,12 +801,6 @@ static void nsvg__flattenShapeStroke(NSVGrasterizer* r, NSVGshape* shape, float 
  			cur = r->points2[0];
 			nsvg__appendPathPoint(r, cur);
 
-			// Figure out dash offset.
-			allDashLen = 0;
-			for (j = 0; j < shape->strokeDashCount; j++)
-				allDashLen += shape->strokeDashArray[j];
-			if (shape->strokeDashCount & 1)
-				allDashLen *= 2.0f;
 			// Find location inside pattern
 			dashOffset = fmodf(shape->strokeDashOffset, allDashLen);
 			if (dashOffset < 0.0f)
@@ -803,8 +816,10 @@ static void nsvg__flattenShapeStroke(NSVGrasterizer* r, NSVGshape* shape, float 
 				float dx = r->points2[j].x - cur.x;
 				float dy = r->points2[j].y - cur.y;
 				float dist = sqrtf(dx*dx + dy*dy);
+				if (++dashIters > 100000)
+					break;
 
-				if ((totalDist + dist) > dashLen) {
+				if (dist > 1e-6f && (totalDist + dist) > dashLen) {
 					// Calculate intermediate point
 					float d = (dashLen - totalDist) / dist;
 					float x = cur.x + dx * d;
@@ -820,6 +835,8 @@ static void nsvg__flattenShapeStroke(NSVGrasterizer* r, NSVGshape* shape, float 
 					dashState = !dashState;
 					idash = (idash+1) % shape->strokeDashCount;
 					dashLen = shape->strokeDashArray[idash] * scale;
+					if (dashLen < 1e-4f)
+						dashLen = 1e-4f;
 					// Restart
 					cur.x = x;
 					cur.y = y;

@@ -104,7 +104,10 @@ bool is16BitIntFormat(QImage::Format fmt)
 QImage mapRgba64(const QImage &src, const Curve16 &curve)
 {
     QImage out(src.width(), src.height(),
-               src.hasAlphaChannel() ? QImage::Format_ARGB32 : QImage::Format_RGB888);
+               src.hasAlphaChannel() ? QImage::Format_ARGB32 : QImage::Format_RGB32);
+    if (out.isNull()) {
+        return QImage();
+    }
     for (int y = 0; y < src.height(); ++y) {
         const QRgba64 *line = reinterpret_cast<const QRgba64 *>(src.constScanLine(y));
         QRgb *dst = reinterpret_cast<QRgb *>(out.scanLine(y));
@@ -123,6 +126,9 @@ QImage mapRgba64(const QImage &src, const Curve16 &curve)
 QImage mapGray16(const QImage &src, const Curve16 &curve)
 {
     QImage out(src.size(), QImage::Format_Grayscale8);
+    if (out.isNull()) {
+        return QImage();
+    }
     for (int y = 0; y < src.height(); ++y) {
         const quint16 *line = reinterpret_cast<const quint16 *>(src.constScanLine(y));
         uchar *dst = out.scanLine(y);

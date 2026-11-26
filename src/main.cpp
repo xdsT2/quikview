@@ -79,9 +79,15 @@ int main(int argc, char *argv[])
     // 用 pid 区分，避免并发冒烟互相踩临时配置。
     {
         const QStringList rawArgs = QCoreApplication::arguments();
-        const bool isolated = rawArgs.contains(QStringLiteral("--smoke"))
-                              || rawArgs.contains(QStringLiteral("--screenshot"))
-                              || rawArgs.contains(QStringLiteral("--screenshot-ui"));
+        bool isolated = false;
+        for (const QString &arg : rawArgs) {
+            if (arg == QLatin1String("--smoke") || arg.startsWith(QLatin1String("--smoke="))
+                || arg == QLatin1String("--screenshot") || arg.startsWith(QLatin1String("--screenshot="))
+                || arg == QLatin1String("--screenshot-ui") || arg.startsWith(QLatin1String("--screenshot-ui="))) {
+                isolated = true;
+                break;
+            }
+        }
         // 外部显式指定路径时不覆盖：浅色/深色主题截图需要预置配置内容。
         if (isolated && qEnvironmentVariableIsEmpty("QUIKVIEW_CONFIG_PATH")) {
             const QString tmpPath = QDir::tempPath()
@@ -254,14 +260,14 @@ int main(int argc, char *argv[])
     window.restoreWindowGeometry();
     window.show();
 
-    // 首实例挂监听：收到路径就切图并把自己拉到前台
-    static QLocalServer ipcServer;
+    // 首实例挂监听：收到路径就切图并把自己拉到前台（栈对象随 main 结束在 ~QApplication 之前销毁）
+    QLocalServer ipcServer;
     if (!serverKey.isEmpty()) {
         QLocalServer::removeServer(serverKey);   // 上个会话崩溃留下的孤儿套接字
         if (!ipcServer.listen(serverKey)) {
             qWarning() << "[single-instance] listen failed:" << ipcServer.errorString();
         } else {
-            QObject::connect(&ipcServer, &QLocalServer::newConnection, &window, [&window]() {
+            QObject::connect(&ipcServer, &QLocalServer::newConnection, &window, [&ipcServer, &window]() {
                 while (QLocalSocket *sock = ipcServer.nextPendingConnection()) {
                     QObject::connect(sock, &QLocalSocket::readyRead, &window, [sock, &window]() {
                         const QString path = QString::fromUtf8(sock->readAll()).trimmed();

@@ -6,6 +6,7 @@
 #include <QStringList>
 
 class ConvertPreview;
+class QCloseEvent;
 class QComboBox;
 class QLabel;
 class QLineEdit;
@@ -23,6 +24,10 @@ class BatchConvertDialog : public UiShell::DialogShell
     Q_OBJECT
 public:
     explicit BatchConvertDialog(const QStringList &files, QWidget *parent = nullptr);
+
+protected:
+    void reject() override;
+    void closeEvent(QCloseEvent *event) override;
 
 private slots:
     void onBrowse();
@@ -78,6 +83,7 @@ private:
     QLabel *m_progressText = nullptr;
     QLabel *m_progressCount = nullptr;
 
+    QPushButton *m_resetBtn = nullptr;
     QPushButton *m_convertBtn = nullptr;
     QPushButton *m_openFolderBtn = nullptr;
 };

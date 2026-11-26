@@ -3,6 +3,8 @@
 #include <QCoreApplication>
 #include <QFileInfo>
 
+#include <climits>
+
 #include "PsdPch.h"
 #include "Psdminiz.h"
 
@@ -93,6 +95,33 @@ QString decodeEntryName(const QByteArray &raw, bool utf8Flag)
     return decodeGbkName(raw);
 }
 
+// 规范化路径分隔符并拦截路径穿越（../、前导 /、盘符 C:、内嵌 NUL），
+// 防止虚拟路径在 Windows 上落进真实文件系统。
+QString sanitizeEntryName(QString name)
+{
+    if (name.isEmpty() || name.contains(QChar::Null)) {
+        return QString();
+    }
+    name.replace(QLatin1Char('\\'), QLatin1Char('/'));
+    if (name.startsWith(QLatin1Char('/'))) {
+        return QString();
+    }
+    if (name.size() >= 2 && name.at(1) == QLatin1Char(':') && name.at(0).isLetter()) {
+        return QString();
+    }
+    const QStringList parts = name.split(QLatin1Char('/'), Qt::KeepEmptyParts);
+    for (int i = 0; i < parts.size(); ++i) {
+        const QString &seg = parts.at(i);
+        if (seg == QLatin1String(".") || seg == QLatin1String("..")) {
+            return QString();
+        }
+        if (seg.isEmpty() && i != parts.size() - 1) {
+            return QString();
+        }
+    }
+    return name;
+}
+
 }   // namespace
 
 ZipArchive::~ZipArchive()
@@ -120,14 +149,17 @@ bool ZipArchive::readAt(quint64 offset, quint64 length, QByteArray *out) const
     if (!length) {
         return true;
     }
+    if (length > quint64(INT_MAX)) {
+        return false;
+    }
+    QMutexLocker lock(&m_ioMutex);
     if (!m_file.isOpen()) {
         return false;
     }
     // 越界检查：包内偏移 + 长度不得超过文件大小（防畸形中央目录读出随机数据）
-    if (offset > quint64(m_fileSize) || length > quint64(m_fileSize) - offset) {
+    if (m_fileSize < 0 || offset > quint64(m_fileSize) || length > quint64(m_fileSize) - offset) {
         return false;
     }
-    QMutexLocker lock(&m_ioMutex);
     if (!m_file.seek(qint64(offset))) {
         return false;
     }
@@ -202,10 +234,14 @@ bool ZipArchive::parseCentralDirectory(QString *errorText)
         return fail(Status::Corrupt, QT_TRANSLATE_NOOP("ZipArchive", "压缩包已损坏，无法读取"));
     }
     qint64 eocdInTail = -1;
+    const uchar *tailPtr = reinterpret_cast<const uchar *>(tail.constData());
     for (qint64 i = qint64(tail.size()) - 22; i >= 0; --i) {
-        if (rd32(reinterpret_cast<const uchar *>(tail.constData()) + i) == kSigEocd) {
-            eocdInTail = i;
-            break;
+        if (rd32(tailPtr + i) == kSigEocd) {
+            const quint16 commentLen = rd16(tailPtr + i + 20);
+            if (i + 22 + qint64(commentLen) == qint64(tail.size())) {
+                eocdInTail = i;
+                break;
+            }
         }
     }
     if (eocdInTail < 0) {
@@ -292,15 +328,20 @@ bool ZipArchive::parseCentralDirectory(QString *errorText)
             return fail(Status::Corrupt, QT_TRANSLATE_NOOP("ZipArchive", "压缩包已损坏，无法读取"));
         }
         const QByteArray rawName = cd.mid(int(pos + 46), nameLen);
-        entry.name = decodeEntryName(rawName, (entry.flags & 0x0800) != 0);
+        entry.name = sanitizeEntryName(decodeEntryName(rawName, (entry.flags & 0x0800) != 0));
 
         // ZIP64 扩展字段（0x0001）：只补齐中央目录里置了 0xFFFFFFFF 的字段，
         // 顺序固定为 未压缩大小 / 压缩大小 / 局部头偏移 / 分卷号。
-        if (entry.size == 0xFFFFFFFF || entry.compressedSize == 0xFFFFFFFF
-            || entry.localOffset == 0xFFFFFFFF) {
+        const bool needSize = (entry.size == 0xFFFFFFFF);
+        const bool needComp = (entry.compressedSize == 0xFFFFFFFF);
+        const bool needOff = (entry.localOffset == 0xFFFFFFFF);
+        if (needSize || needComp || needOff) {
             const uchar *extra = rec + 46 + nameLen;
             quint16 used = 0;
             bool ok = true;
+            bool gotSize = !needSize;
+            bool gotComp = !needComp;
+            bool gotOff = !needOff;
             while (used + 4 <= extraLen) {
                 const quint16 id = rd16(extra + used);
                 const quint16 len = rd16(extra + used + 2);
@@ -311,31 +352,42 @@ bool ZipArchive::parseCentralDirectory(QString *errorText)
                 if (id == 0x0001) {
                     const uchar *f = extra + used + 4;
                     quint16 fi = 0;
-                    if (entry.size == 0xFFFFFFFF && fi + 8 <= len) {
+                    if (needSize) {
+                        if (fi + 8 > len) { ok = false; break; }
                         entry.size = rd64(f + fi);
                         fi = quint16(fi + 8);
+                        gotSize = true;
                     }
-                    if (entry.compressedSize == 0xFFFFFFFF && fi + 8 <= len) {
+                    if (needComp) {
+                        if (fi + 8 > len) { ok = false; break; }
                         entry.compressedSize = rd64(f + fi);
                         fi = quint16(fi + 8);
+                        gotComp = true;
                     }
-                    if (entry.localOffset == 0xFFFFFFFF && fi + 8 <= len) {
+                    if (needOff) {
+                        if (fi + 8 > len) { ok = false; break; }
                         entry.localOffset = rd64(f + fi);
+                        gotOff = true;
                     }
                     break;
                 }
                 used = quint16(used + 4 + len);
             }
-            if (!ok) {
+            if (!ok || !gotSize || !gotComp || !gotOff) {
                 return fail(Status::Corrupt, QT_TRANSLATE_NOOP("ZipArchive", "压缩包已损坏，无法读取"));
             }
         }
 
-        // 目录条目（名字以 '/' 结尾）不参与图片列表，但保留在表里以便排查
+        // 目录条目（名字以 '/' 结尾）不参与图片列表，但保留在表里以便排查；重复条目覆写保持 entries 与 indexOf 一致
         entry.isDir = entry.name.endsWith(QLatin1Char('/'));
         if (!entry.name.isEmpty()) {
-            m_byName.insert(entry.name, int(m_entries.size()));
-            m_entries.append(entry);
+            const auto dup = m_byName.constFind(entry.name);
+            if (dup != m_byName.constEnd()) {
+                m_entries[dup.value()] = entry;
+            } else {
+                m_byName.insert(entry.name, int(m_entries.size()));
+                m_entries.append(entry);
+            }
         }
         pos += 46 + nameLen + extraLen + commentLen;
         ++parsed;
@@ -436,8 +488,9 @@ QByteArray ZipArchive::read(const Entry &entry, QString *error, ReadStatus *stat
 
     QByteArray out;
     if (entry.method == 0) {
-        // store：直接读原始字节，长度必须与中央目录一致
-        if (!readAt(dataOffset, entry.compressedSize, &out)
+        // store：直接读原始字节，长度必须与中央目录一致（先校长度再分配读入）
+        if (entry.compressedSize != entry.size
+            || !readAt(dataOffset, entry.compressedSize, &out)
             || quint64(out.size()) != entry.size) {
             const QByteArray bad = fail(ReadStatus::Corrupt,
                                         QT_TRANSLATE_NOOP("ZipArchive", "压缩包已损坏，无法读取"));
@@ -447,6 +500,14 @@ QByteArray ZipArchive::read(const Entry &entry, QString *error, ReadStatus *stat
             return bad;
         }
     } else {
+        if (entry.compressedSize > quint64(kMaxEntryBytes) + 64u * 1024u) {
+            const QByteArray bad = fail(ReadStatus::TooLarge,
+                                        QT_TRANSLATE_NOOP("ZipArchive", "包内文件超过 256 MB，已拒绝解码"));
+            if (status) {
+                *status = local;
+            }
+            return bad;
+        }
         QByteArray in;
         if (!readAt(dataOffset, entry.compressedSize, &in)) {
             const QByteArray bad = fail(ReadStatus::Corrupt,
@@ -456,23 +517,27 @@ QByteArray ZipArchive::read(const Entry &entry, QString *error, ReadStatus *stat
             }
             return bad;
         }
-        if (entry.size == 0) {
-            if (status) {
-                *status = ReadStatus::Ok;
+        if (entry.size > 0) {
+            // zip 的 deflate 是裸流：不带 zlib 头，flags 传 0
+            out.resize(int(entry.size));
+            if (out.size() != int(entry.size)) {
+                const QByteArray bad = fail(ReadStatus::TooLarge,
+                                            QT_TRANSLATE_NOOP("ZipArchive", "包内文件超过 256 MB，已拒绝解码"));
+                if (status) {
+                    *status = local;
+                }
+                return bad;
             }
-            return QByteArray();
-        }
-        // zip 的 deflate 是裸流：不带 zlib 头，flags 传 0
-        out.resize(int(entry.size));
-        const size_t produced = tinfl_decompress_mem_to_mem(out.data(), size_t(entry.size),
-                                                           in.constData(), size_t(in.size()), 0);
-        if (produced == TINFL_DECOMPRESS_MEM_TO_MEM_FAILED || produced != size_t(entry.size)) {
-            const QByteArray bad = fail(ReadStatus::Corrupt,
-                                        QT_TRANSLATE_NOOP("ZipArchive", "压缩包已损坏，无法读取"));
-            if (status) {
-                *status = local;
+            const size_t produced = tinfl_decompress_mem_to_mem(out.data(), size_t(entry.size),
+                                                               in.constData(), size_t(in.size()), 0);
+            if (produced == TINFL_DECOMPRESS_MEM_TO_MEM_FAILED || produced != size_t(entry.size)) {
+                const QByteArray bad = fail(ReadStatus::Corrupt,
+                                            QT_TRANSLATE_NOOP("ZipArchive", "压缩包已损坏，无法读取"));
+                if (status) {
+                    *status = local;
+                }
+                return bad;
             }
-            return bad;
         }
     }
 

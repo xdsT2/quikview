@@ -170,7 +170,7 @@ void FormatSize(ULONGLONG bytes, wchar_t* out, int cch) {
 QuikContextMenu::QuikContextMenu()
     : m_ref(1), m_hasFile(false),
       m_iconBmp(nullptr), m_thumbBmp(nullptr), m_thumbW(0), m_thumbH(0),
-      m_visibleCount(0) {
+      m_visibleCount(0), m_thumbMenuId(0) {
     m_file[0] = L'\0';
     m_infoText[0] = L'\0';
     m_idMap[0] = m_idMap[1] = m_idMap[2] = -1;
@@ -230,19 +230,9 @@ STDMETHODIMP QuikContextMenu::Initialize(LPCITEMIDLIST, IDataObject* pdtobj,
         STGMEDIUM stm = {};
         if (FAILED(pdtobj->GetData(&fe, &stm))) return E_FAIL;
         bool ok = false;
-        if (HGLOBAL hg = stm.hGlobal) {
-            if (const DROPFILES* df = (const DROPFILES*)GlobalLock(hg)) {
-                const char* base = (const char*)df + df->pFiles;
-                if (df->fWide) {
-                    const wchar_t* files = (const wchar_t*)base;
-                    if (files[0]) { lstrcpynW(m_file, files, MAX_PATH); ok = true; }
-                } else {
-                    const int n = MultiByteToWideChar(CP_ACP, 0, base, -1,
-                                                      m_file, MAX_PATH);
-                    ok = n > 0 && m_file[0];
-                }
-                GlobalUnlock(hg);
-            }
+        if (stm.tymed == TYMED_HGLOBAL && stm.hGlobal) {
+            const UINT n = DragQueryFileW((HDROP)stm.hGlobal, 0, m_file, MAX_PATH);
+            ok = (n > 0 && n < MAX_PATH && m_file[0] != L'\0');
         }
         ReleaseStgMedium(&stm);
         m_hasFile = ok;
@@ -298,84 +288,77 @@ STDMETHODIMP QuikContextMenu::QueryContextMenu(HMENU hmenu, UINT indexMenu,
             m_iconBmp = IconToBitmap(hIcon, 32, 32);
         }
 
-        // —— B2：单选图「宽×高 · 文件大小」（show_info 关时跳过解码）——
-        if (prefs.info) {
-            if (IWICImagingFactory* fac = wicFactory.Get()) {
-                ComPtr<IWICBitmapDecoder> decoder;
-                if (SUCCEEDED(fac->CreateDecoderFromFilename(
-                            m_file, nullptr, GENERIC_READ,
-                            WICDecodeMetadataCacheOnDemand, &decoder))) {
-                    ComPtr<IWICBitmapFrameDecode> frame;
-                    if (SUCCEEDED(decoder->GetFrame(0, &frame))) {
-                        UINT w = 0, h = 0;
-                        if (SUCCEEDED(frame->GetSize(&w, &h)) && w && h) {
-                            LARGE_INTEGER sz = {};
-                            HANDLE hf = CreateFileW(m_file, GENERIC_READ, FILE_SHARE_READ,
-                                                    nullptr, OPEN_EXISTING, 0, nullptr);
-                            if (hf != INVALID_HANDLE_VALUE) {
-                                GetFileSizeEx(hf, &sz);
-                                CloseHandle(hf);
-                            }
-                            wchar_t sizeStr[48] = {};
-                            FormatSize(sz.QuadPart, sizeStr, _countof(sizeStr));
-                            StringCchPrintfW(m_infoText, _countof(m_infoText),
-                                            L"%u×%u · %s", w, h, sizeStr);
-                        }
-                    }
-                }
+        // —— B2 & B3：共用一次打开的 WIC 解码器，带文件体积/尺寸安全上限 ——
+        if (prefs.info || prefs.preview) {
+            LARGE_INTEGER sz = {};
+            bool haveSize = false;
+            HANDLE hf = CreateFileW(m_file, GENERIC_READ, FILE_SHARE_READ,
+                                    nullptr, OPEN_EXISTING, 0, nullptr);
+            if (hf != INVALID_HANDLE_VALUE) {
+                haveSize = GetFileSizeEx(hf, &sz) != FALSE;
+                CloseHandle(hf);
             }
-        }
-
-        // —— B3：自绘缩略图（≤256px，超 50ms 预算就放弃；show_preview 关时跳过）——
-        if (prefs.preview && GetTickCount64() - t0 <= kDecodeBudgetMs) {
             if (IWICImagingFactory* fac = wicFactory.Get()) {
                 ComPtr<IWICBitmapDecoder> decoder;
+                ComPtr<IWICBitmapFrameDecode> frame;
+                UINT sw = 0, sh = 0;
                 if (SUCCEEDED(fac->CreateDecoderFromFilename(
                             m_file, nullptr, GENERIC_READ,
-                            WICDecodeMetadataCacheOnDemand, &decoder))) {
-                    ComPtr<IWICBitmapFrameDecode> frame;
-                    if (SUCCEEDED(decoder->GetFrame(0, &frame))) {
-                        UINT sw = 0, sh = 0;
-                        frame->GetSize(&sw, &sh);
-                        if (sw && sh) {
-                            const UINT big = sw > sh ? sw : sh;
-                            double scale = (double)kThumbMaxDim / (double)big;
-                            if (scale > 1.0) scale = 1.0;
-                            m_thumbW = (int)(sw * scale);
-                            m_thumbH = (int)(sh * scale);
-                            ComPtr<IWICBitmapScaler> scaler;
-                            if (SUCCEEDED(fac->CreateBitmapScaler(&scaler)) &&
-                                SUCCEEDED(scaler->Initialize(frame.Get(), m_thumbW,
-                                                             m_thumbH,
-                                                             WICBitmapInterpolationModeFant))) {
-                                ComPtr<IWICFormatConverter> conv;
-                                if (SUCCEEDED(fac->CreateFormatConverter(&conv)) &&
-                                    SUCCEEDED(conv->Initialize(
-                                        scaler.Get(), GUID_WICPixelFormat32bppPBGRA,
-                                        WICBitmapDitherTypeNone, nullptr, 0.0,
-                                        WICBitmapPaletteTypeCustom))) {
-                                    BITMAPINFO bi = {};
-                                    bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-                                    bi.bmiHeader.biWidth = m_thumbW;
-                                    bi.bmiHeader.biHeight = -m_thumbH;
-                                    bi.bmiHeader.biPlanes = 1;
-                                    bi.bmiHeader.biBitCount = 32;
-                                    bi.bmiHeader.biCompression = BI_RGB;
-                                    void* bits = nullptr;
-                                    HBITMAP hb = CreateDIBSection(nullptr, &bi,
-                                                DIB_RGB_COLORS, &bits, nullptr, 0);
-                                    if (hb) {
-                                        const UINT stride = m_thumbW * 4;
-                                        conv->CopyPixels(nullptr, stride,
-                                                         stride * m_thumbH,
-                                                         (BYTE*)bits);
-                                        if (GetTickCount64() - t0 <= kDecodeBudgetMs) {
-                                            m_thumbBmp = hb;
-                                        } else {
-                                            DeleteObject(hb);
-                                            m_thumbW = m_thumbH = 0;
-                                        }
+                            WICDecodeMetadataCacheOnDemand, &decoder)) &&
+                    SUCCEEDED(decoder->GetFrame(0, &frame)) &&
+                    SUCCEEDED(frame->GetSize(&sw, &sh)) && sw > 0 && sh > 0) {
+                    if (prefs.info) {
+                        wchar_t sizeStr[48] = {};
+                        FormatSize((ULONGLONG)sz.QuadPart, sizeStr, _countof(sizeStr));
+                        StringCchPrintfW(m_infoText, _countof(m_infoText),
+                                        L"%u×%u · %s", sw, sh, sizeStr);
+                    }
+                    const bool withinLimits =
+                        (!haveSize || sz.QuadPart <= 16LL * 1024LL * 1024LL) &&
+                        sw <= 8192 && sh <= 8192 &&
+                        (UINT64)sw * (UINT64)sh <= 25000000ULL;
+                    if (prefs.preview && withinLimits &&
+                        GetTickCount64() - t0 <= kDecodeBudgetMs) {
+                        const UINT big = sw > sh ? sw : sh;
+                        double scale = (double)kThumbMaxDim / (double)big;
+                        if (scale > 1.0) scale = 1.0;
+                        m_thumbW = (int)(sw * scale);
+                        m_thumbH = (int)(sh * scale);
+                        if (m_thumbW < 1) m_thumbW = 1;
+                        if (m_thumbH < 1) m_thumbH = 1;
+                        ComPtr<IWICBitmapScaler> scaler;
+                        if (SUCCEEDED(fac->CreateBitmapScaler(&scaler)) &&
+                            SUCCEEDED(scaler->Initialize(frame.Get(), (UINT)m_thumbW,
+                                                         (UINT)m_thumbH,
+                                                         WICBitmapInterpolationModeFant))) {
+                            ComPtr<IWICFormatConverter> conv;
+                            if (SUCCEEDED(fac->CreateFormatConverter(&conv)) &&
+                                SUCCEEDED(conv->Initialize(
+                                    scaler.Get(), GUID_WICPixelFormat32bppPBGRA,
+                                    WICBitmapDitherTypeNone, nullptr, 0.0,
+                                    WICBitmapPaletteTypeCustom))) {
+                                BITMAPINFO bi = {};
+                                bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+                                bi.bmiHeader.biWidth = m_thumbW;
+                                bi.bmiHeader.biHeight = -m_thumbH;
+                                bi.bmiHeader.biPlanes = 1;
+                                bi.bmiHeader.biBitCount = 32;
+                                bi.bmiHeader.biCompression = BI_RGB;
+                                void* bits = nullptr;
+                                HBITMAP hb = CreateDIBSection(nullptr, &bi,
+                                            DIB_RGB_COLORS, &bits, nullptr, 0);
+                                if (hb && bits) {
+                                    const UINT stride = (UINT)m_thumbW * 4;
+                                    if (SUCCEEDED(conv->CopyPixels(nullptr, stride,
+                                                                   stride * (UINT)m_thumbH,
+                                                                   (BYTE*)bits)) &&
+                                        GetTickCount64() - t0 <= kDecodeBudgetMs) {
+                                        m_thumbBmp = hb;
+                                    } else {
+                                        DeleteObject(hb);
                                     }
+                                } else if (hb) {
+                                    DeleteObject(hb);
                                 }
                             }
                         }
@@ -384,6 +367,7 @@ STDMETHODIMP QuikContextMenu::QueryContextMenu(HMENU hmenu, UINT indexMenu,
             }
         }
         if (!m_thumbBmp) { m_thumbW = m_thumbH = 0; }
+        m_thumbMenuId = 0;
 
         // 实际插入集合：预览项还取决于解码是否成功（预算超时不出）
         const bool showThumb = prefs.preview && m_thumbBmp != nullptr;
@@ -412,12 +396,13 @@ STDMETHODIMP QuikContextMenu::QueryContextMenu(HMENU hmenu, UINT indexMenu,
 
         // 自绘缩略图项（成功才加）
         if (showThumb) {
+            m_thumbMenuId = idCmdFirst + (UINT)m_idMap[CMD_THUMB];
             mi = {};
             mi.cbSize = sizeof(mi);
             mi.fMask = MIIM_ID | MIIM_TYPE | MIIM_STATE | MIIM_DATA;
             mi.fType = MFT_OWNERDRAW;
             mi.fState = MFS_ENABLED;
-            mi.wID = idCmdFirst + m_idMap[CMD_THUMB];
+            mi.wID = m_thumbMenuId;
             mi.dwTypeData = const_cast<LPWSTR>(kMenuThumb);
             InsertMenuItemW(hmenu, pos++, TRUE, &mi);
         }
@@ -466,15 +451,18 @@ STDMETHODIMP QuikContextMenu::HandleMenuMsg(UINT uMsg, WPARAM, LPARAM lParam) {
     try {
         if (uMsg == WM_MEASUREITEM && lParam) {
             MEASUREITEMSTRUCT* mis = (MEASUREITEMSTRUCT*)lParam;
-            if (mis->CtlType == ODT_MENU && m_thumbBmp) {
+            if (mis->CtlType == ODT_MENU && m_thumbMenuId != 0
+                && mis->itemID == m_thumbMenuId && m_thumbBmp) {
                 mis->itemWidth = m_thumbW + 24;
                 mis->itemHeight = m_thumbH + 16;
+                return S_OK;
             }
-            return TRUE;
+            return S_FALSE;
         }
         if (uMsg == WM_DRAWITEM && lParam) {
             DRAWITEMSTRUCT* dis = (DRAWITEMSTRUCT*)lParam;
-            if (dis->CtlType == ODT_MENU && m_thumbBmp) {
+            if (dis->CtlType == ODT_MENU && m_thumbMenuId != 0
+                && dis->itemID == m_thumbMenuId && m_thumbBmp) {
                 int xoff = ((dis->rcItem.right - dis->rcItem.left) - m_thumbW) / 2;
                 if (xoff < 0) xoff = 0;
                 int yoff = ((dis->rcItem.bottom - dis->rcItem.top) - m_thumbH) / 2;
@@ -482,12 +470,15 @@ STDMETHODIMP QuikContextMenu::HandleMenuMsg(UINT uMsg, WPARAM, LPARAM lParam) {
                 const int x = dis->rcItem.left + xoff;
                 const int y = dis->rcItem.top + yoff;
                 HDC hdc = CreateCompatibleDC(dis->hDC);
-                HGDIOBJ old = SelectObject(hdc, m_thumbBmp);
-                BitBlt(dis->hDC, x, y, m_thumbW, m_thumbH, hdc, 0, 0, SRCCOPY);
-                SelectObject(hdc, old);
-                DeleteDC(hdc);
+                if (hdc) {
+                    HGDIOBJ old = SelectObject(hdc, m_thumbBmp);
+                    BitBlt(dis->hDC, x, y, m_thumbW, m_thumbH, hdc, 0, 0, SRCCOPY);
+                    SelectObject(hdc, old);
+                    DeleteDC(hdc);
+                }
+                return S_OK;
             }
-            return TRUE;
+            return S_FALSE;
         }
         return E_NOTIMPL;
     } catch (...) {
@@ -598,17 +589,22 @@ bool QuikContextMenu::FindQuikViewExe(wchar_t* exePath, DWORD cch) const {
         if (!GetInstallDirFromRegistry(root, dir, MAX_PATH)) continue;
         const size_t len = lstrlenW(dir);
         if (len && dir[len - 1] == L'\\') dir[len - 1] = L'\0';
-        wsprintfW(buf, L"%s\\quikview.exe", dir);
+        if (FAILED(StringCchPrintfW(buf, _countof(buf), L"%s\\quikview.exe", dir))) continue;
         if (FileExists(buf)) { lstrcpynW(exePath, buf, (int)cch); return true; }
     }
     return false;
 }
 
 HRESULT QuikContextMenu::Launch(bool batch) const {
+    if (!m_hasFile || wcschr(m_file, L'"') != nullptr) return E_FAIL;
     wchar_t exe[MAX_PATH] = {};
     if (!FindQuikViewExe(exe, MAX_PATH)) return E_FAIL;
     wchar_t cmdLine[MAX_PATH * 2 + 32] = {};
-    wsprintfW(cmdLine, L"\"%s\" %s\"%s\"", exe, batch ? L"--batch " : L"", m_file);
+    if (FAILED(StringCchPrintfW(cmdLine, _countof(cmdLine),
+                                L"\"%s\" %s\"%s\"",
+                                exe, batch ? L"--batch " : L"", m_file))) {
+        return E_FAIL;
+    }
     STARTUPINFOW si = {};
     si.cb = sizeof(si);
     si.dwFlags = STARTF_USESHOWWINDOW;

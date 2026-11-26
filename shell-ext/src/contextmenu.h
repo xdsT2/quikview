@@ -64,4 +64,5 @@ private:
     // 偏好驱动的可见项（QueryContextMenu 时重建）
     int m_idMap[3];     // CMD_* → 命令 ID 偏移，-1 = 本项未插入
     int m_visibleCount; // 实际插入的命令项数（不含分隔线）
+    UINT m_thumbMenuId; // 自绘缩略图项真实命令 ID（0 = 未插入）
 };

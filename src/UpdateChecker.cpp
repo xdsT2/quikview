@@ -3,6 +3,7 @@
 #include "Config.h"
 
 #include <QApplication>
+#include <QCoreApplication>
 #include <QDateTime>
 #include <QDebug>
 #include <QDesktopServices>
@@ -25,8 +26,29 @@ namespace {
 
 // 请求超时：自动/手动统一 8s（HANDOFF 第 10 期硬要求）
 constexpr int kTimeoutMs = 8000;
+// 响应体大小上限（1 MB，防止恶意或异常响应耗尽内存）
+constexpr qint64 kMaxUpdateBodyBytes = 1024 * 1024;
 // 自动检查频控：≥24h
 constexpr qint64 kAutoCheckIntervalSecs = 24 * 60 * 60;
+
+bool isSafeReleaseUrl(const QString &raw, bool allowAnyHttpsHost)
+{
+    const QUrl u(raw);
+    if (!u.isValid() || u.host().isEmpty()) {
+        return false;
+    }
+    if (u.scheme().compare(QLatin1String("https"), Qt::CaseInsensitive) != 0) {
+        return false;
+    }
+    if (!allowAnyHttpsHost) {
+        const QString h = u.host();
+        if (h.compare(QLatin1String("github.com"), Qt::CaseInsensitive) != 0
+            && !h.endsWith(QLatin1String(".github.com"), Qt::CaseInsensitive)) {
+            return false;
+        }
+    }
+    return true;
+}
 
 #ifndef QUIKVIEW_VERSION
 #define QUIKVIEW_VERSION "0.0.0"
@@ -136,7 +158,10 @@ protected:
     void mousePressEvent(QMouseEvent *e) override
     {
         if (!m_url.isEmpty() && m_linkRect.contains(e->pos())) {
-            QDesktopServices::openUrl(QUrl(m_url));
+            const QUrl u(m_url);
+            if (u.isValid() && u.scheme().compare(QLatin1String("https"), Qt::CaseInsensitive) == 0) {
+                QDesktopServices::openUrl(u);
+            }
             close();
             return;
         }
@@ -172,6 +197,19 @@ UpdateChecker::UpdateChecker(QObject *parent)
                 if (reply == m_reply)
                     onReplyFinished();
             });
+    connect(qApp, &QCoreApplication::aboutToQuit, this, [this]() {
+        m_timeout->stop();
+        if (m_nam) {
+            m_nam->disconnect(this);
+        }
+        if (QNetworkReply *r = m_reply) {
+            m_reply = nullptr;
+            r->disconnect(this);
+            r->abort();
+        }
+        delete m_nam;
+        m_nam = nullptr;
+    });
 }
 
 UpdateChecker &UpdateChecker::instance()
@@ -182,8 +220,8 @@ UpdateChecker &UpdateChecker::instance()
 
 bool UpdateChecker::check(Mode mode)
 {
-    if (m_reply) {
-        qDebug() << "[update] ignored: a request is already in flight";
+    if (!m_nam || m_reply) {
+        qDebug() << "[update] ignored: unavailable or request in flight";
         return false;
     }
 
@@ -216,6 +254,11 @@ bool UpdateChecker::check(Mode mode)
     qDebug() << "[update] request ->" << url.toString()
              << (manual ? "(manual)" : "(auto)");
     m_reply = m_nam->get(req);
+    connect(m_reply, &QNetworkReply::downloadProgress, this, [this](qint64 got, qint64) {
+        if (got > kMaxUpdateBodyBytes && m_reply) {
+            m_reply->abort();
+        }
+    });
     m_timeout->start();
     return true;
 }
@@ -241,10 +284,11 @@ void UpdateChecker::onReplyFinished()
     const bool manual = m_manual;
     const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     const QNetworkReply::NetworkError err = reply->error();
+    const bool overLimit = reply->bytesAvailable() > kMaxUpdateBodyBytes;
     // abort() 之后 reply 已关闭，readAll 会打 "device not open" 警告；失败路径不需要 body。
-    const QByteArray body = (m_timedOut || err != QNetworkReply::NoError)
+    const QByteArray body = (m_timedOut || overLimit || err != QNetworkReply::NoError)
                                 ? QByteArray()
-                                : reply->readAll();
+                                : reply->read(kMaxUpdateBodyBytes + 1);
     reply->deleteLater();
 
     // GitHub 的 /releases/latest 只返回正式版：仓库只有 Pre-release（或从未发版）
@@ -256,7 +300,8 @@ void UpdateChecker::onReplyFinished()
         return;
     }
 
-    if (m_timedOut || err != QNetworkReply::NoError || status < 200 || status >= 300) {
+    if (m_timedOut || overLimit || body.size() > kMaxUpdateBodyBytes
+        || err != QNetworkReply::NoError || status < 200 || status >= 300) {
         qDebug() << "[update] failed: timedOut=" << m_timedOut
                  << "error=" << err << "status=" << status;
         emit checkFailed(manual);
@@ -274,7 +319,11 @@ void UpdateChecker::onReplyFinished()
     }
     const QJsonObject obj = doc.object();
     const QString tag = obj.value(QStringLiteral("tag_name")).toString().trimmed();
-    const QString url = obj.value(QStringLiteral("html_url")).toString();
+    QString url = obj.value(QStringLiteral("html_url")).toString().trimmed();
+    const bool hasOverride = !qgetenv("QUIKVIEW_UPDATE_URL").isEmpty();
+    if (!isSafeReleaseUrl(url, hasOverride)) {
+        url.clear();
+    }
     if (tag.isEmpty()) {
         qDebug() << "[update] failed: no tag_name in response";
         emit checkFailed(manual);

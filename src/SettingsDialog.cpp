@@ -1822,6 +1822,8 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     // 即时项在加载完控件后再接信号：避免开窗时的 setChecked 触发一次写盘。
     connectLiveChecks();
     connectInstantSignals();
+    // 「通用」页在构造函数里直接构建（不走 ensurePageBuilt），补调一次以接上 m_editorPath 等页专属控件。
+    connectPageWidgets(m_pages.at(0));
     // 全部控件建完后再放开一次：QDialog 默认会把布局最小高写成窗口最小高，
     // 导致 900×660 窄窗被撑到 716。放最后确保覆盖默认约束。
     layout()->setSizeConstraint(QLayout::SetNoConstraint);
@@ -6364,6 +6366,8 @@ void SettingsDialog::exportSettingsPath(const QString &path)
 
 bool SettingsDialog::importSettingsPath(const QString &path)
 {
+    if (m_folderDebounce)
+        m_folderDebounce->stop();
     // 先把队列里的即时项写完，再动文件：否则导入后旧内存值会被后续 sync 带回去。
     flushPendingTheme();
     QString err;
@@ -6381,6 +6385,7 @@ bool SettingsDialog::importSettingsPath(const QString &path)
     }
     // 界面回填成导入后的值，并把待保存基线重置——避免关闭设置时把旧值又写回去。
     loadFromConfig();
+    captureImgProcBaseline();
     capturePendingBaseline(0);
     updatePendingNote();
     showSettingsToast(setioTr("导入成功，重启 QuikView 后生效"), true);
@@ -7873,12 +7878,29 @@ void SettingsDialog::onReset()
     // 恢复默认要覆盖所有页：延后构建的页尚未建控件，先补齐再回填，
     // 否则「重置后进某个没打开过的页，还是旧值」。
     ensureAllPagesBuilt();
+    if (m_folderDebounce)
+        m_folderDebounce->stop();
+    m_pendingWrites.clear();
     QSettings &s = Config::instance().settings();
     s.beginGroup(QStringLiteral("config"));
+    // 保留运行期窗口几何、会话及一次性迁移标记，只重置用户设置项。
+    QList<QPair<QString, QVariant>> preserved;
+    for (const QString &k : s.allKeys()) {
+        if (k.startsWith(QLatin1String("win_"))
+            || k.startsWith(QLatin1String("session_"))
+            || k == QLatin1String("last_open_dir")
+            || k.endsWith(QLatin1String("_migrated"))) {
+            preserved.append({ k, s.value(k) });
+        }
+    }
     s.remove(QStringLiteral(""));
+    for (const auto &kv : preserved)
+        s.setValue(kv.first, kv.second);
     s.endGroup();
     m_forceSync = true;   // 直接改内存的批量变更，由关闭/后续写盘统一 sync
     loadFromConfig();
+    captureImgProcBaseline();
+    capturePendingBaseline(0);
 
     // 恢复默认同样是「即时项立即生效」：配置已清成默认值，运行态按默认值重放；
     // 热键若与进入设置时不同，进入待保存计数（关闭时会询问）；界面语言已即时项，
@@ -9583,6 +9605,7 @@ void SettingsDialog::probeImgProcLive(const QString &spec, const QString &closeM
     // 关窗后再 dump（用主窗口指针，避开 WA_DeleteOnClose 把 this 销毁）。
     QObject *keepAlive = new QObject(qApp);   // 关窗后仍存活的上下文
     QPointer<MainWindow> host = qobject_cast<MainWindow *>(parentWidget());
+    QPointer<QTimer> autoOkGuard(autoOk);
     QTimer::singleShot(400, this, [this, spec]() {
         if (!QFile::exists(qEnvironmentVariable("QUIKVIEW_PROBE_OUT",
                                                  QStringLiteral("Temp/imgproc-live-probe.txt"))))
@@ -9626,7 +9649,7 @@ void SettingsDialog::probeImgProcLive(const QString &spec, const QString &closeM
                 m_btnOk->click();
         }
     });
-    QTimer::singleShot(2400, keepAlive, [host, autoOk]() {
+    QTimer::singleShot(2400, keepAlive, [host, autoOkGuard, keepAlive]() {
         if (host) {
             const QString outPath = qEnvironmentVariable(
                 "QUIKVIEW_PROBE_OUT", QStringLiteral("Temp/imgproc-live-probe.txt"));
@@ -9646,7 +9669,9 @@ void SettingsDialog::probeImgProcLive(const QString &spec, const QString &closeM
             if (!afterShot.isEmpty())
                 host->grabCanvasTo(afterShot);
         }
-        autoOk->stop();
+        if (autoOkGuard)
+            autoOkGuard->stop();
+        keepAlive->deleteLater();
     });
 }
 

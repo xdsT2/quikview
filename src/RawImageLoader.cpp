@@ -3,40 +3,77 @@
 
 #include "ToneMap.h"
 
+#ifdef HAS_LIBRAW
 #include <libraw/libraw.h>
+#endif
 
 #include <QByteArray>
 #include <QFileInfo>
 #include <QStringList>
 
+#include <climits>
 #include <cmath>
 
+#ifdef HAS_LIBRAW
 namespace {
+
+int openRawFile(LibRaw &raw, const QString &path)
+{
+    const QString absPath = QFileInfo(path).absoluteFilePath();
+#ifdef Q_OS_WIN
+    const std::wstring wpath = absPath.toStdWString();
+    return raw.open_file(wpath.c_str());
+#else
+    const QByteArray local = absPath.toLocal8Bit();
+    return raw.open_file(local.constData());
+#endif
+}
 
 // 内嵌预览（BITMAP 型）转 QImage：8bit 直接拷贝，16bit 按 >>8 落 8bit。
 // 预览是 libraw 已经处理好的图，不再走 ToneMap（那是全图 HDR 路径的事）。
 QImage thumbBitmapToQImage(const libraw_processed_image_t *t)
 {
+    if (!t || !t->data) {
+        return QImage();
+    }
     const int w = t->width;
     const int h = t->height;
     const int colors = t->colors;
-    if (w <= 0 || h <= 0 || (colors != 3 && colors != 4)) {
+    if (w <= 0 || h <= 0 || w > 30000 || h > 30000
+        || (colors != 1 && colors != 3 && colors != 4)
+        || (t->bits != 8 && t->bits != 16)) {
+        return QImage();
+    }
+    const quint64 requiredBytes = quint64(w) * quint64(h) * quint64(colors) * quint64(t->bits / 8);
+    if (quint64(t->data_size) < requiredBytes) {
         return QImage();
     }
     if (t->bits == 8) {
-        QImage::Format fmt = (colors == 4) ? QImage::Format_RGB32 : QImage::Format_RGB888;
+        const QImage::Format fmt = (colors == 1) ? QImage::Format_Grayscale8
+                                 : (colors == 4) ? QImage::Format_RGBA8888
+                                                 : QImage::Format_RGB888;
         return QImage(t->data, w, h, w * colors, fmt).copy();
     }
     if (t->bits == 16) {
-        QImage img(w, h, QImage::Format_RGB888);
+        const QImage::Format fmt = (colors == 1) ? QImage::Format_Grayscale8 : QImage::Format_RGB888;
+        QImage img(w, h, fmt);
+        if (img.isNull()) {
+            return QImage();
+        }
         const ushort *src = reinterpret_cast<const ushort *>(t->data);
         for (int y = 0; y < h; ++y) {
             uchar *line = img.scanLine(y);
             const ushort *row = src + static_cast<size_t>(y) * w * colors;
-            for (int x = 0; x < w; ++x) {
-                line[x * 3 + 0] = static_cast<uchar>(row[x * colors + 0] >> 8);
-                line[x * 3 + 1] = static_cast<uchar>(row[x * colors + 1] >> 8);
-                line[x * 3 + 2] = static_cast<uchar>(row[x * colors + 2] >> 8);
+            if (colors == 1) {
+                for (int x = 0; x < w; ++x) {
+                    line[x] = static_cast<uchar>(row[x] >> 8);
+                }
+            } else {
+                for (int x = 0; x < w; ++x) {
+                    line[x * 3 + 0] = static_cast<uchar>(row[x * colors + 0] >> 8);
+                    line[x * 3 + 1] = static_cast<uchar>(row[x * colors + 1] >> 8);
+                    line[x * 3 + 2] = static_cast<uchar>(row[x * colors + 2] >> 8);
+                }
             }
         }
         return img;
@@ -63,6 +100,9 @@ QImage toneMap16ToRgb888(const ushort *src, int w, int h, int srcChannels)
     const ToneMap::Curve16 curve = ToneMap::buildCurve16(samples);
 
     QImage img(w, h, QImage::Format_RGB888);
+    if (img.isNull()) {
+        return QImage();
+    }
     for (int y = 0; y < h; ++y) {
         const ushort *row = src + static_cast<size_t>(y) * w * srcChannels;
         uchar *line = img.scanLine(y);
@@ -79,10 +119,8 @@ QImage toneMap16ToRgb888(const ushort *src, int w, int h, int srcChannels)
 
 QImage loadRawImage(const QString &path, QString *errorOut, bool toneMapSdr)
 {
-    const QByteArray local = QFileInfo(path).absoluteFilePath().toLocal8Bit();
-
     LibRaw raw;
-    if (raw.open_file(local.constData()) != LIBRAW_SUCCESS) {
+    if (openRawFile(raw, path) != LIBRAW_SUCCESS) {
         if (errorOut) *errorOut = QCoreApplication::translate("RawImageLoader", "libraw 打开失败");
         return QImage();
     }
@@ -100,6 +138,9 @@ QImage loadRawImage(const QString &path, QString *errorOut, bool toneMapSdr)
     int err = 0;
     libraw_processed_image_t *proc = raw.dcraw_make_mem_image(&err);
     if (proc == nullptr || err != LIBRAW_SUCCESS) {
+        if (proc) {
+            LibRaw::dcraw_clear_mem(proc);
+        }
         if (errorOut) *errorOut = QCoreApplication::translate("RawImageLoader", "libraw 内存图像生成失败");
         raw.recycle();
         return QImage();
@@ -108,39 +149,68 @@ QImage loadRawImage(const QString &path, QString *errorOut, bool toneMapSdr)
     QImage img;
     const int w = proc->width;
     const int h = proc->height;
-    const int colors = proc->colors; // 3 = RGB, 4 = BGRA
+    const int colors = proc->colors; // 1 = Gray, 3 = RGB, 4 = RGBA
     const unsigned int bits = proc->bits; // 8 或 16
+    const quint64 requiredBytes = (w > 0 && h > 0 && colors > 0 && (bits == 8 || bits == 16))
+        ? quint64(w) * quint64(h) * quint64(colors) * quint64(bits / 8)
+        : 0;
 
-    if (bits == 8) {
-        QImage::Format fmt = (colors == 4) ? QImage::Format_RGB32 : QImage::Format_RGB888;
-        img = QImage(proc->data, w, h, static_cast<int>(proc->width * colors), fmt).copy();
+    if (w <= 0 || h <= 0 || w > 30000 || h > 30000
+        || (colors != 1 && colors != 3 && colors != 4)
+        || (bits != 8 && bits != 16)
+        || quint64(proc->data_size) < requiredBytes) {
+        if (errorOut) *errorOut = QCoreApplication::translate("RawImageLoader", "不支持的 RAW 图像参数（colors=%1, bits=%2）").arg(colors).arg(bits);
+    } else if (bits == 8) {
+        const QImage::Format fmt = (colors == 1) ? QImage::Format_Grayscale8
+                                 : (colors == 4) ? QImage::Format_RGBA8888
+                                                 : QImage::Format_RGB888;
+        img = QImage(proc->data, w, h, w * colors, fmt).copy();
     } else if (bits == 16) {
-        if (toneMapSdr) {
+        if (colors == 1) {
+            img = QImage(w, h, QImage::Format_Grayscale8);
+            if (!img.isNull()) {
+                const ushort *src = reinterpret_cast<const ushort *>(proc->data);
+                for (int y = 0; y < h; ++y) {
+                    uchar *line = img.scanLine(y);
+                    const ushort *row = src + static_cast<size_t>(y) * w;
+                    for (int x = 0; x < w; ++x) {
+                        line[x] = static_cast<uchar>(row[x] >> 8);
+                    }
+                }
+            }
+        } else if (toneMapSdr) {
             img = toneMap16ToRgb888(reinterpret_cast<const ushort *>(proc->data),
                                     w, h, colors);
         } else {
             // 16 位转 8 位 RGB 显示
             img = QImage(w, h, QImage::Format_RGB888);
-            const ushort *src = reinterpret_cast<const ushort *>(proc->data);
-            const int srcChannels = colors;
-            for (int y = 0; y < h; ++y) {
-                uchar *line = img.scanLine(y);
-                const ushort *row = src + static_cast<size_t>(y) * w * srcChannels;
-                for (int x = 0; x < w; ++x) {
-                    line[x * 3 + 0] = static_cast<uchar>(row[x * srcChannels + 0] >> 8);
-                    line[x * 3 + 1] = static_cast<uchar>(row[x * srcChannels + 1] >> 8);
-                    line[x * 3 + 2] = static_cast<uchar>(row[x * srcChannels + 2] >> 8);
+            if (!img.isNull()) {
+                const ushort *src = reinterpret_cast<const ushort *>(proc->data);
+                const int srcChannels = colors;
+                for (int y = 0; y < h; ++y) {
+                    uchar *line = img.scanLine(y);
+                    const ushort *row = src + static_cast<size_t>(y) * w * srcChannels;
+                    for (int x = 0; x < w; ++x) {
+                        line[x * 3 + 0] = static_cast<uchar>(row[x * srcChannels + 0] >> 8);
+                        line[x * 3 + 1] = static_cast<uchar>(row[x * srcChannels + 1] >> 8);
+                        line[x * 3 + 2] = static_cast<uchar>(row[x * srcChannels + 2] >> 8);
+                    }
                 }
             }
         }
-    } else {
-        if (errorOut) *errorOut = QCoreApplication::translate("RawImageLoader", "不支持的位深 %1").arg(bits);
     }
 
     LibRaw::dcraw_clear_mem(proc);
     raw.recycle();
     return img;
 }
+#else
+QImage loadRawImage(const QString &, QString *errorOut, bool)
+{
+    if (errorOut) *errorOut = QCoreApplication::translate("RawImageLoader", "当前构建未启用 libraw，无法解码 RAW");
+    return QImage();
+}
+#endif
 
 bool isRawFilePath(const QString &path)
 {
@@ -154,10 +224,9 @@ bool isRawFilePath(const QString &path)
 
 QImage loadRawThumbnail(const QString &path)
 {
-    const QByteArray local = QFileInfo(path).absoluteFilePath().toLocal8Bit();
-
+#ifdef HAS_LIBRAW
     LibRaw raw;
-    if (raw.open_file(local.constData()) != LIBRAW_SUCCESS) {
+    if (openRawFile(raw, path) != LIBRAW_SUCCESS) {
         return QImage();
     }
     QImage img;
@@ -166,16 +235,24 @@ QImage loadRawThumbnail(const QString &path)
     if (raw.unpack_thumb() == LIBRAW_SUCCESS) {
         int err = 0;
         libraw_processed_image_t *thumb = raw.dcraw_make_mem_thumb(&err);
-        if (thumb != nullptr && err == LIBRAW_SUCCESS) {
-            if (thumb->type == LIBRAW_IMAGE_JPEG) {
-                img.loadFromData(reinterpret_cast<const uchar *>(thumb->data),
-                                 static_cast<int>(thumb->data_size), "JPG");
-            } else if (thumb->type == LIBRAW_IMAGE_BITMAP) {
-                img = thumbBitmapToQImage(thumb);
+        if (thumb != nullptr) {
+            if (err == LIBRAW_SUCCESS) {
+                if (thumb->type == LIBRAW_IMAGE_JPEG) {
+                    if (thumb->data_size > 0 && thumb->data_size <= quint32(INT_MAX)) {
+                        img.loadFromData(reinterpret_cast<const uchar *>(thumb->data),
+                                         static_cast<int>(thumb->data_size), "JPG");
+                    }
+                } else if (thumb->type == LIBRAW_IMAGE_BITMAP) {
+                    img = thumbBitmapToQImage(thumb);
+                }
             }
             LibRaw::dcraw_clear_mem(thumb);
         }
     }
     raw.recycle();
     return img;
+#else
+    Q_UNUSED(path);
+    return QImage();
+#endif
 }

@@ -85,6 +85,7 @@ QImage FrameNavigator::frameAt(int index)
             m_lastDelay = qMax(0, m_reader->nextImageDelay());
             img = m_reader->read();
             if (img.isNull()) {
+                m_index = qMax(0, m_seqPos);
                 return QImage();
             }
             m_seqPos = i;
@@ -95,9 +96,25 @@ QImage FrameNavigator::frameAt(int index)
     if (index >= m_count) {
         return QImage();
     }
+    // GIF 的 jumpToImage() 不支持向后/原地跳转：若目标 <= 当前帧，直接重建 reader，
+    // 否则 ignore 返回值的 read() 会读出下一帧。
+    if (index <= m_index && m_animatable) {
+        const QString path = m_reader->fileName();
+        delete m_reader;
+        m_reader = new QImageReader(path);
+        m_reader->setAutoTransform(true);
+    }
     // 先尝试在现有 reader 上跳转：TIFF 支持随机访问，GIF 支持向前跳。
-    // 注意 GIF 的 jumpToImage() 返回 false 但向前跳仍生效，故不检查返回值。
-    m_reader->jumpToImage(index);
+    // 注意 GIF 的 jumpToImage() 返回 false 但向前跳仍生效，故不单独靠返回值判定，
+    // 仅在非动图或跳后帧号不对且 read() 失败时兜底重建。
+    const bool jumped = m_reader->jumpToImage(index);
+    if (!jumped && !m_animatable && m_reader->currentImageNumber() != index) {
+        const QString path = m_reader->fileName();
+        delete m_reader;
+        m_reader = new QImageReader(path);
+        m_reader->setAutoTransform(true);
+        m_reader->jumpToImage(index);
+    }
     // 帧延迟必须在 read() 之前取：nextImageDelay() 返回的正是即将读出的这一帧
     // 的显示时长（毫秒）。动图推进按它来，不写死。
     m_lastDelay = qMax(0, m_reader->nextImageDelay());
@@ -106,7 +123,7 @@ QImage FrameNavigator::frameAt(int index)
         m_index = index;
         return img;
     }
-    // GIF 向后跳（回绕）会失败：重建 reader 从头定位目标帧。
+    // 兜底重建 reader 从头定位目标帧。
     const QString path = m_reader->fileName();
     delete m_reader;
     m_reader = new QImageReader(path);
