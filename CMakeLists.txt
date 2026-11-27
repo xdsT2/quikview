@@ -51,6 +51,20 @@ add_executable(quikview WIN32
     src/RawImageLoader.h
     src/HeifLoader.cpp
     src/HeifLoader.h
+    # HDR(Radiance RGBE) / EXR 平面打开（派单 2026-11-27）：自研流式解码内核 +
+    # 盒式降采样 + 曝光/Reinhard/sRGB 映射；miniz 复用 Psd 既有 Psdminiz.cpp，
+    # 不新增第三方库或 DLL。
+    src/HdrImageLoader.cpp
+    src/HdrImageLoader.h
+    src/HdrError.cpp
+    src/HdrError.h
+    src/ExrStream.cpp
+    src/ExrStream.h
+    src/HdrRadiance.cpp
+    src/HdrRadiance.h
+    src/BoxDownsampler.h
+    src/Half.h
+    src/RenderSdr.h
     src/MetadataPanel.cpp
     src/MetadataPanel.h
     src/HudShell.cpp
