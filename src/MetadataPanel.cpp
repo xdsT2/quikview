@@ -235,8 +235,6 @@ QString formatDms(double deg, QChar positive, QChar negative)
 
 MetadataPanel::MetadataPanel(QWidget *parent) : QWidget(parent)
 {
-    buildUi();
-    clear();
 }
 
 void MetadataPanel::buildUi()
@@ -246,6 +244,7 @@ void MetadataPanel::buildUi()
     setStyleSheet(UiStyle::hudQss());
 
     m_backdrop = new HudBackdrop(this);
+    m_backdrop->setSource(m_backdropSource);
     m_backdrop->setGeometry(rect());
     m_backdrop->lower();
 
@@ -492,8 +491,34 @@ void MetadataPanel::showImage(const QString &path, const QImage &image,
     m_lastImage = image;
     m_lastKnownBytes = knownBytes;
     m_lastKnownModified = knownModified;
+    m_contentPending = true;
+    if (isVisible() && !m_closing)
+        ensureContent();
+}
+
+QString MetadataPanel::copyText()
+{
+    ensureContent();
+    return m_copyLines.join(QLatin1Char('\n'));
+}
+
+void MetadataPanel::ensureContent()
+{
+    if (!m_body)
+        buildUi();
+    else if (!m_contentPending)
+        return;
+    m_contentPending = false;
     clear();
 
+    const QString &path = m_lastPath;
+    if (path.isEmpty()) {
+        finishLayout();
+        return;
+    }
+    const QImage &image = m_lastImage;
+    const qint64 knownBytes = m_lastKnownBytes;
+    const QDateTime &knownModified = m_lastKnownModified;
     const QFileInfo info(path);
 
     // —— 组 1：文件（文件名 / 图片大小 / 修改日期 / 图片信息 / 位深）——
@@ -644,15 +669,17 @@ void MetadataPanel::setSmallFont(bool small)
     }
     m_smallFont = small;
     // 已有内容按最近一次的入参重建：字号变了，值列的自然宽度也要重算。
-    if (!m_lastPath.isEmpty()) {
-        showImage(m_lastPath, m_lastImage, m_lastKnownBytes, m_lastKnownModified);
-    }
+    m_contentPending = true;
+    if (isVisible() && !m_closing)
+        ensureContent();
 }
 
 void MetadataPanel::refreshThemeStyle()
 {
     // HUD 材质不随主题翻面，但局部 QSS 表要按当前令牌重装；磨砂设置可能改了，
     // 背板采样一并重算（关磨砂会回 #242424 实底）。
+    if (!m_body)
+        return;
     setStyleSheet(UiStyle::hudQss());
     if (m_backdrop) {
         m_backdrop->invalidate();
@@ -662,6 +689,7 @@ void MetadataPanel::refreshThemeStyle()
 
 void MetadataPanel::setBackdropSource(QWidget *canvasViewport)
 {
+    m_backdropSource = canvasViewport;
     if (m_backdrop) {
         m_backdrop->setSource(canvasViewport);
     }
@@ -798,6 +826,7 @@ void MetadataPanel::renderHistogram(const QImage &image)
 
 void MetadataPanel::showHud()
 {
+    ensureContent();
     setVisible(true);
     raise();
 }

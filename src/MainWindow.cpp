@@ -353,6 +353,7 @@ MainWindow::MainWindow(QWidget *parent)
     // DWM 就会照常画描边/投影/圆角——观感与原生窗口完全一致。
     applyNativeFrameStyles();
 #endif
+    PerfProbe::mark(PerfProbe::StartupSequence, "startup-native-ready", "");
 
     // —— 引擎 ——
     m_canvas = new ImageCanvas(this);
@@ -695,10 +696,13 @@ MainWindow::MainWindow(QWidget *parent)
     m_loadStatus->setFocusPolicy(Qt::NoFocus);
     m_loadStatus->hide();
 
+    PerfProbe::mark(PerfProbe::StartupSequence, "startup-widgets-ready", "");
     createActions();
+    PerfProbe::mark(PerfProbe::StartupSequence, "startup-actions-ready", "");
     applyRuntimeSettings();
     applyChromeLayout();
     updateCanvasLogo();
+    PerfProbe::mark(PerfProbe::StartupSequence, "startup-settings-ready", "");
     cleanupTempClipDirs();
     m_chromeTimer->start();
 
@@ -3824,7 +3828,17 @@ void MainWindow::loadAsync(const QString &path, bool preempt)
     FlipProbe::input(QFileInfo(path).fileName(), m_flipMode.toUtf8().constData());
     // 快帧目标 = 视口像素：连按时先上缩放解码的快帧顶住体感。
     // preempt=true 时即使旧任务还在解，也立刻在专用池里启动这一张。
-    m_cache->requestFull(path, m_canvas ? m_canvas->viewport()->size() : QSize(), preempt);
+    QSize previewSize;
+    if (m_canvas) {
+        if (!isVisible()) {
+            // 启动时恢复的窗口几何可能尚未派发 resizeEvent，先按恢复尺寸排好画布。
+            applyChromeLayout();
+            previewSize = m_canvas->maximumViewportSize();
+        } else {
+            previewSize = m_canvas->viewport()->size();
+        }
+    }
+    m_cache->requestFull(path, previewSize, preempt);
     if (m_preloadTimer) {
         m_preloadTimer->start();   // 又有输入：空闲预读重新计时
     }

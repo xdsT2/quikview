@@ -2,7 +2,7 @@
 
 // 打开图片/目录分段耗时探针（验收专用，默认零开销）。
 // 开启：设置环境变量 QUIKVIEW_PERF_LOG=<日志路径>。
-// 每次打点追加一行：seq,stage,elapsed_us,detail
+// 每次打点追加一行：seq,stage,elapsed_us,detail（seq=-1 为应用启动）
 //   - 只在本文件内用 C 标准库 fputs 与 QElapsedTimer，不触碰 QSettings、
 //     信号和样式，避免探针本身污染被测路径；未开启时每个函数首个判断即返回。
 //   - 外部脚本按 seq 归组，算「点击 → 首帧」「扫描/排序/胶片栏/解码」分段。
@@ -41,10 +41,12 @@ inline qint64 originUs()
     return t.nsecsElapsed() / 1000;
 }
 
+inline constexpr int StartupSequence = -1;
+
 inline void mark(int seq, const char *stage, const char *detail)
 {
     FILE *f = file();
-    if (!f || seq <= 0)
+    if (!f || seq == 0)
         return;
     const qint64 us = originUs();
     std::fprintf(f, "%d,%s,%lld,%s\n", seq, stage,

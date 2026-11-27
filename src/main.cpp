@@ -1,4 +1,5 @@
 #include <QApplication>
+#include "PerfProbe.h"
 #include <QCommandLineParser>
 #include <QCryptographicHash>
 #include <QDebug>
@@ -44,8 +45,10 @@ QString singleInstanceKey()
 
 int main(int argc, char *argv[])
 {
+    PerfProbe::mark(PerfProbe::StartupSequence, "startup-main", "");
     // 高 DPI：Qt6 默认开启，这里显式声明保证跨平台一致
     QApplication app(argc, argv);
+    PerfProbe::mark(PerfProbe::StartupSequence, "startup-qt-ready", "");
     QApplication::setApplicationName(QStringLiteral("QuikView"));
     QApplication::setApplicationVersion(QStringLiteral(QUIKVIEW_VERSION));
     QApplication::setOrganizationName(QStringLiteral("QuikView"));
@@ -254,11 +257,22 @@ int main(int argc, char *argv[])
         }
     }
 
+    PerfProbe::mark(PerfProbe::StartupSequence, "startup-window-begin", "");
     MainWindow window;
     // 窗口几何持久化单：show() 之前恢复，避免先按默认尺寸闪一下再跳到记录位置。
     // 空 ini 不记录 → 内部直接返回，保持构造默认，等价旧行为。
     window.restoreWindowGeometry();
+    // 先提交首图解码，与 Windows 显示主窗口并行。后台结果仍由 GUI 事件循环消费。
+    const QStringList files = parser.positionalArguments();
+    if (!files.isEmpty()) {
+        window.openFileFitting(files.first());
+    } else if (Config::instance().restoreLastFileOnStart()) {
+        window.restoreSession();
+    }
+
+    PerfProbe::mark(PerfProbe::StartupSequence, "startup-before-show", "");
     window.show();
+    PerfProbe::mark(PerfProbe::StartupSequence, "startup-window-shown", "");
 
     // 首实例挂监听：收到路径就切图并把自己拉到前台（栈对象随 main 结束在 ~QApplication 之前销毁）
     QLocalServer ipcServer;
@@ -310,16 +324,6 @@ int main(int argc, char *argv[])
             qDebug() << "[update] manual check from --check-update";
             UpdateChecker::instance().check(UpdateChecker::Mode::Manual);
         });
-    }
-
-    const QStringList files = parser.positionalArguments();
-    if (!files.isEmpty()) {
-        // 命令行带文件启动：按图调窗（设置「根据图片大小调节窗口大小」）
-        window.openFileFitting(files.first());
-    } else if (Config::instance().restoreLastFileOnStart()) {
-        // 无命令行文件且用户打开了「启动时恢复上次查看的图片」才恢复会话；
-        // 默认关闭 → 无参启动进欢迎页。命令行显式指定始终优先于会话恢复。
-        window.restoreSession();
     }
 
     int settleDelay = 2500;   // 无 smoke 命令时的默认截图等待（首图异步加载）

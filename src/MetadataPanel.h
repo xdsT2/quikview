@@ -5,6 +5,7 @@
 #include <QImage>
 #include <QList>
 #include <QPair>
+#include <QPointer>
 #include <QString>
 #include <QWidget>
 
@@ -46,11 +47,10 @@ public:
     // 从 zip 中央目录注入；knownBytes < 0 表示走 QFileInfo（普通文件路径）。
     void showImage(const QString &path, const QImage &image,
                    qint64 knownBytes = -1, const QDateTime &knownModified = QDateTime());
-    void clear();
 
     // 与信息浮层同源的键值文本（多行，组间空行）；供「复制 EXIF 数据」使用，
     // 口径与浮层「复制参数」按钮完全一致，不另搞一套字段。
-    QString copyText() const { return m_copyLines.join(QLatin1Char('\n')); }
+    QString copyText();
 
     // 「用小字体显示 EXIF / 文件信息」：键值行 12px ↔ 10px。切换后按最近一次
     // showImage 的入参重建 grid，宽度与折行随之更新。
@@ -98,6 +98,8 @@ protected:
 
 private:
     void buildUi();
+    void ensureContent();
+    void clear();
     void rebuildGrid();
     struct Row {
         QString key;
@@ -124,6 +126,7 @@ private:
     HistogramView *m_histogram = nullptr;
     QFrame *m_histSep = nullptr;
 
+    QPointer<QWidget> m_backdropSource;
     HudBackdrop *m_backdrop = nullptr;
     HudEffect *m_effect = nullptr;
     bool m_closing = false;
@@ -136,6 +139,7 @@ private:
     int m_availW = 0;            // MainWindow 下发的窗口可用宽约束（0 = 不约束）
     int m_maxValW = 0;           // 自然宽度的值列度量（单行宽，钳 330）
     bool m_smallFont = false;    // 键值行字号档位（false=12px，true=10px）
+    bool m_contentPending = false;
     QString m_lastPath;          // 最近一次 showImage 的入参（字号切换时重建用）
     QImage m_lastImage;
     qint64 m_lastKnownBytes = -1;          // 包内条目的字节数（-1 = 无注入）
