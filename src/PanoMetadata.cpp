@@ -1,4 +1,5 @@
 #include "PanoMetadata.h"
+#include "HdrImageLoader.h"
 
 #include <QCryptographicHash>
 #include <QFile>
@@ -192,27 +193,58 @@ Pano::Info Pano::probeFile(const QString &path)
     if (!fi.isFile())
         return makeNotFound(QStringLiteral("not a local file"));
     const QString suffix = fi.suffix().toLower();
-    if (suffix != QLatin1String("jpg") && suffix != QLatin1String("jpeg")
-        && suffix != QLatin1String("jfif")) {
-        return makeNotFound(QStringLiteral("not a JPEG: %1").arg(suffix));
+    const bool hdrLike = suffix == QLatin1String("hdr") || suffix == QLatin1String("rgbe")
+                         || suffix == QLatin1String("exr");
+    const bool jpegLike = suffix == QLatin1String("jpg") || suffix == QLatin1String("jpeg")
+                          || suffix == QLatin1String("jfif");
+    if (!hdrLike && !jpegLike) {
+        return makeNotFound(QStringLiteral("unsupported suffix: %1").arg(suffix));
     }
 
-    QImageReader reader(path);
-    const QSize px = reader.size();
-    if (!px.isValid() || px.width() <= 0 || px.height() <= 0)
-        return makeNotFound(QStringLiteral("cannot read JPEG size"));
-    const int w = px.width();
-    const int h = px.height();
+    int w = 0, h = 0;
+    GpanoFields g;
 
-    QFile f(path);
-    if (!f.open(QIODevice::ReadOnly))
-        return makeNotFound(QStringLiteral("cannot open file"));
-    const GpanoFields g = parseGpano(readXmpPacket(f));
-    f.close();
+    if (hdrLike) {
+        // HDR/EXR 没有 XMP/GPano：只读文件头真实宽高（不解码像素），走 aspect-only
+        // 手动入口；autoEntry 恒 false，因此不会主动弹胶囊。
+        int hw = 0, hh = 0;
+        QString label;
+        bool isExr = false;
+        if (!HdrImageLoader::probeHeader(path, hw, hh, label, isExr)) {
+            return makeNotFound(QStringLiteral("HDR/EXR 头部解析失败"));
+        }
+        w = hw;
+        h = hh;
+    } else {
+        QImageReader reader(path);
+        const QSize px = reader.size();
+        if (!px.isValid() || px.width() <= 0 || px.height() <= 0)
+            return makeNotFound(QStringLiteral("cannot read JPEG size"));
+        w = px.width();
+        h = px.height();
+
+        QFile f(path);
+        if (!f.open(QIODevice::ReadOnly))
+            return makeNotFound(QStringLiteral("cannot open file"));
+        g = parseGpano(readXmpPacket(f));
+        f.close();
+    }
 
     // 2:1 实际比例（「普通 2:1 宽图」与「无标签球形图」共用这一条）。
     const double aspect = h > 0 ? static_cast<double>(w) / static_cast<double>(h) : 0.0;
     const bool looksTwoToOne = h > 0 && std::fabs(aspect - 2.0) <= kAspectTol;
+
+    // HDR/EXR：无 GPano 标记，只按实际 2:1 给手动入口；不主动弹胶囊。
+    if (hdrLike) {
+        Info out;
+        if (looksTwoToOne) {
+            out.kind = Kind::AspectOnly;
+            out.manualEntry = true;
+            out.detail = QStringLiteral("HDR/EXR 无 GPano 标记，按 2:1 实际比例识别");
+            return out;
+        }
+        return makeNotFound(QStringLiteral("HDR/EXR 实际 %1×%2 不是 2:1").arg(w).arg(h));
+    }
 
     Info out;
 

@@ -1,4 +1,5 @@
 #include "MetadataPanel.h"
+#include "ImageFacts.h"
 
 #include <QApplication>
 #include <QClipboard>
@@ -550,18 +551,30 @@ void MetadataPanel::ensureContent()
     } else {
         colorSpaceText = QStringLiteral("sRGB");  // 无 ICC 时按 sRGB 解释
     }
+    // 宽高口径：源文件真实宽高（头部解析），不是降采样后的显示纹理尺寸；
+    // 头部读不到时回落到解码图尺寸。
+    const ImageFacts facts = readImageFacts(path);
+    const int srcW = facts.hasSize() ? facts.pixelSize.width() : image.width();
+    const int srcH = facts.hasSize() ? facts.pixelSize.height() : image.height();
     QString imageInfo = image.isNull()
         ? tr("未知")
-        : tr("%1 × %2 (%3, %4)").arg(image.width()).arg(image.height())
+        : tr("%1 × %2 (%3, %4)").arg(srcW).arg(srcH)
               .arg(info.suffix().toUpper(), colorSpaceText);
     fileRows.append({ tr("图片信息"), imageInfo });
 
-    // RGB32 只是内部对齐，真实色深仍是 24 位（多出来的字节是填充）
-    int depth = image.depth();
-    if (depth == 32 && !image.hasAlphaChannel()) {
-        depth = 24;
+    // 位深：HDR/EXR 头部给出真实位深与通道类型（如 32-bit float (RGBE)）；
+    // 其余格式按 QImage::depth() 推算（RGB32 无 alpha 时按 24 位修正）。
+    QString depthText;
+    if (!facts.bitDepthLabel.isEmpty()) {
+        depthText = facts.bitDepthLabel;
+    } else {
+        int depth = image.depth();
+        if (depth == 32 && !image.hasAlphaChannel()) {
+            depth = 24;
+        }
+        depthText = tr("%1 bit").arg(depth);
     }
-    fileRows.append({ tr("位深"), tr("%1 bit").arg(depth) });
+    fileRows.append({ tr("位深"), depthText });
 
     // 打印尺寸（派单「视图与信息两小件·打印尺寸」2026-11-18）：像素 ÷ DPI × 2.54
     // = 厘米，保留一位小数。

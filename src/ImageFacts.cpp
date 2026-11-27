@@ -1,7 +1,9 @@
 #include "ImageFacts.h"
+#include "HdrImageLoader.h"
 
 #include <QByteArray>
 #include <QFile>
+#include <QFileInfo>
 #include <QImageReader>
 #include <QtEndian>
 #include <QVector>
@@ -191,6 +193,23 @@ ImageFacts readImageFacts(const QString &path)
     facts.pixelSize = reader.size();
     if (!facts.hasSize()) {
         facts.pixelSize = QSize();
+    }
+
+    // HDR/EXR：QImageReader 对未知格式返回空尺寸，走自有头部解析拿源文件真实
+    // 宽高与位深/通道类型；不依赖解码后的显示纹理尺寸。
+    const QString suffix = QFileInfo(path).suffix().toLower();
+    if (suffix == QLatin1String("hdr") || suffix == QLatin1String("rgbe")
+        || suffix == QLatin1String("exr")) {
+        int hw = 0, hh = 0;
+        QString label;
+        bool isExr = false;
+        if (HdrImageLoader::probeHeader(path, hw, hh, label, isExr)) {
+            if (!facts.hasSize()) {
+                facts.pixelSize = QSize(hw, hh);
+            }
+            facts.bitDepthLabel = label;
+            facts.isFloat = true;
+        }
     }
 
     QFile file(path);

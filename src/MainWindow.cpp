@@ -86,6 +86,7 @@
 #include "FrameNavigator.h"
 #include "GammaDialog.h"
 #include "HeifLoader.h"
+#include "HdrImageLoader.h"
 #include "ImageCache.h"
 #include "ImageCanvas.h"
 #include "MenuCatalog.h"
@@ -4393,7 +4394,17 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error,
         showImage(img, path);
         return;
     }
-    QString lastErr = rawErr.isEmpty() ? heifErr : rawErr;
+    // HDR(Radiance)/EXR：loader 内部已完成曝光→Reinhard→sRGB 8bit，这里直通上屏。
+    QString hdrErr;
+    QImage hdrImg = HdrImageLoader::load(path, QSize(), HdrImageLoader::defaultEv(), &hdrErr);
+    if (!hdrImg.isNull()) {
+        showImage(hdrImg, path);
+        return;
+    }
+    QString lastErr;
+    if (!rawErr.isEmpty()) lastErr = rawErr;
+    else if (!heifErr.isEmpty()) lastErr = heifErr;
+    else if (!hdrErr.isEmpty()) lastErr = hdrErr;
     // 加载失败必须留下可读证据：空白画布本身不带任何诊断信息。
     // --smoke loadreport 会把这段连同 supportedImageFormats() 一起落盘。
     m_lastLoadError = QStringLiteral("path=%1 | qimage=%2 | fallback=%3")
@@ -4698,9 +4709,11 @@ void MainWindow::updatePanoProbe(const QString &path)
         return;
     }
     const QString suffix = QFileInfo(path).suffix().toLower();
+    const bool hdrLike = suffix == QLatin1String("hdr") || suffix == QLatin1String("rgbe")
+                         || suffix == QLatin1String("exr");
     if (suffix != QLatin1String("jpg") && suffix != QLatin1String("jpeg")
-        && suffix != QLatin1String("jfif")) {
-        return;   // 首版只认 JPG：其它格式连头部扫描都不做
+        && suffix != QLatin1String("jfif") && !hdrLike) {
+        return;   // 只对 JPG / HDR / EXR 做头部扫描；其它格式不参与全景判定
     }
 
     auto *watcher = new QFutureWatcher<Pano::Info>(this);
@@ -9493,6 +9506,11 @@ QImage MainWindow::readImageSync(const QString &path) const
         return img;
     }
     img = loadHeifImage(path, &err, m_hdrTonemap);
+    if (!img.isNull()) {
+        return img;
+    }
+    // HDR/EXR：loader 内部已映射到 sRGB 8bit，直接返回，不再过 ToneMap 二次映射。
+    img = HdrImageLoader::load(path, QSize(), HdrImageLoader::defaultEv(), &err);
     if (!img.isNull()) {
         return img;
     }

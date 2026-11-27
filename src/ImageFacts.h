@@ -12,6 +12,8 @@ struct ImageFacts
 {
     QSize pixelSize;    // 无效尺寸 = 未知大小
     QDate shotDate;     // 无效日期 = 无拍摄日期
+    QString bitDepthLabel; // 非空：真实位深/通道类型文案（如 `32-bit float (RGBE)`）
+    bool isFloat = false;   // 浮点通道（HDR/EXR）；整型图为 false
 
     bool hasSize() const { return pixelSize.width() > 0 && pixelSize.height() > 0; }
     bool hasDate() const { return shotDate.isValid(); }

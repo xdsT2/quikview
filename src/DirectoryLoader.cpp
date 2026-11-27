@@ -41,7 +41,8 @@ const char *const kCommonExts[] = { "png", "jpg", "jpeg", "jfif", "bmp", "gif",
                                     "webp", "tif", "tiff" };
 const char *const kIconExts[]   = { "ico", "cur", "icns" };
 const char *const kOtherExts[]  = { "tga", "mng", "wbmp",
-                                    "ppm", "pgm", "pbm", "xbm", "xpm", "psd", "svg" };
+                                    "ppm", "pgm", "pbm", "xbm", "xpm", "psd", "svg",
+                                    "hdr", "rgbe", "exr" };
 const char *const kCameraExts[] = { "heic", "heif", "hif", "avif",
                                     "dng", "nef", "cr2", "arw",
                                     "rw2", "orf", "raf", "pef", "raw" };

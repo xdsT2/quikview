@@ -15,6 +15,7 @@
 
 #include "Config.h"
 #include "RawImageLoader.h"
+#include "HdrImageLoader.h" // HDR(Radiance)/EXR 平面打开：解码线程内完成曝光→映射→sRGB 8bit
 #include "ArchiveStore.h"   // 压缩包内条目：从内存流解码，不落盘（派单 2026-11-18）
 
 namespace {
@@ -57,11 +58,13 @@ LoadErrorCategory classifyByMagic(const QString &path)
     const bool psd = head.startsWith("8BPS");
     const bool dds = head.startsWith("DDS ");
     const bool exr = head.startsWith("v/1\x01");
+    // Radiance HDR 头部：#?RADIANCE 或 #?RGBE 起始
+    const bool hdr = head.startsWith("#?RADIANCE") || head.startsWith("#?RGBE");
     const bool tgaBySuffix = (suffix == QLatin1String("tga"));   // TGA 无固定魔数，按扩展名兜底
     const bool svg = head.contains("<svg") || head.contains("<?xml");
 
     const bool known = png || jpg || gif || bmp || webp || tiff || heif || jxl
-                       || jxlBox || qoi || ico || psd || dds || exr || tgaBySuffix
+                       || jxlBox || qoi || ico || psd || dds || exr || hdr || tgaBySuffix
                        || svg;
     return known ? LoadErrorCategory::Corrupt : LoadErrorCategory::Unsupported;
 }
@@ -344,6 +347,11 @@ void ImageCache::startDragDecode()
             // 拖动跟手预览：按视口盒缩到不大于目标（矢量只缩不放）
             QString ignored;
             img = SvgLoader::render(path, size, false, &ignored);
+        } else if (HdrImageLoader::isHdrOrExrPath(path)) {
+            QString ignored;
+            LoadErrorCategory ignoredCat = LoadErrorCategory::None;
+            img = HdrImageLoader::load(path, size, HdrImageLoader::defaultEv(),
+                                        &ignored, &ignoredCat);
         } else {
             QImageReader reader(path);
             reader.setAutoTransform(true);
@@ -489,6 +497,20 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
             const QImage img = SvgLoader::render(path, previewSize, true, &svgErr, &svgCat);
             QMetaObject::invokeMethod(this, [this, path, img, svgErr, svgCat, generation]() {
                 finishFullDecode(path, img, generation, svgErr, svgCat);
+            }, Qt::QueuedConnection);
+            return;
+        }
+        // HDR(Radiance RGBE) / EXR：新 loader 在解码线程内完成「流式逐行解码 →
+        // 盒式降采样 → 曝光 ×2^EV → Reinhard → sRGB 编码」，输出已是 sRGB 8bit；
+        // 类别由 loader 层定性（损坏 / 不支持 / I/O），UI 只按类别取文案。
+        if (HdrImageLoader::isHdrOrExrPath(path)) {
+            QString hdrErr;
+            LoadErrorCategory hdrCat = LoadErrorCategory::None;
+            const QImage img = HdrImageLoader::load(path, QSize(),
+                                                    HdrImageLoader::defaultEv(),
+                                                    &hdrErr, &hdrCat);
+            QMetaObject::invokeMethod(this, [this, path, img, hdrErr, hdrCat, generation]() {
+                finishFullDecode(path, img, generation, hdrErr, hdrCat);
             }, Qt::QueuedConnection);
             return;
         }
@@ -716,6 +738,13 @@ void ImageCache::requestThumbnail(const QString &path, const QSize &size)
             // 比「先渲原尺寸再缩」既快又不糊）
             QString ignored;
             return SvgLoader::render(path, size, false, &ignored);
+        }
+        if (HdrImageLoader::isHdrOrExrPath(path)) {
+            // 缩略图通道：低成本降到请求盒以内（loader 内部按盒收缩），失败回空图。
+            QString ignored;
+            LoadErrorCategory ignoredCat = LoadErrorCategory::None;
+            return HdrImageLoader::load(path, size, HdrImageLoader::defaultEv(),
+                                        &ignored, &ignoredCat);
         }
         QImageReader reader(path);
         reader.setAutoTransform(true);
