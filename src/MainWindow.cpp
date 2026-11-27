@@ -61,6 +61,7 @@
 #include <QStackedWidget>
 #include <QSet>
 #include <QScreen>
+#include <QScopedValueRollback>
 #include <QWindow>
 #include <QStyleHints>
 #include <cmath>
@@ -501,6 +502,13 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_control, &Chrome::ControlBar::next10Clicked, this, &MainWindow::onNext10);
     connect(m_control, &Chrome::ControlBar::prevFolderClicked, this, &MainWindow::onPrevFolder);
     connect(m_control, &Chrome::ControlBar::nextFolderClicked, this, &MainWindow::onNextFolder);
+    // 底栏「更多」：被当前档位收起的命令统一从这里进菜单，与岛上按钮同一批动作。
+    connect(m_control, &Chrome::ControlBar::moreClicked, this, &MainWindow::showDockMoreMenu);
+    // 换档时动图播放栏要让位给「更多」（窄档播放/暂停与逐帧在菜单里）。
+    connect(m_control, &Chrome::ControlBar::tierChanged, this, [this](int) {
+        layoutPlayBar();
+        applyChromeLayout();
+    });
     // 翻页滑杆：拖动中不发信号，松手才跳一次图（1-based）
     connect(m_control, &Chrome::ControlBar::pageRequested, this, [this](int index) {
         if (!m_dir || !m_dir->isValid() || index < 1 || index > m_dir->count()) {
@@ -603,7 +611,8 @@ MainWindow::MainWindow(QWidget *parent)
         // 保存缩放状态（键 "config/view/save_zoom_state"）：把当前缩放按路径记下来，
         // 下次打开同一张图时恢复。装图/适配/拖动预览期间的 zoomChanged 是「程序自己
         // 算出来的」，必须屏蔽，否则一打开就把用户上次的 300% 覆盖成 fit。
-        if (!m_zoomSaveGuard && Config::instance().saveZoomState() && !m_currentPath.isEmpty()) {
+        if (!m_zoomSaveGuard && !m_pictureBorderless && Config::instance().saveZoomState()
+            && !m_currentPath.isEmpty()) {
             const QString st = m_canvas->isFitToWindow()  ? QStringLiteral("fit")
                              : m_canvas->isFitToWidth()   ? QStringLiteral("width")
                                                          : QString::number(z, 'f', 4);
@@ -756,7 +765,7 @@ void MainWindow::applyChromeLayout()
         return;
     }
     const bool full = isFullScreen();
-    const int fw = full ? 0 : 1;
+    const int fw = full || m_pictureBorderless ? 0 : 1;
     const int x = fw;
     const int y = fw;
     const int w = width() - 2 * fw;
@@ -917,7 +926,7 @@ void MainWindow::startPanelPosAnim(QPropertyAnimation *&anim, QWidget *w,
 void MainWindow::relocateTopPanels(bool shown, bool animate)
 {
     const bool full = isFullScreen();
-    const int fw = full ? 0 : 1;
+    const int fw = full || m_pictureBorderless ? 0 : 1;
     const int x = fw;
     const int y = fw;
     const int w = width() - 2 * fw;
@@ -1031,6 +1040,7 @@ void MainWindow::toggleOverview()
         closeOverview();
         return;
     }
+    leavePictureBorderless();
     const bool hasDir = m_dir && m_dir->isValid();
     const QStringList files = hasDir ? m_dir->files() : QStringList();
     if (files.isEmpty()) {
@@ -1322,6 +1332,182 @@ void MainWindow::toggleDockLock()
     }
 }
 
+void MainWindow::showDockMoreMenu(const QPoint &globalPos)
+{
+    if (!m_control) {
+        return;
+    }
+    if (m_dockMoreMenu) {
+        m_dockMoreMenu->close();
+        m_dockMoreMenu->deleteLater();
+        m_dockMoreMenu = nullptr;
+    }
+    const QVector<int> hidden = m_control->hiddenActionIds();
+    auto *menu = makeHamburgerMenu(this, 248);
+    // 底岛自己的弹层：keepVisible 只认这个标记，不被画布右键/设置页下拉误唤醒。
+    menu->setProperty("dockOwnedPopup", true);
+    m_dockMoreMenu = menu;
+
+    // 命令动作一律取命令注册表里的同一份 QAction：快捷键列、勾选态、禁用态
+    // 与快捷键/菜单/右键完全同源，不复制行为实现。
+    auto addCmd = [&](const char *id, const char *icon) -> QAction * {
+        QAction *a = m_cmdActions.value(QString::fromLatin1(id));
+        if (!a) {
+            return nullptr;
+        }
+        menu->addAction(a);
+        menu->setActionIcon(a, icon);
+        return a;
+    };
+    auto addLocal = [&](const QString &label, const char *icon,
+                        const std::function<void()> &fn, bool checkable = false,
+                        bool checked = false, const QString &shortcutText = QString())
+        -> QAction * {
+        QAction *a = menu->addAction(label);
+        menu->setActionIcon(a, icon);
+        a->setCheckable(checkable);
+        a->setChecked(checked);
+        // 只写显示列，不挂全局键位：这些动作的真实快捷键由命令注册表持有。
+        if (!shortcutText.isEmpty()) {
+            a->setProperty(CtxMenu::kShortcutProp, shortcutText);
+        }
+        connect(a, &QAction::triggered, this, [fn]() {
+            if (fn) {
+                fn();
+            }
+        });
+        return a;
+    };
+
+    bool anyBlock = false;
+    auto beginBlock = [&]() {
+        if (anyBlock) {
+            menu->addSeparator();
+        }
+        anyBlock = true;
+    };
+
+    // —— 打开 / 总览 / 缩略图栏（中、窄档收起）——
+    if (hidden.contains(0)) {
+        beginBlock();
+        addCmd(Cmd::FileOpen, "folder-open");
+        addLocal(tr("图片总览"), "apps", [this]() { toggleOverview(); }, true,
+                 m_overview && m_overview->isVisible());
+        const bool overviewOpen = m_overview && m_overview->isVisible();
+        if (overviewOpen) {
+            addLocal(tr("分组方式…"), "sort", [this]() { showOverviewGroupMenu(); });
+        } else {
+            addLocal(tr("缩略图栏"), "list", [this]() { toggleBrowserPanel(); }, true,
+                     m_browser && m_browser->isExpanded());
+        }
+    }
+
+    // —— 缩放（窄档连加减与倍率一起收起；中档只收加减）——
+    if (hidden.contains(3) || hidden.contains(5)) {
+        beginBlock();
+        if (hidden.contains(4)) {
+            QAction *info = menu->addAction(tr("当前倍率 %1").arg(m_control->zoomText()));
+            info->setEnabled(false);
+            menu->setActionIcon(info, "zoom");
+        }
+        addCmd(Cmd::ZoomOut, "subtract");
+        addCmd(Cmd::ZoomFit, "fit-window");
+        addCmd(Cmd::ZoomActual, "frame");
+        addCmd(Cmd::ZoomIn, "add");
+    }
+
+    // —— 旋转 / 全屏 / 无边框（中、窄档收起）——
+    if (hidden.contains(6)) {
+        beginBlock();
+        addCmd(Cmd::RotateLeft, "rotate");
+        addCmd(Cmd::RotateRight, "rotate-cw");
+        // 全屏不在命令注册表（走 triggerCommand 直槽），这里用本菜单自己的动作，
+        // 键位列按 F11 显示，真实快捷键仍由窗口的 F11 处理持有。
+        addLocal(tr("全屏 / 还原"), "full-screen-maximize",
+                 [this]() { toggleFullscreen(); }, false, false, QStringLiteral("F11"));
+        addLocal(m_pictureBorderless ? tr("退出无边框查看") : tr("无边框查看"),
+                 "view", [this]() { togglePictureBorderless(); }, true,
+                 m_pictureBorderless.has_value());
+    }
+
+    // —— 翻页与跳转（10 张跳跃/文件夹跳跃/首末原本就不在岛上，菜单始终提供）——
+    beginBlock();
+    if (hidden.contains(10)) {
+        const int total = (m_dir && m_dir->isValid()) ? m_dir->count() : 0;
+        QAction *info = menu->addAction(total > 0
+                                            ? tr("第 %1 / %2 张").arg(m_control->page()).arg(total)
+                                            : tr("当前未打开图片"));
+        info->setEnabled(false);
+        menu->setActionIcon(info, "images");
+    }
+    addCmd(Cmd::PagePrev, "chevron-left");
+    addCmd(Cmd::PageNext, "chevron-right");
+    CtxMenu *jump = addHamburgerSubmenu(menu, tr("跳转…"), "shuffle");
+    if (QAction *a = m_cmdActions.value(QString::fromLatin1(Cmd::PagePrev10))) {
+        addHamburgerAction(jump, a, "chevron-left");
+    }
+    if (QAction *a = m_cmdActions.value(QString::fromLatin1(Cmd::PageNext10))) {
+        addHamburgerAction(jump, a, "chevron-right");
+    }
+    if (QAction *a = m_cmdActions.value(QString::fromLatin1(Cmd::PageFirst))) {
+        addHamburgerAction(jump, a, "first");
+    }
+    if (QAction *a = m_cmdActions.value(QString::fromLatin1(Cmd::PageLast))) {
+        addHamburgerAction(jump, a, "last");
+    }
+    if (QAction *a = m_cmdActions.value(QString::fromLatin1(Cmd::FolderPrev))) {
+        addHamburgerAction(jump, a, "folder-prev");
+    }
+    if (QAction *a = m_cmdActions.value(QString::fromLatin1(Cmd::FolderNext))) {
+        addHamburgerAction(jump, a, "folder-next");
+    }
+
+    // —— 动图（窄档播放栏让位，播放/暂停与逐帧进菜单）——
+    if (m_playBar && playBarEligible() && !m_playBar->isVisible()) {
+        beginBlock();
+        addLocal(m_animPlaying ? tr("暂停") : tr("播放"), m_animPlaying ? "stop" : "play",
+                 [this]() { onPlayPause(); });
+        addCmd(Cmd::FramePrev, "chevron-left");
+        addCmd(Cmd::FrameNext, "chevron-right");
+    }
+
+    // —— 底栏锁定（窄档收起）——
+    if (hidden.contains(12)) {
+        beginBlock();
+        addLocal(tr("保持底部控制栏显示"), m_dockLocked ? "lock" : "lock-open",
+                 [this]() { toggleDockLock(); }, true, m_dockLocked);
+    }
+
+    // 关闭后把键盘焦点交回「更多」：Esc 与点击外部同一条路径。
+    connect(menu, &QMenu::aboutToHide, this, [this, menu]() {
+        menu->deleteLater();
+        if (m_dockMoreMenu == menu) {
+            m_dockMoreMenu = nullptr;
+        }
+        // QMenu 隐藏后会把焦点还给弹前的控件；延到下一轮事件循环再接管，
+        // 否则 Esc 关菜单时「更多」的焦点会被画布抢回去。
+        QTimer::singleShot(0, this, [this]() {
+            if (m_control) {
+                m_control->focusMore();
+            }
+        });
+    });
+
+    // 菜单完整落在屏幕可用区域内：优先贴在「更多」按钮上缘，上方放不下就翻到下方。
+    QSize hint = menu->sizeHint();
+    QRect avail = (screen() ? screen()->availableGeometry() : QRect(0, 0, 1920, 1080));
+    int x = globalPos.x() - hint.width() / 2;
+    x = qBound(avail.left() + 8,
+               x,
+               qMax(avail.left() + 8, avail.right() - hint.width() - 8));
+    int y = globalPos.y() - hint.height() - 12;
+    if (y < avail.top() + 8) {
+        y = qMin(avail.bottom() - hint.height() - 8, globalPos.y() + 16);
+    }
+    y = qMax(avail.top() + 8, y);
+    menu->popup(QPoint(x, y));
+}
+
 // 热区判定统一从这里取「鼠标在窗口内的位置」。默认就是真实光标；
 // --smoke hover:x:y 会灌入一个合成坐标，让滞回/防闪烁能被复现地验证
 // （外部挪鼠标的时序跟窗口位置都不稳，测出来不可信）。
@@ -1364,7 +1550,8 @@ void MainWindow::updateTopProximity()
     // 键盘焦点在顶栏时同理：方向键导航期间不能淡出。
     const bool want = isTopBarPopup(QApplication::activePopupWidget())
                       || m_topBar->hasFocus()
-                      || (inside && local.y() <= (shown ? 96 : 76));
+                      || (inside && local.y() <= (m_pictureBorderless
+                              ? qMin(height() / 3, shown ? 56 : 32) : (shown ? 96 : 76)));
 
     if (want) {
         m_topHideTimer->stop();
@@ -1424,7 +1611,9 @@ void MainWindow::updateDockProximity()
     } else if (!inside || overFilmstrip) {
         want = false;
     } else {
-        want = shown ? (local.y() >= height() - 140) : (local.y() >= height() - 124);
+        const int edge = m_pictureBorderless ? qMin(height() / 3, shown ? 80 : 48)
+                                             : (shown ? 140 : 124);
+        want = local.y() >= height() - edge;
     }
 
     if (want) {
@@ -1451,7 +1640,7 @@ void MainWindow::paintEvent(QPaintEvent *event)
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.fillRect(rect(), UiStyle::chromeBg());
-    if (!isFullScreen()) {
+    if (!isFullScreen() && !m_pictureBorderless) {
         p.setPen(QPen(UiStyle::color(UiStyle::ChromeBorder), 1));
         p.setBrush(Qt::NoBrush);
         p.drawRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5));
@@ -1521,6 +1710,17 @@ void MainWindow::applyNativeFrameStyles()
     if (isFullScreen())
         return;
     HWND hwnd = reinterpret_cast<HWND>(winId());
+    if (const HMODULE dwm = GetModuleHandleW(L"dwmapi.dll")) {
+        using SetAttribute = HRESULT(WINAPI *)(HWND, DWORD, LPCVOID, DWORD);
+        const auto setAttribute = reinterpret_cast<SetAttribute>(
+            GetProcAddress(dwm, "DwmSetWindowAttribute"));
+        if (setAttribute) {
+            // Windows 11：关闭系统边框颜色；继续保留原生拖边和阴影。
+            constexpr DWORD borderColorAttribute = 34;
+            const DWORD color = m_pictureBorderless ? 0xfffffffe : 0xffffffff;
+            setAttribute(hwnd, borderColorAttribute, &color, sizeof(color));
+        }
+    }
     const LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
     const LONG_PTR want = WS_THICKFRAME | WS_CAPTION | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
     if ((style & want) == want)
@@ -1570,6 +1770,7 @@ void MainWindow::applyTopmost(bool top)
 // 退出时要靠 changeEvent 再把 DWM 帧补回来（见 applyNativeFrameStyles）。
 void MainWindow::toggleFullscreen()
 {
+    leavePictureBorderless();
     if (isFullScreen()) {
         showNormal();
         // 退出全屏：按 m_lockSizeHint 把锁定约束补回来（changeEvent 里同一条，幂等）
@@ -1621,6 +1822,120 @@ void MainWindow::changeEvent(QEvent *event)
 // ---------------------------------------------------------------------------
 // 动作系统
 // ---------------------------------------------------------------------------
+
+bool MainWindow::canEnterPictureBorderless() const
+{
+    return !m_currentImage.isNull() && !m_cropMode && !Config::instance().lockWindowSize()
+        && (!m_overview || !m_overview->isVisible());
+}
+
+void MainWindow::fitPictureBorderless(const QRect &target, const QPointF &imageCenter)
+{
+    if (target.isEmpty())
+        return;
+
+    QRect next = target;
+    QScreen *host = QGuiApplication::screenAt(target.center());
+    if (!host)
+        host = screen();
+    if (host) {
+        const QRect available = host->availableGeometry();
+        next.setSize(target.size().boundedTo(available.size()).expandedTo(minimumSize()));
+        next.moveCenter(target.center());
+        next.moveLeft(qBound(available.left(), next.left(),
+                             available.left() + qMax(0, available.width() - next.width())));
+        next.moveTop(qBound(available.top(), next.top(),
+                            available.top() + qMax(0, available.height() - next.height())));
+    }
+    setGeometry(next);
+    applyChromeLayout();
+    m_canvas->centerImageAt(imageCenter);
+}
+
+void MainWindow::togglePictureBorderless()
+{
+    if (m_pictureBorderless) {
+        leavePictureBorderless();
+        return;
+    }
+    if (!canEnterPictureBorderless())
+        return;
+
+    const QScopedValueRollback<bool> zoomGuard(m_zoomSaveGuard, true);
+    if (isFullScreen())
+        showNormal();
+
+    const QRect image = m_canvas->imageViewportRect();
+    const QRect visible = image.intersected(m_canvas->viewport()->rect());
+    if (visible.isEmpty())
+        return;
+
+    const QPointF center = QRectF(visible).center() - QPointF(image.topLeft());
+    const QPointF imageCenter(center.x() / image.width(), center.y() / image.height());
+    const QRect target(m_canvas->viewport()->mapToGlobal(visible.topLeft()), visible.size());
+    PictureBorderlessState previous{geometry(), m_canvas->viewCenterNormalized(),
+        m_canvas->zoom(), m_zoomMode, m_canvas->isFitToWindow(), m_canvas->isFitToWidth(),
+        isMaximized(), m_browser->isExpanded()};
+    if (previous.maximized) {
+        showNormal();
+        previous.normalGeometry = geometry();
+    }
+    m_pictureBorderless = previous;
+    setMinimumSize(240, 160);
+    if (m_browser->isExpanded())
+        m_browser->setExpanded(false);
+    m_canvas->setFocus(Qt::OtherFocusReason);
+    m_canvas->setZoom(previous.zoom);
+    m_topBar->setOverlayBackground(true);
+    m_panoChip->setActive(false);
+#ifdef Q_OS_WIN
+    applyNativeFrameStyles();
+#endif
+    m_topHideTimer->stop();
+    m_dockHideTimer->stop();
+    setTopChromeVisible(m_topLocked, false);
+    m_topPhase = m_topLocked ? ChromePhase::Visible : ChromePhase::Hidden;
+    setDockVisible(m_dockLocked, false);
+    m_dockPhase = m_dockLocked ? ChromePhase::Visible : ChromePhase::Hidden;
+    fitPictureBorderless(target, imageCenter);
+    updateCanvasLogo();
+    update();
+}
+
+void MainWindow::leavePictureBorderless()
+{
+    if (!m_pictureBorderless)
+        return;
+
+    const QScopedValueRollback<bool> zoomGuard(m_zoomSaveGuard, true);
+    const PictureBorderlessState previous = *m_pictureBorderless;
+    m_pictureBorderless.reset();
+    setMinimumSize(360, 260);
+    setGeometry(previous.normalGeometry);
+    if (previous.maximized)
+        showMaximized();
+    m_topBar->setOverlayBackground(false);
+    m_panoChip->setActive(m_pano.autoEntry && m_panoPath == m_currentPath);
+#ifdef Q_OS_WIN
+    applyNativeFrameStyles();
+#endif
+    applyChromeLayout();
+    m_zoomMode = previous.zoomMode;
+    if (previous.fitWindow)
+        m_canvas->fitToWindow();
+    else if (previous.fitWidth)
+        m_canvas->fitToWidth();
+    else
+        m_canvas->setZoom(previous.zoom);
+    m_canvas->centerImageAt(previous.imageCenter);
+    m_browser->setExpanded(previous.filmstripExpanded);
+    syncViewModeActions();
+    updateShowModeIcon();
+    syncPlayBarState();
+    applyChromeLayout();
+    updateCanvasLogo();
+    update();
+}
 
 void MainWindow::createActions()
 {
@@ -2795,6 +3110,10 @@ QMenu *MainWindow::buildHamburgerMenu()
     layers->setEnabled(m_psdDoc.valid());
     view->setActionIcon(layers, "layers");
     addMenuItem(view, tr("全屏"), QStringLiteral("F11"), [this]() { toggleFullscreen(); });
+    if (m_pictureBorderless || canEnterPictureBorderless()) {
+        addMenuItem(view, m_pictureBorderless ? tr("退出无边框") : tr("无边框模式"),
+                    QString(), [this]() { togglePictureBorderless(); });
+    }
     // 锁定窗口大小：勾选态现读配置。开启后窗口拖边/最大化不再改尺寸，
     // 画布缩放与平移不受影响；与「按图调窗」互斥、全屏优先（见 applyWindowSizeLock）。
     view->setActionIcon(addCheckableItem(view, tr("锁定窗口大小"), QString(),
@@ -3045,6 +3364,11 @@ QMenu *MainWindow::buildContextMenu()
         QAction *a = cmdId(menu, "copy_file", QStringLiteral("Alt+C"),
                            [this]() { onCopyImageFile(); });
         a->setEnabled(hasImage);
+    }
+    if (m_pictureBorderless || canEnterPictureBorderless()) {
+        beforeItem();
+        cmd(menu, "view", m_pictureBorderless ? tr("退出无边框") : tr("无边框模式"),
+            QString(), [this]() { togglePictureBorderless(); }, false);
     }
     if (vis("always_on_top")) {
         beforeItem();
@@ -4648,7 +4972,12 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     if (Config::instance().saveZoomState() && !m_zoomLocked) {
         savedState = Config::instance().savedViewState(path);
     }
-    if (m_zoomLocked && !m_firstImage && prevZoom > 0.0) {
+    if (m_pictureBorderless) {
+        m_canvas->setZoom(prevZoom);
+        QRect target(QPoint(), m_canvas->imageViewportRect().size());
+        target.moveCenter(geometry().center());
+        fitPictureBorderless(target, QPointF(0.5, 0.5));
+    } else if (m_zoomLocked && !m_firstImage && prevZoom > 0.0) {
         m_canvas->setPixmapPreservingView(QPixmap::fromImage(display), QPointF(0.5, 0.5),
                                           prevZoom, false, false);
         // 这里不能写 m_zoomMode：锁定只是「沿用比例」，不是把浏览方式改成原始尺寸。
@@ -4735,8 +5064,8 @@ void MainWindow::updatePanoProbe(const QString &path)
         }
         m_pano = info;
         if (m_panoChip) {
-            m_panoChip->setActive(info.autoEntry);
-            if (info.autoEntry) {
+            m_panoChip->setActive(info.autoEntry && !m_pictureBorderless);
+            if (m_panoChip->isVisible()) {
                 applyChromeLayout();
             }
         }
@@ -4786,7 +5115,7 @@ void MainWindow::fitWindowToImage()
         return;
     }
     m_fitWindowPending = false;
-    if (!Config::instance().fitWindowToImage()) {
+    if (m_pictureBorderless || !Config::instance().fitWindowToImage()) {
         return;
     }
     // 互斥兜底：锁定窗口大小时不做按图调窗（开锁时已把该设置落盘为关，
@@ -4819,6 +5148,7 @@ void MainWindow::fitWindowToImage()
 // 都会 resize，与「尺寸钉死」直接冲突；规则是锁定优先，关锁不解锁被取消的项。
 void MainWindow::onToggleWindowSizeLock(bool on)
 {
+    leavePictureBorderless();
     Config::instance().settings().setValue(QStringLiteral("config/lock_window_size"), on);
     const bool fitTurnedOff = on && Config::instance().fitWindowToImage();
     if (fitTurnedOff) {
@@ -4839,6 +5169,10 @@ void MainWindow::onToggleWindowSizeLock(bool on)
 // 并 toast 说明「先解锁」。
 void MainWindow::onToggleMaximize()
 {
+    if (m_pictureBorderless) {
+        leavePictureBorderless();
+        return;
+    }
     if (Config::instance().lockWindowSize() && !isMaximized()) {
         if (m_toast) {
             m_toast->showMessage(tr("窗口大小已锁定，先解锁才能最大化"));
@@ -4854,6 +5188,8 @@ void MainWindow::onToggleMaximize()
 // 锁定尺寸），但 m_lockSizeHint 保留，退出全屏按它锁回。
 void MainWindow::applyWindowSizeLock()
 {
+    if (m_pictureBorderless)
+        return;
     const bool wantLock = Config::instance().lockWindowSize();
     if (!wantLock) {
         m_lockSizeHint = QSize();
@@ -4886,6 +5222,10 @@ void MainWindow::applyWindowSizeLock()
 void MainWindow::updateCanvasLogo()
 {
     const bool empty = m_currentImage.isNull();
+    if (empty && m_pictureBorderless) {
+        leavePictureBorderless();
+        return;
+    }
     m_canvas->setLogoVisible(false);
     if (m_emptyState) {
         m_emptyState->setVisible(empty);
@@ -4894,7 +5234,7 @@ void MainWindow::updateCanvasLogo()
         }
     }
     if (m_statusOverlay) {
-        m_statusOverlay->setVisible(!empty);
+        m_statusOverlay->setVisible(!empty && !m_pictureBorderless);
     }
     if (empty) {
         if (m_statusOverlay) {
@@ -5160,6 +5500,106 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     else if (c == QLatin1String("last"))       onLast();
     else if (c == QLatin1String("nextfolder")) onNextFolder();
     else if (c == QLatin1String("prevfolder")) onPrevFolder();
+    // dockpos[:out] —— 报「更多」按钮的全局中心与 DPR，桌面点击取证用。
+    else if (c.startsWith(QLatin1String("dockpos"))) {
+        const QString prefix = QStringLiteral("dockpos:");
+        const QString out = c.startsWith(prefix) ? c.mid(prefix.size()).trimmed()
+                                                 : QStringLiteral("Temp/dock-pos.txt");
+        QFile f(out);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            const QRect r = m_control ? m_control->moreButtonRect() : QRect();
+            const QPoint g = (m_control && !r.isNull())
+                                 ? m_control->mapToGlobal(r.center()) : QPoint(-1, -1);
+            QTextStream ts(&f);
+            ts << "win=" << frameGeometry().x() << "," << frameGeometry().y() << ","
+               << width() << "x" << height()
+               << " moreGlobal=" << g.x() << "," << g.y()
+               << " dpr=" << devicePixelRatioF()
+               << " screen=" << QGuiApplication::primaryScreen()->geometry().width() << "x"
+               << QGuiApplication::primaryScreen()->geometry().height() << "\n";
+        }
+    }
+    // qactivate —— 把窗口提到前台（焦点/Esc 回收只有活动窗口才成立）。
+    else if (c == QLatin1String("qactivate")) {
+        raise();
+        activateWindow();
+    }
+    // winsize:WxH —— 底栏收纳验收：改窗口客户区尺寸，触发真实 resizeEvent 重排。
+    else if (c.startsWith(QLatin1String("winsize:"))) {
+        const QStringList a = c.mid(8).split(QLatin1Char('x'));
+        if (a.size() == 2 && a.at(0).toInt() > 0 && a.at(1).toInt() > 0) {
+            resize(a.at(0).toInt(), a.at(1).toInt());
+            applyChromeLayout();
+        }
+    }
+    // dockdump[:out] —— 档位/可用宽/实际宽/隐藏动作/更多按钮/播放栏一次落盘（追加行）。
+    else if (c.startsWith(QLatin1String("dockdump"))) {
+        const QString out = c.startsWith(QLatin1String("dockdump:"))
+                                ? c.mid(9).trimmed() : QStringLiteral("Temp/dock-tiers.txt");
+        QFile f(out);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << "label=" << qEnvironmentVariable("QUIKVIEW_PROBE_LABEL")
+               << " win=" << width() << "x" << height()
+               << " borderless=" << (m_pictureBorderless.has_value() ? 1 : 0)
+               << " " << (m_control ? m_control->layoutDump() : QStringLiteral("control=0"))
+               << " playbar=" << (m_playBar && m_playBar->isVisible() ? 1 : 0)
+               << " moremenu=" << (m_dockMoreMenu && m_dockMoreMenu->isVisible() ? 1 : 0)
+               << "\n";
+        }
+    }
+    // dockmore —— 从「更多」按钮真实弹菜单（菜单可达性与截图取证）。
+    else if (c == QLatin1String("dockmore")) {
+        const QRect r = m_control ? m_control->moreButtonRect() : QRect();
+        if (m_control && !r.isNull()) {
+            showDockMoreMenu(m_control->mapToGlobal(r.center()));
+        }
+    }
+    // dockenter —— 在「更多」上按回车，验证键盘入口能重新弹出菜单。
+    else if (c == QLatin1String("dockenter")) {
+        if (m_control) {
+            QKeyEvent down(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+            QApplication::sendEvent(m_control, &down);
+            QKeyEvent up(QEvent::KeyRelease, Qt::Key_Return, Qt::NoModifier);
+            QApplication::sendEvent(m_control, &up);
+        }
+    }
+    // dockmoreesc —— 弹菜单后 80ms 对活动弹层发 Esc，随后由 dockfocus 取证焦点回收。
+    else if (c == QLatin1String("dockmoreesc")) {
+        const QRect r = m_control ? m_control->moreButtonRect() : QRect();
+        if (m_control && !r.isNull()) {
+            showDockMoreMenu(m_control->mapToGlobal(r.center()));
+            QTimer::singleShot(80, this, []() {
+                if (QWidget *popup = QApplication::activePopupWidget()) {
+                    QKeyEvent ev(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+                    QApplication::sendEvent(popup, &ev);
+                }
+            });
+        }
+    }
+    // dockfocus[:out] —— 键盘焦点是否回到「更多」（Esc 关菜单后的唯一正确落点）。
+    else if (c.startsWith(QLatin1String("dockfocus"))) {
+        const bool direct = c.startsWith(QLatin1String("dockfocusnow"));
+        if (direct && m_control) {
+            m_control->focusMore();
+        }
+        const QString prefix = direct ? QStringLiteral("dockfocusnow:")
+                                      : QStringLiteral("dockfocus:");
+        const QString out = c.startsWith(prefix) ? c.mid(prefix.size()).trimmed()
+                                                 : QStringLiteral("Temp/dock-focus.txt");
+        QFile f(out.isEmpty() ? QStringLiteral("Temp/dock-focus.txt") : out);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << "moreFocus=" << (m_control && m_control->moreFocusHeld() ? 1 : 0)
+               << " direct=" << (direct ? 1 : 0)
+               << " menuOpen=" << (m_dockMoreMenu && m_dockMoreMenu->isVisible() ? 1 : 0)
+               << " tier=" << (m_control ? m_control->tierLevel() : -1)
+               << " fw=" << (window()->focusWidget()
+                                    ? window()->focusWidget()->metaObject()->className()
+                                    : "none")
+               << " " << (m_control ? m_control->layoutDump() : QString()) << "\n";
+        }
+    }
     // burst:<next|prev>:<次数>:<间隔ms> —— 进程内快速连发，模拟按住方向键翻页。
     // 用冒号分隔：--smoke 本身用逗号拆命令，逗号会把一条 burst 拆成多条。
     // 走真实 onNext/onPrev 路径（含 loadAsync 的 input 打点），不绕过任何调度逻辑；
@@ -6028,6 +6468,7 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     }
     else if (c == QLatin1String("fullscreen")) toggleFullscreen();
     else if (c == QLatin1String("maximize")) { onToggleMaximize(); }
+    else if (c == QLatin1String("pictureborderless")) { togglePictureBorderless(); }
     // wheel:slider|bar:up|down[:ctrl] —— 合成一次滚轮事件，验证「滑杆上滚翻页 / 其余位置缩放 / Ctrl 保留缩放」。
     // 外部注入滚轮要过 DPI 与消息循环，结果不可复现；这里直接把事件送到胶囊，判定只依赖胶囊自身逻辑。
     else if (c.startsWith(QLatin1String("wheel:"))) {
@@ -7878,6 +8319,11 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << " dockfocus=" << (m_control && m_control->hasFocus() ? 1 : 0)
                << " tophidden=" << (m_topBar ? m_topBar->hiddenActionIds().size() : -1)
                << " toplock=" << (m_topLocked ? 1 : 0)
+               << " borderless=" << (m_pictureBorderless ? 1 : 0)
+               << " fullscreen=" << (isFullScreen() ? 1 : 0)
+               << " shownTop=" << (m_topBar->isVisible() ? 1 : 0)
+               << " shownDock=" << (m_control->isVisible() ? 1 : 0)
+               << " geometry=" << x() << ',' << y() << ',' << width() << ',' << height()
                << " docklock=" << (m_dockLocked ? 1 : 0)
                << " pinned=" << (m_topBar && m_topBar->isPinned() ? 1 : 0)
                << " topmost=" << (actualTopmost() ? 1 : 0)
@@ -8766,7 +9212,9 @@ void MainWindow::syncPlayBarState()
         return;
     }
     m_playBar->setState(m_frames->frameIndex(), m_frames->frameCount(), m_animPlaying);
-    m_playBar->setVisible(true);
+    // 窄档由「更多」菜单接管播放/暂停与逐帧，播放栏不得被状态同步重新唤出。
+    const bool narrowDock = m_control && m_control->tierLevel() == 2;
+    m_playBar->setVisible(!narrowDock && (!m_pictureBorderless || m_dockVisible));
 }
 
 // 播放栏几何：底栏展开时贴其上方 8px；收起时与浏览器同为 16px 底边距。
@@ -8780,6 +9228,13 @@ void MainWindow::layoutPlayBar()
         m_playBar->hide();
         return;
     }
+    // 窄档：底岛只剩上一张/下一张/更多，播放栏整体让位——播放、暂停与逐帧
+    // 走「更多」菜单，避免两条浮动控件在 240px 级窗口里互相压住。
+    if (m_control && m_control->tierLevel() == 2) {
+        m_playBar->hide();
+        return;
+    }
+    m_playBar->setVisible(!m_pictureBorderless || m_dockVisible);
     const int pw = m_playBar->preferredWidth();
     const int ph = m_playBar->height();
     // 用目标态 m_dockVisible 判定：setDockVisible 内先排播放栏、相位随后才置位，
@@ -8787,7 +9242,7 @@ void MainWindow::layoutPlayBar()
     const int py = (m_control && m_dockVisible)
                        ? m_control->y() - 8 - ph
                        : height() - 16 - ph;
-    const int px = qBound(8, (width() - pw) / 2, width() - pw - 8);
+    const int px = qMax(0, (width() - pw) / 2);
     m_playBar->setGeometry(px, py, pw, ph);
     m_playBar->raise();
 }
@@ -9651,6 +10106,7 @@ void MainWindow::setSpreadMode(int mode)
 // 模式切换/取消的内部实现，当前没有可达入口。
 void MainWindow::onCrop()
 {
+    leavePictureBorderless();
     m_cropMode = !m_cropMode;
     m_canvas->setCropMode(m_cropMode);
     m_canvas->refreshEdgeHover();   // 裁剪进出：箭头收起/恢复按真实光标重算
@@ -11222,6 +11678,8 @@ void MainWindow::closeEvent(QCloseEvent *event)
     // 设置窗仍可见而本次关闭被作废时上面已 return，不会误记。
     const QRect ng = normalGeometry();
     QRect g = ng.isValid() ? ng : geometry();
+    if (m_pictureBorderless)
+        g = m_pictureBorderless->normalGeometry;
     // Windows 最大化时会给窗口外包一层不可见缩放边框（本机 8px），normalGeometry()
     // 返回的是「缩进后」的还原矩形；直接落盘会让下次「取消最大化」整体右下偏移
     // 并缩水 2×内缩量。这里用「最大化帧矩形 − 所在屏可用区左上」反推内缩量补回，
@@ -11236,7 +11694,8 @@ void MainWindow::closeEvent(QCloseEvent *event)
             }
         }
     }
-    Config::instance().setWindowGeometry(g.x(), g.y(), g.width(), g.height(), isMaximized());
+    Config::instance().setWindowGeometry(g.x(), g.y(), g.width(), g.height(),
+        m_pictureBorderless ? m_pictureBorderless->maximized : isMaximized());
 
     QMainWindow::closeEvent(event);
 }
@@ -11535,6 +11994,11 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
         }
         if (isFullScreen()) {
             showNormal();
+            return;
+        }
+        if (m_pictureBorderless) {
+            leavePictureBorderless();
+            event->accept();
             return;
         }
         if (Config::instance().escExit()) {

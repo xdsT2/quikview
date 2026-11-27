@@ -126,6 +126,7 @@ public:
     // 三个独立状态中的两个：顶部工具栏锁定 / 图片窗口置顶。
     // 底栏锁定由 ControlBar 自己持有，三者互不代管。
     void setTopLocked(bool locked);
+    void setOverlayBackground(bool on);
     bool isTopLocked() const { return m_topLocked; }
     void setPinned(bool pinned);
     bool isPinned() const { return m_pinned; }
@@ -204,6 +205,7 @@ private:
 
     QString m_title;
     bool m_topLocked = false;
+    bool m_overlayBackground = false;
     bool m_pinned = false;
     bool m_showLayers = false;
     bool m_layersAvailable = false;
@@ -256,11 +258,27 @@ public:
     bool isWeakened() const { return m_weakened; }
     // 栏内交互 / 进度拖动 / 键盘焦点期间必须保持可见。
     bool keepVisible() const;
-    // 窗口可用宽度 -> 档位与自身宽度（常规 188 / 窄 119 轨道）。
+    // 窗口可用宽度 -> 档位与自身宽度。阈值按各档「按钮 + 文案 + 留边」的实测
+    // 自然宽度加左右各 24px 呼吸位算，宽档 596 轨道、中档收到页码、窄档只留
+    // 上一张/下一张/更多；跨档带回滞 6px，避免阈值附近来回跳。
     void setAvailableWidth(int width);
     int preferredWidth() const { return m_preferredWidth; }
     int trackWidth() const { return m_trackWidth; }
     QRect sliderRect() const;
+    // 档位真源：0 宽 / 1 中 / 2 窄。冒烟探针与「更多」菜单内容都读它。
+    int tierLevel() const;
+    // 当前档位已收进「更多」的动作 id（0 打开 1 总览 2 缩略图/分组 3 缩小
+    // 4 倍率 5 放大 6 旋转 7 全屏 8 上一张 9 进度滑杆 10 页码 11 下一张
+    // 12 锁定）。宽档返回空。
+    QVector<int> hiddenActionIds() const;
+    // 「更多」按钮局部矩形（宽档没有该按钮，返回空矩形）。
+    QRect moreButtonRect() const;
+    // 菜单关闭后把键盘焦点交回「更多」按钮（Esc 关闭同一条路径）。
+    void focusMore();
+    // 焦点是否停在「更多」上（探针用：验证 Esc 关菜单后焦点回收）。
+    bool moreFocusHeld() const;
+    // 冒烟取证：档位、可用宽、实际宽、轨道宽、隐藏 id、更多按钮矩形一次一行。
+    QString layoutDump() const;
 
     // 冒烟取证：合成 hover / pressed（不依赖真实光标）。
     void probeHover(int index);
@@ -287,6 +305,11 @@ signals:
     void nextFolderClicked();
     void pageRequested(int index);
     void pagePreviewRequested(int index);
+    // 已收进「更多」的命令集合需要弹菜单：宿主在此锚点上方弹出，内容由
+    // hiddenActionIds() 决定。点击/键盘激活同一入口。
+    void moreClicked(const QPoint &globalPos);
+    // 档位变化（0 宽 / 1 中 / 2 窄）。宿主据此决定动图播放栏是否让位给「更多」。
+    void tierChanged(int level);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -305,19 +328,22 @@ protected:
 private:
     enum class Action {
         None, Open, List, GroupBy, Overview, ZoomOut, ZoomValue, ZoomIn,
-        Rotate, Fullscreen, Prev, PageSlider, PageValue, Next, Lock
+        Rotate, Fullscreen, Prev, PageSlider, PageValue, Next, Lock, More
     };
     struct Item {
         Action action = Action::None;
         QRect rect;
     };
-    enum class Tier { Full, Compact, Narrow, Minimal, Tiny };
+    // 三档：宽 = 全部；中 = 缩放加减 + 倍率 + 上一张 + 页码 + 下一张 + 锁定 +
+    // 更多（进度滑杆与总览/打开/旋转/全屏收进菜单）；窄 = 上一张 + 下一张 + 更多。
+    enum class Tier { Wide, Medium, Narrow };
 
     QVector<Item> items() const;
-    Tier tier() const;
-    bool showGroup1() const;
-    bool showGroup3() const;
-    bool showZoomButtons() const;
+    QVector<Item> itemsFor(Tier t, int trackWidth) const;
+    Tier tier() const { return m_tier; }
+    // 单档自然宽度（末项右缘 + 右内边距）。阈值 = 自然宽 + 左右各 24px 呼吸位。
+    int naturalWidthFor(Tier t, int trackWidth) const;
+    Tier resolveTier(int availableWidth) const;
     void recomputeWidth();
     int hitIndex(const QPoint &pos) const;
     void activate(Action action, Qt::MouseButton button);
@@ -348,6 +374,8 @@ private:
     int m_availableWidth = 2000;
     int m_preferredWidth = 0;
     int m_trackWidth = 188;
+    Tier m_tier = Tier::Wide;
+    bool m_tierResolved = false;
     ButtonFeedback *m_feedback = nullptr;
     TooltipHint *m_tip = nullptr;
     int m_focus = -1;

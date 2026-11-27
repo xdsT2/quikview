@@ -656,6 +656,13 @@ void TopBar::setTitle(const QString &title)
     update();
 }
 
+void TopBar::setOverlayBackground(bool on)
+{
+    m_overlayBackground = on;
+    setAttribute(Qt::WA_OpaquePaintEvent, !on);
+    update();
+}
+
 void TopBar::setTopLocked(bool locked)
 {
     if (m_topLocked == locked) {
@@ -1015,7 +1022,10 @@ void TopBar::paintEvent(QPaintEvent *)
     //   · 棋盘画布：棋盘只铺画布区域，顶栏保持同主题纯色 solid()，
     //     交界由材质自然区分，同样不画横向分隔线。
     // 三种场景都用同一令牌，深浅主题各自取值。
-    p.fillRect(rect(), UiStyle::canvas::solid(UiStyle::isLight()));
+    QColor surface = UiStyle::canvas::solid(UiStyle::isLight());
+    if (m_overlayBackground)
+        surface.setAlphaF(0.88);
+    p.fillRect(rect(), surface);
 
     // 应用标识：22×22 蓝色圆角方块 + Q
     const QRectF logo(kTopMargin, (height() - kTopLogoW) / 2.0, kTopLogoW, kTopLogoW);
@@ -1419,9 +1429,7 @@ constexpr int kIslandNavBtn = 30;    // 上一张/下一张
 constexpr int kIslandY = (kIslandH - kIslandBtn) / 2;
 constexpr int kIslandInnerGap = 3;
 constexpr int kIslandGroupGap = 3;
-constexpr int kIslandTrackWide = 120;      // 定稿滑条宽 120
-constexpr int kIslandTrackCompact = 104;   // 窄一档
-constexpr int kIslandTrackNarrow = 88;
+constexpr int kIslandTrackWide = 120;      // 定稿滑条宽 120（只有宽档带滑杆）
 constexpr int kZoomCapsuleW = 52;   // 缩放胶囊：点击在 100% / 适合窗口 间切换
 constexpr int kZoomCapsuleH = 30;   // 与按钮同高，8px 圆角（不再是全圆胶囊）
 constexpr int kPageValueW = 41;
@@ -1440,7 +1448,7 @@ ControlBar::ControlBar(QWidget *parent)
     setAttribute(Qt::WA_NoSystemBackground);
     setFocusPolicy(Qt::StrongFocus);
     setAccessibleName(tr("底部控制栏"));
-    setAccessibleDescription(tr("打开、缩略图、缩放、旋转、全屏、上一张、进度、下一张与锁定"));
+    setAccessibleDescription(tr("打开、缩略图、缩放、旋转、全屏、上一张、进度、下一张、锁定与更多"));
     m_feedback = new ButtonFeedback(this);
     connect(m_feedback, &ButtonFeedback::changed, this, [this]() { update(); });
     m_tip = new TooltipHint(this);
@@ -1574,77 +1582,92 @@ bool ControlBar::keepVisible() const
 
 // 档位阈值按「该档整条岛的自然宽度 + 左右各 24px 呼吸位」定，
 // 这样不会出现「岛比可用宽度还宽」的挤出，也不会过早收掉低频项。
-// 596 定稿后整岛 596 宽；窄窗沿用原有收缩顺序。
-ControlBar::Tier ControlBar::tier() const
+// 宽档沿用 596 定稿；中档收到页码与锁定；窄档只留上一张/下一张/更多。
+// 阈值由控件与本地化文案的真实宽度算出，不是浏览器原型里的 650/383 固定值。
+namespace {
+constexpr int kTierBreath = 24;      // 每侧呼吸位
+constexpr int kTierHysteresis = 6;   // 跨档回滞：拉宽回上一档要多出的宽度
+} // namespace
+
+int ControlBar::tierLevel() const
 {
-    if (m_availableWidth >= 637) return Tier::Full;      // 全组 + 120 滑条
-    if (m_availableWidth >= 600) return Tier::Compact;   // 全组 + 104 滑条
-    if (m_availableWidth >= 536) return Tier::Narrow;    // 收旋转/全屏
-    if (m_availableWidth >= 455) return Tier::Minimal;   // 再收打开/缩略图/总览
-    return Tier::Tiny;                                   // 再收缩放加减
+    return static_cast<int>(m_tier);
 }
 
-bool ControlBar::showGroup1() const
+ControlBar::Tier ControlBar::resolveTier(int availableWidth) const
 {
-    const Tier t = tier();
-    return t == Tier::Full || t == Tier::Compact || t == Tier::Narrow;
+    const int wideThreshold = naturalWidthFor(Tier::Wide, kIslandTrackWide) + 2 * kTierBreath;
+    const int mediumThreshold = naturalWidthFor(Tier::Medium, 0) + 2 * kTierBreath;
+    // 回到更宽档要多 6 逻辑 px：阈值附近拖宽/拖窄不会来回跳档。
+    if (availableWidth >= wideThreshold + (m_tier == Tier::Wide ? 0 : kTierHysteresis)) {
+        return Tier::Wide;
+    }
+    if (availableWidth >= mediumThreshold + (m_tier == Tier::Medium ? 0 : kTierHysteresis)) {
+        return Tier::Medium;
+    }
+    return Tier::Narrow;
 }
 
-bool ControlBar::showGroup3() const
+int ControlBar::naturalWidthFor(Tier t, int trackWidth) const
 {
-    const Tier t = tier();
-    return t == Tier::Full || t == Tier::Compact;
-}
-
-bool ControlBar::showZoomButtons() const
-{
-    return tier() != Tier::Tiny;
+    const QVector<Item> list = itemsFor(t, trackWidth);
+    return list.isEmpty() ? 0 : list.last().rect.right() + 1 + kIslandPadX;
 }
 
 void ControlBar::setAvailableWidth(int width)
 {
-    const int w = qMax(200, width);
-    if (w == m_availableWidth) {
+    const int w = qMax(160, width);
+    if (m_tierResolved && w == m_availableWidth) {
         return;
     }
     m_availableWidth = w;
+    m_tierResolved = true;
+    const Tier want = resolveTier(w);
+    const bool changed = want != m_tier;
+    m_tier = want;
     recomputeWidth();
+    if (changed) {
+        emit tierChanged(tierLevel());
+    }
 }
 
 void ControlBar::recomputeWidth()
 {
-    // 滑条三档响应（定稿全宽 120）：Full 120 / Compact·Narrow 104 / 更窄 88。
-    m_trackWidth = (tier() == Tier::Full)
-                       ? kIslandTrackWide
-                       : (tier() == Tier::Compact || tier() == Tier::Narrow
-                              ? kIslandTrackCompact
-                              : kIslandTrackNarrow);
-    QVector<Item> list = items();
-    int width = list.isEmpty() ? 240 : list.last().rect.right() + 1 + kIslandPadX;
-    // 极窄窗：先缩短轨道，保留翻页热区、页码与倍率。
-    if (width > m_availableWidth) {
-        const int excess = width - m_availableWidth;
-        m_trackWidth = qMax(48, m_trackWidth - excess);
-        list = items();
-        width = list.isEmpty() ? 240 : list.last().rect.right() + 1 + kIslandPadX;
+    // 只有宽档带进度滑杆；中/窄档滑杆收进「更多」，页码/倍率占独立宽度。
+    m_trackWidth = (m_tier == Tier::Wide) ? kIslandTrackWide : 0;
+    int width = naturalWidthFor(m_tier, m_trackWidth);
+    // 宽档极窄窗：先缩短轨道（下限 48），保留翻页热区与页码/倍率。
+    if (width > m_availableWidth && m_trackWidth > 48) {
+        m_trackWidth = qMax(48, m_trackWidth - (width - m_availableWidth));
+        width = naturalWidthFor(m_tier, m_trackWidth);
     }
     m_preferredWidth = width;
-    setFixedWidth(width);
+    // 任何档位都不得宽于可用宽度：宁可两侧留白，也不让岛被窗口裁掉。
+    setFixedWidth(qMin(width, m_availableWidth));
     update();
 }
 
 QVector<ControlBar::Item> ControlBar::items() const
 {
+    return itemsFor(m_tier, m_trackWidth);
+}
+
+// 三档共用同一套动作与状态：换档只改「谁在岛上、谁进更多」，不改任何命令语义。
+QVector<ControlBar::Item> ControlBar::itemsFor(Tier t, int trackWidth) const
+{
     QVector<Item> out;
     int x = kIslandPadX;
     const int y = kIslandY;
+    const bool wide = t == Tier::Wide;
+    const bool medium = t == Tier::Medium;
 
     auto place = [&](Action a, int w, int h = kIslandBtn) {
         out.append(Item{ a, QRect(x, y + (kIslandBtn - h) / 2, w, h) });
         x += w;
     };
 
-    if (showGroup1()) {
+    // —— 打开 / 总览 / 缩略图（总览内同格位切成「分组方式」）——
+    if (wide) {
         place(Action::Open, kIslandBtn);
         x += kIslandInnerGap;
         // 图片总览入口紧挨缩略图条入口（2026-11-19 定稿：打开、总览、缩略图条）。
@@ -1656,18 +1679,18 @@ QVector<ControlBar::Item> ControlBar::items() const
         x += kIslandGroupGap;
     }
 
-    if (showZoomButtons()) {
+    // —— 缩放：宽/中档保留加减与倍率胶囊；窄档整体进「更多」——
+    if (wide || medium) {
         place(Action::ZoomOut, kIslandBtn);
         x += kIslandInnerGap;
-    }
-    place(Action::ZoomValue, kZoomCapsuleW, kZoomCapsuleH);
-    x += kIslandInnerGap;
-    if (showZoomButtons()) {
+        place(Action::ZoomValue, kZoomCapsuleW, kZoomCapsuleH);
+        x += kIslandInnerGap;
         place(Action::ZoomIn, kIslandBtn);
+        x += kIslandGroupGap;
     }
-    x += kIslandGroupGap;
 
-    if (showGroup3()) {
+    // —— 旋转 / 全屏：只有宽档上岛 ——
+    if (wide) {
         place(Action::Rotate, kIslandBtn);
         x += kIslandInnerGap;
         place(Action::Fullscreen, kIslandBtn);
@@ -1676,18 +1699,109 @@ QVector<ControlBar::Item> ControlBar::items() const
 
     place(Action::Prev, kIslandNavBtn, kIslandNavBtn);
     x += 8;
-    // 进度块：滑杆 + 页码放在同一个深色内嵌圆角里（对齐概念图 01/03）。
-    x += kProgressPadX;
-    place(Action::PageSlider, m_trackWidth);
-    x += kProgressInnerGap;
-    place(Action::PageValue, kPageValueW);
-    x += kProgressPadX + 8;
+    // 进度块：宽档是「滑杆 + 页码」；中档只留页码（滑杆进更多）；
+    // 窄档连页码一起收走，页数仍在右下角序号与菜单里可读。
+    if (wide) {
+        x += kProgressPadX;
+        place(Action::PageSlider, trackWidth);
+        x += kProgressInnerGap;
+        place(Action::PageValue, kPageValueW);
+        x += kProgressPadX + 8;
+    } else if (medium) {
+        place(Action::PageValue, kPageValueW);
+        x += 8;
+    }
     place(Action::Next, kIslandNavBtn, kIslandNavBtn);
-    x += kIslandGroupGap;
 
-    place(Action::Lock, kIslandBtn);
+    // —— 锁定：宽/中档常驻；窄档收进「更多」——
+    if (wide || medium) {
+        x += kIslandGroupGap;
+        place(Action::Lock, kIslandBtn);
+    }
+
+    // —— 更多：中/窄档的兜底入口，永远排在最后 ——
+    if (!wide) {
+        x += kIslandGroupGap;
+        place(Action::More, kIslandBtn);
+    }
 
     return out;
+}
+
+QVector<int> ControlBar::hiddenActionIds() const
+{
+    QVector<int> out;
+    const bool wide = m_tier == Tier::Wide;
+    const bool medium = m_tier == Tier::Medium;
+    if (!wide) {
+        out << 0 << 1 << 2;   // 打开 / 总览 / 缩略图或分组
+    }
+    if (!wide && !medium) {
+        out << 3 << 4 << 5;   // 缩小 / 倍率 / 放大
+    }
+    if (!wide) {
+        out << 6 << 7 << 9;   // 旋转 / 全屏 / 进度滑杆
+    }
+    if (m_tier == Tier::Narrow) {
+        out << 10 << 12;      // 页码 / 锁定
+    }
+    return out;
+}
+
+QRect ControlBar::moreButtonRect() const
+{
+    for (const Item &it : items()) {
+        if (it.action == Action::More) {
+            return it.rect;
+        }
+    }
+    return QRect();
+}
+
+void ControlBar::focusMore()
+{
+    const QVector<Item> list = items();
+    for (int i = 0; i < list.size(); ++i) {
+        if (list[i].action == Action::More) {
+            // 用 TabFocusReason：菜单返回属于键盘续接，focusInEvent 才不会把
+            // 焦点位打回 -1；随后把位置钉在「更多」上。
+            setFocus(Qt::TabFocusReason);
+            m_keyboardFocus = true;
+            m_focus = i;
+            m_feedback->setHover(i);
+            update();
+            return;
+        }
+    }
+}
+
+bool ControlBar::moreFocusHeld() const
+{
+    const QVector<Item> list = items();
+    // 只看自己的键盘焦点位：离屏冒烟里窗口不是活动窗口，hasFocus() 恒为 false，
+    // 但焦点环已按 m_keyboardFocus 绘出（截图可核对）。
+    return m_keyboardFocus && m_focus >= 0 && m_focus < list.size()
+           && list[m_focus].action == Action::More;
+}
+
+QString ControlBar::layoutDump() const{
+    QStringList hidden;
+    for (int id : hiddenActionIds()) {
+        hidden << QString::number(id);
+    }
+    const QRect more = moreButtonRect();
+    return QStringLiteral("tier=%1 avail=%2 width=%3 track=%4 hidden=[%5] more=%6,%7,%8,%9 kbd=%10 focus=%11")
+        .arg(tierLevel())
+        .arg(m_availableWidth)
+        .arg(width())
+        .arg(m_trackWidth)
+        .arg(hidden.join(u','))
+        .arg(more.x())
+        .arg(more.y())
+        .arg(more.width())
+        .arg(more.height())
+        .arg(m_keyboardFocus ? 1 : 0)
+        .arg(m_focus);
 }
 
 // 进度块外框（滑杆 + 页码 + 左右内边距）。
@@ -1773,6 +1887,7 @@ QString ControlBar::tipText(Action action) const
     case Action::PageValue: return tr("当前页码 / 总页数");
     case Action::Next: return tr("下一张图片 (→)");
     case Action::Lock: return tr("保持底部控制栏显示");
+    case Action::More: return tr("更多命令");
     default: break;
     }
     return QString();
@@ -2006,6 +2121,7 @@ void ControlBar::paintEvent(QPaintEvent *)
         case Action::Fullscreen: drawIcon(p, "full-screen-maximize", icon, drawInk, iconStyle); break;
         case Action::Prev: drawIcon(p, "chevron-left", icon, drawInk, iconStyle); break;
         case Action::Next: drawIcon(p, "chevron-right", icon, drawInk, iconStyle); break;
+        case Action::More: drawIcon(p, "dots", icon, drawInk, iconStyle); break;
         case Action::Lock: drawIcon(p, "lock-open", icon, drawInk, iconStyle); break;
         default: break;
         }
@@ -2042,6 +2158,12 @@ void ControlBar::activate(Action action, Qt::MouseButton button)
         else emit nextClicked();
         break;
     case Action::Lock: emit lockToggled(); break;
+    case Action::More: {
+        const QRect r = moreButtonRect();
+        emit moreClicked(r.isNull() ? mapToGlobal(QPoint(width() / 2, 0))
+                                    : mapToGlobal(r.center()));
+        break;
+    }
     default: break;
     }
 }
