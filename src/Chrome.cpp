@@ -653,6 +653,13 @@ void TopBar::setTitle(const QString &title)
     update();
 }
 
+void TopBar::setOverlayBackground(bool on)
+{
+    m_overlayBackground = on;
+    setAttribute(Qt::WA_OpaquePaintEvent, !on);
+    update();
+}
+
 void TopBar::setTopLocked(bool locked)
 {
     if (m_topLocked == locked) {
@@ -1012,7 +1019,10 @@ void TopBar::paintEvent(QPaintEvent *)
     //   · 棋盘画布：棋盘只铺画布区域，顶栏保持同主题纯色 solid()，
     //     交界由材质自然区分，同样不画横向分隔线。
     // 三种场景都用同一令牌，深浅主题各自取值。
-    p.fillRect(rect(), UiStyle::canvas::solid(UiStyle::isLight()));
+    QColor surface = UiStyle::canvas::solid(UiStyle::isLight());
+    if (m_overlayBackground)
+        surface.setAlphaF(0.88);
+    p.fillRect(rect(), surface);
 
     // 应用标识：22×22 蓝色圆角方块 + Q
     const QRectF logo(kTopMargin, (height() - kTopLogoW) / 2.0, kTopLogoW, kTopLogoW);

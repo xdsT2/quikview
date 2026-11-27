@@ -1333,6 +1333,22 @@ QPointF ImageCanvas::viewCenterNormalized() const
                    qBound(0.0, (c.y() - r.top()) / r.height(), 1.0));
 }
 
+QRect ImageCanvas::imageViewportRect() const
+{
+    return m_item ? viewportTransform().mapRect(m_item->sceneBoundingRect()).toAlignedRect()
+                  : QRect();
+}
+
+void ImageCanvas::centerImageAt(const QPointF &normalized)
+{
+    if (!m_item)
+        return;
+    const QRectF rect = m_item->sceneBoundingRect();
+    const QPointF point(rect.left() + normalized.x() * rect.width(),
+                        rect.top() + normalized.y() * rect.height());
+    keepScenePointAt(point, viewport()->rect().center());
+}
+
 void ImageCanvas::clear()
 {
     stopZoomAnimation();

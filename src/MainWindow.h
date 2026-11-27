@@ -14,6 +14,8 @@
 #include <QVariant>
 #include <QVector>
 
+#include <optional>
+
 #include "LoadError.h"
 #include "PsdLoader.h"
 #include "DirectoryLoader.h"
@@ -271,6 +273,10 @@ private:
     // 置顶切换唯一入口：可见窗口走 SetWindowPos 原生切带（不隐藏、不重建、
     // 不夺焦点，无闪），仅启动期不可见时才允许 setWindowFlag 缓存路径。
     void applyTopmost(bool top);
+    bool canEnterPictureBorderless() const;
+    void togglePictureBorderless();
+    void leavePictureBorderless();
+    void fitPictureBorderless(const QRect &target, const QPointF &imageCenter);
     void toggleFullscreen();         // 全屏/还原唯一入口：标题栏 · F11 · 中键 · smoke
     void createActions();
     // 命令注册表（派单 2026-11-18 H1-7）：CMD_* 是快捷键、设置页、冒烟探针与后续
@@ -629,6 +635,18 @@ private:
     QPropertyAnimation *m_browserMoveAnim = nullptr;
     bool m_topLocked = false;
     bool m_dockLocked = false;
+    struct PictureBorderlessState {
+        QRect normalGeometry;
+        QPointF imageCenter;
+        qreal zoom;
+        int zoomMode;
+        bool fitWindow;
+        bool fitWidth;
+        bool maximized;
+        bool filmstripExpanded;
+    };
+    std::optional<PictureBorderlessState> m_pictureBorderless;
+
     bool m_topVisible = true;
     bool m_dockVisible = true;
     QMargins m_canvasInsets{-1, -1, -1, -1};   // 当前画布可视区边距（-1 = 未应用）

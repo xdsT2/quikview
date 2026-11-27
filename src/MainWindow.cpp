@@ -61,6 +61,7 @@
 #include <QStackedWidget>
 #include <QSet>
 #include <QScreen>
+#include <QScopedValueRollback>
 #include <QWindow>
 #include <QStyleHints>
 #include <cmath>
@@ -589,7 +590,8 @@ MainWindow::MainWindow(QWidget *parent)
         // 保存缩放状态（键 "config/view/save_zoom_state"）：把当前缩放按路径记下来，
         // 下次打开同一张图时恢复。装图/适配/拖动预览期间的 zoomChanged 是「程序自己
         // 算出来的」，必须屏蔽，否则一打开就把用户上次的 300% 覆盖成 fit。
-        if (!m_zoomSaveGuard && Config::instance().saveZoomState() && !m_currentPath.isEmpty()) {
+        if (!m_zoomSaveGuard && !m_pictureBorderless && Config::instance().saveZoomState()
+            && !m_currentPath.isEmpty()) {
             const QString st = m_canvas->isFitToWindow()  ? QStringLiteral("fit")
                              : m_canvas->isFitToWidth()   ? QStringLiteral("width")
                                                          : QString::number(z, 'f', 4);
@@ -742,7 +744,7 @@ void MainWindow::applyChromeLayout()
         return;
     }
     const bool full = isFullScreen();
-    const int fw = full ? 0 : 1;
+    const int fw = full || m_pictureBorderless ? 0 : 1;
     const int x = fw;
     const int y = fw;
     const int w = width() - 2 * fw;
@@ -903,7 +905,7 @@ void MainWindow::startPanelPosAnim(QPropertyAnimation *&anim, QWidget *w,
 void MainWindow::relocateTopPanels(bool shown, bool animate)
 {
     const bool full = isFullScreen();
-    const int fw = full ? 0 : 1;
+    const int fw = full || m_pictureBorderless ? 0 : 1;
     const int x = fw;
     const int y = fw;
     const int w = width() - 2 * fw;
@@ -1017,6 +1019,7 @@ void MainWindow::toggleOverview()
         closeOverview();
         return;
     }
+    leavePictureBorderless();
     const bool hasDir = m_dir && m_dir->isValid();
     const QStringList files = hasDir ? m_dir->files() : QStringList();
     if (files.isEmpty()) {
@@ -1350,7 +1353,8 @@ void MainWindow::updateTopProximity()
     // 键盘焦点在顶栏时同理：方向键导航期间不能淡出。
     const bool want = isTopBarPopup(QApplication::activePopupWidget())
                       || m_topBar->hasFocus()
-                      || (inside && local.y() <= (shown ? 96 : 76));
+                      || (inside && local.y() <= (m_pictureBorderless
+                              ? qMin(height() / 3, shown ? 56 : 32) : (shown ? 96 : 76)));
 
     if (want) {
         m_topHideTimer->stop();
@@ -1410,7 +1414,9 @@ void MainWindow::updateDockProximity()
     } else if (!inside || overFilmstrip) {
         want = false;
     } else {
-        want = shown ? (local.y() >= height() - 140) : (local.y() >= height() - 124);
+        const int edge = m_pictureBorderless ? qMin(height() / 3, shown ? 80 : 48)
+                                             : (shown ? 140 : 124);
+        want = local.y() >= height() - edge;
     }
 
     if (want) {
@@ -1437,7 +1443,7 @@ void MainWindow::paintEvent(QPaintEvent *event)
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.fillRect(rect(), UiStyle::chromeBg());
-    if (!isFullScreen()) {
+    if (!isFullScreen() && !m_pictureBorderless) {
         p.setPen(QPen(UiStyle::color(UiStyle::ChromeBorder), 1));
         p.setBrush(Qt::NoBrush);
         p.drawRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5));
@@ -1507,6 +1513,17 @@ void MainWindow::applyNativeFrameStyles()
     if (isFullScreen())
         return;
     HWND hwnd = reinterpret_cast<HWND>(winId());
+    if (const HMODULE dwm = GetModuleHandleW(L"dwmapi.dll")) {
+        using SetAttribute = HRESULT(WINAPI *)(HWND, DWORD, LPCVOID, DWORD);
+        const auto setAttribute = reinterpret_cast<SetAttribute>(
+            GetProcAddress(dwm, "DwmSetWindowAttribute"));
+        if (setAttribute) {
+            // Windows 11：关闭系统边框颜色；继续保留原生拖边和阴影。
+            constexpr DWORD borderColorAttribute = 34;
+            const DWORD color = m_pictureBorderless ? 0xfffffffe : 0xffffffff;
+            setAttribute(hwnd, borderColorAttribute, &color, sizeof(color));
+        }
+    }
     const LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
     const LONG_PTR want = WS_THICKFRAME | WS_CAPTION | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
     if ((style & want) == want)
@@ -1556,6 +1573,7 @@ void MainWindow::applyTopmost(bool top)
 // 退出时要靠 changeEvent 再把 DWM 帧补回来（见 applyNativeFrameStyles）。
 void MainWindow::toggleFullscreen()
 {
+    leavePictureBorderless();
     if (isFullScreen()) {
         showNormal();
         // 退出全屏：按 m_lockSizeHint 把锁定约束补回来（changeEvent 里同一条，幂等）
@@ -1607,6 +1625,120 @@ void MainWindow::changeEvent(QEvent *event)
 // ---------------------------------------------------------------------------
 // 动作系统
 // ---------------------------------------------------------------------------
+
+bool MainWindow::canEnterPictureBorderless() const
+{
+    return !m_currentImage.isNull() && !m_cropMode && !Config::instance().lockWindowSize()
+        && (!m_overview || !m_overview->isVisible());
+}
+
+void MainWindow::fitPictureBorderless(const QRect &target, const QPointF &imageCenter)
+{
+    if (target.isEmpty())
+        return;
+
+    QRect next = target;
+    QScreen *host = QGuiApplication::screenAt(target.center());
+    if (!host)
+        host = screen();
+    if (host) {
+        const QRect available = host->availableGeometry();
+        next.setSize(target.size().boundedTo(available.size()).expandedTo(minimumSize()));
+        next.moveCenter(target.center());
+        next.moveLeft(qBound(available.left(), next.left(),
+                             available.left() + qMax(0, available.width() - next.width())));
+        next.moveTop(qBound(available.top(), next.top(),
+                            available.top() + qMax(0, available.height() - next.height())));
+    }
+    setGeometry(next);
+    applyChromeLayout();
+    m_canvas->centerImageAt(imageCenter);
+}
+
+void MainWindow::togglePictureBorderless()
+{
+    if (m_pictureBorderless) {
+        leavePictureBorderless();
+        return;
+    }
+    if (!canEnterPictureBorderless())
+        return;
+
+    const QScopedValueRollback<bool> zoomGuard(m_zoomSaveGuard, true);
+    if (isFullScreen())
+        showNormal();
+
+    const QRect image = m_canvas->imageViewportRect();
+    const QRect visible = image.intersected(m_canvas->viewport()->rect());
+    if (visible.isEmpty())
+        return;
+
+    const QPointF center = QRectF(visible).center() - QPointF(image.topLeft());
+    const QPointF imageCenter(center.x() / image.width(), center.y() / image.height());
+    const QRect target(m_canvas->viewport()->mapToGlobal(visible.topLeft()), visible.size());
+    PictureBorderlessState previous{geometry(), m_canvas->viewCenterNormalized(),
+        m_canvas->zoom(), m_zoomMode, m_canvas->isFitToWindow(), m_canvas->isFitToWidth(),
+        isMaximized(), m_browser->isExpanded()};
+    if (previous.maximized) {
+        showNormal();
+        previous.normalGeometry = geometry();
+    }
+    m_pictureBorderless = previous;
+    setMinimumSize(240, 160);
+    if (m_browser->isExpanded())
+        m_browser->setExpanded(false);
+    m_canvas->setFocus(Qt::OtherFocusReason);
+    m_canvas->setZoom(previous.zoom);
+    m_topBar->setOverlayBackground(true);
+    m_panoChip->setActive(false);
+#ifdef Q_OS_WIN
+    applyNativeFrameStyles();
+#endif
+    m_topHideTimer->stop();
+    m_dockHideTimer->stop();
+    setTopChromeVisible(m_topLocked, false);
+    m_topPhase = m_topLocked ? ChromePhase::Visible : ChromePhase::Hidden;
+    setDockVisible(m_dockLocked, false);
+    m_dockPhase = m_dockLocked ? ChromePhase::Visible : ChromePhase::Hidden;
+    fitPictureBorderless(target, imageCenter);
+    updateCanvasLogo();
+    update();
+}
+
+void MainWindow::leavePictureBorderless()
+{
+    if (!m_pictureBorderless)
+        return;
+
+    const QScopedValueRollback<bool> zoomGuard(m_zoomSaveGuard, true);
+    const PictureBorderlessState previous = *m_pictureBorderless;
+    m_pictureBorderless.reset();
+    setMinimumSize(360, 260);
+    setGeometry(previous.normalGeometry);
+    if (previous.maximized)
+        showMaximized();
+    m_topBar->setOverlayBackground(false);
+    m_panoChip->setActive(m_pano.autoEntry && m_panoPath == m_currentPath);
+#ifdef Q_OS_WIN
+    applyNativeFrameStyles();
+#endif
+    applyChromeLayout();
+    m_zoomMode = previous.zoomMode;
+    if (previous.fitWindow)
+        m_canvas->fitToWindow();
+    else if (previous.fitWidth)
+        m_canvas->fitToWidth();
+    else
+        m_canvas->setZoom(previous.zoom);
+    m_canvas->centerImageAt(previous.imageCenter);
+    m_browser->setExpanded(previous.filmstripExpanded);
+    syncViewModeActions();
+    updateShowModeIcon();
+    syncPlayBarState();
+    applyChromeLayout();
+    updateCanvasLogo();
+    update();
+}
 
 void MainWindow::createActions()
 {
@@ -2781,6 +2913,10 @@ QMenu *MainWindow::buildHamburgerMenu()
     layers->setEnabled(m_psdDoc.valid());
     view->setActionIcon(layers, "layers");
     addMenuItem(view, tr("全屏"), QStringLiteral("F11"), [this]() { toggleFullscreen(); });
+    if (m_pictureBorderless || canEnterPictureBorderless()) {
+        addMenuItem(view, m_pictureBorderless ? tr("退出无边框") : tr("无边框模式"),
+                    QString(), [this]() { togglePictureBorderless(); });
+    }
     // 锁定窗口大小：勾选态现读配置。开启后窗口拖边/最大化不再改尺寸，
     // 画布缩放与平移不受影响；与「按图调窗」互斥、全屏优先（见 applyWindowSizeLock）。
     view->setActionIcon(addCheckableItem(view, tr("锁定窗口大小"), QString(),
@@ -3031,6 +3167,11 @@ QMenu *MainWindow::buildContextMenu()
         QAction *a = cmdId(menu, "copy_file", QStringLiteral("Alt+C"),
                            [this]() { onCopyImageFile(); });
         a->setEnabled(hasImage);
+    }
+    if (m_pictureBorderless || canEnterPictureBorderless()) {
+        beforeItem();
+        cmd(menu, "view", m_pictureBorderless ? tr("退出无边框") : tr("无边框模式"),
+            QString(), [this]() { togglePictureBorderless(); }, false);
     }
     if (vis("always_on_top")) {
         beforeItem();
@@ -4625,7 +4766,12 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     if (Config::instance().saveZoomState() && !m_zoomLocked) {
         savedState = Config::instance().savedViewState(path);
     }
-    if (m_zoomLocked && !m_firstImage && prevZoom > 0.0) {
+    if (m_pictureBorderless) {
+        m_canvas->setZoom(prevZoom);
+        QRect target(QPoint(), m_canvas->imageViewportRect().size());
+        target.moveCenter(geometry().center());
+        fitPictureBorderless(target, QPointF(0.5, 0.5));
+    } else if (m_zoomLocked && !m_firstImage && prevZoom > 0.0) {
         m_canvas->setPixmapPreservingView(QPixmap::fromImage(display), QPointF(0.5, 0.5),
                                           prevZoom, false, false);
         // 这里不能写 m_zoomMode：锁定只是「沿用比例」，不是把浏览方式改成原始尺寸。
@@ -4712,8 +4858,8 @@ void MainWindow::updatePanoProbe(const QString &path)
         }
         m_pano = info;
         if (m_panoChip) {
-            m_panoChip->setActive(info.autoEntry);
-            if (info.autoEntry) {
+            m_panoChip->setActive(info.autoEntry && !m_pictureBorderless);
+            if (m_panoChip->isVisible()) {
                 applyChromeLayout();
             }
         }
@@ -4763,7 +4909,7 @@ void MainWindow::fitWindowToImage()
         return;
     }
     m_fitWindowPending = false;
-    if (!Config::instance().fitWindowToImage()) {
+    if (m_pictureBorderless || !Config::instance().fitWindowToImage()) {
         return;
     }
     // 互斥兜底：锁定窗口大小时不做按图调窗（开锁时已把该设置落盘为关，
@@ -4796,6 +4942,7 @@ void MainWindow::fitWindowToImage()
 // 都会 resize，与「尺寸钉死」直接冲突；规则是锁定优先，关锁不解锁被取消的项。
 void MainWindow::onToggleWindowSizeLock(bool on)
 {
+    leavePictureBorderless();
     Config::instance().settings().setValue(QStringLiteral("config/lock_window_size"), on);
     const bool fitTurnedOff = on && Config::instance().fitWindowToImage();
     if (fitTurnedOff) {
@@ -4816,6 +4963,10 @@ void MainWindow::onToggleWindowSizeLock(bool on)
 // 并 toast 说明「先解锁」。
 void MainWindow::onToggleMaximize()
 {
+    if (m_pictureBorderless) {
+        leavePictureBorderless();
+        return;
+    }
     if (Config::instance().lockWindowSize() && !isMaximized()) {
         if (m_toast) {
             m_toast->showMessage(tr("窗口大小已锁定，先解锁才能最大化"));
@@ -4831,6 +4982,8 @@ void MainWindow::onToggleMaximize()
 // 锁定尺寸），但 m_lockSizeHint 保留，退出全屏按它锁回。
 void MainWindow::applyWindowSizeLock()
 {
+    if (m_pictureBorderless)
+        return;
     const bool wantLock = Config::instance().lockWindowSize();
     if (!wantLock) {
         m_lockSizeHint = QSize();
@@ -4863,6 +5016,10 @@ void MainWindow::applyWindowSizeLock()
 void MainWindow::updateCanvasLogo()
 {
     const bool empty = m_currentImage.isNull();
+    if (empty && m_pictureBorderless) {
+        leavePictureBorderless();
+        return;
+    }
     m_canvas->setLogoVisible(false);
     if (m_emptyState) {
         m_emptyState->setVisible(empty);
@@ -4871,7 +5028,7 @@ void MainWindow::updateCanvasLogo()
         }
     }
     if (m_statusOverlay) {
-        m_statusOverlay->setVisible(!empty);
+        m_statusOverlay->setVisible(!empty && !m_pictureBorderless);
     }
     if (empty) {
         if (m_statusOverlay) {
@@ -6002,6 +6159,7 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     }
     else if (c == QLatin1String("fullscreen")) toggleFullscreen();
     else if (c == QLatin1String("maximize")) { onToggleMaximize(); }
+    else if (c == QLatin1String("pictureborderless")) { togglePictureBorderless(); }
     // wheel:slider|bar:up|down[:ctrl] —— 合成一次滚轮事件，验证「滑杆上滚翻页 / 其余位置缩放 / Ctrl 保留缩放」。
     // 外部注入滚轮要过 DPI 与消息循环，结果不可复现；这里直接把事件送到胶囊，判定只依赖胶囊自身逻辑。
     else if (c.startsWith(QLatin1String("wheel:"))) {
@@ -7852,6 +8010,11 @@ void MainWindow::runSmokeCommand(const QString &cmd)
                << " dockfocus=" << (m_control && m_control->hasFocus() ? 1 : 0)
                << " tophidden=" << (m_topBar ? m_topBar->hiddenActionIds().size() : -1)
                << " toplock=" << (m_topLocked ? 1 : 0)
+               << " borderless=" << (m_pictureBorderless ? 1 : 0)
+               << " fullscreen=" << (isFullScreen() ? 1 : 0)
+               << " shownTop=" << (m_topBar->isVisible() ? 1 : 0)
+               << " shownDock=" << (m_control->isVisible() ? 1 : 0)
+               << " geometry=" << x() << ',' << y() << ',' << width() << ',' << height()
                << " docklock=" << (m_dockLocked ? 1 : 0)
                << " pinned=" << (m_topBar && m_topBar->isPinned() ? 1 : 0)
                << " topmost=" << (actualTopmost() ? 1 : 0)
@@ -8740,7 +8903,7 @@ void MainWindow::syncPlayBarState()
         return;
     }
     m_playBar->setState(m_frames->frameIndex(), m_frames->frameCount(), m_animPlaying);
-    m_playBar->setVisible(true);
+    m_playBar->setVisible(!m_pictureBorderless || m_dockVisible);
 }
 
 // 播放栏几何：底栏展开时贴其上方 8px；收起时与浏览器同为 16px 底边距。
@@ -8754,6 +8917,7 @@ void MainWindow::layoutPlayBar()
         m_playBar->hide();
         return;
     }
+    m_playBar->setVisible(!m_pictureBorderless || m_dockVisible);
     const int pw = m_playBar->preferredWidth();
     const int ph = m_playBar->height();
     // 用目标态 m_dockVisible 判定：setDockVisible 内先排播放栏、相位随后才置位，
@@ -8761,7 +8925,7 @@ void MainWindow::layoutPlayBar()
     const int py = (m_control && m_dockVisible)
                        ? m_control->y() - 8 - ph
                        : height() - 16 - ph;
-    const int px = qBound(8, (width() - pw) / 2, width() - pw - 8);
+    const int px = qMax(0, (width() - pw) / 2);
     m_playBar->setGeometry(px, py, pw, ph);
     m_playBar->raise();
 }
@@ -9616,6 +9780,7 @@ void MainWindow::setSpreadMode(int mode)
 // 模式切换/取消的内部实现，当前没有可达入口。
 void MainWindow::onCrop()
 {
+    leavePictureBorderless();
     m_cropMode = !m_cropMode;
     m_canvas->setCropMode(m_cropMode);
     m_canvas->refreshEdgeHover();   // 裁剪进出：箭头收起/恢复按真实光标重算
@@ -11182,6 +11347,8 @@ void MainWindow::closeEvent(QCloseEvent *event)
     // 设置窗仍可见而本次关闭被作废时上面已 return，不会误记。
     const QRect ng = normalGeometry();
     QRect g = ng.isValid() ? ng : geometry();
+    if (m_pictureBorderless)
+        g = m_pictureBorderless->normalGeometry;
     // Windows 最大化时会给窗口外包一层不可见缩放边框（本机 8px），normalGeometry()
     // 返回的是「缩进后」的还原矩形；直接落盘会让下次「取消最大化」整体右下偏移
     // 并缩水 2×内缩量。这里用「最大化帧矩形 − 所在屏可用区左上」反推内缩量补回，
@@ -11196,7 +11363,8 @@ void MainWindow::closeEvent(QCloseEvent *event)
             }
         }
     }
-    Config::instance().setWindowGeometry(g.x(), g.y(), g.width(), g.height(), isMaximized());
+    Config::instance().setWindowGeometry(g.x(), g.y(), g.width(), g.height(),
+        m_pictureBorderless ? m_pictureBorderless->maximized : isMaximized());
 
     QMainWindow::closeEvent(event);
 }
@@ -11495,6 +11663,11 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
         }
         if (isFullScreen()) {
             showNormal();
+            return;
+        }
+        if (m_pictureBorderless) {
+            leavePictureBorderless();
+            event->accept();
             return;
         }
         if (Config::instance().escExit()) {

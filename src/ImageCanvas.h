@@ -46,6 +46,8 @@ public:
     // （锚点=视口中心，fit 标志与当前缩放保持现状）。
     void replacePixmapInPlace(const QPixmap &pixmap, bool animated = false);
     QPointF viewCenterNormalized() const;
+    QRect imageViewportRect() const;
+    void centerImageAt(const QPointF &normalized);
     void clear();
     void setSmooth(bool on);
     // 插值算法："bilinear"(0) / "bicubic"(1) / "lanczos"(2)。bicubic 走 GPU 平滑，

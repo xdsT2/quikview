@@ -126,6 +126,7 @@ public:
     // 三个独立状态中的两个：顶部工具栏锁定 / 图片窗口置顶。
     // 底栏锁定由 ControlBar 自己持有，三者互不代管。
     void setTopLocked(bool locked);
+    void setOverlayBackground(bool on);
     bool isTopLocked() const { return m_topLocked; }
     void setPinned(bool pinned);
     bool isPinned() const { return m_pinned; }
@@ -204,6 +205,7 @@ private:
 
     QString m_title;
     bool m_topLocked = false;
+    bool m_overlayBackground = false;
     bool m_pinned = false;
     bool m_showLayers = false;
     bool m_layersAvailable = false;
