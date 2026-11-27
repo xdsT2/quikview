@@ -53,11 +53,16 @@ tools_cmp.py
 Temp/
 Temp_*.py
 shot*.png
+# 夹具样本里 shot_* 命名的测试图必须入库，覆盖上面的 shot*.png 忽略
+!tests/fixtures/**/shot*.png
 
 # 本地打包输出
 dist/
 staging/
 pkg.log
+
+# 临时自检产物（可重生成，不入库）
+/dist-selfcheck/
 
 # 翻译构建产物：qt_add_translations 在源目录旁生成 .qm，不入库
 translations/*.qm

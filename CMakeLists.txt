@@ -32,6 +32,21 @@ if(PkgConfig_FOUND)
     pkg_check_modules(OPENEXR QUIET IMPORTED_TARGET OpenEXR)
 endif()
 
+# 完整性级别标签修正（2026-11-28 排查纯逻辑红测与 GUI 弹窗用例）：
+# 本工作区根目录被安全策略打上 Low Mandatory Level 标签，目录内产物 exe 会继承该标签；
+# Windows 在 CreateProcess 时若可执行文件完整性级别低于父进程，会把新进程降到与文件
+# 相同的 Low 级别。Low 级别进程无法在 Medium 级别的 %TEMP% 下创建目录（QTemporaryDir
+# ::isValid() 恒为 false），GUI 主程序在测试执行器的隐藏窗口站下也无法正常起窗。
+# 这里在链接后显式把文件完整性标签重置回 Medium（桌面默认级别）；只改文件安全标签，
+# 不改程序运行时权限与功能逻辑。
+function(soleview_reset_integrity_label target)
+    if(WIN32)
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND icacls "$<TARGET_FILE:${target}>" /setintegritylevel medium
+            VERBATIM)
+    endif()
+endfunction()
+
 add_executable(soleview WIN32
     src/main.cpp
     src/Config.cpp
@@ -175,6 +190,8 @@ target_link_libraries(soleview PRIVATE
     shell32
     uuid
 )
+
+soleview_reset_integrity_label(soleview)
 
 if(LIBRAW_FOUND)
     target_link_libraries(soleview PRIVATE PkgConfig::LIBRAW)
@@ -321,6 +338,7 @@ set_target_properties(soleview-pano PROPERTIES
     OUTPUT_NAME "soleview-pano"
     WIN32_EXECUTABLE TRUE
 )
+soleview_reset_integrity_label(soleview-pano)
 
 # ===========================================================================
 # 显隐回归（CTest）：弹出菜单与上下悬浮铬件的隔离
@@ -338,30 +356,36 @@ if(BUILD_TESTING)
         target_link_libraries(soleview-openpicker-test PRIVATE ole32 shell32 uuid)
     endif()
     add_test(NAME openpicker.pure COMMAND soleview-openpicker-test)
+    soleview_reset_integrity_label(soleview-openpicker-test)
 
     add_executable(soleview-zoommotion-test tests/unit/zoom_motion_test.cpp src/ZoomMotion.cpp)
     target_include_directories(soleview-zoommotion-test PRIVATE src)
     add_test(NAME zoommotion.pure COMMAND soleview-zoommotion-test)
+    soleview_reset_integrity_label(soleview-zoommotion-test)
 
     add_executable(soleview-minimap-test tests/unit/minimap_math_test.cpp)
     target_include_directories(soleview-minimap-test PRIVATE src)
     target_link_libraries(soleview-minimap-test PRIVATE Qt6::Core)
     add_test(NAME minimap.pure COMMAND soleview-minimap-test)
+    soleview_reset_integrity_label(soleview-minimap-test)
 
     add_executable(soleview-batchrename-test tests/unit/batch_rename_test.cpp src/BatchRename.cpp)
     target_include_directories(soleview-batchrename-test PRIVATE src)
     target_link_libraries(soleview-batchrename-test PRIVATE Qt6::Core)
     add_test(NAME batchrename.pure COMMAND soleview-batchrename-test)
+    soleview_reset_integrity_label(soleview-batchrename-test)
 
     add_executable(soleview-photofolders-test tests/unit/photo_folders_test.cpp src/Config.cpp)
     target_include_directories(soleview-photofolders-test PRIVATE src ${CMAKE_CURRENT_SOURCE_DIR}/shared)
     target_link_libraries(soleview-photofolders-test PRIVATE Qt6::Gui)
     add_test(NAME photofolders.pure COMMAND soleview-photofolders-test)
+    soleview_reset_integrity_label(soleview-photofolders-test)
 
     add_executable(soleview-migration-test tests/unit/migration_test.cpp src/Config.cpp)
     target_include_directories(soleview-migration-test PRIVATE src ${CMAKE_CURRENT_SOURCE_DIR}/shared)
     target_link_libraries(soleview-migration-test PRIVATE Qt6::Gui)
     add_test(NAME migration.pure COMMAND soleview-migration-test)
+    soleview_reset_integrity_label(soleview-migration-test)
 
     add_executable(soleview-formats-test
         tests/unit/extra_formats_test.cpp
@@ -381,7 +405,7 @@ if(BUILD_TESTING)
     )
     target_include_directories(soleview-formats-test PRIVATE src third_party/psd_sdk ${CMAKE_CURRENT_SOURCE_DIR}/shared)
     target_compile_definitions(soleview-formats-test PRIVATE
-        SOLEVIEW_FORMAT_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Temp/format-samples")
+        SOLEVIEW_FORMAT_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/format-samples")
     target_link_libraries(soleview-formats-test PRIVATE Qt6::Widgets Qt6::Svg Psd)
     if(WIN32)
         target_link_libraries(soleview-formats-test PRIVATE windowscodecs gdiplus)
@@ -411,6 +435,7 @@ if(BUILD_TESTING)
         target_compile_definitions(soleview-formats-test PRIVATE HAS_OPENEXR=1)
     endif()
     add_test(NAME formats.pure COMMAND soleview-formats-test)
+    soleview_reset_integrity_label(soleview-formats-test)
 
     include("${CMAKE_CURRENT_SOURCE_DIR}/tests/chrome_popup_cases.cmake")
     foreach(_chrome_case IN LISTS SOLEVIEW_CHROME_CASES)
