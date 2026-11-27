@@ -79,8 +79,8 @@ python tools\03_gen_skin.py --check   # 全量校验，不写盘
 
 `resources/soleview.ico` 为 SoleView 当前应用图标（保留 `resources/quikview.ico` 作为历史兜底图标）：
 
-- 10 个尺寸：16、20、24、32、40、48、64、96、128、256，每档单独绘制后缩小；
-- ICO 容器为手工封装（每个尺寸一条 PNG 记录，Windows Vista+ 支持）；
+- 9 帧尺寸：16、20、24、32、40、48、64、128、256，每帧由同一母版 SVG 栅格化后缩小；
+- ICO 容器为手工封装（每帧一条 PNG 压缩记录，32bpp，Windows Vista+ 支持）；
 - 图形与 `btn_logo.png` 同一母题（圆角方块 + 白环 + 右下短尾），不含任何第三方图标素材。
 
 ## 4c. 未随仓库发布的东西

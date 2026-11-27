@@ -23,6 +23,7 @@
 #ifdef Q_OS_WIN
 #define NOMINMAX
 #include <windows.h>
+#include <shlobj.h>
 #endif
 
 #ifndef SOLEVIEW_VERSION
@@ -66,6 +67,14 @@ int main(int argc, char *argv[])
     QApplication::setApplicationName(QStringLiteral("SoleView"));
     QApplication::setApplicationVersion(QStringLiteral(SOLEVIEW_VERSION));
     QApplication::setOrganizationName(QStringLiteral("SoleView"));
+    // 任务栏/固定快捷方式的显示名：exe 名是小写 soleview.exe，不显式给 displayName
+    // 时分组与固定名称会回落到 exe 文件名。
+    QGuiApplication::setApplicationDisplayName(QStringLiteral("SoleView"));
+#ifdef Q_OS_WIN
+    // 进程级 AppUserModelID：Windows 按它把窗口归组、决定固定后名称与跳转列表，
+    // 与 exe 名解耦。shell32 已在 CMakeLists 链接。
+    SetCurrentProcessExplicitAppUserModelID(L"SoleView.App");
+#endif
 
     // Honeyview 铬件：默认 UI 字体（微软雅黑 9pt）
     QApplication::setFont(QFont(QStringLiteral("Microsoft YaHei UI"), 9));
