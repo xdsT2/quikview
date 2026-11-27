@@ -488,6 +488,13 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_control, &Chrome::ControlBar::next10Clicked, this, &MainWindow::onNext10);
     connect(m_control, &Chrome::ControlBar::prevFolderClicked, this, &MainWindow::onPrevFolder);
     connect(m_control, &Chrome::ControlBar::nextFolderClicked, this, &MainWindow::onNextFolder);
+    // 底栏「更多」：被当前档位收起的命令统一从这里进菜单，与岛上按钮同一批动作。
+    connect(m_control, &Chrome::ControlBar::moreClicked, this, &MainWindow::showDockMoreMenu);
+    // 换档时动图播放栏要让位给「更多」（窄档播放/暂停与逐帧在菜单里）。
+    connect(m_control, &Chrome::ControlBar::tierChanged, this, [this](int) {
+        layoutPlayBar();
+        applyChromeLayout();
+    });
     // 翻页滑杆：拖动中不发信号，松手才跳一次图（1-based）
     connect(m_control, &Chrome::ControlBar::pageRequested, this, [this](int index) {
         if (!m_dir || !m_dir->isValid() || index < 1 || index > m_dir->count()) {
@@ -1309,6 +1316,182 @@ void MainWindow::toggleDockLock()
         m_toast->showMessage(m_dockLocked ? tr("底部控制胶囊已锁定")
                                           : tr("底部控制胶囊已解锁"));
     }
+}
+
+void MainWindow::showDockMoreMenu(const QPoint &globalPos)
+{
+    if (!m_control) {
+        return;
+    }
+    if (m_dockMoreMenu) {
+        m_dockMoreMenu->close();
+        m_dockMoreMenu->deleteLater();
+        m_dockMoreMenu = nullptr;
+    }
+    const QVector<int> hidden = m_control->hiddenActionIds();
+    auto *menu = makeHamburgerMenu(this, 248);
+    // 底岛自己的弹层：keepVisible 只认这个标记，不被画布右键/设置页下拉误唤醒。
+    menu->setProperty("dockOwnedPopup", true);
+    m_dockMoreMenu = menu;
+
+    // 命令动作一律取命令注册表里的同一份 QAction：快捷键列、勾选态、禁用态
+    // 与快捷键/菜单/右键完全同源，不复制行为实现。
+    auto addCmd = [&](const char *id, const char *icon) -> QAction * {
+        QAction *a = m_cmdActions.value(QString::fromLatin1(id));
+        if (!a) {
+            return nullptr;
+        }
+        menu->addAction(a);
+        menu->setActionIcon(a, icon);
+        return a;
+    };
+    auto addLocal = [&](const QString &label, const char *icon,
+                        const std::function<void()> &fn, bool checkable = false,
+                        bool checked = false, const QString &shortcutText = QString())
+        -> QAction * {
+        QAction *a = menu->addAction(label);
+        menu->setActionIcon(a, icon);
+        a->setCheckable(checkable);
+        a->setChecked(checked);
+        // 只写显示列，不挂全局键位：这些动作的真实快捷键由命令注册表持有。
+        if (!shortcutText.isEmpty()) {
+            a->setProperty(CtxMenu::kShortcutProp, shortcutText);
+        }
+        connect(a, &QAction::triggered, this, [fn]() {
+            if (fn) {
+                fn();
+            }
+        });
+        return a;
+    };
+
+    bool anyBlock = false;
+    auto beginBlock = [&]() {
+        if (anyBlock) {
+            menu->addSeparator();
+        }
+        anyBlock = true;
+    };
+
+    // —— 打开 / 总览 / 缩略图栏（中、窄档收起）——
+    if (hidden.contains(0)) {
+        beginBlock();
+        addCmd(Cmd::FileOpen, "folder-open");
+        addLocal(tr("图片总览"), "apps", [this]() { toggleOverview(); }, true,
+                 m_overview && m_overview->isVisible());
+        const bool overviewOpen = m_overview && m_overview->isVisible();
+        if (overviewOpen) {
+            addLocal(tr("分组方式…"), "sort", [this]() { showOverviewGroupMenu(); });
+        } else {
+            addLocal(tr("缩略图栏"), "list", [this]() { toggleBrowserPanel(); }, true,
+                     m_browser && m_browser->isExpanded());
+        }
+    }
+
+    // —— 缩放（窄档连加减与倍率一起收起；中档只收加减）——
+    if (hidden.contains(3) || hidden.contains(5)) {
+        beginBlock();
+        if (hidden.contains(4)) {
+            QAction *info = menu->addAction(tr("当前倍率 %1").arg(m_control->zoomText()));
+            info->setEnabled(false);
+            menu->setActionIcon(info, "zoom");
+        }
+        addCmd(Cmd::ZoomOut, "subtract");
+        addCmd(Cmd::ZoomFit, "fit-window");
+        addCmd(Cmd::ZoomActual, "frame");
+        addCmd(Cmd::ZoomIn, "add");
+    }
+
+    // —— 旋转 / 全屏 / 无边框（中、窄档收起）——
+    if (hidden.contains(6)) {
+        beginBlock();
+        addCmd(Cmd::RotateLeft, "rotate");
+        addCmd(Cmd::RotateRight, "rotate-cw");
+        // 全屏不在命令注册表（走 triggerCommand 直槽），这里用本菜单自己的动作，
+        // 键位列按 F11 显示，真实快捷键仍由窗口的 F11 处理持有。
+        addLocal(tr("全屏 / 还原"), "full-screen-maximize",
+                 [this]() { toggleFullscreen(); }, false, false, QStringLiteral("F11"));
+        addLocal(m_pictureBorderless ? tr("退出无边框查看") : tr("无边框查看"),
+                 "view", [this]() { togglePictureBorderless(); }, true,
+                 m_pictureBorderless.has_value());
+    }
+
+    // —— 翻页与跳转（10 张跳跃/文件夹跳跃/首末原本就不在岛上，菜单始终提供）——
+    beginBlock();
+    if (hidden.contains(10)) {
+        const int total = (m_dir && m_dir->isValid()) ? m_dir->count() : 0;
+        QAction *info = menu->addAction(total > 0
+                                            ? tr("第 %1 / %2 张").arg(m_control->page()).arg(total)
+                                            : tr("当前未打开图片"));
+        info->setEnabled(false);
+        menu->setActionIcon(info, "images");
+    }
+    addCmd(Cmd::PagePrev, "chevron-left");
+    addCmd(Cmd::PageNext, "chevron-right");
+    CtxMenu *jump = addHamburgerSubmenu(menu, tr("跳转…"), "shuffle");
+    if (QAction *a = m_cmdActions.value(QString::fromLatin1(Cmd::PagePrev10))) {
+        addHamburgerAction(jump, a, "chevron-left");
+    }
+    if (QAction *a = m_cmdActions.value(QString::fromLatin1(Cmd::PageNext10))) {
+        addHamburgerAction(jump, a, "chevron-right");
+    }
+    if (QAction *a = m_cmdActions.value(QString::fromLatin1(Cmd::PageFirst))) {
+        addHamburgerAction(jump, a, "first");
+    }
+    if (QAction *a = m_cmdActions.value(QString::fromLatin1(Cmd::PageLast))) {
+        addHamburgerAction(jump, a, "last");
+    }
+    if (QAction *a = m_cmdActions.value(QString::fromLatin1(Cmd::FolderPrev))) {
+        addHamburgerAction(jump, a, "folder-prev");
+    }
+    if (QAction *a = m_cmdActions.value(QString::fromLatin1(Cmd::FolderNext))) {
+        addHamburgerAction(jump, a, "folder-next");
+    }
+
+    // —— 动图（窄档播放栏让位，播放/暂停与逐帧进菜单）——
+    if (m_playBar && playBarEligible() && !m_playBar->isVisible()) {
+        beginBlock();
+        addLocal(m_animPlaying ? tr("暂停") : tr("播放"), m_animPlaying ? "stop" : "play",
+                 [this]() { onPlayPause(); });
+        addCmd(Cmd::FramePrev, "chevron-left");
+        addCmd(Cmd::FrameNext, "chevron-right");
+    }
+
+    // —— 底栏锁定（窄档收起）——
+    if (hidden.contains(12)) {
+        beginBlock();
+        addLocal(tr("保持底部控制栏显示"), m_dockLocked ? "lock" : "lock-open",
+                 [this]() { toggleDockLock(); }, true, m_dockLocked);
+    }
+
+    // 关闭后把键盘焦点交回「更多」：Esc 与点击外部同一条路径。
+    connect(menu, &QMenu::aboutToHide, this, [this, menu]() {
+        menu->deleteLater();
+        if (m_dockMoreMenu == menu) {
+            m_dockMoreMenu = nullptr;
+        }
+        // QMenu 隐藏后会把焦点还给弹前的控件；延到下一轮事件循环再接管，
+        // 否则 Esc 关菜单时「更多」的焦点会被画布抢回去。
+        QTimer::singleShot(0, this, [this]() {
+            if (m_control) {
+                m_control->focusMore();
+            }
+        });
+    });
+
+    // 菜单完整落在屏幕可用区域内：优先贴在「更多」按钮上缘，上方放不下就翻到下方。
+    QSize hint = menu->sizeHint();
+    QRect avail = (screen() ? screen()->availableGeometry() : QRect(0, 0, 1920, 1080));
+    int x = globalPos.x() - hint.width() / 2;
+    x = qBound(avail.left() + 8,
+               x,
+               qMax(avail.left() + 8, avail.right() - hint.width() - 8));
+    int y = globalPos.y() - hint.height() - 12;
+    if (y < avail.top() + 8) {
+        y = qMin(avail.bottom() - hint.height() - 8, globalPos.y() + 16);
+    }
+    y = qMax(avail.top() + 8, y);
+    menu->popup(QPoint(x, y));
 }
 
 // 热区判定统一从这里取「鼠标在窗口内的位置」。默认就是真实光标；
@@ -5294,6 +5477,106 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     else if (c == QLatin1String("last"))       onLast();
     else if (c == QLatin1String("nextfolder")) onNextFolder();
     else if (c == QLatin1String("prevfolder")) onPrevFolder();
+    // dockpos[:out] —— 报「更多」按钮的全局中心与 DPR，桌面点击取证用。
+    else if (c.startsWith(QLatin1String("dockpos"))) {
+        const QString prefix = QStringLiteral("dockpos:");
+        const QString out = c.startsWith(prefix) ? c.mid(prefix.size()).trimmed()
+                                                 : QStringLiteral("Temp/dock-pos.txt");
+        QFile f(out);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            const QRect r = m_control ? m_control->moreButtonRect() : QRect();
+            const QPoint g = (m_control && !r.isNull())
+                                 ? m_control->mapToGlobal(r.center()) : QPoint(-1, -1);
+            QTextStream ts(&f);
+            ts << "win=" << frameGeometry().x() << "," << frameGeometry().y() << ","
+               << width() << "x" << height()
+               << " moreGlobal=" << g.x() << "," << g.y()
+               << " dpr=" << devicePixelRatioF()
+               << " screen=" << QGuiApplication::primaryScreen()->geometry().width() << "x"
+               << QGuiApplication::primaryScreen()->geometry().height() << "\n";
+        }
+    }
+    // qactivate —— 把窗口提到前台（焦点/Esc 回收只有活动窗口才成立）。
+    else if (c == QLatin1String("qactivate")) {
+        raise();
+        activateWindow();
+    }
+    // winsize:WxH —— 底栏收纳验收：改窗口客户区尺寸，触发真实 resizeEvent 重排。
+    else if (c.startsWith(QLatin1String("winsize:"))) {
+        const QStringList a = c.mid(8).split(QLatin1Char('x'));
+        if (a.size() == 2 && a.at(0).toInt() > 0 && a.at(1).toInt() > 0) {
+            resize(a.at(0).toInt(), a.at(1).toInt());
+            applyChromeLayout();
+        }
+    }
+    // dockdump[:out] —— 档位/可用宽/实际宽/隐藏动作/更多按钮/播放栏一次落盘（追加行）。
+    else if (c.startsWith(QLatin1String("dockdump"))) {
+        const QString out = c.startsWith(QLatin1String("dockdump:"))
+                                ? c.mid(9).trimmed() : QStringLiteral("Temp/dock-tiers.txt");
+        QFile f(out);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << "label=" << qEnvironmentVariable("QUIKVIEW_PROBE_LABEL")
+               << " win=" << width() << "x" << height()
+               << " borderless=" << (m_pictureBorderless.has_value() ? 1 : 0)
+               << " " << (m_control ? m_control->layoutDump() : QStringLiteral("control=0"))
+               << " playbar=" << (m_playBar && m_playBar->isVisible() ? 1 : 0)
+               << " moremenu=" << (m_dockMoreMenu && m_dockMoreMenu->isVisible() ? 1 : 0)
+               << "\n";
+        }
+    }
+    // dockmore —— 从「更多」按钮真实弹菜单（菜单可达性与截图取证）。
+    else if (c == QLatin1String("dockmore")) {
+        const QRect r = m_control ? m_control->moreButtonRect() : QRect();
+        if (m_control && !r.isNull()) {
+            showDockMoreMenu(m_control->mapToGlobal(r.center()));
+        }
+    }
+    // dockenter —— 在「更多」上按回车，验证键盘入口能重新弹出菜单。
+    else if (c == QLatin1String("dockenter")) {
+        if (m_control) {
+            QKeyEvent down(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+            QApplication::sendEvent(m_control, &down);
+            QKeyEvent up(QEvent::KeyRelease, Qt::Key_Return, Qt::NoModifier);
+            QApplication::sendEvent(m_control, &up);
+        }
+    }
+    // dockmoreesc —— 弹菜单后 80ms 对活动弹层发 Esc，随后由 dockfocus 取证焦点回收。
+    else if (c == QLatin1String("dockmoreesc")) {
+        const QRect r = m_control ? m_control->moreButtonRect() : QRect();
+        if (m_control && !r.isNull()) {
+            showDockMoreMenu(m_control->mapToGlobal(r.center()));
+            QTimer::singleShot(80, this, []() {
+                if (QWidget *popup = QApplication::activePopupWidget()) {
+                    QKeyEvent ev(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+                    QApplication::sendEvent(popup, &ev);
+                }
+            });
+        }
+    }
+    // dockfocus[:out] —— 键盘焦点是否回到「更多」（Esc 关菜单后的唯一正确落点）。
+    else if (c.startsWith(QLatin1String("dockfocus"))) {
+        const bool direct = c.startsWith(QLatin1String("dockfocusnow"));
+        if (direct && m_control) {
+            m_control->focusMore();
+        }
+        const QString prefix = direct ? QStringLiteral("dockfocusnow:")
+                                      : QStringLiteral("dockfocus:");
+        const QString out = c.startsWith(prefix) ? c.mid(prefix.size()).trimmed()
+                                                 : QStringLiteral("Temp/dock-focus.txt");
+        QFile f(out.isEmpty() ? QStringLiteral("Temp/dock-focus.txt") : out);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts << "moreFocus=" << (m_control && m_control->moreFocusHeld() ? 1 : 0)
+               << " direct=" << (direct ? 1 : 0)
+               << " menuOpen=" << (m_dockMoreMenu && m_dockMoreMenu->isVisible() ? 1 : 0)
+               << " tier=" << (m_control ? m_control->tierLevel() : -1)
+               << " fw=" << (window()->focusWidget()
+                                    ? window()->focusWidget()->metaObject()->className()
+                                    : "none")
+               << " " << (m_control ? m_control->layoutDump() : QString()) << "\n";
+        }
+    }
     // burst:<next|prev>:<次数>:<间隔ms> —— 进程内快速连发，模拟按住方向键翻页。
     // 用冒号分隔：--smoke 本身用逗号拆命令，逗号会把一条 burst 拆成多条。
     // 走真实 onNext/onPrev 路径（含 loadAsync 的 input 打点），不绕过任何调度逻辑；
@@ -8903,7 +9186,9 @@ void MainWindow::syncPlayBarState()
         return;
     }
     m_playBar->setState(m_frames->frameIndex(), m_frames->frameCount(), m_animPlaying);
-    m_playBar->setVisible(!m_pictureBorderless || m_dockVisible);
+    // 窄档由「更多」菜单接管播放/暂停与逐帧，播放栏不得被状态同步重新唤出。
+    const bool narrowDock = m_control && m_control->tierLevel() == 2;
+    m_playBar->setVisible(!narrowDock && (!m_pictureBorderless || m_dockVisible));
 }
 
 // 播放栏几何：底栏展开时贴其上方 8px；收起时与浏览器同为 16px 底边距。
@@ -8914,6 +9199,12 @@ void MainWindow::layoutPlayBar()
         return;
     }
     if (!playBarEligible()) {
+        m_playBar->hide();
+        return;
+    }
+    // 窄档：底岛只剩上一张/下一张/更多，播放栏整体让位——播放、暂停与逐帧
+    // 走「更多」菜单，避免两条浮动控件在 240px 级窗口里互相压住。
+    if (m_control && m_control->tierLevel() == 2) {
         m_playBar->hide();
         return;
     }

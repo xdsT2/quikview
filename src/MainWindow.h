@@ -435,6 +435,9 @@ private:
                            int duration, bool animate);
     void toggleTopLock();
     void toggleDockLock();
+    // 底栏「更多」：当前档位收起的命令弹成 Fluent 菜单。内容取自
+    // ControlBar::hiddenActionIds()，动作与快捷键沿用命令注册表，勾选/禁用态同源。
+    void showDockMoreMenu(const QPoint &globalPos);
     void updateChromeProximity();
     void updateTopProximity();
     void updateDockProximity();
@@ -595,6 +598,7 @@ private:
     QPointer<Chrome::TopBar> m_topBar;
     QPointer<Chrome::ControlBar> m_control;
     QPointer<Chrome::PlayBar> m_playBar;
+    QPointer<QMenu> m_dockMoreMenu;   // 底栏「更多」弹层（关闭即销毁）
     Chrome::Toast *m_toast = nullptr;
     // Shift+TAB 文件名浮层（惰性创建，挂在画布 viewport 顶部居中）
     QLabel *m_nameOverlay = nullptr;
