@@ -45,6 +45,9 @@ public:
     void forgetPath(const QString &path);
     void clear();
     void clearFull();   // 只清原图缓存（缩略图不受 HDR 开关影响）
+    // D1-4 切目录回收：移除缓存中属于指定目录（磁盘路径前缀）的全图条目，并整路
+    // 清空拖动预览缓存；缩略图缓存保留（按路径隔离、体积小，跨目录回翻仍可命中）。
+    void evictDirectory(const QString &dirPath);
     void cancelPending();   // 显式跳转：清空待解队列，在飞结果静默入缓存不上屏
     // 空闲预读：只往原图缓存里填，不发信号不上屏；解码队列/在飞/已预读过的
     // 路径直接忽略。真正的「前后各一张」调度在 MainWindow（300ms 无输入才调）。
@@ -118,12 +121,17 @@ private:
     // 请求代次：每次显式跳转（cancelPending / preempt 请求）自增。解码结果只有
     // 代次仍等于当前值才允许上屏——替代原来的「一次性布尔标志」，连续多次跳转
     // 不会互相覆盖（A→B→A 往返靠它区分「哪一代的 A」）。
-    quint64 m_generation = 0;
+    // std::atomic：解码 worker 线程在 loader 调用前后轮询代次，旧代次任务跳过后续
+    // 重活与后处理（D1-5）；主线程自增，worker 只读。
+    std::atomic<quint64> m_generation{0};
     // 全图解码专用线程池：上限 2（旧任务 + 抢占新目标各一条）。不走全局池：
     // QtConcurrent 默认按逻辑核数并发，连按/预读会把 CPU 打满，抢占时也未必
     // 立刻拿得到线程。这里的上限就是「线程数按实测有上限」的落点。
     QThreadPool m_decodePool;
     QThreadPool m_dragPool;
+    // D1-1 缩略图专用小池：胶片栏/总览的缩略图解码不再和全图解码、目录索引抢全局
+    // 线程，上限 2，翻大目录时出图节奏更均匀。
+    QThreadPool m_thumbPool;
     QSize m_previewSize;        // 快帧目标尺寸（视口像素）
     // 预读：同一时刻也只跑 1 个（与全图解码共用「单飞」），排到的路径放这里。
     QList<QString> m_preloadQueue;

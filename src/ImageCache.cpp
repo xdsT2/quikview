@@ -99,12 +99,15 @@ ImageCache::ImageCache(QObject *parent)
     // 这是「线程数按实测有上限」的落点：再快也不允许无限并发抢 CPU。
     m_decodePool.setMaxThreadCount(2);
     m_dragPool.setMaxThreadCount(1);
+    // D1-1：缩略图独立小池 2 线程，与全图/拖动池互不挤占。
+    m_thumbPool.setMaxThreadCount(2);
 }
 
 ImageCache::~ImageCache()
 {
     m_decodePool.waitForDone();
     m_dragPool.waitForDone();
+    m_thumbPool.waitForDone();
 }
 
 void ImageCache::setFullCacheLimit(int mb)
@@ -155,7 +158,7 @@ void ImageCache::requestFull(const QString &path, const QSize &previewSize, bool
                  .arg(m_fullCache.totalCost()));
     if (preempt) {
         // 显式跳转：进入新代次。此刻之前提交的所有结果只入缓存、不再上屏。
-        ++m_generation;
+        m_generation.fetch_add(1);
     }
     // 「不打开 RAW 图片文件」= 请求这一层就拒：缓存里有（预读早就解过的）也必须
     // 拿掉，否则从邻居预读切过去会直接命中缓存、绕开下面所有解码守卫，开关看着像
@@ -177,7 +180,7 @@ void ImageCache::requestFull(const QString &path, const QSize &previewSize, bool
         // 预读正在解这一页：升级为「要上屏」，解完直接按序发出，不另起任务
         // （否则同一页两个解码，先到的可能是后一页，画面会回跳）
         m_preloadPromote = true;
-        m_preloadGeneration = m_generation;   // 认领为当前代次，结果可上屏
+        m_preloadGeneration = m_generation.load();   // 认领为当前代次，结果可上屏
         return;
     }
     if (path == m_dragInFlight) {
@@ -189,7 +192,7 @@ void ImageCache::requestFull(const QString &path, const QSize &previewSize, bool
     m_dragPending.clear();
     // 当前代次正在解同一张才复用在飞结果；旧代次的同路径必须重新提交，
     // 否则它解完会被代次检查拦下，画面永远等不到。
-    if (m_fullInFlight.contains(path) && m_fullInFlight.value(path) == m_generation) {
+    if (m_fullInFlight.contains(path) && m_fullInFlight.value(path) == m_generation.load()) {
         return;   // 正在解
     }
     if (m_queue.contains(path)) {
@@ -262,7 +265,7 @@ void ImageCache::startNextPreload()
     }
     const QString path = m_preloadQueue.takeFirst();
     m_preloadPath = path;
-    m_preloadGeneration = m_generation;
+    m_preloadGeneration = m_generation.load();
     ++m_preloadStarts;
     probeLog(QStringLiteral("preload_start file=%1 starts=%2")
                  .arg(QFileInfo(path).fileName())
@@ -426,7 +429,7 @@ void ImageCache::startNext()
             continue;
         }
         PerfProbe::mark(PerfProbe::currentSeq(), "decode-start", "");
-        startFullDecode(path, m_previewSize, m_generation);
+        startFullDecode(path, m_previewSize, m_generation.load());
         return;
     }
 }
@@ -436,11 +439,11 @@ void ImageCache::startNext()
 bool ImageCache::hasCurrentGenWork() const
 {
     for (auto it = m_fullInFlight.constBegin(); it != m_fullInFlight.constEnd(); ++it) {
-        if (it.value() == m_generation) {
+        if (it.value() == m_generation.load()) {
             return true;
         }
     }
-    return !m_preloadPath.isEmpty() && m_preloadGeneration == m_generation;
+    return !m_preloadPath.isEmpty() && m_preloadGeneration == m_generation.load();
 }
 
 // 快帧/RAW 缩略图在后台线程解出，回主线程前先核对代次：过期结果一律丢弃，
@@ -448,7 +451,7 @@ bool ImageCache::hasCurrentGenWork() const
 void ImageCache::emitPreview(const QString &path, const QImage &img, quint64 generation)
 {
     QMetaObject::invokeMethod(this, [this, path, img, generation]() {
-        if (generation != m_generation) {
+        if (generation != m_generation.load()) {
             return;
         }
         emit fullReady(path, img, true);
@@ -477,6 +480,18 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
     m_fullInFlight.insert(path, generation);
     QtConcurrent::run(&m_decodePool, [this, path, previewSize, generation, previewOn,
                                       noRaw, rawThumb, hdrTonemap]() {
+        // D1-5：代次快照轮询。worker 拦不住 loader 内部循环，但进入每一道重活之前先
+        // 核对代次：已被显式跳转作废的任务跳过后续解码与后处理，结果回主线程由
+        // finishFullDecode 按 stale 静默丢弃（不上屏、不发 loadFailed），少做无用功。
+        const auto stillCurrent = [this, generation]() {
+            return generation == m_generation.load();
+        };
+        const auto abandon = [this, path, generation]() {
+            QMetaObject::invokeMethod(this, [this, path, generation]() {
+                finishFullDecode(path, QImage(), generation, QString(),
+                                 LoadErrorCategory::None);
+            }, Qt::QueuedConnection);
+        };
         // 包内条目（.zip/.cbz 里的文件）：解压进内存 → QImageReader 从内存流解码。
         // 与文件路径同构：先按视口出一张快帧顶住连按，再解全图；解码完的字节即弃，
         // 全程不落盘（派单 §二.3 / §四.5 的内存峰值就落在这两条）。
@@ -487,6 +502,10 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
                 if (!prev.isNull()) {
                     emitPreview(path, prev, generation);
                 }
+            }
+            if (!stillCurrent()) {
+                abandon();
+                return;
             }
             QString entryError;
             LoadErrorCategory entryCategory = LoadErrorCategory::None;
@@ -500,6 +519,10 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
         // PSD 走 PsdLoader（QImageReader 无 PSD 插件）：用文件自带的原始合成预览，
         // 不逐层重合成，避免用近似结果冒充原文件效果。
         if (PsdLoader::isPsdPath(path)) {
+            if (!stillCurrent()) {
+                abandon();
+                return;
+            }
             const PsdDocument psdDoc = PsdLoader::load(path, false);
             const QImage img = psdDoc.composite;
             const QString err = psdDoc.error;   // 例如「ZIP 压缩的 PSD 暂不支持」
@@ -515,6 +538,10 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
         // 因此不走下面的快帧两级；失败类别由 loader 层定性（坏文件＝Corrupt、
         // 后缀是 svg 但内容不是 SVG 文本＝Unsupported）。
         if (SvgLoader::isSvgPath(path)) {
+            if (!stillCurrent()) {
+                abandon();
+                return;
+            }
             QString svgErr;
             LoadErrorCategory svgCat = LoadErrorCategory::None;
             const QImage img = SvgLoader::render(path, previewSize, true, &svgErr, &svgCat);
@@ -524,6 +551,35 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
             return;
         }
         if (ExtraImageLoader::isExtraPath(path)) {
+            // D1-3：Extra/重格式先试 QImageReader 按视口出一张降采样快帧顶住首屏；
+            // 插件读不出尺寸、不支持 ScaledSize 或读回尺寸不符时静默放弃，仍走
+            // ExtraImageLoader 全量。拿不到后端缩放能力的格式不兜底，不假称全覆盖。
+            if (previewSize.isValid() && previewOn) {
+                QImageReader fast(path);
+                fast.setAutoTransform(true);
+                QSize src = fast.size();
+                if (src.isValid() && src.width() > 0 && src.height() > 0
+                    && fast.supportsOption(QImageIOHandler::ScaledSize)) {
+                    const QImageIOHandler::Transformations t = fast.transformation();
+                    if (t.testFlag(QImageIOHandler::TransformationRotate90)
+                        || t.testFlag(QImageIOHandler::TransformationRotate270)) {
+                        src.transpose();
+                    }
+                    const QSize scaled = src.scaled(previewSize, Qt::KeepAspectRatio);
+                    if (scaled.isValid() && scaled.width() > 0 && scaled.height() > 0
+                        && scaled != src) {
+                        fast.setScaledSize(scaled);
+                        const QImage prev = fast.read();
+                        if (!prev.isNull() && prev.size() == scaled) {
+                            emitPreview(path, prev, generation);
+                        }
+                    }
+                }
+            }
+            if (!stillCurrent()) {
+                abandon();
+                return;
+            }
             QString extraErr;
             LoadErrorCategory extraCat = LoadErrorCategory::None;
             const QImage img = ExtraImageLoader::load(path, previewSize, &extraErr, &extraCat, hdrTonemap);
@@ -585,6 +641,10 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
         // 插件会按内容嗅探读出内嵌预览（Nikon D1 是 160×120）并「成功」返回，
         // libraw 全尺寸解码就永远轮不到，画面一直停在小缩略图。缩略图这一级由
         // 上面 raw_thumbnail 链路负责，这里只做全尺寸解码，职责分开。
+        if (!stillCurrent()) {
+            abandon();
+            return;
+        }
         QImage img;
         QString readerError;
         if (!rawFile) {
@@ -637,7 +697,7 @@ void ImageCache::finishFullDecode(const QString &path, const QImage &img,
     PerfProbe::mark(PerfProbe::currentSeq(), "decode-full", "");
     // 唯一的上屏判据：结果仍属于当前代次。显式跳转在 cancelPending 里自增代次，
     // 「跳走后旧图才解完」自然被拦下；不再依赖会被多次跳转互相覆盖的布尔标志。
-    const bool stale = (generation != m_generation);
+    const bool stale = (generation != m_generation.load());
     if (img.isNull()) {
         if (!stale) {
             // loader 没给类别（QImageReader / RAW 路径）时，在这里按魔数白名单补判：
@@ -670,7 +730,7 @@ void ImageCache::cancelPending()
     // 进入新代次：在飞任务拦不住（QtConcurrent 不可取消），但结果到达时会因
     // 代次不符只入缓存不上屏。用代次替代单个布尔标志，连续跳转不会互相覆盖
     // （A→B→A 往返也能正确区分「哪一代的 A」）。
-    ++m_generation;
+    m_generation.fetch_add(1);
     m_queue.clear();
     // 旧页面的邻居预读在新位置已经没意义：待预读清掉
     m_preloadQueue.clear();
@@ -691,8 +751,8 @@ void ImageCache::forgetPath(const QString &path)
     if (path.isEmpty()) {
         return;
     }
-    ++m_generation;
-    m_minGen.insert(path, m_generation);
+    m_generation.fetch_add(1);
+    m_minGen.insert(path, m_generation.load());
 
     m_fullCache.remove(path);
     m_dragCache.remove(path);
@@ -739,7 +799,8 @@ void ImageCache::requestThumbnail(const QString &path, const QSize &size)
     m_thumbInFlight.insert(key);
     const quint64 epoch = m_thumbEpoch.value(path);
 
-    auto future = QtConcurrent::run([path, size]() {
+    // D1-1：缩略图投递到独立小池，不与全图/拖动解码抢线程。
+    auto future = QtConcurrent::run(&m_thumbPool, [path, size]() {
         if (ArchiveStore::isEntryPath(path)) {
             // 包内缩略图：解压入口字节 → 按缩略图尺寸解码（ArchiveStore 负责最终缩比）
             QString ignored;
@@ -817,7 +878,7 @@ void ImageCache::clear()
 void ImageCache::clearFull()
 {
     m_fullInFlight.clear();
-    ++m_generation;   // 已清掉的任务即使回来也不再被认作当前结果
+    m_generation.fetch_add(1);   // 已清掉的任务即使回来也不再被认作当前结果
     m_fullCache.clear();
     m_queue.clear();
     m_preloadQueue.clear();
@@ -829,4 +890,22 @@ void ImageCache::clearFull()
     m_dragPending.clear();
     m_dragPromote = false;
     m_dragMuted = false;
+}
+
+// D1-4 切目录回收：按目录前缀淘汰上一目录的全图条目，拖动预览缓存整路清空（旧落点
+// 的跟手预览不该占着新目录的字节预算）。缩略图缓存保留——按路径隔离、体积小，跨
+// 目录回翻仍可命中。沿用 QCache 字节成本 LRU，这里只做定向移除，不改淘汰策略。
+void ImageCache::evictDirectory(const QString &dirPath)
+{
+    if (dirPath.isEmpty()) {
+        return;
+    }
+    const QString prefix = QFileInfo(dirPath).absoluteFilePath() + QLatin1Char('/');
+    m_dragCache.clear();
+    const QList<QString> keys = m_fullCache.keys();
+    for (const QString &key : keys) {
+        if (key.startsWith(prefix, Qt::CaseInsensitive)) {
+            m_fullCache.remove(key);
+        }
+    }
 }
