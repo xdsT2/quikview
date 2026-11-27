@@ -225,6 +225,10 @@ if [ -f "$PANO_EXE" ]; then
     rm -rf "$PANO_PAYLOAD"
     mkdir -p "$PANO_PAYLOAD"
     cp "$PANO_EXE" "$PANO_PAYLOAD/"
+    # 版本文件随可选载荷一起落目录：版本号取自 version.sh 单一真源，
+    # 与主程序 major.minor 兼容比对口径一致；NSIS 可选节直接 File 进
+    # $INSTDIR（Manager::versionFilePath() 期望的位置），不再依赖安装时手写。
+    printf '%s\n' "$VERSION" > "$PANO_PAYLOAD/pano-version.txt"
     # 组件包（设置页「安装」的下载物）：zip 内含 exe + 版本文件，同址 .sha256
     # 摘要。正式分发由受控下载入口提供；离线与本地验证也用这份当测试源。
     PANO_ZIP="$OUT_DIR/quikview-pano-${VERSION}.zip"
