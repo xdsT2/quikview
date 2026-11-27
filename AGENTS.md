@@ -4,10 +4,11 @@
 
 ## 一、仓库形态
 
-1. **单一主仓**：`E:\Agent\Tencent\WorkBuddy\Workspace\soleview`。不再有多个并列副本、镜像仓、`_frozen` 之外的备份仓。
+1. **唯一工作区**：`E:\A1\XiaoMiFeng\`，**唯一代码仓**：`E:\A1\XiaoMiFeng\soleview\`。源码、官网、测试只在本仓内操作；不再有多个并列副本、镜像仓或冷冻仓。
 2. **一个分支一件事**：从 `main` 切分支，做完合入即删分支；不留长期挂着的孤分支。
-3. **旧仓已冷冻**：`_frozen\soleview-legacy-20261127` 只读备查。除回捞资料外不进去开发、不提交、不推送。
-4. **远端**：`https://github.com/xdsT2/soleview.git`，只有 `main`、`gh-pages`、`feat/pano-hdr-exr-20261127` 三条。
+3. **工具链沿用旧址**：`E:\Agent\Tencent\WorkBuddy\Workspace\tools\`（msys64 / qt-official 等），本仓不改工具链。
+4. **固定构建目录**：`build\`、`build-shell64\`、`build-shell32\`、`build-libheif\`，不另建 `build-*`。
+5. **远端**：`https://github.com/xdsT2/soleview.git`，只保留 `main`（`gh-pages` 仅在 Pages 仍依赖时保留）。
 
 ## 二、构建与测试
 
@@ -20,12 +21,13 @@
    cd build; ctest --output-on-failure
    ```
 3. **合入门槛**：`cmake --build` 通过 + `ctest` 全绿（当前 28 条）。跑不过不许合。
+4. **dev / 测试安装纪律**：本地测试安装只允许写 HKCU 注册项，或安装到固定测试目录；用完必须先运行安装器自带的卸载器走完反注册，再清理文件。**禁止「删目录代替卸载」**——目录删掉后，注册表关联、候选 ProgID 与卸载入口会变成指向死路径的幽灵项（2026-11-28 事故：`.png` 的「打开方式」仍指向已删除的 `install-gui\quikview.exe`）。
 
 ## 三、并发
 
 1. **全局同时在做的事 ≤ 3**，**同一代码区（同一批文件）同时只有 1 个写入者**。
 2. 动 `main`、动安装包、动注册表这类高风险动作前，先写租约：
-   `E:\A1\XiaoMiFeng\Output\.desktop-lock\claim-<任务>.json`（10 分钟 TTL，做完即删）。
+   `E:\A1\XiaoMiFeng\.lease\claim-<任务>.json`（目录不存在则先创建；10 分钟 TTL，做完即删）。
 3. 别在别人正在构建的 `build/` 上并行编译。
 
 ## 四、产物与卫生
@@ -54,7 +56,8 @@
 
 ## 八、XiaoMiFeng 外围目录约定（2026-11-28 起）
 
-1. 测试大图一律放 `E:\A1\XiaoMiFeng\测试素材\`，不得放代码仓或 `资料与设计\` / `临时验收\`。
-2. 近期验收截图 / 录屏 / 报告放 `E:\A1\XiaoMiFeng\临时验收\`，发完大版本统一清一次（周转箱口径）。
-3. 官网唯一真源是本仓 `website\`，`XiaoMiFeng\QuikView-官网\` 与 `SoleView-官网\` 为非同步副本，禁止直接编辑。
+1. **测试大图**一律放 `..\测试素材\`（即 `E:\A1\XiaoMiFeng\测试素材\`），不得放代码仓或 `资料与设计\` / `临时验收\`。
+2. **近期验收截图 / 录屏 / 报告**放 `..\临时验收\`（即 `E:\A1\XiaoMiFeng\临时验收\`），发完大版本统一清一次（周转箱口径）。
+3. **官网唯一真源**是本仓 `website\`，旧外置副本禁止直接编辑。
 4. 禁止往 `资料与设计\` 或 `临时验收\` 放编译中间物或 GB 级样本；构建产物只进本仓固定 `build\`。
+5. 全局并发 ≤ 3，同一代码区（同一批文件）同时只有 1 个写入者；合并即删分支。
