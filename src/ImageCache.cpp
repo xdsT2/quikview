@@ -11,6 +11,7 @@
 #include <QImageReader>
 #include "PsdLoader.h"
 #include "SvgLoader.h"      // 矢量 SVG：QSvgRenderer 栅格化（派单 2026-11-18）
+#include "ExtraImageLoader.h"
 #include <QtConcurrent/QtConcurrent>
 
 #include "Config.h"
@@ -57,12 +58,30 @@ LoadErrorCategory classifyByMagic(const QString &path)
     const bool psd = head.startsWith("8BPS");
     const bool dds = head.startsWith("DDS ");
     const bool exr = head.startsWith("v/1\x01");
+    const bool hdr = head.startsWith("#?RADIANCE") || head.startsWith("#?RGBE");
+    const bool jxr = at(0) == 0x49 && at(1) == 0x49 && at(2) == 0xBC;
+    const bool ani = head.startsWith("RIFF") && head.mid(8, 4) == "ACON";
+    const bool pcx = at(0) == 0x0A && (suffix == QLatin1String("pcx"));
+    const bool sgi = at(0) == 0x01 && at(1) == 0xDA;
+    const bool pamPfm = head.startsWith("P7") || head.startsWith("PF") || head.startsWith("Pf");
+    const bool ras = at(0) == 0x59 && at(1) == 0xA6 && at(2) == 0x6A && at(3) == 0x95;
+    const bool ff = head.startsWith("farbfeld");
+    const bool dpx = head.startsWith("SDPX") || head.startsWith("XPDS");
+    const bool jp2 = (head.size() >= 12 && head.mid(4, 4) == "jP  ")
+                     || (at(0) == 0xFF && at(1) == 0x4F && at(2) == 0xFF && at(3) == 0x51);
+    const bool kraOra = head.startsWith("PK\x03\x04")
+                        && (suffix == QLatin1String("kra") || suffix == QLatin1String("ora"));
+    const bool xwd = (suffix == QLatin1String("xwd") && head.size() >= 8 && at(7) == 7);
+    const bool wmfEmf = (suffix == QLatin1String("wmf") || suffix == QLatin1String("emf"))
+                        && (head.startsWith("\xD7\xCD\xC6\x9A") || at(0) == 0x01);
     const bool tgaBySuffix = (suffix == QLatin1String("tga"));   // TGA 无固定魔数，按扩展名兜底
-    const bool svg = head.contains("<svg") || head.contains("<?xml");
+    const bool svg = head.contains("<svg") || head.contains("<?xml")
+                     || (at(0) == 0x1F && at(1) == 0x8B && suffix == QLatin1String("svgz"));
 
     const bool known = png || jpg || gif || bmp || webp || tiff || heif || jxl
-                       || jxlBox || qoi || ico || psd || dds || exr || tgaBySuffix
-                       || svg;
+                       || jxlBox || qoi || ico || psd || dds || exr || hdr || jxr
+                       || ani || pcx || sgi || pamPfm || ras || ff || dpx || jp2
+                       || kraOra || xwd || wmfEmf || tgaBySuffix || svg;
     return known ? LoadErrorCategory::Corrupt : LoadErrorCategory::Unsupported;
 }
 
@@ -260,6 +279,10 @@ void ImageCache::startNextPreload()
             // 存一张「自带尺寸」的位图，fit 查看时会被放大成糊图（图标型 SVG
             // 尤其明显，16×16 的标志放大会糊），而 SvgLoader 单张只要几十毫秒，
             // 省这点时间不值。这里不解，走「空结果」让预读队列自然跳过这张。
+        } else if (ExtraImageLoader::isExtraPath(path)) {
+            if (!ExtraImageLoader::isVectorExtraPath(path)) {
+                img = ExtraImageLoader::load(path);
+            }
         } else {
             QImageReader reader(path);
             reader.setAutoTransform(true);
@@ -344,6 +367,13 @@ void ImageCache::startDragDecode()
             // 拖动跟手预览：按视口盒缩到不大于目标（矢量只缩不放）
             QString ignored;
             img = SvgLoader::render(path, size, false, &ignored);
+        } else if (ExtraImageLoader::isExtraPath(path)) {
+            QString ignored;
+            img = ExtraImageLoader::load(path, size, &ignored);
+            if (!img.isNull() && size.isValid()
+                && (img.width() > size.width() || img.height() > size.height())) {
+                img = img.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            }
         } else {
             QImageReader reader(path);
             reader.setAutoTransform(true);
@@ -489,6 +519,15 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
             const QImage img = SvgLoader::render(path, previewSize, true, &svgErr, &svgCat);
             QMetaObject::invokeMethod(this, [this, path, img, svgErr, svgCat, generation]() {
                 finishFullDecode(path, img, generation, svgErr, svgCat);
+            }, Qt::QueuedConnection);
+            return;
+        }
+        if (ExtraImageLoader::isExtraPath(path)) {
+            QString extraErr;
+            LoadErrorCategory extraCat = LoadErrorCategory::None;
+            const QImage img = ExtraImageLoader::load(path, previewSize, &extraErr, &extraCat, hdrTonemap);
+            QMetaObject::invokeMethod(this, [this, path, img, extraErr, extraCat, generation]() {
+                finishFullDecode(path, img, generation, extraErr, extraCat);
             }, Qt::QueuedConnection);
             return;
         }
@@ -716,6 +755,14 @@ void ImageCache::requestThumbnail(const QString &path, const QSize &size)
             // 比「先渲原尺寸再缩」既快又不糊）
             QString ignored;
             return SvgLoader::render(path, size, false, &ignored);
+        }
+        if (ExtraImageLoader::isExtraPath(path)) {
+            QString ignored;
+            QImage thumb = ExtraImageLoader::load(path, size, &ignored);
+            if (!thumb.isNull() && (thumb.width() > size.width() || thumb.height() > size.height())) {
+                thumb = thumb.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            }
+            return thumb;
         }
         QImageReader reader(path);
         reader.setAutoTransform(true);

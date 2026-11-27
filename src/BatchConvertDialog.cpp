@@ -29,7 +29,11 @@
 #include <QVBoxLayout>
 
 #include "Config.h"
+#include "ExtraImageLoader.h"
 #include "HeifLoader.h"
+#include "PsdLoader.h"
+#include "RawImageLoader.h"
+#include "SvgLoader.h"
 #include "UiStyle.h"
 
 namespace {
@@ -505,6 +509,18 @@ void BatchConvertDialog::buildUi()
 // ---------------------------------------------------------------------------
 QImage readBatchInput(const QString &path, bool autoTransform)
 {
+    if (PsdLoader::isPsdPath(path)) {
+        return PsdLoader::load(path, false).composite;
+    }
+    if (SvgLoader::isSvgPath(path)) {
+        return SvgLoader::render(path, QSize(), false);
+    }
+    if (ExtraImageLoader::isExtraPath(path)) {
+        return ExtraImageLoader::load(path);
+    }
+    if (isRawFilePath(path)) {
+        return loadRawImage(path, nullptr);
+    }
     QImageReader reader(path);
     reader.setAutoTransform(autoTransform);
     QImage img = reader.read();

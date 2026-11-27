@@ -1,11 +1,15 @@
 #include "SvgLoader.h"
 
+#include "PsdPch.h"
+#include "Psdminiz.h"
+
 #include <QFile>
 #include <QFileInfo>
 #include <QPainter>
 #include <QSvgRenderer>
 
 #include <cmath>
+#include <cstring>
 
 namespace {
 
@@ -28,6 +32,100 @@ void fail(const QString &reason, LoadErrorCategory cat, QString *error,
     if (category) {
         *category = cat;
     }
+}
+
+bool isGzipMagic(const QByteArray &bytes)
+{
+    return bytes.size() >= 2
+           && static_cast<uchar>(bytes.at(0)) == 0x1F
+           && static_cast<uchar>(bytes.at(1)) == 0x8B;
+}
+
+// 解压 RFC 1952 GZIP（.svgz），硬性限制解压后 <= kMaxSvgBytes 防 gzip 炸弹，
+// 并校验 CRC32 与 ISIZE 防止截断/损坏包漏过。
+bool decompressSvgz(const QByteArray &gz, QByteArray *outSvg, LoadErrorCategory *errCat,
+                    QString *errMsg)
+{
+    if (gz.size() < 18 || !isGzipMagic(gz)) {
+        fail(QStringLiteral("svgz header invalid"), LoadErrorCategory::Unsupported, errMsg, errCat);
+        return false;
+    }
+    const uchar *raw = reinterpret_cast<const uchar *>(gz.constData());
+    if (raw[2] != 8) {   // CM == 8 (DEFLATE)
+        fail(QStringLiteral("svgz unsupported compression"), LoadErrorCategory::Unsupported,
+             errMsg, errCat);
+        return false;
+    }
+    const uchar flg = raw[3];
+    int pos = 10;
+    const int n = gz.size();
+    if (flg & 0x04) {   // FEXTRA
+        if (pos + 2 > n) {
+            fail(QStringLiteral("svgz truncated extra"), LoadErrorCategory::Corrupt, errMsg, errCat);
+            return false;
+        }
+        const int xlen = int(raw[pos]) | (int(raw[pos + 1]) << 8);
+        pos += 2 + xlen;
+    }
+    if (flg & 0x08) {   // FNAME
+        while (pos < n && raw[pos] != 0) ++pos;
+        ++pos;
+    }
+    if (flg & 0x10) {   // FCOMMENT
+        while (pos < n && raw[pos] != 0) ++pos;
+        ++pos;
+    }
+    if (flg & 0x02) {   // FHCRC
+        pos += 2;
+    }
+    if (pos >= n - 8) {
+        fail(QStringLiteral("svgz truncated stream"), LoadErrorCategory::Corrupt, errMsg, errCat);
+        return false;
+    }
+
+    struct Sink {
+        QByteArray buf;
+        bool overflow = false;
+    } sink;
+
+    size_t compLen = size_t(n - 8 - pos);
+    auto putCb = [](const void *pBuf, int len, void *pUser) -> int {
+        Sink *s = static_cast<Sink *>(pUser);
+        if (len < 0 || qint64(s->buf.size()) + qint64(len) > kMaxSvgBytes) {
+            s->overflow = true;
+            return 0;
+        }
+        s->buf.append(static_cast<const char *>(pBuf), len);
+        return 1;
+    };
+
+    const int ok = tinfl_decompress_mem_to_callback(raw + pos, &compLen, putCb, &sink, 0);
+    if (!ok) {
+        fail(sink.overflow ? QStringLiteral("svgz exceeds 8 MB")
+                           : QStringLiteral("svgz inflate failed"),
+             LoadErrorCategory::Corrupt, errMsg, errCat);
+        return false;
+    }
+
+    const int trailerOff = n - 8;
+    const quint32 expectedCrc = quint32(raw[trailerOff])
+                                | (quint32(raw[trailerOff + 1]) << 8)
+                                | (quint32(raw[trailerOff + 2]) << 16)
+                                | (quint32(raw[trailerOff + 3]) << 24);
+    const quint32 expectedSize = quint32(raw[trailerOff + 4])
+                                 | (quint32(raw[trailerOff + 5]) << 8)
+                                 | (quint32(raw[trailerOff + 6]) << 16)
+                                 | (quint32(raw[trailerOff + 7]) << 24);
+    const mz_ulong actualCrc = mz_crc32(MZ_CRC32_INIT,
+                                        reinterpret_cast<const unsigned char *>(sink.buf.constData()),
+                                        size_t(sink.buf.size()));
+    if (quint32(actualCrc) != expectedCrc
+        || (quint32(sink.buf.size()) & 0xFFFFFFFFu) != expectedSize) {
+        fail(QStringLiteral("svgz crc/size mismatch"), LoadErrorCategory::Corrupt, errMsg, errCat);
+        return false;
+    }
+    *outSvg = std::move(sink.buf);
+    return true;
 }
 
 // 头部嗅探：跳过 UTF-8 BOM 与前导空白后必须以 '<' 开头，且出现 <svg 或 <?xml。
@@ -104,7 +202,8 @@ bool isSvgPath(const QString &path)
     if (path.isEmpty()) {
         return false;
     }
-    return QFileInfo(path).suffix().compare(QLatin1String("svg"), Qt::CaseInsensitive) == 0;
+    const QString s = QFileInfo(path).suffix().toLower();
+    return s == QLatin1String("svg") || s == QLatin1String("svgz");
 }
 
 QImage render(const QString &path, const QSize &box, bool allowUpscale, QString *error,
@@ -125,22 +224,36 @@ QImage render(const QString &path, const QSize &box, bool allowUpscale, QString 
         fail(QStringLiteral("svg open failed"), LoadErrorCategory::Corrupt, error, category);
         return QImage();
     }
-    const QByteArray head = f.read(4096);
-    if (!looksLikeSvgText(head)) {
-        fail(QStringLiteral("svg header not recognized"), LoadErrorCategory::Unsupported,
-             error, category);
-        return QImage();
-    }
     if (f.size() > kMaxSvgBytes) {
         fail(QStringLiteral("svg exceeds 8 MB"), LoadErrorCategory::Corrupt, error, category);
         return QImage();
     }
-    f.seek(0);
-    const QByteArray data = f.read(kMaxSvgBytes);
+    const QByteArray rawData = f.read(kMaxSvgBytes);
     f.close();
-    if (data.isEmpty()) {
+    if (rawData.isEmpty()) {
         fail(QStringLiteral("svg read empty"), LoadErrorCategory::Corrupt, error, category);
         return QImage();
+    }
+
+    QByteArray data;
+    const bool expectGzip = QFileInfo(path).suffix().compare(QLatin1String("svgz"), Qt::CaseInsensitive) == 0
+                            || isGzipMagic(rawData);
+    if (expectGzip) {
+        if (!decompressSvgz(rawData, &data, category, error)) {
+            return QImage();
+        }
+        if (!looksLikeSvgText(data.left(4096))) {
+            fail(QStringLiteral("svgz content not svg"), LoadErrorCategory::Unsupported,
+                 error, category);
+            return QImage();
+        }
+    } else {
+        if (!looksLikeSvgText(rawData.left(4096))) {
+            fail(QStringLiteral("svg header not recognized"), LoadErrorCategory::Unsupported,
+                 error, category);
+            return QImage();
+        }
+        data = rawData;
     }
 
     QSvgRenderer renderer;

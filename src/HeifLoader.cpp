@@ -5,6 +5,7 @@
 
 #ifdef HAS_LIBHEIF
 #include <libheif/heif.h>
+#include <libheif/heif_sequences.h>
 #endif
 
 #include <QFileInfo>
@@ -129,7 +130,20 @@ QImage loadHeifImage(const QString &path, QString *errorOut, bool toneMapSdr)
     heif_image_handle *handle = nullptr;
     err = heif_context_get_primary_image_handle(ctx, &handle);
     if (err.code != heif_error_Ok || !handle) {
-        if (handle) heif_image_handle_release(handle);
+        if (handle) {
+            heif_image_handle_release(handle);
+            handle = nullptr;
+        }
+        // 纯图像序列容器（部分 .avifs / .heics 无主项 pitm，只有序列轨道）：回退取第一帧视觉轨道。
+        if (heif_context_has_sequence(ctx)) {
+            QVector<QImage> seqFrames;
+            QVector<int> seqDelays;
+            heif_context_free(ctx);
+            if (loadHeifAnimationFrames(path, seqFrames, seqDelays, errorOut) && !seqFrames.isEmpty()) {
+                return seqFrames.first();
+            }
+            return QImage();
+        }
         if (errorOut) *errorOut = QCoreApplication::translate("HeifLoader", "libheif 获取主图像失败：%1").arg(QString::fromUtf8(err.message));
         heif_context_free(ctx);
         return QImage();
@@ -209,10 +223,127 @@ QImage loadHeifImage(const QString &path, QString *errorOut, bool toneMapSdr)
     heif_context_free(ctx);
     return out;
 }
+
+bool hasHeifAnimation(const QString &path)
+{
+    const QByteArray local = QFileInfo(path).absoluteFilePath().toUtf8();
+    heif_context *ctx = heif_context_alloc();
+    if (!ctx) return false;
+    heif_error err = heif_context_read_from_file(ctx, local.constData(), nullptr);
+    bool hasSeq = false;
+    if (err.code == heif_error_Ok && heif_context_has_sequence(ctx)) {
+        heif_track *track = heif_context_get_track(ctx, 0);
+        if (track) {
+            const heif_track_type tt = heif_track_get_track_handler_type(track);
+            hasSeq = (tt == heif_track_type_image_sequence || tt == heif_track_type_video);
+            heif_track_release(track);
+        }
+    }
+    heif_context_free(ctx);
+    return hasSeq;
+}
+
+bool loadHeifAnimationFrames(const QString &path, QVector<QImage> &frames,
+                             QVector<int> &delaysMs, QString *errorOut)
+{
+    frames.clear();
+    delaysMs.clear();
+    const QByteArray local = QFileInfo(path).absoluteFilePath().toUtf8();
+    heif_context *ctx = heif_context_alloc();
+    if (!ctx) {
+        if (errorOut) *errorOut = QCoreApplication::translate("HeifLoader", "libheif 上下文分配失败");
+        return false;
+    }
+    heif_error err = heif_context_read_from_file(ctx, local.constData(), nullptr);
+    if (err.code != heif_error_Ok) {
+        if (errorOut) *errorOut = QCoreApplication::translate("HeifLoader", "libheif 读取失败：%1").arg(QString::fromUtf8(err.message));
+        heif_context_free(ctx);
+        return false;
+    }
+    if (!heif_context_has_sequence(ctx)) {
+        heif_context_free(ctx);
+        return false;
+    }
+    heif_track *track = heif_context_get_track(ctx, 0);
+    if (!track) {
+        heif_context_free(ctx);
+        return false;
+    }
+
+    uint32_t timescale = heif_track_get_timescale(track);
+    if (timescale == 0) timescale = 1000;
+
+    heif_decoding_options *opts = heif_decoding_options_alloc();
+#if LIBHEIF_NUMERIC_VERSION >= ((1 << 24) | (21 << 16))
+    if (opts && opts->version >= 8) {
+        opts->ignore_sequence_editlist = 1;
+    }
+#endif
+
+    constexpr int kMaxSeqFrames = 512;
+    constexpr quint64 kMaxSeqBytes = 256ULL * 1024 * 1024;
+    quint64 totalBytes = 0;
+
+    while (frames.size() < kMaxSeqFrames) {
+        heif_image *img = nullptr;
+        err = heif_track_decode_next_image(track, &img,
+                                           heif_colorspace_RGB,
+                                           heif_chroma_interleaved_RGBA,
+                                           opts);
+        if (err.code == heif_error_End_of_sequence) {
+            if (img) heif_image_release(img);
+            break;
+        }
+        if (err.code != heif_error_Ok || !img) {
+            if (img) heif_image_release(img);
+            break;
+        }
+        size_t stride = 0;
+        const uint8_t *data = heif_image_get_plane_readonly2(img, heif_channel_interleaved, &stride);
+        const int w = heif_image_get_width(img, heif_channel_interleaved);
+        const int h = heif_image_get_height(img, heif_channel_interleaved);
+        if (data && w > 0 && h > 0 && w <= 30000 && h <= 30000
+            && uint64_t(w) * uint64_t(h) <= 100000000ULL
+            && stride >= static_cast<size_t>(w) * 4u) {
+            QImage qimg(w, h, QImage::Format_RGBA8888);
+            if (!qimg.isNull()) {
+                for (int y = 0; y < h; ++y) {
+                    std::memcpy(qimg.scanLine(y), data + static_cast<size_t>(y) * stride,
+                                static_cast<size_t>(w) * 4u);
+                }
+                totalBytes += static_cast<quint64>(qimg.sizeInBytes());
+                if (totalBytes > kMaxSeqBytes) {
+                    heif_image_release(img);
+                    break;
+                }
+                const uint32_t dur = heif_image_get_duration(img);
+                const int ms = (dur > 0) ? qMax(16, int(std::lround(double(dur) * 1000.0 / double(timescale)))) : 100;
+                frames.append(std::move(qimg));
+                delaysMs.append(ms);
+            }
+        }
+        heif_image_release(img);
+    }
+
+    if (opts) heif_decoding_options_free(opts);
+    heif_track_release(track);
+    heif_context_free(ctx);
+    return !frames.isEmpty();
+}
 #else
 QImage loadHeifImage(const QString &, QString *errorOut, bool)
 {
     if (errorOut) *errorOut = QCoreApplication::translate("HeifLoader", "当前构建未启用 libheif，无法解码 HEIC/AVIF");
     return QImage();
+}
+
+bool hasHeifAnimation(const QString &)
+{
+    return false;
+}
+
+bool loadHeifAnimationFrames(const QString &, QVector<QImage> &, QVector<int> &, QString *)
+{
+    return false;
 }
 #endif

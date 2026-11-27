@@ -11,6 +11,7 @@
 #include <io.h>
 #include <windows.h>
 
+#include "ExtraImageLoader.h"
 #include "RawImageLoader.h"
 
 namespace {
@@ -163,10 +164,12 @@ namespace RotateAutoSave {
 QString unsupportedReason(const QString &path)
 {
     const QString suf = QFileInfo(path).suffix().toLower();
-    if (suf == QLatin1String("psd"))
+    if (suf == QLatin1String("psd") || suf == QLatin1String("psb"))
         return QStringLiteral("PSD");
     if (isRawFilePath(path))
         return QStringLiteral("RAW");
+    if (ExtraImageLoader::hasMultipleFrames(path))
+        return QStringLiteral("ANIM");
     QImageReader r(path);
     r.setAutoTransform(false);
     const int n = r.imageCount();

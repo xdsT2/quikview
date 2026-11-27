@@ -2,6 +2,7 @@
 
 #include <QImage>
 #include <QString>
+#include <QStringList>
 
 // 相机 RAW 解码（libraw）。QImageReader 不认 RAW，这里用 libraw 兜底。
 // 返回空 QImage 表示该文件不是支持的 RAW 或解码失败。
@@ -9,6 +10,9 @@
 //（HDR 显示开关）；8bit RAW 两条路径逐字节相同。
 QImage loadRawImage(const QString &path, QString *errorOut = nullptr,
                     bool toneMapSdr = false);
+
+// libraw 支持的全部相机 RAW 扩展名（不含点、全小写），全仓唯一事实来源。
+const QStringList &rawFileExtensions();
 
 // 扩展名是否属于 libraw 能开的 RAW（nef/cr2/arw…）。只判后缀，不碰文件内容，
 // 供 ImageCache 在后台线程判断该走 libraw 路径。

@@ -2,7 +2,11 @@
 
 #include "ArchiveStore.h"
 #include "Config.h"
+#include "ExtraImageLoader.h"
 #include "PerfProbe.h"
+#include "PsdLoader.h"
+#include "RawImageLoader.h"
+#include "SvgLoader.h"
 #include "ZipArchive.h"
 
 #include <QCollator>
@@ -37,14 +41,32 @@ struct ImageGroup
 // 与动 WebP 同一原则：做不好就不让用户碰到。插件保留，将来换解码器可直接恢复。
 // svg（2026-11-18 格式扩展三件）：不在 supportedImageFormats 里，解码走
 // SvgLoader（QSvgRenderer 栅格化），见该文件头的路线说明。
-const char *const kCommonExts[] = { "png", "jpg", "jpeg", "jfif", "bmp", "gif",
+const char *const kCommonExts[] = { "png", "jpg", "jpeg", "jpe", "jif", "jfi",
+                                    "jfif", "bmp", "dib", "rle", "gif",
                                     "webp", "tif", "tiff" };
-const char *const kIconExts[]   = { "ico", "cur", "icns" };
+const char *const kIconExts[]   = { "ico", "cur", "icns", "ani" };
 const char *const kOtherExts[]  = { "tga", "mng", "wbmp",
-                                    "ppm", "pgm", "pbm", "xbm", "xpm", "psd", "svg" };
-const char *const kCameraExts[] = { "heic", "heif", "hif", "avif",
-                                    "dng", "nef", "cr2", "arw",
-                                    "rw2", "orf", "raf", "pef", "raw" };
+                                    "ppm", "pgm", "pbm", "pnm",
+                                    "xbm", "xpm", "psd", "psb",
+                                    "svg", "svgz",
+                                    "wmf", "emf",
+                                    "qoi", "hdr", "pic", "dds",
+                                    "jxr", "wdp", "hdp",
+                                    "pcx", "sgi", "rgb", "rgba",
+                                    "bw", "int", "inta",
+                                    "pam", "pfm", "ras", "sun",
+                                    "ff", "xwd", "dpx", "apng",
+                                    "jp2", "j2k", "j2c", "jpf", "jpx",
+                                    "jxl", "exr", "kra", "ora" };
+const char *const kCameraExts[] = { "heic", "heif", "hif", "avif", "avifs", "heics",
+                                    "dng", "nef", "cr2", "cr3", "crw",
+                                    "arw", "sr2", "srf", "srw", "rw2",
+                                    "orf", "raf", "pef", "raw", "nrw",
+                                    "3fr", "fff", "iiq", "rwl", "x3f",
+                                    "mrw", "dcr", "kdc", "erf", "mef",
+                                    "mos", "k25", "mdc", "ptx", "pxn",
+                                    "bay", "cap", "dcs", "drf", "eip",
+                                    "gpr", "rwz", "sti", "ari" };
 
 const ImageGroup kImageGroups[] = {
     { QT_TRANSLATE_NOOP("DirectoryLoader", "常用图片"), kCommonExts,
@@ -68,19 +90,19 @@ QStringList groupPatterns(const ImageGroup &g)
 }
 
 // 包内可解码的格式：同一张表派生，但去掉「必须走文件级 loader」的几类——
-// PSD 走 PsdLoader（从磁盘读文件）、相机/HEIF 格式走 libraw / libheif（同样
-// 只接受文件路径）、SVG 走 SvgLoader（QSvgRenderer 按栅格上限渲染磁盘文件）。
+// PSD/PSB 走 PsdLoader（从磁盘读文件）、相机/HEIF 格式走 libraw / libheif（同样
+// 只接受文件路径）、SVG/SVGZ 走 SvgLoader。
 // 它们在压缩包里拿不到 QIODevice，列出来只会变成「打不开」。
 bool isArchiveDecodableExt(const QString &ext)
 {
-    static const QSet<QString> kFileOnly = {
-        QStringLiteral("psd"), QStringLiteral("svg"), QStringLiteral("heic"),
-        QStringLiteral("heif"), QStringLiteral("hif"), QStringLiteral("avif"),
-        QStringLiteral("dng"), QStringLiteral("nef"), QStringLiteral("cr2"),
-        QStringLiteral("arw"), QStringLiteral("rw2"), QStringLiteral("orf"),
-        QStringLiteral("raf"), QStringLiteral("pef"), QStringLiteral("raw")
-    };
-    return !kFileOnly.contains(ext);
+    const QString dummy = QStringLiteral("a.") + ext;
+    if (PsdLoader::isPsdPath(dummy) || SvgLoader::isSvgPath(dummy)
+        || isRawFilePath(dummy) || ExtraImageLoader::isArchiveExcludedExt(ext)) {
+        return false;
+    }
+    return ext != QLatin1String("heic") && ext != QLatin1String("heif")
+           && ext != QLatin1String("hif") && ext != QLatin1String("avif")
+           && ext != QLatin1String("avifs") && ext != QLatin1String("heics");
 }
 
 // 包内图片扩展名（不带 "*."），顺序跟随 kImageGroups。
@@ -306,25 +328,23 @@ DirectoryLoader::Index DirectoryLoader::buildIndexDir(const QString &dirPath,
         const QString curSuffix = anchorInfo.suffix().toLower();
         const bool curIsJpg = (curSuffix == QLatin1String("jpg")
                                || curSuffix == QLatin1String("jpeg")
+                               || curSuffix == QLatin1String("jpe")
+                               || curSuffix == QLatin1String("jif")
+                               || curSuffix == QLatin1String("jfi")
                                || curSuffix == QLatin1String("jfif"));
         if (curIsJpg) {
             QSet<QString> jpgStems;
             for (const QFileInfo &info : infos) {
                 const QString s = info.suffix().toLower();
                 if (s == QLatin1String("jpg") || s == QLatin1String("jpeg")
-                    || s == QLatin1String("jfif")) {
+                    || s == QLatin1String("jpe") || s == QLatin1String("jif")
+                    || s == QLatin1String("jfi") || s == QLatin1String("jfif")) {
                     jpgStems.insert(info.completeBaseName().toLower());
                 }
             }
-            static const QStringList kRawExts = {
-                QStringLiteral("dng"), QStringLiteral("nef"), QStringLiteral("cr2"),
-                QStringLiteral("arw"), QStringLiteral("rw2"), QStringLiteral("orf"),
-                QStringLiteral("raf"), QStringLiteral("pef"), QStringLiteral("raw")
-            };
             infos.erase(std::remove_if(infos.begin(), infos.end(),
                                        [&jpgStems](const QFileInfo &info) {
-                const QString s = info.suffix().toLower();
-                return kRawExts.contains(s)
+                return isRawFilePath(info.fileName())
                        && jpgStems.contains(info.completeBaseName().toLower());
             }), infos.end());
         }

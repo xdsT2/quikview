@@ -26,6 +26,10 @@ find_package(PkgConfig)
 if(PkgConfig_FOUND)
     pkg_check_modules(LIBRAW QUIET IMPORTED_TARGET libraw)
     pkg_check_modules(LIBHEIF QUIET IMPORTED_TARGET libheif)
+    pkg_check_modules(LIBWEBPDEMUX QUIET IMPORTED_TARGET libwebpdemux libwebp)
+    pkg_check_modules(LIBOPENJP2 QUIET IMPORTED_TARGET libopenjp2)
+    pkg_check_modules(LIBJXL QUIET IMPORTED_TARGET libjxl libjxl_threads)
+    pkg_check_modules(OPENEXR QUIET IMPORTED_TARGET OpenEXR)
 endif()
 
 add_executable(quikview WIN32
@@ -51,6 +55,8 @@ add_executable(quikview WIN32
     src/RawImageLoader.h
     src/HeifLoader.cpp
     src/HeifLoader.h
+    src/ExtraImageLoader.cpp
+    src/ExtraImageLoader.h
     src/MetadataPanel.cpp
     src/MetadataPanel.h
     src/HudShell.cpp
@@ -179,6 +185,26 @@ if(LIBHEIF_FOUND)
     target_compile_definitions(quikview PRIVATE HAS_LIBHEIF=1)
 endif()
 
+if(LIBWEBPDEMUX_FOUND)
+    target_link_libraries(quikview PRIVATE PkgConfig::LIBWEBPDEMUX)
+    target_compile_definitions(quikview PRIVATE HAS_LIBWEBPDEMUX=1)
+endif()
+
+if(LIBOPENJP2_FOUND)
+    target_link_libraries(quikview PRIVATE PkgConfig::LIBOPENJP2)
+    target_compile_definitions(quikview PRIVATE HAS_LIBOPENJP2=1)
+endif()
+
+if(LIBJXL_FOUND)
+    target_link_libraries(quikview PRIVATE PkgConfig::LIBJXL)
+    target_compile_definitions(quikview PRIVATE HAS_LIBJXL=1)
+endif()
+
+if(OPENEXR_FOUND)
+    target_link_libraries(quikview PRIVATE PkgConfig::OPENEXR)
+    target_compile_definitions(quikview PRIVATE HAS_OPENEXR=1)
+endif()
+
 # Windows 需要子系统 GUI；Qt 应用建议加 high-DPI 属性
 if(WIN32)
     set_target_properties(quikview PROPERTIES
@@ -195,7 +221,8 @@ if(WIN32)
     # WM_NCCALCSIZE 最大化修正用到 GetDpiForWindow / GetSystemMetricsForDpi（Win10 1607+）
     target_compile_definitions(quikview PRIVATE _WIN32_WINNT=0x0A00 WINVER=0x0A00)
     # 翻页音效（pageturn_wav）走 winmm PlaySound（MainWindow.cpp 运行时合成 WAV）
-    target_link_libraries(quikview PRIVATE winmm shell32 ole32)
+    # WIC（.jxr/.wdp/.hdp/BC6H/BC7）走 windowscodecs，WMF/EMF 走 gdiplus
+    target_link_libraries(quikview PRIVATE winmm shell32 ole32 windowscodecs gdiplus)
 
     # 开发构建也必须可直接运行：把 Qt 图像格式插件稳定部署到 exe 同级目录。
     # 发行 staging 仍由 tools/package.sh 负责完整依赖闭包；这里明确排除 qjp2，
@@ -244,8 +271,11 @@ if(WIN32)
     # 里，现有构建目录的依赖闭包覆盖不到，所以单独列清单。
     # 缺文件时只告警：换一套不带这些插件的 Qt 时不该阻断整个构建。
     set(QUIKVIEW_IMAGEFORMAT_RUNTIME_DLLS
-        libtiff-6.dll libjpeg-8.dll libwebp-7.dll libdeflate.dll
-        libjbig-0.dll libLerc.dll liblzma-5.dll zlib1.dll libzstd.dll)
+        libtiff-6.dll libjpeg-8.dll libwebp-7.dll libwebpdemux-2.dll libdeflate.dll
+        libjbig-0.dll libLerc.dll liblzma-5.dll zlib1.dll libzstd.dll
+        libopenjp2-7.dll libopenjph-0.32.dll
+        libjxl.dll libjxl_threads.dll libjxl_cms.dll libhwy.dll libbrotlienc.dll
+        libOpenEXR-3_4.dll libOpenEXRCore-3_4.dll libIex-3_4.dll libIlmThread-3_4.dll libImath-3_2.dll)
     foreach(_dll IN LISTS QUIKVIEW_IMAGEFORMAT_RUNTIME_DLLS)
         unset(_dll_source CACHE)
         find_file(_dll_source NAMES "${_dll}"
@@ -323,6 +353,55 @@ if(BUILD_TESTING)
     target_include_directories(quikview-photofolders-test PRIVATE src ${CMAKE_CURRENT_SOURCE_DIR}/shared)
     target_link_libraries(quikview-photofolders-test PRIVATE Qt6::Gui)
     add_test(NAME photofolders.pure COMMAND quikview-photofolders-test)
+
+    add_executable(quikview-formats-test
+        tests/unit/extra_formats_test.cpp
+        src/DirectoryLoader.cpp
+        src/ArchiveStore.cpp
+        src/ZipArchive.cpp
+        src/PsdLoader.cpp
+        src/SvgLoader.cpp
+        src/RawImageLoader.cpp
+        src/HeifLoader.cpp
+        src/ExtraImageLoader.cpp
+        src/FrameNavigator.cpp
+        src/RawJpgGroup.cpp
+        src/RotateAutoSave.cpp
+        src/ToneMap.cpp
+        src/Config.cpp
+    )
+    target_include_directories(quikview-formats-test PRIVATE src third_party/psd_sdk ${CMAKE_CURRENT_SOURCE_DIR}/shared)
+    target_compile_definitions(quikview-formats-test PRIVATE
+        QUIKVIEW_FORMAT_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Temp/format-samples")
+    target_link_libraries(quikview-formats-test PRIVATE Qt6::Widgets Qt6::Svg Psd)
+    if(WIN32)
+        target_link_libraries(quikview-formats-test PRIVATE windowscodecs gdiplus)
+    endif()
+    if(LIBRAW_FOUND)
+        target_link_libraries(quikview-formats-test PRIVATE PkgConfig::LIBRAW)
+        target_compile_definitions(quikview-formats-test PRIVATE HAS_LIBRAW=1)
+    endif()
+    if(LIBHEIF_FOUND)
+        target_link_libraries(quikview-formats-test PRIVATE PkgConfig::LIBHEIF)
+        target_compile_definitions(quikview-formats-test PRIVATE HAS_LIBHEIF=1)
+    endif()
+    if(LIBWEBPDEMUX_FOUND)
+        target_link_libraries(quikview-formats-test PRIVATE PkgConfig::LIBWEBPDEMUX)
+        target_compile_definitions(quikview-formats-test PRIVATE HAS_LIBWEBPDEMUX=1)
+    endif()
+    if(LIBOPENJP2_FOUND)
+        target_link_libraries(quikview-formats-test PRIVATE PkgConfig::LIBOPENJP2)
+        target_compile_definitions(quikview-formats-test PRIVATE HAS_LIBOPENJP2=1)
+    endif()
+    if(LIBJXL_FOUND)
+        target_link_libraries(quikview-formats-test PRIVATE PkgConfig::LIBJXL)
+        target_compile_definitions(quikview-formats-test PRIVATE HAS_LIBJXL=1)
+    endif()
+    if(OPENEXR_FOUND)
+        target_link_libraries(quikview-formats-test PRIVATE PkgConfig::OPENEXR)
+        target_compile_definitions(quikview-formats-test PRIVATE HAS_OPENEXR=1)
+    endif()
+    add_test(NAME formats.pure COMMAND quikview-formats-test)
 
     include("${CMAKE_CURRENT_SOURCE_DIR}/tests/chrome_popup_cases.cmake")
     foreach(_chrome_case IN LISTS QUIKVIEW_CHROME_CASES)

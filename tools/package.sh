@@ -187,10 +187,12 @@ fi
 # 编码器 DLL 不该出现在包里：它们只服务 libheif 的编码路径，本程序不用。
 # 出现即说明 libheif 换版失败或依赖闭包又从别处把它们拉进来了，包体会多约 50MB。
 # CI 用 MSYS2 版 libheif（带编码器），烟测场景不要求纯解码包。
+# 注：libopenjp2-*.dll（用于 JP2/J2K 解码）与 libopenjph-*.dll（OpenEXR 3.4 运行时依赖）
+# 已正式纳入解码链路，从本黑名单移出。
 if [ "$CI_BUILD_SMOKE" != "1" ]; then
 for pat in 'libx265-*.dll' 'libSvtAv1Enc-*.dll' 'librav1e.dll' 'libaom.dll' \
            'libx264-*.dll' 'libkvazaar-*.dll' 'libcryptopp.dll' \
-           'libopenh264-*.dll' 'libopenjp2-*.dll' 'libopenjph-*.dll'; do
+           'libopenh264-*.dll'; do
     hit="$(find "$STAGE" -maxdepth 1 -name "$pat" -print -quit)"
     if [ -n "$hit" ]; then
         echo "  自检发现编码器 DLL：$(basename "$hit")" >&2

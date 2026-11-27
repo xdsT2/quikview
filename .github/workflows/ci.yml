@@ -51,6 +51,10 @@ jobs:
             mingw-w64-ucrt-x86_64-qt6-imageformats
             mingw-w64-ucrt-x86_64-libraw
             mingw-w64-ucrt-x86_64-libheif
+            mingw-w64-ucrt-x86_64-libwebp
+            mingw-w64-ucrt-x86_64-openjpeg2
+            mingw-w64-ucrt-x86_64-libjxl
+            mingw-w64-ucrt-x86_64-openexr
 
       - name: 配置
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/ucrt64 -DQUIKVIEW_REQUIRE_ALL_IMAGEFORMATS=OFF

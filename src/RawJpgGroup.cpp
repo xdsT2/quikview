@@ -1,5 +1,7 @@
 #include "RawJpgGroup.h"
 
+#include "RawImageLoader.h"
+
 #include <QFileInfo>
 #include <QHash>
 #include <QVector>
@@ -8,25 +10,19 @@ namespace RawJpgGroup {
 
 namespace {
 
-// 原始组扩展名（与 DirectoryLoader::kCameraExts 的 RAW 子集保持一致，
-// 去掉 heic/heif/hif/avif —— 那四个是手机直出，不与 JPG 双存）。
-// PSD 并入原始组：BandiView 把 PSD+JPG 当同一个场景，PSD 是重的那一份。
+// 原始组扩展名（与 RawImageLoader::rawFileExtensions() 保持一致，
+// 外加 PSD/PSB：BandiView 把 PSD+JPG 当同一个场景）。
 bool rawSideSuffix(const QString &s)
 {
-    static const QHash<QString, bool> kRaw = {
-        { QStringLiteral("dng"), true }, { QStringLiteral("nef"), true },
-        { QStringLiteral("cr2"), true }, { QStringLiteral("arw"), true },
-        { QStringLiteral("rw2"), true }, { QStringLiteral("orf"), true },
-        { QStringLiteral("raf"), true }, { QStringLiteral("pef"), true },
-        { QStringLiteral("raw"), true }, { QStringLiteral("psd"), true },
-    };
-    return kRaw.value(s, false);
+    return s == QLatin1String("psd") || s == QLatin1String("psb")
+           || rawFileExtensions().contains(s);
 }
 
 bool jpgSideSuffix(const QString &s)
 {
     return s == QLatin1String("jpg") || s == QLatin1String("jpeg")
-           || s == QLatin1String("jfif");
+           || s == QLatin1String("jpe") || s == QLatin1String("jif")
+           || s == QLatin1String("jfi") || s == QLatin1String("jfif");
 }
 
 QString suffixLower(const QString &path)

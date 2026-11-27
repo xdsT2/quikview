@@ -212,14 +212,29 @@ QImage loadRawImage(const QString &, QString *errorOut, bool)
 }
 #endif
 
-bool isRawFilePath(const QString &path)
+const QStringList &rawFileExtensions()
 {
     static const QStringList kRawExts = {
         QStringLiteral("dng"), QStringLiteral("nef"), QStringLiteral("cr2"),
-        QStringLiteral("arw"), QStringLiteral("rw2"), QStringLiteral("orf"),
-        QStringLiteral("raf"), QStringLiteral("pef"), QStringLiteral("raw")
+        QStringLiteral("cr3"), QStringLiteral("crw"), QStringLiteral("arw"),
+        QStringLiteral("sr2"), QStringLiteral("srf"), QStringLiteral("srw"),
+        QStringLiteral("rw2"), QStringLiteral("orf"), QStringLiteral("raf"),
+        QStringLiteral("pef"), QStringLiteral("raw"), QStringLiteral("nrw"),
+        QStringLiteral("3fr"), QStringLiteral("fff"), QStringLiteral("iiq"),
+        QStringLiteral("rwl"), QStringLiteral("x3f"), QStringLiteral("mrw"),
+        QStringLiteral("dcr"), QStringLiteral("kdc"), QStringLiteral("erf"),
+        QStringLiteral("mef"), QStringLiteral("mos"), QStringLiteral("k25"),
+        QStringLiteral("mdc"), QStringLiteral("ptx"), QStringLiteral("pxn"),
+        QStringLiteral("bay"), QStringLiteral("cap"), QStringLiteral("dcs"),
+        QStringLiteral("drf"), QStringLiteral("eip"), QStringLiteral("gpr"),
+        QStringLiteral("rwz"), QStringLiteral("sti"), QStringLiteral("ari")
     };
-    return kRawExts.contains(QFileInfo(path).suffix().toLower());
+    return kRawExts;
+}
+
+bool isRawFilePath(const QString &path)
+{
+    return rawFileExtensions().contains(QFileInfo(path).suffix().toLower());
 }
 
 QImage loadRawThumbnail(const QString &path)

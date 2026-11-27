@@ -91,6 +91,7 @@
 #include "MenuCatalog.h"
 #include "PsdLoader.h"
 #include "SvgLoader.h"
+#include "ExtraImageLoader.h"
 #include "LayerPanel.h"
 #include "ImageEffects.h"
 #include "MetadataPanel.h"
@@ -4364,6 +4365,15 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error,
     // 否则 loadreport 只能看到「无法解码」，分不清是损坏还是缺 viewBox。
     if (SvgLoader::isSvgPath(path)) {
         m_lastLoadError = QStringLiteral("path=%1 | svg=%2")
+                              .arg(path, error.isEmpty() ? QStringLiteral("(empty)") : error);
+        const QString detail = advice.isEmpty() ? tr("暂不支持该格式") : advice;
+        const QString text = tr("无法打开 %1：%2").arg(QFileInfo(path).fileName(), detail);
+        showFailure(text);
+        m_toast->showMessage(text, Chrome::Toast::Tone::Error);
+        return;
+    }
+    if (ExtraImageLoader::isExtraPath(path)) {
+        m_lastLoadError = QStringLiteral("path=%1 | extra=%2")
                               .arg(path, error.isEmpty() ? QStringLiteral("(empty)") : error);
         const QString detail = advice.isEmpty() ? tr("暂不支持该格式") : advice;
         const QString text = tr("无法打开 %1：%2").arg(QFileInfo(path).fileName(), detail);
@@ -9486,6 +9496,15 @@ QImage MainWindow::readImageSync(const QString &path) const
         QString ignored;
         const QImage viaArchive = ArchiveStore::decode(path, QSize(), &ignored);
         return m_hdrTonemap ? ToneMap::toneMapToSdr(viaArchive) : viaArchive;
+    }
+    if (PsdLoader::isPsdPath(path)) {
+        return PsdLoader::load(path, false).composite;
+    }
+    if (SvgLoader::isSvgPath(path)) {
+        return SvgLoader::render(path, QSize(), false);
+    }
+    if (ExtraImageLoader::isExtraPath(path)) {
+        return ExtraImageLoader::load(path);
     }
     QString err;
     QImage img = loadRawImage(path, &err, m_hdrTonemap);

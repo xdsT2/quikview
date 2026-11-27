@@ -1,5 +1,7 @@
 #include "FrameNavigator.h"
 
+#include "ExtraImageLoader.h"
+
 #include <QFileInfo>
 #include <QImageIOHandler>
 #include <QImageReader>
@@ -12,6 +14,22 @@ FrameNavigator::~FrameNavigator()
 void FrameNavigator::open(const QString &path)
 {
     clear();
+
+    if (ExtraImageLoader::isAnimatedCandidatePath(path)
+        && ExtraImageLoader::hasMultipleFrames(path)) {
+        QVector<QImage> frames;
+        QVector<int> delays;
+        if (ExtraImageLoader::loadAnimationFrames(path, frames, delays) && frames.size() > 1) {
+            m_cachedFrames = std::move(frames);
+            m_cachedDelays = std::move(delays);
+            m_memoryMode = true;
+            m_animatable = true;
+            m_count = m_cachedFrames.size();
+            m_index = 0;
+            m_lastDelay = m_cachedDelays.value(0, 100);
+            return;
+        }
+    }
 
     const QString suffix = QFileInfo(path).suffix().toLower();
     if (suffix != QLatin1String("gif")
@@ -64,16 +82,27 @@ void FrameNavigator::clear()
 {
     delete m_reader;
     m_reader = nullptr;
+    m_cachedFrames.clear();
+    m_cachedDelays.clear();
     m_index = 0;
     m_count = 0;
     m_lastDelay = 0;
     m_seqPos = 0;
     m_animatable = false;
     m_sequential = false;
+    m_memoryMode = false;
 }
 
 QImage FrameNavigator::frameAt(int index)
 {
+    if (m_memoryMode) {
+        if (index < 0 || index >= m_cachedFrames.size()) {
+            return QImage();
+        }
+        m_index = index;
+        m_lastDelay = m_cachedDelays.value(index, 100);
+        return m_cachedFrames.at(index);
+    }
     if (!m_reader || index < 0) {
         return QImage();
     }
@@ -156,6 +185,9 @@ QImage FrameNavigator::nextFrame()
     if (!hasFrames()) {
         return QImage();
     }
+    if (m_memoryMode) {
+        return frameAt((m_index + 1) % m_count);
+    }
     if (m_sequential) {
         m_lastDelay = qMax(0, m_reader->nextImageDelay());
         QImage img = m_reader->read();
@@ -186,6 +218,9 @@ QImage FrameNavigator::prevFrame()
 {
     if (!hasFrames()) {
         return QImage();
+    }
+    if (m_memoryMode) {
+        return frameAt((m_index - 1 + m_count) % m_count);
     }
     if (m_sequential) {
         // 顺序模式只能重放：重建 reader 后前进到目标帧（最多 O(n)，MNG 少见）

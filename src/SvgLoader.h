@@ -6,7 +6,7 @@
 
 #include "LoadError.h"
 
-// 矢量 SVG 打开（派单《格式扩展三件》2026-11-18）。
+// 矢量 SVG / SVGZ 打开（派单《格式扩展三件》2026-11-18，T1 补齐 .svgz）。
 //
 // 白名单仍然只有一份：`DirectoryLoader.cpp` 的 kImageGroups 里加一项 svg，
 // 目录扫描、文件对话框过滤器、设置页「全部支持格式」都从那张表派生。
