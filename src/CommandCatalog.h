@@ -348,7 +348,7 @@ inline const Entry kEntries[] = {
     { Cmd::Settings,           GroupWindow,    "",           "",    "MainWindow",
       QT_TRANSLATE_NOOP("MainWindow", "设置(&C)"),               "F5;F9",         false, false },
     { Cmd::About,              GroupWindow,    "",           "",    "MainWindow",
-      QT_TRANSLATE_NOOP("MainWindow", "关于 QuikView"),          "F1",            false, false },
+      QT_TRANSLATE_NOOP("MainWindow", "关于 SoleView"),          "F1",            false, false },
 };
 
 inline int count()

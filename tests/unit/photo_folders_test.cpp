@@ -21,7 +21,7 @@ int main()
     QTemporaryDir tmp;
     CHECK(tmp.isValid());
     const QString ini = tmp.filePath("test-folders.ini");
-    qputenv("QUIKVIEW_CONFIG_PATH", ini.toLocal8Bit());
+    qputenv("SOLEVIEW_CONFIG_PATH", ini.toLocal8Bit());
     Config cfg;
 
     // 1. 默认配置兼容老两格

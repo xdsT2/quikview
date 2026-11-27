@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QuikView Windows 打包：产出可直接分发的 zip。
+# SoleView Windows 打包：产出可直接分发的 zip。
 #
 # 用法：
 #   tools/package.sh [build目录] [输出目录]
@@ -29,47 +29,47 @@ case "$OUT_DIR"   in /*|[A-Za-z]:*) ;; *) OUT_DIR="$PWD/$OUT_DIR"     ;; esac
 source "$REPO_ROOT/tools/lib/version.sh"
 VERSION="$(qv_read_version "$REPO_ROOT")" || exit 1
 
-STAGE_NAME="quikview-${VERSION}-win64"
+STAGE_NAME="soleview-${VERSION}-win64"
 STAGE="$OUT_DIR/$STAGE_NAME"
 
 command -v windeployqt >/dev/null || { echo "需要 windeployqt（MSYS2 mingw64 在 PATH 里）" >&2; exit 1; }
 command -v objdump >/dev/null || { echo "需要 objdump" >&2; exit 1; }
 QT_BIN="$(cd "$(dirname "$(command -v windeployqt)")" && pwd)"
-[ -f "$BUILD_DIR/quikview.exe" ] || { echo "先构建：cmake --build $BUILD_DIR" >&2; exit 1; }
+[ -f "$BUILD_DIR/soleview.exe" ] || { echo "先构建：cmake --build $BUILD_DIR" >&2; exit 1; }
 
 echo "[1/7] staging"
 rm -rf "$OUT_DIR/$STAGE_NAME"
 mkdir -p "$STAGE"
-cp "$BUILD_DIR/quikview.exe" "$STAGE/"
-# 安装向导的 MUI_ICON / MUI_UNICON 直接引用 ${SRC}\quikview.ico（exe 内已内嵌一份，
+cp "$BUILD_DIR/soleview.exe" "$STAGE/"
+# 安装向导的 MUI_ICON / MUI_UNICON 直接引用 ${SRC}\soleview.ico（exe 内已内嵌一份，
 # 这里放一份是给 NSIS 编译期用的），缺了 package-installer.sh 会中止
-cp "$REPO_ROOT/resources/quikview.ico" "$STAGE/"
+cp "$REPO_ROOT/resources/soleview.ico" "$STAGE/"
 # 壳扩展 DLL（shell-ext/ 独立工程产物）：随包分发；安装器按 SEC_SHELL 节注册，
 # zip 用户可用 shell-ext/scripts/*.ps1 手动注册。属于产品组件，缺了直接中止。
 #
-# 落盘文件名带版本号（quikthumb-<ver>.dll）：升级时新 DLL 是全新路径，旧文件
+# 落盘文件名带版本号（solethumb-<ver>.dll）：升级时新 DLL 是全新路径，旧文件
 # 即使仍被资源管理器映射也不与新文件冲突 —— 安装器因此不用「改名让路」，
 # 也就不会因为「删不掉旧文件」而要求重启电脑（0.5.3 的重启提示来自这里）。
-# 构建产物仍叫 quikthumb.dll，只在本脚本改名。
-[ -f "$REPO_ROOT/build-shell64/quikthumb.dll" ] || { echo "缺 build-shell64/quikthumb.dll：先构建 64 位壳扩展（见 shell-ext/README.md）" >&2; exit 1; }
-cp "$REPO_ROOT/build-shell64/quikthumb.dll" "$STAGE/quikthumb-${VERSION}.dll"
+# 构建产物仍叫 solethumb.dll，只在本脚本改名。
+[ -f "$REPO_ROOT/build-shell64/solethumb.dll" ] || { echo "缺 build-shell64/solethumb.dll：先构建 64 位壳扩展（见 shell-ext/README.md）" >&2; exit 1; }
+cp "$REPO_ROOT/build-shell64/solethumb.dll" "$STAGE/solethumb-${VERSION}.dll"
 # 32 位壳扩展需要 MSVC x86（见 shell-ext/README.md）。GitHub Actions 的 Windows
 # runner 没有 Visual Studio 实例，CI 只能做构建烟测：显式设置
-# QUIKVIEW_CI_SKIP_SHELL32=1 才允许跳过这一枚 DLL，并打警告。
+# SOLEVIEW_CI_SKIP_SHELL32=1 才允许跳过这一枚 DLL，并打警告。
 # 正式发布包（tools/package-installer.sh）不得设置该变量，两枚 DLL 必须齐备。
-if [ -f "$REPO_ROOT/build-shell32/quikthumb.dll" ]; then
-    cp "$REPO_ROOT/build-shell32/quikthumb.dll" "$STAGE/quikthumb32-${VERSION}.dll"
-elif [ "${QUIKVIEW_CI_SKIP_SHELL32:-0}" = "1" ]; then
+if [ -f "$REPO_ROOT/build-shell32/solethumb.dll" ]; then
+    cp "$REPO_ROOT/build-shell32/solethumb.dll" "$STAGE/solethumb32-${VERSION}.dll"
+elif [ "${SOLEVIEW_CI_SKIP_SHELL32:-${QUIKVIEW_CI_SKIP_SHELL32:-0}}" = "1" ]; then
     echo "  跳过 32 位壳扩展 DLL（CI 构建烟测；正式发布包不得设置此变量）" >&2
 else
-    echo "缺 build-shell32/quikthumb.dll：先构建 32 位壳扩展（见 shell-ext/README.md）" >&2
+    echo "缺 build-shell32/solethumb.dll：先构建 32 位壳扩展（见 shell-ext/README.md）" >&2
     exit 1
 fi
 
 echo "[2/7] windeployqt（Qt 运行时 + 插件）"
 windeployqt --release --no-translations --no-opengl-sw \
     --no-system-d3d-compiler --no-system-dxc-compiler --no-quick-import \
-    --dir "$STAGE" "$STAGE/quikview.exe" >/dev/null
+    --dir "$STAGE" "$STAGE/soleview.exe" >/dev/null
 
 # 图像格式插件整目录兜底：windeployqt 有时只挑它认为用得到的
 if [ -d "$QT_BIN/../share/qt6/plugins/imageformats" ]; then
@@ -82,11 +82,11 @@ fi
 # aom(9.24MB)/SvtAv1Enc(7.22MB)/cryptopp(4.38MB)/rav1e(3.36MB) 等约 50MB 编码器 DLL；
 # 本程序只解码 HEIC/AVIF、从不编码，换成只带 libde265 + dav1d 的版本后，
 # 依赖闭包自然不再收这些编码器 —— 不是事后删文件：仍被导入的 DLL 删了会起不来。
-LIBHEIF_PREFIX="${QUIKVIEW_LIBHEIF_PREFIX:-$REPO_ROOT/build-libheif/prefix}"
+LIBHEIF_PREFIX="${SOLEVIEW_LIBHEIF_PREFIX:-${QUIKVIEW_LIBHEIF_PREFIX:-$REPO_ROOT/build-libheif/prefix}}"
 if [ -f "$LIBHEIF_PREFIX/bin/libheif.dll" ]; then
     cp -f "$LIBHEIF_PREFIX/bin/libheif.dll" "$STAGE/libheif.dll"
     echo "  libheif：自建纯解码版 $(du -h "$STAGE/libheif.dll" | cut -f1)"
-elif [ "${QUIKVIEW_REQUIRE_DECODE_ONLY_LIBHEIF:-0}" = "1" ]; then
+elif [ "${SOLEVIEW_REQUIRE_DECODE_ONLY_LIBHEIF:-${QUIKVIEW_REQUIRE_DECODE_ONLY_LIBHEIF:-0}}" = "1" ]; then
     echo "缺 $LIBHEIF_PREFIX/bin/libheif.dll：先跑 tools/build-libheif.sh" >&2
     exit 1
 else
@@ -157,7 +157,7 @@ done
 
 # 自检：缺任何一个，用户拿到的就是「起不来」或「格式打不开」
 REQUIRED=(
-    quikview.exe Qt6Core.dll Qt6Gui.dll Qt6Widgets.dll Qt6PrintSupport.dll
+    soleview.exe Qt6Core.dll Qt6Gui.dll Qt6Widgets.dll Qt6PrintSupport.dll
     platforms/qwindows.dll styles/qmodernwindowsstyle.dll
     imageformats/qjpeg.dll imageformats/qgif.dll imageformats/qico.dll
     imageformats/qwebp.dll imageformats/qtiff.dll imageformats/qicns.dll
@@ -167,7 +167,7 @@ REQUIRED=(
 BAD=0
 # CI 构建烟测：Qt 6.12 起移除 qmng/qtga 等旧格式插件，CI 环境用它做构建验证
 # 而非正式分发，放宽可选插件的必需检查；正式发布包不得设置此变量。
-CI_BUILD_SMOKE="${QUIKVIEW_CI_BUILD_SMOKE:-0}"
+CI_BUILD_SMOKE="${SOLEVIEW_CI_BUILD_SMOKE:-${QUIKVIEW_CI_BUILD_SMOKE:-0}}"
 for r in "${REQUIRED[@]}"; do
     if [ ! -f "$STAGE/$r" ]; then
         if [ "$CI_BUILD_SMOKE" = "1" ] && [[ "$r" == imageformats/qmng.dll || "$r" == imageformats/qtga.dll || "$r" == imageformats/qwbmp.dll ]]; then
@@ -204,7 +204,7 @@ fi
 
 # 可选冒烟：SAMPLE=/path/to/img 时验证 staging 里的 exe 能自渲染
 if [ -n "${SAMPLE:-}" ] && [ -f "$SAMPLE" ]; then
-    if (cd "$STAGE" && ./quikview.exe "$SAMPLE" --screenshot "$OUT_DIR/_smoke.png" \
+    if (cd "$STAGE" && ./soleview.exe "$SAMPLE" --screenshot "$OUT_DIR/_smoke.png" \
             --shot-delay 1500 >/dev/null 2>&1) && [ -f "$OUT_DIR/_smoke.png" ]; then
         echo "  冒烟：OK"
     else
@@ -218,10 +218,10 @@ fi
 echo "[5/7] 360° 全景查看器组件载荷"
 # 组件是独立进程。载荷**故意不放进 staging**：主安装节是 File /r ${SRC}\*.*，
 # 只要组件在 staging 里就有被递归解出的风险（0.5.6 实测 /x "extensions\*.*" 并没有
-# 拦住它，静默安装后 extensions\quikview-pano.exe 照样落进了安装目录）。
+# 拦住它，静默安装后 extensions\soleview-pano.exe 照样落进了安装目录）。
 # 现在载荷放 $OUT_DIR/_pano-payload，用 /DEXTSRC 单独指给 SEC_PANO：
 # 主安装节递归的目录里根本没有它，「不勾选就不会装」由目录布局保证，不靠排除规则。
-PANO_EXE="$BUILD_DIR/quikview-pano.exe"
+PANO_EXE="$BUILD_DIR/soleview-pano.exe"
 if [ -f "$PANO_EXE" ]; then
     PANO_PAYLOAD="$OUT_DIR/_pano-payload"
     rm -rf "$PANO_PAYLOAD"
@@ -229,7 +229,7 @@ if [ -f "$PANO_EXE" ]; then
     cp "$PANO_EXE" "$PANO_PAYLOAD/"
     # 组件包（设置页「安装」的下载物）：zip 内含 exe + 版本文件，同址 .sha256
     # 摘要。正式分发由受控下载入口提供；离线与本地验证也用这份当测试源。
-    PANO_ZIP="$OUT_DIR/quikview-pano-${VERSION}.zip"
+    PANO_ZIP="$OUT_DIR/soleview-pano-${VERSION}.zip"
     PANO_PKG="$OUT_DIR/_pano-pkg"
     rm -rf "$PANO_PKG"
     mkdir -p "$PANO_PKG"
@@ -241,7 +241,7 @@ if [ -f "$PANO_EXE" ]; then
     if command -v zip >/dev/null 2>&1; then
         ( cd "$PANO_PKG" && zip -qr "$PANO_ZIP" . )
     elif command -v python >/dev/null 2>&1; then
-        ( cd "$PANO_PKG" && python -m zipfile -c "$PANO_ZIP" quikview-pano.exe pano-version.txt )
+        ( cd "$PANO_PKG" && python -m zipfile -c "$PANO_ZIP" soleview-pano.exe pano-version.txt )
     elif command -v powershell >/dev/null 2>&1; then
         PANO_PKG_WIN="$(cygpath -w "$PANO_PKG" 2>/dev/null || echo "$PANO_PKG")"
         PANO_ZIP_WIN="$(cygpath -w "$PANO_ZIP" 2>/dev/null || echo "$PANO_ZIP")"
@@ -255,20 +255,20 @@ if [ -f "$PANO_EXE" ]; then
     rm -rf "$PANO_PKG"
     ( cd "$OUT_DIR" && sha256sum "$(basename "$PANO_ZIP")" > "$(basename "$PANO_ZIP").sha256" )
     echo "  组件载荷 $(du -h "$PANO_ZIP" | cut -f1)"
-elif [ "${QUIKVIEW_CI_SKIP_PANO:-0}" = "1" ]; then
+elif [ "${SOLEVIEW_CI_SKIP_PANO:-${QUIKVIEW_CI_SKIP_PANO:-0}}" = "1" ]; then
     echo "  跳过组件载荷（CI 构建烟测；正式发布包不得设置此变量）" >&2
 else
-    echo "缺 $PANO_EXE：先构建组件（cmake --build $BUILD_DIR --target quikview-pano）" >&2
+    echo "缺 $PANO_EXE：先构建组件（cmake --build $BUILD_DIR --target soleview-pano）" >&2
     exit 1
 fi
 
-echo "[6/7] 生成安装清单 quikview-manifest.txt"
-# extensions/ 是可选组件载荷，不在主安装节里（quikview.nsi 用 /x 排除），
+echo "[6/7] 生成安装清单 soleview-manifest.txt"
+# extensions/ 是可选组件载荷，不在主安装节里（soleview.nsi 用 /x 排除），
 # 清单是卸载时的删除依据，必须与「实际装了哪些文件」一致：把组件排除在外，
 # 免得卸载按清单去删一个用户根本没勾选安装的文件。
-( cd "$STAGE" && find . -type f ! -name 'quikview-manifest.txt' ! -path './extensions/*' -printf '%P\n' \
-    | sed 's|/|\\|g' | LC_ALL=C sort > quikview-manifest.txt )
-echo "  清单 $(wc -l < "$STAGE/quikview-manifest.txt") 项"
+( cd "$STAGE" && find . -type f ! -name 'soleview-manifest.txt' ! -path './extensions/*' -printf '%P\n' \
+    | sed 's|/|\\|g' | LC_ALL=C sort > soleview-manifest.txt )
+echo "  清单 $(wc -l < "$STAGE/soleview-manifest.txt") 项"
 
 echo "[7/7] 压包"
 ZIP="$OUT_DIR/$STAGE_NAME.zip"

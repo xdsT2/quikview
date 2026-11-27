@@ -50,18 +50,24 @@ bool isSafeReleaseUrl(const QString &raw, bool allowAnyHttpsHost)
     return true;
 }
 
-#ifndef QUIKVIEW_VERSION
-#define QUIKVIEW_VERSION "0.0.0"
+#ifndef SOLEVIEW_VERSION
+#ifdef QUIKVIEW_VERSION
+#define SOLEVIEW_VERSION QUIKVIEW_VERSION
+#else
+#define SOLEVIEW_VERSION "0.0.0"
+#endif
 #endif
 
 QUrl updateUrl()
 {
-    // 测试逃生口：上游仓库还没有 Release 时，用 QUIKVIEW_UPDATE_URL 指向
-    // 任意公开仓库的 releases/latest，验证解析/比较链路。正常用户不会设置。
-    const QByteArray override = qgetenv("QUIKVIEW_UPDATE_URL");
+    // 测试逃生口：上游仓库还没有 Release 时，用 SOLEVIEW_UPDATE_URL（兼容 QUIKVIEW_UPDATE_URL）
+    // 指向任意公开仓库的 releases/latest，验证解析/比较链路。正常用户不会设置。
+    QByteArray override = qgetenv("SOLEVIEW_UPDATE_URL");
+    if (override.isEmpty())
+        override = qgetenv("QUIKVIEW_UPDATE_URL");
     if (!override.isEmpty())
         return QUrl(QString::fromUtf8(override));
-    return QUrl(QStringLiteral("https://api.github.com/repos/xdsT2/quikview/releases/latest"));
+    return QUrl(QStringLiteral("https://api.github.com/repos/xdsT2/soleview/releases/latest"));
 }
 
 QString displayVersion(const QString &tag)
@@ -245,7 +251,7 @@ bool UpdateChecker::check(Mode mode)
     const QUrl url = updateUrl();
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::UserAgentHeader,
-                  QStringLiteral("QuikView/%1").arg(QStringLiteral(QUIKVIEW_VERSION)));
+                  QStringLiteral("SoleView/%1").arg(QStringLiteral(SOLEVIEW_VERSION)));
     req.setRawHeader("Accept", "application/vnd.github+json");
     req.setTransferTimeout(kTimeoutMs);
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
@@ -320,7 +326,8 @@ void UpdateChecker::onReplyFinished()
     const QJsonObject obj = doc.object();
     const QString tag = obj.value(QStringLiteral("tag_name")).toString().trimmed();
     QString url = obj.value(QStringLiteral("html_url")).toString().trimmed();
-    const bool hasOverride = !qgetenv("QUIKVIEW_UPDATE_URL").isEmpty();
+    const bool hasOverride = !qgetenv("SOLEVIEW_UPDATE_URL").isEmpty()
+                             || !qgetenv("QUIKVIEW_UPDATE_URL").isEmpty();
     if (!isSafeReleaseUrl(url, hasOverride)) {
         url.clear();
     }
@@ -331,7 +338,7 @@ void UpdateChecker::onReplyFinished()
         return;
     }
 
-    const QString current = QStringLiteral(QUIKVIEW_VERSION);
+    const QString current = QStringLiteral(SOLEVIEW_VERSION);
     const bool newer = isNewer(tag, current);
     qDebug() << "[update] latest tag =" << tag << "current =" << current
              << "newer =" << newer;

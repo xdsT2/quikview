@@ -2,8 +2,8 @@
 // LoadLibrary(DLL) → DllGetClassObject 直接拿类厂 → CreateInstance →
 //   缩略图：SHCreateStreamOnFileW 喂图片流 → GetThumbnail → 校验 HBITMAP 尺寸；
 //   上下文菜单：自建 CF_HDROP 数据对象 → Initialize → QueryContextMenu 枚举
-//   菜单项 → GetCommandString 动词 → InvokeCommand（quikview.exe 由
-//   ctx_fake_quikview.exe 顶替，写标记文件供断言，不会拉起真实应用）。
+//   菜单项 → GetCommandString 动词 → InvokeCommand（soleview.exe 由
+//   ctx_fake_soleview.exe 顶替，写标记文件供断言，不会拉起真实应用）。
 // 全程不写注册表、不经 COM 激活，验证「编译链接 + 加载 + 全链路」闭环。
 // 真实右键弹出菜单属人工验收（见 shell-ext/README.md）。
 #include "quikthumb.h"   // 先于 shobjidl.h：guard 住自带 IInitializeWithStream，
@@ -53,28 +53,31 @@ bool FileExistsA(const char* path) {
 }
 
 // 本机是否配置了安装目录（InstallDir/InstallPath）。有则跳过「找不到 exe 必
-// 失败」用例，避免把真实安装的 quikview.exe 拉起来。
+// 失败」用例，避免把真实安装的 soleview.exe / quikview.exe 拉起来。
 bool InstallDirConfigured() {
+    static const wchar_t* const kKeys[] = { L"Software\\SoleView", L"Software\\QuikView" };
     static const wchar_t* const kNames[] = { L"InstallDir", L"InstallPath" };
     const HKEY kRoots[] = { HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE };
-    for (const HKEY root : kRoots) {
-        HKEY hk = nullptr;
-        if (RegOpenKeyExW(root, L"Software\\QuikView", 0,
-                          KEY_QUERY_VALUE | KEY_WOW64_64KEY,
-                          &hk) != ERROR_SUCCESS) {
-            continue;
-        }
-        for (const wchar_t* name : kNames) {
-            DWORD type = 0;
-            DWORD cb = 0;
-            if (RegQueryValueExW(hk, name, nullptr, &type, nullptr, &cb) ==
-                    ERROR_SUCCESS &&
-                type == REG_SZ && cb > sizeof(wchar_t)) {
-                RegCloseKey(hk);
-                return true;
+    for (const wchar_t* regKey : kKeys) {
+        for (const HKEY root : kRoots) {
+            HKEY hk = nullptr;
+            if (RegOpenKeyExW(root, regKey, 0,
+                              KEY_QUERY_VALUE | KEY_WOW64_64KEY,
+                              &hk) != ERROR_SUCCESS) {
+                continue;
             }
+            for (const wchar_t* name : kNames) {
+                DWORD type = 0;
+                DWORD cb = 0;
+                if (RegQueryValueExW(hk, name, nullptr, &type, nullptr, &cb) ==
+                        ERROR_SUCCESS &&
+                    type == REG_SZ && cb > sizeof(wchar_t)) {
+                    RegCloseKey(hk);
+                    return true;
+                }
+            }
+            RegCloseKey(hk);
         }
-        RegCloseKey(hk);
     }
     return false;
 }
@@ -525,7 +528,7 @@ void RunSvgCases(IClassFactory* cf, const char* dir, const char* tmpDir) {
 int main(int argc, char** argv) {
     setvbuf(stdout, nullptr, _IONBF, 0);   // 崩溃也能看到已打印的部分
     if (argc < 3) {
-        printf("usage: thumb_selftest.exe <quikthumb.dll> <image> [image...]\n");
+        printf("usage: thumb_selftest.exe <solethumb.dll> <image> [image...]\n");
         return 2;
     }
 
@@ -759,12 +762,12 @@ int main(int argc, char** argv) {
             wchar_t wverb[64] = {};
             char averb[64] = {};
             hr = ctx->GetCommandString(0, GCS_VERBW, nullptr, (CHAR*)wverb, 64);
-            bool ok = SUCCEEDED(hr) && wcscmp(wverb, L"QuikView.Browse") == 0;
+            bool ok = SUCCEEDED(hr) && wcscmp(wverb, L"SoleView.Browse") == 0;
             hr = ctx->GetCommandString(1, GCS_VERBW, nullptr, (CHAR*)wverb, 64);
             ok = ok && SUCCEEDED(hr) &&
-                 wcscmp(wverb, L"QuikView.Convert") == 0;
+                 wcscmp(wverb, L"SoleView.Convert") == 0;
             hr = ctx->GetCommandString(0, GCS_VERBA, nullptr, averb, 64);
-            ok = ok && SUCCEEDED(hr) && strcmp(averb, "QuikView.Browse") == 0;
+            ok = ok && SUCCEEDED(hr) && strcmp(averb, "SoleView.Browse") == 0;
             hr = ctx->GetCommandString(0, GCS_VALIDATEW, nullptr, nullptr, 0);
             ok = ok && hr == S_OK;
             hr = ctx->GetCommandString(7, GCS_VERBW, nullptr, (CHAR*)wverb, 64);
@@ -782,8 +785,8 @@ int main(int argc, char** argv) {
         GetFullPathNameA(argv[1], MAX_PATH, dllDir, nullptr);
         DirOfA(dllDir);
         char fakeSrc[MAX_PATH], fakeDst[MAX_PATH], markPathA[MAX_PATH];
-        snprintf(fakeSrc, sizeof(fakeSrc), "%s\\ctx_fake_quikview.exe", selfDir);
-        snprintf(fakeDst, sizeof(fakeDst), "%s\\quikview.exe", dllDir);
+        snprintf(fakeSrc, sizeof(fakeSrc), "%s\\ctx_fake_soleview.exe", selfDir);
+        snprintf(fakeDst, sizeof(fakeDst), "%s\\soleview.exe", dllDir);
         snprintf(markPathA, sizeof(markPathA), "%s\\ctx_mark.txt", dllDir);
         const std::wstring wMark = ToWide(markPathA);
 
@@ -797,7 +800,7 @@ int main(int argc, char** argv) {
             }
         }
 
-        // ctx-7：找不到 quikview.exe 时 InvokeCommand 静默失败（不弹窗不崩）
+        // ctx-7：找不到 soleview.exe 时 InvokeCommand 静默失败（不弹窗不崩）
         if (InstallDirConfigured()) {
             printf("SKIP: ctx-7（本机已配置 InstallDir/InstallPath，"
                    "跳过「找不到 exe 必失败」用例）\n");
@@ -806,15 +809,15 @@ int main(int argc, char** argv) {
             ci.cbSize = sizeof(ci);
             ci.lpVerb = MAKEINTRESOURCEA(0);
             hr = ctx ? ctx->InvokeCommand(&ci) : S_OK;
-            CTX(ctx && FAILED(hr), "ctx-7 无 quikview.exe 时静默失败");
+            CTX(ctx && FAILED(hr), "ctx-7 无 soleview.exe 时静默失败");
         }
 
         // fake 替身就位后：InvokeCommand 真启动进程并核对命令行
         const bool haveFake = FileExistsA(fakeSrc) &&
                               CopyFileA(fakeSrc, fakeDst, FALSE);
         if (!haveFake) {
-            printf("SKIP: ctx-8..12（缺 ctx_fake_quikview.exe，"
-                   "先构建 --target ctx_fake_quikview）\n");
+            printf("SKIP: ctx-8..12（缺 ctx_fake_soleview.exe，"
+                   "先构建 --target ctx_fake_soleview）\n");
         } else {
             // 预热：新拷贝的 exe 可能撞上杀软实时扫描，首次 CreateProcess 易失败。
             // 空跑一次（不给标记环境变量 → 替身立即退出），确认本体可执行。
@@ -835,7 +838,7 @@ int main(int argc, char** argv) {
                     Sleep(1000);   // 稍等扫描结束，用例里的真启动再试
                 }
             }
-            SetEnvironmentVariableW(L"QUIKVIEW_FAKE_MARK", wMark.c_str());
+            SetEnvironmentVariableW(L"SOLEVIEW_FAKE_MARK", wMark.c_str());
 
             // ctx-8：浏览（无 --batch）
             DeleteFileW(wMark.c_str());
@@ -864,11 +867,11 @@ int main(int argc, char** argv) {
             CMINVOKECOMMANDINFOEX ciex = {};
             ciex.cbSize = sizeof(ciex);
             ciex.fMask = CMIC_MASK_UNICODE;
-            ciex.lpVerbW = L"QuikView.Convert";
+            ciex.lpVerbW = L"SoleView.Convert";
             hr = ctx->InvokeCommand((LPCMINVOKECOMMANDINFO)&ciex);
             const std::wstring mark3 = ReadMarkerWait(wMark.c_str(), 10000);
             CTX(hr == S_OK && mark3.find(L"--batch") != std::wstring::npos,
-                "ctx-10 字符串动词 QuikView.Convert");
+                "ctx-10 字符串动词 SoleView.Convert");
 
             // ctx-11：未知动词拒绝
             ci.lpVerb = MAKEINTRESOURCEA(7);
@@ -876,20 +879,20 @@ int main(int argc, char** argv) {
             CMINVOKECOMMANDINFOEX ciex2 = {};
             ciex2.cbSize = sizeof(ciex2);
             ciex2.fMask = CMIC_MASK_UNICODE;
-            ciex2.lpVerbW = L"QuikView.Bogus";
+            ciex2.lpVerbW = L"SoleView.Bogus";
             const HRESULT hrBad2 = ctx->InvokeCommand(
                 (LPCMINVOKECOMMANDINFO)&ciex2);
             CTX(hrBad == E_INVALIDARG && hrBad2 == E_INVALIDARG,
                 "ctx-11 未知动词一律 E_INVALIDARG");
 
-            SetEnvironmentVariableW(L"QUIKVIEW_FAKE_MARK", nullptr);
+            SetEnvironmentVariableW(L"SOLEVIEW_FAKE_MARK", nullptr);
         }
 
         // ctx-12：多选只取第一张
         hr = E_FAIL;
         if (NewCtxHandler(ccf, kMulti, 3, &ctxMulti)) {
             if (haveFake) {
-                SetEnvironmentVariableW(L"QUIKVIEW_FAKE_MARK", wMark.c_str());
+                SetEnvironmentVariableW(L"SOLEVIEW_FAKE_MARK", wMark.c_str());
                 DeleteFileW(wMark.c_str());
                 CMINVOKECOMMANDINFO ci = {};
                 ci.cbSize = sizeof(ci);
@@ -897,7 +900,7 @@ int main(int argc, char** argv) {
                 hr = ctxMulti->InvokeCommand(&ci);
                 const std::wstring mark4 =
                     ReadMarkerWait(wMark.c_str(), 10000);
-                SetEnvironmentVariableW(L"QUIKVIEW_FAKE_MARK", nullptr);
+                SetEnvironmentVariableW(L"SOLEVIEW_FAKE_MARK", nullptr);
                 const bool ok12 = hr == S_OK &&
                                   mark4.find(wImg) != std::wstring::npos &&
                                   mark4.find(L"second.png") ==
@@ -1018,7 +1021,7 @@ int main(int argc, char** argv) {
         }
 
         // ===== 菜单偏好（设置页 ctxmenu/*，Qt 写 config.ini、DLL 每次现读）=====
-        // 每例写一份临时 ini + 指定 QUIKVIEW_CONFIG_PATH，再走 QueryContextMenu。
+        // 每例写一份临时 ini + 指定 SOLEVIEW_CONFIG_PATH，再走 QueryContextMenu。
         // 预览项是否出现取决于解码预算，用例对它做宽容断言；其余项为确定性断言。
         {
             // ini 放 dllDir（借标记文件路径取目录），用完即删
@@ -1033,7 +1036,7 @@ int main(int argc, char** argv) {
 
             // ctx-18：总开关关 → 右键完全不注入（无分隔线、无菜单项）
             WriteCtxCfg(iniPath, L"use_shell_menu", L"0");
-            SetEnvironmentVariableW(L"QUIKVIEW_CONFIG_PATH", iniPath);
+            SetEnvironmentVariableW(L"SOLEVIEW_CONFIG_PATH", iniPath);
             if (ctx) {
                 HMENU menu = CreatePopupMenu();
                 hr = ctx->QueryContextMenu(menu, 0, 1, 0x7FFF, CMF_NORMAL);
@@ -1047,7 +1050,7 @@ int main(int argc, char** argv) {
 
             // ctx-19：缺键 = 默认（空 ini，0.5.0 体验原样）
             DeleteFileW(iniPath);   // 存在但无 ctxmenu 键
-            SetEnvironmentVariableW(L"QUIKVIEW_CONFIG_PATH", iniPath);
+            SetEnvironmentVariableW(L"SOLEVIEW_CONFIG_PATH", iniPath);
             if (ctx) {
                 HMENU menu = CreatePopupMenu();
                 hr = ctx->QueryContextMenu(menu, 0, 1, 0x7FFF, CMF_NORMAL);
@@ -1116,7 +1119,7 @@ int main(int argc, char** argv) {
             if (ctx) {
                 wchar_t wverb[64] = {};
                 hr = ctx->GetCommandString(0, GCS_VERBW, nullptr, (CHAR*)wverb, 64);
-                CTX(SUCCEEDED(hr) && wcscmp(wverb, L"QuikView.Convert") == 0,
+                CTX(SUCCEEDED(hr) && wcscmp(wverb, L"SoleView.Convert") == 0,
                     "ctx-22 浏览关时偏移 0 重映射为转换");
             } else {
                 CtxFail("ctx-22 ID 重映射（建实例失败）");
@@ -1209,7 +1212,7 @@ int main(int argc, char** argv) {
 
             // 恢复缺省（清配置指针），默认体验用例已覆盖
             DeleteFileW(iniPath);
-            SetEnvironmentVariableW(L"QUIKVIEW_CONFIG_PATH", nullptr);
+            SetEnvironmentVariableW(L"SOLEVIEW_CONFIG_PATH", nullptr);
         }
 
         if (ctxTxt) ctxTxt->Release();

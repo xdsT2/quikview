@@ -1,4 +1,4 @@
-# QuikView UI 设计与验收流程
+# SoleView UI 设计与验收流程
 
 ## 何时使用
 
@@ -9,14 +9,14 @@
 - 完成后综合审查：`better-interface`。
 - `frontend-design` 仅用于寻找视觉方向；它偏 Web，不能直接提供 Qt 实现。
 
-如果当前 Agent 无法调用某 Skill，直接按本流程和 `QUIKVIEW-DESIGN.md` 执行，并在记录中注明。Skill 不是项目规范的替代品。
+如果当前 Agent 无法调用某 Skill，直接按本流程和 `SOLEVIEW-DESIGN.md` 执行，并在记录中注明。Skill 不是项目规范的替代品。
 
 ## 流程
 
 ### 1. 改前确认
 
 - 描述用户遇到的问题、目标页面和不在范围内的内容。
-- 查看 `QUIKVIEW-DESIGN.md`、`src/UiStyle.h` 和现有截图/基线。
+- 查看 `SOLEVIEW-DESIGN.md`、`src/UiStyle.h` 和现有截图/基线。
 - 说明复用的组件/令牌；新布局先明确层级、状态及窄屏/高 DPI 行为。
 - 对设置项，先确认功能真实存在、运行时消费路径和生效时机；不确定就列为待验证。
 

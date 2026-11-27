@@ -2,12 +2,12 @@
 
 [← 返回 README](../README.md)
 
-> 本页图集基于 **QuikView 0.6.1** 界面（2026-11-26 重拍，tag `v0.6.1`）。
+> 本页图集基于 **SoleView 0.6.1** 界面（2026-11-26 重拍，tag `v0.6.1`）。
 
-以下截图全部由 **QuikView 自身渲染**（`--screenshot` 走 Qt 内部绘制，不是系统抓屏），
+以下截图全部由 **SoleView 自身渲染**（`--screenshot` 走 Qt 内部绘制，不是系统抓屏），
 所以不受显示器 DPI 缩放影响，和你在屏幕上看到的一致。
 
-Every screenshot below is rendered by QuikView itself (`--screenshot`, Qt's own painting),
+Every screenshot below is rendered by SoleView itself (`--screenshot`, Qt's own painting),
 not captured from the screen — so it is DPI-independent and matches what you actually see.
 
 ---

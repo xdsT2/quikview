@@ -2,6 +2,7 @@
 // DllRegisterServer / DllUnregisterServer（regsvr32 自注册走进程位数控视图）。
 // 本 DLL 装两个 COM 类：缩略图提供程序（阶段 2）+ 上下文菜单（阶段 1）。
 // 交办单硬约束：所有 COM 入口 try/catch(...) 包裹，异常一律 E_FAIL，不许穿出 DLL。
+#include <initializer_list>
 #include <new>
 
 #include "contextmenu.h"
@@ -20,17 +21,18 @@ const wchar_t* const kSupportedExts[] = {
 // 只注册缩略图的扩展名（有渲染能力、但主程序打不开的格式）。
 // SVG 走 nanosvg 软渲染（src/svg_raster.cpp）。主程序解码白名单
 // （src/DirectoryLoader.cpp 的 kImageGroups）里没有 svg，发布包也不带 Qt 的
-// qsvg 图像插件，右键「用 QuikView 浏览」点开会失败 —— 所以 SVG 不进上面的
+// qsvg 图像插件，右键「用 SoleView 浏览」点开会失败 —— 所以 SVG 不进上面的
 // 上下文菜单清单，只进缩略图注册清单。脚本与安装器的 ShellEx 段同样只多这一项。
 const wchar_t* const kThumbOnlyExts[] = { L".svg" };
 const wchar_t kClsidString[] = L"{D8A1C4E2-7B35-4F69-92A4-5C6D7E8F1A2B}";
-const wchar_t kFriendlyName[] = L"QuikView Thumbnail Provider";
+const wchar_t kFriendlyName[] = L"SoleView Thumbnail Provider";
 const wchar_t kThumbCategory[] =
     L"{e357fccd-a995-4576-b01f-234630154e96}";   // 缩略图 ShellEx 类别
 const wchar_t kCtxClsidString[] = L"{C9FFAFAD-7C1C-4CCC-A37C-A075ED1F27AF}";
-const wchar_t kCtxFriendlyName[] = L"QuikView Context Menu Handler";
-// ContextMenuHandlers 下的键名（regsvr32 与脚本一致）
-const wchar_t kCtxHandlerName[] = L"QuikView";
+const wchar_t kCtxFriendlyName[] = L"SoleView Context Menu Handler";
+// ContextMenuHandlers 下的键名（regsvr32 与脚本一致）；过渡期同时清理指向同一 CLSID 的旧 QuikView 键
+const wchar_t kCtxHandlerName[] = L"SoleView";
+const wchar_t kLegacyCtxHandlerName[] = L"QuikView";
 
 // 支持扩展名（quikthumb.h 声明；thumbnail 注册与上下文菜单过滤共用一份）
 }   // namespace
@@ -251,17 +253,25 @@ void DeleteHandlerKeyIfOurs(const wchar_t* key) {
     }
 }
 
-// 0.5.3 及以前的 `*` 宽注册：升级/反注册都清掉（32 位侧 WOW6432Node 兜底）
-void DeleteLegacyWildcardHandler() {
+// 0.5.3 及以前的 `*` 宽注册以及旧名 QuikView 键：升级/反注册都清掉（只删仍指向本产品 CLSID 的项）
+void DeleteLegacyHandlers() {
     wchar_t key[288];
-    wsprintfW(key,
-              L"Software\\Classes\\*\\shellex\\ContextMenuHandlers\\%s",
-              kCtxHandlerName);
-    DeleteHandlerKeyIfOurs(key);
-    wsprintfW(key,
-              L"Software\\Classes\\WOW6432Node\\*\\shellex\\ContextMenuHandlers\\%s",
-              kCtxHandlerName);
-    DeleteHandlerKeyIfOurs(key);
+    for (const wchar_t* name : { kCtxHandlerName, kLegacyCtxHandlerName }) {
+        wsprintfW(key,
+                  L"Software\\Classes\\*\\shellex\\ContextMenuHandlers\\%s",
+                  name);
+        DeleteHandlerKeyIfOurs(key);
+        wsprintfW(key,
+                  L"Software\\Classes\\WOW6432Node\\*\\shellex\\ContextMenuHandlers\\%s",
+                  name);
+        DeleteHandlerKeyIfOurs(key);
+    }
+    for (const wchar_t* ext : kSupportedExts) {
+        wsprintfW(key,
+                  L"Software\\Classes\\%s\\shellex\\ContextMenuHandlers\\%s",
+                  ext, kLegacyCtxHandlerName);
+        DeleteHandlerKeyIfOurs(key);
+    }
 }
 
 LONG RegisterContextMenuHandler() {
@@ -274,7 +284,7 @@ LONG RegisterContextMenuHandler() {
         const LONG rc = WriteHandlerClsid(key);
         if (rc != ERROR_SUCCESS && firstErr == ERROR_SUCCESS) firstErr = rc;
     }
-    DeleteLegacyWildcardHandler();
+    DeleteLegacyHandlers();
     return firstErr;
 }
 
@@ -286,7 +296,7 @@ LONG UnregisterContextMenuHandler() {
                   ext, kCtxHandlerName);
         DeleteHandlerKeyIfOurs(key);
     }
-    DeleteLegacyWildcardHandler();
+    DeleteLegacyHandlers();
     return ERROR_SUCCESS;
 }
 

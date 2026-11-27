@@ -7,7 +7,7 @@ class QLabel;
 class QPushButton;
 
 // 全景查看器窗口（独立进程）：只负责展示一张球面图并接受拖动 / 缩放 / 重置，
-// 不读 QuikView 配置、不写任何文件；关闭即退出，主程序的原图与缩放不受影响。
+// 不读 SoleView 配置、不写任何文件；关闭即退出，主程序的原图与缩放不受影响。
 class PanoWindow : public QWidget
 {
     Q_OBJECT

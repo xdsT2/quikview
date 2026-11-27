@@ -13,7 +13,7 @@ side because the table literals live there.
 import pathlib
 import re
 
-REPO = pathlib.Path(r"E:\Agent\Tencent\WorkBuddy\Workspace\quikview")
+REPO = pathlib.Path(__file__).resolve().parent.parent
 SRC = REPO / "src"
 APPICON = SRC / "AppIcon.cpp"
 

@@ -1,7 +1,7 @@
 #pragma once
 
 // 快速翻图响应计时探针（验收专用，默认零开销）。
-// 开启：设置环境变量 QUIKVIEW_FLIP_PROBE=<CSV 路径>。
+// 开启：设置环境变量 SOLEVIEW_FLIP_PROBE=<CSV 路径>（兼容 QUIKVIEW_FLIP_PROBE）。
 // 每次打点追加一行：elapsed_us,event,target,mode
 //   event: input（输入时刻）/ first（首个目标画面上屏）/ full（目标清晰帧上屏）
 //   - 只用 C 标准库与 QElapsedTimer，不触碰 QSettings、信号与样式，
@@ -23,7 +23,9 @@ inline FILE *file()
     static bool tried = false;
     if (!tried) {
         tried = true;
-        const char *p = std::getenv("QUIKVIEW_FLIP_PROBE");
+        const char *p = std::getenv("SOLEVIEW_FLIP_PROBE");
+        if (!p || !*p)
+            p = std::getenv("QUIKVIEW_FLIP_PROBE");
         if (p && *p)
             f = std::fopen(p, "a");
     }

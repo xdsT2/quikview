@@ -1,18 +1,18 @@
-# QuikView
+# SoleView
 
-QuikView is an open-source Windows image viewer with folder navigation, two-page spreads, EXIF inspection, and batch conversion. Built with C++ and Qt 6 under the MIT license.
+SoleView is an open-source Windows image viewer with folder navigation, two-page spreads, EXIF inspection, and batch conversion. Built with C++ and Qt 6 under the MIT license.
 
-[![CI](https://github.com/xdsT2/quikview/actions/workflows/ci.yml/badge.svg)](https://github.com/xdsT2/quikview/actions/workflows/ci.yml)
-[![Download](https://img.shields.io/github/v/release/xdsT2/quikview?include_prereleases&label=download)](https://github.com/xdsT2/quikview/releases)
+[![CI](https://github.com/xdsT2/soleview/actions/workflows/ci.yml/badge.svg)](https://github.com/xdsT2/soleview/actions/workflows/ci.yml)
+[![Download](https://img.shields.io/github/v/release/xdsT2/soleview?include_prereleases&label=download)](https://github.com/xdsT2/soleview/releases)
 
 [简体中文](README.md) | **English**
 
-> **Windows x64 downloads** · Choose the installer or portable ZIP from the [latest release](https://github.com/xdsT2/quikview/releases/latest). Extract and run the portable version without installing Qt.
-> **Website**: [https://xdst2.github.io/quikview/](https://xdst2.github.io/quikview/) · **QQ Group**: `1134122173`
+> **Windows x64 downloads** · Choose the installer or portable ZIP from the [latest release](https://github.com/xdsT2/soleview/releases/latest). Extract and run the portable version without installing Qt.
+> **Website**: [https://xdst2.github.io/soleview/](https://xdst2.github.io/soleview/) · **QQ Group**: `1134122173`
 
-> **0.6.1** is an incremental update over 0.6.0: session restore on startup is now optional and off by default (upgrades open to the welcome page); the Open action uses a native Windows file dialog with a single entry point, and the F / custom alternate key now works; four shortcuts (bookmarks, slideshow, edit, copy-to) are removed from the top bar (still in the menu, context menu and hotkeys) and the standalone crop command is retired; ten settings become live (sharpness, caching, interpolation, page-turn effect, slideshow enable, etc.), six dropdowns and four dialogs share a Fluent shell, and switches are standardized to 40x22; the overview gains five thumbnail-size steps and adaptive caching, the clipboard accepts raw DIB bitmaps with startup cleanup, and Reveal in Explorer selects the current image; the panorama viewer fixes pole projection, and the About page links to the website and QQ group. See the [changelog](CHANGELOG.md) and [release notes](https://github.com/xdsT2/quikview/releases/tag/v0.6.1).
+> **0.6.1** is an incremental update over 0.6.0 (project unified and renamed from QuikView to **SoleView**): session restore on startup is now optional and off by default (upgrades open to the welcome page); the Open action uses a native Windows file dialog with a single entry point, and the F / custom alternate key now works; four shortcuts (bookmarks, slideshow, edit, copy-to) are removed from the top bar (still in the menu, context menu and hotkeys) and the standalone crop command is retired; ten settings become live (sharpness, caching, interpolation, page-turn effect, slideshow enable, etc.), six dropdowns and four dialogs share a Fluent shell, and switches are standardized to 40x22; the overview gains five thumbnail-size steps and adaptive caching, the clipboard accepts raw DIB bitmaps with startup cleanup, and Reveal in Explorer selects the current image; the panorama viewer fixes pole projection, and the About page links to the website and QQ group. See the [changelog](CHANGELOG.md) and [release notes](https://github.com/xdsT2/soleview/releases/tag/v0.6.1).
 
-![QuikView main window: top strip and bottom control capsule floating over the photo](docs/screenshots/01-main.webp)
+![SoleView main window: top strip and bottom control capsule floating over the photo](docs/screenshots/01-main.webp)
 
 > Most documentation is currently written in Chinese. This page mirrors `README.md`;
 > for what is implemented and what is still missing
@@ -22,11 +22,11 @@ QuikView is an open-source Windows image viewer with folder navigation, two-page
 This is a from-scratch rewrite and contains no third-party proprietary code or binaries.
 Its feature scope and architectural understanding came from reverse-engineering the installer of
 Honeyview (a discontinued free viewer by Bandisoft) — but the two are separate works:
-QuikView is an original implementation.
+SoleView is an original implementation.
 
 ## Screenshots
 
-Every screenshot is rendered by QuikView itself (not captured from the screen). Click one to see it
+Every screenshot is rendered by SoleView itself (not captured from the screen). Click one to see it
 full size.
 
 | Browsing & viewing | Effects & configuration |
@@ -98,7 +98,7 @@ Shell extension (Windows only, `shell-ext/`):
 ```bash
 cmake -S shell-ext -B build-shell64 -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
 cmake --build build-shell64
-# run shell-ext/scripts/Register-QuikThumb.ps1 as administrator to register
+# run shell-ext/scripts/Register-SoleThumb.ps1 as administrator to register
 ```
 
 32-bit cross-build, self-test and unregistration: see [shell-ext/README.md](shell-ext/README.md).
@@ -121,13 +121,13 @@ translations/ .ts language files (9 languages)
 resources/    icons and UI artwork, all drawn for this project (see docs/ATTRIBUTION.md)
 config/       portable configuration (config.ini, not tracked)
 docs/         screenshots, asset provenance, design guidelines
-website/      official static website source (https://xdst2.github.io/quikview/)
+website/      official static website source (https://xdst2.github.io/soleview/)
 packaging/    NSIS installer script
 ```
 
 ## Assets and licensing
 
-All UI artwork (`resources/skin/`) and the application icon (`resources/quikview.ico`) were drawn
+All UI artwork (`resources/skin/`), the new application icon (`resources/soleview.ico`), and the legacy fallback icon (`resources/quikview.ico`) were drawn
 for this project. No third-party image assets are included. Size, byte count and SHA-256 of every
 file are recorded in `resources/skin/PROVENANCE.json`; the `source` field distinguishes files that
 are generated by script from baked bitmaps. The generator and its parameters are documented in
@@ -137,7 +137,7 @@ Third-party libraries and trademark notices: see [NOTICE](NOTICE).
 
 ## Contributors
 
-QuikView was designed, implemented, tested and documented jointly by the author and the following AI collaboration tools:
+SoleView was designed, implemented, tested and documented jointly by the author and the following AI collaboration tools:
 
 - **Agent platforms**: ChatGPT, WorkBuddy, Trae, Doubao, ZCode, OpenCode.
 - **Models**: DeepSeek-V4.1 flash, GLM-5.3 flash, GLM 5.3, ChatGPT 6.1 solo, ChatGPT 6.2 solo.

@@ -1,126 +1,126 @@
 <?xml version='1.0' encoding='utf-8'?>
-<TS version="2.1" language="ko_KR" sourcelanguage="zh_CN">
+<TS version="2.1" language="es_ES" sourcelanguage="zh_CN">
     <context>
         <name>AppMenu</name>
         <message>
             <source>下一张</source>
-            <translation>다음 이미지</translation>
+            <translation>Imagen siguiente</translation>
         </message>
         <message>
             <source>上一张</source>
-            <translation>이전 이미지</translation>
+            <translation>Imagen anterior</translation>
         </message>
         <message>
             <source>首张图片</source>
-            <translation>첫 번째 이미지</translation>
+            <translation>Primera imagen</translation>
         </message>
         <message>
             <source>末尾图片</source>
-            <translation>마지막 이미지</translation>
+            <translation>Última imagen</translation>
         </message>
         <message>
             <source>向下 10 张图片</source>
-            <translation>10장 뒤로</translation>
+            <translation>Avanzar 10 imágenes</translation>
         </message>
         <message>
             <source>向上 10 张图片</source>
-            <translation>10장 앞으로</translation>
+            <translation>Retroceder 10 imágenes</translation>
         </message>
         <message>
             <source>向后随机转到某张图片</source>
-            <translation>뒤쪽으로 무작위 이동</translation>
+            <translation>Saltar al azar hacia atrás</translation>
         </message>
         <message>
             <source>向前随机转到某张图片</source>
-            <translation>앞쪽으로 무작위 이동</translation>
+            <translation>Saltar al azar hacia adelante</translation>
         </message>
         <message>
             <source>下一个文件夹</source>
-            <translation>다음 폴더</translation>
+            <translation>Carpeta siguiente</translation>
         </message>
         <message>
             <source>上一个文件夹</source>
-            <translation>이전 폴더</translation>
+            <translation>Carpeta anterior</translation>
         </message>
         <message>
             <source>按名称</source>
-            <translation>이름순</translation>
+            <translation>Por nombre</translation>
         </message>
         <message>
             <source>按时间</source>
-            <translation>날짜순</translation>
+            <translation>Por fecha</translation>
         </message>
         <message>
             <source>按大小</source>
-            <translation>크기순</translation>
+            <translation>Por tamaño</translation>
         </message>
         <message>
             <source>按类型</source>
-            <translation>종류순</translation>
+            <translation>Por tipo</translation>
         </message>
         <message>
             <source>降序</source>
-            <translation>내림차순</translation>
+            <translation>Descendente</translation>
         </message>
         <message>
             <source>实际大小</source>
-            <translation>실제 크기</translation>
+            <translation>Tamaño real</translation>
         </message>
         <message>
             <source>适合窗口</source>
-            <translation>창에 맞춤</translation>
+            <translation>Ajustar a la ventana</translation>
         </message>
         <message>
             <source>适合宽度</source>
-            <translation>너비에 맞춤</translation>
+            <translation>Ajustar al ancho</translation>
         </message>
         <message>
             <source>智能双页 (左至右)</source>
-            <translation>스마트 두 쪽 보기 (왼쪽→오른쪽)</translation>
+            <translation>Doble página inteligente (izq.→der.)</translation>
         </message>
         <message>
             <source>智能双页 (右至左)</source>
-            <translation>스마트 두 쪽 보기 (왼쪽←오른쪽)</translation>
+            <translation>Doble página inteligente (izq.←der.)</translation>
         </message>
         <message>
             <source>放大</source>
-            <translation>확대</translation>
+            <translation>Ampliar</translation>
         </message>
         <message>
             <source>缩小</source>
-            <translation>축소</translation>
+            <translation>Reducir</translation>
         </message>
         <message>
             <source>锁定缩放</source>
-            <translation>확대/축소 잠금</translation>
+            <translation>Bloquear zoom</translation>
         </message>
         <message>
             <source>100%</source>
-            <translation>100%</translation>
+            <translation>100 %</translation>
         </message>
         <message>
             <source>放大 (1%)</source>
-            <translation>확대 (1%)</translation>
+            <translation>Ampliar (1 %)</translation>
         </message>
         <message>
             <source>缩小 (1%)</source>
-            <translation>축소 (1%)</translation>
+            <translation>Reducir (1 %)</translation>
         </message>
         <message>
             <source>Bilinear 插值 (快)</source>
-            <translation>바이리니어 보간 (빠름)</translation>
+            <translation>Interpolación bilineal (rápida)</translation>
         </message>
         <message>
             <source>Bicubic 插值 (慢，高品质)</source>
-            <translation>바이큐빅 보간 (느림, 고품질)</translation>
+            <translation>Interpolación bicúbica (lenta, alta calidad)</translation>
         </message>
         <message>
             <source>Lanczos 插值 (慢，高品质)</source>
-            <translation>Lanczos 보간 (느림, 고품질)</translation>
+            <translation>Interpolación Lanczos (lenta, alta calidad)</translation>
         </message>
         <message>
             <source>反色</source>
-            <translation>색 반전</translation>
+            <translation>Invertir colores</translation>
         </message>
         <message>
             <source>Gamma</source>
@@ -128,417 +128,417 @@
         </message>
         <message>
             <source>垂直翻转</source>
-            <translation>세로 뒤집기</translation>
+            <translation>Voltear verticalmente</translation>
         </message>
         <message>
             <source>水平翻转</source>
-            <translation>가로 뒤집기</translation>
+            <translation>Voltear horizontalmente</translation>
         </message>
         <message>
             <source>不旋转</source>
-            <translation>회전 없음</translation>
+            <translation>Sin rotación</translation>
         </message>
         <message>
             <source>逆时针 90°</source>
-            <translation>시계 반대 방향 90°</translation>
+            <translation>90° antihorario</translation>
         </message>
         <message>
             <source>顺时针 90°</source>
-            <translation>시계 방향 90°</translation>
+            <translation>90° horario</translation>
         </message>
         <message>
             <source>旋转 180°</source>
-            <translation>180° 회전</translation>
+            <translation>Rotar 180°</translation>
         </message>
         <message>
             <source>无</source>
-            <translation>없음</translation>
+            <translation>Ninguno</translation>
         </message>
         <message>
             <source>减淡</source>
-            <translation>소프트</translation>
+            <translation>Suavizar</translation>
         </message>
         <message>
             <source>减淡 + 锐化</source>
-            <translation>소프트 + 샤픈</translation>
+            <translation>Suavizar + Enfocar</translation>
         </message>
         <message>
             <source>复制到图片文件夹</source>
-            <translation>그림 폴더로 복사</translation>
+            <translation>Copiar a la carpeta de imágenes</translation>
         </message>
         <message>
             <source>用图像编辑器打开</source>
-            <translation>이미지 편집기로 열기</translation>
+            <translation>Abrir con el editor de imágenes</translation>
         </message>
         <message>
             <source>打开图片…</source>
-            <translation>이미지 열기…</translation>
+            <translation>Abrir imagen…</translation>
         </message>
         <message>
             <source>打开文件夹…</source>
-            <translation>폴더 열기…</translation>
+            <translation>Abrir carpeta…</translation>
         </message>
         <message>
             <source>选择图片…</source>
-            <translation>이미지 선택…</translation>
+            <translation>Elegir imagen…</translation>
         </message>
         <message>
             <source>定位文件…</source>
-            <translation>파일 위치 표시…</translation>
+            <translation>Mostrar archivo…</translation>
         </message>
         <message>
             <source>图片信息</source>
-            <translation>이미지 정보</translation>
+            <translation>Info de imagen</translation>
         </message>
         <message>
             <source>复制到剪贴板</source>
-            <translation>클립보드로 복사</translation>
+            <translation>Copiar al portapapeles</translation>
         </message>
         <message>
             <source>窗口置顶</source>
-            <translation>창을 항상 위로</translation>
+            <translation>Fijar ventana</translation>
         </message>
         <message>
             <source>浏览与显示</source>
-            <translation>찾아보기와 표시</translation>
+            <translation>Examinar y ver</translation>
         </message>
         <message>
             <source>浏览导航</source>
-            <translation>탐색</translation>
+            <translation>Navegación</translation>
         </message>
         <message>
             <source>排序方式</source>
-            <translation>정렬 방식</translation>
+            <translation>Ordenar por</translation>
         </message>
         <message>
             <source>浏览方式</source>
-            <translation>보기 모드</translation>
+            <translation>Modo de vista</translation>
         </message>
         <message>
             <source>缩放工具</source>
-            <translation>확대/축소 도구</translation>
+            <translation>Herramientas de zoom</translation>
         </message>
         <message>
             <source>图像处理</source>
-            <translation>이미지 처리</translation>
+            <translation>Procesado de imagen</translation>
         </message>
         <message>
             <source>插值算法</source>
-            <translation>보간 방식</translation>
+            <translation>Método de interpolación</translation>
         </message>
         <message>
             <source>图片效果</source>
-            <translation>이미지 효과</translation>
+            <translation>Efectos de imagen</translation>
         </message>
         <message>
             <source>图像旋转</source>
-            <translation>이미지 회전</translation>
+            <translation>Rotación de imagen</translation>
         </message>
         <message>
             <source>过渡效果</source>
-            <translation>전환 효과</translation>
+            <translation>Transiciones</translation>
         </message>
         <message>
             <source>文件操作</source>
-            <translation>파일 작업</translation>
+            <translation>Operaciones de archivo</translation>
         </message>
         <message>
             <source>设为桌面壁纸…</source>
-            <translation>바탕 화면 배경으로 설정…</translation>
+            <translation>Establecer como fondo de pantalla…</translation>
         </message>
         <message>
             <source>复制更多</source>
-            <translation>기타 복사 대상</translation>
+            <translation>Más destinos de copia</translation>
         </message>
         <message>
             <source>打开方式</source>
-            <translation>연결 프로그램</translation>
+            <translation>Abrir con</translation>
         </message>
         <message>
             <source>打印…</source>
-            <translation>인쇄…</translation>
+            <translation>Imprimir…</translation>
         </message>
         <message>
             <source>删除</source>
-            <translation>삭제</translation>
+            <translation>Eliminar</translation>
         </message>
         <message>
             <source>设置…</source>
-            <translation>설정…</translation>
+            <translation>Configuración…</translation>
         </message>
         <message>
-            <source>关于 QuikView</source>
-            <translation>QuikView 정보</translation>
+            <source>关于 SoleView</source>
+            <translation>Acerca de SoleView</translation>
         </message>
         <message>
             <source>关闭窗口</source>
-            <translation>창 닫기</translation>
+            <translation>Cerrar ventana</translation>
         </message>
         <message>
             <source>退出</source>
-            <translation>끝내기</translation>
+            <translation>Salir</translation>
         </message>
         <message>
             <source>打开与定位</source>
-            <translation>열기／위치 표시</translation>
+            <translation>Abrir y localizar</translation>
         </message>
         <message>
             <source>常用动作</source>
-            <translation>자주 쓰는 동작</translation>
+            <translation>Acciones frecuentes</translation>
         </message>
         <message>
             <source>任务菜单</source>
-            <translation>작업 메뉴</translation>
+            <translation>Menús de tareas</translation>
         </message>
         <message>
             <source>危险操作</source>
-            <translation>위험한 동작</translation>
+            <translation>Acciones peligrosas</translation>
         </message>
         <message>
             <source>应用</source>
-            <translation>응용 프로그램</translation>
+            <translation>Aplicación</translation>
         </message>
         <message>
             <source>复制 EXIF 数据</source>
-            <translation>EXIF 데이터 복사</translation>
+            <translation>Copiar datos EXIF</translation>
         </message>
         <message>
             <source>复制图片路径</source>
-            <translation>이미지 경로 복사</translation>
+            <translation>Copiar ruta de imagen</translation>
         </message>
         <message>
             <source>复制当前可见图像</source>
-            <translation>보이는 이미지 복사</translation>
+            <translation>Copiar imagen visible</translation>
         </message>
         <message>
             <source>复制图像文件</source>
-            <translation>이미지 파일 복사</translation>
+            <translation>Copiar archivo de imagen</translation>
         </message>
         <message>
             <source>分组显示</source>
-            <translation>그룹 표시</translation>
+            <translation>Agrupación</translation>
         </message>
         <message>
             <source>RAW+JPG 分组显示</source>
-            <translation>RAW+JPG 그룹 표시</translation>
+            <translation>Agrupación RAW+JPG</translation>
         </message>
         <message>
             <source>显示原始数据</source>
-            <translation>원본 데이터 표시</translation>
+            <translation>Mostrar datos originales</translation>
         </message>
     </context>
     <context>
         <name>BatchConvertDialog</name>
         <message>
             <source>图片转换</source>
-            <translation>이미지 변환</translation>
+            <translation>Conversión de imágenes</translation>
         </message>
         <message>
             <source>没有可转换的图片</source>
-            <translation>변환할 이미지가 없습니다</translation>
+            <translation>No hay imágenes para convertir</translation>
         </message>
         <message>
             <source>文件列表 · %1 张</source>
-            <translation>파일 목록 · %1개</translation>
+            <translation>Lista de archivos · %1 uds.</translation>
         </message>
         <message>
             <source>不旋转</source>
-            <translation>회전 없음</translation>
+            <translation>Sin rotación</translation>
         </message>
         <message>
             <source>逆时针 90°</source>
-            <translation>시계 반대 방향 90°</translation>
+            <translation>90° antihorario</translation>
         </message>
         <message>
             <source>顺时针 90°</source>
-            <translation>시계 방향 90°</translation>
+            <translation>90° horario</translation>
         </message>
         <message>
             <source>旋转 180°</source>
-            <translation>180° 회전</translation>
+            <translation>Rotar 180°</translation>
         </message>
         <message>
             <source>按 EXIF 自动旋转</source>
-            <translation>EXIF 자동 회전</translation>
+            <translation>Rotación automática por EXIF</translation>
         </message>
         <message>
             <source>旋转</source>
-            <translation>회전</translation>
+            <translation>Rotación</translation>
         </message>
         <message>
             <source>原始</source>
-            <translation>원본</translation>
+            <translation>Original</translation>
         </message>
         <message>
             <source>保持比例</source>
-            <translation>가로세로 비율 유지</translation>
+            <translation>Mantener proporción</translation>
         </message>
         <message>
             <source>裁剪 / 新尺寸</source>
-            <translation>자르기 / 새 크기</translation>
+            <translation>Recortar / nuevo tamaño</translation>
         </message>
         <message>
             <source>格式</source>
-            <translation>형식</translation>
+            <translation>Formato</translation>
         </message>
         <message>
             <source>品质</source>
-            <translation>품질</translation>
+            <translation>Calidad</translation>
         </message>
         <message>
             <source>格式设定</source>
-            <translation>형식 설정</translation>
+            <translation>Ajustes de formato</translation>
         </message>
         <message>
             <source>保存到原文件夹</source>
-            <translation>원본 폴더에 저장</translation>
+            <translation>Guardar en la carpeta original</translation>
         </message>
         <message>
             <source>保存到图片文件夹</source>
-            <translation>그림 폴더에 저장</translation>
+            <translation>Guardar en la carpeta de imágenes</translation>
         </message>
         <message>
             <source>保存到：</source>
-            <translation>저장 위치:</translation>
+            <translation>Guardar en:</translation>
         </message>
         <message>
             <source>选择输出文件夹</source>
-            <translation>출력 폴더 선택</translation>
+            <translation>Elegir carpeta de salida</translation>
         </message>
         <message>
             <source>浏览…</source>
-            <translation>찾아보기…</translation>
+            <translation>Examinar…</translation>
         </message>
         <message>
             <source>输出文件夹</source>
-            <translation>출력 폴더</translation>
+            <translation>Carpeta de salida</translation>
         </message>
         <message>
             <source>文件名前缀</source>
-            <translation>파일 이름 접두사</translation>
+            <translation>Prefijo de nombre de archivo</translation>
         </message>
         <message>
             <source>正在转换…</source>
-            <translation>변환 중…</translation>
+            <translation>Convirtiendo…</translation>
         </message>
         <message>
             <source>重置</source>
-            <translation>초기화</translation>
+            <translation>Restablecer</translation>
         </message>
         <message>
             <source>原始文件会保留不变</source>
-            <translation>원본 파일은 변경되지 않습니다</translation>
+            <translation>Los archivos originales se conservan sin cambios</translation>
         </message>
         <message>
             <source>关闭</source>
-            <translation>닫기</translation>
+            <translation>Cerrar</translation>
         </message>
         <message>
             <source>打开文件夹</source>
-            <translation>폴더 열기</translation>
+            <translation>Abrir carpeta</translation>
         </message>
         <message>
             <source>开始</source>
-            <translation>시작</translation>
+            <translation>Iniciar</translation>
         </message>
         <message>
             <source>无法预览</source>
-            <translation>미리 볼 수 없습니다</translation>
+            <translation>No se puede previsualizar</translation>
         </message>
         <message>
             <source>正在取消…</source>
-            <translation>취소 중…</translation>
+            <translation>Cancelando…</translation>
         </message>
         <message>
             <source>没有可转换的图片。</source>
-            <translation>변환할 이미지가 없습니다.</translation>
+            <translation>No hay imágenes para convertir.</translation>
         </message>
         <message>
             <source>取消</source>
-            <translation>취소</translation>
+            <translation>Cancelar</translation>
         </message>
         <message>
             <source>已取消：成功 %1 / 共 %2 张</source>
-            <translation>성공 %1 / 전체 %2개</translation>
+            <translation>Cancelado: %1 de %2 correctas</translation>
         </message>
         <message>
             <source>转换完成</source>
-            <translation>변환 완료</translation>
+            <translation>Conversión completada</translation>
         </message>
         <message>
             <source>成功 %1 / 共 %2 张%3</source>
-            <translation>성공 %1 / 전체 %2개%3</translation>
+            <translation>%1 de %2 correctas%3</translation>
         </message>
         <message>
             <source>（失败 %1 张）</source>
-            <translation>(%1개 실패)</translation>
+            <translation> (%1 con error)</translation>
         </message>
     </context>
     <context>
         <name>ControlBar</name>
         <message>
             <source>底部控制栏</source>
-            <translation>아래쪽 컨트롤 바</translation>
+            <translation>Barra de control inferior</translation>
         </message>
         <message>
             <source>打开、缩略图、缩放、旋转、全屏、上一张、进度、下一张与锁定</source>
-            <translation>열기, 필름 스트립, 확대/축소, 회전, 전체 화면, 이전, 진행, 다음, 잠금</translation>
+            <translation>Abrir, tira de miniaturas, zoom, rotar, pantalla completa, anterior, progreso, siguiente y bloquear</translation>
         </message>
         <message>
             <source>打开</source>
-            <translation>열기</translation>
+            <translation>Abrir</translation>
         </message>
         <message>
             <source>缩略图栏</source>
-            <translation>필름 스트립</translation>
+            <translation>Tira de miniaturas</translation>
         </message>
         <message>
             <source>缩小</source>
-            <translation>축소</translation>
+            <translation>Reducir</translation>
         </message>
         <message>
             <source>适合窗口</source>
-            <translation>창에 맞춤</translation>
+            <translation>Ajustar a la ventana</translation>
         </message>
         <message>
             <source>查看原始尺寸（100%）</source>
-            <translation>원본 크기로 보기 (100%)</translation>
+            <translation>Ver a tamaño real (100 %)</translation>
         </message>
         <message>
             <source>放大</source>
-            <translation>확대</translation>
+            <translation>Ampliar</translation>
         </message>
         <message>
             <source>旋转：左键逆时针 90°，右键顺时针 90°</source>
-            <translation>회전: 왼쪽 클릭 시계 반대 90°, 오른쪽 클릭 시계 방향 90°</translation>
+            <translation>Rotar: clic izquierdo antihorario 90°, clic derecho horario 90°</translation>
         </message>
         <message>
             <source>全屏 / 还原 (F11)</source>
-            <translation>전체 화면 / 복원 (F11)</translation>
+            <translation>Pantalla completa / Restaurar (F11)</translation>
         </message>
         <message>
             <source>上一张图片 (←)</source>
-            <translation>이전 이미지 (←)</translation>
+            <translation>Imagen anterior (←)</translation>
         </message>
         <message>
             <source>浏览进度：拖动切换图片；滚轮上一张/下一张</source>
-            <translation>탐색 진행: 끌어서 이미지 전환, 휠로 이전/다음</translation>
+            <translation>Progreso: arrastre para cambiar de imagen; rueda para anterior/siguiente</translation>
         </message>
         <message>
             <source>浏览进度：只有一张图片</source>
-            <translation>탐색 진행: 이미지가 하나뿐입니다</translation>
+            <translation>Progreso: solo hay una imagen</translation>
         </message>
         <message>
             <source>当前页码 / 总页数</source>
-            <translation>현재 페이지 / 전체 페이지</translation>
+            <translation>Página actual / páginas totales</translation>
         </message>
         <message>
             <source>下一张图片 (→)</source>
-            <translation>다음 이미지 (→)</translation>
+            <translation>Imagen siguiente (→)</translation>
         </message>
         <message>
             <source>保持底部控制栏显示</source>
-            <translation>아래쪽 컨트롤 바 항상 표시</translation>
+            <translation>Mantener visible la barra de control inferior</translation>
         </message>
         <message>
             <source>%1 / %2</source>
@@ -549,172 +549,172 @@
         <name>DirectoryLoader</name>
         <message>
             <source>常用图片</source>
-            <translation>자주 쓰는 이미지</translation>
+            <translation>Imágenes frecuentes</translation>
         </message>
         <message>
             <source>图标与光标</source>
-            <translation>아이콘과 커서</translation>
+            <translation>Iconos y cursores</translation>
         </message>
         <message>
             <source>其他图片</source>
-            <translation>기타 이미지</translation>
+            <translation>Otras imágenes</translation>
         </message>
         <message>
             <source>相机与无损</source>
-            <translation>카메라와 무손실</translation>
+            <translation>Cámara y sin pérdida</translation>
         </message>
         <message>
             <source>所有图片</source>
-            <translation>모든 이미지</translation>
+            <translation>Todas las imágenes</translation>
         </message>
         <message>
             <source>所有文件 (*)</source>
-            <translation>모든 파일 (*)</translation>
+            <translation>Todos los archivos (*)</translation>
         </message>
         <message>
             <source>图片与压缩包</source>
-            <translation>이미지 및 압축 파일</translation>
+            <translation>Imágenes y archivos comprimidos</translation>
         </message>
         <message>
             <source>压缩包</source>
-            <translation>압축 파일</translation>
+            <translation>Archivos comprimidos</translation>
         </message>
         <message>
             <source>暂不支持加密压缩包</source>
-            <translation>암호화된 압축 파일은 아직 지원하지 않습니다</translation>
+            <translation>Los archivos cifrados aún no son compatibles</translation>
         </message>
         <message>
             <source>包内没有可显示的图片</source>
-            <translation>압축 파일 안에 표시할 수 있는 이미지가 없습니다</translation>
+            <translation>No hay imágenes que mostrar en el archivo</translation>
         </message>
     </context>
     <context>
         <name>EmptyState</name>
         <message>
             <source>开始查看图片</source>
-            <translation>이미지 감상 시작</translation>
+            <translation>Empezar a ver imágenes</translation>
         </message>
         <message>
             <source>把图片拖到这里，或从电脑中选择一张图片</source>
-            <translation>이미지를 여기로 끌어다 놓거나 컴퓨터에서 선택하세요</translation>
+            <translation>Arrastra imágenes aquí o elige una del equipo</translation>
         </message>
         <message>
             <source>也可以直接打开整个文件夹</source>
-            <translation>폴더 전체를 열 수도 있습니다</translation>
+            <translation>También puedes abrir una carpeta entera</translation>
         </message>
         <message>
             <source>打开图片</source>
-            <translation>이미지 열기</translation>
+            <translation>Abrir imagen</translation>
         </message>
         <message>
             <source>选择文件夹</source>
-            <translation>폴더 선택</translation>
+            <translation>Elegir carpeta</translation>
         </message>
         <message>
             <source>全屏查看</source>
-            <translation>전체 화면으로 보기</translation>
+            <translation>Vista a pantalla completa</translation>
         </message>
         <message>
             <source>设置</source>
-            <translation>설정</translation>
+            <translation>Configuración</translation>
         </message>
     </context>
     <context>
         <name>ExifParser</name>
         <message>
             <source>1/%1 秒</source>
-            <translation>1/%1초</translation>
+            <translation>1/%1 s</translation>
         </message>
         <message>
             <source>%1 秒</source>
-            <translation>%1초</translation>
+            <translation>%1 s</translation>
         </message>
     </context>
     <context>
         <name>GammaDialog</name>
         <message>
             <source>Gamma 补偿</source>
-            <translation>Gamma 보정</translation>
+            <translation>Corrección gamma</translation>
         </message>
         <message>
             <source>往右变亮、往左变暗，1.00 为原始亮度。</source>
-            <translation>오른쪽으로 밝게, 왼쪽으로 어둡게. 1.00이 원래 밝기입니다.</translation>
+            <translation>Hacia la derecha más claro, hacia la izquierda más oscuro; 1.00 es el brillo original.</translation>
         </message>
         <message>
             <source>重置为 1.00</source>
-            <translation>1.00으로 초기화</translation>
+            <translation>Restablecer a 1.00</translation>
         </message>
         <message>
             <source>取消</source>
-            <translation>취소</translation>
+            <translation>Cancelar</translation>
         </message>
         <message>
             <source>确定</source>
-            <translation>확인</translation>
+            <translation>Aceptar</translation>
         </message>
     </context>
     <context>
         <name>HeifLoader</name>
         <message>
             <source>libheif 上下文分配失败</source>
-            <translation>libheif 컨텍스트 할당 실패</translation>
+            <translation>Fallo al asignar contexto libheif</translation>
         </message>
         <message>
             <source>libheif 读取失败：%1</source>
-            <translation>libheif 읽기 실패: %1</translation>
+            <translation>Lectura libheif fallida: %1</translation>
         </message>
         <message>
             <source>libheif 获取主图像失败：%1</source>
-            <translation>libheif 대표 이미지 가져오기 실패: %1</translation>
+            <translation>Imagen principal libheif fallida: %1</translation>
         </message>
         <message>
             <source>libheif 解码失败：%1</source>
-            <translation>libheif 디코딩 실패: %1</translation>
+            <translation>Decodificación libheif fallida: %1</translation>
         </message>
         <message>
             <source>libheif 取像素平面失败</source>
-            <translation>libheif 픽셀 평면 가져오기 실패</translation>
+            <translation>Plano de píxeles libheif no disponible</translation>
         </message>
         <message>
             <source>libheif 图像尺寸无效</source>
-            <translation>libheif 이미지 크기가 잘못되었습니다</translation>
+            <translation>Tamaño de imagen libheif no válido</translation>
         </message>
     </context>
     <context>
         <name>ImageCache</name>
         <message>
             <source>无法解码</source>
-            <translation>디코딩할 수 없습니다</translation>
+            <translation>No se puede decodificar</translation>
         </message>
     </context>
     <context>
         <name>KeySeqStateFilter</name>
         <message>
             <source>按下组合键…</source>
-            <translation>키 조합 입력…</translation>
+            <translation>Pulsa una combinación…</translation>
         </message>
         <message>
             <source>未设置</source>
-            <translation>설정 안 함</translation>
+            <translation>Sin configurar</translation>
         </message>
     </context>
     <context>
         <name>LayerPanel</name>
         <message>
             <source>图层</source>
-            <translation>레이어</translation>
+            <translation>Capas</translation>
         </message>
         <message>
             <source>关闭 (Tab)</source>
-            <translation>닫기 (Tab)</translation>
+            <translation>Cerrar (Tab)</translation>
         </message>
         <message>
             <source>整图</source>
-            <translation>전체 이미지</translation>
+            <translation>Imagen completa</translation>
         </message>
         <message>
             <source>可见性预览为简化合成，不还原混合模式 / 蒙版；原始合成图未改动。</source>
-            <translation>표시 여부 미리 보기는 단순화된 합성이며 혼합 모드／마스크는 재현하지 않습니다. 원본 합성 이미지는 변경되지 않습니다.</translation>
+            <translation>La vista previa de visibilidad es una composición simplificada; no reproduce modos de fusión / máscaras. La composición original no se modifica.</translation>
         </message>
         <message>
             <source>%1，%2</source>
@@ -722,754 +722,754 @@
         </message>
         <message>
             <source>已折叠</source>
-            <translation>접힘</translation>
+            <translation>Plegado</translation>
         </message>
         <message>
             <source>已展开</source>
-            <translation>펼침</translation>
+            <translation>Desplegado</translation>
         </message>
         <message>
             <source>展开分组</source>
-            <translation>그룹 펼치기</translation>
+            <translation>Desplegar grupo</translation>
         </message>
         <message>
             <source>折叠分组</source>
-            <translation>그룹 접기</translation>
+            <translation>Plegar grupo</translation>
         </message>
         <message>
             <source>可见</source>
-            <translation>표시</translation>
+            <translation>Visible</translation>
         </message>
         <message>
             <source>隐藏</source>
-            <translation>숨김</translation>
+            <translation>Oculto</translation>
         </message>
         <message>
             <source>隐藏该图层</source>
-            <translation>이 레이어 숨기기</translation>
+            <translation>Ocultar esta capa</translation>
         </message>
         <message>
             <source>显示该图层</source>
-            <translation>이 레이어 표시</translation>
+            <translation>Mostrar esta capa</translation>
         </message>
         <message>
             <source>该图层无法单独预览</source>
-            <translation>이 레이어는 단독으로 미리 볼 수 없습니다</translation>
+            <translation>Esta capa no se puede previsualizar sola</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>未打开图片</source>
-            <translation>이미지 없음</translation>
+            <translation>Sin imagen abierta</translation>
         </message>
         <message>
             <source>图层</source>
-            <translation>레이어</translation>
+            <translation>Capas</translation>
         </message>
         <message>
             <source>顶部栏已锁定</source>
-            <translation>위쪽 바 잠김</translation>
+            <translation>Barra superior bloqueada</translation>
         </message>
         <message>
             <source>顶部栏已解锁</source>
-            <translation>위쪽 바 잠금 해제됨</translation>
+            <translation>Barra superior desbloqueada</translation>
         </message>
         <message>
             <source>底部控制胶囊已锁定</source>
-            <translation>아래쪽 컨트롤 바 잠김</translation>
+            <translation>Barra de control inferior bloqueada</translation>
         </message>
         <message>
             <source>底部控制胶囊已解锁</source>
-            <translation>아래쪽 컨트롤 바 잠금 해제됨</translation>
+            <translation>Barra de control inferior desbloqueada</translation>
         </message>
         <message>
             <source>打开(&amp;O)...</source>
-            <translation>열기(&amp;O)...</translation>
+            <translation>&amp;Abrir...</translation>
         </message>
         <message>
             <source>打开文件夹...</source>
-            <translation>폴더 열기...</translation>
+            <translation>Abrir carpeta...</translation>
         </message>
         <message>
             <source>另存为…(&amp;S)</source>
-            <translation>다른 이름으로 저장…(&amp;S)</translation>
+            <translation>Guardar &amp;como…</translation>
         </message>
         <message>
             <source>打印</source>
-            <translation>인쇄</translation>
+            <translation>Imprimir</translation>
         </message>
         <message>
             <source>批量转换(&amp;B)</source>
-            <translation>일괄 변환(&amp;B)</translation>
+            <translation>Conversión &amp;por lotes</translation>
         </message>
         <message>
             <source>设置(&amp;C)</source>
-            <translation>설정(&amp;C)</translation>
+            <translation>&amp;Configuración</translation>
         </message>
         <message>
             <source>添加书签</source>
-            <translation>책갈피 추가</translation>
+            <translation>Añadir marcador</translation>
         </message>
         <message>
             <source>删除</source>
-            <translation>삭제</translation>
+            <translation>Eliminar</translation>
         </message>
         <message>
             <source>复制到 图片文件夹</source>
-            <translation>그림 폴더로 복사</translation>
+            <translation>Copiar a la carpeta de imágenes</translation>
         </message>
         <message>
             <source>用图像编辑器打开</source>
-            <translation>이미지 편집기로 열기</translation>
+            <translation>Abrir con el editor de imágenes</translation>
         </message>
         <message>
             <source>复制到剪贴板</source>
-            <translation>클립보드로 복사</translation>
+            <translation>Copiar al portapapeles</translation>
         </message>
         <message>
             <source>设为桌面壁纸…</source>
-            <translation>바탕 화면 배경으로 설정…</translation>
+            <translation>Establecer como fondo de pantalla…</translation>
         </message>
         <message>
-            <source>关于 QuikView</source>
-            <translation>QuikView 정보</translation>
+            <source>关于 SoleView</source>
+            <translation>Acerca de SoleView</translation>
         </message>
         <message>
             <source>退出(&amp;Q)</source>
-            <translation>끝내기(&amp;Q)</translation>
+            <translation>&amp;Salir</translation>
         </message>
         <message>
             <source>关闭</source>
-            <translation>닫기</translation>
+            <translation>Cerrar</translation>
         </message>
         <message>
             <source>原始大小 (100%)</source>
-            <translation>원본 크기 (100%)</translation>
+            <translation>Tamaño real (100 %)</translation>
         </message>
         <message>
             <source>适合窗口</source>
-            <translation>창에 맞춤</translation>
+            <translation>Ajustar a la ventana</translation>
         </message>
         <message>
             <source>适合宽度</source>
-            <translation>너비에 맞춤</translation>
+            <translation>Ajustar al ancho</translation>
         </message>
         <message>
             <source>智能双页阅览 (左→右)</source>
-            <translation>스마트 두 쪽 보기 (왼쪽→오른쪽)</translation>
+            <translation>Doble página inteligente (izq.→der.)</translation>
         </message>
         <message>
             <source>智能双页阅览 (左←右)</source>
-            <translation>스마트 두 쪽 보기 (왼쪽←오른쪽)</translation>
+            <translation>Doble página inteligente (izq.←der.)</translation>
         </message>
         <message>
             <source>放大(&amp;+)</source>
-            <translation>확대(&amp;+)</translation>
+            <translation>&amp;Ampliar</translation>
         </message>
         <message>
             <source>缩小(&amp;-)</source>
-            <translation>축소(&amp;-)</translation>
+            <translation>&amp;Reducir</translation>
         </message>
         <message>
             <source>上一张图片</source>
-            <translation>이전 이미지</translation>
+            <translation>Imagen anterior</translation>
         </message>
         <message>
             <source>下一张图片</source>
-            <translation>다음 이미지</translation>
+            <translation>Imagen siguiente</translation>
         </message>
         <message>
             <source>向上10张图片</source>
-            <translation>10장 앞으로</translation>
+            <translation>Retroceder 10 imágenes</translation>
         </message>
         <message>
             <source>向下10张图片</source>
-            <translation>10장 뒤로</translation>
+            <translation>Avanzar 10 imágenes</translation>
         </message>
         <message>
             <source>首张图片</source>
-            <translation>첫 번째 이미지</translation>
+            <translation>Primera imagen</translation>
         </message>
         <message>
             <source>末尾图片</source>
-            <translation>마지막 이미지</translation>
+            <translation>Última imagen</translation>
         </message>
         <message>
             <source>上一个文件夹</source>
-            <translation>이전 폴더</translation>
+            <translation>Carpeta anterior</translation>
         </message>
         <message>
             <source>下一个文件夹</source>
-            <translation>다음 폴더</translation>
+            <translation>Carpeta siguiente</translation>
         </message>
         <message>
             <source>下一帧</source>
-            <translation>다음 프레임</translation>
+            <translation>Fotograma siguiente</translation>
         </message>
         <message>
             <source>上一帧</source>
-            <translation>이전 프레임</translation>
+            <translation>Fotograma anterior</translation>
         </message>
         <message>
             <source>幻灯片放映(&amp;S)</source>
-            <translation>슬라이드 쇼(&amp;S)</translation>
+            <translation>&amp;Pase de diapositivas</translation>
         </message>
         <message>
             <source>停止放映</source>
-            <translation>슬라이드 쇼 중지</translation>
+            <translation>Detener pase</translation>
         </message>
         <message>
             <source>%1 秒放映</source>
-            <translation>%1초 슬라이드 쇼</translation>
+            <translation>Pase de %1 s</translation>
         </message>
         <message>
             <source>显示/隐藏信息面板(&amp;I)</source>
-            <translation>정보 패널 표시/숨기기(&amp;I)</translation>
+            <translation>Mostrar/ocultar panel de &amp;información</translation>
         </message>
         <message>
             <source>已复制图片信息参数</source>
-            <translation>이미지 정보 매개 변수 복사됨</translation>
+            <translation>Parámetros de imagen copiados</translation>
         </message>
         <message>
             <source>窗口置顶</source>
-            <translation>창을 항상 위로</translation>
+            <translation>Fijar ventana</translation>
         </message>
         <message>
             <source>深色模式(&amp;D)</source>
-            <translation>어두운 모드(&amp;D)</translation>
+            <translation>Modo &amp;oscuro</translation>
         </message>
         <message>
             <source>逆时针旋转 90°</source>
-            <translation>시계 반대 방향으로 90° 회전</translation>
+            <translation>Rotar 90° antihorario</translation>
         </message>
         <message>
             <source>顺时针旋转 90°</source>
-            <translation>시계 방향으로 90° 회전</translation>
+            <translation>Rotar 90° horario</translation>
         </message>
         <message>
             <source>不旋转</source>
-            <translation>회전 없음</translation>
+            <translation>Sin rotación</translation>
         </message>
         <message>
             <source>旋转 180°</source>
-            <translation>180° 회전</translation>
+            <translation>Rotar 180°</translation>
         </message>
         <message>
             <source>水平翻转</source>
-            <translation>가로 뒤집기</translation>
+            <translation>Voltear horizontalmente</translation>
         </message>
         <message>
             <source>垂直翻转</source>
-            <translation>세로 뒤집기</translation>
+            <translation>Voltear verticalmente</translation>
         </message>
         <message>
             <source>裁剪(&amp;C)</source>
-            <translation>자르기(&amp;C)</translation>
+            <translation>&amp;Recortar</translation>
         </message>
         <message>
             <source>调整大小(&amp;R)</source>
-            <translation>크기 조정(&amp;R)</translation>
+            <translation>&amp;Cambiar tamaño</translation>
         </message>
         <message>
             <source>反色</source>
-            <translation>색 반전</translation>
+            <translation>Invertir colores</translation>
         </message>
         <message>
             <source>Gamma 补偿…</source>
-            <translation>Gamma 보정…</translation>
+            <translation>Corrección gamma…</translation>
         </message>
         <message>
             <source>拉伸小图</source>
-            <translation>작은 이미지 늘리기</translation>
+            <translation>Estirar imágenes pequeñas</translation>
         </message>
         <message>
             <source>锁定缩放</source>
-            <translation>확대/축소 잠금</translation>
+            <translation>Bloquear zoom</translation>
         </message>
         <message>
             <source>放大 (1%)</source>
-            <translation>확대 (1%)</translation>
+            <translation>Ampliar (1 %)</translation>
         </message>
         <message>
             <source>缩小 (1%)</source>
-            <translation>축소 (1%)</translation>
+            <translation>Reducir (1 %)</translation>
         </message>
         <message>
             <source>选择图片</source>
-            <translation>이미지 선택</translation>
+            <translation>Elegir imagen</translation>
         </message>
         <message>
             <source>选择图片 (小键盘)</source>
-            <translation>이미지 선택 (숫자 키패드)</translation>
+            <translation>Elegir imagen (teclado numérico)</translation>
         </message>
         <message>
             <source>定位文件</source>
-            <translation>파일 위치 표시</translation>
+            <translation>Mostrar archivo</translation>
         </message>
         <message>
             <source>向后随机转到某张图片</source>
-            <translation>뒤쪽으로 무작위 이동</translation>
+            <translation>Saltar al azar hacia atrás</translation>
         </message>
         <message>
             <source>向前随机转到某张图片</source>
-            <translation>앞쪽으로 무작위 이동</translation>
+            <translation>Saltar al azar hacia adelante</translation>
         </message>
         <message>
             <source>编辑书签</source>
-            <translation>책갈피 편집</translation>
+            <translation>Editar marcadores</translation>
         </message>
         <message>
             <source>无</source>
-            <translation>없음</translation>
+            <translation>Ninguno</translation>
         </message>
         <message>
             <source>减淡</source>
-            <translation>소프트</translation>
+            <translation>Suavizar</translation>
         </message>
         <message>
             <source>减淡 + 锐化</source>
-            <translation>소프트 + 샤픈</translation>
+            <translation>Suavizar + Enfocar</translation>
         </message>
         <message>
             <source>Bilinear 插值 (快)</source>
-            <translation>바이리니어 보간 (빠름)</translation>
+            <translation>Interpolación bilineal (rápida)</translation>
         </message>
         <message>
             <source>Bicubic 插值 (慢，高品质)</source>
-            <translation>바이큐빅 보간 (느림, 고품질)</translation>
+            <translation>Interpolación bicúbica (lenta, alta calidad)</translation>
         </message>
         <message>
             <source>Lanczos 插值 (慢，高品质)</source>
-            <translation>Lanczos 보간 (느림, 고품질)</translation>
+            <translation>Interpolación Lanczos (lenta, alta calidad)</translation>
         </message>
         <message>
             <source>文件名</source>
-            <translation>파일 이름</translation>
+            <translation>Nombre de archivo</translation>
         </message>
         <message>
             <source>修改日期</source>
-            <translation>수정한 날짜</translation>
+            <translation>Fecha de modificación</translation>
         </message>
         <message>
             <source>大小</source>
-            <translation>크기</translation>
+            <translation>Tamaño</translation>
         </message>
         <message>
             <source>类型</source>
-            <translation>종류</translation>
+            <translation>Tipo</translation>
         </message>
         <message>
             <source>降序</source>
-            <translation>내림차순</translation>
+            <translation>Descendente</translation>
         </message>
         <message>
             <source>%1 秒</source>
-            <translation>%1초</translation>
+            <translation>%1 s</translation>
         </message>
         <message>
             <source>循环</source>
-            <translation>반복</translation>
+            <translation>Bucle</translation>
         </message>
         <message>
             <source>随机</source>
-            <translation>무작위</translation>
+            <translation>Aleatorio</translation>
         </message>
         <message>
             <source>删除所有书签</source>
-            <translation>모든 책갈피 삭제</translation>
+            <translation>Eliminar todos los marcadores</translation>
         </message>
         <message>
             <source>已删除所有书签</source>
-            <translation>모든 책갈피를 삭제했습니다</translation>
+            <translation>Todos los marcadores eliminados</translation>
         </message>
         <message>
             <source>书签设置</source>
-            <translation>책갈피 설정</translation>
+            <translation>Ajustes de marcadores</translation>
         </message>
         <message>
             <source>转换图片 (旋转/裁剪)</source>
-            <translation>이미지 변환 (회전/자르기)</translation>
+            <translation>Convertir imagen (rotar/recortar)</translation>
         </message>
         <message>
             <source>请先在 设置 → 杂项 中配置图片文件夹</source>
-            <translation>먼저 설정 → 기타에서 그림 폴더를 구성하세요</translation>
+            <translation>Configura antes las carpetas de imágenes en Configuración → Varios</translation>
         </message>
         <message>
             <source>目标已存在：%1</source>
-            <translation>대상이 이미 있습니다: %1</translation>
+            <translation>El destino ya existe: %1</translation>
         </message>
         <message>
             <source>操作失败：%1</source>
-            <translation>작업 실패: %1</translation>
+            <translation>Error en la operación: %1</translation>
         </message>
         <message>
             <source>已移动到：%1</source>
-            <translation>이동했습니다: %1</translation>
+            <translation>Movido a: %1</translation>
         </message>
         <message>
             <source>已复制到：%1</source>
-            <translation>복사했습니다: %1</translation>
+            <translation>Copiado a: %1</translation>
         </message>
         <message>
             <source>复制到 图片文件夹 1</source>
-            <translation>그림 폴더 1로 복사</translation>
+            <translation>Copiar a la carpeta de imágenes 1</translation>
         </message>
         <message>
             <source>复制到 图片文件夹 2</source>
-            <translation>그림 폴더 2로 복사</translation>
+            <translation>Copiar a la carpeta de imágenes 2</translation>
         </message>
         <message>
             <source>移动到 图片文件夹 1</source>
-            <translation>그림 폴더 1로 이동</translation>
+            <translation>Mover a la carpeta de imágenes 1</translation>
         </message>
         <message>
             <source>图片文件夹 路径定义</source>
-            <translation>그림 폴더 경로 정의</translation>
+            <translation>Definición de rutas de carpetas de imágenes</translation>
         </message>
         <message>
             <source>打开 图片文件夹 1</source>
-            <translation>그림 폴더 1 열기</translation>
+            <translation>Abrir carpeta de imágenes 1</translation>
         </message>
         <message>
             <source>幻灯片播放</source>
-            <translation>슬라이드 쇼 재생</translation>
+            <translation>Reproducción de pase</translation>
         </message>
         <message>
             <source>书签</source>
-            <translation>책갈피</translation>
+            <translation>Marcadores</translation>
         </message>
         <message>
             <source>取消当前书签</source>
-            <translation>현재 책갈피 해제</translation>
+            <translation>Quitar marcador actual</translation>
         </message>
         <message>
             <source>添加当前书签</source>
-            <translation>현재 이미지를 책갈피에 추가</translation>
+            <translation>Añadir imagen actual a marcadores</translation>
         </message>
         <message>
             <source>编辑与转换</source>
-            <translation>편집과 변환</translation>
+            <translation>Edición y conversión</translation>
         </message>
         <message>
             <source>复制到</source>
-            <translation>복사 대상</translation>
+            <translation>Copiar a</translation>
         </message>
         <message>
             <source>浏览与显示</source>
-            <translation>찾아보기와 표시</translation>
+            <translation>Examinar y ver</translation>
         </message>
         <message>
             <source>缩略图</source>
-            <translation>필름 스트립</translation>
+            <translation>Tira de miniaturas</translation>
         </message>
         <message>
             <source>向下 10 张图片</source>
-            <translation>10장 뒤로</translation>
+            <translation>Avanzar 10 imágenes</translation>
         </message>
         <message>
             <source>向上 10 张图片</source>
-            <translation>10장 앞으로</translation>
+            <translation>Retroceder 10 imágenes</translation>
         </message>
         <message>
             <source>EXIF 信息</source>
-            <translation>EXIF 정보</translation>
+            <translation>Info EXIF</translation>
         </message>
         <message>
             <source>全屏</source>
-            <translation>전체 화면</translation>
+            <translation>Pantalla completa</translation>
         </message>
         <message>
             <source>浏览与显示的参数</source>
-            <translation>찾아보기와 표시 매개 변수</translation>
+            <translation>Parámetros de Examinar y ver</translation>
         </message>
         <message>
             <source>浏览方式</source>
-            <translation>보기 모드</translation>
+            <translation>Modo de vista</translation>
         </message>
         <message>
             <source>缩放</source>
-            <translation>확대/축소</translation>
+            <translation>Zoom</translation>
         </message>
         <message>
             <source>放大</source>
-            <translation>확대</translation>
+            <translation>Ampliar</translation>
         </message>
         <message>
             <source>缩小</source>
-            <translation>축소</translation>
+            <translation>Reducir</translation>
         </message>
         <message>
             <source>100%</source>
-            <translation>100%</translation>
+            <translation>100 %</translation>
         </message>
         <message>
             <source>旋转</source>
-            <translation>회전</translation>
+            <translation>Rotación</translation>
         </message>
         <message>
             <source>排序方式</source>
-            <translation>정렬 방식</translation>
+            <translation>Ordenar por</translation>
         </message>
         <message>
             <source>显示效果</source>
-            <translation>표시 효과</translation>
+            <translation>Filtro de visualización</translation>
         </message>
         <message>
             <source>插值算法</source>
-            <translation>보간 방식</translation>
+            <translation>Método de interpolación</translation>
         </message>
         <message>
             <source>保持顶部工具栏显示</source>
-            <translation>위쪽 도구 모음 항상 표시</translation>
+            <translation>Mantener visible la barra de herramientas superior</translation>
         </message>
         <message>
             <source>保持底部控制栏显示</source>
-            <translation>아래쪽 컨트롤 바 항상 표시</translation>
+            <translation>Mantener visible la barra de control inferior</translation>
         </message>
         <message>
             <source>总在最前端：开</source>
-            <translation>항상 위: 켜기</translation>
+            <translation>Siempre visible: sí</translation>
         </message>
         <message>
             <source>总在最前端：关</source>
-            <translation>항상 위: 끄기</translation>
+            <translation>Siempre visible: no</translation>
         </message>
         <message>
             <source>无法读取文件：</source>
-            <translation>파일을 읽을 수 없습니다:</translation>
+            <translation>No se puede leer el archivo:</translation>
         </message>
         <message>
             <source>正在打开 %1 …</source>
-            <translation>%1 여는 중 …</translation>
+            <translation>Abriendo %1 …</translation>
         </message>
         <message>
             <source>无法打开：%1</source>
-            <translation>열 수 없습니다: %1</translation>
+            <translation>No se puede abrir: %1</translation>
         </message>
         <message>
             <source>已在设置中禁用 RAW 解码</source>
-            <translation>설정에서 RAW 디코딩이 사용 안 함입니다</translation>
+            <translation>Decodificación RAW desactivada en Configuración</translation>
         </message>
         <message>
             <source>RAW 解码失败</source>
-            <translation>RAW 디코딩 실패</translation>
+            <translation>Error de decodificación RAW</translation>
         </message>
         <message>
             <source>无法打开 %1：%2</source>
-            <translation>%1을(를) 열 수 없습니다: %2</translation>
+            <translation>No se puede abrir %1: %2</translation>
         </message>
         <message>
             <source>正在打开第 %1 张 · %2</source>
-            <translation>%1번째 이미지 여는 중 · %2</translation>
+            <translation>Abriendo imagen %1 · %2</translation>
         </message>
         <message>
             <source>第 %1/%2 帧</source>
-            <translation>프레임 %1/%2</translation>
+            <translation>Fotograma %1/%2</translation>
         </message>
         <message>
             <source>第 %1 帧</source>
-            <translation>프레임 %1</translation>
+            <translation>Fotograma %1</translation>
         </message>
         <message>
             <source>适合</source>
-            <translation>맞춤</translation>
+            <translation>Ajustar</translation>
         </message>
         <message>
             <source>打开图片</source>
-            <translation>이미지 열기</translation>
+            <translation>Abrir imagen</translation>
         </message>
         <message>
             <source>已经是第一张图片</source>
-            <translation>이미 첫 번째 이미지입니다</translation>
+            <translation>Ya está en la primera imagen</translation>
         </message>
         <message>
             <source>已回到最后一张图片</source>
-            <translation>마지막 이미지로 돌아왔습니다</translation>
+            <translation>De vuelta a la última imagen</translation>
         </message>
         <message>
             <source>已经是最后一张图片</source>
-            <translation>이미 마지막 이미지입니다</translation>
+            <translation>Ya está en la última imagen</translation>
         </message>
         <message>
             <source>已回到第一张图片</source>
-            <translation>첫 번째 이미지로 돌아왔습니다</translation>
+            <translation>De vuelta a la primera imagen</translation>
         </message>
         <message>
             <source>已是最后一个文件夹</source>
-            <translation>마지막 폴더입니다</translation>
+            <translation>Ya está en la última carpeta</translation>
         </message>
         <message>
             <source>下一个文件夹：</source>
-            <translation>다음 폴더:</translation>
+            <translation>Carpeta siguiente: </translation>
         </message>
         <message>
             <source>已是第一个文件夹</source>
-            <translation>첫 번째 폴더입니다</translation>
+            <translation>Ya está en la primera carpeta</translation>
         </message>
         <message>
             <source>上一个文件夹：</source>
-            <translation>이전 폴더:</translation>
+            <translation>Carpeta anterior: </translation>
         </message>
         <message>
             <source>幻灯片放映：开</source>
-            <translation>슬라이드 쇼: 켜기</translation>
+            <translation>Pase: activado</translation>
         </message>
         <message>
             <source>幻灯片放映：停</source>
-            <translation>슬라이드 쇼: 끄기</translation>
+            <translation>Pase: detenido</translation>
         </message>
         <message>
             <source>图像未旋转</source>
-            <translation>이미지가 회전되지 않았습니다</translation>
+            <translation>Imagen sin rotar</translation>
         </message>
         <message>
             <source>反色：开</source>
-            <translation>색 반전: 켜기</translation>
+            <translation>Invertir colores: sí</translation>
         </message>
         <message>
             <source>反色：关</source>
-            <translation>색 반전: 끄기</translation>
+            <translation>Invertir colores: no</translation>
         </message>
         <message>
             <source>Gamma 补偿：已还原</source>
-            <translation>Gamma 보정: 초기화됨</translation>
+            <translation>Corrección gamma: restablecida</translation>
         </message>
         <message>
             <source>Gamma 补偿：%1</source>
-            <translation>Gamma 보정: %1</translation>
+            <translation>Corrección gamma: %1</translation>
         </message>
         <message>
             <source>拉伸小图像：开</source>
-            <translation>작은 이미지 늘리기: 켜기</translation>
+            <translation>Estirar imágenes pequeñas: sí</translation>
         </message>
         <message>
             <source>拉伸小图像：关</source>
-            <translation>작은 이미지 늘리기: 끄기</translation>
+            <translation>Estirar imágenes pequeñas: no</translation>
         </message>
         <message>
             <source>锁定缩放：开</source>
-            <translation>확대/축소 잠금: 켜기</translation>
+            <translation>Zoom bloqueado: sí</translation>
         </message>
         <message>
             <source>锁定缩放：关</source>
-            <translation>확대/축소 잠금: 끄기</translation>
+            <translation>Zoom bloqueado: no</translation>
         </message>
         <message>
             <source>当前目录没有可跳转的图片序列</source>
-            <translation>이 폴더에 이동할 수 있는 이미지 시퀀스가 없습니다</translation>
+            <translation>No hay secuencia de imágenes a la que saltar en esta carpeta</translation>
         </message>
         <message>
             <source>跳到第几张（共 %1 张）：</source>
-            <translation>이동할 번호 (전체 %1장):</translation>
+            <translation>Ir a la imagen (de %1): </translation>
         </message>
         <message>
             <source>双击一行可直接打开；书签就是收藏过的图片路径。</source>
-            <translation>행을 두 번 클릭하면 바로 열립니다. 책갈피는 즐겨 찾는 이미지 경로입니다.</translation>
+            <translation>Doble clic en una fila la abre directamente; los marcadores son rutas de imagen guardadas.</translation>
         </message>
         <message>
             <source>（还没有书签，按 B 可把当前图片加为书签）</source>
-            <translation>(책갈피가 아직 없습니다. B 키로 현재 이미지를 추가할 수 있습니다)</translation>
+            <translation>(Aún no hay marcadores; pulsa B para añadir la imagen actual)</translation>
         </message>
         <message>
             <source>打开</source>
-            <translation>열기</translation>
+            <translation>Abrir</translation>
         </message>
         <message>
             <source>删除选中</source>
-            <translation>선택 항목 삭제</translation>
+            <translation>Eliminar selección</translation>
         </message>
         <message>
             <source>全部删除</source>
-            <translation>모두 삭제</translation>
+            <translation>Eliminar todo</translation>
         </message>
         <message>
             <source>文件已不存在</source>
-            <translation>파일이 더 이상 없습니다</translation>
+            <translation>El archivo ya no existe</translation>
         </message>
         <message>
             <source>智能双页阅览（左→右）</source>
-            <translation>스마트 두 쪽 보기 (왼쪽→오른쪽)</translation>
+            <translation>Doble página inteligente (izq.→der.)</translation>
         </message>
         <message>
             <source>智能双页阅览（左←右）</source>
-            <translation>스마트 두 쪽 보기 (왼쪽←오른쪽)</translation>
+            <translation>Doble página inteligente (izq.←der.)</translation>
         </message>
         <message>
             <source>拖拽框选裁剪区域，回车确认，Esc 取消</source>
-            <translation>끌어서 자를 영역을 선택하고 Enter로 확인, Esc로 취소</translation>
+            <translation>Arrastra para marcar el área de recorte, Enter confirma, Esc cancela</translation>
         </message>
         <message>
             <source>请先框选裁剪区域</source>
-            <translation>먼저 자를 영역을 선택하세요</translation>
+            <translation>Primero marca un área de recorte</translation>
         </message>
         <message>
             <source>调整大小</source>
-            <translation>크기 조정</translation>
+            <translation>Cambiar tamaño</translation>
         </message>
         <message>
             <source>缩放比例（%）：</source>
-            <translation>배율(%):</translation>
+            <translation>Escala (%): </translation>
         </message>
         <message>
             <source>打开文件夹</source>
-            <translation>폴더 열기</translation>
+            <translation>Abrir carpeta</translation>
         </message>
         <message>
             <source>该文件夹没有可识别的图片</source>
-            <translation>이 폴더에 인식할 수 있는 이미지가 없습니다</translation>
+            <translation>No hay imágenes reconocibles en esta carpeta</translation>
         </message>
         <message>
             <source>删除文件</source>
-            <translation>파일 삭제</translation>
+            <translation>Eliminar archivo</translation>
         </message>
         <message>
             <source>删除文件 %1？此操作进入回收站</source>
-            <translation>%1을(를) 삭제하시겠습니까? 파일은 휴지통으로 이동합니다</translation>
+            <translation>¿Eliminar %1? El archivo va a la papelera.</translation>
         </message>
         <message>
             <source>删除失败</source>
-            <translation>삭제 실패</translation>
+            <translation>Error al eliminar</translation>
         </message>
         <message>
             <source>无法删除文件：%1</source>
-            <translation>파일을 삭제할 수 없습니다: %1</translation>
+            <translation>No se puede eliminar el archivo: %1</translation>
         </message>
         <message>
             <source>已删除</source>
-            <translation>삭제했습니다</translation>
+            <translation>Eliminado</translation>
         </message>
         <message>
             <source>复制到图片文件夹</source>
-            <translation>그림 폴더로 복사</translation>
+            <translation>Copiar a la carpeta de imágenes</translation>
         </message>
         <message>
             <source>复制失败</source>
-            <translation>복사 실패</translation>
+            <translation>Error al copiar</translation>
         </message>
         <message>
             <source>目标文件已存在，不覆盖：%1</source>
-            <translation>대상 파일이 이미 있어 덮어쓰지 않습니다: %1</translation>
+            <translation>El archivo de destino ya existe; no se sobrescribe: %1</translation>
         </message>
         <message>
             <source>无法复制到：%1</source>
-            <translation>복사할 수 없습니다: %1</translation>
+            <translation>No se puede copiar a: %1</translation>
         </message>
         <message>
             <source>已复制到剪贴板</source>
-            <translation>클립보드에 복사했습니다</translation>
+            <translation>Copiado al portapapeles</translation>
         </message>
         <message>
             <source>已设为壁纸</source>
-            <translation>배경으로 설정했습니다</translation>
+            <translation>Fondo establecido</translation>
         </message>
         <message>
             <source>设壁纸失败：</source>
-            <translation>배경 설정 실패:</translation>
+            <translation>Error al establecer el fondo: </translation>
         </message>
         <message>
             <source>另存为</source>
-            <translation>다른 이름으로 저장</translation>
+            <translation>Guardar como</translation>
         </message>
         <message>
             <source>PNG (*.png);;JPEG (*.jpg *.jpeg);;BMP (*.bmp);;WebP (*.webp);;TIFF (*.tif *.tiff)</source>
@@ -1477,202 +1477,202 @@
         </message>
         <message>
             <source>已保存：%1</source>
-            <translation>저장했습니다: %1</translation>
+            <translation>Guardado: %1</translation>
         </message>
         <message>
             <source>保存失败</source>
-            <translation>저장 실패</translation>
+            <translation>Error al guardar</translation>
         </message>
         <message>
             <source>当前目录没有可转换的图片</source>
-            <translation>이 폴더에 변환할 이미지가 없습니다</translation>
+            <translation>No hay imágenes para convertir en esta carpeta</translation>
         </message>
         <message>
             <source>已取消收藏</source>
-            <translation>책갈피에서 제거했습니다</translation>
+            <translation>Quitado de marcadores</translation>
         </message>
         <message>
             <source>已收藏（书签已满 %1 个，最早的书签已移除）</source>
-            <translation>책갈피에 추가했습니다 (한도 %1개에 도달해 가장 오래된 항목을 제거했습니다)</translation>
+            <translation>Añadido a marcadores (lista llena con %1; se quitó el más antiguo)</translation>
         </message>
         <message>
             <source>已收藏</source>
-            <translation>책갈피에 추가했습니다</translation>
+            <translation>Añadido a marcadores</translation>
         </message>
         <message>
             <source>（空）</source>
-            <translation>(비어 있음)</translation>
+            <translation>(vacío)</translation>
         </message>
         <message>
             <source>模拟失败：信息面板拒绝本次字号切换。</source>
-            <translation>시뮬레이션 실패: 정보 패널이 이 글꼴 크기 변경을 거부했습니다.</translation>
+            <translation>Simulación fallida: el panel de información rechazó este cambio de tamaño de fuente.</translation>
         </message>
         <message>
             <source>未知的主题值：%1</source>
-            <translation>알 수 없는 테마 값: %1</translation>
+            <translation>Valor de tema desconocido: %1</translation>
         </message>
         <message>
             <source>未知的即时设置项：%1</source>
-            <translation>알 수 없는 즉시 설정 항목: %1</translation>
+            <translation>Elemento instantáneo desconocido: %1</translation>
         </message>
         <message>
-            <source>&lt;h3&gt;QuikView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 许可证开源，零遥测、零推广。&lt;/p&gt;</source>
-            <translation>&lt;h3&gt;QuikView&lt;/h3&gt;&lt;p&gt;버전 %1&lt;/p&gt;&lt;p&gt;MIT 라이선스 오픈 소스, 원격 분석·광고 없음.&lt;/p&gt;</translation>
+            <source>&lt;h3&gt;SoleView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 许可证开源，零遥测、零推广。&lt;/p&gt;</source>
+            <translation>&lt;h3&gt;SoleView&lt;/h3&gt;&lt;p&gt;Versión %1&lt;/p&gt;&lt;p&gt;Código abierto con licencia MIT. Sin telemetría, sin anuncios.&lt;/p&gt;</translation>
         </message>
         <message>
             <source>(无图片)</source>
-            <translation>(이미지 없음)</translation>
+            <translation>(sin imagen)</translation>
         </message>
         <message>
             <source>已暂停 · 空格继续</source>
-            <translation>일시 중지됨 · 스페이스바로 계속</translation>
+            <translation>En pausa · Espacio para continuar</translation>
         </message>
         <message>
             <source>GIF 播放中 · 空格暂停</source>
-            <translation>GIF 재생 중 · 스페이스바로 일시 중지</translation>
+            <translation>GIF en reproducción · Espacio para pausar</translation>
         </message>
         <message>
             <source>该 PSD 未保存兼容性预览；请在 Photoshop「首选项 → 文件处理」勾选「提高 PSD 和 PSB 文件兼容性」后重新保存</source>
-            <translation>이 PSD에는 호환성 미리보기가 저장되지 않았습니다. Photoshop의 「환경 설정 → 파일 처리」에서 「PSD 및 PSB 파일 호환성 최대화」를 선택한 뒤 다시 저장하세요</translation>
+            <translation>Este PSD se guardó sin vista previa de compatibilidad; active «Maximizar la compatibilidad de archivos PSD y PSB» en Photoshop (Edición → Preferencias → Administración de archivos) y vuelva a guardarlo</translation>
         </message>
         <message>
             <source>文件可能已损坏（格式头有效，图像数据读取失败）</source>
-            <translation>파일이 손상되었을 수 있습니다(헤더는 유효하지만 이미지 데이터를 읽을 수 없음)</translation>
+            <translation>Es posible que el archivo esté dañado (cabecera válida, pero no se pueden leer los datos de imagen)</translation>
         </message>
         <message>
             <source>暂不支持该格式</source>
-            <translation>아직 지원하지 않는 형식입니다</translation>
+            <translation>Este formato aún no es compatible</translation>
         </message>
         <message>
             <source>从剪贴板粘贴图片</source>
-            <translation>클립보드에서 이미지 붙여넣기</translation>
+            <translation>Pegar imagen desde portapapeles</translation>
         </message>
         <message>
             <source>请先打开图片</source>
-            <translation>먼저 이미지를 여세요</translation>
+            <translation>Abre primero una imagen</translation>
         </message>
         <message>
             <source>该图片没有可复制的信息</source>
-            <translation>이 이미지에는 복사할 정보가 없습니다</translation>
+            <translation>Esta imagen no tiene información que copiar</translation>
         </message>
         <message>
             <source>已复制 EXIF 数据</source>
-            <translation>EXIF 데이터를 복사했습니다</translation>
+            <translation>Datos EXIF copiados</translation>
         </message>
         <message>
             <source>该图片没有可复制的路径</source>
-            <translation>이 이미지에는 복사할 경로가 없습니다</translation>
+            <translation>Esta imagen no tiene ruta que copiar</translation>
         </message>
         <message>
             <source>已复制图片路径</source>
-            <translation>이미지 경로를 복사했습니다</translation>
+            <translation>Ruta de imagen copiada</translation>
         </message>
         <message>
             <source>复制当前可见图像失败</source>
-            <translation>보이는 이미지 복사 실패</translation>
+            <translation>No se pudo copiar la imagen visible</translation>
         </message>
         <message>
             <source>已复制当前可见图像</source>
-            <translation>보이는 이미지를 복사했습니다</translation>
+            <translation>Imagen visible copiada</translation>
         </message>
         <message>
             <source>该图片没有可复制的文件</source>
-            <translation>이 이미지에는 복사할 파일이 없습니다</translation>
+            <translation>Esta imagen no tiene archivo que copiar</translation>
         </message>
         <message>
             <source>已复制图像文件</source>
-            <translation>이미지 파일을 복사했습니다</translation>
+            <translation>Archivo de imagen copiado</translation>
         </message>
         <message>
             <source>剪贴板中没有图片</source>
-            <translation>클립보드에 이미지가 없습니다</translation>
+            <translation>No hay imagen en el portapapeles</translation>
         </message>
         <message>
             <source>复制 EXIF 数据</source>
-            <translation>EXIF 데이터 복사</translation>
+            <translation>Copiar datos EXIF</translation>
         </message>
         <message>
             <source>复制图片路径</source>
-            <translation>이미지 경로 복사</translation>
+            <translation>Copiar ruta de imagen</translation>
         </message>
         <message>
             <source>复制当前可见图像</source>
-            <translation>보이는 이미지 복사</translation>
+            <translation>Copiar imagen visible</translation>
         </message>
         <message>
             <source>复制图像文件</source>
-            <translation>이미지 파일 복사</translation>
+            <translation>Copiar archivo de imagen</translation>
         </message>
         <message>
             <source>该格式不支持自动保存</source>
-            <translation>이 형식은 자동 저장을 지원하지 않습니다</translation>
+            <translation>Este formato no admite el guardado automático</translation>
         </message>
         <message>
             <source>已自动保存回原文件</source>
-            <translation>원본 파일에 자동 저장했습니다</translation>
+            <translation>Guardado automáticamente en el archivo original</translation>
         </message>
         <message>
             <source>自动保存失败：%1</source>
-            <translation>자동 저장 실패: %1</translation>
+            <translation>Error al guardar automáticamente: %1</translation>
         </message>
         <message>
             <source>锁定窗口大小</source>
-            <translation>창 크기 고정</translation>
+            <translation>Bloquear tamaño de ventana</translation>
         </message>
         <message>
             <source>窗口大小：锁定</source>
-            <translation>창 크기: 고정됨</translation>
+            <translation>Tamaño de ventana: bloqueado</translation>
         </message>
         <message>
             <source>窗口大小：解锁</source>
-            <translation>창 크기: 해제됨</translation>
+            <translation>Tamaño de ventana: desbloqueado</translation>
         </message>
         <message>
             <source>已关闭「根据图片大小调节窗口大小」（与锁定窗口大小互斥）</source>
-            <translation>이미지 크기에 맞춰 창 크기 조정을 껐습니다(창 크기 고정과 함께 사용할 수 없음)</translation>
+            <translation>Se desactivó «Ajustar la ventana a la imagen» (incompatible con el tamaño de ventana bloqueado)</translation>
         </message>
         <message>
             <source>窗口大小已锁定，先解锁才能最大化</source>
-            <translation>창 크기가 고정되어 있습니다. 최대화하려면 먼저 해제하세요</translation>
+            <translation>Tamaño de ventana bloqueado: desbloquéelo para maximizar</translation>
         </message>
         <message>
             <source>图像编辑器路径无效，已改用系统默认程序打开</source>
-            <translation>이미지 편집기 경로가 잘못되어 시스템 기본 프로그램으로 열었습니다.</translation>
+            <translation>La ruta del editor de imágenes no es válida; se abrió con el programa predeterminado del sistema.</translation>
         </message>
         <message>
-            <source>&lt;h3&gt;QuikView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 许可证开源，零遥测、零推广。&lt;/p&gt;&lt;p&gt;官网：&lt;a href="https://xdst2.github.io/quikview/"&gt;https://xdst2.github.io/quikview/&lt;/a&gt;&lt;br&gt;GitHub：&lt;a href="https://github.com/xdsT2/quikview"&gt;https://github.com/xdsT2/quikview&lt;/a&gt;&lt;br&gt;QQ 交流群：1134122173&lt;/p&gt;</source>
-            <translation>&lt;h3&gt;QuikView&lt;/h3&gt;&lt;p&gt;버전 %1&lt;/p&gt;&lt;p&gt;MIT 라이선스 오픈소스, 원격 측정 및 광고 없음.&lt;/p&gt;&lt;p&gt;공식 웹사이트: &lt;a href="https://xdst2.github.io/quikview/"&gt;https://xdst2.github.io/quikview/&lt;/a&gt;&lt;br&gt;GitHub: &lt;a href="https://github.com/xdsT2/quikview"&gt;https://github.com/xdsT2/quikview&lt;/a&gt;&lt;br&gt;QQ 그룹: 1134122173&lt;/p&gt;</translation>
+            <source>&lt;h3&gt;SoleView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 许可证开源，零遥测、零推广。&lt;/p&gt;&lt;p&gt;官网：&lt;a href="https://xdst2.github.io/soleview/"&gt;https://xdst2.github.io/soleview/&lt;/a&gt;&lt;br&gt;GitHub：&lt;a href="https://github.com/xdsT2/soleview"&gt;https://github.com/xdsT2/soleview&lt;/a&gt;&lt;br&gt;QQ 交流群：1134122173&lt;/p&gt;</source>
+            <translation>&lt;h3&gt;SoleView&lt;/h3&gt;&lt;p&gt;Versión %1&lt;/p&gt;&lt;p&gt;Código abierto bajo licencia MIT, sin telemetría ni promociones.&lt;/p&gt;&lt;p&gt;Sitio web: &lt;a href="https://xdst2.github.io/soleview/"&gt;https://xdst2.github.io/soleview/&lt;/a&gt;&lt;br&gt;GitHub: &lt;a href="https://github.com/xdsT2/soleview"&gt;https://github.com/xdsT2/soleview&lt;/a&gt;&lt;br&gt;Grupo de QQ: 1134122173&lt;/p&gt;</translation>
         </message>
     </context>
     <context>
         <name>MetadataPanel</name>
         <message>
             <source>相机制造商</source>
-            <translation>카메라 제조사</translation>
+            <translation>Fabricante de cámara</translation>
         </message>
         <message>
             <source>相机型号</source>
-            <translation>카메라 모델</translation>
+            <translation>Modelo de cámara</translation>
         </message>
         <message>
             <source>镜头</source>
-            <translation>렌즈</translation>
+            <translation>Objetivo</translation>
         </message>
         <message>
             <source>软件</source>
-            <translation>소프트웨어</translation>
+            <translation>Software</translation>
         </message>
         <message>
             <source>作者</source>
-            <translation>작성자</translation>
+            <translation>Autor</translation>
         </message>
         <message>
             <source>版权</source>
-            <translation>저작권</translation>
+            <translation>Copyright</translation>
         </message>
         <message>
             <source>拍摄时间</source>
-            <translation>촬영 시간</translation>
+            <translation>Fecha de captura</translation>
         </message>
         <message>
             <source>ISO</source>
@@ -1680,71 +1680,71 @@
         </message>
         <message>
             <source>曝光时间</source>
-            <translation>노출 시간</translation>
+            <translation>Tiempo de exposición</translation>
         </message>
         <message>
             <source>光圈</source>
-            <translation>조리개</translation>
+            <translation>Apertura</translation>
         </message>
         <message>
             <source>焦距</source>
-            <translation>초점 거리</translation>
+            <translation>Distancia focal</translation>
         </message>
         <message>
             <source>曝光补偿</source>
-            <translation>노출 보정</translation>
+            <translation>Compensación de exposición</translation>
         </message>
         <message>
             <source>GPS 纬度</source>
-            <translation>GPS 위도</translation>
+            <translation>Latitud GPS</translation>
         </message>
         <message>
             <source>GPS 经度</source>
-            <translation>GPS 경도</translation>
+            <translation>Longitud GPS</translation>
         </message>
         <message>
             <source>宽度</source>
-            <translation>너비</translation>
+            <translation>Anchura</translation>
         </message>
         <message>
             <source>高度</source>
-            <translation>높이</translation>
+            <translation>Altura</translation>
         </message>
         <message>
             <source>图片信息</source>
-            <translation>이미지 정보</translation>
+            <translation>Info de imagen</translation>
         </message>
         <message>
             <source>复制参数</source>
-            <translation>매개 변수 복사</translation>
+            <translation>Copiar parámetros</translation>
         </message>
         <message>
             <source>关闭 (Tab)</source>
-            <translation>닫기 (Tab)</translation>
+            <translation>Cerrar (Tab)</translation>
         </message>
         <message>
             <source>在地图中查看</source>
-            <translation>지도에서 보기</translation>
+            <translation>Ver en el mapa</translation>
         </message>
         <message>
             <source>▾ 直方图</source>
-            <translation>▾ 히스토그램</translation>
+            <translation>▾ Histograma</translation>
         </message>
         <message>
             <source>▸ 直方图</source>
-            <translation>▸ 히스토그램</translation>
+            <translation>▸ Histograma</translation>
         </message>
         <message>
             <source>未知</source>
-            <translation>알 수 없음</translation>
+            <translation>Desconocido</translation>
         </message>
         <message>
             <source>文件名</source>
-            <translation>파일 이름</translation>
+            <translation>Nombre de archivo</translation>
         </message>
         <message>
             <source>图片大小</source>
-            <translation>파일 크기</translation>
+            <translation>Tamaño del archivo</translation>
         </message>
         <message>
             <source>%1 MB</source>
@@ -1760,7 +1760,7 @@
         </message>
         <message>
             <source>修改日期</source>
-            <translation>수정한 날짜</translation>
+            <translation>Fecha de modificación</translation>
         </message>
         <message>
             <source>%1 × %2 (%3, %4)</source>
@@ -1768,7 +1768,7 @@
         </message>
         <message>
             <source>位深</source>
-            <translation>비트 깊이</translation>
+            <translation>Profundidad de bits</translation>
         </message>
         <message>
             <source>%1 bit</source>
@@ -1776,19 +1776,19 @@
         </message>
         <message>
             <source>相机</source>
-            <translation>카메라</translation>
+            <translation>Cámara</translation>
         </message>
         <message>
             <source>拍摄参数</source>
-            <translation>촬영 매개 변수</translation>
+            <translation>Parámetros de captura</translation>
         </message>
         <message>
             <source>GPS 信息</source>
-            <translation>GPS 정보</translation>
+            <translation>Info GPS</translation>
         </message>
         <message>
             <source>打印尺寸</source>
-            <translation>인쇄 크기</translation>
+            <translation>Tamaño de impresión</translation>
         </message>
         <message>
             <source>%1 × %2 cm</source>
@@ -1799,846 +1799,846 @@
         <name>PsdLoader</name>
         <message>
             <source>无法打开 PSD 文件</source>
-            <translation>PSD 파일을 열 수 없습니다</translation>
+            <translation>No se puede abrir el archivo PSD</translation>
         </message>
         <message>
             <source>不是有效的 PSD/PSB 文件</source>
-            <translation>유효한 PSD/PSB 파일이 아닙니다</translation>
+            <translation>Archivo PSD/PSB no válido</translation>
         </message>
         <message>
             <source>PSD 画布尺寸异常</source>
-            <translation>PSD 캔버스 크기가 잘못되었습니다</translation>
+            <translation>Tamaño de lienzo PSD no válido</translation>
         </message>
         <message>
             <source>ZIP 压缩的 PSD 暂不支持（已隔离第三方解析器的挂起路径）</source>
-            <translation>ZIP 압축 PSD 미지원(정지 경로 격리됨)</translation>
+            <translation>PSD con ZIP no admitido (bloqueo aislado)</translation>
         </message>
         <message>
             <source>ZIP / ZIP+Prediction 未接入，文件未修改</source>
-            <translation>ZIP / ZIP+Prediction 미연결, 파일 변경 없음</translation>
+            <translation>ZIP / ZIP+Prediction no conectado; archivo sin cambios</translation>
         </message>
         <message>
             <source>仅 RGB 色彩模式可显示（当前 mode=%1）</source>
-            <translation>RGB 색상 모드만 표시 가능(현재 mode=%1)</translation>
+            <translation>Solo modo RGB (mode=%1)</translation>
         </message>
         <message>
             <source>%1bit 像素已降采样为 8bit 显示</source>
-            <translation>%1bit 픽셀을 8bit로 다운샘플링하여 표시</translation>
+            <translation>Píxeles de %1bit reducidos a 8bit</translation>
         </message>
         <message>
             <source>缺少可用的原始合成预览（保存 PSD 时请开启「最大兼容」）</source>
-            <translation>원본 합성 미리보기 없음(저장 시 '최대 호환' 켜기)</translation>
+            <translation>Sin vista previa compuesta (activar «Compatibilidad máx.» al guardar)</translation>
         </message>
         <message>
             <source>图层 %1</source>
-            <translation>레이어 %1</translation>
+            <translation>Capa %1</translation>
         </message>
         <message>
             <source>混合模式 %1 未在简化合成中还原</source>
-            <translation>블렌드 모드 %1 은 단순 합성에서 재현되지 않음</translation>
+            <translation>Fusión %1 no reproducida (composición simplificada)</translation>
         </message>
         <message>
             <source>；蒙版未应用</source>
-            <translation>；마스크 미적용</translation>
+            <translation>; máscara no aplicada</translation>
         </message>
         <message>
             <source>；智能对象未展开</source>
-            <translation>；스마트 오브젝트 미전개</translation>
+            <translation>; objeto inteligente no expandido</translation>
         </message>
         <message>
             <source>；分组边界，无可预览像素</source>
-            <translation>；그룹 경계, 미리보기 픽셀 없음</translation>
+            <translation>; límite de grupo, sin píxeles de vista previa</translation>
         </message>
         <message>
             <source>；无独立像素或色彩模式不支持</source>
-            <translation>；독립 픽셀 없음 또는 색상 모드 미지원</translation>
+            <translation>; sin píxeles propios o modo no admitido</translation>
         </message>
         <message>
             <source>；图层像素解码失败</source>
-            <translation>；레이어 픽셀 디코딩 실패</translation>
+            <translation>; falló la decodificación de píxeles de capa</translation>
         </message>
         <message>
             <source>%1 个图层为非 normal 混合，简化合成不还原</source>
-            <translation>%1개 레이어가 비 normal 블렌딩, 단순 합성 미재현</translation>
+            <translation>%1 capas con fusión no normal, no reproducidas</translation>
         </message>
         <message>
             <source>%1 个图层带蒙版，简化合成不应用</source>
-            <translation>%1개 레이어에 마스크 있음, 단순 합성 미적용</translation>
+            <translation>%1 capas con máscara, no aplicadas</translation>
         </message>
         <message>
             <source>%1 个图层无独立像素（分组边界 / 调整层）</source>
-            <translation>%1개 레이어에 독립 픽셀 없음(그룹 경계 / 조정 레이어)</translation>
+            <translation>%1 capas sin píxeles propios (grupo / ajuste)</translation>
         </message>
         <message>
             <source>图像数据段头无效（压缩方式未知）</source>
-            <translation>이미지 데이터 섹션 헤더가 잘못되었습니다(알 수 없는 압축 방식)</translation>
+            <translation>Cabecera de la sección de datos de imagen no válida (compresión desconocida)</translation>
         </message>
         <message>
             <source>图像数据不完整（文件可能被截断或写入中断）</source>
-            <translation>이미지 데이터가 불완전합니다(파일이 잘렸거나 쓰기가 중단되었을 수 있음)</translation>
+            <translation>Datos de imagen incompletos (el archivo puede estar truncado o la escritura se interrumpió)</translation>
         </message>
     </context>
     <context>
         <name>QObject</name>
         <message>
             <source>打开</source>
-            <translation>열기</translation>
+            <translation>Abrir</translation>
         </message>
         <message>
             <source>浏览</source>
-            <translation>찾아보기</translation>
+            <translation>Examinar</translation>
         </message>
         <message>
             <source>幻灯片</source>
-            <translation>슬라이드 쇼</translation>
+            <translation>Pase de diapositivas</translation>
         </message>
         <message>
             <source>书签</source>
-            <translation>책갈피</translation>
+            <translation>Marcadores</translation>
         </message>
         <message>
             <source>编辑</source>
-            <translation>편집</translation>
+            <translation>Edición</translation>
         </message>
         <message>
             <source>复制到</source>
-            <translation>복사 대상</translation>
+            <translation>Copiar a</translation>
         </message>
         <message>
             <source>无操作</source>
-            <translation>동작 없음</translation>
+            <translation>Sin acción</translation>
         </message>
         <message>
             <source>翻下一张</source>
-            <translation>다음 이미지</translation>
+            <translation>Imagen siguiente</translation>
         </message>
         <message>
             <source>翻上一张</source>
-            <translation>이전 이미지</translation>
+            <translation>Imagen anterior</translation>
         </message>
         <message>
             <source>下一帧</source>
-            <translation>다음 프레임</translation>
+            <translation>Fotograma siguiente</translation>
         </message>
         <message>
             <source>上一帧</source>
-            <translation>이전 프레임</translation>
+            <translation>Fotograma anterior</translation>
         </message>
         <message>
             <source>放大</source>
-            <translation>확대</translation>
+            <translation>Ampliar</translation>
         </message>
         <message>
             <source>缩小</source>
-            <translation>축소</translation>
+            <translation>Reducir</translation>
         </message>
         <message>
             <source>拖拽平移</source>
-            <translation>끌어서 이동</translation>
+            <translation>Arrastrar para desplazar</translation>
         </message>
         <message>
             <source>实际大小</source>
-            <translation>실제 크기</translation>
+            <translation>Tamaño real</translation>
         </message>
         <message>
             <source>适配窗口</source>
-            <translation>창에 맞춤</translation>
+            <translation>Ajustar a la ventana</translation>
         </message>
         <message>
             <source>全屏切换</source>
-            <translation>전체 화면 전환</translation>
+            <translation>Alternar pantalla completa</translation>
         </message>
         <message>
             <source>关闭窗口</source>
-            <translation>창 닫기</translation>
+            <translation>Cerrar ventana</translation>
         </message>
         <message>
             <source>上下文菜单</source>
-            <translation>상황에 맞는 메뉴</translation>
+            <translation>Menú contextual</translation>
         </message>
         <message>
             <source>打开文件夹</source>
-            <translation>폴더 열기</translation>
+            <translation>Abrir carpeta</translation>
         </message>
         <message>
             <source>裁剪</source>
-            <translation>자르기</translation>
+            <translation>Recortar</translation>
         </message>
         <message>
             <source>收藏</source>
-            <translation>책갈피</translation>
+            <translation>Marcador</translation>
         </message>
         <message>
             <source>删除</source>
-            <translation>삭제</translation>
+            <translation>Eliminar</translation>
         </message>
         <message>
             <source>转到首个文件</source>
-            <translation>첫 번째 파일로 이동</translation>
+            <translation>Ir al primer archivo</translation>
         </message>
         <message>
             <source>停止</source>
-            <translation>중지</translation>
+            <translation>Detener</translation>
         </message>
         <message>
             <source>询问</source>
-            <translation>묻기</translation>
+            <translation>Preguntar</translation>
         </message>
         <message>
             <source>跟随系统</source>
-            <translation>시스템 따르기</translation>
+            <translation>Seguir el sistema</translation>
         </message>
         <message>
             <source>该选项暂未实现，将在后续版本提供。</source>
-            <translation>이 옵션은 아직 구현되지 않았으며 이후 버전에 제공될 예정입니다.</translation>
+            <translation>Esta opción aún no está implementada; llegará en una versión futura.</translation>
         </message>
         <message>
             <source>前往下载</source>
-            <translation>다운로드로 이동</translation>
+            <translation>Ir a la descarga</translation>
         </message>
     </context>
     <context>
         <name>RawImageLoader</name>
         <message>
             <source>libraw 打开失败</source>
-            <translation>libraw 열기 실패</translation>
+            <translation>Apertura libraw fallida</translation>
         </message>
         <message>
             <source>libraw 解包失败</source>
-            <translation>libraw 압축 해제 실패</translation>
+            <translation>Desempaquetado libraw fallido</translation>
         </message>
         <message>
             <source>libraw 处理失败</source>
-            <translation>libraw 처리 실패</translation>
+            <translation>Procesamiento libraw fallido</translation>
         </message>
         <message>
             <source>libraw 内存图像生成失败</source>
-            <translation>libraw 메모리 이미지 생성 실패</translation>
+            <translation>Imagen en memoria libraw fallida</translation>
         </message>
         <message>
             <source>不支持的位深 %1</source>
-            <translation>지원하지 않는 비트 심도 %1</translation>
+            <translation>Profundidad de bits no admitida %1</translation>
         </message>
     </context>
     <context>
         <name>SettingsDialog</name>
         <message>
             <source>选择后立即切换界面语言并写入配置</source>
-            <translation>선택하면 즉시 인터페이스 언어가 전환되고 설정에 저장됩니다</translation>
+            <translation>El idioma de la interfaz cambia al instante y la opción se guarda</translation>
         </message>
         <message>
             <source>选择后立即生效，无需保存；缺少对应 .qm 时保持当前语言并当场说明</source>
-            <translation>선택 즉시 적용되며 저장이 필요 없습니다. 해당 .qm 이 없으면 현재 언어를 유지하고 여기에 이유를 표시합니다.</translation>
+            <translation>Se aplica al instante, sin guardar; si falta el .qm correspondiente, se mantiene el idioma actual y el motivo aparece aquí</translation>
         </message>
         <message>
             <source>点击后先创建程序目录下的 translations，再交给系统文件管理器打开。</source>
-            <translation>프로그램 폴더의 translations 폴더를 만든 뒤 시스템 파일 탐색기로 엽니다.</translation>
+            <translation>Crea la carpeta translations junto al programa y la abre en el explorador de archivos.</translation>
         </message>
         <message>
-            <source>点击后在系统浏览器打开 QuikView 发布页；应用内只报告系统是否接受打开请求。</source>
-            <translation>시스템 브라우저에서 QuikView 배포 페이지를 엽니다. 앱에서는 시스템이 열기 요청을 수락했는지만 알려 줍니다.</translation>
+            <source>点击后在系统浏览器打开 SoleView 发布页；应用内只报告系统是否接受打开请求。</source>
+            <translation>Abre la página de descarga de SoleView en el navegador del sistema; la app solo indica si el sistema aceptó la solicitud.</translation>
         </message>
         <message>
-            <source>两个入口都会离开 QuikView，应用内只报告系统是否接受打开请求。</source>
-            <translation>두 버튼 모두 QuikView를 벗어납니다. 앱에서는 시스템이 요청을 수락했는지만 알려 줍니다.</translation>
+            <source>两个入口都会离开 SoleView，应用内只报告系统是否接受打开请求。</source>
+            <translation>Ambos botones salen de SoleView; la app solo indica si el sistema aceptó la solicitud.</translation>
         </message>
         <message>
             <source>当前：%1（生效语言 %2）；选择后立即生效并写入配置。</source>
-            <translation>현재: %1 (적용 언어 %2). 선택 즉시 적용되고 저장됩니다.</translation>
+            <translation>Actual: %1 (idioma efectivo %2); el cambio se aplica y se guarda al instante.</translation>
         </message>
         <message>
             <source>已切换到 %1：本页与主窗口文案已即时重译，配置已写入。</source>
-            <translation>%1(으)로 전환했습니다. 이 페이지와 주 창의 문구가 즉시 다시 번역되었고 설정도 저장되었습니다.</translation>
+            <translation>Cambiado a %1: esta página y la ventana principal se retradujeron al instante y la opción está guardada.</translation>
         </message>
         <message>
             <source>已恢复为 %1：%2</source>
-            <translation>%1(으)로 되돌렸습니다: %2</translation>
+            <translation>Restaurado a %1: %2</translation>
         </message>
         <message>
             <source>配置写入失败，已恢复为 %1：%2</source>
-            <translation>설정을 저장하지 못해 %1(으)로 되돌렸습니다: %2</translation>
+            <translation>No se pudo guardar; restaurado a %1: %2</translation>
         </message>
         <message>
             <source>正在创建目录并请求系统打开：%1…</source>
-            <translation>폴더를 만들고 시스템에 열기를 요청하는 중: %1…</translation>
+            <translation>Creando la carpeta y solicitando al sistema que la abra: %1…</translation>
         </message>
         <message>
             <source>创建目录失败：%1；请检查上级目录权限，或手动创建后把 .qm 放进去。</source>
-            <translation>폴더를 만들지 못했습니다: %1. 상위 폴더 권한을 확인하거나 직접 만든 뒤 .qm 파일을 넣어 주세요.</translation>
+            <translation>No se pudo crear la carpeta: %1; comprueba los permisos de la carpeta superior o créala manualmente y coloca allí los .qm.</translation>
         </message>
         <message>
             <source>目录已存在，已交给系统文件管理器打开：%1</source>
-            <translation>폴더가 이미 있습니다. 시스템 파일 탐색기로 열었습니다: %1</translation>
+            <translation>La carpeta ya existe; abierta en el explorador del sistema: %1</translation>
         </message>
         <message>
             <source>已创建目录并交给系统文件管理器打开：%1</source>
-            <translation>폴더를 만들고 시스템 파일 탐색기로 열었습니다: %1</translation>
+            <translation>Carpeta creada y abierta en el explorador del sistema: %1</translation>
         </message>
         <message>
             <source>目录已存在，但系统未接受打开请求；手动访问：%1</source>
-            <translation>폴더가 이미 있지만 시스템이 열기 요청을 수락하지 않았습니다. 직접 열어 주세요: %1</translation>
+            <translation>La carpeta ya existe, pero el sistema rechazó la solicitud; ábrela manualmente: %1</translation>
         </message>
         <message>
             <source>已创建目录，但系统未接受打开请求；手动访问：%1</source>
-            <translation>폴더를 만들었지만 시스템이 열기 요청을 수락하지 않았습니다. 직접 열어 주세요: %1</translation>
+            <translation>Carpeta creada, pero el sistema rechazó la solicitud; ábrela manualmente: %1</translation>
         </message>
         <message>
             <source>正在请求系统打开：%1…</source>
-            <translation>시스템에 열기를 요청하는 중: %1…</translation>
+            <translation>Solicitando al sistema que abra: %1…</translation>
         </message>
         <message>
             <source>已请求系统打开 %1，由系统浏览器接管。</source>
-            <translation>시스템에 %1 열기를 요청했습니다. 이후는 시스템 브라우저가 처리합니다.</translation>
+            <translation>Se pidió al sistema abrir %1; el navegador del sistema se encarga.</translation>
         </message>
         <message>
             <source>系统未接受打开请求，请手动访问：%1</source>
-            <translation>시스템이 열기 요청을 수락하지 않았습니다. 직접 열어 주세요: %1</translation>
+            <translation>El sistema rechazó la solicitud; ábrelo manualmente: %1</translation>
         </message>
         <message>
             <source>缺少 %1.qm（已查找内置 i18n 与 translations 目录）</source>
-            <translation>%1.qm 이 없습니다(내장 i18n 및 translations 폴더 확인)</translation>
+            <translation>Falta %1.qm (se buscó en el i18n integrado y en la carpeta translations)</translation>
         </message>
         <message>
             <source>重启后生效；每 24 小时最多检查一次</source>
-            <translation>다시 시작 후 적용되며 24시간에 최대 1회 확인</translation>
+            <translation>Se aplica tras reiniciar; como máximo una vez cada 24 horas</translation>
         </message>
         <message>
             <source>通用</source>
-            <translation>일반</translation>
+            <translation>General</translation>
         </message>
         <message>
             <source>翻页音效</source>
-            <translation>페이지 넘김 효과음</translation>
+            <translation>Sonido de paginación</translation>
         </message>
         <message>
             <source>外观与显示</source>
-            <translation>모양 및 디스플레이</translation>
+            <translation>Apariencia y pantalla</translation>
         </message>
         <message>
             <source>鼠标与滚轮</source>
-            <translation>마우스 및 휠</translation>
+            <translation>Ratón y rueda</translation>
         </message>
         <message>
             <source>Windows 集成</source>
-            <translation>Windows 통합</translation>
+            <translation>Integración con Windows</translation>
         </message>
         <message>
             <source>扩展</source>
-            <translation>확장</translation>
+            <translation>Extensiones</translation>
         </message>
         <message>
             <source>退出行为</source>
-            <translation>종료 동작</translation>
+            <translation>Comportamiento de salida</translation>
         </message>
         <message>
             <source>画布与透明背景</source>
-            <translation>캔버스 및 투명도</translation>
+            <translation>Lienzo y transparencia</translation>
         </message>
         <message>
             <source>翻页</source>
-            <translation>페이지 넘김</translation>
+            <translation>Paginación</translation>
         </message>
         <message>
             <source>缩放与记忆</source>
-            <translation>확대/축소 및 기억</translation>
+            <translation>Zoom y memoria</translation>
         </message>
         <message>
             <source>图片文件夹</source>
-            <translation>이미지 폴더</translation>
+            <translation>Carpetas de imágenes</translation>
         </message>
         <message>
             <source>全部支持格式</source>
-            <translation>지원 형식 모두</translation>
+            <translation>Todos los formatos admitidos</translation>
         </message>
         <message>
             <source>展开支持的格式</source>
-            <translation>지원 형식 확장</translation>
+            <translation>Expandir formatos admitidos</translation>
         </message>
         <message>
             <source>展开</source>
-            <translation>확장</translation>
+            <translation>Expandir</translation>
         </message>
         <message>
             <source>收起</source>
-            <translation>접기</translation>
+            <translation>Contraer</translation>
         </message>
         <message>
-            <source>QuikView 扩展</source>
-            <translation>QuikView 확장</translation>
+            <source>SoleView 扩展</source>
+            <translation>Extensiones de SoleView</translation>
         </message>
         <message>
             <source>暂未提供安装：当前版本没有扩展市场、安装包或加载开关。</source>
-            <translation>아직 제공되지 않음: 이 버전에는 확장 스토어, 설치 프로그램 또는 활성화 스위치가 없습니다.</translation>
+            <translation>Aún no disponible: esta versión no incluye tienda de extensiones, instalador ni interruptor de activación.</translation>
         </message>
         <message>
             <source>「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。</source>
-            <translation>"%1" 즉시 적용됨: %2 · 저장할 필요 없음. "취소"/Esc를 누르면 설정을 열었던 상태로 돌아갑니다.</translation>
+            <translation>«%1» se aplicó al instante: %2 · no hace falta guardar; «Cancelar»/Esc restaura el estado al abrir Ajustes.</translation>
         </message>
         <message>
             <source>开</source>
-            <translation>켬</translation>
+            <translation>Activado</translation>
             <source>关</source>
-            <translation>끔</translation>
+            <translation>Desactivado</translation>
             <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
-            <translation>변경 사항을 버렸습니다: 보기 페이지의 즉시 항목이 설정을 열었던 상태로 돌아갔습니다.</translation>
+            <translation>Cambios descartados: los elementos inmediatos de la página Ver vuelven al estado al abrir Ajustes.</translation>
             <source>已关闭设置，未保留即时改动。</source>
-            <translation>설정을 닫았습니다. 즉시 변경은 유지되지 않았습니다.</translation>
+            <translation>Ajustes cerrados; los cambios inmediatos no se conservaron.</translation>
             <source>设置备份</source>
-            <translation>설정 백업</translation>
+            <translation>Copia de seguridad de ajustes</translation>
             <source>导出设置</source>
-            <translation>설정 내보내기</translation>
+            <translation>Exportar ajustes</translation>
             <source>把当前设置写入 .ini，便于备份或换机</source>
-            <translation>현재 설정을 .ini로 저장합니다. 백업이나 다른 PC로 옮길 때 편리합니다</translation>
+            <translation>Guarda los ajustes actuales en un .ini para copia de seguridad o cambio de equipo</translation>
             <source>导入设置</source>
-            <translation>설정 가져오기</translation>
-            <source>从 .ini 文件恢复设置，重启 QuikView 后生效</source>
-            <translation>.ini 파일에서 설정을 복원합니다. QuikView를 다시 시작한 후 적용됩니다</translation>
+            <translation>Importar ajustes</translation>
+            <source>从 .ini 文件恢复设置，重启 SoleView 后生效</source>
+            <translation>Restaura los ajustes desde un archivo .ini; se aplican al reiniciar SoleView</translation>
             <source>导出失败</source>
-            <translation>내보내기 실패</translation>
+            <translation>Error al exportar</translation>
             <source>设置已导出</source>
-            <translation>설정을 내보냈습니다</translation>
-            <source>不是有效的 QuikView 设置文件</source>
-            <translation>유효한 QuikView 설정 파일이 아닙니다</translation>
+            <translation>Ajustes exportados</translation>
+            <source>不是有效的 SoleView 设置文件</source>
+            <translation>No es un archivo de ajustes de SoleView válido</translation>
             <source>导入失败，原配置未改动</source>
-            <translation>가져오기 실패: 기존 설정은 변경되지 않았습니다</translation>
-            <source>导入成功，重启 QuikView 后生效</source>
-            <translation>가져오기 성공: QuikView를 다시 시작한 후 적용됩니다</translation>
-            <source>QuikView 设置 (*.ini)</source>
-            <translation>QuikView 설정 (*.ini)</translation>
-            <source>QuikView 设置 (*.ini);;所有文件 (*)</source>
-            <translation>QuikView 설정 (*.ini);;모든 파일 (*)</translation>
+            <translation>Error al importar; la configuración original no se modificó</translation>
+            <source>导入成功，重启 SoleView 后生效</source>
+            <translation>Importación correcta; se aplicará al reiniciar SoleView</translation>
+            <source>SoleView 设置 (*.ini)</source>
+            <translation>Ajustes de SoleView (*.ini)</translation>
+            <source>SoleView 设置 (*.ini);;所有文件 (*)</source>
+            <translation>Ajustes de SoleView (*.ini);;Todos los archivos (*)</translation>
         </message>
         <message>
             <source>按下组合键…</source>
-            <translation>키 조합 입력…</translation>
+            <translation>Pulsa una combinación…</translation>
         </message>
         <message>
             <source>未设置</source>
-            <translation>설정 안 함</translation>
+            <translation>Sin configurar</translation>
         </message>
         <message>
             <source>设置</source>
-            <translation>설정</translation>
+            <translation>Configuración</translation>
         </message>
         <message>
-            <source>QuikView — 设置</source>
-            <translation>QuikView — 설정</translation>
+            <source>SoleView — 设置</source>
+            <translation>SoleView — Configuración</translation>
         </message>
         <message>
             <source>搜索设置…</source>
-            <translation>설정 검색…</translation>
+            <translation>Buscar en la configuración…</translation>
         </message>
         <message>
             <source>搜索设置</source>
-            <translation>설정 검색</translation>
+            <translation>Buscar en la configuración</translation>
         </message>
         <message>
             <source>偏好设置</source>
-            <translation>환경 설정</translation>
+            <translation>Preferencias</translation>
         </message>
         <message>
             <source>没有匹配的设置</source>
-            <translation>일치하는 설정이 없습니다</translation>
+            <translation>No hay ajustes coincidentes</translation>
         </message>
         <message>
             <source>浏览</source>
-            <translation>찾아보기</translation>
+            <translation>Examinar</translation>
         </message>
         <message>
             <source>一般</source>
-            <translation>일반</translation>
+            <translation>General</translation>
         </message>
         <message>
             <source>管理窗口行为、操作反馈、更新和首尾翻页。</source>
-            <translation>창 동작, 작업 피드백, 업데이트, 처음/끝 페이지 넘김을 관리합니다.</translation>
+            <translation>Gestiona el comportamiento de ventanas, la respuesta a operaciones, las actualizaciones y el paso en extremos.</translation>
         </message>
         <message>
             <source>缩放状态、侧边箭头与悬浮提示等浏览显示设置；画布底色已固定。</source>
-            <translation>확대/축소 상태, 옆 화살표, 도구 설명 등 표시 설정. 캔버스 배경색은 고정입니다.</translation>
+            <translation>Opciones de visualización de navegación como estado de zoom, flechas laterales e información emergente; el color de fondo del lienzo es fijo.</translation>
         </message>
         <message>
             <source>外观</source>
-            <translation>모양</translation>
+            <translation>Apariencia</translation>
         </message>
         <message>
             <source>主题与材质。跟随系统时由 Windows 的深浅色设置决定。</source>
-            <translation>테마와 재질. 시스템 따르기에서는 Windows의 어둡게/밝게 설정을 따릅니다.</translation>
+            <translation>Tema y material. En «seguir el sistema» decide la configuración clara/oscura de Windows.</translation>
         </message>
         <message>
             <source>图像处理</source>
-            <translation>이미지 처리</translation>
+            <translation>Procesado de imagen</translation>
         </message>
         <message>
             <source>透明背景、插值算法、翻页效果与 ICC 色彩管理；监视器 ICC 受 Qt6 限制暂不可用。</source>
-            <translation>투명 배경, 보간 방식, 페이지 넘김 효과, ICC 색 관리. 모니터 ICC는 Qt6 제한으로 현재 사용할 수 없습니다.</translation>
+            <translation>Fondo transparente, interpolación, efectos de paso y gestión de color ICC; el ICC del monitor no está disponible por límites de Qt6.</translation>
         </message>
         <message>
             <source>格式关联</source>
-            <translation>파일 연결</translation>
+            <translation>Asociaciones</translation>
         </message>
         <message>
-            <source>查看 QuikView 可打开的格式，并在 Windows 中选择默认应用。</source>
-            <translation>QuikView에서 열 수 있는 형식을 확인하고 Windows에서 기본 앱을 선택합니다.</translation>
+            <source>查看 SoleView 可打开的格式，并在 Windows 中选择默认应用。</source>
+            <translation>Consulta los formatos que SoleView puede abrir y elige las aplicaciones predeterminadas en Windows.</translation>
         </message>
         <message>
             <source>键盘</source>
-            <translation>키보드</translation>
+            <translation>Teclado</translation>
         </message>
         <message>
             <source>鼠标</source>
-            <translation>마우스</translation>
+            <translation>Ratón</translation>
         </message>
         <message>
             <source>左/右/X/Y 与滚轮的按键映射可自定义；中键平移、双击最大化可用。</source>
-            <translation>왼쪽/오른쪽/X/Y 버튼과 휠 매핑을 사용자 지정할 수 있습니다. 가운데 버튼 이동, 두 번 클릭 최대화 지원.</translation>
+            <translation>Los botones y la rueda son reasignables; desplazamiento con botón central y maximizar con doble clic disponibles.</translation>
         </message>
         <message>
             <source>书签</source>
-            <translation>책갈피</translation>
+            <translation>Marcadores</translation>
         </message>
         <message>
             <source>自动保存开关与书签数量上限。</source>
-            <translation>자동 저장 스위치와 책갈피 개수 한도.</translation>
+            <translation>Interruptor de guardado automático y límite de marcadores.</translation>
         </message>
         <message>
             <source>上下文菜单</source>
-            <translation>상황에 맞는 메뉴</translation>
+            <translation>Menú contextual</translation>
         </message>
         <message>
             <source>资源管理器集成的注册状态与右键菜单开关。</source>
-            <translation>탐색기 통합의 등록 상태와 오른쪽 클릭 메뉴 스위치.</translation>
+            <translation>Estado de registro e interruptores del menú contextual de la integración con el Explorador.</translation>
         </message>
         <message>
             <source>查看器右键菜单</source>
-            <translation>뷰어 오른쪽 클릭 메뉴</translation>
+            <translation>Menú de clic derecho del visor</translation>
         </message>
         <message>
-            <source>自定义 QuikView 查看器内的右键菜单与顶部快捷操作。</source>
-            <translation>QuikView 뷰어 내 오른쪽 클릭 메뉴와 상단 빠른 작업을 사용자 지정합니다.</translation>
+            <source>自定义 SoleView 查看器内的右键菜单与顶部快捷操作。</source>
+            <translation>Personaliza el menú de clic derecho y las acciones rápidas superiores en el visor de SoleView.</translation>
         </message>
         <message>
             <source>杂项</source>
-            <translation>기타</translation>
+            <translation>Varios</translation>
         </message>
         <message>
             <source>图片文件夹、外部编辑器与 RAW 打开策略。</source>
-            <translation>그림 폴더, 외부 편집기, RAW 열기 정책.</translation>
+            <translation>Carpetas de imágenes, editor externo y política de apertura de RAW.</translation>
         </message>
         <message>
             <source>语言</source>
-            <translation>언어</translation>
+            <translation>Idioma</translation>
         </message>
         <message>
             <source>选择界面语言并管理语言文件。</source>
-            <translation>UI 언어를 선택하고 언어 파일을 관리합니다.</translation>
+            <translation>Elegir el idioma de la interfaz y gestionar los archivos de idioma.</translation>
         </message>
         <message>
-            <source>关于 QuikView</source>
-            <translation>QuikView 정보</translation>
+            <source>关于 SoleView</source>
+            <translation>Acerca de SoleView</translation>
         </message>
         <message>
-            <source>&lt;b&gt;QuikView&lt;/b&gt; %1&lt;br&gt;轻量图片浏览器。</source>
-            <translation>&lt;b&gt;QuikView&lt;/b&gt; %1&lt;br&gt;가벼운 이미지 뷰어.</translation>
+            <source>&lt;b&gt;SoleView&lt;/b&gt; %1&lt;br&gt;轻量图片浏览器。</source>
+            <translation>&lt;b&gt;SoleView&lt;/b&gt; %1&lt;br&gt;Visor de imágenes ligero.</translation>
         </message>
         <message>
             <source>恢复默认</source>
-            <translation>기본값 복원</translation>
+            <translation>Restaurar valores predeterminados</translation>
         </message>
         <message>
             <source>普通设置即时生效；热键改绑与界面语言在保存后生效</source>
-            <translation>일반 설정은 즉시 적용됩니다. 핫키 재할당과 UI 언어는 저장 후 적용됩니다</translation>
+            <translation>Normal: al instante; atajos e idioma tras guardar</translation>
         </message>
         <message>
             <source>取消</source>
-            <translation>취소</translation>
+            <translation>Cancelar</translation>
         </message>
         <message>
             <source>保存设置</source>
-            <translation>설정 저장</translation>
+            <translation>Guardar</translation>
         </message>
         <message>
             <source>窗口行为</source>
-            <translation>창 동작</translation>
+            <translation>Comportamiento de ventanas</translation>
         </message>
         <message>
             <source>不保存浏览过的文件夹路径</source>
-            <translation>찾아본 폴더 경로를 저장하지 않음</translation>
+            <translation>No recordar rutas de carpetas visitadas</translation>
         </message>
         <message>
             <source>勾选＝不记录最近打开的文件夹；下次打开文件时生效</source>
-            <translation>체크 = 최근 폴더를 기록하지 않음. 다음에 파일을 열 때 적용</translation>
+            <translation>Marcado = no registrar carpetas recientes; se aplica al abrir un archivo la próxima vez</translation>
         </message>
         <message>
             <source>不允许多个实例</source>
-            <translation>여러 인스턴스 허용 안 함</translation>
+            <translation>No permitir varias instancias</translation>
         </message>
         <message>
-            <source>重启 QuikView 后生效</source>
-            <translation>QuikView를 다시 시작하면 적용됩니다</translation>
+            <source>重启 SoleView 后生效</source>
+            <translation>Se aplica tras reiniciar SoleView</translation>
         </message>
         <message>
             <source>总在最前 (Ctrl+A)</source>
-            <translation>항상 위 (Ctrl+A)</translation>
+            <translation>Siempre visible (Ctrl+A)</translation>
         </message>
         <message>
             <source>按 ESC 退出</source>
-            <translation>Esc로 끝내기</translation>
+            <translation>Esc para salir</translation>
         </message>
         <message>
             <source>下次按 Esc 时生效</source>
-            <translation>다음에 Esc를 누를 때 적용</translation>
+            <translation>Se aplica la próxima vez que pulses Esc</translation>
         </message>
         <message>
             <source>操作反馈</source>
-            <translation>작업 피드백</translation>
+            <translation>Respuesta a operaciones</translation>
         </message>
         <message>
             <source>删除文件时确认</source>
-            <translation>파일 삭제 시 확인</translation>
+            <translation>Confirmar antes de eliminar archivos</translation>
         </message>
         <message>
             <source>下次删除文件时生效</source>
-            <translation>다음에 파일을 삭제할 때 적용</translation>
+            <translation>Se aplica la próxima vez que elimines un archivo</translation>
         </message>
         <message>
             <source>在边角显示通知信息，而非中心</source>
-            <translation>알림을 가운데 대신 모서리에 표시</translation>
+            <translation>Mostrar notificaciones en una esquina en lugar del centro</translation>
         </message>
         <message>
             <source>下一次通知时生效</source>
-            <translation>다음 알림부터 적용</translation>
+            <translation>Se aplica desde la siguiente notificación</translation>
         </message>
         <message>
             <source>检查更新</source>
-            <translation>업데이트 확인</translation>
+            <translation>Buscar actualizaciones</translation>
         </message>
         <message>
             <source>手动检查</source>
-            <translation>지금 확인</translation>
+            <translation>Comprobar ahora</translation>
         </message>
         <message>
             <source>立即连接发布源检查更新</source>
-            <translation>지금 릴리스 원본에 연결해 업데이트 확인</translation>
+            <translation>Conectar ahora al origen de versiones para buscar actualizaciones</translation>
         </message>
         <message>
             <source>启动时检查更新</source>
-            <translation>시작할 때 업데이트 확인</translation>
+            <translation>Buscar actualizaciones al iniciar</translation>
         </message>
         <message>
             <source>重启后生效；每 24 小时最多一次</source>
-            <translation>다시 시작 후 적용. 24시간에 최대 1회</translation>
+            <translation>Se aplica tras reiniciar; como mucho una vez cada 24 horas</translation>
         </message>
         <message>
             <source>手动检查不受频率限制；检查更新会联网访问发布源，失败时提示「检查失败，请检查网络」。</source>
-            <translation>수동 확인에는 빈도 제한이 없습니다. 업데이트 확인은 네트워크로 릴리스 원본에 연결하며, 실패 시 "확인 실패, 네트워크를 확인하세요"라고 표시합니다.</translation>
+            <translation>Las comprobaciones manuales no tienen límite de frecuencia. Buscar actualizaciones se conecta por red al origen de versiones; si falla, muestra «Comprobación fallida, comprueba la red».</translation>
         </message>
         <message>
             <source>检查中…</source>
-            <translation>확인 중…</translation>
+            <translation>Comprobando…</translation>
         </message>
         <message>
             <source>首尾翻页</source>
-            <translation>처음/끝 페이지 넘김</translation>
+            <translation>Paso en extremos</translation>
         </message>
         <message>
             <source>到达首尾图片时执行</source>
-            <translation>처음/끝 이미지에 도달할 때 동작</translation>
+            <translation>Acción al llegar a la primera/última imagen</translation>
         </message>
         <message>
             <source>下次到达首尾图片时按所选行为处理</source>
-            <translation>다음에 처음/끝 이미지에 도달할 때 선택한 동작 적용</translation>
+            <translation>El comportamiento elegido se aplica la próxima vez que llegues a la primera/última imagen</translation>
         </message>
         <message>
             <source>「询问」档暂无实现（无确认对话框），灰显不可选</source>
-            <translation>"묻기"는 아직 구현되지 않아(확인 대화상자 없음) 회색으로 비활성화되어 선택할 수 없습니다</translation>
+            <translation>«Preguntar» aún no está implementado (sin cuadro de confirmación), en gris y no seleccionable</translation>
         </message>
         <message>
             <source>「转到首个文件」在末尾继续时回绕到首个；「停止」停在当前图片。「询问」档当前无询问对话框实现，已灰显，不按生效计。</source>
-            <translation>"첫 번째 파일로 이동"은 끝에서 계속하면 첫 번째로 되돌아갑니다. "중지"는 현재 이미지에 머뭅니다. "묻기"는 확인 대화상자가 구현되지 않아 회색으로 비활성화되어 적용 대상에 포함되지 않습니다.</translation>
+            <translation>«Ir al primer archivo» vuelve a la primera al superar el final; «Detener» se queda en la imagen actual. «Preguntar» no tiene cuadro de diálogo aún, está en gris y no cuenta como comportamiento aplicado.</translation>
         </message>
         <message>
             <source>导航</source>
-            <translation>탐색</translation>
+            <translation>Navegación</translation>
         </message>
         <message>
             <source>显示侧边箭头</source>
-            <translation>옆 화살표 표시</translation>
+            <translation>Mostrar flechas laterales</translation>
         </message>
         <message>
             <source>鼠标移到画布左右边缘时显示翻页箭头</source>
-            <translation>마우스를 캔버스 왼쪽/오른쪽 가장자리에 올리면 페이지 넘김 화살표 표시</translation>
+            <translation>Muestra flechas de paso cuando el ratón pasa sobre los bordes izquierdo/derecho del lienzo</translation>
         </message>
         <message>
             <source>记住缩放状态</source>
-            <translation>확대/축소 상태 기억</translation>
+            <translation>Recordar estado de zoom</translation>
         </message>
         <message>
             <source>下次打开图片或重启时恢复；当前画面不变</source>
-            <translation>다음에 이미지를 열거나 다시 시작할 때 복원. 현재 화면은 변경되지 않습니다</translation>
+            <translation>Se restaura al abrir una imagen o reiniciar; la vista actual no cambia</translation>
         </message>
         <message>
             <source>画面信息</source>
-            <translation>화면 정보</translation>
+            <translation>Información en pantalla</translation>
         </message>
         <message>
             <source>显示文件名浮层</source>
-            <translation>파일 이름 오버레이 표시</translation>
+            <translation>Mostrar superposición de nombre de archivo</translation>
         </message>
         <message>
             <source>隐藏顶端菜单时，按 Shift+Tab 显隐文件名浮层</source>
-            <translation>위쪽 메뉴가 숨겨져 있을 때 Shift+Tab으로 파일 이름 오버레이 전환</translation>
+            <translation>Con el menú superior oculto, Mayús+Tab alterna la superposición del nombre de archivo</translation>
         </message>
         <message>
             <source>显示动画播放控制</source>
-            <translation type="unfinished">애니메이션 프레임 번호 표시</translation>
+            <translation type="unfinished">Mostrar números de fotograma</translation>
         </message>
         <message>
             <source>GIF / MNG 时显示底部播放控制栏，并在信息行显示「第 n/N 帧」；关闭后两者一并隐藏</source>
-            <translation type="unfinished">GIF / MNG 아래쪽 정보 행에 "프레임 n/N" 표시</translation>
+            <translation type="unfinished">La línea de información inferior de GIF/MNG muestra «Fotograma n/N»</translation>
         </message>
         <message>
             <source>显示缩放浮标</source>
-            <translation>확대/축소 표시기 표시</translation>
+            <translation>Mostrar indicador de zoom</translation>
         </message>
         <message>
             <source>缩放时在窗口内显示当前比例</source>
-            <translation>확대/축소하는 동안 창에 현재 배율 표시</translation>
+            <translation>Muestra el zoom actual en la ventana al hacer zoom</translation>
         </message>
         <message>
             <source>显示鼠标悬浮提示</source>
-            <translation>도구 설명 표시</translation>
+            <translation>Mostrar información emergente</translation>
         </message>
         <message>
             <source>鼠标停在图片边缘或栏位按钮上时显示说明</source>
-            <translation>마우스가 이미지 가장자리나 막대 버튼 위에 있을 때 설명 표시</translation>
+            <translation>Muestra explicaciones cuando el ratón descansa sobre bordes de imagen o botones de barra</translation>
         </message>
         <message>
             <source>用小字体显示 EXIF / 文件信息</source>
-            <translation>EXIF / 파일 정보를 작은 글꼴로 표시</translation>
+            <translation>Mostrar información EXIF / de archivo en letra pequeña</translation>
         </message>
         <message>
             <source>信息面板字号更小，可容纳更多字段</source>
-            <translation>정보 패널 글꼴을 작게 하여 더 많은 항목을 담을 수 있습니다</translation>
+            <translation>Fuente menor del panel de información para más campos</translation>
         </message>
         <message>
             <source>以上显示项切换后立即重排信息面板；关闭设置页后按当前值保留。</source>
-            <translation>위 표시 항목은 전환 시 정보 패널을 즉시 다시 배치합니다. 설정 페이지를 닫은 후에는 현재 값이 유지됩니다.</translation>
+            <translation>Estos elementos de visualización reordenan el panel de información al alternarlos; tras cerrar la página de configuración se conservan los valores actuales.</translation>
         </message>
         <message>
             <source>主题</source>
-            <translation>테마</translation>
+            <translation>Tema</translation>
         </message>
         <message>
             <source>界面主题</source>
-            <translation>UI 테마</translation>
+            <translation>Tema de interfaz</translation>
         </message>
         <message>
             <source>跟随系统时，随 Windows 深浅色设置切换</source>
-            <translation>시스템 따르기에서는 Windows의 어둡게/밝게 설정에 따라 전환됩니다</translation>
+            <translation>En «seguir el sistema», cambia con la configuración clara/oscura de Windows</translation>
         </message>
         <message>
             <source>跟随系统</source>
-            <translation>시스템 따르기</translation>
+            <translation>Seguir el sistema</translation>
         </message>
         <message>
             <source>浅色</source>
-            <translation>밝게</translation>
+            <translation>Claro</translation>
         </message>
         <message>
             <source>深色</source>
-            <translation>어둡게</translation>
+            <translation>Oscuro</translation>
         </message>
         <message>
             <source>材质</source>
-            <translation>재질</translation>
+            <translation>Material</translation>
         </message>
         <message>
             <source>磨砂材质（右键菜单与信息浮层）</source>
-            <translation>프로스트 재질 (오른쪽 클릭 메뉴와 정보 오버레이)</translation>
+            <translation>Vidrio esmerilado (menú contextual y superposición de información)</translation>
         </message>
         <message>
             <source>影响右键菜单与信息浮层；Windows 11 效果最佳</source>
-            <translation>오른쪽 클릭 메뉴와 정보 오버레이에 영향. Windows 11에서 가장 좋습니다</translation>
+            <translation>Afecta al menú contextual y a la superposición de información; óptimo en Windows 11</translation>
         </message>
         <message>
             <source>磨砂材质</source>
-            <translation>프로스트 재질</translation>
+            <translation>Vidrio esmerilado</translation>
         </message>
         <message>
             <source>当前系统不支持系统级磨砂，已停用</source>
-            <translation>이 시스템은 시스템 수준 프로스트를 지원하지 않아 비활성화되었습니다</translation>
+            <translation>Este sistema no admite esmerilado a nivel de sistema; desactivado</translation>
         </message>
         <message>
             <source>磨砂材质在 Windows 10 上降级为半透明。</source>
-            <translation>프로스트 재질은 Windows 10에서 반투명으로 대체됩니다.</translation>
+            <translation>En Windows 10, el vidrio esmerilado pasa a semitransparencia.</translation>
         </message>
         <message>
             <source>主题未应用</source>
-            <translation>테마 미적용</translation>
+            <translation>Tema no aplicado</translation>
         </message>
         <message>
             <source>本次主题切换失败，已恢复原设置。</source>
-            <translation>이번 테마 전환이 실패하여 원래 설정으로 복원했습니다.</translation>
+            <translation>El cambio de tema falló; se restauró la configuración original.</translation>
         </message>
         <message>
             <source>渲染</source>
-            <translation>렌더링</translation>
+            <translation>Renderizado</translation>
         </message>
         <message>
             <source>插值算法</source>
-            <translation>보간 방식</translation>
+            <translation>Método de interpolación</translation>
         </message>
         <message>
             <source>缩放与减淡重采样时使用</source>
-            <translation>확대/축소와 소프트 재샘플링에 사용</translation>
+            <translation>Se usa en el remuestreo de zoom y suavizado</translation>
         </message>
         <message>
             <source>最近邻 (快)</source>
-            <translation>최근접 이웃 (빠름)</translation>
+            <translation>Vecino más cercano (rápida)</translation>
         </message>
         <message>
             <source>平滑 (双线性)</source>
-            <translation>부드럽게 (바이리니어)</translation>
+            <translation>Suave (bilineal)</translation>
         </message>
         <message>
             <source>Lanczos (锐利)</source>
-            <translation>Lanczos (선명)</translation>
+            <translation>Lanczos (nítida)</translation>
         </message>
         <message>
             <source>使用强锐化滤镜</source>
-            <translation>강한 샤픈 필터 사용</translation>
+            <translation>Aplicar filtro de enfoque fuerte</translation>
         </message>
         <message>
             <source>Lanczos 插值下缩小显示（小于 100%）时叠加锐化</source>
-            <translation>Lanczos 보간으로 축소 표시(100% 미만)일 때 샤픈을 겹침</translation>
+            <translation>Añade enfoque al reducir por debajo del 100 % con interpolación Lanczos</translation>
         </message>
         <message>
             <source>图片大于窗口时显示图片顶部</source>
-            <translation>이미지가 창보다 클 때 이미지 위쪽 표시</translation>
+            <translation>Mostrar la parte superior de la imagen cuando supera la ventana</translation>
         </message>
         <message>
             <source>按「适配宽度」或「实际大小」打开且图片高于窗口时显示顶部</source>
-            <translation>"너비에 맞춤" 또는 "실제 크기"로 열었고 이미지가 창보다 높을 때 위쪽 표시</translation>
+            <translation>Muestra la parte superior al abrir con «Ajustar al ancho» o «Tamaño real» si la imagen es más alta que la ventana</translation>
         </message>
         <message>
             <source>缓存与载入</source>
-            <translation>캐시와 불러오기</translation>
+            <translation>Caché y carga</translation>
         </message>
         <message>
             <source>缓存下一张图片</source>
-            <translation>다음 이미지 캐시</translation>
+            <translation>Cachear la siguiente imagen</translation>
         </message>
         <message>
             <source>提前解码下一张，翻页更快</source>
-            <translation>다음 이미지를 미리 디코드해 페이지 넘김을 빠르게</translation>
+            <translation>Decodifica antes la siguiente para un paso más rápido</translation>
         </message>
         <message>
             <source>缓存大小</source>
-            <translation>캐시 크기</translation>
+            <translation>Tamaño de caché</translation>
         </message>
         <message>
             <source>全尺寸解码缓存的占用上限，范围 64–4096 MB，越界按边界值生效</source>
-            <translation>전체 크기 디코드 캐시 상한. 범위 64–4096 MB, 범위를 벗어나면 경계값으로 적용</translation>
+            <translation>Límite de la caché de decodificación a tamaño completo; rango 64–4096 MB, fuera de rango se ajusta al borde</translation>
         </message>
         <message>
             <source>MB</source>
@@ -2646,1200 +2646,1200 @@
         </message>
         <message>
             <source>先显示低品质图片以加速渲染</source>
-            <translation>저품질 이미지를 먼저 표시해 렌더링 가속</translation>
+            <translation>Mostrar primero una imagen de menor calidad para acelerar el renderizado</translation>
         </message>
         <message>
             <source>大图先出低清预览，再补全清晰度</source>
-            <translation>큰 이미지는 저해상도 미리 보기를 먼저 보여준 뒤 선명하게 보완합니다</translation>
+            <translation>Las imágenes grandes muestran primero una vista previa de baja resolución y luego se afinan</translation>
         </message>
         <message>
             <source>透明背景</source>
-            <translation>투명 배경</translation>
+            <translation>Fondo transparente</translation>
         </message>
         <message>
             <source>画布背景</source>
-            <translation>캔버스 배경</translation>
+            <translation>Fondo del lienzo</translation>
         </message>
         <message>
             <source>铺满整个画布视口，颜色随应用深浅主题自动变化</source>
-            <translation>캔버스 뷰포트 전체를 채우며 색은 앱의 어둡게/밝게 테마를 따릅니다</translation>
+            <translation>Llena todo el viewport del lienzo; el color sigue al tema claro/oscuro</translation>
         </message>
         <message>
             <source>棋盘</source>
-            <translation>체커보드</translation>
+            <translation>Damero</translation>
         </message>
         <message>
             <source>纯色</source>
-            <translation>단색</translation>
+            <translation>Color sólido</translation>
         </message>
         <message>
             <source>显示透明区域</source>
-            <translation>투명 영역 표시</translation>
+            <translation>Mostrar zonas transparentes</translation>
         </message>
         <message>
             <source>开启后，纯色背景下图片的透明区域显示棋盘格；关闭后透明像素直接透出画布背景</source>
-            <translation>켜면 단색 배경에서 이미지의 투명 영역에 체커보드를 표시합니다. 끄면 투명 픽셀 뒤로 캔버스 배경이 그대로 보입니다</translation>
+            <translation>Activado: las zonas transparentes muestran damero sobre fondo sólido; desactivado, los píxeles transparentes dejan ver el fondo del lienzo</translation>
         </message>
         <message>
             <source>图片阴影</source>
-            <translation>이미지 그림자</translation>
+            <translation>Sombra de imagen</translation>
         </message>
         <message>
             <source>在图片边缘加一圈阴影，浅色背景下的浅色图片也能看清边界；仅屏幕预览，不进入复制、打印、批量转换与另存为</source>
-            <translation>이미지 가장자리에 그림자를 더해 밝은 배경에서도 밝은 이미지의 경계를 잘 보이게 합니다. 화면 미리 보기에만 적용되며 복사, 인쇄, 일괄 변환, 다른 이름으로 저장에는 포함되지 않습니다</translation>
+            <translation>Una sombra alrededor de la imagen para que las claras se distingan en fondos claros; solo vista en pantalla, no entra en copiar, imprimir, conversión por lotes ni guardar como</translation>
         </message>
         <message>
             <source>翻页效果</source>
-            <translation>페이지 넘김 효과</translation>
+            <translation>Efecto de paso</translation>
         </message>
         <message>
             <source>下一次翻页时播放所选过渡</source>
-            <translation>다음 페이지 넘김 때 선택한 전환 재생</translation>
+            <translation>La transición elegida se reproduce en el siguiente paso</translation>
         </message>
         <message>
             <source>无</source>
-            <translation>없음</translation>
+            <translation>Ninguno</translation>
         </message>
         <message>
             <source>淡入淡出</source>
-            <translation>크로스 페이드</translation>
+            <translation>Fundido cruzado</translation>
         </message>
         <message>
             <source>Alpha 滑动</source>
-            <translation>알파 슬라이드</translation>
+            <translation>Deslizamiento alfa</translation>
         </message>
         <message>
             <source>滑动</source>
-            <translation>슬라이드</translation>
+            <translation>Deslizamiento</translation>
         </message>
         <message>
             <source>色彩管理</source>
-            <translation>색 관리</translation>
+            <translation>Gestión de color</translation>
         </message>
         <message>
             <source>使用图片文件的 ICC 设置</source>
-            <translation>이미지 파일의 ICC 프로필 사용</translation>
+            <translation>Usar el perfil ICC del archivo de imagen</translation>
         </message>
         <message>
             <source>打开带非 sRGB ICC 的图片时按配置转换上屏</source>
-            <translation>sRGB가 아닌 ICC 이미지를 열 때 설정에 따라 화면용으로 변환</translation>
+            <translation>Convierte para pantalla según la configuración al abrir imágenes con ICC no sRGB</translation>
         </message>
         <message>
             <source>使用监视器的 ICC 设置</source>
-            <translation>모니터의 ICC 프로필 사용</translation>
+            <translation>Usar el perfil ICC del monitor</translation>
         </message>
         <message>
             <source>Qt6 光栅后端不支持显示器色彩管理，暂不可用</source>
-            <translation>Qt6 래스터 백엔드는 모니터 색 관리를 지원하지 않아 현재 사용할 수 없습니다</translation>
+            <translation>El backend raster de Qt6 no admite gestión de color del monitor; no disponible por ahora</translation>
         </message>
         <message>
             <source>画布背景铺满整个画布视口，颜色随应用深浅主题自动变化，切换主题即时生效；棋盘格固定在屏幕坐标，不随图片缩放和平移。透明图像阴影只在屏幕预览层绘制，复制、打印、批量转换与另存为始终保留图片原始透明信息。</source>
-            <translation>캔버스 배경은 뷰포트 전체를 채우고 색은 앱의 어둡게/밝게 테마를 따르며 테마 전환은 즉시 적용됩니다. 체커보드는 화면 좌표에 고정되어 이미지 확대/축소와 이동을 따르지 않습니다. 투명 이미지 그림자는 화면 미리 보기 레이어에만 그려지며 복사, 인쇄, 일괄 변환, 다른 이름으로 저장에는 항상 원본 투명 정보가 유지됩니다.</translation>
+            <translation>El fondo del lienzo llena todo el viewport, su color sigue al tema claro/oscuro y el cambio de tema se aplica al instante. El damero queda fijo en coordenadas de pantalla y no sigue zoom ni desplazamiento. La sombra de imágenes transparentes solo se dibuja en la capa de vista en pantalla; copiar, imprimir, conversión por lotes y guardar como conservan siempre la transparencia original.</translation>
         </message>
         <message>
             <source>Windows 默认应用</source>
-            <translation>Windows 기본 앱</translation>
+            <translation>Aplicaciones predeterminadas de Windows</translation>
         </message>
         <message>
             <source>打开默认应用…</source>
-            <translation>기본 앱 열기…</translation>
+            <translation>Abrir aplicaciones predeterminadas…</translation>
         </message>
         <message>
             <source>打开 Windows 设置，再按扩展名选择默认应用</source>
-            <translation>Windows 설정을 열고 확장명별로 기본 앱을 선택합니다</translation>
+            <translation>Abre la configuración de Windows; elige luego la aplicación predeterminada por extensión</translation>
         </message>
         <message>
             <source>在 Windows 中设置文件关联</source>
-            <translation>Windows에서 파일 연결 설정</translation>
+            <translation>Establecer asociaciones de archivos en Windows</translation>
         </message>
         <message>
             <source>打开系统设置，再按扩展名选择默认应用</source>
-            <translation>시스템 설정을 열고 확장명별로 기본 앱을 선택합니다</translation>
+            <translation>Abre la configuración del sistema; elige luego la aplicación predeterminada por extensión</translation>
         </message>
         <message>
             <source>无法打开 Windows 默认应用，请从 Windows 设置手动打开。</source>
-            <translation>Windows 기본 앱을 열 수 없습니다. Windows 설정에서 직접 열어 주세요.</translation>
+            <translation>No se pudieron abrir las aplicaciones predeterminadas de Windows; ábrelas manualmente desde la configuración de Windows.</translation>
         </message>
         <message>
-            <source>默认打开方式由 Windows 管理，QuikView 不能绕过系统直接改写；若系统里找不到 QuikView，请先运行安装包注册。</source>
-            <translation>기본 앱은 Windows가 관리하며 QuikView가 시스템을 직접 수정할 수 없습니다. 시스템에서 QuikView를 찾을 수 없으면 먼저 설치 관리자를 실행해 등록하세요.</translation>
+            <source>默认打开方式由 Windows 管理，SoleView 不能绕过系统直接改写；若系统里找不到 SoleView，请先运行安装包注册。</source>
+            <translation>Las aplicaciones predeterminadas las gestiona Windows; SoleView no puede modificar el sistema directamente. Si el sistema no encuentra SoleView, ejecuta antes el paquete de instalación para registrarse.</translation>
         </message>
         <message>
             <source>支持的格式</source>
-            <translation>지원 형식</translation>
+            <translation>Formatos admitidos</translation>
         </message>
         <message>
-            <source>以上为 QuikView 能直接打开的全部格式；列表只读，新增格式请随程序版本更新。</source>
-            <translation>위 목록은 QuikView가 직접 열 수 있는 모든 형식입니다. 목록은 읽기 전용이며 새 형식은 프로그램 버전에 따라 추가됩니다.</translation>
+            <source>以上为 SoleView 能直接打开的全部格式；列表只读，新增格式请随程序版本更新。</source>
+            <translation>Estos son todos los formatos que SoleView abre directamente; la lista es de solo lectura y crece con las versiones del programa.</translation>
         </message>
         <message>
             <source>双击热键录入，Esc 清空。勾选即时生效，改绑需保存。</source>
-            <translation>두 번 클릭해 핫키를 기록하고 Esc로 지웁니다. 확인란은 즉시 적용, 재할당은 저장이 필요합니다.</translation>
+            <translation>Doble clic para registrar un atajo, Esc para borrar. Las casillas se aplican al instante; reasignar requiere guardar.</translation>
         </message>
         <message>
             <source>操作</source>
-            <translation>동작</translation>
+            <translation>Acción</translation>
         </message>
         <message>
             <source>热键</source>
-            <translation>핫키</translation>
+            <translation>Atajo</translation>
         </message>
         <message>
             <source>启用</source>
-            <translation>사용</translation>
+            <translation>Habilitado</translation>
         </message>
         <message>
             <source>打开</source>
-            <translation>열기</translation>
+            <translation>Abrir</translation>
         </message>
         <message>
             <source>打开文件夹</source>
-            <translation>폴더 열기</translation>
+            <translation>Abrir carpeta</translation>
         </message>
         <message>
             <source>翻下一张</source>
-            <translation>다음 이미지</translation>
+            <translation>Imagen siguiente</translation>
         </message>
         <message>
             <source>翻上一张</source>
-            <translation>이전 이미지</translation>
+            <translation>Imagen anterior</translation>
         </message>
         <message>
             <source>下一帧</source>
-            <translation>다음 프레임</translation>
+            <translation>Fotograma siguiente</translation>
         </message>
         <message>
             <source>上一帧</source>
-            <translation>이전 프레임</translation>
+            <translation>Fotograma anterior</translation>
         </message>
         <message>
             <source>幻灯片</source>
-            <translation>슬라이드 쇼</translation>
+            <translation>Pase de diapositivas</translation>
         </message>
         <message>
             <source>放大</source>
-            <translation>확대</translation>
+            <translation>Ampliar</translation>
         </message>
         <message>
             <source>缩小</source>
-            <translation>축소</translation>
+            <translation>Reducir</translation>
         </message>
         <message>
             <source>实际大小</source>
-            <translation>실제 크기</translation>
+            <translation>Tamaño real</translation>
         </message>
         <message>
             <source>适配窗口</source>
-            <translation>창에 맞춤</translation>
+            <translation>Ajustar a la ventana</translation>
         </message>
         <message>
             <source>裁剪</source>
-            <translation>자르기</translation>
+            <translation>Recortar</translation>
         </message>
         <message>
             <source>收藏</source>
-            <translation>책갈피</translation>
+            <translation>Marcador</translation>
         </message>
         <message>
             <source>删除</source>
-            <translation>삭제</translation>
+            <translation>Eliminar</translation>
         </message>
         <message>
             <source>文件</source>
-            <translation>파일</translation>
+            <translation>Archivo</translation>
         </message>
         <message>
             <source>显示与缩放</source>
-            <translation>표시와 확대/축소</translation>
+            <translation>Vista y zoom</translation>
         </message>
         <message>
             <source>编辑与其他</source>
-            <translation>편집과 기타</translation>
+            <translation>Edición y otros</translation>
         </message>
         <message>
             <source>%1 启用</source>
-            <translation>%1 사용</translation>
+            <translation>%1 habilitado</translation>
         </message>
         <message>
             <source>鼠标设定</source>
-            <translation>마우스 설정</translation>
+            <translation>Ajustes de ratón</translation>
         </message>
         <message>
             <source>双击最大化 / 还原</source>
-            <translation>두 번 클릭으로 최대화 / 복원</translation>
+            <translation>Doble clic para maximizar / restaurar</translation>
         </message>
         <message>
             <source>下次双击画布时按新值最大化 / 还原窗口</source>
-            <translation>다음에 캔버스를 두 번 클릭할 때 새 값으로 최대화 / 복원합니다</translation>
+            <translation>La próxima vez que hagas doble clic en el lienzo, el nuevo valor se aplica a maximizar / restaurar</translation>
         </message>
         <message>
             <source>单击屏幕两侧时翻页</source>
-            <translation>화면 양쪽 클릭으로 페이지 넘김</translation>
+            <translation>Pasar haciendo clic en los lados de la pantalla</translation>
         </message>
         <message>
             <source>下次单击画布两侧箭头区域时按新值翻页</source>
-            <translation>다음에 캔버스 양쪽 화살표 영역을 클릭할 때 새 값으로 페이지 넘김합니다</translation>
+            <translation>La próxima vez que hagas clic en las zonas de flechas del lienzo, el nuevo valor se aplica</translation>
         </message>
         <message>
             <source>按键映射</source>
-            <translation>버튼 매핑</translation>
+            <translation>Mapeo de botones</translation>
         </message>
         <message>
             <source>鼠标左键</source>
-            <translation>왼쪽 버튼</translation>
+            <translation>Botón izquierdo</translation>
         </message>
         <message>
             <source>鼠标中键</source>
-            <translation>가운데 버튼</translation>
+            <translation>Botón central</translation>
         </message>
         <message>
             <source>鼠标右键</source>
-            <translation>오른쪽 버튼</translation>
+            <translation>Botón derecho</translation>
         </message>
         <message>
             <source>X 键</source>
-            <translation>X 버튼</translation>
+            <translation>Botón X</translation>
         </message>
         <message>
             <source>Y 键</source>
-            <translation>Y 버튼</translation>
+            <translation>Botón Y</translation>
         </message>
         <message>
             <source>滚轮向上</source>
-            <translation>휠 위</translation>
+            <translation>Rueda arriba</translation>
         </message>
         <message>
             <source>滚轮向下</source>
-            <translation>휠 아래</translation>
+            <translation>Rueda abajo</translation>
         </message>
         <message>
             <source>该按键没有拖拽平移实现，灰显不可选</source>
-            <translation>이 버튼에는 끌어서 이동 구현이 없어 회색으로 비활성화되어 선택할 수 없습니다</translation>
+            <translation>Este botón no tiene implementado arrastrar para desplazar; en gris, no seleccionable</translation>
         </message>
         <message>
             <source>中键暂无该动作实现；仅「无操作 / 拖拽平移」生效（「无」会连现有的单击全屏一起停用）</source>
-            <translation>가운데 버튼은 이 동작이 구현되지 않았습니다. "동작 없음/끌어서 이동"만 적용됩니다 ("동작 없음"은 기존 클릭 전체 화면도 함께 끕니다)</translation>
+            <translation>El botón central no implementa esta acción; solo valen «Sin acción / Arrastrar para desplazar» («Sin acción» también desactiva el pantalla completa por clic existente)</translation>
         </message>
         <message>
             <source>滚轮向上暂无该动作实现；仅「无操作 / 放大」生效（「无」会关闭滚轮缩放）</source>
-            <translation>휠 위는 이 동작이 구현되지 않았습니다. "동작 없음/확대"만 적용됩니다 ("동작 없음"은 휠 확대/축소를 끕니다)</translation>
+            <translation>Rueda arriba no implementa esta acción; solo valen «Sin acción / Ampliar» («Sin acción» apaga el zoom por rueda)</translation>
         </message>
         <message>
             <source>滚轮向下暂无该动作实现；仅「无操作 / 缩小」生效（「无」会关闭滚轮缩放）</source>
-            <translation>휠 아래는 이 동작이 구현되지 않았습니다. "동작 없음/축소"만 적용됩니다 ("동작 없음"은 휠 확대/축소를 끕니다)</translation>
+            <translation>Rueda abajo no implementa esta acción; solo valen «Sin acción / Reducir» («Sin acción» apaga el zoom por rueda)</translation>
         </message>
         <message>
             <source>下次触发该按键时按新映射派发</source>
-            <translation>다음에 이 버튼을 누를 때 새 매핑으로 동작합니다</translation>
+            <translation>La próxima vez que se pulse el botón se aplica la nueva asignación</translation>
         </message>
         <message>
             <source>「无」保留内置行为：左键拖动平移与边缘单击翻页、右键上下文菜单。滚轮上下共用一个缩放开关，任一方向选「无」会同时停掉双向缩放；中键选「无」会同时停掉拖拽平移与现有的单击全屏。中键只支持「无操作 / 拖拽平移」，滚轮只支持「无操作 / 放大 / 缩小」；其余档位已灰显，属实现缺口。所有映射在下次触发按键时生效。</source>
-            <translation>"없음"은 내장 동작을 유지합니다. 왼쪽 끌기 이동, 가장자리 클릭 페이지 넘김, 오른쪽 클릭 상황에 맞는 메뉴. 휠 위/아래는 하나의 확대/축소 스위치를 공유하며 어느 쪽이든 "없음"을 선택하면 양방향 확대/축소가 모두 꺼집니다. 가운데 버튼을 "없음"으로 하면 끌어서 이동과 기존 클릭 전체 화면이 모두 꺼집니다. 가운데 버튼은 "동작 없음/끌어서 이동"만, 휠은 "동작 없음/확대/축소"만 지원하며 나머지는 구현되지 않아 회색으로 비활성화되어 있습니다. 모든 매핑은 다음에 버튼을 누를 때 적용됩니다.</translation>
+            <translation>«Ninguno» conserva el comportamiento integrado: arrastre con el izquierdo, paso por clic en bordes, menú contextual con el derecho. Rueda arriba/abajo comparten un interruptor de zoom; elegir «Ninguno» en cualquier dirección apaga el zoom en ambas. «Ninguno» en el botón central apaga a la vez el arrastre y el pantalla completa por clic existente. El botón central solo admite «Sin acción / Arrastrar para desplazar», la rueda solo «Sin acción / Ampliar / Reducir»; el resto está en gris por falta de implementación. Todas las asignaciones se aplican la próxima vez que se pulse el botón.</translation>
         </message>
         <message>
             <source>书签行为</source>
-            <translation>책갈피 동작</translation>
+            <translation>Comportamiento de marcadores</translation>
         </message>
         <message>
             <source>自动保存当前图片路径为书签</source>
-            <translation>현재 이미지 경로를 책갈피로 자동 저장</translation>
+            <translation>Guardar automáticamente la ruta de la imagen actual como marcador</translation>
         </message>
         <message>
             <source>打开图片时自动追加一条；翻页不追加</source>
-            <translation>이미지를 열 때 한 항목 추가. 페이지 넘김 때는 추가하지 않음</translation>
+            <translation>Añade una entrada al abrir una imagen; el paso no añade</translation>
         </message>
         <message>
             <source>书签容量</source>
-            <translation>책갈피 용량</translation>
+            <translation>Capacidad de marcadores</translation>
         </message>
         <message>
             <source>最大书签数</source>
-            <translation>최대 책갈피 수</translation>
+            <translation>Número máximo de marcadores</translation>
         </message>
         <message>
             <source>新增书签超过上限时，从最早的书签开始淘汰</source>
-            <translation>책갈피가 한도를 초과해 추가되면 가장 오래된 것부터 제거됩니다</translation>
+            <translation>Cuando los marcadores superan el límite, se expulsan primero los más antiguos</translation>
         </message>
         <message>
             <source>上限在下次新增书签时读取，已有书签不会在保存瞬间被裁剪。书签记录完整路径，文件移动或重命名后原条目失效；数据保存在本机配置中，不随安装包或账户同步。</source>
-            <translation>한도는 다음에 책갈피를 추가할 때 읽으며, 저장하는 순간 기존 책갈피가 잘리지는 않습니다. 책갈피는 전체 경로를 기록하므로 파일 이동이나 이름 변경 시 해당 항목은 무효가 됩니다. 데이터는 로컬 설정에 저장되며 설치 패키지나 계정과 동기화되지 않습니다.</translation>
+            <translation>El límite se lee al añadir el próximo marcador; los existentes no se recortan al guardar. Los marcadores guardan la ruta completa; una entrada deja de valer si el archivo se mueve o renombra. Los datos quedan en la configuración local y no se sincronizan con instalaciones ni cuentas.</translation>
         </message>
         <message>
             <source>写入失败：%1
 已恢复到当前实际值。</source>
-            <translation>쓰기 실패: %1
-현재 실제 값으로 복원했습니다.</translation>
+            <translation>Error de escritura: %1
+Restaurado al valor real actual.</translation>
         </message>
         <message>
             <source>恢复默认菜单</source>
-            <translation>메뉴 기본값 복원</translation>
+            <translation>Restaurar menú predeterminado</translation>
         </message>
         <message>
             <source>重置全部可见性开关；不影响浏览模式、快捷键、图像效果或其他设置</source>
-            <translation>모든 표시 스위치를 초기화합니다. 탐색 모드, 바로 가기 키, 이미지 효과, 기타 설정에는 영향을 주지 않습니다</translation>
+            <translation>Restablece todos los interruptores de visibilidad; no afecta al modo de examen, atajos, efectos de imagen ni otros ajustes</translation>
         </message>
         <message>
             <source>同时遵循已有的剪贴板入口设置。</source>
-            <translation>기존 클립보드 항목 설정도 따릅니다.</translation>
+            <translation>También sigue la configuración existente de la entrada del portapapeles.</translation>
         </message>
         <message>
             <source>前后跳转、随机浏览及切换文件夹。</source>
-            <translation>앞뒤 이동, 무작위 탐색, 폴더 전환.</translation>
+            <translation>Saltos atrás/adelante, exploración aleatoria y cambio de carpeta.</translation>
         </message>
         <message>
             <source>倍率调整、100% 与缩放锁定。</source>
-            <translation>배율 조정, 100%, 확대/축소 잠금.</translation>
+            <translation>Ajuste de escala, 100 % y bloqueo de zoom.</translation>
         </message>
         <message>
             <source>选择缩放重采样方式。</source>
-            <translation>확대/축소 재샘플링 방식을 선택합니다.</translation>
+            <translation>Elige el método de remuestreo del zoom.</translation>
         </message>
         <message>
             <source>反色、Gamma 与翻转。</source>
-            <translation>색 반전, Gamma, 뒤집기.</translation>
+            <translation>Invertir colores, gamma y volteos.</translation>
         </message>
         <message>
             <source>旋转或恢复图片方向。</source>
-            <translation>이미지 방향을 회전하거나 복원합니다.</translation>
+            <translation>Rota o restablece la orientación de la imagen.</translation>
         </message>
         <message>
             <source>显示处理的三个互斥档位。</source>
-            <translation>표시 처리의 세 가지 배타적 선택지.</translation>
+            <translation>Tres opciones excluyentes de procesado visual.</translation>
         </message>
         <message>
             <source>固定入口，可从右键菜单返回此页。</source>
-            <translation>고정 항목. 오른쪽 클릭 메뉴에서 이 페이지로 돌아올 수 있습니다.</translation>
+            <translation>Entrada fija; desde el menú contextual vuelve a esta página.</translation>
         </message>
         <message>
             <source>固定显示</source>
-            <translation>고정 표시</translation>
+            <translation>Fijado</translation>
         </message>
         <message>
             <source>资源管理器集成</source>
-            <translation>탐색기 통합</translation>
+            <translation>Integración con el Explorador</translation>
         </message>
         <message>
-            <source>沿用现有只读状态区。右键菜单可见性仅应用于 QuikView。</source>
-            <translation>기존 읽기 전용 상태 영역을 그대로 사용합니다. 오른쪽 클릭 메뉴 표시 설정은 QuikView에만 적용됩니다.</translation>
+            <source>沿用现有只读状态区。右键菜单可见性仅应用于 SoleView。</source>
+            <translation>Reutiliza el área de estado de solo lectura existente. La visibilidad del menú contextual solo se aplica a SoleView.</translation>
         </message>
         <message>
             <source>已注册（仅 64 位，32 位视图未绑定）</source>
-            <translation>등록됨 (64비트만. 32비트 보기는 바인딩되지 않음)</translation>
+            <translation>Registrado (solo 64 bits; la vista de 32 bits no está enlazada)</translation>
         </message>
         <message>
             <source>当前安装已注册</source>
-            <translation>현재 설치가 등록됨</translation>
+            <translation>Esta instalación está registrada</translation>
         </message>
         <message>
             <source>指向其他安装</source>
-            <translation>다른 설치를 가리킴</translation>
+            <translation>Apunta a otra instalación</translation>
         </message>
         <message>
             <source>未注册</source>
-            <translation>등록되지 않음</translation>
+            <translation>Sin registrar</translation>
         </message>
         <message>
             <source>未安装</source>
-            <translation>설치되지 않음</translation>
+            <translation>No instalado</translation>
         </message>
         <message>
             <source>注册状态</source>
-            <translation>등록 상태</translation>
+            <translation>Estado de registro</translation>
         </message>
         <message>
             <source>右键菜单处理器</source>
-            <translation>셸 메뉴 처리기</translation>
+            <translation>Controlador del menú del shell</translation>
         </message>
         <message>
             <source>当前指向：%1</source>
-            <translation>현재 가리키는 대상: %1</translation>
+            <translation>Apunta actualmente a: %1</translation>
         </message>
         <message>
             <source>64/32 位扩展的 CLSID 与处理器绑定</source>
-            <translation>64/32비트 확장의 CLSID와 처리기 바인딩</translation>
+            <translation>Vinculación CLSID y controlador de las extensiones de 64/32 bits</translation>
         </message>
         <message>
             <source>WebP 缩略图</source>
-            <translation>WebP 썸네일</translation>
+            <translation>Miniaturas WebP</translation>
         </message>
         <message>
             <source>由壳扩展解码生成</source>
-            <translation>셸 확장이 디코딩해 생성</translation>
+            <translation>Generadas por decodificación de la extensión del shell</translation>
         </message>
         <message>
             <source>PSD 缩略图</source>
-            <translation>PSD 썸네일</translation>
+            <translation>Miniaturas PSD</translation>
         </message>
         <message>
             <source>缺少内嵌 JPEG 时回退默认图标</source>
-            <translation>포함된 JPEG가 없으면 기본 아이콘으로 대체</translation>
+            <translation>Sin JPEG incrustado, vuelve al icono predeterminado</translation>
         </message>
         <message>
             <source>PSB 缩略图</source>
-            <translation>PSB 썸네일</translation>
+            <translation>Miniaturas PSB</translation>
         </message>
         <message>
             <source>右键菜单开关</source>
-            <translation>셸 메뉴 스위치</translation>
+            <translation>Interruptor del menú del shell</translation>
         </message>
         <message>
-            <source>在资源管理器右键菜单中显示 QuikView</source>
-            <translation>탐색기 셸 메뉴에 QuikView 표시</translation>
+            <source>在资源管理器右键菜单中显示 SoleView</source>
+            <translation>Mostrar SoleView en el menú del shell del Explorador</translation>
         </message>
         <message>
-            <source>关闭后下次右键不插入 QuikView 菜单项；开启恢复各细项的原有选择</source>
-            <translation>끄면 다음 오른쪽 클릭 때 QuikView 메뉴 항목을 넣지 않습니다. 켜면 각 항목의 이전 선택을 복원합니다</translation>
+            <source>关闭后下次右键不插入 SoleView 菜单项；开启恢复各细项的原有选择</source>
+            <translation>Desactivado, el próximo clic derecho no inserta elementos de SoleView; activado, restaura la elección anterior de cada elemento</translation>
         </message>
         <message>
-            <source>用 QuikView 浏览图片</source>
-            <translation>QuikView로 이미지 찾아보기</translation>
+            <source>用 SoleView 浏览图片</source>
+            <translation>Examinar imágenes con SoleView</translation>
         </message>
         <message>
-            <source>命令行：quikview.exe "文件"</source>
-            <translation>명령줄: quikview.exe "파일"</translation>
+            <source>命令行：soleview.exe "文件"</source>
+            <translation>Línea de comandos: soleview.exe "archivo"</translation>
         </message>
         <message>
-            <source>用 QuikView 转换图片</source>
-            <translation>QuikView로 이미지 변환</translation>
+            <source>用 SoleView 转换图片</source>
+            <translation>Convertir imágenes con SoleView</translation>
         </message>
         <message>
-            <source>命令行：quikview.exe --batch "文件"</source>
-            <translation>명령줄: quikview.exe --batch "파일"</translation>
+            <source>命令行：soleview.exe --batch "文件"</source>
+            <translation>Línea de comandos: soleview.exe --batch "archivo"</translation>
         </message>
         <message>
             <source>菜单内预览</source>
-            <translation>메뉴 내 미리 보기</translation>
+            <translation>Vista previa en el menú</translation>
         </message>
         <message>
             <source>右键菜单顶部显示 ≤256px 缩略图，解码超时自动省略</source>
-            <translation>셸 메뉴 위쪽에 ≤256px 썸네일을 표시. 디코드 시간 초과 시 자동으로 생략</translation>
+            <translation>Muestra una miniatura de ≤256px en la parte superior del menú del shell; se omite automáticamente si la decodificación excede el plazo</translation>
         </message>
         <message>
             <source>图片信息</source>
-            <translation>이미지 정보</translation>
+            <translation>Info de imagen</translation>
         </message>
         <message>
             <source>浏览项右侧显示 宽 × 高 · 文件大小</source>
-            <translation>찾아보기 항목 오른쪽에 너비 × 높이 · 파일 크기 표시</translation>
+            <translation>La fila de examen muestra a la derecha ancho × alto · tamaño de archivo</translation>
         </message>
         <message>
             <source>软件图标</source>
-            <translation>앱 아이콘</translation>
+            <translation>Icono de la aplicación</translation>
         </message>
         <message>
-            <source>菜单项左侧的内嵌 QuikView 图标</source>
-            <translation>메뉴 항목 왼쪽의 포함된 QuikView 아이콘</translation>
+            <source>菜单项左侧的内嵌 SoleView 图标</source>
+            <translation>El icono SoleView incrustado a la izquierda de los elementos del menú</translation>
         </message>
         <message>
             <source>本机的右键菜单处理器指向另一处安装（%1）。运行安装包覆盖安装到该目录，或卸载该安装后重装，才能在这里控制右键菜单。</source>
-            <translation>이 컴퓨터의 셸 메뉴 처리기가 다른 설치(%1)를 가리킵니다. 여기서 셸 메뉴를 제어하려면 설치 관리자로 해당 디렉터리에 덮어쓰기 설치하거나 해당 설치를 제거한 후 다시 설치해야 합니다.</translation>
+            <translation>El controlador del menú del shell de este equipo apunta a otra instalación (%1). Ejecuta el paquete de instalación sobrescribiendo ese directorio, o desinstala esa instalación y reinstala, para poder controlar el menú del shell aquí.</translation>
         </message>
         <message>
             <source>未检测到壳扩展文件（quikthumb-*.dll）。运行安装包可修复；便携版不带安装器注册，右键菜单不可用。</source>
-            <translation>셸 확장 파일(quikthumb-*.dll)을 찾지 못했습니다. 설치 관리자를 실행하면 복구할 수 있습니다. 포터블 버전은 설치 관리자 등록이 없어 셸 메뉴를 사용할 수 없습니다.</translation>
+            <translation>No se detectó el archivo de extensión del shell (quikthumb-*.dll). Ejecutar el paquete de instalación puede repararlo; la versión portable no incluye registro por instalador y el menú del shell no está disponible.</translation>
         </message>
         <message>
             <source>壳扩展文件存在，但右键菜单处理器未注册到本安装。运行安装包覆盖安装即可完成注册。</source>
-            <translation>셸 확장 파일은 있지만 셸 메뉴 처리기가 이 설치에 등록되어 있지 않습니다. 설치 관리자로 덮어쓰기 설치하면 등록이 완료됩니다.</translation>
+            <translation>El archivo de extensión del shell existe, pero el controlador del menú del shell no está registrado en esta instalación. Ejecutar el paquete de instalación sobrescribiendo completa el registro.</translation>
         </message>
         <message>
             <source>改动即时写入本机用户配置，资源管理器下一次弹出右键菜单时生效，无需重装或管理员权限；若菜单未变化，重启资源管理器。浏览、转换与预览全部关闭时不插入空分隔线。</source>
-            <translation>변경 사항은 로컬 사용자 설정에 즉시 기록되며 탐색기가 다음에 셸 메뉴를 표시할 때 적용됩니다. 재설치나 관리자 권한이 필요 없습니다. 메뉴가 바뀌지 않으면 탐색기를 다시 시작하세요. 찾아보기, 변환, 미리 보기를 모두 끄면 빈 구분선을 넣지 않습니다.</translation>
+            <translation>Los cambios se escriben al instante en la configuración de usuario local y se aplican cuando el Explorador muestre su menú del shell la próxima vez; sin reinstalar ni permisos de administrador. Si el menú no cambia, reinicia el Explorador. Con examen, conversión y vista previa todos desactivados no se inserta separador vacío.</translation>
         </message>
         <message>
             <source>资源管理器缩略图</source>
-            <translation>탐색기 썸네일</translation>
+            <translation>Miniaturas del Explorador</translation>
         </message>
         <message>
-            <source>这些入口由 QuikView 壳扩展在资源管理器中提供，不是应用内图片右键菜单的功能开关；安装 / 卸载安装包时自动注册 / 移除。菜单开关不会改变文件默认打开方式与这里的缩略图注册。</source>
-            <translation>이 항목들은 QuikView 셸 확장이 탐색기에 제공하는 것으로, 앱 내 이미지 오른쪽 클릭 메뉴의 기능 스위치가 아닙니다. 설치/제거할 때 자동으로 등록/제거됩니다. 메뉴 스위치는 기본 앱이나 여기서의 썸네일 등록을 바꾸지 않습니다.</translation>
+            <source>这些入口由 SoleView 壳扩展在资源管理器中提供，不是应用内图片右键菜单的功能开关；安装 / 卸载安装包时自动注册 / 移除。菜单开关不会改变文件默认打开方式与这里的缩略图注册。</source>
+            <translation>Estas entradas las proporciona la extensión del shell de SoleView en el Explorador, no son interruptores del menú contextual de imágenes de la aplicación; se registran/quitan automáticamente al instalar/desinstalar el paquete. Los interruptores del menú no cambian la aplicación predeterminada ni el registro de miniaturas de aquí.</translation>
         </message>
         <message>
             <source>资源管理器独立预览窗格为后续交付项：旧 shell/ 有实现，尚未接入当前安装包。</source>
-            <translation>탐색기 독립 미리 보기 창은 추후 제공 항목입니다. 이전 shell/에 구현이 있으나 현재 설치 관리자에는 연결되지 않았습니다.</translation>
+            <translation>El panel de vista previa independiente del Explorador es una entrega futura: el antiguo shell/ tiene una implementación, aún sin conectar al paquete de instalación actual.</translation>
         </message>
         <message>
             <source>常用路径</source>
-            <translation>자주 쓰는 경로</translation>
+            <translation>Rutas frecuentes</translation>
         </message>
         <message>
             <source>留空表示不使用该文件夹</source>
-            <translation>비워 두면 이 폴더를 사용하지 않습니다</translation>
+            <translation>Dejar vacío para no usar esta carpeta</translation>
         </message>
         <message>
             <source>浏览…</source>
-            <translation>찾아보기…</translation>
+            <translation>Examinar…</translation>
         </message>
         <message>
             <source>选择一个文件夹.</source>
-            <translation>폴더를 선택하세요.</translation>
+            <translation>Elige una carpeta.</translation>
         </message>
         <message>
             <source>请先填写文件夹路径。</source>
-            <translation>먼저 폴더 경로를 입력하세요.</translation>
+            <translation>Rellena antes la ruta de la carpeta.</translation>
         </message>
         <message>
             <source>文件夹不存在：
 %1</source>
-            <translation>폴더가 없습니다:
+            <translation>La carpeta no existe:
 %1</translation>
         </message>
         <message>
             <source>无法调用系统文件管理器打开：
 %1</source>
-            <translation>시스템 파일 관리자로 열 수 없습니다:
+            <translation>No se pudo abrir con el administrador de archivos del sistema:
 %1</translation>
         </message>
         <message>
             <source>图片文件夹 1</source>
-            <translation>그림 폴더 1</translation>
+            <translation>Carpeta de imágenes 1</translation>
         </message>
         <message>
             <source>图片文件夹 2</source>
-            <translation>그림 폴더 2</translation>
+            <translation>Carpeta de imágenes 2</translation>
         </message>
         <message>
             <source>图像编辑器程序路径</source>
-            <translation>이미지 편집기 프로그램 경로</translation>
+            <translation>Ruta del programa editor de imágenes</translation>
         </message>
         <message>
             <source>留空时使用系统默认程序</source>
-            <translation>비워 두면 시스템 기본 프로그램 사용</translation>
+            <translation>Vacío usa el programa predeterminado del sistema</translation>
         </message>
         <message>
             <source>预设</source>
-            <translation>프리셋</translation>
+            <translation>Preajustes</translation>
         </message>
         <message>
             <source>选择图像编辑器</source>
-            <translation>이미지 편집기 선택</translation>
+            <translation>Elegir editor de imágenes</translation>
         </message>
         <message>
             <source>程序 (*.exe);;所有文件 (*)</source>
-            <translation>프로그램 (*.exe);;모든 파일 (*)</translation>
+            <translation>Programas (*.exe);;Todos los archivos (*)</translation>
         </message>
         <message>
             <source>RAW 图片</source>
-            <translation>RAW 이미지</translation>
+            <translation>Imágenes RAW</translation>
         </message>
         <message>
             <source>不打开 RAW 图片文件</source>
-            <translation>RAW 이미지 파일 열지 않음</translation>
+            <translation>No abrir archivos de imagen RAW</translation>
         </message>
         <message>
             <source>下次打开 RAW 时生效</source>
-            <translation>다음에 RAW를 열 때 적용</translation>
+            <translation>Se aplica la próxima vez que se abra un RAW</translation>
         </message>
         <message>
             <source>打开 JPEG 文件时，不打开同名 RAW 文件</source>
-            <translation>JPEG를 열 때 같은 이름의 RAW 파일을 열지 않음</translation>
+            <translation>Al abrir un JPEG, no abrir el archivo RAW del mismo nombre</translation>
         </message>
         <message>
             <source>打开 JPEG 时不再自动带出同名 RAW</source>
-            <translation>JPEG를 열어도 같은 이름의 RAW를 자동으로 가져오지 않음</translation>
+            <translation>Abrir un JPEG ya no trae automáticamente el RAW del mismo nombre</translation>
         </message>
         <message>
             <source>打开 RAW 图片文件时，显示已有缩略图</source>
-            <translation>RAW 이미지 파일을 열 때 포함된 썸네일 표시</translation>
+            <translation>Al abrir un archivo de imagen RAW, mostrar la miniatura existente</translation>
         </message>
         <message>
             <source>打开 RAW 时先显示内嵌缩略图</source>
-            <translation>RAW를 열 때 포함된 썸네일을 먼저 표시</translation>
+            <translation>Los RAW muestran primero la miniatura incrustada</translation>
         </message>
         <message>
             <source>窗口与声音</source>
-            <translation>창과 소리</translation>
+            <translation>Ventana y sonido</translation>
         </message>
         <message>
             <source>翻页时播放音效</source>
-            <translation>페이지 넘길 때 효과음 재생</translation>
+            <translation>Reproducir un sonido al pasar de imagen</translation>
         </message>
         <message>
             <source>下次翻页时生效</source>
-            <translation>다음 페이지 넘김부터 적용</translation>
+            <translation>Se aplica desde el próximo paso</translation>
         </message>
         <message>
             <source>根据图片大小调节窗口大小</source>
-            <translation>이미지 크기에 맞춰 창 크기 조정</translation>
+            <translation>Ajustar el tamaño de la ventana al de la imagen</translation>
         </message>
         <message>
             <source>默认关闭；开启后下次打开图片时生效</source>
-            <translation>기본적으로 꺼짐. 켜면 다음에 이미지를 열 때 적용</translation>
+            <translation>Desactivado por defecto; activado, se aplica a la próxima imagen abierta</translation>
         </message>
         <message>
-            <source>运行 QuikView 时禁用 Windows 屏幕保护程序</source>
-            <translation>QuikView 실행 중 Windows 화면 보호기 사용 안 함</translation>
+            <source>运行 SoleView 时禁用 Windows 屏幕保护程序</source>
+            <translation>Desactivar el salvapantallas de Windows mientras SoleView se ejecuta</translation>
         </message>
         <message>
-            <source>退出 QuikView 后恢复系统屏保设置</source>
-            <translation>QuikView를 종료하면 시스템 화면 보호기 설정 복원</translation>
+            <source>退出 SoleView 后恢复系统屏保设置</source>
+            <translation>Restaura la configuración del salvapantallas al salir de SoleView</translation>
         </message>
         <message>
             <source>RAW 选项只影响 RAW 文件的打开方式；勾选「不打开 RAW 图片文件」时，JPEG 旁的 RAW 也不会被自动带出。翻页音效在下次翻页时生效。</source>
-            <translation>RAW 옵션은 RAW 파일을 여는 방식에만 영향을 줍니다. "RAW 이미지 파일 열지 않음"에 체크하면 JPEG 옆의 RAW도 자동으로 가져오지 않습니다. 페이지 넘김 효과음은 다음 페이지 넘김부터 적용됩니다.</translation>
+            <translation>Las opciones RAW solo afectan a cómo se abren los archivos RAW; con «No abrir archivos de imagen RAW», el RAW junto a un JPEG tampoco se trae automáticamente. El sonido de paso se aplica desde el próximo paso.</translation>
         </message>
         <message>
             <source>界面语言</source>
-            <translation>UI 언어</translation>
+            <translation>Idioma de la interfaz</translation>
         </message>
         <message>
-            <source>保存后生效；重启 QuikView 后切换界面</source>
-            <translation>저장 후 적용. QuikView를 다시 시작하면 UI가 전환됩니다</translation>
+            <source>保存后生效；重启 SoleView 后切换界面</source>
+            <translation>Se aplica tras guardar; la interfaz cambia al reiniciar SoleView</translation>
         </message>
         <message>
             <source>语言资源</source>
-            <translation>언어 리소스</translation>
+            <translation>Recursos de idioma</translation>
         </message>
         <message>
             <source>打开语言文件夹</source>
-            <translation>언어 폴더 열기</translation>
+            <translation>Abrir carpeta de idiomas</translation>
         </message>
         <message>
             <source>从 translations 目录加载 .qm 语言文件</source>
-            <translation>translations 디렉터리에서 .qm 언어 파일을 불러옵니다</translation>
+            <translation>Carga los archivos de idioma .qm del directorio translations</translation>
         </message>
         <message>
             <source>下载更多语言</source>
-            <translation>더 많은 언어 다운로드</translation>
+            <translation>Descargar más idiomas</translation>
         </message>
         <message>
             <source>在浏览器中打开项目页面获取语言包</source>
-            <translation>브라우저에서 프로젝트 페이지를 열어 언어 팩을 가져옵니다</translation>
+            <translation>Abre la página del proyecto en el navegador para obtener paquetes de idioma</translation>
         </message>
         <message>
             <source>无法打开浏览器。请手动访问：
-https://github.com/xdsT2/quikview</source>
-            <translation>브라우저를 열 수 없습니다. 직접 방문해 주세요:
-https://github.com/xdsT2/quikview</translation>
+https://github.com/xdsT2/soleview</source>
+            <translation>No se pudo abrir un navegador. Visita manualmente:
+https://github.com/xdsT2/soleview</translation>
         </message>
         <message>
-            <source>语言文件按程序目录下的 translations 加载；两个入口都会离开 QuikView，应用内只报告启动是否成功。语言选择是待保存项：关闭时可选「保存并关闭」，重启后生效。</source>
-            <translation>언어 파일은 프로그램 디렉터리 아래 translations에서 불러옵니다. 두 항목 모두 QuikView를 벗어나며, 앱 내에서는 시작 성공 여부만 보고합니다. 언어 선택은 저장 대기 항목입니다. 닫을 때 "저장 후 닫기"를 선택하면 다시 시작 후 적용됩니다.</translation>
+            <source>语言文件按程序目录下的 translations 加载；两个入口都会离开 SoleView，应用内只报告启动是否成功。语言选择是待保存项：关闭时可选「保存并关闭」，重启后生效。</source>
+            <translation>Los archivos de idioma se cargan desde translations junto al programa; ambas entradas salen de SoleView y la aplicación solo informa de si el arranque tuvo éxito. La elección de idioma es un elemento pendiente de guardar: al cerrar puedes elegir «Guardar y cerrar», efectivo tras reiniciar.</translation>
         </message>
         <message>
             <source>配置文件写入失败（%1）</source>
-            <translation>구성 파일 쓰기 실패 (%1)</translation>
+            <translation>Error de escritura del archivo de configuración (%1)</translation>
         </message>
         <message>
             <source>保存失败：%1。
 改动仍保留在界面上，可稍后重试。</source>
-            <translation>저장 실패: %1.
-변경 내용은 화면에 남아 있으니 나중에 다시 시도할 수 있습니다.</translation>
+            <translation>Error al guardar: %1.
+Los cambios siguen en pantalla; puedes reintentarlo más tarde.</translation>
         </message>
         <message>
             <source>「%1」未能即时生效：%2
 已恢复原值。</source>
-            <translation>"%1"을(를) 즉시 적용하지 못했습니다: %2
-원래 값으로 복원했습니다.</translation>
+            <translation>«%1» no se aplicó al instante: %2
+Valor original restaurado.</translation>
         </message>
         <message>
             <source>热键：%1</source>
-            <translation>핫키: %1</translation>
+            <translation>Atajo: %1</translation>
         </message>
         <message>
             <source>有 %1 项待保存（%2）；关闭时会询问</source>
-            <translation>%1개 항목이 저장 대기 중 (%2). 닫을 때 물어봅니다</translation>
+            <translation>%1 elemento(s) pendiente(s) (%2); se preguntará al cerrar</translation>
         </message>
         <message>
             <source>未找到主窗口，无法下发运行态。</source>
-            <translation>기본 창을 찾을 수 없어 실행 상태를 전달할 수 없습니다.</translation>
+            <translation>No se encontró la ventana principal; no se puede enviar el estado de ejecución.</translation>
         </message>
         <message>
             <source>「%1」未能即时生效：%2
 已恢复原值，未写入配置。</source>
-            <translation>"%1"을(를) 즉시 적용하지 못했습니다: %2
-원래 값으로 복원했습니다. 구성에는 기록하지 않았습니다.</translation>
+            <translation>«%1» no se aplicó al instante: %2
+Valor original restaurado; nada se escribió en la configuración.</translation>
         </message>
         <message>
             <source>是否要初始化设置？</source>
-            <translation>설정을 초기화하시겠습니까?</translation>
+            <translation>¿Inicializar la configuración?</translation>
         </message>
         <message>
             <source>解决键位冲突后可保存。</source>
-            <translation>키 충돌을 해결하면 저장할 수 있습니다.</translation>
+            <translation>Guardar será posible cuando se resuelvan los conflictos de teclas.</translation>
         </message>
         <message>
             <source>冲突</source>
-            <translation>충돌</translation>
+            <translation>Conflicto</translation>
         </message>
         <message>
             <source>正在录入</source>
-            <translation>기록 중</translation>
+            <translation>Registrando</translation>
         </message>
         <message>
             <source>按下新的组合键。Esc 清空当前热键。</source>
-            <translation>새 키 조합을 누르세요. Esc는 현재 핫키를 지웁니다.</translation>
+            <translation>Pulsa la nueva combinación. Esc borra el atajo actual.</translation>
         </message>
         <message>
             <source>按键「%1」冲突：『%2』与『%3』被绑到同一组合键。</source>
-            <translation>키 "%1" 충돌: "%2"과(와) "%3"이(가) 같은 조합에 할당되어 있습니다.</translation>
+            <translation>Conflicto de tecla «%1»: «%2» y «%3» están asignados a la misma combinación.</translation>
         </message>
         <message>
             <source>保存更改？</source>
-            <translation>변경 내용을 저장하시겠습니까?</translation>
+            <translation>¿Guardar los cambios?</translation>
         </message>
         <message>
             <source>有 %1 项更改尚未保存。</source>
-            <translation>%1개 변경 내용이 저장되지 않았습니다.</translation>
+            <translation>%1 cambio(s) sin guardar.</translation>
         </message>
         <message>
             <source>等 %1 项</source>
-            <translation>외 %1개</translation>
+            <translation>+%1 más</translation>
         </message>
         <message>
             <source>待保存：%1
 
 「不保存」只放弃这些草稿；浏览页四项与图像处理/外观页的即时档位（插值、快帧策略、翻页效果、GIF 底色、画布背景）会回到进入设置时的状态，其余即时设置保留。</source>
-            <translation>저장되지 않음: %1
+            <translation>Sin guardar: %1
 
-“저장 안 함”은 이 초안만 버립니다. 찾아보기 페이지 4개 항목과 이미지 처리/모양 페이지의 즉시 설정(보간, 고속 프레임 방식, 페이지 넘김 효과, GIF 배경색, 캔버스 배경)은 설정을 열었을 때 상태로 돌아가고, 나머지 즉시 설정은 유지됩니다.</translation>
+«No guardar» solo descarta estos borradores; los cuatro elementos de la página Explorar y los ajustes inmediatos de las páginas Procesamiento de imagen / Apariencia (interpolación, política de imagen rápida, efecto de cambio de página, fondo GIF, fondo del lienzo) vuelven al estado de cuando abriste Ajustes; el resto de ajustes inmediatos se conserva.</translation>
         </message>
         <message>
             <source>保存并关闭</source>
-            <translation>저장 후 닫기</translation>
+            <translation>Guardar y cerrar</translation>
         </message>
         <message>
             <source>不保存</source>
-            <translation>저장 안 함</translation>
+            <translation>No guardar</translation>
         </message>
         <message>
             <source>继续编辑</source>
-            <translation>계속 편집</translation>
+            <translation>Seguir editando</translation>
         </message>
         <message>
             <source>%1 个分组</source>
-            <translation>%1개 그룹</translation>
+            <translation>%1 grupos</translation>
         </message>
         <message>
             <source>%1 个项目</source>
-            <translation>%1개 항목</translation>
+            <translation>%1 elementos</translation>
         </message>
         <message>
             <source>%1 项匹配</source>
-            <translation>%1개 일치</translation>
+            <translation>%1 coincidencias</translation>
         </message>
         <message>
             <source>%1，%2，展开或收起</source>
-            <translation>%1, %2, 펼치기 또는 접기</translation>
+            <translation>%1, %2, expandir o contraer</translation>
         </message>
         <message>
             <source>%1，可见性</source>
-            <translation>%1, 표시 여부</translation>
+            <translation>%1, visibilidad</translation>
         </message>
         <message>
             <source>「%1」已关闭</source>
-            <translation>「%1」이 꺼져 있습니다</translation>
+            <translation>«%1» está desactivado</translation>
         </message>
         <message>
             <source>包含前后跳转、随机浏览及切换文件夹。关闭后仍可展开查看命令。</source>
-            <translation>앞뒤 이동, 무작위 탐색, 폴더 전환이 포함됩니다. 꺼진 상태에서도 펼쳐서 명령을 볼 수 있습니다.</translation>
+            <translation>Incluye navegación hacia adelante/atrás, exploración aleatoria y cambio de carpeta. Aun desactivado, puede expandirlo para ver los comandos.</translation>
         </message>
         <message>
             <source>可见性</source>
-            <translation>표시 여부</translation>
+            <translation>Visibilidad</translation>
         </message>
         <message>
             <source>实时预览</source>
-            <translation>실시간 미리보기</translation>
+            <translation>Vista previa en vivo</translation>
         </message>
         <message>
             <source>已展开</source>
-            <translation>펼침</translation>
+            <translation>Expandido</translation>
         </message>
         <message>
             <source>已收起</source>
-            <translation>접힘</translation>
+            <translation>Contraído</translation>
         </message>
         <message>
             <source>总开关已关闭，可展开查看子项。</source>
-            <translation>마스터 스위치가 꺼져 있습니다. 펼쳐서 하위 항목을 볼 수 있습니다.</translation>
+            <translation>El interruptor principal está desactivado; puede expandir para ver los subelementos.</translation>
         </message>
         <message>
             <source>查找期间沿匹配路径展开</source>
-            <translation>검색 중 일치 경로를 따라 펼칩니다</translation>
+            <translation>Expandir la ruta coincidente durante la búsqueda</translation>
         </message>
         <message>
             <source>查找菜单项</source>
-            <translation>메뉴 항목 찾기</translation>
+            <translation>Buscar elementos del menú</translation>
         </message>
         <message>
             <source>查找菜单项…</source>
-            <translation>메뉴 항목 찾기…</translation>
+            <translation>Buscar elementos del menú…</translation>
         </message>
         <message>
             <source>没有匹配的菜单项</source>
-            <translation>일치하는 메뉴 항목이 없습니다</translation>
+            <translation>No hay elementos de menú coincidentes</translation>
         </message>
         <message>
             <source>清除查找</source>
-            <translation>검색 지우기</translation>
+            <translation>Borrar búsqueda</translation>
         </message>
         <message>
             <source>点击菜单项可定位设置。</source>
-            <translation>메뉴 항목을 클릭하면 해당 설정으로 이동합니다.</translation>
+            <translation>Haga clic en un elemento del menú para localizar su ajuste.</translation>
         </message>
         <message>
             <source>第 %1 级</source>
-            <translation>%1단계</translation>
+            <translation>Nivel %1</translation>
         </message>
         <message>
             <source>菜单项</source>
-            <translation>메뉴 항목</translation>
+            <translation>Elemento del menú</translation>
         </message>
         <message>
             <source>说明 / 状态</source>
-            <translation>설명 / 상태</translation>
+            <translation>Descripción / estado</translation>
         </message>
         <message>
             <source>随组显示</source>
-            <translation>그룹과 함께 표시</translation>
+            <translation>Se muestra con el grupo</translation>
         </message>
         <message>
             <source>无法恢复默认菜单，配置未写入。</source>
-            <translation>기본 메뉴를 복원할 수 없습니다. 설정이 기록되지 않았습니다.</translation>
+            <translation>No se pudo restaurar el menú predeterminado; no se escribió la configuración.</translation>
         </message>
         <message>
             <source>执行参数，随「复制更多」显隐。</source>
-            <translation>실행 매개변수입니다. 「추가 복사」와 함께 표시됩니다.</translation>
+            <translation>Parámetro de ejecución, se muestra con «Copiar más».</translation>
         </message>
         <message>
             <source>执行参数，随「打开方式」显隐。</source>
-            <translation>실행 매개변수입니다. 「열기 방법」과 함께 표시됩니다.</translation>
+            <translation>Parámetro de ejecución, se muestra con «Abrir con».</translation>
         </message>
         <message>
             <source>随「危险操作」总开关显示。</source>
-            <translation>「위험 작업」마스터 스위치와 함께 표시됩니다.</translation>
+            <translation>Se muestra con el interruptor principal «Acciones peligrosas».</translation>
         </message>
         <message>
             <source>随「应用」总开关显示。</source>
-            <translation>「응용 프로그램」마스터 스위치와 함께 표시됩니다.</translation>
+            <translation>Se muestra con el interruptor principal «Aplicación».</translation>
         </message>
         <message>
             <source>随「文件操作」总开关显示。</source>
-            <translation>「파일 작업」마스터 스위치와 함께 표시됩니다.</translation>
+            <translation>Se muestra con el interruptor principal «Operaciones con archivos».</translation>
         </message>
         <message>
             <source>停止</source>
-            <translation>중지</translation>
+            <translation>Detener</translation>
         </message>
         <message>
             <source>全屏切换</source>
-            <translation>전체 화면 전환</translation>
+            <translation>Alternar pantalla completa</translation>
         </message>
         <message>
             <source>关闭窗口</source>
-            <translation>창 닫기</translation>
+            <translation>Cerrar ventana</translation>
         </message>
         <message>
             <source>询问</source>
-            <translation>묻기</translation>
+            <translation>Preguntar</translation>
         </message>
         <message>
             <source>无操作</source>
-            <translation>작업 없음</translation>
+            <translation>Sin acción</translation>
         </message>
         <message>
             <source>该选项暂未实现，将在后续版本提供。</source>
-            <translation>이 옵션은 아직 구현되지 않았습니다. 이후 버전에서 제공됩니다.</translation>
+            <translation>Esta opción aún no está implementada; estará disponible en una versión futura.</translation>
         </message>
         <message>
             <source>自动保存</source>
-            <translation>자동 저장</translation>
+            <translation>Guardado automático</translation>
         </message>
         <message>
             <source>旋转后自动保存</source>
-            <translation>회전 후 자동 저장</translation>
+            <translation>Guardado automático tras rotar</translation>
         </message>
         <message>
             <source>旋转/翻转立即写回原文件；RAW 与动图不受影响</source>
-            <translation>회전/뒤집기는 원본 파일에 즉시 기록됩니다. RAW 및 애니메이션 이미지는 적용되지 않습니다</translation>
+            <translation>Girar/voltear escribe de inmediato en el archivo original; RAW e imágenes animadas no se ven afectados</translation>
         </message>
         <message>
             <source>双线性 (快)</source>
-            <translation>쌍선형 (빠름)</translation>
+            <translation>Bilineal (rápido)</translation>
         </message>
         <message>
             <source>双三次 (平滑)</source>
-            <translation>쌍3차 (부드러움)</translation>
+            <translation>Bicúbica (suave)</translation>
         </message>
         <message>
             <source>缩放重采样时使用；双线性最快、双三次为默认，Lanczos 最锐</source>
-            <translation>확대/축소 리샘플링에 사용됩니다. 쌍선형이 가장 빠르고, 쌍3차가 기본, Lanczos가 가장 선명합니다</translation>
+            <translation>Se usa al remuestrear con zoom; Bilineal es el más rápido, Bicúbica es el predeterminado, Lanczos el más nítido</translation>
         </message>
         <message>
             <source>「%1」已即时生效：%2 · %3；无需保存，按「取消」/ Esc 会回到进入设置时的状态。</source>
-            <translation>“%1”이(가) 즉시 적용되었습니다: %2 · %3. 저장이 필요 없으며, “취소”/Esc를 누르면 설정을 열었을 때 상태로 돌아갑니다.</translation>
+            <translation>«%1» ya se aplica al instante: %2 · %3; no hace falta guardar: «Cancelar»/Esc vuelve al estado de cuando abriste Ajustes.</translation>
         </message>
         <message>
             <source>已放弃本次改动：图像处理页的即时项已回到进入设置时的状态。</source>
-            <translation>변경 사항을 취소했습니다: 이미지 처리 페이지의 즉시 적용 항목이 설정을 열었을 때 상태로 돌아갔습니다.</translation>
+            <translation>Cambios descartados: las opciones inmediatas de la página Procesamiento de imagen volvieron al estado de cuando abriste Ajustes.</translation>
         </message>
         <message>
             <source>已放弃本次改动：翻页效果已回到进入设置时的档位。</source>
-            <translation>변경 사항을 취소했습니다: 페이지 넘김 효과가 설정을 열었을 때 값으로 돌아갔습니다.</translation>
+            <translation>Cambios descartados: el efecto de cambio de página volvió al valor de cuando abriste Ajustes.</translation>
         </message>
         <message>
             <source>已即时生效：%1 · %2</source>
-            <translation>즉시 적용: %1 · %2</translation>
+            <translation>Aplicado al instante: %1 · %2</translation>
         </message>
         <message>
             <source>关于</source>
-            <translation>정보</translation>
+            <translation>Acerca de</translation>
         </message>
         <message>
             <source>版本号</source>
-            <translation>버전</translation>
+            <translation>Versión</translation>
         </message>
         <message>
             <source>未知</source>
-            <translation>알 수 없음</translation>
+            <translation>Desconocido</translation>
         </message>
         <message>
             <source>当前程序版本，取自构建配置</source>
-            <translation>빌드 구성에서 가져온 현재 프로그램 버전</translation>
+            <translation>Versión actual de la aplicación, tomada de la configuración de compilación</translation>
         </message>
         <message>
             <source>开源许可</source>
-            <translation>오픈소스 라이선스</translation>
+            <translation>Licencia de código abierto</translation>
         </message>
         <message>
             <source>MIT 许可证，源码托管在 GitHub</source>
-            <translation>MIT 라이선스, 소스 코드는 GitHub에서 호스팅</translation>
+            <translation>Licencia MIT, código fuente alojado en GitHub</translation>
         </message>
         <message>
-            <source>QuikView 是开源的 Windows 图片查看器：C++ 与 Qt 6 构建，不收集使用数据，不含推广内容。</source>
-            <translation>QuikView는 C++ 및 Qt 6으로 제작된 오픈소스 Windows 이미지 뷰어입니다. 사용 데이터를 수집하지 않으며 광고가 없습니다.</translation>
+            <source>SoleView 是开源的 Windows 图片查看器：C++ 与 Qt 6 构建，不收集使用数据，不含推广内容。</source>
+            <translation>SoleView es un visor de imágenes de código abierto para Windows creado con C++ y Qt 6, sin recopilación de datos ni promociones.</translation>
         </message>
         <message>
             <source>链接</source>
-            <translation>링크</translation>
+            <translation>Enlaces</translation>
         </message>
         <message>
             <source>官网</source>
-            <translation>공식 웹사이트</translation>
+            <translation>Sitio web</translation>
         </message>
         <message>
-            <source>打开 QuikView 官网</source>
-            <translation>QuikView 공식 웹사이트 열기</translation>
+            <source>打开 SoleView 官网</source>
+            <translation>Abrir el sitio web oficial de SoleView</translation>
         </message>
         <message>
-            <source>打开 QuikView GitHub 仓库</source>
-            <translation>QuikView GitHub 저장소 열기</translation>
+            <source>打开 SoleView GitHub 仓库</source>
+            <translation>Abrir el repositorio de SoleView en GitHub</translation>
         </message>
         <message>
             <source>无法打开浏览器。请手动访问：
 %1</source>
-            <translation>브라우저를 열 수 없습니다. 직접 방문하세요:
+            <translation>No se pudo abrir el navegador. Visita manualmente:
 %1</translation>
         </message>
         <message>
             <source>QQ 交流群</source>
-            <translation>QQ 그룹</translation>
+            <translation>Grupo de QQ</translation>
         </message>
         <message>
             <source>点击复制 QQ 群号：%1</source>
-            <translation>클릭하여 QQ 그룹 번호 복사: %1</translation>
+            <translation>Haz clic para copiar el número del grupo QQ: %1</translation>
         </message>
         <message>
-            <source>复制 QuikView QQ 交流群号</source>
-            <translation>QuikView QQ 그룹 번호 복사</translation>
+            <source>复制 SoleView QQ 交流群号</source>
+            <translation>Copiar número del grupo QQ de SoleView</translation>
         </message>
         <message>
             <source>%1（已复制）</source>
-            <translation>%1 (복사됨)</translation>
+            <translation>%1 (Copiado)</translation>
         </message>
         <message>
             <source>官网与 GitHub 在默认浏览器中打开；点击 QQ 交流群号可复制到剪贴板。</source>
-            <translation>공식 웹사이트와 GitHub는 기본 브라우저에서 열리며, QQ 그룹 번호를 클릭하면 클립보드에 복사됩니다.</translation>
+            <translation>El sitio web y GitHub se abren en el navegador predeterminado; haz clic en el grupo QQ para copiarlo al portapapeles.</translation>
         </message>
     </context>
     <context>
         <name>ThumbnailBrowser</name>
         <message>
             <source>缩略图栏</source>
-            <translation>필름 스트립</translation>
+            <translation>Tira de miniaturas</translation>
         </message>
         <message>
             <source>无法预览</source>
-            <translation>미리 볼 수 없습니다</translation>
+            <translation>No se puede previsualizar</translation>
         </message>
     </context>
     <context>
         <name>TopBar</name>
         <message>
             <source>顶部工具栏</source>
-            <translation>위쪽 도구 모음</translation>
+            <translation>Barra de herramientas superior</translation>
         </message>
         <message>
             <source>打开、浏览、幻灯片、书签、编辑、复制到、图层、锁定顶栏、图片置顶与三横菜单</source>
-            <translation>열기, 찾아보기, 슬라이드 쇼, 책갈피, 편집, 복사 대상, 레이어, 위쪽 바 잠금, 창 고정, 메뉴 버튼</translation>
+            <translation>Abrir, examinar, pase, marcadores, edición, copiar a, capas, bloquear barra superior, fijar ventana y botón de menú</translation>
         </message>
         <message>
             <source>打开</source>
-            <translation>열기</translation>
+            <translation>Abrir</translation>
         </message>
         <message>
             <source>浏览</source>
-            <translation>찾아보기</translation>
+            <translation>Examinar</translation>
         </message>
         <message>
             <source>幻灯片放映</source>
-            <translation>슬라이드 쇼</translation>
+            <translation>Pase de diapositivas</translation>
         </message>
         <message>
             <source>书签</source>
-            <translation>책갈피</translation>
+            <translation>Marcadores</translation>
         </message>
         <message>
             <source>编辑</source>
-            <translation>편집</translation>
+            <translation>Edición</translation>
         </message>
         <message>
             <source>复制到</source>
-            <translation>복사 대상</translation>
+            <translation>Copiar a</translation>
         </message>
         <message>
             <source>隐藏 PSD 图层</source>
-            <translation>PSD 레이어 숨기기</translation>
+            <translation>Ocultar capas PSD</translation>
         </message>
         <message>
             <source>PSD 图层</source>
-            <translation>PSD 레이어</translation>
+            <translation>Capas PSD</translation>
         </message>
         <message>
             <source>PSD 图层（当前图片没有可用图层）</source>
-            <translation>PSD 레이어 (이 이미지에 사용할 수 있는 레이어가 없음)</translation>
+            <translation>Capas PSD (esta imagen no tiene capas utilizables)</translation>
         </message>
         <message>
             <source>保持顶部工具栏显示</source>
-            <translation>위쪽 도구 모음 항상 표시</translation>
+            <translation>Mantener visible la barra de herramientas superior</translation>
         </message>
         <message>
             <source>图片窗口置顶</source>
-            <translation>이미지 창 항상 위</translation>
+            <translation>Fijar ventana de imagen</translation>
         </message>
         <message>
             <source>菜单</source>
-            <translation>메뉴</translation>
+            <translation>Menú</translation>
         </message>
         <message>
             <source>最小化</source>
-            <translation>최소화</translation>
+            <translation>Minimizar</translation>
         </message>
         <message>
             <source>还原</source>
-            <translation>복원</translation>
+            <translation>Restaurar</translation>
         </message>
         <message>
             <source>最大化</source>
-            <translation>최대화</translation>
+            <translation>Maximizar</translation>
         </message>
         <message>
             <source>关闭</source>
-            <translation>닫기</translation>
+            <translation>Cerrar</translation>
         </message>
     </context>
     <context>
         <name>UpdateChecker</name>
         <message>
             <source>检查更新</source>
-            <translation>업데이트 확인</translation>
+            <translation>Buscar actualizaciones</translation>
         </message>
     </context>
     <context>
         <name>UpdateNotifier</name>
         <message>
             <source>发现新版本 %1</source>
-            <translation>새 버전 %1 발견</translation>
+            <translation>Nueva versión %1 encontrada</translation>
         </message>
         <message>
             <source>已是最新版本</source>
-            <translation>최신 버전입니다</translation>
+            <translation>Ya estás al día</translation>
         </message>
         <message>
             <source>检查失败，请检查网络</source>
-            <translation>확인 실패, 네트워크를 확인하세요</translation>
+            <translation>Comprobación fallida, comprueba la red</translation>
         </message>
     </context>
     <context>
         <name>Wallpaper</name>
         <message>
             <source>SystemParametersInfo 失败 (GetLastError=%1)</source>
-            <translation>SystemParametersInfo 실패 (GetLastError=%1)</translation>
+            <translation>Fallo de SystemParametersInfo (GetLastError=%1)</translation>
         </message>
         <message>
             <source>设壁纸仅支持 Windows</source>
-            <translation>배경 화면 설정은 Windows 전용</translation>
+            <translation>Fondo de pantalla solo en Windows</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>拖入图片或 Ctrl+O 打开</source>
-            <translation>이미지를 끌어다 놓거나 Ctrl+O로 열기</translation>
+            <translation>Arrastre una imagen aquí o pulse Ctrl+O</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>文件(&amp;F)</source>
-            <translation>파일(&amp;F)</translation>
+            <translation>&amp;Archivo</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>视图(&amp;V)</source>
-            <translation>보기(&amp;V)</translation>
+            <translation>&amp;Ver</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>适配窗口(&amp;F)</source>
-            <translation>창에 맞추기(&amp;F)</translation>
+            <translation>Ajustar a la &amp;ventana</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>实际大小(&amp;1)</source>
-            <translation>실제 크기(&amp;1)</translation>
+            <translation>&amp;Tamaño real</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>幻灯片(&amp;S)</source>
-            <translation>슬라이드쇼(&amp;S)</translation>
+            <translation>&amp;Presentación</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>工具(&amp;T)</source>
-            <translation>도구(&amp;T)</translation>
+            <translation>&amp;Herramientas</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>设为壁纸(&amp;W)</source>
-            <translation>배경화면으로 설정(&amp;W)</translation>
+            <translation>Establecer como &amp;fondo de pantalla</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>加载中… %1</source>
-            <translation>불러오는 중… %1</translation>
+            <translation>Cargando… %1</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>无法打开：%1（%2）</source>
-            <translation>열 수 없음: %1 (%2)</translation>
+            <translation>No se puede abrir: %1 (%2)</translation>
         </message>
     </context>
     <context>
@@ -3860,64 +3860,64 @@ https://github.com/xdsT2/quikview</translation>
         <name>MainWindow</name>
         <message>
             <source>图片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有文件 (*)</source>
-            <translation>이미지 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;모든 파일 (*)</translation>
+            <translation>Imágenes (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;Todos los archivos (*)</translation>
         </message>
         <message>
             <source>无法读取压缩包：%1</source>
-            <translation>압축 파일을 읽을 수 없습니다: %1</translation>
+            <translation>No se puede leer el archivo comprimido: %1</translation>
         </message>
         <message>
             <source>压缩包内文件暂不支持此操作</source>
-            <translation>압축 파일 내 항목은 이 작업을 아직 지원하지 않습니다</translation>
+            <translation>Esta acción no está disponible para archivos dentro de un comprimido</translation>
         </message>
     </context>
     <context>
         <name>MetadataPanel</name>
         <message>
             <source>信息</source>
-            <translation>정보</translation>
+            <translation>Información</translation>
         </message>
     </context>
     <context>
         <name>MetadataPanel</name>
         <message>
             <source>文件</source>
-            <translation>파일</translation>
+            <translation>Archivo</translation>
         </message>
     </context>
     <context>
         <name>MetadataPanel</name>
         <message>
             <source>路径</source>
-            <translation>경로</translation>
+            <translation>Ruta</translation>
         </message>
     </context>
     <context>
         <name>MetadataPanel</name>
         <message>
             <source>大小</source>
-            <translation>크기</translation>
+            <translation>Tamaño</translation>
         </message>
     </context>
     <context>
         <name>MetadataPanel</name>
         <message>
             <source>修改时间</source>
-            <translation>수정 시간</translation>
+            <translation>Modificado</translation>
         </message>
     </context>
     <context>
         <name>MetadataPanel</name>
         <message>
             <source>图像</source>
-            <translation>이미지</translation>
+            <translation>Imagen</translation>
         </message>
     </context>
     <context>
         <name>MetadataPanel</name>
         <message>
             <source>尺寸</source>
-            <translation>크기</translation>
+            <translation>Dimensiones</translation>
         </message>
     </context>
     <context>
@@ -3931,7 +3931,7 @@ https://github.com/xdsT2/quikview</translation>
         <name>MetadataPanel</name>
         <message>
             <source>格式</source>
-            <translation>형식</translation>
+            <translation>Formato</translation>
         </message>
     </context>
     <context>
@@ -3945,92 +3945,92 @@ https://github.com/xdsT2/quikview</translation>
         <name>AppMenuPreview</name>
         <message>
             <source>当前没有可显示的菜单项</source>
-            <translation>표시할 메뉴 항목이 없습니다.</translation>
+            <translation>No hay elementos de menú que mostrar.</translation>
         </message>
     </context>
     <context>
         <name>ZipArchive</name>
         <message>
             <source>文件不存在或无法读取</source>
-            <translation>파일이 없거나 읽을 수 없습니다</translation>
+            <translation>Archivo no encontrado o ilegible</translation>
         </message>
         <message>
             <source>不是有效的 ZIP/CBZ 压缩包</source>
-            <translation>올바른 ZIP/CBZ 압축 파일이 아닙니다</translation>
+            <translation>No es un archivo ZIP/CBZ válido</translation>
         </message>
         <message>
             <source>压缩包已损坏，无法读取</source>
-            <translation>압축 파일이 손상되어 읽을 수 없습니다</translation>
+            <translation>El archivo está dañado y no se puede leer</translation>
         </message>
         <message>
             <source>暂不支持分卷压缩包</source>
-            <translation>분할 압축 파일은 아직 지원하지 않습니다</translation>
+            <translation>Los archivos multivolumen aún no son compatibles</translation>
         </message>
         <message>
             <source>压缩包条目过多，暂不支持</source>
-            <translation>압축 파일 항목이 너무 많습니다</translation>
+            <translation>Demasiadas entradas en el archivo</translation>
         </message>
         <message>
             <source>暂不支持加密压缩包</source>
-            <translation>암호화된 압축 파일은 아직 지원하지 않습니다</translation>
+            <translation>Los archivos cifrados aún no son compatibles</translation>
         </message>
         <message>
             <source>包内文件超过 256 MB，已拒绝解码</source>
-            <translation>압축 파일 내 항목이 256MB를 넘어 디코딩을 거부했습니다</translation>
+            <translation>El archivo supera 256 MB; decodificación rechazada</translation>
         </message>
         <message>
             <source>包内文件使用了暂不支持的压缩方式</source>
-            <translation>지원하지 않는 압축 방식을 사용합니다</translation>
+            <translation>El archivo usa un método de compresión no compatible</translation>
         </message>
         <message>
             <source>包内文件校验失败（CRC 不符）</source>
-            <translation>압축 파일 내 항목의 체크섬이 일치하지 않습니다(CRC)</translation>
+            <translation>La suma de verificación no coincide (CRC)</translation>
         </message>
     </context>
     <context>
         <name>ArchiveStore</name>
         <message>
             <source>文件不存在或无法读取</source>
-            <translation>파일이 없거나 읽을 수 없습니다</translation>
+            <translation>Archivo no encontrado o ilegible</translation>
         </message>
         <message>
             <source>压缩包已关闭或未打开</source>
-            <translation>압축 파일이 닫혔거나 열리지 않았습니다</translation>
+            <translation>El archivo está cerrado o nunca se abrió</translation>
         </message>
         <message>
             <source>包内找不到该文件</source>
-            <translation>압축 파일 안에 해당 항목이 없습니다</translation>
+            <translation>No se encontró el archivo dentro del comprimido</translation>
         </message>
         <message>
             <source>包内文件解码失败</source>
-            <translation>압축 파일 내 항목 디코딩 실패</translation>
+            <translation>Falló la decodificación del archivo dentro del comprimido</translation>
         </message>
     </context>
     <context>
         <name>RotateAutoSave</name>
         <message>
             <source>文件不存在或图像为空</source>
-            <translation>파일이 없거나 이미지가 비어 있습니다</translation>
+            <translation>Archivo ausente o imagen vacía</translation>
         </message>
         <message>
             <source>只读或无写权限</source>
-            <translation>읽기 전용 또는 쓰기 권한 없음</translation>
+            <translation>Solo lectura o sin permiso de escritura</translation>
         </message>
         <message>
             <source>临时文件编码失败</source>
-            <translation>임시 파일 인코딩 실패</translation>
+            <translation>Error al codificar el archivo temporal</translation>
         </message>
         <message>
             <source>临时文件落盘失败</source>
-            <translation>임시 파일 디스크 쓰기 실패</translation>
+            <translation>Error al volcar el archivo temporal en disco</translation>
         </message>
         <message>
             <source>EXIF 方向标记改写失败</source>
-            <translation>EXIF 방향 태그 재작성 실패</translation>
+            <translation>Error al reescribir la marca de orientación EXIF</translation>
         </message>
         <message>
             <source>替换原文件失败</source>
-            <translation>원본 파일 교체 실패</translation>
+            <translation>Error al reemplazar el archivo original</translation>
         </message>
     </context>
 </TS>

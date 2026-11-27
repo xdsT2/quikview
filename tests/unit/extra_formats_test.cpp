@@ -137,7 +137,7 @@ int main(int argc, char **argv)
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
     QApplication app(argc, argv);
 
-    const QString samplesDir = QStringLiteral(QUIKVIEW_FORMAT_SAMPLES_DIR);
+    const QString samplesDir = QStringLiteral(SOLEVIEW_FORMAT_SAMPLES_DIR);
     CHECK(QDir(samplesDir).exists());
 
     // 1. T1: RAW 39 种扩展名统一事实来源 & 白名单一致性

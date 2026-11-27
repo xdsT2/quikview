@@ -25,20 +25,34 @@
 #include <windows.h>
 #endif
 
-#ifndef QUIKVIEW_VERSION
-#define QUIKVIEW_VERSION "0.0.0"
+#ifndef SOLEVIEW_VERSION
+#ifdef QUIKVIEW_VERSION
+#define SOLEVIEW_VERSION QUIKVIEW_VERSION
+#else
+#define SOLEVIEW_VERSION "0.0.0"
+#endif
 #endif
 
 namespace {
 
-// 单实例键：QuikView-<RuntimeLocation 哈希>。
+// 单实例键：SoleView-<RuntimeLocation 哈希>（并兼容旧版 QuikView-<哈希> 双监听）。
 // 只带固定名字会让多用户/多会话互相顶掉，所以把当前用户的运行时目录路径也算进去。
-QString singleInstanceKey()
+QString runtimeLocationDigest()
 {
     const QString scope = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation);
     const QByteArray digest =
         QCryptographicHash::hash(scope.toUtf8(), QCryptographicHash::Sha1).toHex().left(16);
-    return QStringLiteral("QuikView-") + QString::fromLatin1(digest);
+    return QString::fromLatin1(digest);
+}
+
+QString singleInstanceKey()
+{
+    return QStringLiteral("SoleView-") + runtimeLocationDigest();
+}
+
+QString legacySingleInstanceKey()
+{
+    return QStringLiteral("QuikView-") + runtimeLocationDigest();
 }
 
 } // namespace
@@ -49,22 +63,23 @@ int main(int argc, char *argv[])
     // 高 DPI：Qt6 默认开启，这里显式声明保证跨平台一致
     QApplication app(argc, argv);
     PerfProbe::mark(PerfProbe::StartupSequence, "startup-qt-ready", "");
-    QApplication::setApplicationName(QStringLiteral("QuikView"));
-    QApplication::setApplicationVersion(QStringLiteral(QUIKVIEW_VERSION));
-    QApplication::setOrganizationName(QStringLiteral("QuikView"));
+    QApplication::setApplicationName(QStringLiteral("SoleView"));
+    QApplication::setApplicationVersion(QStringLiteral(SOLEVIEW_VERSION));
+    QApplication::setOrganizationName(QStringLiteral("SoleView"));
 
     // Honeyview 铬件：默认 UI 字体（微软雅黑 9pt）
     QApplication::setFont(QFont(QStringLiteral("Microsoft YaHei UI"), 9));
 
-    // 应用图标：先找磁盘上的 ico（方便换肤/调试），落空则用 RCC 内嵌的 :/quikview.ico。
+    // 应用图标：先找磁盘上的 ico（方便换肤/调试），落空则用 RCC 内嵌的 :/soleview.ico（兼容 :/quikview.ico）。
     // 安装目录里只有 exe + DLL、没有外部 .ico 时，全靠内嵌这一层；
     // 窗口图标不再依赖 resources/ 是否被打包进去。
     {
         const QString base = QCoreApplication::applicationDirPath();
         const QStringList candidates = {
-            base + QStringLiteral("/../resources/quikview.ico"),
-            base + QStringLiteral("/resources/quikview.ico"),
-            base + QStringLiteral("/quikview.ico"),
+            base + QStringLiteral("/../resources/soleview.ico"),
+            base + QStringLiteral("/resources/soleview.ico"),
+            base + QStringLiteral("/soleview.ico"),
+            QStringLiteral(":/soleview.ico"),
             QStringLiteral(":/quikview.ico"),
         };
         for (const QString &iconPath : candidates) {
@@ -92,11 +107,12 @@ int main(int argc, char *argv[])
             }
         }
         // 外部显式指定路径时不覆盖：浅色/深色主题截图需要预置配置内容。
-        if (isolated && qEnvironmentVariableIsEmpty("QUIKVIEW_CONFIG_PATH")) {
+        if (isolated && qEnvironmentVariableIsEmpty("SOLEVIEW_CONFIG_PATH")
+            && qEnvironmentVariableIsEmpty("QUIKVIEW_CONFIG_PATH")) {
             const QString tmpPath = QDir::tempPath()
-                + QStringLiteral("/quikview-smoke-%1.ini")
+                + QStringLiteral("/soleview-smoke-%1.ini")
                       .arg(QCoreApplication::applicationPid());
-            qputenv("QUIKVIEW_CONFIG_PATH", tmpPath.toLocal8Bit());
+            qputenv("SOLEVIEW_CONFIG_PATH", tmpPath.toLocal8Bit());
         }
     }
 
@@ -138,7 +154,7 @@ int main(int argc, char *argv[])
     }
 
     QCommandLineParser parser;
-    parser.setApplicationDescription(QStringLiteral("QuikView - a fast, clean image viewer"));
+    parser.setApplicationDescription(QStringLiteral("SoleView - a fast, clean image viewer"));
     parser.addHelpOption();
     parser.addVersionOption();
     // 调试：--settings 启动后直接打开设置对话框（用于自动化截图验证）
@@ -216,7 +232,7 @@ int main(int argc, char *argv[])
                          .arg(got)
                          .arg(c.want);
         }
-        lines << QStringLiteral("current = %1").arg(QStringLiteral(QUIKVIEW_VERSION));
+        lines << QStringLiteral("current = %1").arg(QStringLiteral(SOLEVIEW_VERSION));
         lines << QStringLiteral("RESULT: %1").arg(failed == 0 ? QStringLiteral("PASS")
                                                               : QStringLiteral("FAIL"));
         QFile out(parser.value(updateSelftestOpt));
@@ -240,11 +256,15 @@ int main(int argc, char *argv[])
     // 调试参数继续绕过单实例。
     const bool singleInstance = !Config::instance().allowMultipleInstances();
     QString serverKey;
+    QString legacyServerKey;
     if (!debugRun && singleInstance) {
         serverKey = singleInstanceKey();
-        QLocalSocket probe;
-        probe.connectToServer(serverKey);
-        if (probe.waitForConnected(300)) {
+        legacyServerKey = legacySingleInstanceKey();
+        auto tryForward = [&parser](const QString &targetKey) -> bool {
+            QLocalSocket probe;
+            probe.connectToServer(targetKey);
+            if (!probe.waitForConnected(300))
+                return false;
             const QStringList args = parser.positionalArguments();
             if (!args.isEmpty()) {
                 probe.write(args.first().toUtf8());
@@ -253,6 +273,9 @@ int main(int argc, char *argv[])
             probe.flush();
             probe.waitForBytesWritten(1000);
             probe.disconnectFromServer();
+            return true;
+        };
+        if (tryForward(serverKey) || tryForward(legacyServerKey)) {
             return 0;
         }
     }
@@ -274,15 +297,19 @@ int main(int argc, char *argv[])
     window.show();
     PerfProbe::mark(PerfProbe::StartupSequence, "startup-window-shown", "");
 
-    // 首实例挂监听：收到路径就切图并把自己拉到前台（栈对象随 main 结束在 ~QApplication 之前销毁）
+    // 首实例挂监听（SoleView-* 主管道 + QuikView-* 旧管道双监听，过渡期兼容旧快捷方式）：
+    // 收到路径就切图并把自己拉到前台（栈对象随 main 结束在 ~QApplication 之前销毁）
     QLocalServer ipcServer;
+    QLocalServer legacyIpcServer;
     if (!serverKey.isEmpty()) {
-        QLocalServer::removeServer(serverKey);   // 上个会话崩溃留下的孤儿套接字
-        if (!ipcServer.listen(serverKey)) {
-            qWarning() << "[single-instance] listen failed:" << ipcServer.errorString();
-        } else {
-            QObject::connect(&ipcServer, &QLocalServer::newConnection, &window, [&ipcServer, &window]() {
-                while (QLocalSocket *sock = ipcServer.nextPendingConnection()) {
+        auto bindIpc = [&window](QLocalServer &srv, const QString &key) {
+            QLocalServer::removeServer(key);   // 上个会话崩溃留下的孤儿套接字
+            if (!srv.listen(key)) {
+                qWarning() << "[single-instance] listen failed:" << key << srv.errorString();
+                return;
+            }
+            QObject::connect(&srv, &QLocalServer::newConnection, &window, [&srv, &window]() {
+                while (QLocalSocket *sock = srv.nextPendingConnection()) {
                     QObject::connect(sock, &QLocalSocket::readyRead, &window, [sock, &window]() {
                         const QString path = QString::fromUtf8(sock->readAll()).trimmed();
                         if (!path.isEmpty()) {
@@ -305,7 +332,9 @@ int main(int argc, char *argv[])
                                      sock, &QLocalSocket::deleteLater);
                 }
             });
-        }
+        };
+        bindIpc(ipcServer, serverKey);
+        bindIpc(legacyIpcServer, legacyServerKey);
     }
 
     // 检查更新：结果提示条由 UpdateNotifier 统一负责（手动/自动共用）。

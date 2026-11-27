@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>QuikView · 纯粹、迅捷的开源 Windows 看图器</title>
-<meta name="description" content="QuikView 是一款开源的 Windows 看图器：文件夹秒开翻图、双页阅览、RAW / HEIC / AVIF / SVG 直读、EXIF 与直方图、ZIP/CBZ 压缩包浏览、批量转换与资源管理器集成。C++ 与 Qt 6 原生构建，MIT 许可证，零遥测。">
+<title>SoleView · 纯粹、迅捷的开源 Windows 看图器</title>
+<meta name="description" content="SoleView 是一款开源的 Windows 看图器：文件夹秒开翻图、双页阅览、RAW / HEIC / AVIF / SVG 直读、EXIF 与直方图、ZIP/CBZ 压缩包浏览、批量转换与资源管理器集成。C++ 与 Qt 6 原生构建，MIT 许可证，零遥测。">
 <meta name="theme-color" content="#0b0d10">
 <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/css/style.css?v=0.6.1-20261126b">
@@ -14,22 +14,11 @@
 <header class="site-header" id="top">
   <div class="wrap header-inner">
     <div class="brand-group">
-      <a class="brand" href="#top" aria-label="QuikView 首页">
+      <a class="brand" href="#top" aria-label="SoleView 首页">
         <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 64 64">
-            <defs>
-              <linearGradient id="hdr-qv" x1="6" y1="4" x2="58" y2="60" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="#42A0FF"/>
-                <stop offset="1" stop-color="#1668D6"/>
-              </linearGradient>
-            </defs>
-            <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#hdr-qv)"/>
-            <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="14.25" fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="1.5"/>
-            <circle cx="31" cy="30" r="14.5" fill="none" stroke="#ffffff" stroke-width="5.5"/>
-            <path d="M40 39 L48 47" stroke="#ffffff" stroke-width="5.5" stroke-linecap="round"/>
-          </svg>
+          <img src="assets/img/favicon.svg" width="32" height="32" alt="">
         </span>
-        <span class="brand-text">QuikView</span>
+        <span class="brand-text">SoleView</span>
       </a>
       <a class="version-pill" id="header-version-pill" href="#updates" title="查看 GitHub 更新日志">v0.6.1</a>
     </div>
@@ -48,7 +37,7 @@
         <svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.2v2.6M12 19.2v2.6M2.2 12h2.6M19.2 12h2.6M4.9 4.9l1.9 1.9M17.2 17.2l1.9 1.9M19.1 4.9l-1.9 1.9M6.8 17.2l-1.9 1.9"/></svg>
         <svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.6A8.6 8.6 0 1 1 9.4 3.5a6.9 6.9 0 0 0 11.1 11.1Z"/></svg>
       </button>
-      <a class="btn btn-ghost hide-sm" href="https://github.com/xdsT2/quikview" target="_blank" rel="noopener">
+      <a class="btn btn-ghost hide-sm" href="https://github.com/xdsT2/soleview" target="_blank" rel="noopener">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.36 1.09 2.93.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.95 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.4 9.4 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.85-2.34 4.7-4.57 4.95.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>
         GitHub
       </a>
@@ -85,7 +74,7 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 20h16"/></svg>
             <span id="hero-download-label">下载 v0.6.1</span>
           </a>
-          <a class="btn btn-ghost btn-lg" href="https://github.com/xdsT2/quikview" target="_blank" rel="noopener">
+          <a class="btn btn-ghost btn-lg" href="https://github.com/xdsT2/soleview" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.36 1.09 2.93.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.95 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.4 9.4 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.85-2.34 4.7-4.57 4.95.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>
             浏览 GitHub 源码
           </a>
@@ -102,7 +91,7 @@
 
       <div class="hero-stage">
         <div class="window-frame hero-window">
-          <img id="hero-img" src="assets/img/v0.6.1/01-main.webp" width="1080" height="815" alt="QuikView v0.6.1 主窗口实机截图" fetchpriority="high">
+          <img id="hero-img" src="assets/img/v0.6.1/01-main.webp" width="1080" height="815" alt="SoleView v0.6.1 主窗口实机截图" fetchpriority="high">
           <button class="zoom-hint" id="hero-zoom-btn" type="button" aria-label="放大查看当前截图">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
             <span>放大细节</span>
@@ -145,7 +134,7 @@
             </div>
           </div>
           <div class="bento-visual">
-            <img src="assets/img/v0.6.1/12-overview.webp" width="1350" height="1019" alt="QuikView 图片总览网格" loading="lazy">
+            <img src="assets/img/v0.6.1/12-overview.webp" width="1350" height="1019" alt="SoleView 图片总览网格" loading="lazy">
           </div>
         </article>
 
@@ -192,7 +181,7 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6a2 2 0 0 1 2-2h4.2l1.8 2H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Z"/><path d="M8 13h8M12 10v6"/></svg>
           </div>
           <h3>深度 Windows 资源管理器集成</h3>
-          <p>独立纯 Win32 COM 壳扩展（不依赖 Qt），在资源管理器中直接渲染 PSD / SVG / 常见图片缩略图与 QuikView 右键菜单；内置 9 种界面语言。</p>
+          <p>独立纯 Win32 COM 壳扩展（不依赖 Qt），在资源管理器中直接渲染 PSD / SVG / 常见图片缩略图与 SoleView 右键菜单；内置 9 种界面语言。</p>
         </article>
 
         <article class="bento-card bento-span-3 reveal">
@@ -234,7 +223,7 @@
           </div>
           <div class="spotlight-media">
             <div class="window-frame spotlight-frame" id="spot-1">
-              <img src="assets/img/v0.6.1/07-context-menu.webp" width="2560" height="1701" alt="QuikView 右键菜单实机截图" loading="lazy">
+              <img src="assets/img/v0.6.1/07-context-menu.webp" width="2560" height="1701" alt="SoleView 右键菜单实机截图" loading="lazy">
             </div>
             <p class="spot-caption" id="spot-1-cap">Fluent 统一样式，图标与快捷键右省略对齐</p>
           </div>
@@ -259,7 +248,7 @@
           </div>
           <div class="spotlight-media">
             <div class="window-frame spotlight-frame" id="spot-2">
-              <img src="assets/img/v0.6.1/03-info.webp" width="1080" height="815" alt="QuikView 图片信息与直方图截图" loading="lazy">
+              <img src="assets/img/v0.6.1/03-info.webp" width="1080" height="815" alt="SoleView 图片信息与直方图截图" loading="lazy">
             </div>
             <p class="spot-caption" id="spot-2-cap">EXIF 元数据与亮度直方图，按 Tab 快速呼出</p>
           </div>
@@ -279,12 +268,12 @@
             <div class="spot-switchers" role="tablist" aria-label="切换视角 3">
               <button class="spot-btn active" type="button" data-spotlight="spot-3" data-src="assets/img/v0.6.1/09-settings.webp" data-title="Fluent 设置" data-caption="十大分类导航与统一 Switch 开关，支持全文搜索设置项">Fluent 设置</button>
               <button class="spot-btn" type="button" data-spotlight="spot-3" data-src="assets/img/v0.6.1/08-convert.webp" data-title="批量格式转换" data-caption="支持 PNG / JPEG / BMP / WebP / TIFF 转换、裁剪与缩放">批量转换</button>
-              <button class="spot-btn" type="button" data-spotlight="spot-3" data-src="assets/img/v0.6.1/14-about.webp" data-title="关于 QuikView" data-caption="清晰展示版本号、MIT 开源协议与官方联系渠道">关于页</button>
+              <button class="spot-btn" type="button" data-spotlight="spot-3" data-src="assets/img/v0.6.1/14-about.webp" data-title="关于 SoleView" data-caption="清晰展示版本号、MIT 开源协议与官方联系渠道">关于页</button>
             </div>
           </div>
           <div class="spotlight-media">
             <div class="window-frame spotlight-frame" id="spot-3">
-              <img src="assets/img/v0.6.1/09-settings.webp" width="1068" height="784" alt="QuikView 设置窗口截图" loading="lazy">
+              <img src="assets/img/v0.6.1/09-settings.webp" width="1068" height="784" alt="SoleView 设置窗口截图" loading="lazy">
             </div>
             <p class="spot-caption" id="spot-3-cap">十大分类导航与统一 Switch 开关，支持全文搜索设置项</p>
           </div>
@@ -300,7 +289,7 @@
         <header class="section-head">
           <span class="eyebrow">全部实机截图</span>
           <h2>14 个界面瞬间，所见即所得</h2>
-          <p class="section-sub">截图全部由 QuikView v0.6.1 实际渲染生成，点击大图进入灯箱查看高清细节。</p>
+          <p class="section-sub">截图全部由 SoleView v0.6.1 实际渲染生成，点击大图进入灯箱查看高清细节。</p>
         </header>
 
         <div class="gallery-filters" id="gallery-filters" role="tablist" aria-label="截图分类筛选">
@@ -389,7 +378,7 @@
     <div class="wrap">
       <header class="section-head">
         <span class="eyebrow">获取安装包</span>
-        <h2>下载 QuikView</h2>
+        <h2>下载 SoleView</h2>
         <p class="section-sub" id="download-meta">v0.6.1 · 2026-11-26 · Windows 10 / 11 x64</p>
       </header>
 
@@ -399,12 +388,12 @@
             <h3>安装版</h3>
             <span class="dl-badge">推荐</span>
           </div>
-          <p>注册资源管理器缩略图与 QuikView 右键菜单，可选 360° 全景组件；安装与卸载均无需重启。</p>
+          <p>注册资源管理器缩略图与 SoleView 右键菜单，可选 360° 全景组件；安装与卸载均无需重启。</p>
           <div class="dl-meta-row">
-            <span class="file-name" id="dl-setup-name">QuikView-0.6.1-setup.exe</span>
+            <span class="file-name" id="dl-setup-name">SoleView-0.6.1-setup.exe</span>
             <span class="file-size" id="dl-setup-size">29.2 MB</span>
           </div>
-          <a class="btn btn-primary" id="dl-setup-btn" href="https://github.com/xdsT2/quikview/releases/download/v0.6.1/QuikView-0.6.1-setup.exe">
+          <a class="btn btn-primary" id="dl-setup-btn" href="https://github.com/xdsT2/soleview/releases/download/v0.6.1/SoleView-0.6.1-setup.exe">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 20h16"/></svg>
             下载安装版
           </a>
@@ -417,10 +406,10 @@
           </div>
           <p>解压后直接运行，无需另装 Qt 运行库，配置自动保存在程序目录，适合随身携带。</p>
           <div class="dl-meta-row">
-            <span class="file-name" id="dl-zip-name">quikview-0.6.1-win64.zip</span>
+            <span class="file-name" id="dl-zip-name">soleview-0.6.1-win64.zip</span>
             <span class="file-size" id="dl-zip-size">41.6 MB</span>
           </div>
-          <a class="btn btn-ghost" id="dl-zip-btn" href="https://github.com/xdsT2/quikview/releases/download/v0.6.1/quikview-0.6.1-win64.zip" target="_blank" rel="noopener">
+          <a class="btn btn-ghost" id="dl-zip-btn" href="https://github.com/xdsT2/soleview/releases/download/v0.6.1/soleview-0.6.1-win64.zip" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 20h16"/></svg>
             下载便携包
           </a>
@@ -433,10 +422,10 @@
           </div>
           <p>下载后可使用 SHA-256 清单核对文件摘要，确认安装包未经篡改或损坏。</p>
           <div class="verify-cmd">
-            <code id="verify-cmd-text">Get-FileHash QuikView-0.6.1-setup.exe -Algorithm SHA256</code>
-            <button type="button" class="copy-mini-btn" id="verify-copy-btn" data-copy="Get-FileHash QuikView-0.6.1-setup.exe -Algorithm SHA256" aria-label="复制 PowerShell 校验命令">复制</button>
+            <code id="verify-cmd-text">Get-FileHash SoleView-0.6.1-setup.exe -Algorithm SHA256</code>
+            <button type="button" class="copy-mini-btn" id="verify-copy-btn" data-copy="Get-FileHash SoleView-0.6.1-setup.exe -Algorithm SHA256" aria-label="复制 PowerShell 校验命令">复制</button>
           </div>
-          <a class="btn btn-ghost" id="dl-sha-btn" href="https://github.com/xdsT2/quikview/releases/download/v0.6.1/SHA256SUMS.txt" target="_blank" rel="noopener">
+          <a class="btn btn-ghost" id="dl-sha-btn" href="https://github.com/xdsT2/soleview/releases/download/v0.6.1/SHA256SUMS.txt" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12l2 2 4-4"/><path d="M12 3l8 4v5c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V7l8-4Z"/></svg>
             下载 SHA256SUMS.txt
           </a>
@@ -445,11 +434,11 @@
 
       <div class="dl-footer-bar">
         <div class="dl-links">
-          <a id="dl-release-link" href="https://github.com/xdsT2/quikview/releases/tag/v0.6.1" target="_blank" rel="noopener">v0.6.1 GitHub 发布页 ↗</a>
+          <a id="dl-release-link" href="https://github.com/xdsT2/soleview/releases/tag/v0.6.1" target="_blank" rel="noopener">v0.6.1 GitHub 发布页 ↗</a>
           <span aria-hidden="true">·</span>
-          <a href="https://github.com/xdsT2/quikview/releases" target="_blank" rel="noopener">全部历史版本</a>
+          <a href="https://github.com/xdsT2/soleview/releases" target="_blank" rel="noopener">全部历史版本</a>
           <span aria-hidden="true">·</span>
-          <a href="https://github.com/xdsT2/quikview/issues" target="_blank" rel="noopener">提交 Issues 反馈</a>
+          <a href="https://github.com/xdsT2/soleview/issues" target="_blank" rel="noopener">提交 Issues 反馈</a>
         </div>
         <div class="qq-bar">
           <span>QQ 交流群：<strong>1134122173</strong></span>
@@ -484,7 +473,7 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
             刷新
           </button>
-          <a class="btn btn-ghost btn-sm" href="https://github.com/xdsT2/quikview/releases" target="_blank" rel="noopener">
+          <a class="btn btn-ghost btn-sm" href="https://github.com/xdsT2/soleview/releases" target="_blank" rel="noopener">
             GitHub Releases ↗
           </a>
         </div>
@@ -511,7 +500,7 @@
 
       <noscript>
         <div class="cl-noscript">
-          <p>请启用 JavaScript 以实时加载 GitHub 更新日志，或直接访问 <a href="https://github.com/xdsT2/quikview/releases" target="_blank" rel="noopener">GitHub Releases</a> 与 <a href="https://github.com/xdsT2/quikview/blob/main/CHANGELOG.md" target="_blank" rel="noopener">CHANGELOG.md</a>。</p>
+          <p>请启用 JavaScript 以实时加载 GitHub 更新日志，或直接访问 <a href="https://github.com/xdsT2/soleview/releases" target="_blank" rel="noopener">GitHub Releases</a> 与 <a href="https://github.com/xdsT2/soleview/blob/main/CHANGELOG.md" target="_blank" rel="noopener">CHANGELOG.md</a>。</p>
         </div>
       </noscript>
 
@@ -529,7 +518,7 @@
           <span class="eyebrow">开源与社区</span>
           <h2>从零编写，透明开放</h2>
           <p class="section-sub">
-            QuikView 基于 C++ 与 Qt 6 从零构建，采用 MIT 开源许可证。所有源码、架构文档、路线图与发布校验记录均在 GitHub 公开，零遥测、无广告、无捆绑软件。
+            SoleView 基于 C++ 与 Qt 6 从零构建，采用 MIT 开源许可证。所有源码、架构文档、路线图与发布校验记录均在 GitHub 公开，零遥测、无广告、无捆绑软件。
           </p>
           <p class="disclaimer">
             免责声明：本项目为独立实现，与 Honeyview / Bandisoft 无任何从属、授权或背书关系。
@@ -537,9 +526,9 @@
         </div>
 
         <div class="oss-actions">
-          <a class="btn btn-primary" href="https://github.com/xdsT2/quikview" target="_blank" rel="noopener">查看 GitHub 仓库</a>
-          <a class="btn btn-ghost" href="https://github.com/xdsT2/quikview/blob/main/ROADMAP.md" target="_blank" rel="noopener">开发路线图</a>
-          <a class="btn btn-ghost" href="https://github.com/xdsT2/quikview/issues" target="_blank" rel="noopener">反馈问题</a>
+          <a class="btn btn-primary" href="https://github.com/xdsT2/soleview" target="_blank" rel="noopener">查看 GitHub 仓库</a>
+          <a class="btn btn-ghost" href="https://github.com/xdsT2/soleview/blob/main/ROADMAP.md" target="_blank" rel="noopener">开发路线图</a>
+          <a class="btn btn-ghost" href="https://github.com/xdsT2/soleview/issues" target="_blank" rel="noopener">反馈问题</a>
           <button class="btn btn-ghost" type="button" data-qq="1134122173" data-qq-label="QQ 交流群：1134122173" data-qq-copied="已复制群号：1134122173">QQ 交流群：1134122173</button>
         </div>
       </div>
@@ -553,21 +542,10 @@
     <div class="footer-top">
       <div class="footer-brand">
         <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 64 64">
-            <defs>
-              <linearGradient id="ftr-qv" x1="6" y1="4" x2="58" y2="60" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="#42A0FF"/>
-                <stop offset="1" stop-color="#1668D6"/>
-              </linearGradient>
-            </defs>
-            <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#ftr-qv)"/>
-            <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="14.25" fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="1.5"/>
-            <circle cx="31" cy="30" r="14.5" fill="none" stroke="#ffffff" stroke-width="5.5"/>
-            <path d="M40 39 L48 47" stroke="#ffffff" stroke-width="5.5" stroke-linecap="round"/>
-          </svg>
+          <img src="assets/img/favicon.svg" width="32" height="32" alt="">
         </span>
         <div>
-          <p class="footer-name">QuikView</p>
+          <p class="footer-name">SoleView</p>
           <p class="footer-tag">开源、轻快的 Windows 看图器 · C++ &amp; Qt 6</p>
         </div>
       </div>
@@ -584,21 +562,21 @@
           <h4>资源</h4>
           <a href="#download">下载安装包</a>
           <a href="#updates">更新日志</a>
-          <a href="https://github.com/xdsT2/quikview/blob/main/ROADMAP.md" target="_blank" rel="noopener">路线图</a>
-          <a href="https://github.com/xdsT2/quikview/blob/main/ARCHITECTURE.md" target="_blank" rel="noopener">架构说明</a>
+          <a href="https://github.com/xdsT2/soleview/blob/main/ROADMAP.md" target="_blank" rel="noopener">路线图</a>
+          <a href="https://github.com/xdsT2/soleview/blob/main/ARCHITECTURE.md" target="_blank" rel="noopener">架构说明</a>
         </div>
         <div class="footer-col">
           <h4>项目</h4>
-          <a href="https://github.com/xdsT2/quikview" target="_blank" rel="noopener">GitHub 源码</a>
-          <a href="https://github.com/xdsT2/quikview/releases" target="_blank" rel="noopener">Releases 发布页</a>
-          <a href="https://github.com/xdsT2/quikview/issues" target="_blank" rel="noopener">Issues 反馈</a>
-          <a href="https://github.com/xdsT2/quikview/blob/main/LICENSE" target="_blank" rel="noopener">MIT 许可证</a>
+          <a href="https://github.com/xdsT2/soleview" target="_blank" rel="noopener">GitHub 源码</a>
+          <a href="https://github.com/xdsT2/soleview/releases" target="_blank" rel="noopener">Releases 发布页</a>
+          <a href="https://github.com/xdsT2/soleview/issues" target="_blank" rel="noopener">Issues 反馈</a>
+          <a href="https://github.com/xdsT2/soleview/blob/main/LICENSE" target="_blank" rel="noopener">MIT 许可证</a>
         </div>
       </div>
     </div>
 
     <p class="footer-note">
-      <span>© 2026 QuikView · MIT License</span>
+      <span>© 2026 SoleView · MIT License</span>
       <span>QQ 交流群：1134122173 · 不收集任何使用数据</span>
     </p>
   </div>

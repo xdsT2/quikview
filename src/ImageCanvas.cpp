@@ -334,7 +334,7 @@ private:
     int m_interp;
 };
 
-// 空态标识：同心圆环 + 右下短斜线，与 resources/quikview.ico 同一视觉语汇。
+// 空态标识：同心圆环 + 右下短斜线，与 resources/soleview.ico 同一视觉语汇。
 // 自有几何图形（不使用任何第三方 logo 的构形）。
 QPixmap makePlaceholderMark(int S, const QColor &color)
 {
@@ -1137,7 +1137,7 @@ QPixmap ImageCanvas::toMonitorSpace(const QPixmap &src) const
         if (reason != lastReason) {
             lastReason = reason;
             qWarning("[monitor-icc] %s", qUtf8Printable(reason));
-            QFile f(QDir::tempPath() + QStringLiteral("/quikview-monitor-icc.log"));
+            QFile f(QDir::tempPath() + QStringLiteral("/soleview-monitor-icc.log"));
             if (f.open(QIODevice::Append | QIODevice::Text)) {
                 f.write(QDateTime::currentDateTime().toString(Qt::ISODate).toUtf8()
                         + " " + reason.toUtf8() + "\n");

@@ -14,7 +14,7 @@
 #include "ThemeProbe.h"
 
 // 主题：深色 / 浅色 / 跟随系统（config/theme = "dark" | "light" | "system"）。
-// 深色已改为 QuikView 自有 Win11 视觉（令牌与样式全部来自 UiStyle.h），
+// 深色已改为 SoleView 自有 Win11 视觉（令牌与样式全部来自 UiStyle.h），
 // 浅色保留 Honeyview 风格的旧样式，仅作兜底。
 // 注意：本头文件不 include Config.h（Config 属持久层），当前取值经参数传入。
 namespace Theme {

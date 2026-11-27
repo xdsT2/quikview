@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QuikView 完整发布产物：免安装 zip（package.sh）+ NSIS 安装包（makensis）。
+# SoleView 完整发布产物：免安装 zip（package.sh）+ NSIS 安装包（makensis）。
 #
 # 用法：
 #   tools/package-installer.sh [build目录] [输出目录]
@@ -10,8 +10,8 @@
 #
 # 版本链路（唯一真源 → 四个消费点）：
 #   CMakeLists.txt project(VERSION 0.4.0)
-#     ├─ zip 名            quikview-0.4.0-win64.zip
-#     ├─ setup 名          QuikView-0.4.0-setup.exe
+#     ├─ zip 名            soleview-0.4.0-win64.zip
+#     ├─ setup 名          SoleView-0.4.0-setup.exe
 #     ├─ /DAPPVERSION      安装向导显示名 + DisplayVersion
 #     └─ /DAPPVERSION_RC   VIProductVersion 0.4.0.0
 #   exe 内的 VERSIONINFO 由 CMake configure_file 生成，无需脚本介入。
@@ -30,9 +30,9 @@ VERSION_RC="$(qv_version_rc "$VERSION")"
 case "$BUILD_DIR" in /*|[A-Za-z]:*) ;; *) BUILD_DIR="$PWD/$BUILD_DIR" ;; esac
 case "$OUT_DIR"   in /*|[A-Za-z]:*) ;; *) OUT_DIR="$PWD/$OUT_DIR"     ;; esac
 
-STAGE="$OUT_DIR/quikview-${VERSION}-win64"
-ZIP="$OUT_DIR/quikview-${VERSION}-win64.zip"
-SETUP="$OUT_DIR/QuikView-${VERSION}-setup.exe"
+STAGE="$OUT_DIR/soleview-${VERSION}-win64"
+ZIP="$OUT_DIR/soleview-${VERSION}-win64.zip"
+SETUP="$OUT_DIR/SoleView-${VERSION}-setup.exe"
 
 # makensis 不一定在 PATH 里（NSIS 装在 Program Files）
 MAKENSIS="${MAKENSIS:-}"
@@ -53,10 +53,10 @@ echo "makensis：$MAKENSIS"
 
 echo "[1/3] payload —— tools/package.sh 产 staging 与 zip（同一份 payload）"
 # 正式发布包必须带自建纯解码 libheif：退回 MSYS2 版会多约 50MB 编码器 DLL。
-QUIKVIEW_REQUIRE_DECODE_ONLY_LIBHEIF=1 "$REPO_ROOT/tools/package.sh" "$BUILD_DIR" "$OUT_DIR"
+SOLEVIEW_REQUIRE_DECODE_ONLY_LIBHEIF=1 QUIKVIEW_REQUIRE_DECODE_ONLY_LIBHEIF=1 "$REPO_ROOT/tools/package.sh" "$BUILD_DIR" "$OUT_DIR"
 
-# MUI_ICON 直接引用 ${SRC}\quikview.ico，缺了就编不过；这里先给出明确信息
-[ -f "$STAGE/quikview.ico" ] || { echo "staging 缺 quikview.ico（MUI_ICON 依赖），中止" >&2; exit 1; }
+# MUI_ICON 直接引用 ${SRC}\soleview.ico，缺了就编不过；这里先给出明确信息
+[ -f "$STAGE/soleview.ico" ] || { echo "staging 缺 soleview.ico（MUI_ICON 依赖），中止" >&2; exit 1; }
 
 echo "[2/3] makensis 编译安装包"
 # makensis 只吃 Windows 路径；Git Bash 会把 /D... 当成路径改写，必须关掉转换
@@ -76,7 +76,7 @@ MSYS2_ARG_CONV_EXCL='*' "$MAKENSIS" \
     "/DOUTFILE=$OUT_WIN" \
     "/DAPPVERSION=$VERSION" \
     "/DAPPVERSION_RC=$VERSION_RC" \
-    "packaging/quikview.nsi"
+    "packaging/soleview.nsi"
 
 echo "[3/3] 校验产物"
 [ -f "$SETUP" ] || { echo "安装包没产出：$SETUP" >&2; exit 1; }

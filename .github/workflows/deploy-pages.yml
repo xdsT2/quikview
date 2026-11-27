@@ -1,4 +1,4 @@
-name: Deploy QuikView Website to GitHub Pages
+name: Deploy SoleView Website to GitHub Pages
 
 on:
   push:

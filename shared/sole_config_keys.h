@@ -1,6 +1,6 @@
-#ifndef QUIK_CONFIG_KEYS_H
-#define QUIK_CONFIG_KEYS_H
-// QuikView 配置读取单一来源（主程序与壳扩展共用）。
+#ifndef SOLE_CONFIG_KEYS_H
+#define SOLE_CONFIG_KEYS_H
+// SoleView 配置读取单一来源（主程序与壳扩展共用）。
 //
 // 约束：
 //   * 纯 C++17 + Win32 字面量，**不依赖 Qt**（壳扩展不能拉 Qt，见 shell-ext/README.md）；
@@ -12,7 +12,7 @@
 
 #include <string>
 
-namespace quikcfg {
+namespace solecfg {
 
 // —— 配置文件与定位 ——
 
@@ -21,13 +21,17 @@ inline constexpr const wchar_t* kConfigFileName = L"config.ini";
 
 // 测试/冒烟隔离钩子：指向一份临时 config.ini，优先级最高。
 // 宽/窄两份字面量：壳扩展用 GetEnvironmentVariableW，主程序 qgetenv 要窄字符串。
-inline constexpr const wchar_t* kConfigPathEnvVar = L"QUIKVIEW_CONFIG_PATH";
-inline constexpr const char* kConfigPathEnvVarA = "QUIKVIEW_CONFIG_PATH";
+inline constexpr const wchar_t* kConfigPathEnvVar = L"SOLEVIEW_CONFIG_PATH";
+inline constexpr const char* kConfigPathEnvVarA = "SOLEVIEW_CONFIG_PATH";
+inline constexpr const wchar_t* kLegacyConfigPathEnvVar = L"QUIKVIEW_CONFIG_PATH";
+inline constexpr const char* kLegacyConfigPathEnvVarA = "QUIKVIEW_CONFIG_PATH";
 
-// 安装模式目录：%LOCALAPPDATA%\QuikView\QuikView（相对 LOCALAPPDATA 的两级，
-// 分别对应 Qt 的 organizationName / applicationName：QuikView/QuikView）。
-inline constexpr const wchar_t* kInstallConfigOrgDir = L"QuikView";
-inline constexpr const wchar_t* kInstallConfigAppDir = L"QuikView";
+// 安装模式目录：%LOCALAPPDATA%\SoleView\SoleView（相对 LOCALAPPDATA 的两级，
+// 分别对应 Qt 的 organizationName / applicationName：SoleView/SoleView）。
+inline constexpr const wchar_t* kInstallConfigOrgDir = L"SoleView";
+inline constexpr const wchar_t* kInstallConfigAppDir = L"SoleView";
+inline constexpr const wchar_t* kLegacyInstallConfigOrgDir = L"QuikView";
+inline constexpr const wchar_t* kLegacyInstallConfigAppDir = L"QuikView";
 
 // 便携模式：<模块所在目录>\config.ini。modulePath 传 exe 或 DLL 的完整路径
 // （主程序传 applicationDirPath + 文件名，壳扩展传 GetModuleFileNameW 结果）。
@@ -39,13 +43,22 @@ inline std::wstring PortableConfigPath(const std::wstring& modulePath) {
     return dir + L"\\" + kConfigFileName;
 }
 
-// 安装模式：<localAppData>\QuikView\QuikView\config.ini。
+// 安装模式：<localAppData>\SoleView\SoleView\config.ini。
 inline std::wstring InstallConfigPath(const std::wstring& localAppData) {
     std::wstring p = localAppData;
     if (p.empty()) return std::wstring(kConfigFileName);
     if (p.back() == L'\\' || p.back() == L'/') p.pop_back();
     return p + L"\\" + kInstallConfigOrgDir + L"\\" + kInstallConfigAppDir + L"\\" +
            kConfigFileName;
+}
+
+// 兼容旧版安装模式：<localAppData>\QuikView\QuikView\config.ini。
+inline std::wstring LegacyInstallConfigPath(const std::wstring& localAppData) {
+    std::wstring p = localAppData;
+    if (p.empty()) return std::wstring(kConfigFileName);
+    if (p.back() == L'\\' || p.back() == L'/') p.pop_back();
+    return p + L"\\" + kLegacyInstallConfigOrgDir + L"\\" +
+           kLegacyInstallConfigAppDir + L"\\" + kConfigFileName;
 }
 
 // —— 资源管理器右键菜单开关 ——
@@ -57,9 +70,9 @@ inline constexpr const wchar_t* kCtxIniSection = L"config";
 inline constexpr const wchar_t* kCtxGroup = L"ctxmenu";
 
 enum CtxLeaf {
-    CtxUseShellMenu = 0,   // 总开关：右键菜单里是否出现 QuikView
-    CtxShowBrowse,         // 「用 QuikView 浏览」
-    CtxShowConvert,        // 「用 QuikView 转换」
+    CtxUseShellMenu = 0,   // 总开关：右键菜单里是否出现 SoleView
+    CtxShowBrowse,         // 「用 SoleView 浏览」
+    CtxShowConvert,        // 「用 SoleView 转换」
     CtxShowPreview,        // 菜单内自绘缩略图
     CtxShowInfo,           // 浏览项右侧「宽×高 · 大小」
     CtxShowIcon,           // 菜单项软件图标
@@ -96,6 +109,8 @@ inline std::wstring CtxSettingsKey(CtxLeaf leaf) {
     return std::wstring(kCtxIniSection) + L"/" + kCtxGroup + L"/" + CtxLeafName(leaf);
 }
 
-}   // namespace quikcfg
+}   // namespace solecfg
 
-#endif   // QUIK_CONFIG_KEYS_H
+namespace quikcfg = solecfg;
+
+#endif   // SOLE_CONFIG_KEYS_H

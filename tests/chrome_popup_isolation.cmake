@@ -1,27 +1,27 @@
 # 弹出菜单 / 上下悬浮铬件显隐隔离 · 单用例执行器（CTest 以 cmake -P 调用）
 #
 # 用法：
-#   cmake -DQUIKVIEW_EXE=<quikview.exe> -DQUIKVIEW_SOURCE_DIR=<repo>
-#         -DQUIKVIEW_WORK_ROOT=<build>/ctest-chrome-popup -DQUIKVIEW_CASE=<name>
+#   cmake -DSOLEVIEW_EXE=<soleview.exe> -DSOLEVIEW_SOURCE_DIR=<repo>
+#         -DSOLEVIEW_WORK_ROOT=<build>/ctest-chrome-popup -DSOLEVIEW_CASE=<name>
 #         -P tests/chrome_popup_isolation.cmake
 #
 # 判定完全基于 --smoke report 的状态报告；--screenshot 只用来让进程按确定时序自动退出。
-# 每个用例独占工作目录 + 独立 QUIKVIEW_CONFIG_PATH，不污染用户 config.ini，
+# 每个用例独占工作目录 + 独立 SOLEVIEW_CONFIG_PATH，不污染用户 config.ini，
 # 用例之间也不会互相覆盖 Temp/zoom-report.txt。
 
 cmake_minimum_required(VERSION 3.16)
 
-foreach(_required QUIKVIEW_EXE QUIKVIEW_SOURCE_DIR QUIKVIEW_WORK_ROOT QUIKVIEW_CASE)
+foreach(_required SOLEVIEW_EXE SOLEVIEW_SOURCE_DIR SOLEVIEW_WORK_ROOT SOLEVIEW_CASE)
     if(NOT ${_required})
         message(FATAL_ERROR "缺少 -D${_required}=...")
     endif()
 endforeach()
 
-include("${QUIKVIEW_SOURCE_DIR}/tests/chrome_popup_cases.cmake")
+include("${SOLEVIEW_SOURCE_DIR}/tests/chrome_popup_cases.cmake")
 
-set(_prefix "QV_CASE_${QUIKVIEW_CASE}")
+set(_prefix "QV_CASE_${SOLEVIEW_CASE}")
 if(NOT DEFINED ${_prefix}_SMOKE)
-    message(FATAL_ERROR "未定义的用例：${QUIKVIEW_CASE}")
+    message(FATAL_ERROR "未定义的用例：${SOLEVIEW_CASE}")
 endif()
 set(_smoke "${${_prefix}_SMOKE}")
 set(_exp1 "${${_prefix}_EXPECT1}")
@@ -30,15 +30,15 @@ set(_extra_files "${${_prefix}_FILES}")
 # 可选 PSD 夹具（相对源码根，须版本管理内）：图层浮层类用例用它做被打开文件。
 set(_psd "${${_prefix}_PSD}")
 
-set(_case_dir "${QUIKVIEW_WORK_ROOT}/${QUIKVIEW_CASE}")
+set(_case_dir "${SOLEVIEW_WORK_ROOT}/${SOLEVIEW_CASE}")
 file(MAKE_DIRECTORY "${_case_dir}/images")
 
 # 样本图从版本管理内的 docs/screenshots 复制，保证「多图目录」（滑杆可用），
 # 且不依赖 Temp/ 下任何未入库的历史产物。
-file(GLOB _fixture_images "${QUIKVIEW_SOURCE_DIR}/docs/screenshots/*.png")
+file(GLOB _fixture_images "${SOLEVIEW_SOURCE_DIR}/docs/screenshots/*.png")
 list(LENGTH _fixture_images _fixture_count)
 if(_fixture_count LESS 2)
-    message(FATAL_ERROR "样本图不足 2 张：${QUIKVIEW_SOURCE_DIR}/docs/screenshots/*.png")
+    message(FATAL_ERROR "样本图不足 2 张：${SOLEVIEW_SOURCE_DIR}/docs/screenshots/*.png")
 endif()
 file(COPY ${_fixture_images} DESTINATION "${_case_dir}/images")
 list(GET _fixture_images 0 _first_image)
@@ -49,7 +49,7 @@ file(TO_NATIVE_PATH "${_image}" _image_native)
 # PSD 用例：被打开文件换成声明的分层 PSD（仍复制进用例目录，保持独占工作区）。
 set(_open_native "${_image_native}")
 if(_psd)
-    set(_psd_src "${QUIKVIEW_SOURCE_DIR}/${_psd}")
+    set(_psd_src "${SOLEVIEW_SOURCE_DIR}/${_psd}")
     if(NOT EXISTS "${_psd_src}")
         message(FATAL_ERROR "PSD 夹具缺失：${_psd_src}")
     endif()
@@ -63,7 +63,7 @@ if(CMAKE_HOST_WIN32)
 else()
     set(_path_sep ":")
 endif()
-get_filename_component(_exe_dir "${QUIKVIEW_EXE}" DIRECTORY)
+get_filename_component(_exe_dir "${SOLEVIEW_EXE}" DIRECTORY)
 
 string(REPLACE "," ";" _commands "${_smoke}")
 list(LENGTH _commands _command_count)
@@ -111,12 +111,12 @@ function(qv_try attempt)
     set(_report "${_dir}/Temp/zoom-report.txt")
     foreach(_stale ${_report} "${_dir}/Temp/ctxmenu-report.txt"
                    "${_dir}/Temp/settings-combos.txt" "${_dir}/shot.png"
-                   "${_dir}/quikview-test.ini")
+                   "${_dir}/soleview-test.ini")
         file(REMOVE "${_stale}")
     endforeach()
 
     # 独立配置 + exe 同目录 DLL 优先，避免读取真实 config.ini 或串到别的 Qt。
-    set(ENV{QUIKVIEW_CONFIG_PATH} "${_dir}/quikview-test.ini")
+    set(ENV{SOLEVIEW_CONFIG_PATH} "${_dir}/soleview-test.ini")
     set(ENV{PATH} "${_exe_dir}${_path_sep}$ENV{PATH}")
     file(TO_NATIVE_PATH "${_dir}/shot.png" _shot_native)
 
@@ -124,7 +124,7 @@ function(qv_try attempt)
     # 主窗口不是活动窗口，Qt 会把 setFocus 推迟到激活时，键盘焦点用例就永远验不出来。
     # 经 PowerShell Start-Process 以正常显示状态启动即可复现真实交互环境。
     if(CMAKE_HOST_WIN32)
-        set(_ps_exe "${QUIKVIEW_EXE}")
+        set(_ps_exe "${SOLEVIEW_EXE}")
         set(_ps_image "${_open_native}")
         set(_ps_smoke "${_smoke}")
         set(_ps_shot "${_shot_native}")
@@ -147,7 +147,7 @@ function(qv_try attempt)
             TIMEOUT 60)
     else()
         execute_process(
-            COMMAND "${QUIKVIEW_EXE}" "${_open_native}"
+            COMMAND "${SOLEVIEW_EXE}" "${_open_native}"
                     --smoke "${_smoke}"
                     --screenshot "${_shot_native}"
                     --shot-delay "${_shot_delay}"
@@ -237,21 +237,21 @@ foreach(_attempt RANGE 1 3)
         set(_pass_report "${QV_TRY_REPORT}")
         break()
     endif()
-    message(STATUS "[chrome-popup] ${QUIKVIEW_CASE} 第 ${_attempt} 次未通过：${QV_TRY_REASON}，重试")
+    message(STATUS "[chrome-popup] ${SOLEVIEW_CASE} 第 ${_attempt} 次未通过：${QV_TRY_REASON}，重试")
 endforeach()
 
 if(NOT _passed)
     file(WRITE "${_case_dir}/result.txt"
-         "case=${QUIKVIEW_CASE}\nstatus=FAIL\nattempts=${_attempts}\n"
+         "case=${SOLEVIEW_CASE}\nstatus=FAIL\nattempts=${_attempts}\n"
          "smoke=${_smoke}\nreason=${QV_TRY_REASON}\n")
-    message(FATAL_ERROR "[chrome-popup] ${QUIKVIEW_CASE} FAIL（${_attempts} 次尝试）：${QV_TRY_REASON}")
+    message(FATAL_ERROR "[chrome-popup] ${SOLEVIEW_CASE} FAIL（${_attempts} 次尝试）：${QV_TRY_REASON}")
 endif()
 
 file(WRITE "${_case_dir}/result.txt"
-     "case=${QUIKVIEW_CASE}\nstatus=PASS\nattempts=${_attempts}\n"
+     "case=${SOLEVIEW_CASE}\nstatus=PASS\nattempts=${_attempts}\n"
      "smoke=${_smoke}\nshot-delay=${_shot_delay}\n"
      "report=${_pass_dir}/Temp/zoom-report.txt\n"
      "expect1=${_exp1}\nexpect2=${_exp2}\n"
      "--- state report ---\n${_pass_report}")
-message(STATUS "[chrome-popup] ${QUIKVIEW_CASE} PASS (attempt ${_attempts})")
+message(STATUS "[chrome-popup] ${SOLEVIEW_CASE} PASS (attempt ${_attempts})")
 message(STATUS "[chrome-popup]   ${_pass_report}")

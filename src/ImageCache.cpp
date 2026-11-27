@@ -121,7 +121,8 @@ void ImageCache::setFullCacheLimit(int mb)
 
 void ImageCache::probeLog(const QString &line) const
 {
-    if (!qEnvironmentVariableIsSet("QUIKVIEW_IMAGEPROC_PROBE")) {
+    if (!qEnvironmentVariableIsSet("SOLEVIEW_IMAGEPROC_PROBE")
+        && !qEnvironmentVariableIsSet("QUIKVIEW_IMAGEPROC_PROBE")) {
         return;
     }
     QFile f(QStringLiteral("Temp/imageproc-live-probe.txt"));

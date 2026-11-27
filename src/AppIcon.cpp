@@ -26,7 +26,7 @@ struct Entry {
 
 // 顺序按使用面分组：菜单/设置 → 工具栏与底岛 → 图层面板 → 状态与扩展。
 // note 里写清「为什么是这个家族」和「包内缺件时的回退」，缺件规则见
-// 管理/QuikView-图标系统-20261118/missing-and-custom.csv。
+// 管理/SoleView-图标系统-20261118/missing-and-custom.csv。
 const Entry kEntries[] = {
     // —— 打开与定位 ——
     {"image", "image", nullptr, "打开图片 / 图片状态"},
@@ -232,9 +232,10 @@ namespace AppIcon {
 
 bool available()
 {
-    // 验收开关：QUIKVIEW_NO_ICONS=1 时按「图标资源缺失」处理，用来确认回退路径
-    // ——图标整体缺席，但按钮、文字、交互全部照常，不黑块也不崩。正常使用不设。
-    if (!qEnvironmentVariableIsEmpty("QUIKVIEW_NO_ICONS"))
+    // 验收开关：SOLEVIEW_NO_ICONS=1（兼容 QUIKVIEW_NO_ICONS=1）时按「图标资源缺失」处理，
+    // 用来确认回退路径——图标整体缺席，但按钮、文字、交互全部照常，不黑块也不崩。正常使用不设。
+    if (!qEnvironmentVariableIsEmpty("SOLEVIEW_NO_ICONS")
+        || !qEnvironmentVariableIsEmpty("QUIKVIEW_NO_ICONS"))
         return false;
     return QDir(QStringLiteral(":/icons/fluent")).exists();
 }

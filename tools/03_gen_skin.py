@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""QuikView 界面素材生成器。
+"""SoleView 界面素材生成器。
 
 生成 `resources/skin/` 下由参数化几何描述的界面素材（RGBA PNG）。
 各文件的尺寸、帧序与状态语义是代码侧的接口约束，设计参数见 `docs/ATTRIBUTION.md`。
@@ -111,7 +111,7 @@ def load_expected() -> dict[str, str]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="生成 QuikView 界面素材")
+    ap = argparse.ArgumentParser(description="生成 SoleView 界面素材")
     ap.add_argument("--check", action="store_true",
                     help="校验全部素材，不写盘；发现不一致时返回非零")
     args = ap.parse_args(argv)

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 版本号读取 —— 全仓唯一实现。
 #
-# 唯一真源：CMakeLists.txt 第 2 行 `project(quikview VERSION x.y.z ...)`。
+# 唯一真源：CMakeLists.txt 第 2 行 `project(SoleView VERSION x.y.z ...)`。
 # `tools/package.sh` 与 `tools/package-installer.sh` 都 source 这里，
 # 禁止在任何地方再写第三份 sed（历史教训：两份正则各自演化，产物版本对不上）。
 #
@@ -16,11 +16,11 @@ qv_read_version() {
 
     [ -f "$cmake_file" ] || { echo "找不到 $cmake_file" >&2; return 1; }
 
-    ver="$(sed -n 's/^project(quikview[[:space:]]\+VERSION[[:space:]]\+\([^[:space:])]*\).*/\1/p' \
+    ver="$(sed -n 's/^project(SoleView[[:space:]]\+VERSION[[:space:]]\+\([^[:space:])]*\).*/\1/p' \
             "$cmake_file" | head -1)"
 
     if [ -z "$ver" ]; then
-        echo "读不到 $cmake_file 的 project(quikview VERSION ...)" >&2
+        echo "读不到 $cmake_file 的 project(SoleView VERSION ...)" >&2
         return 1
     fi
     # 必须三段纯数字：一二段可选多段，但至少 a.b.c

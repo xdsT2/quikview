@@ -68,7 +68,7 @@ bool drawIcon(QPainter &p, const char *id, const QRectF &r, const QColor &color,
 
 // 仅两处保留自绘：菜单按钮三横线、窗口按钮（最小化/最大化/还原/关闭）。
 // Fluent 精选包没有这两类家族，且窗口按钮属原生窗口外观；两份实现各自唯一，
-// 缺口登记在 管理/QuikView-图标系统-20261118/missing-and-custom.csv。
+// 缺口登记在 管理/SoleView-图标系统-20261118/missing-and-custom.csv。
 void drawHamburger(QPainter &p, const QRectF &r, const QColor &color)
 {
     if (r.isEmpty()) {
@@ -318,7 +318,10 @@ qreal stepToward(qreal cur, qreal target, qreal dt, int durationMs)
 bool reducedMotion()
 {
     static const bool reduced = []() -> bool {
-        const QByteArray env = qgetenv("QUIKVIEW_REDUCE_MOTION").trimmed().toLower();
+        QByteArray env = qgetenv("SOLEVIEW_REDUCE_MOTION").trimmed().toLower();
+        if (env.isEmpty()) {
+            env = qgetenv("QUIKVIEW_REDUCE_MOTION").trimmed().toLower();
+        }
         if (!env.isEmpty()) {
             return !(env == "0" || env == "false" || env == "off");
         }

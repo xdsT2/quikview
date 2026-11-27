@@ -2,12 +2,12 @@
   "use strict";
 
   var REPO_OWNER = "xdsT2";
-  var REPO_NAME = "quikview";
+  var REPO_NAME = "soleview";
   var REPO_URL = "https://github.com/" + REPO_OWNER + "/" + REPO_NAME;
   var RELEASES_API_URL = "https://api.github.com/repos/" + REPO_OWNER + "/" + REPO_NAME + "/releases?per_page=20";
   var RAW_CHANGELOG_URL = "https://raw.githubusercontent.com/" + REPO_OWNER + "/" + REPO_NAME + "/main/CHANGELOG.md";
   var JSDELIVR_CHANGELOG_URL = "https://cdn.jsdelivr.net/gh/" + REPO_OWNER + "/" + REPO_NAME + "@main/CHANGELOG.md";
-  var CACHE_KEY = "qv-changelog-cache-v1";
+  var CACHE_KEY = "sv-changelog-cache-v1";
   var CACHE_TTL_MS = 15 * 60 * 1000;
   var INITIAL_VISIBLE_RELEASES = 5;
 
@@ -50,7 +50,7 @@
   }
 
   var storedTheme = null;
-  try { storedTheme = localStorage.getItem("qv-theme"); } catch (e) {}
+  try { storedTheme = localStorage.getItem("sv-theme") || localStorage.getItem("qv-theme"); } catch (e) {}
   if (storedTheme === "light" || storedTheme === "dark") {
     applyTheme(storedTheme);
   } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) {
@@ -63,7 +63,7 @@
     themeToggle.addEventListener("click", function () {
       var next = root.getAttribute("data-theme") === "light" ? "dark" : "light";
       applyTheme(next);
-      try { localStorage.setItem("qv-theme", next); } catch (e) {}
+      try { localStorage.setItem("sv-theme", next); } catch (e) {}
     });
   }
 
@@ -269,7 +269,7 @@
         tab.setAttribute("aria-selected", active ? "true" : "false");
       });
 
-      swapImage(heroImg, src, "QuikView " + title + " 实机截图");
+      swapImage(heroImg, src, "SoleView " + title + " 实机截图");
     });
 
     heroImg.addEventListener("click", function () {
@@ -305,7 +305,7 @@
       }
 
       var img = frame.querySelector("img");
-      swapImage(img, src, "QuikView " + title);
+      swapImage(img, src, "SoleView " + title);
       if (capEl) capEl.textContent = caption;
       frame.setAttribute("data-current-title", title);
       frame.setAttribute("data-current-caption", caption);
@@ -317,7 +317,7 @@
       var img = frame.querySelector("img");
       if (!img) return;
       var capEl = document.getElementById(frame.id + "-cap");
-      var title = frame.getAttribute("data-current-title") || img.alt || "QuikView 界面";
+      var title = frame.getAttribute("data-current-title") || img.alt || "SoleView 界面";
       var caption = frame.getAttribute("data-current-caption") || (capEl ? capEl.textContent : "");
       openLightboxSingle(img.src, title, caption);
     });
@@ -529,19 +529,19 @@
     {
       tag: "v0.6.1",
       version: "0.6.1",
-      title: "QuikView 0.6.1",
-      subtitle: "启动与打开收口 · 设置即时化续批 · 显示与系统集成",
+      title: "SoleView 0.6.1",
+      subtitle: "品牌升级为 SoleView · 启动与打开收口 · 设置即时化续批",
       date: "2026-11-26",
       url: REPO_URL + "/releases/tag/v0.6.1",
       prerelease: false,
       unreleased: false,
       assets: [
-        { name: "QuikView-0.6.1-setup.exe", size: 29200246, url: REPO_URL + "/releases/download/v0.6.1/QuikView-0.6.1-setup.exe" },
-        { name: "quikview-0.6.1-win64.zip", size: 41594143, url: REPO_URL + "/releases/download/v0.6.1/quikview-0.6.1-win64.zip" },
+        { name: "SoleView-0.6.1-setup.exe", size: 29200246, url: REPO_URL + "/releases/download/v0.6.1/SoleView-0.6.1-setup.exe" },
+        { name: "soleview-0.6.1-win64.zip", size: 41594143, url: REPO_URL + "/releases/download/v0.6.1/soleview-0.6.1-win64.zip" },
         { name: "SHA256SUMS.txt", size: 182, url: REPO_URL + "/releases/download/v0.6.1/SHA256SUMS.txt" }
       ],
       markdown: [
-        "> 本版是 0.6.0 的增量更新。继续推进设置即时化与界面 Fluent 收口，重做启动恢复策略与「打开」入口，补齐剪贴板、总览与系统集成。",
+        "> 本版是 0.6.0 的增量更新，并完成全项目统一更名为 SoleView。继续推进设置即时化与界面 Fluent 收口，重做启动恢复策略与「打开」入口，补齐剪贴板、总览与系统集成。",
         "",
         "### 升级注意：三处行为变更",
         "- **启动恢复改为可选、默认关**：位置在「设置 → 通用 → 启动」，无参启动进入欢迎页，双击或命令行文件优先。",
@@ -557,7 +557,7 @@
     {
       tag: "v0.6.0",
       version: "0.6.0",
-      title: "QuikView 0.6.0",
+      title: "SoleView 0.6.0 (原 QuikView 0.6.0)",
       subtitle: "360° 全景组件 · 总览重做 · 格式与即时化扩展",
       date: "2026-11-22",
       url: REPO_URL + "/releases/tag/v0.6.0",
@@ -568,7 +568,7 @@
         "> 新增可选 360° 全景组件，重做图片总览网格，打通 SVG 直接打开，并启用自建纯解码 libheif。",
         "",
         "### 主要更新",
-        "- 新增可选 360° 全景查看器组件（独立进程 `quikview-pano.exe`）与内置 `QSvgRenderer` SVG 直接打开。",
+        "- 新增可选 360° 全景查看器组件（独立进程 `soleview-pano.exe`，历史版本曾名 `quikview-pano.exe`）与内置 `QSvgRenderer` SVG 直接打开。",
         "- 界面语言、翻页音效与 RAW 打开策略支持即时生效；设置侧栏新增「关于」页。",
         "- 安装包体积由 39.6 MB 瘦身至约 29 MB。"
       ].join("\n")
@@ -576,7 +576,7 @@
     {
       tag: "v0.5.6",
       version: "0.5.6",
-      title: "QuikView 0.5.6",
+      title: "SoleView 0.5.6 (原 QuikView 0.5.6)",
       subtitle: "设置九页重组 · 压缩包直读 · 浏览与窗口记忆 · 交互显示收口",
       date: "2026-11-21",
       url: REPO_URL + "/releases/tag/v0.5.6",
@@ -876,7 +876,7 @@
         return {
           tag: tag || ("v" + version),
           version: version,
-          title: item.name || ("QuikView " + version),
+          title: item.name || ("SoleView " + version),
           subtitle: subtitle,
           date: date,
           url: sanitizeLinkUrl(item.html_url) || (REPO_URL + "/releases"),
@@ -932,7 +932,7 @@
       return {
         tag: tag,
         version: version,
-        title: "QuikView " + version,
+        title: "SoleView " + version,
         subtitle: subtitle,
         date: date,
         url: url,
@@ -997,13 +997,14 @@
     if (latest.assets && latest.assets.length) {
       latest.assets.forEach(function (a) {
         if (/setup.*\.exe$/i.test(a.name)) setupAsset = a;
-        else if (/\.zip$/i.test(a.name)) zipAsset = a;
+        else if (/win64.*\.zip$/i.test(a.name)) zipAsset = a;
+        else if (/\.zip$/i.test(a.name) && !zipAsset && !/pano/i.test(a.name)) zipAsset = a;
         else if (/sha256/i.test(a.name)) shaAsset = a;
       });
     }
 
-    var expectedSetupName = setupAsset ? setupAsset.name : ("QuikView-" + vNum + "-setup.exe");
-    var expectedZipName = zipAsset ? zipAsset.name : ("quikview-" + vNum + "-win64.zip");
+    var expectedSetupName = setupAsset ? setupAsset.name : ("SoleView-" + vNum + "-setup.exe");
+    var expectedZipName = zipAsset ? zipAsset.name : ("soleview-" + vNum + "-win64.zip");
 
     if (setupBtn) setupBtn.href = setupAsset ? setupAsset.url : (REPO_URL + "/releases/download/" + verTag + "/" + expectedSetupName);
     if (setupName) setupName.textContent = expectedSetupName;

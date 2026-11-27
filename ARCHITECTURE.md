@@ -1,7 +1,7 @@
-# QuikView 架构
+# SoleView 架构
 
-> 当前版本 **0.6.1**（2026-11-26 发布，tag `v0.6.1`）。`0.5.1` 从未发布、已跳过，其变更并入 0.5.2。本文按 `src/` 实际代码写，改动后请同步。
-> 视觉与交互规范另见 [docs/design/QUIKVIEW-DESIGN.md](docs/design/QUIKVIEW-DESIGN.md)。
+> 当前版本 **0.6.1**（2026-11-26 发布，tag `v0.6.1`；全项目已由 QuikView 统一更名为 SoleView）。`0.5.1` 从未发布、已跳过，其变更并入 0.5.2。本文按 `src/` 实际代码写，改动后请同步。
+> 视觉与交互规范另见 [docs/design/SOLEVIEW-DESIGN.md](docs/design/SOLEVIEW-DESIGN.md)。
 
 ## 模块划分
 
@@ -73,24 +73,24 @@
 | `UiStyle.h` | 826 | **UI 令牌唯一来源**：颜色 / 间距 / 字号，79 条 `inline constexpr`（其中颜色 45 条） |
 | `Theme.h` | 148 | 深 / 浅主题切换 |
 | `FlipProbe.h` / `PerfProbe.h` / `ThemeProbe.h` | 77 / 111 / 77 | 验收计时探针（翻图 / 打开分段 / 主题切换），环境变量开启，未开启时首判即返回，零开销 |
-| `PanoExtension` | 482 + 72 | **可选组件管理单例**：状态只认文件事实（`applicationDirPath()/quikview-pano.exe` + `pano-version.txt` 首行版本），兼容性 = major.minor 与主程序版本一致；下载源 `QUIKVIEW_PANO_SOURCE` → `config/ext/pano_source` → 安装包自带；网络下载取同址 `.sha256`（缺摘要即拒装）→ SHA-256 比对 → 解包 → 校验 MZ 头与版本 → 先写 `.new` 再替换；取消回 `NotInstalled` 且无错误，失败保留原状态并给中文原因 |
+| `PanoExtension` | 482 + 72 | **可选组件管理单例**：状态只认文件事实（`applicationDirPath()/soleview-pano.exe` + `pano-version.txt` 首行版本），兼容性 = major.minor 与主程序版本一致；下载源 `SOLEVIEW_PANO_SOURCE`（兼容 `QUIKVIEW_PANO_SOURCE`）→ `config/ext/pano_source` → 安装包自带；网络下载取同址 `.sha256`（缺摘要即拒装）→ SHA-256 比对 → 解包 → 校验 MZ 头与版本 → 先写 `.new` 再替换；取消回 `NotInstalled` 且无错误，失败保留原状态并给中文原因 |
 
 ## 子项目
 
 | 目录 | 说明 |
 |---|---|
-| `shell-ext/` | 资源管理器壳扩展：缩略图提供程序（`IThumbnailProvider`）+ 右键菜单（`IContextMenu`），纯 Win32 裸 COM，不依赖 Qt。64 位 MinGW 静态构建为主交付物 |
-| `src/pano/` | **360° 全景查看器**：独立可执行目标 `quikview-pano.exe`（`PanoGlobe` 每像素反投视线求经纬 + 双线性采样、横向环绕、纵向夹极；`PanoWindow` 拖动 / 滚轮 / 双击复位 / Esc 关闭 + 底部 HUD）。只链 `Qt6::Widgets`，**不引第三方全景库、不用 OpenGL**：软件光栅，交互期半分辨率、停手 120ms 补全分辨率。`main.cpp` 解析 `--image/--heading/--pitch/--fov/--bench/--bench-out/--bench-shot`，参数逐个传递不拼引号，退出码 2 表示参数或解码失败 |
+| `shell-ext/` | 资源管理器壳扩展：缩略图提供程序（`IThumbnailProvider`）+ 右键菜单（`IContextMenu`），纯 Win32 裸 COM，不依赖 Qt。64 位 MinGW 静态构建为主交付物（`solethumb.dll`） |
+| `src/pano/` | **360° 全景查看器**：独立可执行目标 `soleview-pano.exe`（`PanoGlobe` 每像素反投视线求经纬 + 双线性采样、横向环绕、纵向夹极；`PanoWindow` 拖动 / 滚轮 / 双击复位 / Esc 关闭 + 底部 HUD）。只链 `Qt6::Widgets`，**不引第三方全景库、不用 OpenGL**：软件光栅，交互期半分辨率、停手 120ms 补全分辨率。`main.cpp` 解析 `--image/--heading/--pitch/--fov/--bench/--bench-out/--bench-shot`，参数逐个传递不拼引号，退出码 2 表示参数或解码失败 |
 | `shell/` | 早期壳扩展实现（缩略图 + 预览窗格），保留备查，不再是主交付物 |
-| `packaging/` | NSIS 安装包脚本（`quikview.nsi`） |
+| `packaging/` | NSIS 安装包脚本（`soleview.nsi`） |
 | `translations/` | 9 种语言的 `.ts`（简繁中文、英、日、韩、法、德、西、俄） |
-| `resources/` | 图标与界面皮肤，全部程序化绘制，来源记录见 `PROVENANCE.json` |
+| `resources/` | 图标与界面皮肤，来源记录见 `PROVENANCE.json` |
 | `tools/` | 皮肤生成器（`03_gen_skin.py`）与打包脚本 |
 | `docs/` | 截图、素材来源、设计规范 |
 
 ## 关键选型与取舍
 
-| 决策点 | Honeyview 的做法（逆向） | QuikView 的做法 | 理由 |
+| 决策点 | Honeyview 的做法（逆向） | SoleView 的做法 | 理由 |
 |---|---|---|---|
 | 解码层 | 自研 Ark + 内嵌 libbpg/libraw | Qt 图像插件 + libraw/libheif | 用成熟开源，不重复造轮子 |
 | 遥测 | config 驱动，默认上报 ana.bandi.so | **默认关，opt-in** | 逆向揭示的坑，反着做 |
@@ -104,12 +104,12 @@
 
 ## 「单一来源」硬规则
 
-1. **版本号**：只有 `CMakeLists.txt` 的 `project(VERSION ...)`。它生成 `QUIKVIEW_VERSION` 宏，`setApplicationVersion()` 与「关于」对话框都读这个宏，不再各写各的字面量。文档侧（README / ROADMAP / CHANGELOG / 本文）的版本口径以 tag 与 `发布产物/README.md` 的发布状态为准，不自行推断。
+1. **版本号**：只有 `CMakeLists.txt` 的 `project(VERSION ...)`。它生成 `SOLEVIEW_VERSION` 宏（并保留 `QUIKVIEW_VERSION` 兼容别名），`setApplicationVersion()` 与「关于」对话框都读这个宏，不再各写各的字面量。文档侧（README / ROADMAP / CHANGELOG / 本文）的版本口径以 tag 与 `发布产物/README.md` 的发布状态为准，不自行推断。
 2. **UI 令牌**：只有 `src/UiStyle.h`。QSS 里写 `@Token@` 占位符，运行时由 `withColorTokens()` 替换成常量——界面代码不出现裸色值。
 3. **翻译**：只有 `translations/*.ts`，运行时编译成 `.qm` 由 `QTranslator` 装载；中文（简体）是源语言，不额外装载。
 4. **图标**：只有 `src/AppIcon.cpp` 的映射表。`resources/icons/fluent/` 里的 SVG 由 `tools/install-fluent-icons.py` 依该表复制、`resources/ui.qrc` 的登记段也由它生成——不要在页面里各自拼路径，也不要手工往 qrc 里加图标，更不要把一个家族的多档尺寸全塞进来。
 5. **压缩包虚拟路径**：只有 `src/ArchiveStore.cpp`。包内条目的路径一律是 **包文件的绝对路径 + `/` + 包内条目名**（例：`E:/comics/book.cbz/001.jpg`）——这样 `QFileInfo(path).fileName()` 就是条目名，胶片栏 / 标题 / 缩略图的既有代码不必为虚拟路径另写取名逻辑，`lastIndexOf('/')` 之前就是包路径。**禁止**各模块自行拼 `包 + 分隔符 + 条目`，或用 `:`、`::`、「包名 + 空格」之类自造写法（详见 `ArchiveStore.h` 顶部注释）。
-6. **组件状态**：只有 `src/PanoExtension.cpp`。装没装只看文件事实（`quikview-pano.exe` + `pano-version.txt` 首行），「装上了」不看配置、不看注册表；版本口径与主程序同一个 `project(VERSION)`，安装向导写版本文件也用它。设置页、主窗入口、右键菜单都向 `Manager::instance().status()` 取状态，不各自拼判断。
+6. **组件状态**：只有 `src/PanoExtension.cpp`。装没装只看文件事实（`soleview-pano.exe` + `pano-version.txt` 首行），「装上了」不看配置、不看注册表；版本口径与主程序同一个 `project(VERSION)`，安装向导写版本文件也用它。设置页、主窗入口、右键菜单都向 `Manager::instance().status()` 取状态，不各自拼判断。
 
 ## 依赖清单
 
@@ -123,7 +123,7 @@
 
 ## 冒烟入口
 
-`--smoke <cmd[,cmd2]>` / `--screenshot` / `--screenshot-ui` 三个模式都会把配置重定向到临时 ini（环境变量 `QUIKVIEW_CONFIG_PATH`，优先级高于便携模式），**不污染用户 `config.ini`**。新增测试入口必须沿用这条路径。
+`--smoke <cmd[,cmd2]>` / `--screenshot` / `--screenshot-ui` 三个模式都会把配置重定向到临时 ini（环境变量 `SOLEVIEW_CONFIG_PATH`，兼容 `QUIKVIEW_CONFIG_PATH`，优先级高于便携模式），**不污染用户 `config.ini`**。新增测试入口必须沿用这条路径。
 
 全景相关入口：`panoinfo:<path>`（同步跑一次识别并追加写 `Temp/pano-probe.txt`）、`panoopen`（走主窗真实入口链路）、`panochip[:out]`（当前图入口可见性与几何）、`extpage`（定位「设置 → 扩展」组件行并写 `Temp/ext-row.txt`）、`extstatus[:out]`、`extinstall` / `extcancel` / `extuninstall`。查看器自身另有 `--bench` / `--bench-out` / `--bench-shot` 三个验收参数。
 

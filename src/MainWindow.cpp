@@ -111,10 +111,14 @@
 #include "PanoExtension.h"
 #include "PanoMetadata.h"
 
-// 版本号由 CMakeLists 的 project(VERSION ...) 注入（见 QUIKVIEW_VERSION），
+// 版本号由 CMakeLists 的 project(VERSION ...) 注入（见 SOLEVIEW_VERSION），
 // 这里只做兜底，避免脱离 CMake 直接编译时报未定义。
-#ifndef QUIKVIEW_VERSION
-#define QUIKVIEW_VERSION "0.0.0"
+#ifndef SOLEVIEW_VERSION
+#ifdef QUIKVIEW_VERSION
+#define SOLEVIEW_VERSION QUIKVIEW_VERSION
+#else
+#define SOLEVIEW_VERSION "0.0.0"
+#endif
 #endif
 
 #ifdef Q_OS_WIN
@@ -133,11 +137,20 @@ inline short yFromLparam(long v) { return static_cast<short>(HIWORD(v)); }
 namespace {
 constexpr int kTopChromeH = 76;      // 标题栏 28 + 命令栏 34 + 视觉留白（仅作面板/浮层定位）
 
-// 验收探针落盘（只在 QUIKVIEW_ETC_PROBE 置位时写）：路径取 QUIKVIEW_B21_PROBE_DIR，
-// 未给时落 Temp/。批次21 三项的「动作真发生了」都靠这行机读日志，不靠截图推断。
+// 验收探针落盘（只在 SOLEVIEW_ETC_PROBE / QUIKVIEW_ETC_PROBE 置位时写）：
+// 路径取 SOLEVIEW_B21_PROBE_DIR（回退 QUIKVIEW_B21_PROBE_DIR），未给时落 Temp/。
+// 批次21 三项的「动作真发生了」都靠这行机读日志，不靠截图推断。
+bool etcProbeEnabled()
+{
+    return qEnvironmentVariableIsSet("SOLEVIEW_ETC_PROBE")
+        || qEnvironmentVariableIsSet("QUIKVIEW_ETC_PROBE");
+}
+
 void probeAppend(const QString &line)
 {
-    QString dir = qEnvironmentVariable("QUIKVIEW_B21_PROBE_DIR");
+    QString dir = qEnvironmentVariable("SOLEVIEW_B21_PROBE_DIR");
+    if (dir.isEmpty())
+        dir = qEnvironmentVariable("QUIKVIEW_B21_PROBE_DIR");
     if (dir.isEmpty())
         dir = QStringLiteral("Temp");
     QFile f(dir + QStringLiteral("/batch21-probe.txt"));
@@ -232,7 +245,7 @@ QImage composeSpread(const QImage &left, const QImage &right)
     return out;
 }
 
-// 屏幕保护禁用（设置页「运行 QuikView 时禁用屏幕保护程序」）：开 = 持续申请
+// 屏幕保护禁用（设置页「运行 SoleView 时禁用屏幕保护程序」）：开 = 持续申请
 // ES_DISPLAY_REQUIRED（显示器常亮），关/程序退出 = 还原 ES_CONTINUOUS。
 // ES_* 请求绑定在调用线程（GUI 线程），进程退出时系统自动清除，这里仍显式还原。
 void applyScreensaverPrevention(bool on)
@@ -254,7 +267,7 @@ void playPageturnTone(bool force = false)
 {
     const bool enabled = Config::instance().pageturnWav();
     if (!enabled && !force) {
-        if (qEnvironmentVariableIsSet("QUIKVIEW_ETC_PROBE")) {
+        if (etcProbeEnabled()) {
             // 验收探针：关态必须留「提前返回、没调用」的证据，不能靠听感推断。
             probeAppend(QStringLiteral("PAGETURN cfg=0 force=0 called=0"));
         }
@@ -302,7 +315,7 @@ void playPageturnTone(bool force = false)
     // SND_MEMORY：首参是 WAV 字节流内存指针；SND_NODEFAULT：失败不回落系统提示音
     const BOOL played = PlaySoundW(reinterpret_cast<LPCWSTR>(kPageturnWav.constData()),
                                    nullptr, SND_MEMORY | SND_ASYNC | SND_NODEFAULT);
-    if (qEnvironmentVariableIsSet("QUIKVIEW_ETC_PROBE")) {
+    if (etcProbeEnabled()) {
         // 「有音」的机读证据：PlaySoundW 返回 TRUE = 这一段 WAV 已被系统接受并开始
         // 异步播放（40ms / 2200Hz 衰减正弦，见上面合成参数）。
         probeAppend(QStringLiteral("PAGETURN cfg=%1 force=%2 called=1 playret=%3")
@@ -322,7 +335,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     // Honeyview 无边框铬件窗口
     setWindowFlags(windowFlags() | Qt::FramelessWindowHint);
-    setWindowTitle(QStringLiteral("QuikView"));
+    setWindowTitle(QStringLiteral("SoleView"));
     resize(1080, 815);
     // v2 单行铬件在极窄窗下会把中组、图层、锁、置顶、浏览依次收进三横菜单，
     // 因此最小尺寸不再需要旧双行布局的 720×500；下限保留到「只留打开、三横菜单、
@@ -1688,7 +1701,7 @@ void MainWindow::createActions()
     // Ctrl+V 从剪贴板取图（无配置开关）
     actPasteImage = mk(tr("从剪贴板粘贴图片"), QKeySequence::Paste, &MainWindow::onPasteFromClipboard);
     actWallpaper = mk(tr("设为桌面壁纸…"), {}, &MainWindow::onSetWallpaper);
-    actAbout = mk(tr("关于 QuikView"), QKeySequence(QStringLiteral("F1")), &MainWindow::onAbout);
+    actAbout = mk(tr("关于 SoleView"), QKeySequence(QStringLiteral("F1")), &MainWindow::onAbout);
     // Honeyview：X = 退出。Ctrl+Q 保留为副键
     actQuit = new QAction(tr("退出(&Q)"), this);
     actQuit->setShortcuts({ QKeySequence(QStringLiteral("X")), QKeySequence::Quit });
@@ -2369,7 +2382,7 @@ QString MainWindow::shortcutsReport() const
 
 // ---------------------------------------------------------------------------
 // 工具栏下拉菜单 / 右键菜单
-// 唯一真源：Temp/quikview-secondary-prototype.html 的 toolbarMenus / contextSubmenus /
+// 唯一真源：Temp/soleview-secondary-prototype.html 的 toolbarMenus / contextSubmenus /
 // contextItems。菜单每次弹出重建，条目/顺序/快捷键/勾选态直接照抄原型；
 // 快捷键写在 '\t' 之后只作右对齐展示，真实按键绑定仍由已有 QAction::setShortcut 承担。
 // ---------------------------------------------------------------------------
@@ -4524,7 +4537,7 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
         PerfProbe::markImageShown();
         PerfProbe::mark(PerfProbe::currentSeq(), "show-preview", "");
         m_canvas->setPixmap(QPixmap::fromImage(image));
-        setWindowTitle(ArchiveStore::displayName(path) + QStringLiteral(" - QuikView"));
+        setWindowTitle(ArchiveStore::displayName(path) + QStringLiteral(" - SoleView"));
         m_topBar->setTitle(ArchiveStore::displayName(path));
         m_zoomSaveGuard = false;
         return;
@@ -4672,7 +4685,7 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     if (m_overview) {
         m_overview->setCurrent(m_displayedIndex);
     }
-    setWindowTitle(ArchiveStore::displayName(path) + QStringLiteral(" - QuikView"));
+    setWindowTitle(ArchiveStore::displayName(path) + QStringLiteral(" - SoleView"));
     m_topBar->setTitle(ArchiveStore::displayName(path));
     m_frames->open(path);
     // 动图打开即自动播放（P0：仅 GIF）；换到静态图 / 多页 TIFF / 双页模式则停。
@@ -4982,7 +4995,7 @@ void MainWindow::updateStatus(const QString &path)
 {
     // 状态并入标题栏（原版无状态栏）。包内条目显示「包名 › 内部路径」，
     // 与目录浏览的「文件名」同一位置、同一形态（派单 §五.5）。
-    setWindowTitle(ArchiveStore::displayName(path) + QStringLiteral(" - QuikView"));
+    setWindowTitle(ArchiveStore::displayName(path) + QStringLiteral(" - SoleView"));
     m_topBar->setTitle(ArchiveStore::displayName(path));
 }
 
@@ -5970,7 +5983,10 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
             QTextStream ts(&f);
             const QSettings &s = Config::instance().settings();
-            ts << "label=" << qEnvironmentVariable("QUIKVIEW_PROBE_LABEL")
+            QString probeLabel = qEnvironmentVariable("SOLEVIEW_PROBE_LABEL");
+            if (probeLabel.isEmpty())
+                probeLabel = qEnvironmentVariable("QUIKVIEW_PROBE_LABEL");
+            ts << "label=" << probeLabel
                << " runtime " << imageProcLiveStateDump()
                << " ini preview_mode="
                << s.value(QStringLiteral("config/imageproc/preview_mode")).toString()
@@ -6844,7 +6860,7 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         dlg->probeOpenCombo(a.value(0).toInt(), a.value(1).toInt());
     }
     // 视觉回归探针：打开设置并切到指定页（settingspage:<序号>，0=通用）。
-    // 语言无关定位（P1-4）：页面导航项都是 checkable 的 #navItem，「关于 QuikView」
+    // 语言无关定位（P1-4）：页面导航项都是 checkable 的 #navItem，「关于 SoleView」
     // 按钮不 checkable，据此排除，与文案/语言无关；页用数字索引定位，ASCII 别名
     // 映射到固定索引，不再按中文子串（非简中下会失效）匹配。
     // 九页重组（2026-11-21）：旧的 assoc/context/bookmark/misc/language 别名保留，
@@ -8377,7 +8393,7 @@ bool MainWindow::askEdgeWrap(bool forward)
 // 按首尾规则处理——ask 档弹询问（与单张翻页同一入口），其余档提示停住。
 void MainWindow::onPrev10()
 {
-    if (qEnvironmentVariableIsSet("QUIKVIEW_PERF")) { qWarning("PERF onPrev10 fired"); }
+    if (qEnvironmentVariableIsSet("SOLEVIEW_PERF") || qEnvironmentVariableIsSet("QUIKVIEW_PERF")) { qWarning("PERF onPrev10 fired"); }
     const QString p = m_dir->prev10();
     if (!p.isEmpty()) {
         loadAsync(p);
@@ -8391,7 +8407,7 @@ void MainWindow::onPrev10()
 
 void MainWindow::onNext10()
 {
-    if (qEnvironmentVariableIsSet("QUIKVIEW_PERF")) { qWarning("PERF onNext10 fired"); }
+    if (qEnvironmentVariableIsSet("SOLEVIEW_PERF") || qEnvironmentVariableIsSet("QUIKVIEW_PERF")) { qWarning("PERF onNext10 fired"); }
     const QString p = m_dir->next10();
     if (!p.isEmpty()) {
         loadAsync(p);
@@ -9895,7 +9911,7 @@ void MainWindow::onDeleteFile()
             closeOverview();
             m_overview->setFiles({}, -1);
         }
-        setWindowTitle(QStringLiteral("QuikView"));
+        setWindowTitle(QStringLiteral("SoleView"));
         m_topBar->setTitle(tr("未打开图片"));
         m_toast->showMessage(tr("已删除"), Chrome::Toast::Tone::Success);
     }
@@ -10017,7 +10033,7 @@ void MainWindow::executePhotoFolderTransfer(const QString &cfgKey, bool moveFile
             if (m_statusOverlay) {
                 m_statusOverlay->hide();
             }
-            setWindowTitle(QStringLiteral("QuikView"));
+            setWindowTitle(QStringLiteral("SoleView"));
             m_topBar->setTitle(tr("未打开图片"));
         }
         startDirectoryRefresh();
@@ -10264,7 +10280,7 @@ QImage readDibFromClipboard();
 }
 
 // Ctrl+V 从剪贴板取图：优先级 图像 > 文件 URL > 文本路径 > toast。
-// 临时 PNG 落 %TEMP%\quikview-clip\，文件名带日期+序号，不污染图片目录；
+// 临时 PNG 落 %TEMP%\soleview-clip\，文件名带日期+序号，不污染图片目录；
 // 不进「最近打开」（绕过 addRecentFile），翻页仍按临时目录的同目录逻辑处理。
 void MainWindow::onPasteFromClipboard()
 {
@@ -10300,7 +10316,7 @@ void MainWindow::onPasteFromClipboard()
     }
 
     if (!image.isNull()) {
-        path = savePastedImage(image, QStringLiteral("quikview-clip"),
+        path = savePastedImage(image, QStringLiteral("soleview-clip"),
                                QStringLiteral("clip"), &saveError);
         if (path.isEmpty()) {
             // 有图但落盘失败：与「剪贴板无图」区分提示；不再下沉到 URL/文本分支。
@@ -10353,16 +10369,16 @@ void MainWindow::onPasteFromClipboard()
 
     // 临时目录的 PNG 只作为「本次看图」打开，不写最近打开/书签。
     const bool transient = path.startsWith(
-        QDir::tempPath() + QStringLiteral("/quikview-clip/"), Qt::CaseInsensitive);
+        QDir::tempPath() + QStringLiteral("/soleview-clip/"), Qt::CaseInsensitive);
     openFile(path, transient);
 }
 
 void MainWindow::cleanupTempClipDirs()
 {
     const QString temp = QDir::tempPath();
-    cleanupTempDir(temp + QStringLiteral("/quikview-clip"), QStringLiteral("clip-"),
+    cleanupTempDir(temp + QStringLiteral("/soleview-clip"), QStringLiteral("clip-"),
                    m_currentPath, 20, 7);
-    cleanupTempDir(temp + QStringLiteral("/QuikView"), QStringLiteral("drop-"),
+    cleanupTempDir(temp + QStringLiteral("/SoleView"), QStringLiteral("drop-"),
                    m_currentPath, 20, 7);
 }
 
@@ -10538,7 +10554,10 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
     // 验收注入：QUIKVIEW_TEST_LIVE_FAIL=1 时第一次即时应用强制失败（沿用 SET-02
     // 的老口径）；也可以写成具体的 setting key（如 view/show_tooltip），只让这一项
     // 的首次下发失败——批次03 验收要定向验证某个开关的失败回退，用后者。
-    static const QString failTarget = qEnvironmentVariable("QUIKVIEW_TEST_LIVE_FAIL");
+    static const QString failTarget = []() {
+        const QString v = qEnvironmentVariable("SOLEVIEW_TEST_LIVE_FAIL");
+        return v.isEmpty() ? qEnvironmentVariable("QUIKVIEW_TEST_LIVE_FAIL") : v;
+    }();
     static bool failUsed = false;
     if (!failUsed && !failTarget.isEmpty()
         && (failTarget == QLatin1String("1") || failTarget == key)) {
@@ -10664,9 +10683,11 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
     if (key == QLatin1String("etc/photo_folder_1")) {
         const QString path = value.toString().trimmed();
         const bool isDir = !path.isEmpty() && QFileInfo(path).isDir();
-        if (qEnvironmentVariableIsSet("QUIKVIEW_ETC_PROBE")) {
-            const QString out = qEnvironmentVariable("QUIKVIEW_FOLDER_PROBE_LOG",
-                                                     QStringLiteral("Temp/etc-photo-folder-live.txt"));
+        if (etcProbeEnabled()) {
+            QString out = qEnvironmentVariable("SOLEVIEW_FOLDER_PROBE_LOG");
+            if (out.isEmpty())
+                out = qEnvironmentVariable("QUIKVIEW_FOLDER_PROBE_LOG",
+                                           QStringLiteral("Temp/etc-photo-folder-live.txt"));
             if (QFile f(out); f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
                 QTextStream ts(&f);
                 ts << "apply path=" << path
@@ -10714,7 +10735,7 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
                 fitWindowToImage();
                 m_zoomSaveGuard = false;
                 // 取证开关：仅验收探针置位时落盘调窗前后尺寸
-                if (qEnvironmentVariableIsSet("QUIKVIEW_ETC_PROBE")) {
+                if (etcProbeEnabled()) {
                     if (QFile f(QStringLiteral("Temp/etc-fit-live.txt"));
                         f.open(QIODevice::WriteOnly | QIODevice::Text)) {
                         QTextStream ts(&f);
@@ -10757,7 +10778,7 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
                                     : tr("已关闭翻页音效：翻页将静音"),
                                  Chrome::Toast::Tone::Success);
         }
-        if (qEnvironmentVariableIsSet("QUIKVIEW_ETC_PROBE"))
+        if (etcProbeEnabled())
             probeAppend(QStringLiteral("LIVE etc/pageturn_wav=%1 preview_played=%2")
                             .arg(on ? 1 : 0).arg(on ? 1 : 0));
         return true;
@@ -10772,7 +10793,7 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
                                     : tr("已允许打开 RAW：下次打开 RAW 走正常解码"),
                                  Chrome::Toast::Tone::Success);
         }
-        if (qEnvironmentVariableIsSet("QUIKVIEW_ETC_PROBE"))
+        if (etcProbeEnabled())
             probeAppend(QStringLiteral("LIVE etc/no_raw_load=%1").arg(on ? 1 : 0));
         return true;
     }
@@ -10782,7 +10803,7 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         // 直接复用既有「枚举+排序+过滤」重扫（同一纯函数、后台线程、只刷列表不解码），
         // 当前页位按锚点跟回，收尾再报一句「现在是几张」。
         const bool on = value.toBool();
-        if (qEnvironmentVariableIsSet("QUIKVIEW_ETC_PROBE"))
+        if (etcProbeEnabled())
             probeAppend(QStringLiteral("LIVE etc/skip_raw_when_jpg=%1").arg(on ? 1 : 0));
         if (m_dir->watchedDirectory().isEmpty()) {
             if (m_toast)
@@ -11340,14 +11361,14 @@ void MainWindow::finishSettings()
 
 void MainWindow::onAbout()
 {
-    QMessageBox::about(this, tr("关于 QuikView"),
-                       tr("<h3>QuikView</h3>"
+    QMessageBox::about(this, tr("关于 SoleView"),
+                       tr("<h3>SoleView</h3>"
                           "<p>版本 %1</p>"
                           "<p>MIT 许可证开源，零遥测、零推广。</p>"
-                          "<p>官网：<a href=\"https://xdst2.github.io/quikview/\">https://xdst2.github.io/quikview/</a><br>"
-                          "GitHub：<a href=\"https://github.com/xdsT2/quikview\">https://github.com/xdsT2/quikview</a><br>"
+                          "<p>官网：<a href=\"https://xdst2.github.io/soleview/\">https://xdst2.github.io/soleview/</a><br>"
+                          "GitHub：<a href=\"https://github.com/xdsT2/soleview\">https://github.com/xdsT2/soleview</a><br>"
                           "QQ 交流群：1134122173</p>")
-                           .arg(QStringLiteral(QUIKVIEW_VERSION)));
+                           .arg(QStringLiteral(SOLEVIEW_VERSION)));
 }
 
 // ---------------------------------------------------------------------------
@@ -11586,14 +11607,14 @@ QString firstExistingLocalFile(const QMimeData *mime)
     return {};
 }
 
-// 纯位图拖放没有文件名，落盘到 %TEMP%\QuikView\drop-<时间戳>.png 再走 openFile，
+// 纯位图拖放没有文件名，落盘到 %TEMP%\SoleView\drop-<时间戳>.png 再走 openFile，
 // 这样标题栏、目录索引、后续翻页都按普通文件处理，不额外开一条显示通道。
 QString saveDroppedImage(const QImage &image)
 {
     if (image.isNull()) {
         return {};
     }
-    const QString dir = QDir::tempPath() + QStringLiteral("/QuikView");
+    const QString dir = QDir::tempPath() + QStringLiteral("/SoleView");
     if (!QDir().mkpath(dir)) {
         return {};
     }

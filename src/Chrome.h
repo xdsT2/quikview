@@ -21,9 +21,9 @@ class QKeyEvent;
 class QWheelEvent;
 
 // ---------------------------------------------------------------------------
-// QuikView Windows 11 铬件。
+// SoleView Windows 11 铬件。
 // 全部为自绘控件：标题栏 / 命令栏 / 浮动控制胶囊 / 状态浮层 / 空状态 / 消息条。
-// 视觉参数来自 Temp/quikview-win11-prototype.html。
+// 视觉参数来自 Temp/soleview-win11-prototype.html。
 // ---------------------------------------------------------------------------
 namespace Chrome {
 
@@ -52,7 +52,7 @@ struct BtnVisual {
     qreal checked = 0.0; // 120ms 选中态切换（锁定图标交叉淡化）
 };
 
-// 系统「减少动画」：QUIKVIEW_REDUCE_MOTION 环境变量优先，其次 Windows 客户端动画设置。
+// 系统「减少动画」：SOLEVIEW_REDUCE_MOTION（兼容 QUIKVIEW_REDUCE_MOTION）环境变量优先，其次 Windows 客户端动画设置。
 // 开启时关掉缩放与淡入动画，但保留背景色反馈。
 bool reducedMotion();
 

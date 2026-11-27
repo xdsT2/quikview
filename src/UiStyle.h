@@ -1,8 +1,8 @@
 #pragma once
 
-// QuikView 深色视觉层（Win11 原型对齐）
+// SoleView 深色视觉层（Win11 原型对齐）
 // ---------------------------------------------------------------------------
-// 颜色/圆角/字号全部取自二级界面原型 Temp/quikview-secondary-prototype.html 的 :root，
+// 颜色/圆角/字号全部取自二级界面原型 Temp/soleview-secondary-prototype.html 的 :root，
 // 这里是唯一真源：任何界面都用这里的令牌，不要再各自硬编码颜色。
 //
 // 用法：
@@ -230,7 +230,7 @@ inline const char *setRowHover()  { return pick("#33373e", "#e6edf2"); }
 inline const char *setRowTag()    { return pick("#aab0b7", "#545e69"); }
 
 // —— 设置 › 一般 v2 母版定稿（2026-11-11）——
-// 唯一色值来源：管理/QuikView-一般页-母版定稿/颜色与尺寸标注.md。
+// 唯一色值来源：管理/SoleView-一般页-母版定稿/颜色与尺寸标注.md。
 // 上一版（一般-Qt实现定稿.md / #24262B 蓝灰系 / #83BBFF / 蓝色开关）已作废，
 // 旧值一律不再使用。本组是新增语义角色：上面所有既有令牌取值不动，其他
 // 界面 / 其他十个设置页零回归。深色为中性石墨黑，禁止任何蓝灰或蓝紫背景。

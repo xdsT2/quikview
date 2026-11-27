@@ -1,5 +1,5 @@
 // 菜单偏好：设置程序（Qt 写 config.ini）与壳扩展（本 DLL 读）共用的
-// 按用户隔离偏好。存储 = QuikView 的 config.ini（QSettings IniFormat）：
+// 按用户隔离偏好。存储 = SoleView 的 config.ini（QSettings IniFormat）：
 //   [config]
 //   ctxmenu\use_shell_menu=true
 // QSettings 把键里的 '/' 转义成 '\' 落盘；读取器两种写法都兼容。
@@ -8,9 +8,9 @@
 #pragma once
 
 struct QuikMenuPrefs {
-    bool master;    // use_shell_menu：总开关，关 = 右键完全不注入 QuikView 项
-    bool browse;    // show_browse：「用 QuikView 浏览」
-    bool convert;   // show_convert：「用 QuikView 转换」
+    bool master;    // use_shell_menu：总开关，关 = 右键完全不注入 SoleView 项
+    bool browse;    // show_browse：「用 SoleView 浏览」
+    bool convert;   // show_convert：「用 SoleView 转换」
     bool preview;   // show_preview：菜单内自绘缩略图
     bool info;      // show_info：浏览项右侧「宽×高 · 大小」
     bool icon;      // show_icon：菜单项软件图标

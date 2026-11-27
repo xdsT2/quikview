@@ -15,16 +15,17 @@ namespace {
 
 // 菜单命令 ID 偏移与动词名
 enum { CMD_BROWSE = 0, CMD_CONVERT = 1, CMD_THUMB = 2, CMD_COUNT = 3 };
-const wchar_t kVerbBrowseW[] = L"QuikView.Browse";
-const wchar_t kVerbConvertW[] = L"QuikView.Convert";
-const char kVerbBrowseA[] = "QuikView.Browse";
-const char kVerbConvertA[] = "QuikView.Convert";
+const wchar_t kVerbBrowseW[] = L"SoleView.Browse";
+const wchar_t kVerbConvertW[] = L"SoleView.Convert";
+const char kVerbBrowseA[] = "SoleView.Browse";
+const char kVerbConvertA[] = "SoleView.Convert";
 
-const wchar_t kMenuBrowse[] = L"用 QuikView 浏览";
-const wchar_t kMenuConvert[] = L"用 QuikView 转换";
+const wchar_t kMenuBrowse[] = L"用 SoleView 浏览";
+const wchar_t kMenuConvert[] = L"用 SoleView 转换";
 const wchar_t kMenuThumb[] = L"__qv_thumb__";   // 自绘项标识（不可见）
 
-const wchar_t kAppRegKey[] = L"Software\\QuikView";
+const wchar_t kAppRegKey[] = L"Software\\SoleView";
+const wchar_t kLegacyAppRegKey[] = L"Software\\QuikView";
 const UINT kThumbMaxDim = 256;     // 缩略图边长上限
 const ULONGLONG kDecodeBudgetMs = 50;
 
@@ -35,26 +36,30 @@ bool FileExists(const wchar_t* path) {
 }
 
 bool GetInstallDirFromRegistry(HKEY root, wchar_t* dir, DWORD cch) {
-    HKEY hk = nullptr;
-    if (RegOpenKeyExW(root, kAppRegKey, 0,
-                      KEY_QUERY_VALUE | KEY_WOW64_64KEY, &hk) != ERROR_SUCCESS) {
-        return false;
-    }
+    static const wchar_t* const kKeys[] = { kAppRegKey, kLegacyAppRegKey };
     static const wchar_t* const kValueNames[] = { L"InstallDir", L"InstallPath" };
-    bool ok = false;
-    for (const wchar_t* name : kValueNames) {
-        wchar_t buf[MAX_PATH] = {};
-        DWORD type = 0;
-        DWORD cb = sizeof(buf);
-        if (RegQueryValueExW(hk, name, nullptr, &type, (BYTE*)buf, &cb) ==
-                ERROR_SUCCESS && type == REG_SZ && buf[0]) {
-            lstrcpynW(dir, buf, (int)cch);
-            ok = true;
-            break;
+    for (const wchar_t* regKey : kKeys) {
+        HKEY hk = nullptr;
+        if (RegOpenKeyExW(root, regKey, 0,
+                          KEY_QUERY_VALUE | KEY_WOW64_64KEY, &hk) != ERROR_SUCCESS) {
+            continue;
         }
+        bool ok = false;
+        for (const wchar_t* name : kValueNames) {
+            wchar_t buf[MAX_PATH] = {};
+            DWORD type = 0;
+            DWORD cb = sizeof(buf);
+            if (RegQueryValueExW(hk, name, nullptr, &type, (BYTE*)buf, &cb) ==
+                    ERROR_SUCCESS && type == REG_SZ && buf[0]) {
+                lstrcpynW(dir, buf, (int)cch);
+                ok = true;
+                break;
+            }
+        }
+        RegCloseKey(hk);
+        if (ok) return true;
     }
-    RegCloseKey(hk);
-    return ok;
+    return false;
 }
 
 const wchar_t* FindExt(const wchar_t* path) {
@@ -573,14 +578,17 @@ STDMETHODIMP QuikContextMenu::GetCommandString(UINT_PTR idCmd, UINT uType,
 }
 
 bool QuikContextMenu::FindQuikViewExe(wchar_t* exePath, DWORD cch) const {
+    static const wchar_t* const kExeNames[] = { L"soleview.exe", L"quikview.exe" };
     wchar_t buf[MAX_PATH] = {};
     if (DllGetModule() &&
         GetModuleFileNameW(DllGetModule(), buf, MAX_PATH) > 0) {
         wchar_t* slash = wcsrchr(buf, L'\\');
         if (slash) {
-            lstrcpynW(slash + 1, L"quikview.exe",
-                      (int)(MAX_PATH - (slash + 1 - buf)));
-            if (FileExists(buf)) { lstrcpynW(exePath, buf, (int)cch); return true; }
+            for (const wchar_t* exeName : kExeNames) {
+                lstrcpynW(slash + 1, exeName,
+                          (int)(MAX_PATH - (slash + 1 - buf)));
+                if (FileExists(buf)) { lstrcpynW(exePath, buf, (int)cch); return true; }
+            }
         }
     }
     const HKEY kRoots[] = { HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE };
@@ -589,8 +597,10 @@ bool QuikContextMenu::FindQuikViewExe(wchar_t* exePath, DWORD cch) const {
         if (!GetInstallDirFromRegistry(root, dir, MAX_PATH)) continue;
         const size_t len = lstrlenW(dir);
         if (len && dir[len - 1] == L'\\') dir[len - 1] = L'\0';
-        if (FAILED(StringCchPrintfW(buf, _countof(buf), L"%s\\quikview.exe", dir))) continue;
-        if (FileExists(buf)) { lstrcpynW(exePath, buf, (int)cch); return true; }
+        for (const wchar_t* exeName : kExeNames) {
+            if (FAILED(StringCchPrintfW(buf, _countof(buf), L"%s\\%s", dir, exeName))) continue;
+            if (FileExists(buf)) { lstrcpynW(exePath, buf, (int)cch); return true; }
+        }
     }
     return false;
 }

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 QuikView contributors
+// SPDX-FileCopyrightText: 2026 SoleView contributors
 // SPDX-License-Identifier: MIT
 //
 // 绘制结构与状态划分参考 Qlementine 的 Switch 控件：
@@ -19,7 +19,7 @@
 // 滑块左界 = 轨道左 + 内边距 + 可滑动余量 * 位置比例；悬停 / 按下 / 禁用 / 焦点
 // 只换色不换形，位置动画 OutCubic。此处仅参考该绘制结构与状态划分逻辑，
 // 几何为本项目自定（轨道 40×22、滑块 16、内边距 3；上游默认 28×16、滑块 12、
-// 内边距 2），颜色改接 QuikView 色板（UiStyle::fluent），不引入 Qlementine 的
+// 内边距 2），颜色改接 SoleView 色板（UiStyle::fluent），不引入 Qlementine 的
 // QStyle；未整文件拷贝上游源码，未引入上游库。
 // 详见 NOTICE 第七节与 third_party/qlementine/。
 

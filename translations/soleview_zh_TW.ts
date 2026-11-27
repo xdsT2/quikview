@@ -1,98 +1,98 @@
 <?xml version='1.0' encoding='utf-8'?>
-<TS version="2.1" language="en_US" sourcelanguage="zh_CN">
+<TS version="2.1" language="zh_TW" sourcelanguage="zh_CN">
     <context>
         <name>AppMenu</name>
         <message>
             <source>下一张</source>
-            <translation>Next Image</translation>
+            <translation>下一張</translation>
         </message>
         <message>
             <source>上一张</source>
-            <translation>Previous Image</translation>
+            <translation>上一張</translation>
         </message>
         <message>
             <source>首张图片</source>
-            <translation>First Image</translation>
+            <translation>第一張圖片</translation>
         </message>
         <message>
             <source>末尾图片</source>
-            <translation>Last Image</translation>
+            <translation>最後一張圖片</translation>
         </message>
         <message>
             <source>向下 10 张图片</source>
-            <translation>Forward 10 Images</translation>
+            <translation>向下 10 張圖片</translation>
         </message>
         <message>
             <source>向上 10 张图片</source>
-            <translation>Back 10 Images</translation>
+            <translation>向上 10 張圖片</translation>
         </message>
         <message>
             <source>向后随机转到某张图片</source>
-            <translation>Random Image (Backward)</translation>
+            <translation>向後隨機跳到某張圖片</translation>
         </message>
         <message>
             <source>向前随机转到某张图片</source>
-            <translation>Random Image (Forward)</translation>
+            <translation>向前隨機跳到某張圖片</translation>
         </message>
         <message>
             <source>下一个文件夹</source>
-            <translation>Next Folder</translation>
+            <translation>下一個資料夾</translation>
         </message>
         <message>
             <source>上一个文件夹</source>
-            <translation>Previous Folder</translation>
+            <translation>上一個資料夾</translation>
         </message>
         <message>
             <source>按名称</source>
-            <translation>By Name</translation>
+            <translation>依名稱</translation>
         </message>
         <message>
             <source>按时间</source>
-            <translation>By Date</translation>
+            <translation>依日期</translation>
         </message>
         <message>
             <source>按大小</source>
-            <translation>By Size</translation>
+            <translation>依大小</translation>
         </message>
         <message>
             <source>按类型</source>
-            <translation>By Type</translation>
+            <translation>依類型</translation>
         </message>
         <message>
             <source>降序</source>
-            <translation>Descending</translation>
+            <translation>遞減</translation>
         </message>
         <message>
             <source>实际大小</source>
-            <translation>Actual Size</translation>
+            <translation>實際大小</translation>
         </message>
         <message>
             <source>适合窗口</source>
-            <translation>Fit to Window</translation>
+            <translation>符合視窗</translation>
         </message>
         <message>
             <source>适合宽度</source>
-            <translation>Fit to Width</translation>
+            <translation>符合寬度</translation>
         </message>
         <message>
             <source>智能双页 (左至右)</source>
-            <translation>Smart Two-Page (Left to Right)</translation>
+            <translation>智慧雙頁 (左至右)</translation>
         </message>
         <message>
             <source>智能双页 (右至左)</source>
-            <translation>Smart Two-Page (Right to Left)</translation>
+            <translation>智慧雙頁 (右至左)</translation>
         </message>
         <message>
             <source>放大</source>
-            <translation>Zoom In</translation>
+            <translation>放大</translation>
         </message>
         <message>
             <source>缩小</source>
-            <translation>Zoom Out</translation>
+            <translation>縮小</translation>
         </message>
         <message>
             <source>锁定缩放</source>
-            <translation>Lock Zoom</translation>
+            <translation>鎖定縮放</translation>
         </message>
         <message>
             <source>100%</source>
@@ -100,27 +100,27 @@
         </message>
         <message>
             <source>放大 (1%)</source>
-            <translation>Zoom In (1%)</translation>
+            <translation>放大 (1%)</translation>
         </message>
         <message>
             <source>缩小 (1%)</source>
-            <translation>Zoom Out (1%)</translation>
+            <translation>縮小 (1%)</translation>
         </message>
         <message>
             <source>Bilinear 插值 (快)</source>
-            <translation>Bilinear Interpolation (Fast)</translation>
+            <translation>Bilinear 內插 (快)</translation>
         </message>
         <message>
             <source>Bicubic 插值 (慢，高品质)</source>
-            <translation>Bicubic Interpolation (Slow, High Quality)</translation>
+            <translation>Bicubic 內插 (慢，高品質)</translation>
         </message>
         <message>
             <source>Lanczos 插值 (慢，高品质)</source>
-            <translation>Lanczos Interpolation (Slow, High Quality)</translation>
+            <translation>Lanczos 內插 (慢，高品質)</translation>
         </message>
         <message>
             <source>反色</source>
-            <translation>Invert Colors</translation>
+            <translation>反轉色彩</translation>
         </message>
         <message>
             <source>Gamma</source>
@@ -128,429 +128,417 @@
         </message>
         <message>
             <source>垂直翻转</source>
-            <translation>Flip Vertical</translation>
+            <translation>垂直翻轉</translation>
         </message>
         <message>
             <source>水平翻转</source>
-            <translation>Flip Horizontal</translation>
+            <translation>水平翻轉</translation>
         </message>
         <message>
             <source>不旋转</source>
-            <translation>No Rotation</translation>
+            <translation>不旋轉</translation>
         </message>
         <message>
             <source>逆时针 90°</source>
-            <translation>90° CCW</translation>
+            <translation>逆時針 90°</translation>
         </message>
         <message>
             <source>顺时针 90°</source>
-            <translation>90° CW</translation>
+            <translation>順時針 90°</translation>
         </message>
         <message>
             <source>旋转 180°</source>
-            <translation>Rotate 180°</translation>
+            <translation>旋轉 180°</translation>
         </message>
         <message>
             <source>无</source>
-            <translation>None</translation>
+            <translation>無</translation>
         </message>
         <message>
             <source>减淡</source>
-            <translation>Soften</translation>
+            <translation>柔化</translation>
         </message>
         <message>
             <source>减淡 + 锐化</source>
-            <translation>Soften + Sharpen</translation>
+            <translation>柔化 + 銳利化</translation>
         </message>
         <message>
             <source>复制到图片文件夹</source>
-            <translation>Copy to Pictures Folder</translation>
+            <translation>複製到圖片資料夾</translation>
         </message>
         <message>
             <source>用图像编辑器打开</source>
-            <translation>Open with Image Editor</translation>
+            <translation>用影像編輯器開啟</translation>
         </message>
         <message>
             <source>打开图片…</source>
-            <translation>Open Image…</translation>
+            <translation>開啟圖片…</translation>
         </message>
         <message>
             <source>打开文件夹…</source>
-            <translation>Open Folder…</translation>
+            <translation>開啟資料夾…</translation>
         </message>
         <message>
             <source>选择图片…</source>
-            <translation>Go to Image…</translation>
+            <translation>選擇圖片…</translation>
         </message>
         <message>
             <source>定位文件…</source>
-            <translation>Reveal File…</translation>
+            <translation>顯示檔案位置…</translation>
         </message>
         <message>
             <source>图片信息</source>
-            <translation>Image Info</translation>
+            <translation>圖片資訊</translation>
         </message>
         <message>
             <source>复制到剪贴板</source>
-            <translation>Copy to Clipboard</translation>
+            <translation>複製到剪貼簿</translation>
         </message>
         <message>
             <source>窗口置顶</source>
-            <translation>Always on Top</translation>
+            <translation>視窗置頂</translation>
         </message>
         <message>
             <source>浏览与显示</source>
-            <translation>Browse &amp; View</translation>
+            <translation>瀏覽與顯示</translation>
         </message>
         <message>
             <source>浏览导航</source>
-            <translation>Navigation</translation>
+            <translation>瀏覽導覽</translation>
         </message>
         <message>
             <source>排序方式</source>
-            <translation>Sort By</translation>
+            <translation>排序方式</translation>
         </message>
         <message>
             <source>浏览方式</source>
-            <translation>View Mode</translation>
+            <translation>瀏覽方式</translation>
         </message>
         <message>
             <source>缩放工具</source>
-            <translation>Zoom Tools</translation>
+            <translation>縮放工具</translation>
         </message>
         <message>
             <source>图像处理</source>
-            <translation>Image Processing</translation>
+            <translation>影像處理</translation>
         </message>
         <message>
             <source>插值算法</source>
-            <translation>Interpolation</translation>
+            <translation>內插演算法</translation>
         </message>
         <message>
             <source>图片效果</source>
-            <translation>Image Effects</translation>
+            <translation>圖片效果</translation>
         </message>
         <message>
             <source>图像旋转</source>
-            <translation>Image Rotation</translation>
+            <translation>影像旋轉</translation>
         </message>
         <message>
             <source>过渡效果</source>
-            <translation>Transitions</translation>
+            <translation>過渡效果</translation>
         </message>
         <message>
             <source>文件操作</source>
-            <translation>File Operations</translation>
+            <translation>檔案操作</translation>
         </message>
         <message>
             <source>设为桌面壁纸…</source>
-            <translation>Set as Desktop Wallpaper…</translation>
+            <translation>設為桌面背景…</translation>
         </message>
         <message>
             <source>复制更多</source>
-            <translation>Copy More</translation>
+            <translation>複製更多</translation>
         </message>
         <message>
             <source>打开方式</source>
-            <translation>Open With</translation>
+            <translation>開啟方式</translation>
         </message>
         <message>
             <source>打印…</source>
-            <translation>Print…</translation>
+            <translation>列印…</translation>
         </message>
         <message>
             <source>删除</source>
-            <translation>Delete</translation>
+            <translation>刪除</translation>
         </message>
         <message>
             <source>设置…</source>
-            <translation>Settings…</translation>
+            <translation>設定…</translation>
         </message>
         <message>
-            <source>关于 QuikView</source>
-            <translation>About QuikView</translation>
+            <source>关于 SoleView</source>
+            <translation>關於 SoleView</translation>
         </message>
         <message>
             <source>关闭窗口</source>
-            <translation>Close Window</translation>
+            <translation>關閉視窗</translation>
         </message>
         <message>
             <source>退出</source>
-            <translation>Quit</translation>
+            <translation>結束</translation>
         </message>
         <message>
             <source>打开与定位</source>
-            <translation>Open &amp; Locate</translation>
+            <translation>開啟與定位</translation>
         </message>
         <message>
             <source>常用动作</source>
-            <translation>Common Actions</translation>
+            <translation>常用動作</translation>
         </message>
         <message>
             <source>任务菜单</source>
-            <translation>Task Menus</translation>
+            <translation>任務選單</translation>
         </message>
         <message>
             <source>危险操作</source>
-            <translation>Danger Zone</translation>
+            <translation>危險操作</translation>
         </message>
         <message>
             <source>应用</source>
-            <translation>Application</translation>
+            <translation>應用程式</translation>
         </message>
         <message>
             <source>复制 EXIF 数据</source>
-            <translation>Copy EXIF Data</translation>
+            <translation>複製 EXIF 資料</translation>
         </message>
         <message>
             <source>复制图片路径</source>
-            <translation>Copy Image Path</translation>
+            <translation>複製圖片路徑</translation>
         </message>
         <message>
             <source>复制当前可见图像</source>
-            <translation>Copy Visible Image</translation>
+            <translation>複製目前可見影像</translation>
         </message>
         <message>
             <source>复制图像文件</source>
-            <translation>Copy Image File</translation>
+            <translation>複製影像檔</translation>
         </message>
         <message>
             <source>分组显示</source>
-            <translation>Grouping</translation>
+            <translation>分組顯示</translation>
         </message>
         <message>
             <source>RAW+JPG 分组显示</source>
-            <translation>RAW+JPG grouping</translation>
+            <translation>RAW+JPG 分組顯示</translation>
         </message>
         <message>
             <source>显示原始数据</source>
-            <translation>Show original data</translation>
+            <translation>顯示原始資料</translation>
         </message>
     </context>
     <context>
         <name>BatchConvertDialog</name>
         <message>
             <source>图片转换</source>
-            <translation>Batch Convert</translation>
+            <translation>批次轉換</translation>
         </message>
         <message>
             <source>没有可转换的图片</source>
-            <translation>No images to convert</translation>
+            <translation>沒有可轉換的圖片</translation>
         </message>
         <message>
             <source>文件列表 · %1 张</source>
-            <translation>File list · %1 items</translation>
+            <translation>檔案清單 · %1 張</translation>
         </message>
         <message>
             <source>不旋转</source>
-            <translation>No Rotation</translation>
+            <translation>不旋轉</translation>
         </message>
         <message>
             <source>逆时针 90°</source>
-            <translation>90° CCW</translation>
+            <translation>逆時針 90°</translation>
         </message>
         <message>
             <source>顺时针 90°</source>
-            <translation>90° CW</translation>
+            <translation>順時針 90°</translation>
         </message>
         <message>
             <source>旋转 180°</source>
-            <translation>Rotate 180°</translation>
+            <translation>旋轉 180°</translation>
         </message>
         <message>
             <source>按 EXIF 自动旋转</source>
-            <translation>Auto-rotate by EXIF</translation>
+            <translation>依 EXIF 自動旋轉</translation>
         </message>
         <message>
             <source>旋转</source>
-            <translation>Rotate</translation>
+            <translation>旋轉</translation>
         </message>
         <message>
             <source>原始</source>
-            <translation>Original</translation>
+            <translation>原始</translation>
         </message>
         <message>
             <source>保持比例</source>
-            <translation>Keep Aspect</translation>
+            <translation>保持比例</translation>
         </message>
         <message>
             <source>裁剪 / 新尺寸</source>
-            <translation>Crop / New Size</translation>
+            <translation>裁切 / 新尺寸</translation>
         </message>
         <message>
             <source>格式</source>
-            <translation>Format</translation>
+            <translation>格式</translation>
         </message>
         <message>
             <source>品质</source>
-            <translation>Quality</translation>
+            <translation>品質</translation>
         </message>
         <message>
             <source>格式设定</source>
-            <translation>Format Settings</translation>
+            <translation>格式設定</translation>
         </message>
         <message>
             <source>保存到原文件夹</source>
-            <translation>Save to Original Folder</translation>
+            <translation>儲存到原始資料夾</translation>
         </message>
         <message>
             <source>保存到图片文件夹</source>
-            <translation>Save to Pictures Folder</translation>
+            <translation>儲存到圖片資料夾</translation>
         </message>
         <message>
             <source>保存到：</source>
-            <translation>Save to:</translation>
+            <translation>儲存到：</translation>
         </message>
         <message>
             <source>选择输出文件夹</source>
-            <translation>Select output folder</translation>
+            <translation>選擇輸出資料夾</translation>
         </message>
         <message>
             <source>浏览…</source>
-            <translation>Browse…</translation>
+            <translation>瀏覽…</translation>
         </message>
         <message>
             <source>输出文件夹</source>
-            <translation>Output Folder</translation>
+            <translation>輸出資料夾</translation>
         </message>
         <message>
             <source>文件名前缀</source>
-            <translation>File Name Prefix</translation>
+            <translation>檔案名稱字首</translation>
         </message>
         <message>
             <source>正在转换…</source>
-            <translation>Converting…</translation>
+            <translation>正在轉換…</translation>
         </message>
         <message>
             <source>重置</source>
-            <translation>Reset</translation>
+            <translation>重設</translation>
         </message>
         <message>
             <source>原始文件会保留不变</source>
-            <translation>Original files are kept unchanged</translation>
+            <translation>原始檔案會保留不變</translation>
         </message>
         <message>
             <source>关闭</source>
-            <translation>Close</translation>
+            <translation>關閉</translation>
         </message>
         <message>
             <source>打开文件夹</source>
-            <translation>Open Folder</translation>
+            <translation>開啟資料夾</translation>
         </message>
         <message>
             <source>开始</source>
-            <translation>Start</translation>
+            <translation>開始</translation>
         </message>
         <message>
             <source>无法预览</source>
-            <translation>Cannot preview</translation>
+            <translation>無法預覽</translation>
         </message>
         <message>
             <source>正在取消…</source>
-            <translation>Cancelling…</translation>
+            <translation>正在取消…</translation>
         </message>
         <message>
             <source>没有可转换的图片。</source>
-            <translation>No images to convert.</translation>
+            <translation>沒有可轉換的圖片。</translation>
         </message>
         <message>
             <source>取消</source>
-            <translation>Cancel</translation>
+            <translation>取消</translation>
         </message>
         <message>
             <source>已取消：成功 %1 / 共 %2 张</source>
-            <translation>Cancelled: %1 of %2 succeeded</translation>
+            <translation>已取消：成功 %1 / 共 %2 張</translation>
         </message>
         <message>
             <source>转换完成</source>
-            <translation>Conversion Complete</translation>
+            <translation>轉換完成</translation>
         </message>
         <message>
             <source>成功 %1 / 共 %2 张%3</source>
-            <translation>%1 of %2 succeeded%3</translation>
+            <translation>成功 %1 / 共 %2 張%3</translation>
         </message>
         <message>
             <source>（失败 %1 张）</source>
-            <translation> (%1 failed)</translation>
+            <translation>（失敗 %1 張）</translation>
         </message>
     </context>
     <context>
         <name>ControlBar</name>
         <message>
             <source>底部控制栏</source>
-            <translation>Bottom Control Bar</translation>
+            <translation>底部控制列</translation>
         </message>
         <message>
             <source>打开、缩略图、缩放、旋转、全屏、上一张、进度、下一张与锁定</source>
-            <translation>Open, filmstrip, zoom, rotate, fullscreen, previous, progress, next and lock</translation>
+            <translation>開啟、縮圖列、縮放、旋轉、全螢幕、上一張、進度、下一張與鎖定</translation>
         </message>
         <message>
             <source>打开</source>
-            <translation>Open</translation>
+            <translation>開啟</translation>
         </message>
         <message>
             <source>缩略图栏</source>
-            <translation>Filmstrip</translation>
+            <translation>縮圖列</translation>
         </message>
         <message>
             <source>缩小</source>
-            <translation>Zoom Out</translation>
-        </message>
-        <message>
-            <source>缩小缩略图</source>
-            <translation>Shrink thumbnails</translation>
-        </message>
-        <message>
-            <source>放大缩略图</source>
-            <translation>Enlarge thumbnails</translation>
-        </message>
-        <message>
-            <source>缩略图大小</source>
-            <translation>Thumbnail size</translation>
+            <translation>縮小</translation>
         </message>
         <message>
             <source>适合窗口</source>
-            <translation>Fit to Window</translation>
+            <translation>符合視窗</translation>
         </message>
         <message>
             <source>查看原始尺寸（100%）</source>
-            <translation>Actual Size (100%)</translation>
+            <translation>實際大小（100%）</translation>
         </message>
         <message>
             <source>放大</source>
-            <translation>Zoom In</translation>
+            <translation>放大</translation>
         </message>
         <message>
             <source>旋转：左键逆时针 90°，右键顺时针 90°</source>
-            <translation>Rotate: left-click CCW 90°, right-click CW 90°</translation>
+            <translation>旋轉：左鍵逆時針 90°，右鍵順時針 90°</translation>
         </message>
         <message>
             <source>全屏 / 还原 (F11)</source>
-            <translation>Fullscreen / Restore (F11)</translation>
+            <translation>全螢幕 / 還原 (F11)</translation>
         </message>
         <message>
             <source>上一张图片 (←)</source>
-            <translation>Previous Image (←)</translation>
+            <translation>上一張圖片 (←)</translation>
         </message>
         <message>
             <source>浏览进度：拖动切换图片；滚轮上一张/下一张</source>
-            <translation>Browse progress: drag to switch images; wheel for previous/next</translation>
+            <translation>瀏覽進度：拖曳切換圖片；滾輪上一張／下一張</translation>
         </message>
         <message>
             <source>浏览进度：只有一张图片</source>
-            <translation>Browse progress: only one image</translation>
+            <translation>瀏覽進度：只有一張圖片</translation>
         </message>
         <message>
             <source>当前页码 / 总页数</source>
-            <translation>Current page / total pages</translation>
+            <translation>目前頁碼 / 總頁數</translation>
         </message>
         <message>
             <source>下一张图片 (→)</source>
-            <translation>Next Image (→)</translation>
+            <translation>下一張圖片 (→)</translation>
         </message>
         <message>
             <source>保持底部控制栏显示</source>
-            <translation>Keep Bottom Control Bar Visible</translation>
+            <translation>保持底部控制列顯示</translation>
         </message>
         <message>
             <source>%1 / %2</source>
@@ -561,655 +549,655 @@
         <name>DirectoryLoader</name>
         <message>
             <source>常用图片</source>
-            <translation>Common Images</translation>
+            <translation>常用圖片</translation>
         </message>
         <message>
             <source>图标与光标</source>
-            <translation>Icons &amp; Cursors</translation>
+            <translation>圖示與游標</translation>
         </message>
         <message>
             <source>其他图片</source>
-            <translation>Other Images</translation>
+            <translation>其他圖片</translation>
         </message>
         <message>
             <source>相机与无损</source>
-            <translation>Camera &amp; Lossless</translation>
+            <translation>相機與無損</translation>
         </message>
         <message>
             <source>所有图片</source>
-            <translation>All Images</translation>
+            <translation>所有圖片</translation>
         </message>
         <message>
             <source>所有文件 (*)</source>
-            <translation>All files (*)</translation>
+            <translation>所有檔案 (*)</translation>
         </message>
         <message>
             <source>图片与压缩包</source>
-            <translation>Images &amp; Archives</translation>
+            <translation>圖片與壓縮檔</translation>
         </message>
         <message>
             <source>压缩包</source>
-            <translation>Archives</translation>
+            <translation>壓縮檔</translation>
         </message>
         <message>
             <source>暂不支持加密压缩包</source>
-            <translation>Encrypted archives are not supported yet</translation>
+            <translation>暫不支援加密壓縮檔</translation>
         </message>
         <message>
             <source>包内没有可显示的图片</source>
-            <translation>No displayable images in this archive</translation>
+            <translation>壓縮檔內沒有可顯示的圖片</translation>
         </message>
     </context>
     <context>
         <name>EmptyState</name>
         <message>
             <source>开始查看图片</source>
-            <translation>Start Viewing Images</translation>
+            <translation>開始檢視圖片</translation>
         </message>
         <message>
             <source>把图片拖到这里，或从电脑中选择一张图片</source>
-            <translation>Drag images here, or pick one from your computer</translation>
+            <translation>把圖片拖到這裡，或從電腦中選擇一張圖片</translation>
         </message>
         <message>
             <source>也可以直接打开整个文件夹</source>
-            <translation>You can also open a whole folder</translation>
+            <translation>也可以直接開啟整個資料夾</translation>
         </message>
         <message>
             <source>打开图片</source>
-            <translation>Open Image</translation>
+            <translation>開啟圖片</translation>
         </message>
         <message>
             <source>选择文件夹</source>
-            <translation>Select Folder</translation>
+            <translation>選擇資料夾</translation>
         </message>
         <message>
             <source>全屏查看</source>
-            <translation>Fullscreen View</translation>
+            <translation>全螢幕檢視</translation>
         </message>
         <message>
             <source>设置</source>
-            <translation>Settings</translation>
+            <translation>設定</translation>
         </message>
     </context>
     <context>
         <name>ExifParser</name>
         <message>
             <source>1/%1 秒</source>
-            <translation>1/%1 s</translation>
+            <translation>1/%1 秒</translation>
         </message>
         <message>
             <source>%1 秒</source>
-            <translation>%1 s</translation>
+            <translation>%1 秒</translation>
         </message>
     </context>
     <context>
         <name>GammaDialog</name>
         <message>
             <source>Gamma 补偿</source>
-            <translation>Gamma Correction</translation>
+            <translation>Gamma 補償</translation>
         </message>
         <message>
             <source>往右变亮、往左变暗，1.00 为原始亮度。</source>
-            <translation>Brighter to the right, darker to the left; 1.00 is the original brightness.</translation>
+            <translation>往右變亮、往左變暗，1.00 為原始亮度。</translation>
         </message>
         <message>
             <source>重置为 1.00</source>
-            <translation>Reset to 1.00</translation>
+            <translation>重設為 1.00</translation>
         </message>
         <message>
             <source>取消</source>
-            <translation>Cancel</translation>
+            <translation>取消</translation>
         </message>
         <message>
             <source>确定</source>
-            <translation>OK</translation>
+            <translation>確定</translation>
         </message>
     </context>
     <context>
         <name>HeifLoader</name>
         <message>
             <source>libheif 上下文分配失败</source>
-            <translation>libheif context allocation failed</translation>
+            <translation>libheif 內容配置失敗</translation>
         </message>
         <message>
             <source>libheif 读取失败：%1</source>
-            <translation>libheif read failed: %1</translation>
+            <translation>libheif 讀取失敗：%1</translation>
         </message>
         <message>
             <source>libheif 获取主图像失败：%1</source>
-            <translation>libheif primary image handle failed: %1</translation>
+            <translation>libheif 取得主影像失敗：%1</translation>
         </message>
         <message>
             <source>libheif 解码失败：%1</source>
-            <translation>libheif decode failed: %1</translation>
+            <translation>libheif 解碼失敗：%1</translation>
         </message>
         <message>
             <source>libheif 取像素平面失败</source>
-            <translation>libheif pixel plane unavailable</translation>
+            <translation>libheif 取像素平面失敗</translation>
         </message>
         <message>
             <source>libheif 图像尺寸无效</source>
-            <translation>Invalid libheif image size</translation>
+            <translation>libheif 影像尺寸無效</translation>
         </message>
     </context>
     <context>
         <name>ImageCache</name>
         <message>
             <source>无法解码</source>
-            <translation>Unable to decode</translation>
+            <translation>無法解碼</translation>
         </message>
     </context>
     <context>
         <name>KeySeqStateFilter</name>
         <message>
             <source>按下组合键…</source>
-            <translation>Press a key combination…</translation>
+            <translation>按下組合鍵…</translation>
         </message>
         <message>
             <source>未设置</source>
-            <translation>Not set</translation>
+            <translation>未設定</translation>
         </message>
     </context>
     <context>
         <name>LayerPanel</name>
         <message>
             <source>图层</source>
-            <translation>Layers</translation>
+            <translation>圖層</translation>
         </message>
         <message>
             <source>关闭 (Tab)</source>
-            <translation>Close (Tab)</translation>
+            <translation>關閉 (Tab)</translation>
         </message>
         <message>
             <source>整图</source>
-            <translation>Whole Image</translation>
+            <translation>整張圖</translation>
         </message>
         <message>
             <source>可见性预览为简化合成，不还原混合模式 / 蒙版；原始合成图未改动。</source>
-            <translation>The visibility preview is a simplified composite — blend modes / masks are not reproduced; the original composite is untouched.</translation>
+            <translation>可見性預覽為簡化合成，不還原混合模式／遮罩；原始合成圖未更動。</translation>
         </message>
         <message>
             <source>%1，%2</source>
-            <translation>%1, %2</translation>
+            <translation>%1，%2</translation>
         </message>
         <message>
             <source>已折叠</source>
-            <translation>Collapsed</translation>
+            <translation>已摺疊</translation>
         </message>
         <message>
             <source>已展开</source>
-            <translation>Expanded</translation>
+            <translation>已展開</translation>
         </message>
         <message>
             <source>展开分组</source>
-            <translation>Expand Group</translation>
+            <translation>展開群組</translation>
         </message>
         <message>
             <source>折叠分组</source>
-            <translation>Collapse Group</translation>
+            <translation>摺疊群組</translation>
         </message>
         <message>
             <source>可见</source>
-            <translation>Visible</translation>
+            <translation>可見</translation>
         </message>
         <message>
             <source>隐藏</source>
-            <translation>Hidden</translation>
+            <translation>隱藏</translation>
         </message>
         <message>
             <source>隐藏该图层</source>
-            <translation>Hide this layer</translation>
+            <translation>隱藏此圖層</translation>
         </message>
         <message>
             <source>显示该图层</source>
-            <translation>Show this layer</translation>
+            <translation>顯示此圖層</translation>
         </message>
         <message>
             <source>该图层无法单独预览</source>
-            <translation>This layer cannot be previewed alone</translation>
+            <translation>此圖層無法單獨預覽</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>未打开图片</source>
-            <translation>No image open</translation>
+            <translation>未開啟圖片</translation>
         </message>
         <message>
             <source>图层</source>
-            <translation>Layers</translation>
+            <translation>圖層</translation>
         </message>
         <message>
             <source>顶部栏已锁定</source>
-            <translation>Top bar locked</translation>
+            <translation>頂部列已鎖定</translation>
         </message>
         <message>
             <source>顶部栏已解锁</source>
-            <translation>Top bar unlocked</translation>
+            <translation>頂部列已解除鎖定</translation>
         </message>
         <message>
             <source>底部控制胶囊已锁定</source>
-            <translation>Bottom control bar locked</translation>
+            <translation>底部控制列已鎖定</translation>
         </message>
         <message>
             <source>底部控制胶囊已解锁</source>
-            <translation>Bottom control bar unlocked</translation>
+            <translation>底部控制列已解除鎖定</translation>
         </message>
         <message>
             <source>打开(&amp;O)...</source>
-            <translation>&amp;Open...</translation>
+            <translation>開啟(&amp;O)...</translation>
         </message>
         <message>
             <source>打开文件夹...</source>
-            <translation>Open Folder...</translation>
+            <translation>開啟資料夾...</translation>
         </message>
         <message>
             <source>另存为…(&amp;S)</source>
-            <translation>Save &amp;As…</translation>
+            <translation>另存新檔…(&amp;S)</translation>
         </message>
         <message>
             <source>打印</source>
-            <translation>Print</translation>
+            <translation>列印</translation>
         </message>
         <message>
             <source>批量转换(&amp;B)</source>
-            <translation>&amp;Batch Convert</translation>
+            <translation>批次轉換(&amp;B)</translation>
         </message>
         <message>
             <source>设置(&amp;C)</source>
-            <translation>&amp;Settings</translation>
+            <translation>設定(&amp;C)</translation>
         </message>
         <message>
             <source>添加书签</source>
-            <translation>Add Bookmark</translation>
+            <translation>加入書籤</translation>
         </message>
         <message>
             <source>删除</source>
-            <translation>Delete</translation>
+            <translation>刪除</translation>
         </message>
         <message>
             <source>复制到 图片文件夹</source>
-            <translation>Copy to Pictures folder</translation>
+            <translation>複製到 圖片資料夾</translation>
         </message>
         <message>
             <source>用图像编辑器打开</source>
-            <translation>Open with Image Editor</translation>
+            <translation>用影像編輯器開啟</translation>
         </message>
         <message>
             <source>复制到剪贴板</source>
-            <translation>Copy to Clipboard</translation>
+            <translation>複製到剪貼簿</translation>
         </message>
         <message>
             <source>设为桌面壁纸…</source>
-            <translation>Set as Desktop Wallpaper…</translation>
+            <translation>設為桌面背景…</translation>
         </message>
         <message>
-            <source>关于 QuikView</source>
-            <translation>About QuikView</translation>
+            <source>关于 SoleView</source>
+            <translation>關於 SoleView</translation>
         </message>
         <message>
             <source>退出(&amp;Q)</source>
-            <translation>&amp;Quit</translation>
+            <translation>結束(&amp;Q)</translation>
         </message>
         <message>
             <source>关闭</source>
-            <translation>Close</translation>
+            <translation>關閉</translation>
         </message>
         <message>
             <source>原始大小 (100%)</source>
-            <translation>Actual Size (100%)</translation>
+            <translation>原始大小 (100%)</translation>
         </message>
         <message>
             <source>适合窗口</source>
-            <translation>Fit to Window</translation>
+            <translation>符合視窗</translation>
         </message>
         <message>
             <source>适合宽度</source>
-            <translation>Fit to Width</translation>
+            <translation>符合寬度</translation>
         </message>
         <message>
             <source>智能双页阅览 (左→右)</source>
-            <translation>Smart Two-Page View (Left→Right)</translation>
+            <translation>智慧雙頁閱覽 (左→右)</translation>
         </message>
         <message>
             <source>智能双页阅览 (左←右)</source>
-            <translation>Smart Two-Page View (Left←Right)</translation>
+            <translation>智慧雙頁閱覽 (左←右)</translation>
         </message>
         <message>
             <source>放大(&amp;+)</source>
-            <translation>Zoom &amp;In</translation>
+            <translation>放大(&amp;+)</translation>
         </message>
         <message>
             <source>缩小(&amp;-)</source>
-            <translation>Zoom &amp;Out</translation>
+            <translation>縮小(&amp;-)</translation>
         </message>
         <message>
             <source>上一张图片</source>
-            <translation>Previous Image</translation>
+            <translation>上一張圖片</translation>
         </message>
         <message>
             <source>下一张图片</source>
-            <translation>Next Image</translation>
+            <translation>下一張圖片</translation>
         </message>
         <message>
             <source>向上10张图片</source>
-            <translation>Back 10 Images</translation>
+            <translation>向上 10 張圖片</translation>
         </message>
         <message>
             <source>向下10张图片</source>
-            <translation>Forward 10 Images</translation>
+            <translation>向下 10 張圖片</translation>
         </message>
         <message>
             <source>首张图片</source>
-            <translation>First Image</translation>
+            <translation>第一張圖片</translation>
         </message>
         <message>
             <source>末尾图片</source>
-            <translation>Last Image</translation>
+            <translation>最後一張圖片</translation>
         </message>
         <message>
             <source>上一个文件夹</source>
-            <translation>Previous Folder</translation>
+            <translation>上一個資料夾</translation>
         </message>
         <message>
             <source>下一个文件夹</source>
-            <translation>Next Folder</translation>
+            <translation>下一個資料夾</translation>
         </message>
         <message>
             <source>下一帧</source>
-            <translation>Next Frame</translation>
+            <translation>下一影格</translation>
         </message>
         <message>
             <source>上一帧</source>
-            <translation>Previous Frame</translation>
+            <translation>上一影格</translation>
         </message>
         <message>
             <source>幻灯片放映(&amp;S)</source>
-            <translation>&amp;Slideshow</translation>
+            <translation>投影片放映(&amp;S)</translation>
         </message>
         <message>
             <source>停止放映</source>
-            <translation>Stop Slideshow</translation>
+            <translation>停止放映</translation>
         </message>
         <message>
             <source>%1 秒放映</source>
-            <translation>%1 s slideshow</translation>
+            <translation>%1 秒放映</translation>
         </message>
         <message>
             <source>显示/隐藏信息面板(&amp;I)</source>
-            <translation>Show/&amp;Hide Info Panel</translation>
+            <translation>顯示/隱藏資訊面板(&amp;I)</translation>
         </message>
         <message>
             <source>已复制图片信息参数</source>
-            <translation>Image info parameters copied</translation>
+            <translation>已複製圖片資訊參數</translation>
         </message>
         <message>
             <source>窗口置顶</source>
-            <translation>Always on Top</translation>
+            <translation>視窗置頂</translation>
         </message>
         <message>
             <source>深色模式(&amp;D)</source>
-            <translation>&amp;Dark Mode</translation>
+            <translation>深色模式(&amp;D)</translation>
         </message>
         <message>
             <source>逆时针旋转 90°</source>
-            <translation>Rotate 90° Counter-Clockwise</translation>
+            <translation>逆時針旋轉 90°</translation>
         </message>
         <message>
             <source>顺时针旋转 90°</source>
-            <translation>Rotate 90° Clockwise</translation>
+            <translation>順時針旋轉 90°</translation>
         </message>
         <message>
             <source>不旋转</source>
-            <translation>No Rotation</translation>
+            <translation>不旋轉</translation>
         </message>
         <message>
             <source>旋转 180°</source>
-            <translation>Rotate 180°</translation>
+            <translation>旋轉 180°</translation>
         </message>
         <message>
             <source>水平翻转</source>
-            <translation>Flip Horizontal</translation>
+            <translation>水平翻轉</translation>
         </message>
         <message>
             <source>垂直翻转</source>
-            <translation>Flip Vertical</translation>
+            <translation>垂直翻轉</translation>
         </message>
         <message>
             <source>裁剪(&amp;C)</source>
-            <translation>&amp;Crop</translation>
+            <translation>裁切(&amp;C)</translation>
         </message>
         <message>
             <source>调整大小(&amp;R)</source>
-            <translation>&amp;Resize</translation>
+            <translation>調整大小(&amp;R)</translation>
         </message>
         <message>
             <source>反色</source>
-            <translation>Invert Colors</translation>
+            <translation>反轉色彩</translation>
         </message>
         <message>
             <source>Gamma 补偿…</source>
-            <translation>Gamma Correction…</translation>
+            <translation>Gamma 補償…</translation>
         </message>
         <message>
             <source>拉伸小图</source>
-            <translation>Stretch Small Images</translation>
+            <translation>拉伸小圖</translation>
         </message>
         <message>
             <source>锁定缩放</source>
-            <translation>Lock Zoom</translation>
+            <translation>鎖定縮放</translation>
         </message>
         <message>
             <source>放大 (1%)</source>
-            <translation>Zoom In (1%)</translation>
+            <translation>放大 (1%)</translation>
         </message>
         <message>
             <source>缩小 (1%)</source>
-            <translation>Zoom Out (1%)</translation>
+            <translation>縮小 (1%)</translation>
         </message>
         <message>
             <source>选择图片</source>
-            <translation>Go to Image</translation>
+            <translation>選擇圖片</translation>
         </message>
         <message>
             <source>选择图片 (小键盘)</source>
-            <translation>Go to Image (Numpad)</translation>
+            <translation>選擇圖片 (數字鍵盤)</translation>
         </message>
         <message>
             <source>定位文件</source>
-            <translation>Reveal File</translation>
+            <translation>顯示檔案位置</translation>
         </message>
         <message>
             <source>向后随机转到某张图片</source>
-            <translation>Random Image (Backward)</translation>
+            <translation>向後隨機跳到某張圖片</translation>
         </message>
         <message>
             <source>向前随机转到某张图片</source>
-            <translation>Random Image (Forward)</translation>
+            <translation>向前隨機跳到某張圖片</translation>
         </message>
         <message>
             <source>编辑书签</source>
-            <translation>Edit Bookmarks</translation>
+            <translation>編輯書籤</translation>
         </message>
         <message>
             <source>无</source>
-            <translation>None</translation>
+            <translation>無</translation>
         </message>
         <message>
             <source>减淡</source>
-            <translation>Soften</translation>
+            <translation>柔化</translation>
         </message>
         <message>
             <source>减淡 + 锐化</source>
-            <translation>Soften + Sharpen</translation>
+            <translation>柔化 + 銳利化</translation>
         </message>
         <message>
             <source>Bilinear 插值 (快)</source>
-            <translation>Bilinear Interpolation (Fast)</translation>
+            <translation>Bilinear 內插 (快)</translation>
         </message>
         <message>
             <source>Bicubic 插值 (慢，高品质)</source>
-            <translation>Bicubic Interpolation (Slow, High Quality)</translation>
+            <translation>Bicubic 內插 (慢，高品質)</translation>
         </message>
         <message>
             <source>Lanczos 插值 (慢，高品质)</source>
-            <translation>Lanczos Interpolation (Slow, High Quality)</translation>
+            <translation>Lanczos 內插 (慢，高品質)</translation>
         </message>
         <message>
             <source>文件名</source>
-            <translation>File name</translation>
+            <translation>檔案名稱</translation>
         </message>
         <message>
             <source>修改日期</source>
-            <translation>Date Modified</translation>
+            <translation>修改日期</translation>
         </message>
         <message>
             <source>大小</source>
-            <translation>Size</translation>
+            <translation>大小</translation>
         </message>
         <message>
             <source>类型</source>
-            <translation>Type</translation>
+            <translation>類型</translation>
         </message>
         <message>
             <source>降序</source>
-            <translation>Descending</translation>
+            <translation>遞減</translation>
         </message>
         <message>
             <source>%1 秒</source>
-            <translation>%1 s</translation>
+            <translation>%1 秒</translation>
         </message>
         <message>
             <source>循环</source>
-            <translation>Loop</translation>
+            <translation>循環</translation>
         </message>
         <message>
             <source>随机</source>
-            <translation>Random</translation>
+            <translation>隨機</translation>
         </message>
         <message>
             <source>删除所有书签</source>
-            <translation>Delete All Bookmarks</translation>
+            <translation>刪除所有書籤</translation>
         </message>
         <message>
             <source>已删除所有书签</source>
-            <translation>All bookmarks deleted</translation>
+            <translation>已刪除所有書籤</translation>
         </message>
         <message>
             <source>书签设置</source>
-            <translation>Bookmark Settings</translation>
+            <translation>書籤設定</translation>
         </message>
         <message>
             <source>转换图片 (旋转/裁剪)</source>
-            <translation>Convert Image (Rotate/Crop)</translation>
+            <translation>轉換圖片 (旋轉／裁切)</translation>
         </message>
         <message>
             <source>请先在 设置 → 杂项 中配置图片文件夹</source>
-            <translation>Configure Pictures folders first in Settings → Miscellaneous</translation>
+            <translation>請先在 設定 → 雜項 中設定圖片資料夾</translation>
         </message>
         <message>
             <source>目标已存在：%1</source>
-            <translation>Target already exists: %1</translation>
+            <translation>目標已存在：%1</translation>
         </message>
         <message>
             <source>操作失败：%1</source>
-            <translation>Operation failed: %1</translation>
+            <translation>操作失敗：%1</translation>
         </message>
         <message>
             <source>已移动到：%1</source>
-            <translation>Moved to: %1</translation>
+            <translation>已移動到：%1</translation>
         </message>
         <message>
             <source>已复制到：%1</source>
-            <translation>Copied to: %1</translation>
+            <translation>已複製到：%1</translation>
         </message>
         <message>
             <source>复制到 图片文件夹 1</source>
-            <translation>Copy to Pictures folder 1</translation>
+            <translation>複製到 圖片資料夾 1</translation>
         </message>
         <message>
             <source>复制到 图片文件夹 2</source>
-            <translation>Copy to Pictures folder 2</translation>
+            <translation>複製到 圖片資料夾 2</translation>
         </message>
         <message>
             <source>移动到 图片文件夹 1</source>
-            <translation>Move to Pictures folder 1</translation>
+            <translation>移動到 圖片資料夾 1</translation>
         </message>
         <message>
             <source>图片文件夹 路径定义</source>
-            <translation>Pictures Folder Paths</translation>
+            <translation>圖片資料夾 路徑定義</translation>
         </message>
         <message>
             <source>打开 图片文件夹 1</source>
-            <translation>Open Pictures folder 1</translation>
+            <translation>開啟 圖片資料夾 1</translation>
         </message>
         <message>
             <source>幻灯片播放</source>
-            <translation>Slideshow Playback</translation>
+            <translation>投影片播放</translation>
         </message>
         <message>
             <source>书签</source>
-            <translation>Bookmarks</translation>
+            <translation>書籤</translation>
         </message>
         <message>
             <source>取消当前书签</source>
-            <translation>Remove Current Bookmark</translation>
+            <translation>取消目前書籤</translation>
         </message>
         <message>
             <source>添加当前书签</source>
-            <translation>Bookmark Current Image</translation>
+            <translation>加入目前書籤</translation>
         </message>
         <message>
             <source>编辑与转换</source>
-            <translation>Edit &amp; Convert</translation>
+            <translation>編輯與轉換</translation>
         </message>
         <message>
             <source>复制到</source>
-            <translation>Copy to</translation>
+            <translation>複製到</translation>
         </message>
         <message>
             <source>浏览与显示</source>
-            <translation>Browse &amp; View</translation>
+            <translation>瀏覽與顯示</translation>
         </message>
         <message>
             <source>缩略图</source>
-            <translation>Filmstrip</translation>
+            <translation>縮圖列</translation>
         </message>
         <message>
             <source>向下 10 张图片</source>
-            <translation>Forward 10 Images</translation>
+            <translation>向下 10 張圖片</translation>
         </message>
         <message>
             <source>向上 10 张图片</source>
-            <translation>Back 10 Images</translation>
+            <translation>向上 10 張圖片</translation>
         </message>
         <message>
             <source>EXIF 信息</source>
-            <translation>EXIF Info</translation>
+            <translation>EXIF 資訊</translation>
         </message>
         <message>
             <source>全屏</source>
-            <translation>Fullscreen</translation>
+            <translation>全螢幕</translation>
         </message>
         <message>
             <source>浏览与显示的参数</source>
-            <translation>Browse &amp; View Options</translation>
+            <translation>瀏覽與顯示的參數</translation>
         </message>
         <message>
             <source>浏览方式</source>
-            <translation>View Mode</translation>
+            <translation>瀏覽方式</translation>
         </message>
         <message>
             <source>缩放</source>
-            <translation>Zoom</translation>
+            <translation>縮放</translation>
         </message>
         <message>
             <source>放大</source>
-            <translation>Zoom In</translation>
+            <translation>放大</translation>
         </message>
         <message>
             <source>缩小</source>
-            <translation>Zoom Out</translation>
+            <translation>縮小</translation>
         </message>
         <message>
             <source>100%</source>
@@ -1217,271 +1205,271 @@
         </message>
         <message>
             <source>旋转</source>
-            <translation>Rotate</translation>
+            <translation>旋轉</translation>
         </message>
         <message>
             <source>排序方式</source>
-            <translation>Sort By</translation>
+            <translation>排序方式</translation>
         </message>
         <message>
             <source>显示效果</source>
-            <translation>Display Filter</translation>
+            <translation>顯示效果</translation>
         </message>
         <message>
             <source>插值算法</source>
-            <translation>Interpolation</translation>
+            <translation>內插演算法</translation>
         </message>
         <message>
             <source>保持顶部工具栏显示</source>
-            <translation>Keep Top Toolbar Visible</translation>
+            <translation>保持頂部工具列顯示</translation>
         </message>
         <message>
             <source>保持底部控制栏显示</source>
-            <translation>Keep Bottom Control Bar Visible</translation>
+            <translation>保持底部控制列顯示</translation>
         </message>
         <message>
             <source>总在最前端：开</source>
-            <translation>Always on Top: On</translation>
+            <translation>永遠在最上層：開</translation>
         </message>
         <message>
             <source>总在最前端：关</source>
-            <translation>Always on Top: Off</translation>
+            <translation>永遠在最上層：關</translation>
         </message>
         <message>
             <source>无法读取文件：</source>
-            <translation>Cannot read file: </translation>
+            <translation>無法讀取檔案：</translation>
         </message>
         <message>
             <source>正在打开 %1 …</source>
-            <translation>Opening %1 …</translation>
+            <translation>正在開啟 %1 …</translation>
         </message>
         <message>
             <source>无法打开：%1</source>
-            <translation>Cannot open: %1</translation>
+            <translation>無法開啟：%1</translation>
         </message>
         <message>
             <source>已在设置中禁用 RAW 解码</source>
-            <translation>RAW decoding is disabled in Settings</translation>
+            <translation>已在設定中停用 RAW 解碼</translation>
         </message>
         <message>
             <source>RAW 解码失败</source>
-            <translation>RAW decoding failed</translation>
+            <translation>RAW 解碼失敗</translation>
         </message>
         <message>
             <source>无法打开 %1：%2</source>
-            <translation>Cannot open %1: %2</translation>
+            <translation>無法開啟 %1：%2</translation>
         </message>
         <message>
             <source>正在打开第 %1 张 · %2</source>
-            <translation>Opening image %1 · %2</translation>
+            <translation>正在開啟第 %1 張 · %2</translation>
         </message>
         <message>
             <source>第 %1/%2 帧</source>
-            <translation>Frame %1/%2</translation>
+            <translation>第 %1/%2 影格</translation>
         </message>
         <message>
             <source>第 %1 帧</source>
-            <translation>Frame %1</translation>
+            <translation>第 %1 影格</translation>
         </message>
         <message>
             <source>适合</source>
-            <translation>Fit</translation>
+            <translation>符合</translation>
         </message>
         <message>
             <source>打开图片</source>
-            <translation>Open Image</translation>
+            <translation>開啟圖片</translation>
         </message>
         <message>
             <source>已经是第一张图片</source>
-            <translation>Already at the first image</translation>
+            <translation>已經是第一張圖片</translation>
         </message>
         <message>
             <source>已回到最后一张图片</source>
-            <translation>Moved back to the last image</translation>
+            <translation>已回到最後一張圖片</translation>
         </message>
         <message>
             <source>已经是最后一张图片</source>
-            <translation>Already at the last image</translation>
+            <translation>已經是最後一張圖片</translation>
         </message>
         <message>
             <source>已回到第一张图片</source>
-            <translation>Moved back to the first image</translation>
+            <translation>已回到第一張圖片</translation>
         </message>
         <message>
             <source>已是最后一个文件夹</source>
-            <translation>Already at the last folder</translation>
+            <translation>已是最後一個資料夾</translation>
         </message>
         <message>
             <source>下一个文件夹：</source>
-            <translation>Next folder: </translation>
+            <translation>下一個資料夾：</translation>
         </message>
         <message>
             <source>已是第一个文件夹</source>
-            <translation>Already at the first folder</translation>
+            <translation>已是第一個資料夾</translation>
         </message>
         <message>
             <source>上一个文件夹：</source>
-            <translation>Previous folder: </translation>
+            <translation>上一個資料夾：</translation>
         </message>
         <message>
             <source>幻灯片放映：开</source>
-            <translation>Slideshow: On</translation>
+            <translation>投影片放映：開</translation>
         </message>
         <message>
             <source>幻灯片放映：停</source>
-            <translation>Slideshow: Off</translation>
+            <translation>投影片放映：停</translation>
         </message>
         <message>
             <source>图像未旋转</source>
-            <translation>Image not rotated</translation>
+            <translation>圖片未旋轉</translation>
         </message>
         <message>
             <source>反色：开</source>
-            <translation>Invert Colors: On</translation>
+            <translation>反轉色彩：開</translation>
         </message>
         <message>
             <source>反色：关</source>
-            <translation>Invert Colors: Off</translation>
+            <translation>反轉色彩：關</translation>
         </message>
         <message>
             <source>Gamma 补偿：已还原</source>
-            <translation>Gamma correction: reset</translation>
+            <translation>Gamma 補償：已還原</translation>
         </message>
         <message>
             <source>Gamma 补偿：%1</source>
-            <translation>Gamma correction: %1</translation>
+            <translation>Gamma 補償：%1</translation>
         </message>
         <message>
             <source>拉伸小图像：开</source>
-            <translation>Stretch small images: On</translation>
+            <translation>拉伸小圖：開</translation>
         </message>
         <message>
             <source>拉伸小图像：关</source>
-            <translation>Stretch small images: Off</translation>
+            <translation>拉伸小圖：關</translation>
         </message>
         <message>
             <source>锁定缩放：开</source>
-            <translation>Lock zoom: On</translation>
+            <translation>鎖定縮放：開</translation>
         </message>
         <message>
             <source>锁定缩放：关</source>
-            <translation>Lock zoom: Off</translation>
+            <translation>鎖定縮放：關</translation>
         </message>
         <message>
             <source>当前目录没有可跳转的图片序列</source>
-            <translation>No image sequence to jump to in this folder</translation>
+            <translation>目前資料夾沒有可跳轉的圖片序列</translation>
         </message>
         <message>
             <source>跳到第几张（共 %1 张）：</source>
-            <translation>Go to image (of %1): </translation>
+            <translation>跳到第幾張（共 %1 張）：</translation>
         </message>
         <message>
             <source>双击一行可直接打开；书签就是收藏过的图片路径。</source>
-            <translation>Double-click a row to open it; bookmarks are saved image paths.</translation>
+            <translation>雙擊一行可直接開啟；書籤就是收藏過的圖片路徑。</translation>
         </message>
         <message>
             <source>（还没有书签，按 B 可把当前图片加为书签）</source>
-            <translation>(No bookmarks yet — press B to bookmark the current image)</translation>
+            <translation>（還沒有書籤，按 B 可把目前圖片加為書籤）</translation>
         </message>
         <message>
             <source>打开</source>
-            <translation>Open</translation>
+            <translation>開啟</translation>
         </message>
         <message>
             <source>删除选中</source>
-            <translation>Delete Selected</translation>
+            <translation>刪除所選</translation>
         </message>
         <message>
             <source>全部删除</source>
-            <translation>Delete All</translation>
+            <translation>全部刪除</translation>
         </message>
         <message>
             <source>文件已不存在</source>
-            <translation>File no longer exists</translation>
+            <translation>檔案已不存在</translation>
         </message>
         <message>
             <source>智能双页阅览（左→右）</source>
-            <translation>Smart Two-Page View (Left→Right)</translation>
+            <translation>智慧雙頁閱覽（左→右）</translation>
         </message>
         <message>
             <source>智能双页阅览（左←右）</source>
-            <translation>Smart Two-Page View (Left←Right)</translation>
+            <translation>智慧雙頁閱覽（左←右）</translation>
         </message>
         <message>
             <source>拖拽框选裁剪区域，回车确认，Esc 取消</source>
-            <translation>Drag to select the crop area, Enter to confirm, Esc to cancel</translation>
+            <translation>拖曳框選裁切區域，Enter 確認，Esc 取消</translation>
         </message>
         <message>
             <source>请先框选裁剪区域</source>
-            <translation>Select a crop area first</translation>
+            <translation>請先框選裁切區域</translation>
         </message>
         <message>
             <source>调整大小</source>
-            <translation>Resize</translation>
+            <translation>調整大小</translation>
         </message>
         <message>
             <source>缩放比例（%）：</source>
-            <translation>Scale (%): </translation>
+            <translation>縮放比例（%）：</translation>
         </message>
         <message>
             <source>打开文件夹</source>
-            <translation>Open Folder</translation>
+            <translation>開啟資料夾</translation>
         </message>
         <message>
             <source>该文件夹没有可识别的图片</source>
-            <translation>No recognizable images in this folder</translation>
+            <translation>此資料夾沒有可辨識的圖片</translation>
         </message>
         <message>
             <source>删除文件</source>
-            <translation>Delete File</translation>
+            <translation>刪除檔案</translation>
         </message>
         <message>
             <source>删除文件 %1？此操作进入回收站</source>
-            <translation>Delete %1? The file goes to the Recycle Bin.</translation>
+            <translation>刪除檔案 %1？此操作會進入資源回收筒</translation>
         </message>
         <message>
             <source>删除失败</source>
-            <translation>Delete Failed</translation>
+            <translation>刪除失敗</translation>
         </message>
         <message>
             <source>无法删除文件：%1</source>
-            <translation>Cannot delete file: %1</translation>
+            <translation>無法刪除檔案：%1</translation>
         </message>
         <message>
             <source>已删除</source>
-            <translation>Deleted</translation>
+            <translation>已刪除</translation>
         </message>
         <message>
             <source>复制到图片文件夹</source>
-            <translation>Copy to Pictures Folder</translation>
+            <translation>複製到圖片資料夾</translation>
         </message>
         <message>
             <source>复制失败</source>
-            <translation>Copy Failed</translation>
+            <translation>複製失敗</translation>
         </message>
         <message>
             <source>目标文件已存在，不覆盖：%1</source>
-            <translation>Target file exists, not overwriting: %1</translation>
+            <translation>目標檔案已存在，不覆蓋：%1</translation>
         </message>
         <message>
             <source>无法复制到：%1</source>
-            <translation>Cannot copy to: %1</translation>
+            <translation>無法複製到：%1</translation>
         </message>
         <message>
             <source>已复制到剪贴板</source>
-            <translation>Copied to clipboard</translation>
+            <translation>已複製到剪貼簿</translation>
         </message>
         <message>
             <source>已设为壁纸</source>
-            <translation>Wallpaper set</translation>
+            <translation>已設為桌面背景</translation>
         </message>
         <message>
             <source>设壁纸失败：</source>
-            <translation>Failed to set wallpaper: </translation>
+            <translation>設定桌面背景失敗：</translation>
         </message>
         <message>
             <source>另存为</source>
-            <translation>Save As</translation>
+            <translation>另存新檔</translation>
         </message>
         <message>
             <source>PNG (*.png);;JPEG (*.jpg *.jpeg);;BMP (*.bmp);;WebP (*.webp);;TIFF (*.tif *.tiff)</source>
@@ -1489,202 +1477,202 @@
         </message>
         <message>
             <source>已保存：%1</source>
-            <translation>Saved: %1</translation>
+            <translation>已儲存：%1</translation>
         </message>
         <message>
             <source>保存失败</source>
-            <translation>Save Failed</translation>
+            <translation>儲存失敗</translation>
         </message>
         <message>
             <source>当前目录没有可转换的图片</source>
-            <translation>No images to convert in this folder</translation>
+            <translation>目前資料夾沒有可轉換的圖片</translation>
         </message>
         <message>
             <source>已取消收藏</source>
-            <translation>Removed from bookmarks</translation>
+            <translation>已取消收藏</translation>
         </message>
         <message>
             <source>已收藏（书签已满 %1 个，最早的书签已移除）</source>
-            <translation>Bookmarked (list was full at %1 — oldest bookmark removed)</translation>
+            <translation>已收藏（書籤已滿 %1 個，最早的書籤已移除）</translation>
         </message>
         <message>
             <source>已收藏</source>
-            <translation>Bookmarked</translation>
+            <translation>已收藏</translation>
         </message>
         <message>
             <source>（空）</source>
-            <translation>(empty)</translation>
+            <translation>（空）</translation>
         </message>
         <message>
             <source>模拟失败：信息面板拒绝本次字号切换。</source>
-            <translation>Simulation failed: the info panel rejected the font-size change.</translation>
+            <translation>模擬失敗：資訊面板拒絕了這次字型大小切換。</translation>
         </message>
         <message>
             <source>未知的主题值：%1</source>
-            <translation>Unknown theme value: %1</translation>
+            <translation>未知的主題值：%1</translation>
         </message>
         <message>
             <source>未知的即时设置项：%1</source>
-            <translation>Unknown live-setting id: %1</translation>
+            <translation>未知的即時設定項目：%1</translation>
         </message>
         <message>
-            <source>&lt;h3&gt;QuikView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 许可证开源，零遥测、零推广。&lt;/p&gt;</source>
-            <translation>&lt;h3&gt;QuikView&lt;/h3&gt;&lt;p&gt;Version %1&lt;/p&gt;&lt;p&gt;Open source under the MIT license. No telemetry, no ads.&lt;/p&gt;</translation>
+            <source>&lt;h3&gt;SoleView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 许可证开源，零遥测、零推广。&lt;/p&gt;</source>
+            <translation>&lt;h3&gt;SoleView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 授權開源，零遙測、零推廣。&lt;/p&gt;</translation>
         </message>
         <message>
             <source>(无图片)</source>
-            <translation>(no image)</translation>
+            <translation>(無圖片)</translation>
         </message>
         <message>
             <source>已暂停 · 空格继续</source>
-            <translation>Paused · Space to resume</translation>
+            <translation>已暫停 · 空白鍵繼續</translation>
         </message>
         <message>
             <source>GIF 播放中 · 空格暂停</source>
-            <translation>GIF playing · Space to pause</translation>
+            <translation>GIF 播放中 · 空白鍵暫停</translation>
         </message>
         <message>
             <source>该 PSD 未保存兼容性预览；请在 Photoshop「首选项 → 文件处理」勾选「提高 PSD 和 PSB 文件兼容性」后重新保存</source>
-            <translation>This PSD was saved without a compatibility preview; turn on "Maximize PSD and PSB File Compatibility" in Photoshop (Preferences -&gt; File Handling) and save it again</translation>
+            <translation>此 PSD 未儲存相容性預覽；請在 Photoshop「偏好設定 → 檔案處理」勾選「提高 PSD 和 PSB 檔案相容性」後重新儲存</translation>
         </message>
         <message>
             <source>文件可能已损坏（格式头有效，图像数据读取失败）</source>
-            <translation>The file may be damaged (header is valid, but the image data could not be read)</translation>
+            <translation>檔案可能已損毀（格式標頭有效，影像資料讀取失敗）</translation>
         </message>
         <message>
             <source>暂不支持该格式</source>
-            <translation>This format is not supported yet</translation>
+            <translation>暫不支援此格式</translation>
         </message>
         <message>
             <source>从剪贴板粘贴图片</source>
-            <translation>Paste Image from Clipboard</translation>
+            <translation>從剪貼簿貼上影像</translation>
         </message>
         <message>
             <source>请先打开图片</source>
-            <translation>Open an image first</translation>
+            <translation>請先開啟圖片</translation>
         </message>
         <message>
             <source>该图片没有可复制的信息</source>
-            <translation>This image has no information to copy</translation>
+            <translation>此圖片沒有可複製的資訊</translation>
         </message>
         <message>
             <source>已复制 EXIF 数据</source>
-            <translation>EXIF data copied</translation>
+            <translation>已複製 EXIF 資料</translation>
         </message>
         <message>
             <source>该图片没有可复制的路径</source>
-            <translation>This image has no path to copy</translation>
+            <translation>此圖片沒有可複製的路徑</translation>
         </message>
         <message>
             <source>已复制图片路径</source>
-            <translation>Image path copied</translation>
+            <translation>已複製圖片路徑</translation>
         </message>
         <message>
             <source>复制当前可见图像失败</source>
-            <translation>Failed to copy the visible image</translation>
+            <translation>複製目前可見影像失敗</translation>
         </message>
         <message>
             <source>已复制当前可见图像</source>
-            <translation>Visible image copied</translation>
+            <translation>已複製目前可見影像</translation>
         </message>
         <message>
             <source>该图片没有可复制的文件</source>
-            <translation>This image has no file to copy</translation>
+            <translation>此圖片沒有可複製的檔案</translation>
         </message>
         <message>
             <source>已复制图像文件</source>
-            <translation>Image file copied</translation>
+            <translation>已複製影像檔</translation>
         </message>
         <message>
             <source>剪贴板中没有图片</source>
-            <translation>No image in the clipboard</translation>
+            <translation>剪貼簿中沒有影像</translation>
         </message>
         <message>
             <source>复制 EXIF 数据</source>
-            <translation>Copy EXIF Data</translation>
+            <translation>複製 EXIF 資料</translation>
         </message>
         <message>
             <source>复制图片路径</source>
-            <translation>Copy Image Path</translation>
+            <translation>複製圖片路徑</translation>
         </message>
         <message>
             <source>复制当前可见图像</source>
-            <translation>Copy Visible Image</translation>
+            <translation>複製目前可見影像</translation>
         </message>
         <message>
             <source>复制图像文件</source>
-            <translation>Copy Image File</translation>
+            <translation>複製影像檔</translation>
         </message>
         <message>
             <source>该格式不支持自动保存</source>
-            <translation>This format does not support auto-save</translation>
+            <translation>此格式不支援自動儲存</translation>
         </message>
         <message>
             <source>已自动保存回原文件</source>
-            <translation>Auto-saved to the original file</translation>
+            <translation>已自動儲存回原始檔案</translation>
         </message>
         <message>
             <source>自动保存失败：%1</source>
-            <translation>Auto-save failed: %1</translation>
+            <translation>自動儲存失敗：%1</translation>
         </message>
         <message>
             <source>锁定窗口大小</source>
-            <translation>Lock window size</translation>
+            <translation>鎖定視窗大小</translation>
         </message>
         <message>
             <source>窗口大小：锁定</source>
-            <translation>Window size: locked</translation>
+            <translation>視窗大小：鎖定</translation>
         </message>
         <message>
             <source>窗口大小：解锁</source>
-            <translation>Window size: unlocked</translation>
+            <translation>視窗大小：解鎖</translation>
         </message>
         <message>
             <source>已关闭「根据图片大小调节窗口大小」（与锁定窗口大小互斥）</source>
-            <translation>Turned off "Resize window to fit image" (mutually exclusive with lock window size)</translation>
+            <translation>已關閉「根據圖片大小調整視窗大小」（與鎖定視窗大小互斥）</translation>
         </message>
         <message>
             <source>窗口大小已锁定，先解锁才能最大化</source>
-            <translation>Window size is locked — unlock it to maximize</translation>
+            <translation>視窗大小已鎖定，先解鎖才能最大化</translation>
         </message>
         <message>
             <source>图像编辑器路径无效，已改用系统默认程序打开</source>
-            <translation>Invalid image editor path; opened with the system default program.</translation>
+            <translation>影像編輯器路徑無效，已改用系統預設程式開啟</translation>
         </message>
         <message>
-            <source>&lt;h3&gt;QuikView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 许可证开源，零遥测、零推广。&lt;/p&gt;&lt;p&gt;官网：&lt;a href="https://xdst2.github.io/quikview/"&gt;https://xdst2.github.io/quikview/&lt;/a&gt;&lt;br&gt;GitHub：&lt;a href="https://github.com/xdsT2/quikview"&gt;https://github.com/xdsT2/quikview&lt;/a&gt;&lt;br&gt;QQ 交流群：1134122173&lt;/p&gt;</source>
-            <translation>&lt;h3&gt;QuikView&lt;/h3&gt;&lt;p&gt;Version %1&lt;/p&gt;&lt;p&gt;Open source under the MIT license. No telemetry, no ads.&lt;/p&gt;&lt;p&gt;Website: &lt;a href="https://xdst2.github.io/quikview/"&gt;https://xdst2.github.io/quikview/&lt;/a&gt;&lt;br&gt;GitHub: &lt;a href="https://github.com/xdsT2/quikview"&gt;https://github.com/xdsT2/quikview&lt;/a&gt;&lt;br&gt;QQ Group: 1134122173&lt;/p&gt;</translation>
+            <source>&lt;h3&gt;SoleView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 许可证开源，零遥测、零推广。&lt;/p&gt;&lt;p&gt;官网：&lt;a href="https://xdst2.github.io/soleview/"&gt;https://xdst2.github.io/soleview/&lt;/a&gt;&lt;br&gt;GitHub：&lt;a href="https://github.com/xdsT2/soleview"&gt;https://github.com/xdsT2/soleview&lt;/a&gt;&lt;br&gt;QQ 交流群：1134122173&lt;/p&gt;</source>
+            <translation>&lt;h3&gt;SoleView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 授權開源，零遙測、零推廣。&lt;/p&gt;&lt;p&gt;官方網站：&lt;a href="https://xdst2.github.io/soleview/"&gt;https://xdst2.github.io/soleview/&lt;/a&gt;&lt;br&gt;GitHub：&lt;a href="https://github.com/xdsT2/soleview"&gt;https://github.com/xdsT2/soleview&lt;/a&gt;&lt;br&gt;QQ 交流群：1134122173&lt;/p&gt;</translation>
         </message>
     </context>
     <context>
         <name>MetadataPanel</name>
         <message>
             <source>相机制造商</source>
-            <translation>Camera Make</translation>
+            <translation>相機製造商</translation>
         </message>
         <message>
             <source>相机型号</source>
-            <translation>Camera Model</translation>
+            <translation>相機型號</translation>
         </message>
         <message>
             <source>镜头</source>
-            <translation>Lens</translation>
+            <translation>鏡頭</translation>
         </message>
         <message>
             <source>软件</source>
-            <translation>Software</translation>
+            <translation>軟體</translation>
         </message>
         <message>
             <source>作者</source>
-            <translation>Artist</translation>
+            <translation>作者</translation>
         </message>
         <message>
             <source>版权</source>
-            <translation>Copyright</translation>
+            <translation>版權</translation>
         </message>
         <message>
             <source>拍摄时间</source>
-            <translation>Date Taken</translation>
+            <translation>拍攝時間</translation>
         </message>
         <message>
             <source>ISO</source>
@@ -1692,71 +1680,71 @@
         </message>
         <message>
             <source>曝光时间</source>
-            <translation>Exposure</translation>
+            <translation>曝光時間</translation>
         </message>
         <message>
             <source>光圈</source>
-            <translation>Aperture</translation>
+            <translation>光圈</translation>
         </message>
         <message>
             <source>焦距</source>
-            <translation>Focal Length</translation>
+            <translation>焦距</translation>
         </message>
         <message>
             <source>曝光补偿</source>
-            <translation>Exposure Bias</translation>
+            <translation>曝光補償</translation>
         </message>
         <message>
             <source>GPS 纬度</source>
-            <translation>GPS Latitude</translation>
+            <translation>GPS 緯度</translation>
         </message>
         <message>
             <source>GPS 经度</source>
-            <translation>GPS Longitude</translation>
+            <translation>GPS 經度</translation>
         </message>
         <message>
             <source>宽度</source>
-            <translation>Width</translation>
+            <translation>寬度</translation>
         </message>
         <message>
             <source>高度</source>
-            <translation>Height</translation>
+            <translation>高度</translation>
         </message>
         <message>
             <source>图片信息</source>
-            <translation>Image Info</translation>
+            <translation>圖片資訊</translation>
         </message>
         <message>
             <source>复制参数</source>
-            <translation>Copy Parameters</translation>
+            <translation>複製參數</translation>
         </message>
         <message>
             <source>关闭 (Tab)</source>
-            <translation>Close (Tab)</translation>
+            <translation>關閉 (Tab)</translation>
         </message>
         <message>
             <source>在地图中查看</source>
-            <translation>View on Map</translation>
+            <translation>在地圖中檢視</translation>
         </message>
         <message>
             <source>▾ 直方图</source>
-            <translation>▾ Histogram</translation>
+            <translation>▾ 直方圖</translation>
         </message>
         <message>
             <source>▸ 直方图</source>
-            <translation>▸ Histogram</translation>
+            <translation>▸ 直方圖</translation>
         </message>
         <message>
             <source>未知</source>
-            <translation>Unknown</translation>
+            <translation>未知</translation>
         </message>
         <message>
             <source>文件名</source>
-            <translation>File name</translation>
+            <translation>檔案名稱</translation>
         </message>
         <message>
             <source>图片大小</source>
-            <translation>File size</translation>
+            <translation>圖片大小</translation>
         </message>
         <message>
             <source>%1 MB</source>
@@ -1772,7 +1760,7 @@
         </message>
         <message>
             <source>修改日期</source>
-            <translation>Date Modified</translation>
+            <translation>修改日期</translation>
         </message>
         <message>
             <source>%1 × %2 (%3, %4)</source>
@@ -1780,7 +1768,7 @@
         </message>
         <message>
             <source>位深</source>
-            <translation>Bit depth</translation>
+            <translation>位元深度</translation>
         </message>
         <message>
             <source>%1 bit</source>
@@ -1788,19 +1776,19 @@
         </message>
         <message>
             <source>相机</source>
-            <translation>Camera</translation>
+            <translation>相機</translation>
         </message>
         <message>
             <source>拍摄参数</source>
-            <translation>Shooting Parameters</translation>
+            <translation>拍攝參數</translation>
         </message>
         <message>
             <source>GPS 信息</source>
-            <translation>GPS Info</translation>
+            <translation>GPS 資訊</translation>
         </message>
         <message>
             <source>打印尺寸</source>
-            <translation>Print size</translation>
+            <translation>列印尺寸</translation>
         </message>
         <message>
             <source>%1 × %2 cm</source>
@@ -1811,846 +1799,846 @@
         <name>PsdLoader</name>
         <message>
             <source>无法打开 PSD 文件</source>
-            <translation>Cannot open PSD file</translation>
+            <translation>無法開啟 PSD 檔案</translation>
         </message>
         <message>
             <source>不是有效的 PSD/PSB 文件</source>
-            <translation>Not a valid PSD/PSB file</translation>
+            <translation>不是有效的 PSD/PSB 檔案</translation>
         </message>
         <message>
             <source>PSD 画布尺寸异常</source>
-            <translation>Invalid PSD canvas size</translation>
+            <translation>PSD 畫布尺寸異常</translation>
         </message>
         <message>
             <source>ZIP 压缩的 PSD 暂不支持（已隔离第三方解析器的挂起路径）</source>
-            <translation>ZIP-compressed PSD not supported (hang path isolated)</translation>
+            <translation>不支援 ZIP 壓縮的 PSD（已隔離第三方卡死路徑）</translation>
         </message>
         <message>
             <source>ZIP / ZIP+Prediction 未接入，文件未修改</source>
-            <translation>ZIP / ZIP+Prediction not wired up; file unchanged</translation>
+            <translation>ZIP / ZIP+Prediction 未接入，檔案未修改</translation>
         </message>
         <message>
             <source>仅 RGB 色彩模式可显示（当前 mode=%1）</source>
-            <translation>RGB mode only (current mode=%1)</translation>
+            <translation>僅能顯示 RGB 色彩模式（目前 mode=%1）</translation>
         </message>
         <message>
             <source>%1bit 像素已降采样为 8bit 显示</source>
-            <translation>%1-bit pixels downsampled to 8-bit</translation>
+            <translation>%1bit 像素已降採樣為 8bit 顯示</translation>
         </message>
         <message>
             <source>缺少可用的原始合成预览（保存 PSD 时请开启「最大兼容」）</source>
-            <translation>No usable composite preview (enable "Maximize Compatibility" when saving)</translation>
+            <translation>缺少可用的原始合成預覽（儲存時請開啟「最大相容性」）</translation>
         </message>
         <message>
             <source>图层 %1</source>
-            <translation>Layer %1</translation>
+            <translation>圖層 %1</translation>
         </message>
         <message>
             <source>混合模式 %1 未在简化合成中还原</source>
-            <translation>Blend mode %1 not reproduced in simplified compositing</translation>
+            <translation>混合模式 %1 未在簡化合成中還原</translation>
         </message>
         <message>
             <source>；蒙版未应用</source>
-            <translation>; mask not applied</translation>
+            <translation>；遮色片未套用</translation>
         </message>
         <message>
             <source>；智能对象未展开</source>
-            <translation>; smart object not expanded</translation>
+            <translation>；智慧型物件未展開</translation>
         </message>
         <message>
             <source>；分组边界，无可预览像素</source>
-            <translation>; group boundary, no preview pixels</translation>
+            <translation>；群組邊界，無可預覽像素</translation>
         </message>
         <message>
             <source>；无独立像素或色彩模式不支持</source>
-            <translation>; no independent pixels or unsupported color mode</translation>
+            <translation>；無獨立像素或色彩模式不支援</translation>
         </message>
         <message>
             <source>；图层像素解码失败</source>
-            <translation>; layer pixel decode failed</translation>
+            <translation>；圖層像素解碼失敗</translation>
         </message>
         <message>
             <source>%1 个图层为非 normal 混合，简化合成不还原</source>
-            <translation>%1 layers use non-normal blending; not reproduced</translation>
+            <translation>%1 個圖層為非 normal 混合，簡化合成不還原</translation>
         </message>
         <message>
             <source>%1 个图层带蒙版，简化合成不应用</source>
-            <translation>%1 layers have masks; not applied</translation>
+            <translation>%1 個圖層帶遮色片，簡化合成不套用</translation>
         </message>
         <message>
             <source>%1 个图层无独立像素（分组边界 / 调整层）</source>
-            <translation>%1 layers lack independent pixels (group / adjustment)</translation>
+            <translation>%1 個圖層無獨立像素（群組邊界 / 調整圖層）</translation>
         </message>
         <message>
             <source>图像数据段头无效（压缩方式未知）</source>
-            <translation>Invalid image data section header (unknown compression method)</translation>
+            <translation>影像資料區段標頭無效（壓縮方式未知）</translation>
         </message>
         <message>
             <source>图像数据不完整（文件可能被截断或写入中断）</source>
-            <translation>Image data is incomplete (file may be truncated or the write was interrupted)</translation>
+            <translation>影像資料不完整（檔案可能被截斷或寫入中斷）</translation>
         </message>
     </context>
     <context>
         <name>QObject</name>
         <message>
             <source>打开</source>
-            <translation>Open</translation>
+            <translation>開啟</translation>
         </message>
         <message>
             <source>浏览</source>
-            <translation>Browse</translation>
+            <translation>瀏覽</translation>
         </message>
         <message>
             <source>幻灯片</source>
-            <translation>Slideshow</translation>
+            <translation>投影片</translation>
         </message>
         <message>
             <source>书签</source>
-            <translation>Bookmarks</translation>
+            <translation>書籤</translation>
         </message>
         <message>
             <source>编辑</source>
-            <translation>Edit</translation>
+            <translation>編輯</translation>
         </message>
         <message>
             <source>复制到</source>
-            <translation>Copy to</translation>
+            <translation>複製到</translation>
         </message>
         <message>
             <source>无操作</source>
-            <translation>No Action</translation>
+            <translation>無動作</translation>
         </message>
         <message>
             <source>翻下一张</source>
-            <translation>Next Image</translation>
+            <translation>翻下一張</translation>
         </message>
         <message>
             <source>翻上一张</source>
-            <translation>Previous Image</translation>
+            <translation>翻上一張</translation>
         </message>
         <message>
             <source>下一帧</source>
-            <translation>Next Frame</translation>
+            <translation>下一影格</translation>
         </message>
         <message>
             <source>上一帧</source>
-            <translation>Previous Frame</translation>
+            <translation>上一影格</translation>
         </message>
         <message>
             <source>放大</source>
-            <translation>Zoom In</translation>
+            <translation>放大</translation>
         </message>
         <message>
             <source>缩小</source>
-            <translation>Zoom Out</translation>
+            <translation>縮小</translation>
         </message>
         <message>
             <source>拖拽平移</source>
-            <translation>Drag to Pan</translation>
+            <translation>拖曳平移</translation>
         </message>
         <message>
             <source>实际大小</source>
-            <translation>Actual Size</translation>
+            <translation>實際大小</translation>
         </message>
         <message>
             <source>适配窗口</source>
-            <translation>Fit to Window</translation>
+            <translation>符合視窗</translation>
         </message>
         <message>
             <source>全屏切换</source>
-            <translation>Toggle Fullscreen</translation>
+            <translation>切換全螢幕</translation>
         </message>
         <message>
             <source>关闭窗口</source>
-            <translation>Close Window</translation>
+            <translation>關閉視窗</translation>
         </message>
         <message>
             <source>上下文菜单</source>
-            <translation>Context Menu</translation>
+            <translation>快顯選單</translation>
         </message>
         <message>
             <source>打开文件夹</source>
-            <translation>Open Folder</translation>
+            <translation>開啟資料夾</translation>
         </message>
         <message>
             <source>裁剪</source>
-            <translation>Crop</translation>
+            <translation>裁切</translation>
         </message>
         <message>
             <source>收藏</source>
-            <translation>Bookmark</translation>
+            <translation>收藏</translation>
         </message>
         <message>
             <source>删除</source>
-            <translation>Delete</translation>
+            <translation>刪除</translation>
         </message>
         <message>
             <source>转到首个文件</source>
-            <translation>Go to First File</translation>
+            <translation>跳至第一個檔案</translation>
         </message>
         <message>
             <source>停止</source>
-            <translation>Stop</translation>
+            <translation>停止</translation>
         </message>
         <message>
             <source>询问</source>
-            <translation>Ask</translation>
+            <translation>詢問</translation>
         </message>
         <message>
             <source>跟随系统</source>
-            <translation>Follow System</translation>
+            <translation>跟隨系統</translation>
         </message>
         <message>
             <source>该选项暂未实现，将在后续版本提供。</source>
-            <translation>This option is not implemented yet and will arrive in a future release.</translation>
+            <translation>此選項尚未實作，將在後續版本提供。</translation>
         </message>
         <message>
             <source>前往下载</source>
-            <translation>Go to Download</translation>
+            <translation>前往下載</translation>
         </message>
     </context>
     <context>
         <name>RawImageLoader</name>
         <message>
             <source>libraw 打开失败</source>
-            <translation>libraw open failed</translation>
+            <translation>libraw 開啟失敗</translation>
         </message>
         <message>
             <source>libraw 解包失败</source>
-            <translation>libraw unpack failed</translation>
+            <translation>libraw 解包失敗</translation>
         </message>
         <message>
             <source>libraw 处理失败</source>
-            <translation>libraw processing failed</translation>
+            <translation>libraw 處理失敗</translation>
         </message>
         <message>
             <source>libraw 内存图像生成失败</source>
-            <translation>libraw memory image failed</translation>
+            <translation>libraw 記憶體影像產生失敗</translation>
         </message>
         <message>
             <source>不支持的位深 %1</source>
-            <translation>Unsupported bit depth %1</translation>
+            <translation>不支援的位元深度 %1</translation>
         </message>
     </context>
     <context>
         <name>SettingsDialog</name>
         <message>
             <source>选择后立即切换界面语言并写入配置</source>
-            <translation>Switches the interface language immediately and saves the setting</translation>
+            <translation>選擇後立即切換介面語言並寫入設定</translation>
         </message>
         <message>
             <source>选择后立即生效，无需保存；缺少对应 .qm 时保持当前语言并当场说明</source>
-            <translation>Applies immediately, no save needed; if the matching .qm is missing, the current language is kept and the reason is shown here</translation>
+            <translation>選擇後立即生效，無需儲存；缺少對應 .qm 時保持目前語言並當場說明</translation>
         </message>
         <message>
             <source>点击后先创建程序目录下的 translations，再交给系统文件管理器打开。</source>
-            <translation>Creates the translations folder next to the program, then opens it in the system file manager.</translation>
+            <translation>點擊後先建立程式目錄下的 translations，再交給系統檔案總管開啟。</translation>
         </message>
         <message>
-            <source>点击后在系统浏览器打开 QuikView 发布页；应用内只报告系统是否接受打开请求。</source>
-            <translation>Opens the QuikView release page in the system browser; the app only reports whether the system accepted the open request.</translation>
+            <source>点击后在系统浏览器打开 SoleView 发布页；应用内只报告系统是否接受打开请求。</source>
+            <translation>點擊後在系統瀏覽器開啟 SoleView 發佈頁；應用程式內只回報系統是否接受開啟請求。</translation>
         </message>
         <message>
-            <source>两个入口都会离开 QuikView，应用内只报告系统是否接受打开请求。</source>
-            <translation>Both buttons leave QuikView; the app only reports whether the system accepted the open request.</translation>
+            <source>两个入口都会离开 SoleView，应用内只报告系统是否接受打开请求。</source>
+            <translation>兩個入口都會離開 SoleView，應用程式內只回報系統是否接受開啟請求。</translation>
         </message>
         <message>
             <source>当前：%1（生效语言 %2）；选择后立即生效并写入配置。</source>
-            <translation>Current: %1 (effective %2); changes apply immediately and are saved.</translation>
+            <translation>目前：%1（生效語言 %2）；選擇後立即生效並寫入設定。</translation>
         </message>
         <message>
             <source>已切换到 %1：本页与主窗口文案已即时重译，配置已写入。</source>
-            <translation>Switched to %1: this page and the main window were re-translated at once, and the setting is saved.</translation>
+            <translation>已切換為 %1：本頁與主視窗文案已即時重譯，設定已寫入。</translation>
         </message>
         <message>
             <source>已恢复为 %1：%2</source>
-            <translation>Reverted to %1: %2</translation>
+            <translation>已還原為 %1：%2</translation>
         </message>
         <message>
             <source>配置写入失败，已恢复为 %1：%2</source>
-            <translation>Could not save the setting, reverted to %1: %2</translation>
+            <translation>設定寫入失敗，已還原為 %1：%2</translation>
         </message>
         <message>
             <source>正在创建目录并请求系统打开：%1…</source>
-            <translation>Creating the folder and requesting the system to open it: %1…</translation>
+            <translation>正在建立目錄並請求系統開啟：%1…</translation>
         </message>
         <message>
             <source>创建目录失败：%1；请检查上级目录权限，或手动创建后把 .qm 放进去。</source>
-            <translation>Could not create the folder: %1; check the parent folder permissions, or create it manually and put the .qm files there.</translation>
+            <translation>建立目錄失敗：%1；請檢查上層目錄權限，或手動建立後把 .qm 放進去。</translation>
         </message>
         <message>
             <source>目录已存在，已交给系统文件管理器打开：%1</source>
-            <translation>Folder already exists; opened in the system file manager: %1</translation>
+            <translation>目錄已存在，已交給系統檔案總管開啟：%1</translation>
         </message>
         <message>
             <source>已创建目录并交给系统文件管理器打开：%1</source>
-            <translation>Folder created and opened in the system file manager: %1</translation>
+            <translation>已建立目錄並交給系統檔案總管開啟：%1</translation>
         </message>
         <message>
             <source>目录已存在，但系统未接受打开请求；手动访问：%1</source>
-            <translation>Folder already exists, but the system declined the open request; open it manually: %1</translation>
+            <translation>目錄已存在，但系統未接受開啟請求；請手動存取：%1</translation>
         </message>
         <message>
             <source>已创建目录，但系统未接受打开请求；手动访问：%1</source>
-            <translation>Folder created, but the system declined the open request; open it manually: %1</translation>
+            <translation>已建立目錄，但系統未接受開啟請求；請手動存取：%1</translation>
         </message>
         <message>
             <source>正在请求系统打开：%1…</source>
-            <translation>Requesting the system to open: %1…</translation>
+            <translation>正在請求系統開啟：%1…</translation>
         </message>
         <message>
             <source>已请求系统打开 %1，由系统浏览器接管。</source>
-            <translation>Asked the system to open %1; the system browser takes over.</translation>
+            <translation>已請求系統開啟 %1，由系統瀏覽器接管。</translation>
         </message>
         <message>
             <source>系统未接受打开请求，请手动访问：%1</source>
-            <translation>The system declined the open request; please open it manually: %1</translation>
+            <translation>系統未接受開啟請求，請手動存取：%1</translation>
         </message>
         <message>
             <source>缺少 %1.qm（已查找内置 i18n 与 translations 目录）</source>
-            <translation>%1.qm is missing (looked in the built-in i18n and the translations folder)</translation>
+            <translation>缺少 %1.qm（已搜尋內建 i18n 與 translations 目錄）</translation>
         </message>
         <message>
             <source>重启后生效；每 24 小时最多检查一次</source>
-            <translation>Takes effect after restart; checked at most once every 24 hours</translation>
+            <translation>重新啟動後生效；每 24 小時最多檢查一次</translation>
         </message>
         <message>
             <source>通用</source>
-            <translation>General</translation>
+            <translation>一般</translation>
         </message>
         <message>
             <source>翻页音效</source>
-            <translation>Paging Sound</translation>
+            <translation>翻頁音效</translation>
         </message>
         <message>
             <source>外观与显示</source>
-            <translation>Appearance &amp; Display</translation>
+            <translation>外觀與顯示</translation>
         </message>
         <message>
             <source>鼠标与滚轮</source>
-            <translation>Mouse &amp; Wheel</translation>
+            <translation>滑鼠與滾輪</translation>
         </message>
         <message>
             <source>Windows 集成</source>
-            <translation>Windows Integration</translation>
+            <translation>Windows 整合</translation>
         </message>
         <message>
             <source>扩展</source>
-            <translation>Extensions</translation>
+            <translation>擴充功能</translation>
         </message>
         <message>
             <source>退出行为</source>
-            <translation>Exit Behavior</translation>
+            <translation>結束行為</translation>
         </message>
         <message>
             <source>画布与透明背景</source>
-            <translation>Canvas &amp; Transparency</translation>
+            <translation>畫布與透明</translation>
         </message>
         <message>
             <source>翻页</source>
-            <translation>Paging</translation>
+            <translation>翻頁</translation>
         </message>
         <message>
             <source>缩放与记忆</source>
-            <translation>Zoom &amp; Memory</translation>
+            <translation>縮放與記憶</translation>
         </message>
         <message>
             <source>图片文件夹</source>
-            <translation>Image Folders</translation>
+            <translation>圖片資料夾</translation>
         </message>
         <message>
             <source>全部支持格式</source>
-            <translation>All Supported Formats</translation>
+            <translation>全部支援格式</translation>
         </message>
         <message>
             <source>展开支持的格式</source>
-            <translation>Expand supported formats</translation>
+            <translation>展開支援的格式</translation>
         </message>
         <message>
             <source>展开</source>
-            <translation>Expand</translation>
+            <translation>展開</translation>
         </message>
         <message>
             <source>收起</source>
-            <translation>Collapse</translation>
+            <translation>收起</translation>
         </message>
         <message>
-            <source>QuikView 扩展</source>
-            <translation>QuikView Extensions</translation>
+            <source>SoleView 扩展</source>
+            <translation>SoleView 擴充功能</translation>
         </message>
         <message>
             <source>暂未提供安装：当前版本没有扩展市场、安装包或加载开关。</source>
-            <translation>Not available yet: this version has no extension marketplace, installer, or enable switch.</translation>
+            <translation>暫未提供安裝：目前版本沒有擴充市集、安裝包或載入開關。</translation>
         </message>
         <message>
             <source>「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。</source>
-            <translation>%1 took effect immediately: %2 · no need to save; Cancel / Esc restores the state from when Settings was opened.</translation>
+            <translation>「%1」已即時生效：%2 · 無需儲存；按「取消」/ Esc 會回到進入設定時的狀態。</translation>
         </message>
         <message>
             <source>开</source>
-            <translation>On</translation>
+            <translation>開</translation>
             <source>关</source>
-            <translation>Off</translation>
+            <translation>關</translation>
             <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
-            <translation>Changes discarded: the live items on the Browse page are back to the state from when Settings was opened.</translation>
+            <translation>已放棄本次改動：瀏覽頁即時項已回到進入設定時的狀態。</translation>
             <source>已关闭设置，未保留即时改动。</source>
-            <translation>Settings closed; live changes were not kept.</translation>
+            <translation>已關閉設定，未保留即時改動。</translation>
             <source>设置备份</source>
-            <translation>Settings backup</translation>
+            <translation>設定備份</translation>
             <source>导出设置</source>
-            <translation>Export settings</translation>
+            <translation>匯出設定</translation>
             <source>把当前设置写入 .ini，便于备份或换机</source>
-            <translation>Write current settings to an .ini for backup or moving to another PC</translation>
+            <translation>將目前設定寫入 .ini，方便備份或換機</translation>
             <source>导入设置</source>
-            <translation>Import settings</translation>
-            <source>从 .ini 文件恢复设置，重启 QuikView 后生效</source>
-            <translation>Restore settings from an .ini file; takes effect after restarting QuikView</translation>
+            <translation>匯入設定</translation>
+            <source>从 .ini 文件恢复设置，重启 SoleView 后生效</source>
+            <translation>從 .ini 檔案還原設定，重新啟動 SoleView 後生效</translation>
             <source>导出失败</source>
-            <translation>Export failed</translation>
+            <translation>匯出失敗</translation>
             <source>设置已导出</source>
-            <translation>Settings exported</translation>
-            <source>不是有效的 QuikView 设置文件</source>
-            <translation>Not a valid QuikView settings file</translation>
+            <translation>設定已匯出</translation>
+            <source>不是有效的 SoleView 设置文件</source>
+            <translation>不是有效的 SoleView 設定檔</translation>
             <source>导入失败，原配置未改动</source>
-            <translation>Import failed; the original configuration was not changed</translation>
-            <source>导入成功，重启 QuikView 后生效</source>
-            <translation>Import successful; takes effect after restarting QuikView</translation>
-            <source>QuikView 设置 (*.ini)</source>
-            <translation>QuikView settings (*.ini)</translation>
-            <source>QuikView 设置 (*.ini);;所有文件 (*)</source>
-            <translation>QuikView settings (*.ini);;All files (*)</translation>
+            <translation>匯入失敗，原設定未變動</translation>
+            <source>导入成功，重启 SoleView 后生效</source>
+            <translation>匯入成功，重新啟動 SoleView 後生效</translation>
+            <source>SoleView 设置 (*.ini)</source>
+            <translation>SoleView 設定 (*.ini)</translation>
+            <source>SoleView 设置 (*.ini);;所有文件 (*)</source>
+            <translation>SoleView 設定 (*.ini);;所有檔案 (*)</translation>
         </message>
         <message>
             <source>按下组合键…</source>
-            <translation>Press a key combination…</translation>
+            <translation>按下組合鍵…</translation>
         </message>
         <message>
             <source>未设置</source>
-            <translation>Not set</translation>
+            <translation>未設定</translation>
         </message>
         <message>
             <source>设置</source>
-            <translation>Settings</translation>
+            <translation>設定</translation>
         </message>
         <message>
-            <source>QuikView — 设置</source>
-            <translation>QuikView — Settings</translation>
+            <source>SoleView — 设置</source>
+            <translation>SoleView — 設定</translation>
         </message>
         <message>
             <source>搜索设置…</source>
-            <translation>Search settings…</translation>
+            <translation>搜尋設定…</translation>
         </message>
         <message>
             <source>搜索设置</source>
-            <translation>Search settings</translation>
+            <translation>搜尋設定</translation>
         </message>
         <message>
             <source>偏好设置</source>
-            <translation>Preferences</translation>
+            <translation>偏好設定</translation>
         </message>
         <message>
             <source>没有匹配的设置</source>
-            <translation>No matching settings</translation>
+            <translation>沒有符合的設定</translation>
         </message>
         <message>
             <source>浏览</source>
-            <translation>Browse</translation>
+            <translation>瀏覽</translation>
         </message>
         <message>
             <source>一般</source>
-            <translation>General</translation>
+            <translation>一般</translation>
         </message>
         <message>
             <source>管理窗口行为、操作反馈、更新和首尾翻页。</source>
-            <translation>Manage window behavior, feedback, updates and edge paging.</translation>
+            <translation>管理視窗行為、操作回饋、更新與首尾翻頁。</translation>
         </message>
         <message>
             <source>缩放状态、侧边箭头与悬浮提示等浏览显示设置；画布底色已固定。</source>
-            <translation>Browsing display settings such as zoom state, side arrows and tooltips; the canvas background color is fixed.</translation>
+            <translation>縮放狀態、側邊箭頭與停留提示等瀏覽顯示設定；畫布底色已固定。</translation>
         </message>
         <message>
             <source>外观</source>
-            <translation>Appearance</translation>
+            <translation>外觀</translation>
         </message>
         <message>
             <source>主题与材质。跟随系统时由 Windows 的深浅色设置决定。</source>
-            <translation>Theme and material. When following the system, Windows' light/dark setting decides.</translation>
+            <translation>主題與材質。跟隨系統時由 Windows 的深淺色設定決定。</translation>
         </message>
         <message>
             <source>图像处理</source>
-            <translation>Image Processing</translation>
+            <translation>影像處理</translation>
         </message>
         <message>
             <source>透明背景、插值算法、翻页效果与 ICC 色彩管理；监视器 ICC 受 Qt6 限制暂不可用。</source>
-            <translation>Transparent background, interpolation, page-turn effects and ICC color management; monitor ICC is unavailable due to Qt6 limits.</translation>
+            <translation>透明背景、內插演算法、翻頁效果與 ICC 色彩管理；螢幕 ICC 受 Qt6 限制暫不可用。</translation>
         </message>
         <message>
             <source>格式关联</source>
-            <translation>File Associations</translation>
+            <translation>檔案關聯</translation>
         </message>
         <message>
-            <source>查看 QuikView 可打开的格式，并在 Windows 中选择默认应用。</source>
-            <translation>See the formats QuikView can open and pick default apps in Windows.</translation>
+            <source>查看 SoleView 可打开的格式，并在 Windows 中选择默认应用。</source>
+            <translation>檢視 SoleView 可開啟的格式，並在 Windows 中選擇預設應用程式。</translation>
         </message>
         <message>
             <source>键盘</source>
-            <translation>Keyboard</translation>
+            <translation>鍵盤</translation>
         </message>
         <message>
             <source>鼠标</source>
-            <translation>Mouse</translation>
+            <translation>滑鼠</translation>
         </message>
         <message>
             <source>左/右/X/Y 与滚轮的按键映射可自定义；中键平移、双击最大化可用。</source>
-            <translation>Buttons and wheel can be remapped; middle-drag panning and double-click maximize are available.</translation>
+            <translation>滑鼠按鍵與滾輪可自訂映射；中鍵平移、雙擊最大化可用。</translation>
         </message>
         <message>
             <source>书签</source>
-            <translation>Bookmarks</translation>
+            <translation>書籤</translation>
         </message>
         <message>
             <source>自动保存开关与书签数量上限。</source>
-            <translation>Auto-save toggle and bookmark capacity limit.</translation>
+            <translation>自動儲存開關與書籤數量上限。</translation>
         </message>
         <message>
             <source>上下文菜单</source>
-            <translation>Context Menu</translation>
+            <translation>快顯選單</translation>
         </message>
         <message>
             <source>资源管理器集成的注册状态与右键菜单开关。</source>
-            <translation>Registration status and right-click menu switches for File Explorer integration.</translation>
+            <translation>檔案總管整合的登錄狀態與右鍵選單開關。</translation>
         </message>
         <message>
             <source>查看器右键菜单</source>
-            <translation>Viewer Right-click Menu</translation>
+            <translation>檢視器右鍵選單</translation>
         </message>
         <message>
-            <source>自定义 QuikView 查看器内的右键菜单与顶部快捷操作。</source>
-            <translation>Customize the right-click menu and top quick actions in the QuikView viewer.</translation>
+            <source>自定义 SoleView 查看器内的右键菜单与顶部快捷操作。</source>
+            <translation>自訂 SoleView 檢視器內的右鍵選單與頂端快速操作。</translation>
         </message>
         <message>
             <source>杂项</source>
-            <translation>Miscellaneous</translation>
+            <translation>雜項</translation>
         </message>
         <message>
             <source>图片文件夹、外部编辑器与 RAW 打开策略。</source>
-            <translation>Pictures folders, external editor and RAW opening policy.</translation>
+            <translation>圖片資料夾、外部編輯器與 RAW 開啟策略。</translation>
         </message>
         <message>
             <source>语言</source>
-            <translation>Language</translation>
+            <translation>語言</translation>
         </message>
         <message>
             <source>选择界面语言并管理语言文件。</source>
-            <translation>Choose the UI language and manage language files.</translation>
+            <translation>選擇介面語言並管理語言檔。</translation>
         </message>
         <message>
-            <source>关于 QuikView</source>
-            <translation>About QuikView</translation>
+            <source>关于 SoleView</source>
+            <translation>關於 SoleView</translation>
         </message>
         <message>
-            <source>&lt;b&gt;QuikView&lt;/b&gt; %1&lt;br&gt;轻量图片浏览器。</source>
-            <translation>&lt;b&gt;QuikView&lt;/b&gt; %1&lt;br&gt;A lightweight image viewer.</translation>
+            <source>&lt;b&gt;SoleView&lt;/b&gt; %1&lt;br&gt;轻量图片浏览器。</source>
+            <translation>&lt;b&gt;SoleView&lt;/b&gt; %1&lt;br&gt;輕量圖片瀏覽器。</translation>
         </message>
         <message>
             <source>恢复默认</source>
-            <translation>Restore Defaults</translation>
+            <translation>還原預設</translation>
         </message>
         <message>
             <source>普通设置即时生效；热键改绑与界面语言在保存后生效</source>
-            <translation>Ordinary settings apply immediately; hotkey remapping and UI language apply after saving</translation>
+            <translation>一般設定即時生效；熱鍵改綁與介面語言在儲存後生效</translation>
         </message>
         <message>
             <source>取消</source>
-            <translation>Cancel</translation>
+            <translation>取消</translation>
         </message>
         <message>
             <source>保存设置</source>
-            <translation>Save</translation>
+            <translation>儲存設定</translation>
         </message>
         <message>
             <source>窗口行为</source>
-            <translation>Window Behavior</translation>
+            <translation>視窗行為</translation>
         </message>
         <message>
             <source>不保存浏览过的文件夹路径</source>
-            <translation>Don't remember browsed folder paths</translation>
+            <translation>不儲存瀏覽過的資料夾路徑</translation>
         </message>
         <message>
             <source>勾选＝不记录最近打开的文件夹；下次打开文件时生效</source>
-            <translation>Checked = don't record recently used folders; applies the next time you open a file</translation>
+            <translation>勾選＝不記錄最近開啟的資料夾；下次開啟檔案時生效</translation>
         </message>
         <message>
             <source>不允许多个实例</source>
-            <translation>Allow only one instance</translation>
+            <translation>不允許多個執行個體</translation>
         </message>
         <message>
-            <source>重启 QuikView 后生效</source>
-            <translation>Takes effect after restarting QuikView</translation>
+            <source>重启 SoleView 后生效</source>
+            <translation>重新啟動 SoleView 後生效</translation>
         </message>
         <message>
             <source>总在最前 (Ctrl+A)</source>
-            <translation>Always on Top (Ctrl+A)</translation>
+            <translation>永遠在最上層 (Ctrl+A)</translation>
         </message>
         <message>
             <source>按 ESC 退出</source>
-            <translation>Quit on Esc</translation>
+            <translation>按 Esc 結束</translation>
         </message>
         <message>
             <source>下次按 Esc 时生效</source>
-            <translation>Applies the next time you press Esc</translation>
+            <translation>下次按 Esc 時生效</translation>
         </message>
         <message>
             <source>操作反馈</source>
-            <translation>Feedback</translation>
+            <translation>操作回饋</translation>
         </message>
         <message>
             <source>删除文件时确认</source>
-            <translation>Confirm before deleting files</translation>
+            <translation>刪除檔案時確認</translation>
         </message>
         <message>
             <source>下次删除文件时生效</source>
-            <translation>Applies the next time you delete a file</translation>
+            <translation>下次刪除檔案時生效</translation>
         </message>
         <message>
             <source>在边角显示通知信息，而非中心</source>
-            <translation>Show notifications in a corner instead of the center</translation>
+            <translation>在邊角顯示通知訊息，而非中央</translation>
         </message>
         <message>
             <source>下一次通知时生效</source>
-            <translation>Applies from the next notification on</translation>
+            <translation>下一次通知時生效</translation>
         </message>
         <message>
             <source>检查更新</source>
-            <translation>Check for Updates</translation>
+            <translation>檢查更新</translation>
         </message>
         <message>
             <source>手动检查</source>
-            <translation>Check Now</translation>
+            <translation>手動檢查</translation>
         </message>
         <message>
             <source>立即连接发布源检查更新</source>
-            <translation>Contact the release source now to check for updates</translation>
+            <translation>立即連線發布來源檢查更新</translation>
         </message>
         <message>
             <source>启动时检查更新</source>
-            <translation>Check for updates at startup</translation>
+            <translation>啟動時檢查更新</translation>
         </message>
         <message>
             <source>重启后生效；每 24 小时最多一次</source>
-            <translation>Applies after restart; at most once per 24 hours</translation>
+            <translation>重新啟動後生效；每 24 小時最多一次</translation>
         </message>
         <message>
             <source>手动检查不受频率限制；检查更新会联网访问发布源，失败时提示「检查失败，请检查网络」。</source>
-            <translation>Manual checks are not rate-limited. Checking updates contacts the release source over the network; on failure it shows "Check failed, please check your network".</translation>
+            <translation>手動檢查不受頻率限制；檢查更新會連線存取發布來源，失敗時提示「檢查失敗，請檢查網路」。</translation>
         </message>
         <message>
             <source>检查中…</source>
-            <translation>Checking…</translation>
+            <translation>檢查中…</translation>
         </message>
         <message>
             <source>首尾翻页</source>
-            <translation>Edge Paging</translation>
+            <translation>首尾翻頁</translation>
         </message>
         <message>
             <source>到达首尾图片时执行</source>
-            <translation>Action when reaching the first/last image</translation>
+            <translation>到達首尾圖片時執行</translation>
         </message>
         <message>
             <source>下次到达首尾图片时按所选行为处理</source>
-            <translation>The chosen behavior applies the next time you reach the first/last image</translation>
+            <translation>下次到達首尾圖片時按所選行為處理</translation>
         </message>
         <message>
             <source>「询问」档暂无实现（无确认对话框），灰显不可选</source>
-            <translation>The "Ask" option has no implementation yet (no confirmation dialog) and is greyed out</translation>
+            <translation>「詢問」檔暫無實作（無確認對話框），反灰不可選</translation>
         </message>
         <message>
             <source>「转到首个文件」在末尾继续时回绕到首个；「停止」停在当前图片。「询问」档当前无询问对话框实现，已灰显，不按生效计。</source>
-            <translation>"Go to first file" wraps to the first image when continuing past the end; "Stop" stays on the current image. The "Ask" option has no dialog implementation yet and is greyed out, so it does not count as an applied behavior.</translation>
+            <translation>「跳至第一個檔案」在結尾繼續時回繞到第一張；「停止」停在目前圖片。「詢問」檔目前無詢問對話框實作，已反灰，不按生效計。</translation>
         </message>
         <message>
             <source>导航</source>
-            <translation>Navigation</translation>
+            <translation>導覽</translation>
         </message>
         <message>
             <source>显示侧边箭头</source>
-            <translation>Show side arrows</translation>
+            <translation>顯示側邊箭頭</translation>
         </message>
         <message>
             <source>鼠标移到画布左右边缘时显示翻页箭头</source>
-            <translation>Show paging arrows when the mouse hovers over the left/right canvas edges</translation>
+            <translation>滑鼠移到畫布左右邊緣時顯示翻頁箭頭</translation>
         </message>
         <message>
             <source>记住缩放状态</source>
-            <translation>Remember zoom state</translation>
+            <translation>記住縮放狀態</translation>
         </message>
         <message>
             <source>下次打开图片或重启时恢复；当前画面不变</source>
-            <translation>Restored the next time you open an image or restart; the current view is unchanged</translation>
+            <translation>下次開啟圖片或重新啟動時還原；目前畫面不變</translation>
         </message>
         <message>
             <source>画面信息</source>
-            <translation>On-screen Info</translation>
+            <translation>畫面資訊</translation>
         </message>
         <message>
             <source>显示文件名浮层</source>
-            <translation>Show filename overlay</translation>
+            <translation>顯示檔案名稱浮層</translation>
         </message>
         <message>
             <source>隐藏顶端菜单时，按 Shift+Tab 显隐文件名浮层</source>
-            <translation>When the top menu is hidden, Shift+Tab toggles the filename overlay</translation>
+            <translation>隱藏頂端選單時，按 Shift+Tab 切換檔案名稱浮層</translation>
         </message>
         <message>
             <source>显示动画播放控制</source>
-            <translation>Show animation playback controls</translation>
+            <translation>顯示動畫播放控制</translation>
         </message>
         <message>
             <source>GIF / MNG 时显示底部播放控制栏，并在信息行显示「第 n/N 帧」；关闭后两者一并隐藏</source>
-            <translation>Show the playback bar for GIF/MNG and the frame number in the info line; turning it off hides both</translation>
+            <translation type="unfinished">GIF / MNG 底部資訊列顯示「第 n/N 影格」</translation>
         </message>
         <message>
             <source>显示缩放浮标</source>
-            <translation>Show zoom indicator</translation>
+            <translation>顯示縮放指示</translation>
         </message>
         <message>
             <source>缩放时在窗口内显示当前比例</source>
-            <translation>Show the current zoom level in the window while zooming</translation>
+            <translation>縮放時在視窗內顯示目前比例</translation>
         </message>
         <message>
             <source>显示鼠标悬浮提示</source>
-            <translation>Show tooltips</translation>
+            <translation>顯示滑鼠停留提示</translation>
         </message>
         <message>
             <source>鼠标停在图片边缘或栏位按钮上时显示说明</source>
-            <translation>Show explanations when the mouse rests on image edges or bar buttons</translation>
+            <translation>滑鼠停在圖片邊緣或列按鈕上時顯示說明</translation>
         </message>
         <message>
             <source>用小字体显示 EXIF / 文件信息</source>
-            <translation>Show EXIF / file info in smaller text</translation>
+            <translation>以小字型顯示 EXIF／檔案資訊</translation>
         </message>
         <message>
             <source>信息面板字号更小，可容纳更多字段</source>
-            <translation>Smaller info-panel font fits more fields</translation>
+            <translation>資訊面板字型更小，可容納更多欄位</translation>
         </message>
         <message>
             <source>以上显示项切换后立即重排信息面板；关闭设置页后按当前值保留。</source>
-            <translation>Toggling the items above re-relayouts the info panel immediately; after closing the settings page the current values are kept.</translation>
+            <translation>以上顯示項目切換後立即重排資訊面板；關閉設定頁後按目前值保留。</translation>
         </message>
         <message>
             <source>主题</source>
-            <translation>Theme</translation>
+            <translation>主題</translation>
         </message>
         <message>
             <source>界面主题</source>
-            <translation>UI Theme</translation>
+            <translation>介面主題</translation>
         </message>
         <message>
             <source>跟随系统时，随 Windows 深浅色设置切换</source>
-            <translation>When following the system, switches with Windows' light/dark setting</translation>
+            <translation>跟隨系統時，隨 Windows 深淺色設定切換</translation>
         </message>
         <message>
             <source>跟随系统</source>
-            <translation>Follow System</translation>
+            <translation>跟隨系統</translation>
         </message>
         <message>
             <source>浅色</source>
-            <translation>Light</translation>
+            <translation>淺色</translation>
         </message>
         <message>
             <source>深色</source>
-            <translation>Dark</translation>
+            <translation>深色</translation>
         </message>
         <message>
             <source>材质</source>
-            <translation>Material</translation>
+            <translation>材質</translation>
         </message>
         <message>
             <source>磨砂材质（右键菜单与信息浮层）</source>
-            <translation>Frosted material (context menu and info overlay)</translation>
+            <translation>磨砂材質（右鍵選單與資訊浮層）</translation>
         </message>
         <message>
             <source>影响右键菜单与信息浮层；Windows 11 效果最佳</source>
-            <translation>Affects the context menu and info overlay; best on Windows 11</translation>
+            <translation>影響右鍵選單與資訊浮層；Windows 11 效果最佳</translation>
         </message>
         <message>
             <source>磨砂材质</source>
-            <translation>Frosted material</translation>
+            <translation>磨砂材質</translation>
         </message>
         <message>
             <source>当前系统不支持系统级磨砂，已停用</source>
-            <translation>This system doesn't support system-level frosted material; disabled</translation>
+            <translation>目前系統不支援系統級磨砂，已停用</translation>
         </message>
         <message>
             <source>磨砂材质在 Windows 10 上降级为半透明。</source>
-            <translation>On Windows 10 the frosted material falls back to translucency.</translation>
+            <translation>磨砂材質在 Windows 10 上降級為半透明。</translation>
         </message>
         <message>
             <source>主题未应用</source>
-            <translation>Theme not applied</translation>
+            <translation>主題未套用</translation>
         </message>
         <message>
             <source>本次主题切换失败，已恢复原设置。</source>
-            <translation>The theme switch failed; the original setting was restored.</translation>
+            <translation>這次主題切換失敗，已還原原設定。</translation>
         </message>
         <message>
             <source>渲染</source>
-            <translation>Rendering</translation>
+            <translation>渲染</translation>
         </message>
         <message>
             <source>插值算法</source>
-            <translation>Interpolation</translation>
+            <translation>內插演算法</translation>
         </message>
         <message>
             <source>缩放与减淡重采样时使用</source>
-            <translation>Used when resampling for zoom and softening</translation>
+            <translation>縮放與柔化重新取樣時使用</translation>
         </message>
         <message>
             <source>最近邻 (快)</source>
-            <translation>Nearest Neighbor (Fast)</translation>
+            <translation>最近鄰 (快)</translation>
         </message>
         <message>
             <source>平滑 (双线性)</source>
-            <translation>Smooth (Bilinear)</translation>
+            <translation>平滑 (雙線性)</translation>
         </message>
         <message>
             <source>Lanczos (锐利)</source>
-            <translation>Lanczos (Sharp)</translation>
+            <translation>Lanczos (銳利)</translation>
         </message>
         <message>
             <source>使用强锐化滤镜</source>
-            <translation>Apply a strong sharpening filter</translation>
+            <translation>使用強銳利化濾鏡</translation>
         </message>
         <message>
             <source>Lanczos 插值下缩小显示（小于 100%）时叠加锐化</source>
-            <translation>Adds sharpening when shrinking below 100% with Lanczos interpolation</translation>
+            <translation>Lanczos 內插縮小顯示（小於 100%）時疊加銳利化</translation>
         </message>
         <message>
             <source>图片大于窗口时显示图片顶部</source>
-            <translation>Show the top of the image when it is larger than the window</translation>
+            <translation>圖片大於視窗時顯示圖片頂部</translation>
         </message>
         <message>
             <source>按「适配宽度」或「实际大小」打开且图片高于窗口时显示顶部</source>
-            <translation>Shows the top when opened with "Fit to width" or "Actual size" and the image is taller than the window</translation>
+            <translation>以「符合寬度」或「實際大小」開啟且圖片高於視窗時顯示頂部</translation>
         </message>
         <message>
             <source>缓存与载入</source>
-            <translation>Cache &amp; Loading</translation>
+            <translation>快取與載入</translation>
         </message>
         <message>
             <source>缓存下一张图片</source>
-            <translation>Cache the next image</translation>
+            <translation>快取下一張圖片</translation>
         </message>
         <message>
             <source>提前解码下一张，翻页更快</source>
-            <translation>Decodes the next image ahead of time for faster paging</translation>
+            <translation>提前解碼下一張，翻頁更快</translation>
         </message>
         <message>
             <source>缓存大小</source>
-            <translation>Cache Size</translation>
+            <translation>快取大小</translation>
         </message>
         <message>
             <source>全尺寸解码缓存的占用上限，范围 64–4096 MB，越界按边界值生效</source>
-            <translation>Memory cap for the full-size decoded cache; range 64–4096 MB, out-of-range values clamp to the bounds</translation>
+            <translation>全尺寸解碼快取的佔用上限，範圍 64–4096 MB，越界按邊界值生效</translation>
         </message>
         <message>
             <source>MB</source>
@@ -2658,1200 +2646,1200 @@
         </message>
         <message>
             <source>先显示低品质图片以加速渲染</source>
-            <translation>Show a low-quality image first to speed up rendering</translation>
+            <translation>先顯示低品質圖片以加速渲染</translation>
         </message>
         <message>
             <source>大图先出低清预览，再补全清晰度</source>
-            <translation>Large images show a low-res preview first, then refine</translation>
+            <translation>大圖先出低解析度預覽，再補全清晰度</translation>
         </message>
         <message>
             <source>透明背景</source>
-            <translation>Transparency</translation>
+            <translation>透明背景</translation>
         </message>
         <message>
             <source>画布背景</source>
-            <translation>Canvas background</translation>
+            <translation>畫布背景</translation>
         </message>
         <message>
             <source>铺满整个画布视口，颜色随应用深浅主题自动变化</source>
-            <translation>Fills the whole canvas viewport; color follows the app light/dark theme</translation>
+            <translation>鋪滿整個畫布視口，顏色隨應用程式深淺主題自動變化</translation>
         </message>
         <message>
             <source>棋盘</source>
-            <translation>Checkerboard</translation>
+            <translation>棋盤</translation>
         </message>
         <message>
             <source>纯色</source>
-            <translation>Solid Color</translation>
+            <translation>純色</translation>
         </message>
         <message>
             <source>显示透明区域</source>
-            <translation>Show transparent areas</translation>
+            <translation>顯示透明區域</translation>
         </message>
         <message>
             <source>开启后，纯色背景下图片的透明区域显示棋盘格；关闭后透明像素直接透出画布背景</source>
-            <translation>When on, transparent areas show a checkerboard on solid backgrounds; when off, transparent pixels reveal the canvas background directly</translation>
+            <translation>開啟後，純色背景下圖片的透明區域顯示棋盤格；關閉後透明像素直接透出畫布背景</translation>
         </message>
         <message>
             <source>图片阴影</source>
-            <translation>Image Shadow</translation>
+            <translation>圖片陰影</translation>
         </message>
         <message>
             <source>在图片边缘加一圈阴影，浅色背景下的浅色图片也能看清边界；仅屏幕预览，不进入复制、打印、批量转换与另存为</source>
-            <translation>Adds a shadow around the image so light images stay visible on light backgrounds; screen preview only — not included in copy, print, batch convert or save as</translation>
+            <translation>在圖片邊緣加一圈陰影，淺色背景下的淺色圖片也能看清邊界；僅螢幕預覽，不進入複製、列印、批次轉換與另存新檔</translation>
         </message>
         <message>
             <source>翻页效果</source>
-            <translation>Page-Turn Effect</translation>
+            <translation>翻頁效果</translation>
         </message>
         <message>
             <source>下一次翻页时播放所选过渡</source>
-            <translation>The chosen transition plays on the next page turn</translation>
+            <translation>下一次翻頁時播放所選過渡</translation>
         </message>
         <message>
             <source>无</source>
-            <translation>None</translation>
+            <translation>無</translation>
         </message>
         <message>
             <source>淡入淡出</source>
-            <translation>Cross-fade</translation>
+            <translation>淡入淡出</translation>
         </message>
         <message>
             <source>Alpha 滑动</source>
-            <translation>Alpha Slide</translation>
+            <translation>Alpha 滑動</translation>
         </message>
         <message>
             <source>滑动</source>
-            <translation>Slide</translation>
+            <translation>滑動</translation>
         </message>
         <message>
             <source>色彩管理</source>
-            <translation>Color Management</translation>
+            <translation>色彩管理</translation>
         </message>
         <message>
             <source>使用图片文件的 ICC 设置</source>
-            <translation>Use the image file's ICC profile</translation>
+            <translation>使用圖片檔案的 ICC 設定</translation>
         </message>
         <message>
             <source>打开带非 sRGB ICC 的图片时按配置转换上屏</source>
-            <translation>Converts to screen per the setting when opening images with non-sRGB ICC profiles</translation>
+            <translation>開啟帶非 sRGB ICC 的圖片時按設定轉換上屏</translation>
         </message>
         <message>
             <source>使用监视器的 ICC 设置</source>
-            <translation>Use the monitor's ICC profile</translation>
+            <translation>使用螢幕的 ICC 設定</translation>
         </message>
         <message>
             <source>Qt6 光栅后端不支持显示器色彩管理，暂不可用</source>
-            <translation>Qt6's raster backend doesn't support display color management; unavailable for now</translation>
+            <translation>Qt6 光柵後端不支援螢幕色彩管理，暫不可用</translation>
         </message>
         <message>
             <source>画布背景铺满整个画布视口，颜色随应用深浅主题自动变化，切换主题即时生效；棋盘格固定在屏幕坐标，不随图片缩放和平移。透明图像阴影只在屏幕预览层绘制，复制、打印、批量转换与另存为始终保留图片原始透明信息。</source>
-            <translation>The canvas background fills the whole canvas viewport and its color follows the app light/dark theme; theme switches apply immediately. The checkerboard is fixed to screen coordinates and does not scale or pan with the image. The transparent-image shadow is drawn only on the screen preview layer; copy, print, batch convert and save as always keep the image's original transparency.</translation>
+            <translation>畫布背景鋪滿整個畫布視口，顏色隨應用程式深淺主題自動變化，切換主題即時生效；棋盤格固定在螢幕座標，不隨圖片縮放和平移。透明圖片陰影只在螢幕預覽層繪製，複製、列印、批次轉換與另存新檔始終保留圖片原始透明資訊。</translation>
         </message>
         <message>
             <source>Windows 默认应用</source>
-            <translation>Windows Default Apps</translation>
+            <translation>Windows 預設應用程式</translation>
         </message>
         <message>
             <source>打开默认应用…</source>
-            <translation>Open Default Apps…</translation>
+            <translation>開啟預設應用程式…</translation>
         </message>
         <message>
             <source>打开 Windows 设置，再按扩展名选择默认应用</source>
-            <translation>Opens Windows Settings, then pick the default app by extension</translation>
+            <translation>開啟 Windows 設定，再按副檔名選擇預設應用程式</translation>
         </message>
         <message>
             <source>在 Windows 中设置文件关联</source>
-            <translation>Set file associations in Windows</translation>
+            <translation>在 Windows 中設定檔案關聯</translation>
         </message>
         <message>
             <source>打开系统设置，再按扩展名选择默认应用</source>
-            <translation>Opens system settings, then pick the default app by extension</translation>
+            <translation>開啟系統設定，再按副檔名選擇預設應用程式</translation>
         </message>
         <message>
             <source>无法打开 Windows 默认应用，请从 Windows 设置手动打开。</source>
-            <translation>Could not open Windows Default Apps; open it manually from Windows Settings.</translation>
+            <translation>無法開啟 Windows 預設應用程式，請從 Windows 設定手動開啟。</translation>
         </message>
         <message>
-            <source>默认打开方式由 Windows 管理，QuikView 不能绕过系统直接改写；若系统里找不到 QuikView，请先运行安装包注册。</source>
-            <translation>Default apps are managed by Windows; QuikView cannot override the system directly. If QuikView isn't found in the system, run the installer to register it first.</translation>
+            <source>默认打开方式由 Windows 管理，SoleView 不能绕过系统直接改写；若系统里找不到 SoleView，请先运行安装包注册。</source>
+            <translation>預設開啟方式由 Windows 管理，SoleView 不能繞過系統直接改寫；若系統裡找不到 SoleView，請先執行安裝套件註冊。</translation>
         </message>
         <message>
             <source>支持的格式</source>
-            <translation>Supported Formats</translation>
+            <translation>支援的格式</translation>
         </message>
         <message>
-            <source>以上为 QuikView 能直接打开的全部格式；列表只读，新增格式请随程序版本更新。</source>
-            <translation>These are all the formats QuikView can open directly; the list is read-only and grows with program releases.</translation>
+            <source>以上为 SoleView 能直接打开的全部格式；列表只读，新增格式请随程序版本更新。</source>
+            <translation>以上為 SoleView 能直接開啟的全部格式；清單唯讀，新增格式請隨程式版本更新。</translation>
         </message>
         <message>
             <source>双击热键录入，Esc 清空。勾选即时生效，改绑需保存。</source>
-            <translation>Double-click to record a hotkey, Esc to clear. Checkboxes apply immediately; remapping requires Save.</translation>
+            <translation>雙擊熱鍵錄製，Esc 清空。勾選即時生效，改綁需儲存。</translation>
         </message>
         <message>
             <source>操作</source>
-            <translation>Action</translation>
+            <translation>操作</translation>
         </message>
         <message>
             <source>热键</source>
-            <translation>Hotkey</translation>
+            <translation>熱鍵</translation>
         </message>
         <message>
             <source>启用</source>
-            <translation>Enabled</translation>
+            <translation>啟用</translation>
         </message>
         <message>
             <source>打开</source>
-            <translation>Open</translation>
+            <translation>開啟</translation>
         </message>
         <message>
             <source>打开文件夹</source>
-            <translation>Open Folder</translation>
+            <translation>開啟資料夾</translation>
         </message>
         <message>
             <source>翻下一张</source>
-            <translation>Next Image</translation>
+            <translation>翻下一張</translation>
         </message>
         <message>
             <source>翻上一张</source>
-            <translation>Previous Image</translation>
+            <translation>翻上一張</translation>
         </message>
         <message>
             <source>下一帧</source>
-            <translation>Next Frame</translation>
+            <translation>下一影格</translation>
         </message>
         <message>
             <source>上一帧</source>
-            <translation>Previous Frame</translation>
+            <translation>上一影格</translation>
         </message>
         <message>
             <source>幻灯片</source>
-            <translation>Slideshow</translation>
+            <translation>投影片</translation>
         </message>
         <message>
             <source>放大</source>
-            <translation>Zoom In</translation>
+            <translation>放大</translation>
         </message>
         <message>
             <source>缩小</source>
-            <translation>Zoom Out</translation>
+            <translation>縮小</translation>
         </message>
         <message>
             <source>实际大小</source>
-            <translation>Actual Size</translation>
+            <translation>實際大小</translation>
         </message>
         <message>
             <source>适配窗口</source>
-            <translation>Fit to Window</translation>
+            <translation>符合視窗</translation>
         </message>
         <message>
             <source>裁剪</source>
-            <translation>Crop</translation>
+            <translation>裁切</translation>
         </message>
         <message>
             <source>收藏</source>
-            <translation>Bookmark</translation>
+            <translation>收藏</translation>
         </message>
         <message>
             <source>删除</source>
-            <translation>Delete</translation>
+            <translation>刪除</translation>
         </message>
         <message>
             <source>文件</source>
-            <translation>File</translation>
+            <translation>檔案</translation>
         </message>
         <message>
             <source>显示与缩放</source>
-            <translation>View &amp; Zoom</translation>
+            <translation>顯示與縮放</translation>
         </message>
         <message>
             <source>编辑与其他</source>
-            <translation>Edit &amp; Other</translation>
+            <translation>編輯與其他</translation>
         </message>
         <message>
             <source>%1 启用</source>
-            <translation>%1 enabled</translation>
+            <translation>%1 啟用</translation>
         </message>
         <message>
             <source>鼠标设定</source>
-            <translation>Mouse Settings</translation>
+            <translation>滑鼠設定</translation>
         </message>
         <message>
             <source>双击最大化 / 还原</source>
-            <translation>Double-click to Maximize / Restore</translation>
+            <translation>雙擊最大化 / 還原</translation>
         </message>
         <message>
             <source>下次双击画布时按新值最大化 / 还原窗口</source>
-            <translation>The new value applies the next time you double-click the canvas</translation>
+            <translation>下次雙擊畫布時按新值最大化 / 還原視窗</translation>
         </message>
         <message>
             <source>单击屏幕两侧时翻页</source>
-            <translation>Page when clicking the screen edges</translation>
+            <translation>點按螢幕兩側時翻頁</translation>
         </message>
         <message>
             <source>下次单击画布两侧箭头区域时按新值翻页</source>
-            <translation>The new value applies the next time you click the edge arrow areas</translation>
+            <translation>下次點按畫布兩側箭頭區域時按新值翻頁</translation>
         </message>
         <message>
             <source>按键映射</source>
-            <translation>Button Mapping</translation>
+            <translation>按鍵映射</translation>
         </message>
         <message>
             <source>鼠标左键</source>
-            <translation>Left Button</translation>
+            <translation>滑鼠左鍵</translation>
         </message>
         <message>
             <source>鼠标中键</source>
-            <translation>Middle Button</translation>
+            <translation>滑鼠中鍵</translation>
         </message>
         <message>
             <source>鼠标右键</source>
-            <translation>Right Button</translation>
+            <translation>滑鼠右鍵</translation>
         </message>
         <message>
             <source>X 键</source>
-            <translation>X Button</translation>
+            <translation>X 鍵</translation>
         </message>
         <message>
             <source>Y 键</source>
-            <translation>Y Button</translation>
+            <translation>Y 鍵</translation>
         </message>
         <message>
             <source>滚轮向上</source>
-            <translation>Wheel Up</translation>
+            <translation>滾輪向上</translation>
         </message>
         <message>
             <source>滚轮向下</source>
-            <translation>Wheel Down</translation>
+            <translation>滾輪向下</translation>
         </message>
         <message>
             <source>该按键没有拖拽平移实现，灰显不可选</source>
-            <translation>This button has no drag-to-pan implementation; greyed out</translation>
+            <translation>此按鍵沒有拖曳平移實作，反灰不可選</translation>
         </message>
         <message>
             <source>中键暂无该动作实现；仅「无操作 / 拖拽平移」生效（「无」会连现有的单击全屏一起停用）</source>
-            <translation>The middle button has no implementation for this action; only "No Action / Drag to Pan" work ("No Action" also disables the existing click-to-fullscreen)</translation>
+            <translation>中鍵暫無該動作實作；僅「無動作／拖曳平移」生效（「無」會連現有的單擊全螢幕一起停用）</translation>
         </message>
         <message>
             <source>滚轮向上暂无该动作实现；仅「无操作 / 放大」生效（「无」会关闭滚轮缩放）</source>
-            <translation>Wheel-up has no implementation for this action; only "No Action / Zoom In" work ("No Action" disables wheel zoom)</translation>
+            <translation>滾輪向上暫無該動作實作；僅「無動作／放大」生效（「無」會關閉滾輪縮放）</translation>
         </message>
         <message>
             <source>滚轮向下暂无该动作实现；仅「无操作 / 缩小」生效（「无」会关闭滚轮缩放）</source>
-            <translation>Wheel-down has no implementation for this action; only "No Action / Zoom Out" work ("No Action" disables wheel zoom)</translation>
+            <translation>滾輪向下暫無該動作實作；僅「無動作／縮小」生效（「無」會關閉滾輪縮放）</translation>
         </message>
         <message>
             <source>下次触发该按键时按新映射派发</source>
-            <translation>The new mapping dispatches the next time the button fires</translation>
+            <translation>下次觸發該按鍵時按新映射派發</translation>
         </message>
         <message>
             <source>「无」保留内置行为：左键拖动平移与边缘单击翻页、右键上下文菜单。滚轮上下共用一个缩放开关，任一方向选「无」会同时停掉双向缩放；中键选「无」会同时停掉拖拽平移与现有的单击全屏。中键只支持「无操作 / 拖拽平移」，滚轮只支持「无操作 / 放大 / 缩小」；其余档位已灰显，属实现缺口。所有映射在下次触发按键时生效。</source>
-            <translation>"None" keeps the built-in behavior: left-drag panning, edge-click paging and right-click context menu. Wheel up/down share one zoom switch — choosing "None" on either direction disables zoom in both directions; choosing "None" for the middle button disables both drag-to-pan and the existing click-to-fullscreen. The middle button supports only "No Action / Drag to Pan", the wheel only "No Action / Zoom In / Zoom Out"; the remaining options are greyed out pending implementation. All mappings apply the next time the button fires.</translation>
+            <translation>「無」保留內建行為：左鍵拖曳平移與邊緣點按翻頁、右鍵快顯選單。滾輪上下共用一個縮放開關，任一方向選「無」會同時停掉雙向縮放；中鍵選「無」會同時停掉拖曳平移與現有的單擊全螢幕。中鍵只支援「無動作／拖曳平移」，滾輪只支援「無動作／放大／縮小」；其餘檔位已反灰，屬實作缺口。所有映射在下次觸發按鍵時生效。</translation>
         </message>
         <message>
             <source>书签行为</source>
-            <translation>Bookmark Behavior</translation>
+            <translation>書籤行為</translation>
         </message>
         <message>
             <source>自动保存当前图片路径为书签</source>
-            <translation>Auto-save the current image path as a bookmark</translation>
+            <translation>自動儲存目前圖片路徑為書籤</translation>
         </message>
         <message>
             <source>打开图片时自动追加一条；翻页不追加</source>
-            <translation>Appends one entry when an image opens; paging does not append</translation>
+            <translation>開啟圖片時自動追加一條；翻頁不追加</translation>
         </message>
         <message>
             <source>书签容量</source>
-            <translation>Bookmark Capacity</translation>
+            <translation>書籤容量</translation>
         </message>
         <message>
             <source>最大书签数</source>
-            <translation>Maximum bookmarks</translation>
+            <translation>最大書籤數</translation>
         </message>
         <message>
             <source>新增书签超过上限时，从最早的书签开始淘汰</source>
-            <translation>When bookmarks exceed the limit, the oldest are evicted first</translation>
+            <translation>新增書籤超過上限時，從最早的書籤開始淘汰</translation>
         </message>
         <message>
             <source>上限在下次新增书签时读取，已有书签不会在保存瞬间被裁剪。书签记录完整路径，文件移动或重命名后原条目失效；数据保存在本机配置中，不随安装包或账户同步。</source>
-            <translation>The limit is read the next time a bookmark is added; existing bookmarks are not trimmed at save time. Bookmarks store full paths — entries break if a file moves or is renamed. Data stays in the local configuration and does not sync with installs or accounts.</translation>
+            <translation>上限在下次新增書籤時讀取，已有書籤不會在儲存瞬間被裁剪。書籤記錄完整路徑，檔案移動或重新命名後原條目失效；資料保存在本機設定中，不隨安裝套件或帳戶同步。</translation>
         </message>
         <message>
             <source>写入失败：%1
 已恢复到当前实际值。</source>
-            <translation>Write failed: %1
-Restored to the current actual value.</translation>
+            <translation>寫入失敗：%1
+已還原到目前實際值。</translation>
         </message>
         <message>
             <source>恢复默认菜单</source>
-            <translation>Restore Default Menu</translation>
+            <translation>還原預設選單</translation>
         </message>
         <message>
             <source>重置全部可见性开关；不影响浏览模式、快捷键、图像效果或其他设置</source>
-            <translation>Resets all visibility toggles; does not affect browse mode, hotkeys, image effects or other settings</translation>
+            <translation>重設全部可見性開關；不影響瀏覽模式、快速鍵、影像效果或其他設定</translation>
         </message>
         <message>
             <source>同时遵循已有的剪贴板入口设置。</source>
-            <translation>Also follows the existing clipboard entry setting.</translation>
+            <translation>同時遵循已有的剪貼簿入口設定。</translation>
         </message>
         <message>
             <source>前后跳转、随机浏览及切换文件夹。</source>
-            <translation>Jump back/forward, random browsing and folder switching.</translation>
+            <translation>前後跳轉、隨機瀏覽及切換資料夾。</translation>
         </message>
         <message>
             <source>倍率调整、100% 与缩放锁定。</source>
-            <translation>Zoom level, 100% and zoom lock.</translation>
+            <translation>倍率調整、100% 與縮放鎖定。</translation>
         </message>
         <message>
             <source>选择缩放重采样方式。</source>
-            <translation>Choose the resampling method for zooming.</translation>
+            <translation>選擇縮放重新取樣方式。</translation>
         </message>
         <message>
             <source>反色、Gamma 与翻转。</source>
-            <translation>Invert colors, gamma and flips.</translation>
+            <translation>反轉色彩、Gamma 與翻轉。</translation>
         </message>
         <message>
             <source>旋转或恢复图片方向。</source>
-            <translation>Rotate or reset image orientation.</translation>
+            <translation>旋轉或還原圖片方向。</translation>
         </message>
         <message>
             <source>显示处理的三个互斥档位。</source>
-            <translation>Three mutually exclusive display-processing options.</translation>
+            <translation>顯示處理的三個互斥檔位。</translation>
         </message>
         <message>
             <source>固定入口，可从右键菜单返回此页。</source>
-            <translation>Fixed entry; opens this settings page from the context menu.</translation>
+            <translation>固定入口，可從右鍵選單返回此頁。</translation>
         </message>
         <message>
             <source>固定显示</source>
-            <translation>Pinned</translation>
+            <translation>固定顯示</translation>
         </message>
         <message>
             <source>资源管理器集成</source>
-            <translation>Explorer Integration</translation>
+            <translation>檔案總管整合</translation>
         </message>
         <message>
-            <source>沿用现有只读状态区。右键菜单可见性仅应用于 QuikView。</source>
-            <translation>Keeps the existing read-only status area. Context-menu visibility applies to QuikView only.</translation>
+            <source>沿用现有只读状态区。右键菜单可见性仅应用于 SoleView。</source>
+            <translation>沿用現有唯讀狀態區。右鍵選單可見性僅套用於 SoleView。</translation>
         </message>
         <message>
             <source>已注册（仅 64 位，32 位视图未绑定）</source>
-            <translation>Registered (64-bit only; the 32-bit view is not bound)</translation>
+            <translation>已註冊（僅 64 位元，32 位元檢視未綁定）</translation>
         </message>
         <message>
             <source>当前安装已注册</source>
-            <translation>This installation is registered</translation>
+            <translation>目前安裝已註冊</translation>
         </message>
         <message>
             <source>指向其他安装</source>
-            <translation>Points to another installation</translation>
+            <translation>指向其他安裝</translation>
         </message>
         <message>
             <source>未注册</source>
-            <translation>Not registered</translation>
+            <translation>未註冊</translation>
         </message>
         <message>
             <source>未安装</source>
-            <translation>Not installed</translation>
+            <translation>未安裝</translation>
         </message>
         <message>
             <source>注册状态</source>
-            <translation>Registration</translation>
+            <translation>註冊狀態</translation>
         </message>
         <message>
             <source>右键菜单处理器</source>
-            <translation>Shell menu handler</translation>
+            <translation>右鍵選單處理器</translation>
         </message>
         <message>
             <source>当前指向：%1</source>
-            <translation>Currently points to: %1</translation>
+            <translation>目前指向：%1</translation>
         </message>
         <message>
             <source>64/32 位扩展的 CLSID 与处理器绑定</source>
-            <translation>CLSID and handler binding of the 64/32-bit extensions</translation>
+            <translation>64/32 位元擴充的 CLSID 與處理器綁定</translation>
         </message>
         <message>
             <source>WebP 缩略图</source>
-            <translation>WebP Thumbnails</translation>
+            <translation>WebP 縮圖</translation>
         </message>
         <message>
             <source>由壳扩展解码生成</source>
-            <translation>Decoded by the shell extension</translation>
+            <translation>由殼層擴充解碼生成</translation>
         </message>
         <message>
             <source>PSD 缩略图</source>
-            <translation>PSD Thumbnails</translation>
+            <translation>PSD 縮圖</translation>
         </message>
         <message>
             <source>缺少内嵌 JPEG 时回退默认图标</source>
-            <translation>Falls back to the default icon when no embedded JPEG exists</translation>
+            <translation>缺少內嵌 JPEG 時退回預設圖示</translation>
         </message>
         <message>
             <source>PSB 缩略图</source>
-            <translation>PSB Thumbnails</translation>
+            <translation>PSB 縮圖</translation>
         </message>
         <message>
             <source>右键菜单开关</source>
-            <translation>Shell Menu</translation>
+            <translation>右鍵選單開關</translation>
         </message>
         <message>
-            <source>在资源管理器右键菜单中显示 QuikView</source>
-            <translation>Show QuikView in the Explorer shell menu</translation>
+            <source>在资源管理器右键菜单中显示 SoleView</source>
+            <translation>在檔案總管右鍵選單中顯示 SoleView</translation>
         </message>
         <message>
-            <source>关闭后下次右键不插入 QuikView 菜单项；开启恢复各细项的原有选择</source>
-            <translation>When off, the next right-click won't insert QuikView menu items; turning it on restores each item's previous choice</translation>
+            <source>关闭后下次右键不插入 SoleView 菜单项；开启恢复各细项的原有选择</source>
+            <translation>關閉後下次右鍵不插入 SoleView 選單項目；開啟恢復各細項的原有選擇</translation>
         </message>
         <message>
-            <source>用 QuikView 浏览图片</source>
-            <translation>Browse images with QuikView</translation>
+            <source>用 SoleView 浏览图片</source>
+            <translation>用 SoleView 瀏覽圖片</translation>
         </message>
         <message>
-            <source>命令行：quikview.exe "文件"</source>
-            <translation>Command line: quikview.exe "file"</translation>
+            <source>命令行：soleview.exe "文件"</source>
+            <translation>命令列：soleview.exe "檔案"</translation>
         </message>
         <message>
-            <source>用 QuikView 转换图片</source>
-            <translation>Convert images with QuikView</translation>
+            <source>用 SoleView 转换图片</source>
+            <translation>用 SoleView 轉換圖片</translation>
         </message>
         <message>
-            <source>命令行：quikview.exe --batch "文件"</source>
-            <translation>Command line: quikview.exe --batch "file"</translation>
+            <source>命令行：soleview.exe --batch "文件"</source>
+            <translation>命令列：soleview.exe --batch "檔案"</translation>
         </message>
         <message>
             <source>菜单内预览</source>
-            <translation>In-menu Preview</translation>
+            <translation>選單內預覽</translation>
         </message>
         <message>
             <source>右键菜单顶部显示 ≤256px 缩略图，解码超时自动省略</source>
-            <translation>Shows a ≤256px thumbnail at the top of the shell menu; omitted automatically if decoding times out</translation>
+            <translation>右鍵選單頂部顯示 ≤256px 縮圖，解碼逾時自動省略</translation>
         </message>
         <message>
             <source>图片信息</source>
-            <translation>Image Info</translation>
+            <translation>圖片資訊</translation>
         </message>
         <message>
             <source>浏览项右侧显示 宽 × 高 · 文件大小</source>
-            <translation>The browse row shows width × height · file size on the right</translation>
+            <translation>瀏覽項右側顯示 寬 × 高 · 檔案大小</translation>
         </message>
         <message>
             <source>软件图标</source>
-            <translation>App Icon</translation>
+            <translation>軟體圖示</translation>
         </message>
         <message>
-            <source>菜单项左侧的内嵌 QuikView 图标</source>
-            <translation>The embedded QuikView icon on the left of menu items</translation>
+            <source>菜单项左侧的内嵌 SoleView 图标</source>
+            <translation>選單項目左側的內嵌 SoleView 圖示</translation>
         </message>
         <message>
             <source>本机的右键菜单处理器指向另一处安装（%1）。运行安装包覆盖安装到该目录，或卸载该安装后重装，才能在这里控制右键菜单。</source>
-            <translation>This machine's shell menu handler points to another installation (%1). Run the installer to overwrite that location, or uninstall it and reinstall, before you can control the shell menu here.</translation>
+            <translation>本機的右鍵選單處理器指向另一處安裝（%1）。執行安裝套件覆蓋安裝到該目錄，或解除安裝該安裝後重裝，才能在這裡控制右鍵選單。</translation>
         </message>
         <message>
             <source>未检测到壳扩展文件（quikthumb-*.dll）。运行安装包可修复；便携版不带安装器注册，右键菜单不可用。</source>
-            <translation>The shell extension file (quikthumb-*.dll) was not found. Running the installer can fix it; the portable build has no installer registration, so the shell menu is unavailable.</translation>
+            <translation>未偵測到殼層擴充檔案（quikthumb-*.dll）。執行安裝套件可修復；便攜版不帶安裝器註冊，右鍵選單不可用。</translation>
         </message>
         <message>
             <source>壳扩展文件存在，但右键菜单处理器未注册到本安装。运行安装包覆盖安装即可完成注册。</source>
-            <translation>The shell extension file exists, but the shell menu handler is not registered to this installation. Run the installer to overwrite-install and complete the registration.</translation>
+            <translation>殼層擴充檔案存在，但右鍵選單處理器未註冊到本安裝。執行安裝套件覆蓋安裝即可完成註冊。</translation>
         </message>
         <message>
             <source>改动即时写入本机用户配置，资源管理器下一次弹出右键菜单时生效，无需重装或管理员权限；若菜单未变化，重启资源管理器。浏览、转换与预览全部关闭时不插入空分隔线。</source>
-            <translation>Changes are written to the local user configuration immediately and apply the next time Explorer pops its shell menu — no reinstall or admin rights needed. If the menu doesn't change, restart Explorer. With browse, convert and preview all off, no empty separator is inserted.</translation>
+            <translation>變更即時寫入本機使用者設定，檔案總管下一次彈出右鍵選單時生效，無需重裝或管理員權限；若選單未變化，重新啟動檔案總管。瀏覽、轉換與預覽全部關閉時不插入空分隔線。</translation>
         </message>
         <message>
             <source>资源管理器缩略图</source>
-            <translation>Explorer Thumbnails</translation>
+            <translation>檔案總管縮圖</translation>
         </message>
         <message>
-            <source>这些入口由 QuikView 壳扩展在资源管理器中提供，不是应用内图片右键菜单的功能开关；安装 / 卸载安装包时自动注册 / 移除。菜单开关不会改变文件默认打开方式与这里的缩略图注册。</source>
-            <translation>These entries come from the QuikView shell extension in Explorer, not from the in-app image context menu; they register/unregister automatically with install/uninstall of the installer package. The menu toggles don't change default apps or the thumbnail registration here.</translation>
+            <source>这些入口由 SoleView 壳扩展在资源管理器中提供，不是应用内图片右键菜单的功能开关；安装 / 卸载安装包时自动注册 / 移除。菜单开关不会改变文件默认打开方式与这里的缩略图注册。</source>
+            <translation>這些入口由 SoleView 殼層擴充在檔案總管中提供，不是應用程式內圖片右鍵選單的功能開關；安裝／解除安裝安裝套件時自動註冊／移除。選單開關不會改變檔案預設開啟方式與這裡的縮圖註冊。</translation>
         </message>
         <message>
             <source>资源管理器独立预览窗格为后续交付项：旧 shell/ 有实现，尚未接入当前安装包。</source>
-            <translation>The standalone Explorer preview pane is a future deliverable: the old shell/ has an implementation, not yet wired into the current installer.</translation>
+            <translation>檔案總管獨立預覽窗格為後續交付項：舊 shell/ 有實作，尚未接入目前安裝套件。</translation>
         </message>
         <message>
             <source>常用路径</source>
-            <translation>Frequent Paths</translation>
+            <translation>常用路徑</translation>
         </message>
         <message>
             <source>留空表示不使用该文件夹</source>
-            <translation>Leave empty to not use this folder</translation>
+            <translation>留空表示不使用該資料夾</translation>
         </message>
         <message>
             <source>浏览…</source>
-            <translation>Browse…</translation>
+            <translation>瀏覽…</translation>
         </message>
         <message>
             <source>选择一个文件夹.</source>
-            <translation>Select a folder.</translation>
+            <translation>選擇一個資料夾.</translation>
         </message>
         <message>
             <source>请先填写文件夹路径。</source>
-            <translation>Enter a folder path first.</translation>
+            <translation>請先填寫資料夾路徑。</translation>
         </message>
         <message>
             <source>文件夹不存在：
 %1</source>
-            <translation>Folder does not exist:
+            <translation>資料夾不存在：
 %1</translation>
         </message>
         <message>
             <source>无法调用系统文件管理器打开：
 %1</source>
-            <translation>Could not open via the system file manager:
+            <translation>無法呼叫系統檔案管理員開啟：
 %1</translation>
         </message>
         <message>
             <source>图片文件夹 1</source>
-            <translation>Pictures Folder 1</translation>
+            <translation>圖片資料夾 1</translation>
         </message>
         <message>
             <source>图片文件夹 2</source>
-            <translation>Pictures Folder 2</translation>
+            <translation>圖片資料夾 2</translation>
         </message>
         <message>
             <source>图像编辑器程序路径</source>
-            <translation>Image Editor Program Path</translation>
+            <translation>影像編輯器程式路徑</translation>
         </message>
         <message>
             <source>留空时使用系统默认程序</source>
-            <translation>Empty = use the system default program</translation>
+            <translation>留空時使用系統預設程式</translation>
         </message>
         <message>
             <source>预设</source>
-            <translation>Presets</translation>
+            <translation>預設集</translation>
         </message>
         <message>
             <source>选择图像编辑器</source>
-            <translation>Select Image Editor</translation>
+            <translation>選擇影像編輯器</translation>
         </message>
         <message>
             <source>程序 (*.exe);;所有文件 (*)</source>
-            <translation>Programs (*.exe);;All files (*)</translation>
+            <translation>程式 (*.exe);;所有檔案 (*)</translation>
         </message>
         <message>
             <source>RAW 图片</source>
-            <translation>RAW Images</translation>
+            <translation>RAW 圖片</translation>
         </message>
         <message>
             <source>不打开 RAW 图片文件</source>
-            <translation>Don't open RAW image files</translation>
+            <translation>不開啟 RAW 圖片檔案</translation>
         </message>
         <message>
             <source>下次打开 RAW 时生效</source>
-            <translation>Applies the next time a RAW is opened</translation>
+            <translation>下次開啟 RAW 時生效</translation>
         </message>
         <message>
             <source>打开 JPEG 文件时，不打开同名 RAW 文件</source>
-            <translation>When opening a JPEG, don't open the matching RAW file</translation>
+            <translation>開啟 JPEG 檔案時，不開啟同名 RAW 檔案</translation>
         </message>
         <message>
             <source>打开 JPEG 时不再自动带出同名 RAW</source>
-            <translation>Opening a JPEG no longer auto-opens the matching RAW</translation>
+            <translation>開啟 JPEG 時不再自動帶出同名 RAW</translation>
         </message>
         <message>
             <source>打开 RAW 图片文件时，显示已有缩略图</source>
-            <translation>When opening a RAW image file, show the embedded thumbnail</translation>
+            <translation>開啟 RAW 圖片檔案時，顯示已有縮圖</translation>
         </message>
         <message>
             <source>打开 RAW 时先显示内嵌缩略图</source>
-            <translation>RAWs show the embedded thumbnail first</translation>
+            <translation>開啟 RAW 時先顯示內嵌縮圖</translation>
         </message>
         <message>
             <source>窗口与声音</source>
-            <translation>Window &amp; Sound</translation>
+            <translation>視窗與聲音</translation>
         </message>
         <message>
             <source>翻页时播放音效</source>
-            <translation>Play a sound on page turn</translation>
+            <translation>翻頁時播放音效</translation>
         </message>
         <message>
             <source>下次翻页时生效</source>
-            <translation>Applies from the next page turn</translation>
+            <translation>下次翻頁時生效</translation>
         </message>
         <message>
             <source>根据图片大小调节窗口大小</source>
-            <translation>Fit the window to the image size</translation>
+            <translation>根據圖片大小調整視窗大小</translation>
         </message>
         <message>
             <source>默认关闭；开启后下次打开图片时生效</source>
-            <translation>Off by default; when on, applies from the next opened image</translation>
+            <translation>預設關閉；開啟後下次開啟圖片時生效</translation>
         </message>
         <message>
-            <source>运行 QuikView 时禁用 Windows 屏幕保护程序</source>
-            <translation>Disable the Windows screensaver while QuikView runs</translation>
+            <source>运行 SoleView 时禁用 Windows 屏幕保护程序</source>
+            <translation>執行 SoleView 時停用 Windows 螢幕保護裝置</translation>
         </message>
         <message>
-            <source>退出 QuikView 后恢复系统屏保设置</source>
-            <translation>Restores the system screensaver setting when QuikView exits</translation>
+            <source>退出 SoleView 后恢复系统屏保设置</source>
+            <translation>結束 SoleView 後還原系統螢幕保護裝置設定</translation>
         </message>
         <message>
             <source>RAW 选项只影响 RAW 文件的打开方式；勾选「不打开 RAW 图片文件」时，JPEG 旁的 RAW 也不会被自动带出。翻页音效在下次翻页时生效。</source>
-            <translation>RAW options only affect how RAW files open; with "Don't open RAW image files" checked, a RAW sitting next to a JPEG is not auto-opened either. The page-turn sound applies from the next page turn.</translation>
+            <translation>RAW 選項只影響 RAW 檔案的開啟方式；勾選「不開啟 RAW 圖片檔案」時，JPEG 旁的 RAW 也不會被自動帶出。翻頁音效在下次翻頁時生效。</translation>
         </message>
         <message>
             <source>界面语言</source>
-            <translation>UI Language</translation>
+            <translation>介面語言</translation>
         </message>
         <message>
-            <source>保存后生效；重启 QuikView 后切换界面</source>
-            <translation>Applies after saving; the UI switches after restarting QuikView</translation>
+            <source>保存后生效；重启 SoleView 后切换界面</source>
+            <translation>儲存後生效；重新啟動 SoleView 後切換介面</translation>
         </message>
         <message>
             <source>语言资源</source>
-            <translation>Language Resources</translation>
+            <translation>語言資源</translation>
         </message>
         <message>
             <source>打开语言文件夹</source>
-            <translation>Open Language Folder</translation>
+            <translation>開啟語言資料夾</translation>
         </message>
         <message>
             <source>从 translations 目录加载 .qm 语言文件</source>
-            <translation>Loads .qm language files from the translations directory</translation>
+            <translation>從 translations 目錄載入 .qm 語言檔</translation>
         </message>
         <message>
             <source>下载更多语言</source>
-            <translation>Download More Languages</translation>
+            <translation>下載更多語言</translation>
         </message>
         <message>
             <source>在浏览器中打开项目页面获取语言包</source>
-            <translation>Opens the project page in your browser to get language packs</translation>
+            <translation>在瀏覽器中開啟專案頁面取得語言套件</translation>
         </message>
         <message>
             <source>无法打开浏览器。请手动访问：
-https://github.com/xdsT2/quikview</source>
-            <translation>Could not open a browser. Please visit manually:
-https://github.com/xdsT2/quikview</translation>
+https://github.com/xdsT2/soleview</source>
+            <translation>無法開啟瀏覽器。請手動造訪：
+https://github.com/xdsT2/soleview</translation>
         </message>
         <message>
-            <source>语言文件按程序目录下的 translations 加载；两个入口都会离开 QuikView，应用内只报告启动是否成功。语言选择是待保存项：关闭时可选「保存并关闭」，重启后生效。</source>
-            <translation>Language files load from the translations directory next to the program; both entries leave QuikView, and the app only reports whether the launch succeeded. The language choice is a save-pending item: when closing you can pick "Save and Close", and it takes effect after restart.</translation>
+            <source>语言文件按程序目录下的 translations 加载；两个入口都会离开 SoleView，应用内只报告启动是否成功。语言选择是待保存项：关闭时可选「保存并关闭」，重启后生效。</source>
+            <translation>語言檔按程式目錄下的 translations 載入；兩個入口都會離開 SoleView，應用程式內只回報啟動是否成功。語言選擇是待儲存項目：關閉時可選「儲存並關閉」，重新啟動後生效。</translation>
         </message>
         <message>
             <source>配置文件写入失败（%1）</source>
-            <translation>Config write failed (%1)</translation>
+            <translation>設定檔寫入失敗（%1）</translation>
         </message>
         <message>
             <source>保存失败：%1。
 改动仍保留在界面上，可稍后重试。</source>
-            <translation>Save failed: %1.
-The changes are still on the page; you can retry later.</translation>
+            <translation>儲存失敗：%1。
+變更仍保留在介面上，可稍後重試。</translation>
         </message>
         <message>
             <source>「%1」未能即时生效：%2
 已恢复原值。</source>
-            <translation>"%1" did not apply immediately: %2
-Restored the original value.</translation>
+            <translation>「%1」未能即時生效：%2
+已還原原值。</translation>
         </message>
         <message>
             <source>热键：%1</source>
-            <translation>Hotkey: %1</translation>
+            <translation>熱鍵：%1</translation>
         </message>
         <message>
             <source>有 %1 项待保存（%2）；关闭时会询问</source>
-            <translation>%1 item(s) pending (%2); you'll be asked when closing</translation>
+            <translation>有 %1 項待儲存（%2）；關閉時會詢問</translation>
         </message>
         <message>
             <source>未找到主窗口，无法下发运行态。</source>
-            <translation>Main window not found; cannot dispatch the runtime state.</translation>
+            <translation>未找到主視窗，無法下發執行態。</translation>
         </message>
         <message>
             <source>「%1」未能即时生效：%2
 已恢复原值，未写入配置。</source>
-            <translation>"%1" did not apply immediately: %2
-Restored the original value; nothing was written to the config.</translation>
+            <translation>「%1」未能即時生效：%2
+已還原原值，未寫入設定。</translation>
         </message>
         <message>
             <source>是否要初始化设置？</source>
-            <translation>Initialize settings?</translation>
+            <translation>是否要初始化設定？</translation>
         </message>
         <message>
             <source>解决键位冲突后可保存。</source>
-            <translation>Save becomes possible once the key conflicts are resolved.</translation>
+            <translation>解決鍵位衝突後可儲存。</translation>
         </message>
         <message>
             <source>冲突</source>
-            <translation>Conflict</translation>
+            <translation>衝突</translation>
         </message>
         <message>
             <source>正在录入</source>
-            <translation>Recording</translation>
+            <translation>正在錄製</translation>
         </message>
         <message>
             <source>按下新的组合键。Esc 清空当前热键。</source>
-            <translation>Press the new key combination. Esc clears the current hotkey.</translation>
+            <translation>按下新的組合鍵。Esc 清空目前熱鍵。</translation>
         </message>
         <message>
             <source>按键「%1」冲突：『%2』与『%3』被绑到同一组合键。</source>
-            <translation>Key conflict for "%1": "%2" and "%3" are bound to the same combination.</translation>
+            <translation>按鍵「%1」衝突：『%2』與『%3』被綁到同一組合鍵。</translation>
         </message>
         <message>
             <source>保存更改？</source>
-            <translation>Save changes?</translation>
+            <translation>儲存變更？</translation>
         </message>
         <message>
             <source>有 %1 项更改尚未保存。</source>
-            <translation>%1 change(s) are not saved yet.</translation>
+            <translation>有 %1 項變更尚未儲存。</translation>
         </message>
         <message>
             <source>等 %1 项</source>
-            <translation>+%1 more</translation>
+            <translation>另有 %1 項</translation>
         </message>
         <message>
             <source>待保存：%1
 
 「不保存」只放弃这些草稿；浏览页四项与图像处理/外观页的即时档位（插值、快帧策略、翻页效果、GIF 底色、画布背景）会回到进入设置时的状态，其余即时设置保留。</source>
-            <translation>Pending: %1
+            <translation>待儲存：%1
 
-“Don't save” only discards these drafts; the four Browse-page items and the live choices on the Image Processing / Appearance pages (interpolation, fast-frame policy, page-turn effect, GIF backdrop, canvas backdrop) revert to the state from when Settings was opened; other live settings are kept.</translation>
+「不儲存」只放棄這些草稿；瀏覽頁四項與影像處理／外觀頁的即時檔位（插值、快取訊框策略、翻頁效果、GIF 底色、畫布背景）會回到進入設定時的狀態，其餘即時設定保留。</translation>
         </message>
         <message>
             <source>保存并关闭</source>
-            <translation>Save and Close</translation>
+            <translation>儲存並關閉</translation>
         </message>
         <message>
             <source>不保存</source>
-            <translation>Don't Save</translation>
+            <translation>不儲存</translation>
         </message>
         <message>
             <source>继续编辑</source>
-            <translation>Keep Editing</translation>
+            <translation>繼續編輯</translation>
         </message>
         <message>
             <source>%1 个分组</source>
-            <translation>%1 groups</translation>
+            <translation>%1 個分組</translation>
         </message>
         <message>
             <source>%1 个项目</source>
-            <translation>%1 items</translation>
+            <translation>%1 個項目</translation>
         </message>
         <message>
             <source>%1 项匹配</source>
-            <translation>%1 matches</translation>
+            <translation>%1 項符合</translation>
         </message>
         <message>
             <source>%1，%2，展开或收起</source>
-            <translation>%1, %2, expand or collapse</translation>
+            <translation>%1，%2，展開或收合</translation>
         </message>
         <message>
             <source>%1，可见性</source>
-            <translation>%1, visibility</translation>
+            <translation>%1，可見性</translation>
         </message>
         <message>
             <source>「%1」已关闭</source>
-            <translation>"%1" is off</translation>
+            <translation>「%1」已關閉</translation>
         </message>
         <message>
             <source>包含前后跳转、随机浏览及切换文件夹。关闭后仍可展开查看命令。</source>
-            <translation>Includes forward/back navigation, random browsing and folder switching. You can still expand to view the commands when it is off.</translation>
+            <translation>包含前後跳轉、隨機瀏覽及切換資料夾。關閉後仍可展開檢視命令。</translation>
         </message>
         <message>
             <source>可见性</source>
-            <translation>Visibility</translation>
+            <translation>可見性</translation>
         </message>
         <message>
             <source>实时预览</source>
-            <translation>Live Preview</translation>
+            <translation>即時預覽</translation>
         </message>
         <message>
             <source>已展开</source>
-            <translation>Expanded</translation>
+            <translation>已展開</translation>
         </message>
         <message>
             <source>已收起</source>
-            <translation>Collapsed</translation>
+            <translation>已收合</translation>
         </message>
         <message>
             <source>总开关已关闭，可展开查看子项。</source>
-            <translation>The master switch is off; you can still expand to view subitems.</translation>
+            <translation>總開關已關閉，可展開檢視子項目。</translation>
         </message>
         <message>
             <source>查找期间沿匹配路径展开</source>
-            <translation>Expand along the match path while searching</translation>
+            <translation>搜尋期間沿符合路徑展開</translation>
         </message>
         <message>
             <source>查找菜单项</source>
-            <translation>Find menu items</translation>
+            <translation>尋找功能表項目</translation>
         </message>
         <message>
             <source>查找菜单项…</source>
-            <translation>Find menu items…</translation>
+            <translation>尋找功能表項目…</translation>
         </message>
         <message>
             <source>没有匹配的菜单项</source>
-            <translation>No matching menu items</translation>
+            <translation>沒有符合的功能表項目</translation>
         </message>
         <message>
             <source>清除查找</source>
-            <translation>Clear search</translation>
+            <translation>清除搜尋</translation>
         </message>
         <message>
             <source>点击菜单项可定位设置。</source>
-            <translation>Click a menu item to locate its setting.</translation>
+            <translation>點擊功能表項目可定位設定。</translation>
         </message>
         <message>
             <source>第 %1 级</source>
-            <translation>Level %1</translation>
+            <translation>第 %1 層</translation>
         </message>
         <message>
             <source>菜单项</source>
-            <translation>Menu item</translation>
+            <translation>功能表項目</translation>
         </message>
         <message>
             <source>说明 / 状态</source>
-            <translation>Description / status</translation>
+            <translation>說明 / 狀態</translation>
         </message>
         <message>
             <source>随组显示</source>
-            <translation>Shown with group</translation>
+            <translation>隨群組顯示</translation>
         </message>
         <message>
             <source>无法恢复默认菜单，配置未写入。</source>
-            <translation>Could not restore the default menu; the configuration was not written.</translation>
+            <translation>無法還原預設功能表，設定未寫入。</translation>
         </message>
         <message>
             <source>执行参数，随「复制更多」显隐。</source>
-            <translation>Execution parameter, shown with "Copy More".</translation>
+            <translation>執行參數，隨「複製更多」顯隱。</translation>
         </message>
         <message>
             <source>执行参数，随「打开方式」显隐。</source>
-            <translation>Execution parameter, shown with "Open With".</translation>
+            <translation>執行參數，隨「開啟方式」顯隱。</translation>
         </message>
         <message>
             <source>随「危险操作」总开关显示。</source>
-            <translation>Shown with the "Dangerous actions" master switch.</translation>
+            <translation>隨「危險操作」總開關顯示。</translation>
         </message>
         <message>
             <source>随「应用」总开关显示。</source>
-            <translation>Shown with the "Application" master switch.</translation>
+            <translation>隨「應用程式」總開關顯示。</translation>
         </message>
         <message>
             <source>随「文件操作」总开关显示。</source>
-            <translation>Shown with the "File operations" master switch.</translation>
+            <translation>隨「檔案操作」總開關顯示。</translation>
         </message>
         <message>
             <source>停止</source>
-            <translation>Stop</translation>
+            <translation>停止</translation>
         </message>
         <message>
             <source>全屏切换</source>
-            <translation>Toggle fullscreen</translation>
+            <translation>全螢幕切換</translation>
         </message>
         <message>
             <source>关闭窗口</source>
-            <translation>Close window</translation>
+            <translation>關閉視窗</translation>
         </message>
         <message>
             <source>询问</source>
-            <translation>Ask</translation>
+            <translation>詢問</translation>
         </message>
         <message>
             <source>无操作</source>
-            <translation>No action</translation>
+            <translation>無動作</translation>
         </message>
         <message>
             <source>该选项暂未实现，将在后续版本提供。</source>
-            <translation>This option is not implemented yet; it will be available in a future release.</translation>
+            <translation>此選項尚未實作，將於後續版本提供。</translation>
         </message>
         <message>
             <source>自动保存</source>
-            <translation>Auto-save</translation>
+            <translation>自動儲存</translation>
         </message>
         <message>
             <source>旋转后自动保存</source>
-            <translation>Auto-save after rotation</translation>
+            <translation>旋轉後自動儲存</translation>
         </message>
         <message>
             <source>旋转/翻转立即写回原文件；RAW 与动图不受影响</source>
-            <translation>Rotate/flip writes back to the original file immediately; RAW and animated images are not affected</translation>
+            <translation>旋轉/翻轉立即寫回原始檔案；RAW 與動畫圖片不受影響</translation>
         </message>
         <message>
             <source>双线性 (快)</source>
-            <translation>Bilinear (Fast)</translation>
+            <translation>雙線性 (快速)</translation>
         </message>
         <message>
             <source>双三次 (平滑)</source>
-            <translation>Bicubic (Smooth)</translation>
+            <translation>雙三次 (平滑)</translation>
         </message>
         <message>
             <source>缩放重采样时使用；双线性最快、双三次为默认，Lanczos 最锐</source>
-            <translation>Used when resampling on zoom; Bilinear is fastest, Bicubic is the default, Lanczos is sharpest</translation>
+            <translation>縮放重取樣時使用；雙線性最快、雙三次為預設，Lanczos 最銳利</translation>
         </message>
         <message>
             <source>「%1」已即时生效：%2 · %3；无需保存，按「取消」/ Esc 会回到进入设置时的状态。</source>
-            <translation>“%1” is now live: %2 · %3; no save needed — Cancel / Esc restores the state from when Settings was opened.</translation>
+            <translation>「%1」已即時生效：%2 · %3；無需儲存，按「取消」/ Esc 會回到進入設定時的狀態。</translation>
         </message>
         <message>
             <source>已放弃本次改动：图像处理页的即时项已回到进入设置时的状态。</source>
-            <translation>Changes discarded: the live items on the Image Processing page are back to the state from when Settings was opened.</translation>
+            <translation>已放棄本次改動：影像處理頁的即時項目已回到進入設定時的狀態。</translation>
         </message>
         <message>
             <source>已放弃本次改动：翻页效果已回到进入设置时的档位。</source>
-            <translation>Changes discarded: the page-turn effect is back to the setting from when Settings was opened.</translation>
+            <translation>已放棄本次改動：翻頁效果已回到進入設定時的檔位。</translation>
         </message>
         <message>
             <source>已即时生效：%1 · %2</source>
-            <translation>Applied instantly: %1 · %2</translation>
+            <translation>已即時生效：%1 · %2</translation>
         </message>
         <message>
             <source>关于</source>
-            <translation>About</translation>
+            <translation>關於</translation>
         </message>
         <message>
             <source>版本号</source>
-            <translation>Version</translation>
+            <translation>版本號</translation>
         </message>
         <message>
             <source>未知</source>
-            <translation>Unknown</translation>
+            <translation>未知</translation>
         </message>
         <message>
             <source>当前程序版本，取自构建配置</source>
-            <translation>Current application version, taken from the build configuration</translation>
+            <translation>目前程式版本，取自建置組態</translation>
         </message>
         <message>
             <source>开源许可</source>
-            <translation>License</translation>
+            <translation>開源授權</translation>
         </message>
         <message>
             <source>MIT 许可证，源码托管在 GitHub</source>
-            <translation>MIT License, source code hosted on GitHub</translation>
+            <translation>MIT 授權，原始碼託管於 GitHub</translation>
         </message>
         <message>
-            <source>QuikView 是开源的 Windows 图片查看器：C++ 与 Qt 6 构建，不收集使用数据，不含推广内容。</source>
-            <translation>QuikView is an open-source Windows image viewer built with C++ and Qt 6. No usage data collection, no promotions.</translation>
+            <source>SoleView 是开源的 Windows 图片查看器：C++ 与 Qt 6 构建，不收集使用数据，不含推广内容。</source>
+            <translation>SoleView 是開源的 Windows 圖片檢視器：使用 C++ 與 Qt 6 建置，不收集使用資料，不含推廣內容。</translation>
         </message>
         <message>
             <source>链接</source>
-            <translation>Links</translation>
+            <translation>連結</translation>
         </message>
         <message>
             <source>官网</source>
-            <translation>Website</translation>
+            <translation>官方網站</translation>
         </message>
         <message>
-            <source>打开 QuikView 官网</source>
-            <translation>Open QuikView official website</translation>
+            <source>打开 SoleView 官网</source>
+            <translation>開啟 SoleView 官方網站</translation>
         </message>
         <message>
-            <source>打开 QuikView GitHub 仓库</source>
-            <translation>Open QuikView GitHub repository</translation>
+            <source>打开 SoleView GitHub 仓库</source>
+            <translation>開啟 SoleView GitHub 儲存庫</translation>
         </message>
         <message>
             <source>无法打开浏览器。请手动访问：
 %1</source>
-            <translation>Could not open a browser. Please visit manually:
+            <translation>無法開啟瀏覽器。請手動造訪：
 %1</translation>
         </message>
         <message>
             <source>QQ 交流群</source>
-            <translation>QQ Group</translation>
+            <translation>QQ 交流群</translation>
         </message>
         <message>
             <source>点击复制 QQ 群号：%1</source>
-            <translation>Click to copy QQ group number: %1</translation>
+            <translation>點擊複製 QQ 群號：%1</translation>
         </message>
         <message>
-            <source>复制 QuikView QQ 交流群号</source>
-            <translation>Copy QuikView QQ group number</translation>
+            <source>复制 SoleView QQ 交流群号</source>
+            <translation>複製 SoleView QQ 交流群號</translation>
         </message>
         <message>
             <source>%1（已复制）</source>
-            <translation>%1 (Copied)</translation>
+            <translation>%1（已複製）</translation>
         </message>
         <message>
             <source>官网与 GitHub 在默认浏览器中打开；点击 QQ 交流群号可复制到剪贴板。</source>
-            <translation>Website and GitHub open in your default browser; click the QQ group number to copy it to the clipboard.</translation>
+            <translation>官方網站與 GitHub 在預設瀏覽器中開啟；點擊 QQ 交流群號可複製到剪貼簿。</translation>
         </message>
     </context>
     <context>
         <name>ThumbnailBrowser</name>
         <message>
             <source>缩略图栏</source>
-            <translation>Filmstrip</translation>
+            <translation>縮圖列</translation>
         </message>
         <message>
             <source>无法预览</source>
-            <translation>Cannot preview</translation>
+            <translation>無法預覽</translation>
         </message>
     </context>
     <context>
         <name>TopBar</name>
         <message>
             <source>顶部工具栏</source>
-            <translation>Top Toolbar</translation>
+            <translation>頂部工具列</translation>
         </message>
         <message>
             <source>打开、浏览、幻灯片、书签、编辑、复制到、图层、锁定顶栏、图片置顶与三横菜单</source>
-            <translation>Open, browse, slideshow, bookmarks, edit, copy to, layers, lock top bar, pin window and the menu button</translation>
+            <translation>開啟、瀏覽、投影片、書籤、編輯、複製到、圖層、鎖定頂列、圖片置頂與三橫選單</translation>
         </message>
         <message>
             <source>打开</source>
-            <translation>Open</translation>
+            <translation>開啟</translation>
         </message>
         <message>
             <source>浏览</source>
-            <translation>Browse</translation>
+            <translation>瀏覽</translation>
         </message>
         <message>
             <source>幻灯片放映</source>
-            <translation>Slideshow</translation>
+            <translation>投影片放映</translation>
         </message>
         <message>
             <source>书签</source>
-            <translation>Bookmarks</translation>
+            <translation>書籤</translation>
         </message>
         <message>
             <source>编辑</source>
-            <translation>Edit</translation>
+            <translation>編輯</translation>
         </message>
         <message>
             <source>复制到</source>
-            <translation>Copy to</translation>
+            <translation>複製到</translation>
         </message>
         <message>
             <source>隐藏 PSD 图层</source>
-            <translation>Hide PSD Layers</translation>
+            <translation>隱藏 PSD 圖層</translation>
         </message>
         <message>
             <source>PSD 图层</source>
-            <translation>PSD Layers</translation>
+            <translation>PSD 圖層</translation>
         </message>
         <message>
             <source>PSD 图层（当前图片没有可用图层）</source>
-            <translation>PSD Layers (no usable layers in this image)</translation>
+            <translation>PSD 圖層（目前圖片沒有可用圖層）</translation>
         </message>
         <message>
             <source>保持顶部工具栏显示</source>
-            <translation>Keep Top Toolbar Visible</translation>
+            <translation>保持頂部工具列顯示</translation>
         </message>
         <message>
             <source>图片窗口置顶</source>
-            <translation>Pin Image Window on Top</translation>
+            <translation>圖片視窗置頂</translation>
         </message>
         <message>
             <source>菜单</source>
-            <translation>Menu</translation>
+            <translation>選單</translation>
         </message>
         <message>
             <source>最小化</source>
-            <translation>Minimize</translation>
+            <translation>最小化</translation>
         </message>
         <message>
             <source>还原</source>
-            <translation>Restore</translation>
+            <translation>還原</translation>
         </message>
         <message>
             <source>最大化</source>
-            <translation>Maximize</translation>
+            <translation>最大化</translation>
         </message>
         <message>
             <source>关闭</source>
-            <translation>Close</translation>
+            <translation>關閉</translation>
         </message>
     </context>
     <context>
         <name>UpdateChecker</name>
         <message>
             <source>检查更新</source>
-            <translation>Check for Updates</translation>
+            <translation>檢查更新</translation>
         </message>
     </context>
     <context>
         <name>UpdateNotifier</name>
         <message>
             <source>发现新版本 %1</source>
-            <translation>New version found: %1</translation>
+            <translation>發現新版本 %1</translation>
         </message>
         <message>
             <source>已是最新版本</source>
-            <translation>You're up to date</translation>
+            <translation>已是最新版本</translation>
         </message>
         <message>
             <source>检查失败，请检查网络</source>
-            <translation>Check failed — check your network</translation>
+            <translation>檢查失敗，請檢查網路</translation>
         </message>
     </context>
     <context>
         <name>Wallpaper</name>
         <message>
             <source>SystemParametersInfo 失败 (GetLastError=%1)</source>
-            <translation>SystemParametersInfo failed (GetLastError=%1)</translation>
+            <translation>SystemParametersInfo 失敗 (GetLastError=%1)</translation>
         </message>
         <message>
             <source>设壁纸仅支持 Windows</source>
-            <translation>Wallpaper is Windows-only</translation>
+            <translation>設桌布僅支援 Windows</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>拖入图片或 Ctrl+O 打开</source>
-            <translation>Drag an image here or press Ctrl+O</translation>
+            <translation>拖入圖片或 Ctrl+O 開啟</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>文件(&amp;F)</source>
-            <translation>&amp;File</translation>
+            <translation>檔案(&amp;F)</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>视图(&amp;V)</source>
-            <translation>&amp;View</translation>
+            <translation>檢視(&amp;V)</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>适配窗口(&amp;F)</source>
-            <translation>Fit to &amp;Window</translation>
+            <translation>符合視窗(&amp;F)</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>实际大小(&amp;1)</source>
-            <translation>&amp;Actual Size</translation>
+            <translation>實際大小(&amp;1)</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>幻灯片(&amp;S)</source>
-            <translation>&amp;Slideshow</translation>
+            <translation>投影片放映(&amp;S)</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>工具(&amp;T)</source>
-            <translation>&amp;Tools</translation>
+            <translation>工具(&amp;T)</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>设为壁纸(&amp;W)</source>
-            <translation>Set as &amp;Wallpaper</translation>
+            <translation>設為桌面背景(&amp;W)</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>加载中… %1</source>
-            <translation>Loading… %1</translation>
+            <translation>載入中… %1</translation>
         </message>
     </context>
     <context>
         <name>MainWindow</name>
         <message>
             <source>无法打开：%1（%2）</source>
-            <translation>Cannot open: %1 (%2)</translation>
+            <translation>無法開啟：%1（%2）</translation>
         </message>
     </context>
     <context>
@@ -3872,64 +3860,64 @@ Restored the original value; nothing was written to the config.</translation>
         <name>MainWindow</name>
         <message>
             <source>图片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有文件 (*)</source>
-            <translation>Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;All files (*)</translation>
+            <translation>圖片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有檔案 (*)</translation>
         </message>
         <message>
             <source>无法读取压缩包：%1</source>
-            <translation>Cannot read archive: %1</translation>
+            <translation>無法讀取壓縮檔：%1</translation>
         </message>
         <message>
             <source>压缩包内文件暂不支持此操作</source>
-            <translation>This action is not available for files inside an archive</translation>
+            <translation>壓縮檔內檔案暫不支援此操作</translation>
         </message>
     </context>
     <context>
         <name>MetadataPanel</name>
         <message>
             <source>信息</source>
-            <translation>Info</translation>
+            <translation>資訊</translation>
         </message>
     </context>
     <context>
         <name>MetadataPanel</name>
         <message>
             <source>文件</source>
-            <translation>File</translation>
+            <translation>檔案</translation>
         </message>
     </context>
     <context>
         <name>MetadataPanel</name>
         <message>
             <source>路径</source>
-            <translation>Path</translation>
+            <translation>路徑</translation>
         </message>
     </context>
     <context>
         <name>MetadataPanel</name>
         <message>
             <source>大小</source>
-            <translation>Size</translation>
+            <translation>大小</translation>
         </message>
     </context>
     <context>
         <name>MetadataPanel</name>
         <message>
             <source>修改时间</source>
-            <translation>Modified</translation>
+            <translation>修改時間</translation>
         </message>
     </context>
     <context>
         <name>MetadataPanel</name>
         <message>
             <source>图像</source>
-            <translation>Image</translation>
+            <translation>圖片</translation>
         </message>
     </context>
     <context>
         <name>MetadataPanel</name>
         <message>
             <source>尺寸</source>
-            <translation>Dimensions</translation>
+            <translation>尺寸</translation>
         </message>
     </context>
     <context>
@@ -3943,7 +3931,7 @@ Restored the original value; nothing was written to the config.</translation>
         <name>MetadataPanel</name>
         <message>
             <source>格式</source>
-            <translation>Format</translation>
+            <translation>格式</translation>
         </message>
     </context>
     <context>
@@ -3957,92 +3945,92 @@ Restored the original value; nothing was written to the config.</translation>
         <name>AppMenuPreview</name>
         <message>
             <source>当前没有可显示的菜单项</source>
-            <translation>There are no menu items to display.</translation>
+            <translation>目前沒有可顯示的功能表項目。</translation>
         </message>
     </context>
     <context>
         <name>ZipArchive</name>
         <message>
             <source>文件不存在或无法读取</source>
-            <translation>File not found or unreadable</translation>
+            <translation>檔案不存在或無法讀取</translation>
         </message>
         <message>
             <source>不是有效的 ZIP/CBZ 压缩包</source>
-            <translation>Not a valid ZIP/CBZ archive</translation>
+            <translation>不是有效的 ZIP/CBZ 壓縮檔</translation>
         </message>
         <message>
             <source>压缩包已损坏，无法读取</source>
-            <translation>The archive is damaged and cannot be read</translation>
+            <translation>壓縮檔已損壞，無法讀取</translation>
         </message>
         <message>
             <source>暂不支持分卷压缩包</source>
-            <translation>Multi-volume archives are not supported yet</translation>
+            <translation>暫不支援分卷壓縮檔</translation>
         </message>
         <message>
             <source>压缩包条目过多，暂不支持</source>
-            <translation>Too many entries in this archive</translation>
+            <translation>壓縮檔項目過多，暫不支援</translation>
         </message>
         <message>
             <source>暂不支持加密压缩包</source>
-            <translation>Encrypted archives are not supported yet</translation>
+            <translation>暫不支援加密壓縮檔</translation>
         </message>
         <message>
             <source>包内文件超过 256 MB，已拒绝解码</source>
-            <translation>File inside the archive exceeds 256 MB — decoding refused</translation>
+            <translation>壓縮檔內檔案超過 256 MB，已拒絕解碼</translation>
         </message>
         <message>
             <source>包内文件使用了暂不支持的压缩方式</source>
-            <translation>The file uses an unsupported compression method</translation>
+            <translation>壓縮檔內檔案使用了暫不支援的壓縮方式</translation>
         </message>
         <message>
             <source>包内文件校验失败（CRC 不符）</source>
-            <translation>Checksum mismatch inside the archive (CRC)</translation>
+            <translation>壓縮檔內檔案校驗失敗（CRC 不符）</translation>
         </message>
     </context>
     <context>
         <name>ArchiveStore</name>
         <message>
             <source>文件不存在或无法读取</source>
-            <translation>File not found or unreadable</translation>
+            <translation>檔案不存在或無法讀取</translation>
         </message>
         <message>
             <source>压缩包已关闭或未打开</source>
-            <translation>The archive is closed or was never opened</translation>
+            <translation>壓縮檔已關閉或尚未開啟</translation>
         </message>
         <message>
             <source>包内找不到该文件</source>
-            <translation>File not found inside the archive</translation>
+            <translation>壓縮檔內找不到該檔案</translation>
         </message>
         <message>
             <source>包内文件解码失败</source>
-            <translation>Failed to decode the file inside the archive</translation>
+            <translation>壓縮檔內檔案解碼失敗</translation>
         </message>
     </context>
     <context>
         <name>RotateAutoSave</name>
         <message>
             <source>文件不存在或图像为空</source>
-            <translation>File missing or image empty</translation>
+            <translation>檔案不存在或影像為空</translation>
         </message>
         <message>
             <source>只读或无写权限</source>
-            <translation>Read-only or no write permission</translation>
+            <translation>唯讀或無寫入權限</translation>
         </message>
         <message>
             <source>临时文件编码失败</source>
-            <translation>Failed to encode the temporary file</translation>
+            <translation>暫存檔編碼失敗</translation>
         </message>
         <message>
             <source>临时文件落盘失败</source>
-            <translation>Failed to flush the temporary file to disk</translation>
+            <translation>暫存檔寫入磁碟失敗</translation>
         </message>
         <message>
             <source>EXIF 方向标记改写失败</source>
-            <translation>Failed to rewrite the EXIF orientation tag</translation>
+            <translation>EXIF 方向標記改寫失敗</translation>
         </message>
         <message>
             <source>替换原文件失败</source>
-            <translation>Failed to replace the original file</translation>
+            <translation>取代原始檔案失敗</translation>
         </message>
     </context>
 </TS>

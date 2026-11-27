@@ -14,7 +14,7 @@ class QVariantAnimation;
 //   commit 7825161fce66ac5a49bc0ffe39ab13df5ff8ff4a；快照 SHA256 见
 //   src/PillToggle.cpp 文件头与 NOTICE 第七节。
 //   上游为 QAbstractButton + QStyle 取色，此处仅参考绘制结构与状态划分，
-//   几何与颜色均为本项目自定，颜色接 QuikView 现有色板（见 NOTICE 第七节）。
+//   几何与颜色均为本项目自定，颜色接 SoleView 现有色板（见 NOTICE 第七节）。
 //
 // 统一规格（所有设置页同一套，不再分 mini / 大纲放大档）：
 //   轨道 40×22、圆角 11、滑块 16×16、滑块内边距 3、轨道描边 1；

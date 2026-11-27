@@ -17,7 +17,7 @@ class QRadioButton;
 class QSlider;
 
 // 图片转换：批量旋转 / 缩放 / 转格式 / 输出到指定文件夹。
-// 视觉对照 Temp/quikview-secondary-prototype.html 的 .dialog.convert（780 宽两栏）。
+// 视觉对照 Temp/soleview-secondary-prototype.html 的 .dialog.convert（780 宽两栏）。
 // 外壳（无边框圆角 / 主题底与描边 / 标题栏拖拽）沿用 UiShell::DialogShell。
 class BatchConvertDialog : public UiShell::DialogShell
 {

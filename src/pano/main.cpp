@@ -1,11 +1,11 @@
-// 360° 全景查看器（QuikView 可选组件，独立进程）。
+// 360° 全景查看器（SoleView 可选组件，独立进程）。
 // ---------------------------------------------------------------------------
 // 命令行（由主程序显式启动，分参数传递，路径带空格/中文不靠引号拼接）：
-//   quikview-pano.exe --image <本地图片路径>
+//   soleview-pano.exe --image <本地图片路径>
 //                     [--heading <度>] [--pitch <度>] [--fov <垂直度>]
 //                     [--bench <帧数>] [--bench-shot <输出png>]
 // 退出码：0 正常 / 2 参数或图片不可读。
-// 本进程不读写 QuikView 配置，关闭即结束；主程序的原图与缩放状态不受影响。
+// 本进程不读写 SoleView 配置，关闭即结束；主程序的原图与缩放状态不受影响。
 #include "PanoGlobe.h"
 #include "PanoWindow.h"
 
@@ -18,8 +18,12 @@
 #include <QTimer>
 #include <cstdio>
 
-#ifndef QUIKVIEW_PANO_VERSION
-#define QUIKVIEW_PANO_VERSION "0.0.0"
+#ifndef SOLEVIEW_PANO_VERSION
+#ifdef QUIKVIEW_PANO_VERSION
+#define SOLEVIEW_PANO_VERSION QUIKVIEW_PANO_VERSION
+#else
+#define SOLEVIEW_PANO_VERSION "0.0.0"
+#endif
 #endif
 
 namespace {
@@ -38,12 +42,12 @@ bool toDouble(const QString &text, double *out)
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
-    QApplication::setApplicationName(QStringLiteral("QuikView Panorama"));
-    QApplication::setApplicationVersion(QStringLiteral(QUIKVIEW_PANO_VERSION));
+    QApplication::setApplicationName(QStringLiteral("SoleView Panorama"));
+    QApplication::setApplicationVersion(QStringLiteral(SOLEVIEW_PANO_VERSION));
 
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral(
-        "QuikView 360° 全景查看器：拖动转视角，滚轮调整视野，Esc 退出。"));
+        "SoleView 360° 全景查看器：拖动转视角，滚轮调整视野，Esc 退出。"));
     parser.addHelpOption();
     parser.addVersionOption();
     QCommandLineOption imageOpt(QStringLiteral("image"), QStringLiteral("等距柱状全景图路径"),

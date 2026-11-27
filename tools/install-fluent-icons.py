@@ -13,8 +13,8 @@ import pathlib
 import re
 import shutil
 
-REPO = pathlib.Path(r"E:\Agent\Tencent\WorkBuddy\Workspace\quikview")
-PACK = pathlib.Path(r"E:\A1\XiaoMiFeng\管理\QuikView-图标系统-20261118\icons")
+REPO = pathlib.Path(__file__).resolve().parent.parent
+PACK = pathlib.Path(r"E:\A1\XiaoMiFeng\管理\SoleView-图标系统-20261118\icons")
 PACK_LICENSE = PACK.parent / "LICENSE-Microsoft-Fluent.txt"
 APPICON = REPO / "src" / "AppIcon.cpp"
 DEST = REPO / "resources" / "icons" / "fluent"
@@ -76,8 +76,9 @@ def main():
         <file>ui/check-light.png</file>
         <file>ui/chevron-down.png</file>
         <file>ui/chevron-right.png</file>
-        <!-- 应用图标：路径 :/quikview.ico。main.cpp 图标链的最后一层兜底，
+        <!-- 应用图标：路径 :/soleview.ico（并保留 :/quikview.ico 兜底）。main.cpp 图标链兜底，
              保证安装目录里没有外部 .ico 时窗口/任务栏仍有图标。 -->
+        <file>soleview.ico</file>
         <file>quikview.ico</file>
         <!-- Fluent 功能图标（图标派单 2026-11-18，唯一来源：src/AppIcon.cpp 映射表）。
              这一段由 tools/install-fluent-icons.py 生成，只登记程序实际使用的

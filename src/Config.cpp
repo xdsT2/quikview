@@ -2,20 +2,22 @@
 
 #include "CommandCatalog.h"
 #include "MenuCatalog.h"
-#include "quik_config_keys.h"
+#include "sole_config_keys.h"
 
 #include <new>
 
 #include <QCoreApplication>
 #include <QCryptographicHash>
+#include <QDateTime>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QKeySequence>
 #include <QStandardPaths>
 
 Config::Config(const QString &path)
     : m_configPath(path)
-    , m_settings(defaultConfigPath(), QSettings::IniFormat)
+    , m_settings(path.isEmpty() ? defaultConfigPath() : path, QSettings::IniFormat)
 {
     const QString danger = QStringLiteral("config/appmenu/group_danger");
     const QString legacyDelete = QStringLiteral("config/appmenu/delete_file");
@@ -31,7 +33,7 @@ Config::Config(const QString &path)
     // 永远留在 ini 里，所以迁移时一律 remove。
     const QString ctxMigrated = QStringLiteral("config/etc/ctxmenu_keys_migrated");
     if (!m_settings.value(ctxMigrated, false).toBool()) {
-        // 键名来自 shared/quik_config_keys.h（与壳扩展 prefs.cpp 同一份字面量），
+        // 键名来自 shared/sole_config_keys.h（与壳扩展 prefs.cpp 同一份字面量），
         // 避免这边改名、那边忘改导致「设置改了右键不变」。
         for (int i = 0; i < int(quikcfg::CtxLeafCount); ++i) {
             const quikcfg::CtxLeaf leaf = quikcfg::CtxLeaf(i);
@@ -222,15 +224,19 @@ QString Config::defaultConfigPath()
 {
     // 冒烟/截图隔离（M-07）：main() 检测到测试参数时用环境变量指定临时配置，
     // 这里的优先级最高——高于便携模式，保证真实 config 不被读写。
-    const QByteArray testConfig = qgetenv(quikcfg::kConfigPathEnvVarA);
+    // 优先读 SOLEVIEW_CONFIG_PATH，空时兼容回退 QUIKVIEW_CONFIG_PATH。
+    QByteArray testConfig = qgetenv(solecfg::kConfigPathEnvVarA);
+    if (testConfig.isEmpty()) {
+        testConfig = qgetenv(solecfg::kLegacyConfigPathEnvVarA);
+    }
     if (!testConfig.isEmpty()) {
         return QString::fromLocal8Bit(testConfig);
     }
 
     // 便携模式：程序目录下存在 config.ini 则优先使用；否则用系统配置目录。
-    // 文件名与目录层级都取自 shared/quik_config_keys.h，与壳扩展 prefs.cpp 一致。
+    // 文件名与目录层级都取自 shared/sole_config_keys.h，与壳扩展 prefs.cpp 一致。
     const QString configName =
-        QString::fromWCharArray(quikcfg::kConfigFileName);
+        QString::fromWCharArray(solecfg::kConfigFileName);
     const QString portable =
         QCoreApplication::applicationDirPath() + QLatin1Char('/') + configName;
     if (QFileInfo::exists(portable)) {
@@ -238,7 +244,28 @@ QString Config::defaultConfigPath()
     }
     const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
     QDir().mkpath(dir);
-    return dir + QLatin1Char('/') + configName;
+    const QString targetFile = dir + QLatin1Char('/') + configName;
+    // 单向配置与书签继承：若 SoleView 安装配置尚不存在，而旧版 QuikView 配置存在，
+    // 则单向复制到 SoleView 配置目录（绝不修改或删除旧目录文件），并写入迁移标记。
+    if (!QFileInfo::exists(targetFile)) {
+        const QString genericCfg = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
+        const QString legacyFile = QDir::cleanPath(
+            QString::fromStdWString(solecfg::LegacyInstallConfigPath(genericCfg.toStdWString())));
+        if (QFileInfo::exists(legacyFile)) {
+            if (QFile::copy(legacyFile, targetFile)) {
+                QFile marker(dir + QStringLiteral("/.migrated-from-quikview"));
+                if (marker.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+                    const QByteArray info =
+                        QStringLiteral("migrated_at=%1\nsource=%2\n")
+                            .arg(QDateTime::currentDateTimeUtc().toString(Qt::ISODate),
+                                 QDir::toNativeSeparators(legacyFile))
+                            .toUtf8();
+                    marker.write(info);
+                }
+            }
+        }
+    }
+    return targetFile;
 }
 
 Config &Config::instance()

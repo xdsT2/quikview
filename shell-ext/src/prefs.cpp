@@ -1,16 +1,16 @@
-// QuikLoadMenuPrefs：定位 QuikView 的 config.ini 并读出菜单偏好。
+// QuikLoadMenuPrefs：定位 SoleView 的 config.ini 并读出菜单偏好。
 // 定位顺序与 src/Config.cpp::defaultConfigPath 一致（文件名、候选目录与键名
-// 全部来自 shared/quik_config_keys.h，壳扩展与主程序共用同一份字面量）：
-//   1) 环境变量 QUIKVIEW_CONFIG_PATH（测试钩子，资源管理器进程通常没有）
-//   2) <DLL 目录>\config.ini（便携模式：壳扩展 DLL 与 quikview.exe 同目录）
-//   3) %LOCALAPPDATA%\QuikView\QuikView\config.ini（安装版默认）
+// 全部来自 shared/sole_config_keys.h，壳扩展与主程序共用同一份字面量）：
+//   1) 环境变量 SOLEVIEW_CONFIG_PATH（回退 QUIKVIEW_CONFIG_PATH，测试钩子）
+//   2) <DLL 目录>\config.ini（便携模式：壳扩展 DLL 与 soleview.exe 同目录）
+//   3) %LOCALAPPDATA%\SoleView\SoleView\config.ini（安装版默认；只读回退旧 QuikView 目录）
 // 三处都不存在 → 返回全默认（总开关与各细项全开）。
 #include "prefs.h"
 
 #include <shlobj.h>
 #include <stdio.h>
 
-#include "quik_config_keys.h"
+#include "sole_config_keys.h"
 #include "quikthumb.h"   // DllGetModule（便携模式按 DLL 目录定位 config.ini）
 
 namespace {
@@ -22,9 +22,14 @@ bool FileExistsW(const wchar_t* path) {
 }
 
 bool FindConfigIni(wchar_t* out, DWORD cch) {
-    // 1) 测试钩子
+    // 1) 测试钩子（优先 SOLEVIEW_CONFIG_PATH，兼容 QUIKVIEW_CONFIG_PATH）
     wchar_t env[MAX_PATH] = {};
-    if (GetEnvironmentVariableW(quikcfg::kConfigPathEnvVar, env, MAX_PATH) > 0 &&
+    if (GetEnvironmentVariableW(solecfg::kConfigPathEnvVar, env, MAX_PATH) > 0 &&
+        FileExistsW(env)) {
+        lstrcpynW(out, env, (int)cch);
+        return true;
+    }
+    if (GetEnvironmentVariableW(solecfg::kLegacyConfigPathEnvVar, env, MAX_PATH) > 0 &&
         FileExistsW(env)) {
         lstrcpynW(out, env, (int)cch);
         return true;
@@ -33,20 +38,25 @@ bool FindConfigIni(wchar_t* out, DWORD cch) {
     wchar_t module[MAX_PATH] = {};
     if (DllGetModule() &&
         GetModuleFileNameW(DllGetModule(), module, MAX_PATH) > 0) {
-        const std::wstring portable = quikcfg::PortableConfigPath(module);
+        const std::wstring portable = solecfg::PortableConfigPath(module);
         if (FileExistsW(portable.c_str())) {
             lstrcpynW(out, portable.c_str(), (int)cch);
             return true;
         }
     }
-    // 3) 安装版默认配置目录
+    // 3) 安装版默认配置目录（SoleView 优先，只读回退旧 QuikView 目录）
     wchar_t appdata[MAX_PATH] = {};
     if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_LOCAL_APPDATA, nullptr,
                                    SHGFP_TYPE_CURRENT, appdata)) &&
         appdata[0]) {
-        const std::wstring installed = quikcfg::InstallConfigPath(appdata);
+        const std::wstring installed = solecfg::InstallConfigPath(appdata);
         if (FileExistsW(installed.c_str())) {
             lstrcpynW(out, installed.c_str(), (int)cch);
+            return true;
+        }
+        const std::wstring legacy = solecfg::LegacyInstallConfigPath(appdata);
+        if (FileExistsW(legacy.c_str())) {
+            lstrcpynW(out, legacy.c_str(), (int)cch);
             return true;
         }
     }

@@ -1,7 +1,7 @@
 #pragma once
 
 // 主题切换耗时探针（验收专用，默认零开销）。
-// 开启：设置环境变量 QUIKVIEW_THEME_PROBE=<日志路径>。
+// 开启：设置环境变量 SOLEVIEW_THEME_PROBE=<日志路径>（兼容 QUIKVIEW_THEME_PROBE）。
 // 每次打点追加一行：seq,stage,elapsed_us,mode
 //   - 只在本文件内用 C 标准库 fputs/clock，不触碰 QSettings、信号、样式，
 //     避免探针本身污染被测路径；未开启时每个函数首个判断即返回。
@@ -22,7 +22,9 @@ inline FILE *file()
     static bool tried = false;
     if (!tried) {
         tried = true;
-        const char *p = std::getenv("QUIKVIEW_THEME_PROBE");
+        const char *p = std::getenv("SOLEVIEW_THEME_PROBE");
+        if (!p || !*p)
+            p = std::getenv("QUIKVIEW_THEME_PROBE");
         if (p && *p)
             f = std::fopen(p, "a");
     }

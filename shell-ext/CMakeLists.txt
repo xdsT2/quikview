@@ -1,37 +1,37 @@
 cmake_minimum_required(VERSION 3.15)
-project(quikview-shell-ext CXX)
+project(soleview-shell-ext CXX)
 
-# QuikView 缩略图壳扩展（独立工程，不并入主 CMake 目标）。
+# SoleView 缩略图壳扩展（独立工程，不并入主 CMake 目标）。
 # 64 位用 MinGW-w64；32 位本机 mingw32 无编译器，用 MSVC x86（见 README）。
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_library(quikthumb SHARED
+add_library(solethumb SHARED
     src/guids.cpp
     src/module.cpp
     src/prefs.cpp
     src/svg_raster.cpp
     src/thumbnail.cpp
     src/contextmenu.cpp
-    quikview.rc)
+    soleview.rc)
 # third_party/nanosvg：SVG 软渲染（单头文件 C，zlib）。壳扩展不能拉 Qt，
 # 这里把它直接编译进 DLL，目标机零额外依赖。
-target_include_directories(quikthumb PRIVATE
+target_include_directories(solethumb PRIVATE
     src ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/nanosvg
     ${CMAKE_CURRENT_SOURCE_DIR}/../shared)
-target_compile_definitions(quikthumb PRIVATE
+target_compile_definitions(solethumb PRIVATE
     UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX WINVER=0x0601 _WIN32_WINNT=0x0601)
 # windowscodecs：MSVC 下 WIC 的 GUID 走导入库（MinGW 由 initguid 实例化，双保险）
 # shell32：prefs.cpp 的 SHGetFolderPathW（%LOCALAPPDATA% 定位）
-target_link_libraries(quikthumb PRIVATE ole32 advapi32 gdi32 user32 shell32 uuid windowscodecs)
+target_link_libraries(solethumb PRIVATE ole32 advapi32 gdi32 user32 shell32 uuid windowscodecs)
 
-# thumb_selftest 的 quikview.exe 替身：InvokeCommand 用例真启动一个进程并核对
+# thumb_selftest 的 soleview.exe 替身：InvokeCommand 用例真启动一个进程并核对
 # 命令行（写标记文件）。GUI 子系统不弹窗；EXCLUDE_FROM_ALL，非交付物。
-add_executable(ctx_fake_quikview EXCLUDE_FROM_ALL
-    src/fake_quikview.cpp)
-set_target_properties(ctx_fake_quikview PROPERTIES WIN32_EXECUTABLE TRUE)
-target_compile_definitions(ctx_fake_quikview PRIVATE
+add_executable(ctx_fake_soleview EXCLUDE_FROM_ALL
+    src/fake_soleview.cpp)
+set_target_properties(ctx_fake_soleview PROPERTIES WIN32_EXECUTABLE TRUE)
+target_compile_definitions(ctx_fake_soleview PRIVATE
     UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX WINVER=0x0601 _WIN32_WINNT=0x0601)
 
 add_executable(thumb_selftest EXCLUDE_FROM_ALL
@@ -43,40 +43,40 @@ target_compile_definitions(thumb_selftest PRIVATE
 target_link_libraries(thumb_selftest PRIVATE ole32 shlwapi gdi32 user32 uuid)
 
 # 无论单/多配置生成器，统一把 DLL 拷到构建目录根部（注册脚本默认找这里）。
-add_custom_command(TARGET quikthumb POST_BUILD
+add_custom_command(TARGET solethumb POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:quikthumb> ${CMAKE_BINARY_DIR}/quikthumb.dll
-    COMMENT "Copy quikthumb.dll to build root")
+            $<TARGET_FILE:solethumb> ${CMAKE_BINARY_DIR}/solethumb.dll
+    COMMENT "Copy solethumb.dll to build root")
 
 if(MINGW)
-    target_compile_options(quikthumb PRIVATE -Wall -Wextra)
+    target_compile_options(solethumb PRIVATE -Wall -Wextra)
     # 全静态（libgcc/libstdc++/winpthread）：壳扩展 DLL 必须自包含，
     # 目标机不保证有 MinGW 运行时
-    target_link_options(quikthumb PRIVATE -static)
+    target_link_options(solethumb PRIVATE -static)
     target_compile_options(thumb_selftest PRIVATE -Wall -Wextra -Wno-cast-function-type)
-    target_compile_options(ctx_fake_quikview PRIVATE -Wall -Wextra)
+    target_compile_options(ctx_fake_soleview PRIVATE -Wall -Wextra)
     # 注意：selftest 不用 -static。静态 exe + 静态 DLL 会在 DLL 加载阶段崩
     # （两份静态 winpthread/libgcc 运行时在同进程冲突），DLL 交付保持 -static，
     # 测试器动态链接 MinGW 运行时（仅本机自测用，不随产品分发）。
     target_link_options(thumb_selftest PRIVATE -static-libgcc)
 elseif(MSVC)
     # The installer registers this DLL without installing the Visual C++ runtime.
-    set_property(TARGET quikthumb PROPERTY MSVC_RUNTIME_LIBRARY
+    set_property(TARGET solethumb PROPERTY MSVC_RUNTIME_LIBRARY
         "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     # 源码是 UTF-8（无 BOM）中文注释
-    target_compile_options(quikthumb PRIVATE /utf-8 /W4)
+    target_compile_options(solethumb PRIVATE /utf-8 /W4)
     target_compile_options(thumb_selftest PRIVATE /utf-8 /W4)
-    target_compile_options(ctx_fake_quikview PRIVATE /utf-8 /W4)
+    target_compile_options(ctx_fake_soleview PRIVATE /utf-8 /W4)
     # 四个标准入口按无装饰名导出（regsvr32/COM 按此查找）；
     # x86 __stdcall 符号带修饰，需显式映射
     if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-        target_link_options(quikthumb PRIVATE
+        target_link_options(solethumb PRIVATE
             "/EXPORT:DllGetClassObject=_DllGetClassObject@12"
             "/EXPORT:DllCanUnloadNow=_DllCanUnloadNow@0"
             "/EXPORT:DllRegisterServer=_DllRegisterServer@0"
             "/EXPORT:DllUnregisterServer=_DllUnregisterServer@0")
     else()
-        target_link_options(quikthumb PRIVATE
+        target_link_options(solethumb PRIVATE
             "/EXPORT:DllGetClassObject"
             "/EXPORT:DllCanUnloadNow"
             "/EXPORT:DllRegisterServer"

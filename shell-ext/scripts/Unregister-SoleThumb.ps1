@@ -1,4 +1,4 @@
-﻿# 反注册 QuikView 壳扩展（缩略图 + 上下文菜单）。对称清理 64/32 两个注册表
+﻿# 反注册 SoleView 壳扩展（缩略图 + 上下文菜单）。对称清理 64/32 两个注册表
 # 视图；只删除仍指向本产品 CLSID 的项，别家 Handler 不动。
 # 需管理员权限（写 HKLM）。仅交付脚本，本任务约定不实际执行。
 [CmdletBinding()]
@@ -12,7 +12,7 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
     throw '需要管理员权限：请以管理员身份运行 PowerShell 后重试。'
 }
 
-# 与 Register-QuikThumb.ps1 / src/module.cpp 保持一致
+# 与 Register-SoleThumb.ps1 / src/module.cpp 保持一致
 $Clsid    = '{D8A1C4E2-7B35-4F69-92A4-5C6D7E8F1A2B}'
 $CtxClsid = '{C9FFAFAD-7C1C-4CCC-A37C-A075ED1F27AF}'
 $Category = '{e357fccd-a995-4576-b01f-234630154e96}'
@@ -41,9 +41,11 @@ foreach ($ext in ($Exts + $ThumbOnlyExts)) {
 #     `*` 宽注册，两处都只删仍指向本产品 CLSID 的键，别家不动。
 $HandlerKeys = @()
 foreach ($ext in $Exts) {
+    $HandlerKeys += "HKLM:\SOFTWARE\Classes\$ext\shellex\ContextMenuHandlers\SoleView"
     $HandlerKeys += "HKLM:\SOFTWARE\Classes\$ext\shellex\ContextMenuHandlers\QuikView"
 }
 foreach ($base in @('HKLM:\SOFTWARE\Classes', 'HKLM:\SOFTWARE\Classes\WOW6432Node')) {
+    $HandlerKeys += "$base\*\shellex\ContextMenuHandlers\SoleView"
     $HandlerKeys += "$base\*\shellex\ContextMenuHandlers\QuikView"
 }
 foreach ($key in $HandlerKeys) {

@@ -57,15 +57,15 @@ jobs:
             mingw-w64-ucrt-x86_64-openexr
 
       - name: 配置
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/ucrt64 -DQUIKVIEW_REQUIRE_ALL_IMAGEFORMATS=OFF
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/ucrt64 -DSOLEVIEW_REQUIRE_ALL_IMAGEFORMATS=OFF
 
       - name: 编译
         run: cmake --build build
 
       - name: 确认产物存在
         run: |
-          test -f build/quikview.exe || { echo "quikview.exe 未生成"; exit 1; }
-          ls -lh build/quikview.exe
+          test -f build/soleview.exe || { echo "soleview.exe 未生成"; exit 1; }
+          ls -lh build/soleview.exe
 
       # tools/package.sh 要求两枚壳扩展 DLL 在位（属产品组件，缺了直接中止）。
       # 64 位走 MinGW；32 位按 shell-ext/README.md 需要 MSVC x86，而本 runner
@@ -81,14 +81,14 @@ jobs:
       # 并剔除 qjp2/libjasper（该插件打开 .jp2 会触发 Jasper 断言）
       - name: 打包
         env:
-          QUIKVIEW_CI_SKIP_SHELL32: "1"
-          QUIKVIEW_CI_BUILD_SMOKE: "1"
+          SOLEVIEW_CI_SKIP_SHELL32: "1"
+          SOLEVIEW_CI_BUILD_SMOKE: "1"
         run: bash tools/package.sh build dist
 
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: QuikView-win64
-          path: dist/quikview-*-win64.zip
+          name: SoleView-win64
+          path: dist/soleview-*-win64.zip
           retention-days: 14
           if-no-files-found: error

@@ -1,4 +1,4 @@
-﻿# 注册 QuikView 壳扩展（缩略图提供程序 IThumbnailProvider + 上下文菜单
+﻿# 注册 SoleView 壳扩展（缩略图提供程序 IThumbnailProvider + 上下文菜单
 # IContextMenu）。需管理员权限（写 HKLM）。DLL 路径相对本脚本位置解析，
 # 可用 -Dll64/-Dll32 覆盖。仅交付脚本，本任务约定不实际执行（不写注册表）。
 [CmdletBinding()]
@@ -27,14 +27,14 @@ $Exts     = @('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tif', '.tiff',
               '.psd', '.psb')
 # 只注册缩略图的扩展名（与 src/module.cpp 的 kThumbOnlyExts 一致）。
 # SVG 由 DLL 内的 nanosvg 软渲染；主程序的解码白名单里没有 svg，右键菜单
-# 「用 QuikView 浏览」点开会失败，所以不进 $Exts，只进 ShellEx 注册。
+# 「用 SoleView 浏览」点开会失败，所以不进 $Exts，只进 ShellEx 注册。
 $ThumbOnlyExts = @('.svg')
 
-# DLL 路径相对化：默认 <仓库根>\build-shell64(32)\quikthumb.dll
+# DLL 路径相对化：默认 <仓库根>\build-shell64(32)\solethumb.dll
 # 仓库根 = 本脚本目录(shell-ext/scripts) 的上两级
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-if (-not $Dll64) { $Dll64 = Join-Path $repoRoot 'build-shell64\quikthumb.dll' }
-if (-not $Dll32) { $Dll32 = Join-Path $repoRoot 'build-shell32\quikthumb.dll' }
+if (-not $Dll64) { $Dll64 = Join-Path $repoRoot 'build-shell64\solethumb.dll' }
+if (-not $Dll32) { $Dll32 = Join-Path $repoRoot 'build-shell32\solethumb.dll' }
 
 if (-not (Test-Path $Dll64)) {
     throw "未找到 64 位 DLL：$Dll64 （请先构建，或用 -Dll64 指定路径）"
@@ -67,7 +67,7 @@ foreach ($view in $views) {
     foreach ($c in @($Clsid, $CtxClsid)) {
         $clsidKey = Join-Path $view.Base $c
         New-Item -Path (Join-Path $clsidKey 'InprocServer32') -Force | Out-Null
-        Set-Item -Path $clsidKey -Value 'QuikView Shell Extension'
+        Set-Item -Path $clsidKey -Value 'SoleView Shell Extension'
         Set-Item -Path (Join-Path $clsidKey 'InprocServer32') -Value $view.Dll
         Set-ItemProperty -Path (Join-Path $clsidKey 'InprocServer32') `
             -Name 'ThreadingModel' -Value 'Apartment'
@@ -75,23 +75,35 @@ foreach ($view in $views) {
 }
 
 # 3) 上下文菜单 Handler（阶段 1 IContextMenu）：逐扩展名注册
-#    HKLM\Software\Classes\<ext>\shellex\ContextMenuHandlers\QuikView = $CtxClsid。
+#    HKLM\Software\Classes\<ext>\shellex\ContextMenuHandlers\SoleView = $CtxClsid。
 #    .ext 键为 32/64 共享视图，写一份即可。
-#    0.5.3 及以前挂在 `*`（全部文件类型）上 —— 任意文件右键都会把本 DLL 拉进
-#    资源管理器；这里顺手清掉旧键（只删仍指向本产品 CLSID 的那条）。
+#    同时清理旧名 ContextMenuHandlers\QuikView（包括 0.5.3 及以前挂在 `*` 下的键），
+#    仅删除值仍指向本产品 $CtxClsid 的那条，避免菜单重复。
 foreach ($ext in $Exts) {
-    $key = "HKLM:\SOFTWARE\Classes\$ext\shellex\ContextMenuHandlers\QuikView"
+    $key = "HKLM:\SOFTWARE\Classes\$ext\shellex\ContextMenuHandlers\SoleView"
     New-Item -Path $key -Force | Out-Null
     Set-Item -Path $key -Value $CtxClsid
+
+    $legacyExt = "HKLM:\SOFTWARE\Classes\$ext\shellex\ContextMenuHandlers\QuikView"
+    if (Test-Path -LiteralPath $legacyExt) {
+        $val = [string](Get-Item -LiteralPath $legacyExt).GetValue('')
+        if ($val -ieq $CtxClsid) {
+            Remove-Item -LiteralPath $legacyExt -Force
+        } else {
+            Write-Warning "$legacyExt 的值是 '$val'，不是本产品 CLSID，保留不删。"
+        }
+    }
 }
 foreach ($base in @('HKLM:\SOFTWARE\Classes', 'HKLM:\SOFTWARE\Classes\WOW6432Node')) {
-    $legacy = "$base\*\shellex\ContextMenuHandlers\QuikView"
-    if (Test-Path -LiteralPath $legacy) {
-        $val = [string](Get-Item -LiteralPath $legacy).GetValue('')
-        if ($val -ieq $CtxClsid) {
-            Remove-Item -LiteralPath $legacy -Force
-        } else {
-            Write-Warning "$legacy 的值是 '$val'，不是本产品 CLSID，保留不删。"
+    foreach ($oldName in @('SoleView', 'QuikView')) {
+        $legacy = "$base\*\shellex\ContextMenuHandlers\$oldName"
+        if (Test-Path -LiteralPath $legacy) {
+            $val = [string](Get-Item -LiteralPath $legacy).GetValue('')
+            if ($val -ieq $CtxClsid) {
+                Remove-Item -LiteralPath $legacy -Force
+            } else {
+                Write-Warning "$legacy 的值是 '$val'，不是本产品 CLSID，保留不删。"
+            }
         }
     }
 }

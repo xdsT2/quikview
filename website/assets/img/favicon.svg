@@ -1,12 +1,50 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
   <defs>
-    <linearGradient id="qv-bg" x1="6" y1="4" x2="58" y2="60" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#42A0FF"/>
-      <stop offset="1" stop-color="#1668D6"/>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#E2E8F0"/>
+    </linearGradient>
+    <linearGradient id="fluentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0EA5E9"/>
+      <stop offset="100%" stop-color="#4F46E5"/>
     </linearGradient>
   </defs>
-  <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#qv-bg)"/>
-  <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="14.25" fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="1.5"/>
-  <circle cx="31" cy="30" r="14.5" fill="none" stroke="#ffffff" stroke-width="5.5"/>
-  <path d="M40 39 L48 47" stroke="#ffffff" stroke-width="5.5" stroke-linecap="round"/>
+  <!-- Windows 11 圆角底板 -->
+  <rect x="14" y="14" width="228" height="228" rx="54" fill="url(#bgGrad)" stroke="#CBD5E1" stroke-width="2.5"/>
+  <rect x="16.5" y="16.5" width="223" height="223" rx="51.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.6" stroke-width="1.5"/>
+
+  <!-- 层叠相片背板（增强看图软件语义） -->
+  <rect x="44" y="48" width="168" height="160" rx="28" fill="#CBD5E1" fill-opacity="0.45"/>
+
+  <!-- 高对比度取景括号 -->
+  <g stroke="#0284C7" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M 48 84 L 48 58 Q 48 48 58 48 L 84 48"/>
+    <path d="M 172 48 L 198 48 Q 208 48 208 58 L 208 84"/>
+    <path d="M 48 172 L 48 198 Q 48 208 58 208 L 84 208"/>
+    <path d="M 172 208 L 198 208 Q 208 208 208 198 L 208 172"/>
+  </g>
+
+  <!-- 高度提炼的抽象比目鱼几何剪影（粗壮轮廓确保 16x16 极清晰） -->
+  <path d="M 196 128
+           C 184 86, 152 72, 120 76
+           C 96 79, 82 98, 74 114
+           L 56 100
+           L 62 128
+           L 56 156
+           L 74 142
+           C 82 158, 96 177, 120 180
+           C 152 184, 184 170, 196 128 Z"
+        fill="url(#fluentGrad)"/>
+
+  <!-- 醒目同侧双镜头眼睛（高反差白环+深瞳） -->
+  <g transform="translate(142, 110)">
+    <circle r="21" fill="#FFFFFF"/>
+    <circle r="12" fill="#0F172A"/>
+    <circle cx="-4" cy="-4" r="4" fill="#FFFFFF"/>
+  </g>
+  <g transform="translate(166, 144)">
+    <circle r="15" fill="#FFFFFF"/>
+    <circle r="8.5" fill="#0F172A"/>
+    <circle cx="-2.8" cy="-2.8" r="2.8" fill="#FFFFFF"/>
+  </g>
 </svg>

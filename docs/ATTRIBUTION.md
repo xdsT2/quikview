@@ -77,7 +77,7 @@ python tools\03_gen_skin.py --check   # 全量校验，不写盘
 
 ## 4b. 应用图标
 
-`resources/quikview.ico` 为本项目程序化生成：
+`resources/soleview.ico` 为 SoleView 当前应用图标（保留 `resources/quikview.ico` 作为历史兜底图标）：
 
 - 10 个尺寸：16、20、24、32、40、48、64、96、128、256，每档单独绘制后缩小；
 - ICO 容器为手工封装（每个尺寸一条 PNG 记录，Windows Vista+ 支持）；

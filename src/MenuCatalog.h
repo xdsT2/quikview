@@ -278,7 +278,7 @@ inline const char *labelSource(const QString &id)
     if (id == QLatin1String("print"))             return QT_TRANSLATE_NOOP("AppMenu", "打印…");
     if (id == QLatin1String("delete_file"))       return QT_TRANSLATE_NOOP("AppMenu", "删除");
     if (id == QLatin1String("settings"))          return QT_TRANSLATE_NOOP("AppMenu", "设置…");
-    if (id == QLatin1String("about"))             return QT_TRANSLATE_NOOP("AppMenu", "关于 QuikView");
+    if (id == QLatin1String("about"))             return QT_TRANSLATE_NOOP("AppMenu", "关于 SoleView");
     if (id == QLatin1String("close_window"))      return QT_TRANSLATE_NOOP("AppMenu", "关闭窗口");
     if (id == QLatin1String("quit"))              return QT_TRANSLATE_NOOP("AppMenu", "退出");
     return nullptr;

@@ -30,19 +30,23 @@
 
 namespace {
 
-const char *kExeName = "quikview-pano.exe";
+const char *kExeName = "soleview-pano.exe";
 const char *kVersionName = "pano-version.txt";
 // 组件包上限：单个 exe 加版本文件，正常不超过 8MB；留 64MB 余量防呆。
 constexpr int kMaxPackageBytes = 64 * 1024 * 1024;
 constexpr int kTransferTimeoutMs = 15000;
 
-#ifndef QUIKVIEW_VERSION
-#define QUIKVIEW_VERSION "0.0.0"
+#ifndef SOLEVIEW_VERSION
+#ifdef QUIKVIEW_VERSION
+#define SOLEVIEW_VERSION QUIKVIEW_VERSION
+#else
+#define SOLEVIEW_VERSION "0.0.0"
+#endif
 #endif
 
 QString appVersion()
 {
-    return QStringLiteral(QUIKVIEW_VERSION);
+    return QStringLiteral(SOLEVIEW_VERSION);
 }
 
 // "0.5.6" → {0,5,6}；预发布后缀与构建元数据一律忽略。
@@ -180,7 +184,9 @@ PanoExt::Status PanoExt::Manager::status() const
 
 QString PanoExt::Manager::sourceUrl() const
 {
-    const QByteArray env = qgetenv("QUIKVIEW_PANO_SOURCE");
+    QByteArray env = qgetenv("SOLEVIEW_PANO_SOURCE");
+    if (env.isEmpty())
+        env = qgetenv("QUIKVIEW_PANO_SOURCE");
     if (!env.isEmpty())
         return QString::fromUtf8(env).trimmed();
     return Config::instance()
@@ -198,7 +204,7 @@ bool PanoExt::Manager::sourceConfigured() const
 QString PanoExt::Manager::downloadTempPath() const
 {
     const QString dir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
-    return QDir(dir).filePath(QStringLiteral("quikview-pano-%1.zip")
+    return QDir(dir).filePath(QStringLiteral("soleview-pano-%1.zip")
                                   .arg(QRandomGenerator::global()->generate()));
 }
 
@@ -280,7 +286,8 @@ void PanoExt::Manager::startInstall()
     }
 
     const QUrl srcUrl(source);
-    const bool fromEnv = !qgetenv("QUIKVIEW_PANO_SOURCE").isEmpty();
+    const bool fromEnv = !qgetenv("SOLEVIEW_PANO_SOURCE").isEmpty()
+                         || !qgetenv("QUIKVIEW_PANO_SOURCE").isEmpty();
     const bool isHttps = srcUrl.scheme().compare(QLatin1String("https"), Qt::CaseInsensitive) == 0;
     const bool isLocalHttp = fromEnv
                              && srcUrl.scheme().compare(QLatin1String("http"), Qt::CaseInsensitive) == 0
@@ -424,7 +431,7 @@ void PanoExt::Manager::verifyAndExtract(const QByteArray &zipBytes, const QStrin
 
     // ZipArchive 只认文件：使用独占临时文件落盘后再解析并复核摘要。
     const QString tmpDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
-    QTemporaryFile tmp(QDir(tmpDir).filePath(QStringLiteral("quikview-pano-XXXXXX.zip")));
+    QTemporaryFile tmp(QDir(tmpDir).filePath(QStringLiteral("soleview-pano-XXXXXX.zip")));
     if (!tmp.open()) {
         setFailure(tr("无法写入临时文件"));
         return;
@@ -469,7 +476,7 @@ void PanoExt::Manager::verifyAndExtract(const QByteArray &zipBytes, const QStrin
     }
     if (exeIndex < 0 || verIndex < 0) {
         zip.close();
-        setFailure(tr("组件包内容不完整（缺少 quikview-pano.exe 或 pano-version.txt）"));
+        setFailure(tr("组件包内容不完整（缺少 soleview-pano.exe 或 pano-version.txt）"));
         return;
     }
 
@@ -484,22 +491,22 @@ void PanoExt::Manager::verifyAndExtract(const QByteArray &zipBytes, const QStrin
     }
     // 最低限度的真实性检查：必须是 PE 可执行文件。
     if (exeBytes.size() < 1024 || !exeBytes.startsWith(QByteArray("MZ"))) {
-        setFailure(tr("组件包里的 quikview-pano.exe 不是有效的可执行文件"));
+        setFailure(tr("组件包里的 soleview-pano.exe 不是有效的可执行文件"));
         return;
     }
     const QString version = QString::fromUtf8(verBytes).section(QLatin1Char('\n'), 0, 0).trimmed();
     if (!versionCompatible(version)) {
-        setFailure(tr("组件版本 %1 与当前 QuikView %2 不兼容，已拒绝安装")
+        setFailure(tr("组件版本 %1 与当前 SoleView %2 不兼容，已拒绝安装")
                        .arg(version.isEmpty() ? QStringLiteral("未知") : version, appVersion()));
         return;
     }
 
     // 落盘：先在安装目录写临时文件（能立刻暴露「目录不可写」），再替换正式文件。
     const QString dir = QCoreApplication::applicationDirPath();
-    const QString exeTmp = QDir(dir).filePath(QStringLiteral("quikview-pano.exe.new"));
+    const QString exeTmp = QDir(dir).filePath(QStringLiteral("soleview-pano.exe.new"));
     QFile out(exeTmp);
     if (!out.open(QIODevice::WriteOnly)) {
-        setFailure(tr("安装目录不可写（%1）。请把 QuikView 装到有写权限的目录，"
+        setFailure(tr("安装目录不可写（%1）。请把 SoleView 装到有写权限的目录，"
                       "或在安装向导里勾选该组件。")
                        .arg(QDir::toNativeSeparators(dir)));
         return;

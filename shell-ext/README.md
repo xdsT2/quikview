@@ -1,11 +1,11 @@
-# shell-ext —— QuikView 壳扩展（缩略图 + 上下文菜单）
+# shell-ext —— SoleView 壳扩展（缩略图 + 上下文菜单）
 
 Windows 资源管理器壳扩展，一个 DLL 装两个 COM 类：
 
-- **缩略图提供程序**（`IThumbnailProvider`，交办单阶段 2）：不启动 QuikView，
+- **缩略图提供程序**（`IThumbnailProvider`，交办单阶段 2）：不启动 SoleView，
   Explorer 直接在图标/缩略图视图里显示图片内容；
 - **上下文菜单**（`IContextMenu`，交办单阶段 1）：右键图片注入
-  「用 QuikView 浏览」「用 QuikView 转换」两项。
+  「用 SoleView 浏览」「用 SoleView 转换」两项。
 
 纯 Win32 裸 COM 实现，无 Qt、无 ATL/WTL、零第三方依赖。
 
@@ -18,14 +18,14 @@ src/
                  模块锁与支持扩展名的共享声明
   thumbnail.cpp  QuikThumbProvider：解码链实现
   contextmenu.h  IShellExtInit / IContextMenu 直接用 shobjidl.h 系统声明
-  contextmenu.cpp QuikContextMenu：菜单注入 / 动词分发 / 启动 quikview.exe
+  contextmenu.cpp QuikContextMenu：菜单注入 / 动词分发 / 启动 soleview.exe
   module.cpp     DllMain / DllGetClassObject / DllCanUnloadNow /
                  DllRegisterServer / DllUnregisterServer（regsvr32 自注册）
   selftest.cpp   thumb_selftest：无注册表加载自测器（构建目标，非交付物）
-  fake_quikview.cpp ctx_fake_quikview：selftest 的 quikview.exe 替身
+  fake_soleview.cpp ctx_fake_soleview：selftest 的 soleview.exe 替身
                  （EXCLUDE_FROM_ALL，非交付物）
 scripts/
-  Register-QuikThumb.ps1 / Unregister-QuikThumb.ps1
+  Register-SoleThumb.ps1 / Unregister-SoleThumb.ps1
 ```
 
 - 交办单硬约束 1：所有 COM 入口 `try/catch(...)` 包裹，异常一律 `E_FAIL`，
@@ -50,22 +50,22 @@ scripts/
 
 ### 上下文菜单（阶段 1）
 
-- 菜单两项：分隔线 + 「用 QuikView 浏览」→ `quikview.exe "<path>"`、
-  「用 QuikView 转换」→ `quikview.exe --batch "<path>"`（`CreateProcessW`
+- 菜单两项：分隔线 + 「用 SoleView 浏览」→ `soleview.exe "<path>"`、
+  「用 SoleView 转换」→ `soleview.exe --batch "<path>"`（`CreateProcessW`
   启动，失败返回失败 HRESULT，Explorer 静默忽略，绝不弹窗/不崩）。
 - **多选策略：只处理第一个选中文件**（交办单允许二选一；初始化只保留
   CF_HDROP 第一项）。
 - 过滤：第一个选中文件扩展名不在支持列表内（见下）不注入菜单项；
   `CMF_DEFAULTONLY`（双击等默认动词场景）不注入。
-- 动词：`QuikView.Browse` / `QuikView.Convert`（`GetCommandString` 提供
+- 动词：`SoleView.Browse` / `SoleView.Convert`（`GetCommandString` 提供
   GCS_VERBW/GCS_VERBA）。**坑：`MAKEINTRESOURCEA(0) == nullptr`** ——
   Explorer 调第一个命令传来的 `lpVerb` 就是空指针，分发顺序必须为
   lpVerbW（Unicode 字符串）→ lpVerb 为空（=序号 0）→ 整数序号 → ANSI 字符串。
-- **quikview.exe 解析顺序（稳妥方案）**：
+- **soleview.exe 解析顺序（稳妥方案）**：
   1. DLL 同目录（绿色安装/自测首选，和 DLL 一起部署即可用）；
-  2. 注册表 `HKCU\Software\QuikView` 的 `InstallDir`（按用户安装预留）、
-  3. `HKLM\Software\QuikView` 的 `InstallDir`（安装器现行，
-     `packaging/quikview.nsi` 写入）。
+  2. 注册表 `HKCU\Software\SoleView` 的 `InstallDir`（按用户安装预留）、
+  3. `HKLM\Software\SoleView` 的 `InstallDir`（安装器现行，
+     `packaging/soleview.nsi` 写入）。
      交办单写的 `InstallPath` 作为预留别名一并读取；读取固定走 64 位视图
      （`KEY_WOW64_64KEY`），安装器只写一处，32 位 DLL 也能读到。
      都找不到时菜单仍会显示，点击静默失败。
@@ -80,7 +80,7 @@ png / jpg / jpeg / bmp / gif / webp / tif / tiff（系统 WIC 解码器），
   更老系统该格式静默回退默认图标，不影响其它格式。
 - **PSD/PSB**：优先提取文件内嵌 JPEG 缩略图。没有内嵌缩略图时回退为系统默认文件图标。
 - **`--batch` 现状**：主程序 `src/main.cpp` 尚未定义该选项（QCommandLineParser
-  会拒绝未知选项），「用 QuikView 转换」在主程序接线 `ctxmenu/transform_dlg`
+  会拒绝未知选项），「用 SoleView 转换」在主程序接线 `ctxmenu/transform_dlg`
   之前点了不会有转换行为——属主程序批次的工作，本 DLL 按交办单口径先传参。
 - 预览窗格（交办单阶段 3，`IPreviewHandler`）不在本 DLL 范围，属后续阶段。
 
@@ -89,7 +89,7 @@ png / jpg / jpeg / bmp / gif / webp / tif / tiff（系统 WIC 解码器），
 | 注册表项 | 内容 | 说明 |
 |---|---|---|
 | `HKLM\Software\Classes\<ext>\ShellEx\{e357fccd-…}` | `={缩略图CLSID}` | `.ext` 键为 32/64 共享视图，写一份 |
-| `HKLM\Software\Classes\<ext>\shellex\ContextMenuHandlers\QuikView` | `={上下文菜单CLSID}` | 逐扩展名一份（10 个图片/PSD 扩展）；`.ext` 键为 32/64 共享视图 |
+| `HKLM\Software\Classes\<ext>\shellex\ContextMenuHandlers\SoleView` | `={上下文菜单CLSID}` | 逐扩展名一份（10 个图片/PSD 扩展）；`.ext` 键为 32/64 共享视图 |
 | `HKLM\Software\Classes\CLSID\{…}\InprocServer32` | 64 位 DLL 路径 | 两个 CLSID 都写；`ThreadingModel=Apartment` |
 | `HKLM\Software\Classes\WOW6432Node\CLSID\{…}\InprocServer32` | 32 位 DLL 路径 | 32 位进程走这里 |
 
@@ -112,7 +112,7 @@ $env:PATH = "E:\Agent\Tencent\WorkBuddy\Workspace\tools\msys64\mingw64\bin;$env:
 cmake -S shell-ext -B build-shell64 -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
 cmake --build build-shell64
 cmake --build build-shell64 --target thumb_selftest
-cmake --build build-shell64 --target ctx_fake_quikview
+cmake --build build-shell64 --target ctx_fake_soleview
 ```
 
 32 位（本机 `msys64\mingw32` 无编译器，改用 MSVC 2022 Community x86 交叉构建）：
@@ -122,10 +122,10 @@ $env:PATH = "E:\Agent\Tencent\WorkBuddy\Workspace\tools\msys64\mingw64\bin;$env:
 cmake -S shell-ext -B build-shell32 -G "Visual Studio 17 2022" -A Win32
 cmake --build build-shell32 --config Release
 cmake --build build-shell32 --config Release --target thumb_selftest
-cmake --build build-shell32 --config Release --target ctx_fake_quikview
+cmake --build build-shell32 --config Release --target ctx_fake_soleview
 ```
 
-产物：`build-shell64\quikthumb.dll`、`build-shell32\quikthumb.dll`
+产物：`build-shell64\solethumb.dll`、`build-shell32\solethumb.dll`
 （构建目录已被根 `.gitignore` 的 `build-*/` 覆盖，不入库）。
 
 ## 自测（不写注册表）
@@ -135,7 +135,7 @@ cmake --build build-shell32 --config Release --target ctx_fake_quikview
 - 缩略图：喂图片流 → `GetThumbnail` → 校验 HBITMAP 尺寸/位深；
 - 上下文菜单：自建 CF_HDROP 数据对象 → `Initialize` → `QueryContextMenu`
   枚举菜单项 → `GetCommandString` 动词 → `InvokeCommand` **真启动进程**——
-  quikview.exe 由 `ctx_fake_quikview.exe` 顶替（selftest 自动拷到 DLL 同目录、
+  soleview.exe 由 `ctx_fake_soleview.exe` 顶替（selftest 自动拷到 DLL 同目录、
   结束即删），替身把命令行写进标记文件供断言，不会拉起真实应用。
 
 注意 selftest 必须动态链接 MinGW 运行时：静态 exe + 静态 DLL 同进程会在
@@ -144,12 +144,12 @@ DLL 加载阶段崩（两份静态 winpthread/libgcc 冲突），故 CMake 里 s
 `mingw64\bin`（找 libstdc++-6.dll 等）。
 
 ```powershell
-build-shell64\thumb_selftest.exe <仓库根>\build-shell64\quikthumb.dll a.png a.jpg a.bmp a.gif a.webp
-build-shell32\Release\thumb_selftest.exe <仓库根>\build-shell32\quikthumb.dll a.png a.jpg
+build-shell64\thumb_selftest.exe <仓库根>\build-shell64\solethumb.dll a.png a.jpg a.bmp a.gif a.webp
+build-shell32\Release\thumb_selftest.exe <仓库根>\build-shell32\solethumb.dll a.png a.jpg
 ```
 
 预期：逐图 `PASS: ... -> 256x170 alpha=2`；随后 `--- IContextMenu ---` 逐条
-`PASS: ctx-N ...`（本机若装过 QuikView，ctx-7 打印 SKIP 属预期——避免拉起
+`PASS: ctx-N ...`（本机若装过 SoleView，ctx-7 打印 SKIP 属预期——避免拉起
 真实安装的 exe）；结尾 `RESULT: PASS`。当前两份数均为 **21/21 PASS**
 （缩略图 7 + 上下文菜单 14）。
 
@@ -182,20 +182,20 @@ python shell-ext\testdata\make_layered_psd_fixtures.py   # 两个带图层的夹
 ## 注册 / 反注册（管理员 PowerShell）
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File shell-ext\scripts\Register-QuikThumb.ps1
-powershell -ExecutionPolicy Bypass -File shell-ext\scripts\Unregister-QuikThumb.ps1
+powershell -ExecutionPolicy Bypass -File shell-ext\scripts\Register-SoleThumb.ps1
+powershell -ExecutionPolicy Bypass -File shell-ext\scripts\Unregister-SoleThumb.ps1
 ```
 
 - DLL 路径相对脚本位置解析（默认取仓库 `build-shell64\` / `build-shell32\`，构建产物仍叫
-  `quikthumb.dll`），可用 `-Dll64` / `-Dll32` 覆盖（安装后实际是带版本号的
-  `$INSTDIR\quikthumb-<ver>.dll` / `quikthumb32-<ver>.dll`）；32 位 DLL 缺失时仅注册
+  `solethumb.dll`），可用 `-Dll64` / `-Dll32` 覆盖（安装后实际是带版本号的
+  `$INSTDIR\solethumb-<ver>.dll` / `solethumb32-<ver>.dll`）；32 位 DLL 缺失时仅注册
   64 位视图并告警。
 - 生效：重启 `explorer.exe`，或先 `ie4uinit.exe -show` 再刷新视图。
-- 也可 `regsvr32 quikthumb.dll` 自注册——但一次只注册本位数控视图
+- 也可 `regsvr32 solethumb.dll` 自注册——但一次只注册本位数控视图
   （32 位 regsvr32 对 `Software\Classes` 的写自动落在 WOW6432Node），
   推荐用脚本一次注册 64+32 双视图。
 - 脚本逐扩展名注册 Handler（与 `module.cpp` 的 `kSupportedExts`、脚本的 `$Exts`
-  一致），并顺手清掉 0.5.3 及以前的 `*\shellex\ContextMenuHandlers\QuikView`；
+  一致），并顺手清掉 0.5.3 及以前的 `*\shellex\ContextMenuHandlers\SoleView`；
   两处都只删仍指向本产品 CLSID 的项，别家 Handler 不动。`*` 是字面键名，脚本对
   它一律 `-LiteralPath`（否则会被 PowerShell 当通配符展开）。
 
@@ -207,8 +207,8 @@ powershell -ExecutionPolicy Bypass -File shell-ext\scripts\Unregister-QuikThumb.
 |---|---|
 | 菜单 | 右键 jpg/png/webp → 出现分隔线 + 两项，点击能打开对应文件；右键 `.txt` / 文件夹 → **不出现**本产品菜单 |
 | 多选 | 选中 3 张图右键 → 菜单项存在，点击后只处理第一张（本工程策略） |
-| 转换 | 「用 QuikView 转换」等主程序支持 `--batch` 后复测 |
-| 卸载 | 反注册后 `CLSID\{…}`（两 CLSID）与各扩展下的 `ContextMenuHandlers\QuikView`（含旧 `*`）全部消失，重启资源管理器无残留菜单 |
+| 转换 | 「用 SoleView 转换」等主程序支持 `--batch` 后复测 |
+| 卸载 | 反注册后 `CLSID\{…}`（两 CLSID）与各扩展下的 `ContextMenuHandlers\SoleView`（含旧 `*`）全部消失，重启资源管理器无残留菜单 |
 | 稳定性 | 反复右键 50 次、打开 20 个文件夹，资源管理器不崩 |
 | 杀软 | 装有安全软件的环境实测一次并记录（交办单硬约束 4） |
 

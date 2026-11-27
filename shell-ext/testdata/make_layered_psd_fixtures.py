@@ -12,7 +12,7 @@
       -> 资源管理器应能直接取到缩略图
   test-layered-no-embedded.psd
       有图层的 PSD，但**不带**内嵌缩略图资源
-      -> 走回退路径（QuikView 自己渲染），用于验证回退分支
+      -> 走回退路径（SoleView 自己渲染），用于验证回退分支
 
 中文图层名注意：
   psd_tools 写图层名的 Pascal 串默认用 macroman 编码，中文会抛
@@ -119,7 +119,7 @@ def build_embedded(out_path):
 
 
 def build_no_embedded(out_path):
-    """2 层，不带内嵌缩略图资源 -> 走 QuikView 回退渲染分支。"""
+    """2 层，不带内嵌缩略图资源 -> 走 SoleView 回退渲染分支。"""
     psd = PSDImage.new("RGB", (W, H), color=(16, 24, 32))
 
     bg = _gradient(W, H, (18, 24, 34), (70, 90, 120))

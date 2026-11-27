@@ -8,7 +8,7 @@
 #include "LanguageRuntime.h"
 #include "PanoExtension.h"
 
-#include "quik_config_keys.h"
+#include "sole_config_keys.h"
 
 #include <QAbstractButton>
 #include <QApplication>
@@ -285,41 +285,52 @@ int iGet(const char *key, int def)
 // 壳扩展注册探测（2026-11-13 修订，上下文菜单派单 §3）：
 // 右键命令处理器与 WebP/PSD/PSB 缩略图分开检查；核对 InprocServer32 的完整
 // DLL 路径（不再只比文件名），区分 未安装 / 未注册 / 指向其他安装 / 当前
-// 安装已注册。右键命令核对 64 与 32 位两个视图（安装器把 quikthumb-<ver>.dll
-// 写 64 位视图、quikthumb32-<ver>.dll 写 WOW6432Node；0.5.3 及以前是无版本号
-// 的 quikthumb.dll / quikthumb32.dll，仍按回退分支认）。
+// 安装已注册。右键命令核对 64 与 32 位两个视图（安装器把 solethumb-<ver>.dll
+// 写 64 位视图、solethumb32-<ver>.dll 写 WOW6432Node；兼容旧版 quikthumb*.dll）。
 // ---------------------------------------------------------------------------
-// 壳扩展 DLL 定位。0.5.4 起安装的是带版本号的文件名（64 位 quikthumb-<ver>.dll、
-// 32 位 quikthumb32-<ver>.dll）：升级换新文件名，旧文件即使被资源管理器占用
-// 删不掉也会留在目录里，所以同目录可能同时存在多个版本 —— 按版本号取最高
-// 的一份。只有一份带版本号的都没有时，才回退到 0.5.3 及以前的 quikthumb.dll。
+// 壳扩展 DLL 定位。0.5.4 起安装的是带版本号的文件名（64 位 solethumb-<ver>.dll、
+// 32 位 solethumb32-<ver>.dll，兼容旧版 quikthumb*.dll）：升级换新文件名，旧文件
+// 即使被资源管理器占用删不掉也会留在目录里，所以同目录可能同时存在多个版本 ——
+// 按版本号取最高的一份。只有一份带版本号的都没有时，才回退到无版本号 DLL。
 QString qvShellDllInDir(const QString &appDir, bool is32)
 {
-    const QString prefix = is32 ? QStringLiteral("quikthumb32-")
-                                : QStringLiteral("quikthumb-");
+    const QStringList prefixes = is32
+        ? QStringList{ QStringLiteral("solethumb32-"), QStringLiteral("quikthumb32-") }
+        : QStringList{ QStringLiteral("solethumb-"), QStringLiteral("quikthumb-") };
     QString bestName;
     QVersionNumber bestVer;
     const QFileInfoList entries = QDir(appDir).entryInfoList(QDir::Files);
     for (const QFileInfo &fi : entries) {
         const QString name = fi.fileName();
-        if (!name.startsWith(prefix, Qt::CaseInsensitive)
-            || !name.endsWith(QStringLiteral(".dll"), Qt::CaseInsensitive))
+        if (!name.endsWith(QStringLiteral(".dll"), Qt::CaseInsensitive))
             continue;
-        const QVersionNumber ver = QVersionNumber::fromString(
-            name.mid(prefix.size(), name.size() - prefix.size() - 4));
-        if (ver.isNull())
-            continue;
-        if (bestName.isEmpty() || QVersionNumber::compare(ver, bestVer) > 0) {
-            bestName = name;
-            bestVer = ver;
+        for (const QString &prefix : prefixes) {
+            if (!name.startsWith(prefix, Qt::CaseInsensitive))
+                continue;
+            const QVersionNumber ver = QVersionNumber::fromString(
+                name.mid(prefix.size(), name.size() - prefix.size() - 4));
+            if (ver.isNull())
+                continue;
+            const bool isNew = prefix.startsWith(QStringLiteral("solethumb"));
+            const bool bestIsNew = bestName.startsWith(QStringLiteral("solethumb"), Qt::CaseInsensitive);
+            const int cmp = QVersionNumber::compare(ver, bestVer);
+            if (bestName.isEmpty() || cmp > 0 || (cmp == 0 && isNew && !bestIsNew)) {
+                bestName = name;
+                bestVer = ver;
+            }
+            break;
         }
     }
     if (!bestName.isEmpty())
         return appDir + QLatin1Char('/') + bestName;
-    const QString legacy = appDir
-        + (is32 ? QStringLiteral("/quikthumb32.dll")
-                : QStringLiteral("/quikthumb.dll"));
-    return QFileInfo::exists(legacy) ? legacy : QString();
+    const QStringList legacys = is32
+        ? QStringList{ appDir + QStringLiteral("/solethumb32.dll"), appDir + QStringLiteral("/quikthumb32.dll") }
+        : QStringList{ appDir + QStringLiteral("/solethumb.dll"), appDir + QStringLiteral("/quikthumb.dll") };
+    for (const QString &legacy : legacys) {
+        if (QFileInfo::exists(legacy))
+            return legacy;
+    }
+    return QString();
 }
 
 bool shellExtDllPresent()
@@ -334,7 +345,7 @@ namespace {
 enum ShellRegState {
     ShellNotInstalled,   // 本机没有可用的注册记录，本安装也没有壳扩展文件
     ShellNotRegistered,  // 本安装带壳扩展文件，但注册表没有指向它的记录
-    ShellOtherInstall,   // 注册表指向另一处安装的 quikthumb*.dll
+    ShellOtherInstall,   // 注册表指向另一处安装的 solethumb*.dll / quikthumb*.dll
     ShellRegistered      // 注册表指向本安装的 DLL（当前安装已注册）
 };
 
@@ -386,9 +397,8 @@ QString qvRegDefaultUser(const QString &keyPath)
 }
 
 // 由「注册表指向的 DLL 路径 + 本安装 DLL 是否在」推导四态。
-// appDir 用来识别「指向本安装目录里的另一份 quikthumb*.dll」——那是同一套
-// 安装的旧版本号文件（升级后才换成当前版本），仍算本安装已注册，不能误报成
-// 「指向其他安装」。
+// appDir 用来识别「指向本安装目录里的另一份 solethumb*.dll / quikthumb*.dll」——
+// 那是同一套安装的旧版本号文件（升级后才换成当前版本），仍算本安装已注册，不能误报。
 ShellRegState qvStateFromPath(const QString &bound, const QString &ourDll,
                               const QString &appDir, bool dllFilePresent)
 {
@@ -396,11 +406,13 @@ ShellRegState qvStateFromPath(const QString &bound, const QString &ourDll,
         return dllFilePresent ? ShellNotRegistered : ShellNotInstalled;
     if (qvSamePath(bound, ourDll))
         return ShellRegistered;
-    if (bound.contains(QStringLiteral("quikthumb"), Qt::CaseInsensitive)
+    const bool isOurDllName = bound.contains(QStringLiteral("solethumb"), Qt::CaseInsensitive)
+                              || bound.contains(QStringLiteral("quikthumb"), Qt::CaseInsensitive);
+    if (isOurDllName
         && qvSamePath(QFileInfo(QDir::fromNativeSeparators(bound)).absolutePath(),
                       appDir))
         return ShellRegistered;
-    if (bound.contains(QStringLiteral("quikthumb"), Qt::CaseInsensitive))
+    if (isOurDllName)
         return ShellOtherInstall;
     return dllFilePresent ? ShellNotRegistered : ShellNotInstalled;
 }
@@ -417,18 +429,24 @@ static ShellComponent probeShellMenu()
     const QString dll64 = qvShellDllInDir(appDir, false);
     const QString dll32 = qvShellDllInDir(appDir, true);
 
-    // handler 键：逐扩展名任一份指向本产品即算已注册；再看 0.5.3 及以前的
-    // `*` 宽注册（升级时由安装器清掉，清掉前仍视为已注册）。
+    // handler 键：逐扩展名任一份指向本产品即算已注册（SoleView 优先，兼容旧 QuikView 键）；
+    // 再看 0.5.3 及以前的 `*` 宽注册（升级时由安装器清掉，清掉前仍视为已注册）。
     bool handlerBound = false;
     for (const char *ext : kShellMenuExts) {
-        const QString key =
+        const QString keyNew =
+            QStringLiteral("Software\\Classes\\%1\\shellex\\"
+                           "ContextMenuHandlers\\SoleView")
+                .arg(QLatin1String(ext));
+        const QString keyOld =
             QStringLiteral("Software\\Classes\\%1\\shellex\\"
                            "ContextMenuHandlers\\QuikView")
                 .arg(QLatin1String(ext));
-        if (qvRegDefault(key).compare(
+        if (qvRegDefault(keyNew).compare(
                 QStringLiteral("{C9FFAFAD-7C1C-4CCC-A37C-A075ED1F27AF}"),
-                Qt::CaseInsensitive)
-            == 0) {
+                Qt::CaseInsensitive) == 0
+            || qvRegDefault(keyOld).compare(
+                   QStringLiteral("{C9FFAFAD-7C1C-4CCC-A37C-A075ED1F27AF}"),
+                   Qt::CaseInsensitive) == 0) {
             handlerBound = true;
             break;
         }
@@ -436,11 +454,15 @@ static ShellComponent probeShellMenu()
     if (!handlerBound) {
         handlerBound =
             qvRegDefault(QStringLiteral("Software\\Classes\\*\\shellex\\"
-                                        "ContextMenuHandlers\\QuikView"))
+                                        "ContextMenuHandlers\\SoleView"))
                 .compare(
                     QStringLiteral("{C9FFAFAD-7C1C-4CCC-A37C-A075ED1F27AF}"),
-                    Qt::CaseInsensitive)
-            == 0;
+                    Qt::CaseInsensitive) == 0
+            || qvRegDefault(QStringLiteral("Software\\Classes\\*\\shellex\\"
+                                           "ContextMenuHandlers\\QuikView"))
+                   .compare(
+                       QStringLiteral("{C9FFAFAD-7C1C-4CCC-A37C-A075ED1F27AF}"),
+                       Qt::CaseInsensitive) == 0;
     }
 
     const QString clsid64 = qvRegDefault(QStringLiteral(
@@ -1098,9 +1120,9 @@ void populateLanguageCombo(QComboBox *combo)
     combo->addItem(QStringLiteral("Deutsch"), QStringLiteral("de_DE"));
     combo->addItem(QStringLiteral("Español"), QStringLiteral("es_ES"));
     combo->addItem(QStringLiteral("Русский"), QStringLiteral("ru_RU"));
-    // 批次23 验收钩子：QUIKVIEW_TEST_LANG_EXTRA=1 时追加一条没有 .qm 的档位，
-    // 用来走真实下拉验证「缺 .qm → 回退并提示」的降级路径（正常用户看不到）。
-    if (!qEnvironmentVariableIsEmpty("QUIKVIEW_TEST_LANG_EXTRA"))
+    // 批次23 验收钩子：SOLEVIEW_TEST_LANG_EXTRA=1（兼容 QUIKVIEW_TEST_LANG_EXTRA=1）
+    if (!qEnvironmentVariableIsEmpty("SOLEVIEW_TEST_LANG_EXTRA")
+        || !qEnvironmentVariableIsEmpty("QUIKVIEW_TEST_LANG_EXTRA"))
         combo->addItem(QStringLiteral("Italiano"), QStringLiteral("it_IT"));
 }
 
@@ -1294,7 +1316,7 @@ QWidget#keyRow[conflict="true"] QKeySequenceEdit QLineEdit {
     background: @Field@; border-color: @DangerBg@; color: @FieldText@; }
 
 /* ===== 设置 › 一般 v2 母版定稿（2026-11-11）============================
-   唯一基准：QuikView-一般页-母版定稿/{dark,light,compact}-v2.png +
+   唯一基准：SoleView-一般页-母版定稿/{dark,light,compact}-v2.png +
    颜色与尺寸标注.md。上一版蓝灰色板（#24262B 系 / #83BBFF / 蓝色开关）
    已作废，这里不保留任何旧值。外壳规则只覆盖设置对话框内具名对象；
    一般页规则一律带 [fluent="v2"]。色值全部走 @Gen*@ 令牌。 */
@@ -1508,8 +1530,8 @@ QPushButton#btnPrimary:disabled { color: @GenDisabled@; border-color: @GenCtrlLi
 
 namespace {
 
-// 设置窗构建分段计时（验收探针）：QUIKVIEW_SETTINGS_PROBE=<path> 时每次构建
-// 追加一行 "stage,ms"。未设置环境变量时每个打点只做一次静态判断，零开销。
+// 设置窗构建分段计时（验收探针）：SOLEVIEW_SETTINGS_PROBE=<path>（兼容 QUIKVIEW_SETTINGS_PROBE）时
+// 每次构建追加一行 "stage,ms"。未设置环境变量时每个打点只做一次静态判断，零开销。
 inline QElapsedTimer &probeClock()
 {
     static QElapsedTimer t;
@@ -1523,7 +1545,10 @@ inline QElapsedTimer &probeClock()
 
 void probeMark(const char *stage, qint64 us)
 {
-    static const QByteArray probePath = qgetenv("QUIKVIEW_SETTINGS_PROBE");
+    static const QByteArray probePath = []() {
+        QByteArray p = qgetenv("SOLEVIEW_SETTINGS_PROBE");
+        return p.isEmpty() ? qgetenv("QUIKVIEW_SETTINGS_PROBE") : p;
+    }();
     if (probePath.isEmpty())
         return;
     if (FILE *f = std::fopen(probePath.constData(), "a")) {
@@ -1581,7 +1606,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     auto *tl = new QHBoxLayout(titleBar);
     tl->setContentsMargins(18, 0, 14, 0);
     tl->setSpacing(9);
-    auto *title = new QLabel(tr("QuikView — 设置"), titleBar);
+    auto *title = new QLabel(tr("SoleView — 设置"), titleBar);
     title->setObjectName(QStringLiteral("dlgTitle"));
     tl->addWidget(title);
     tl->addStretch(1);
@@ -1721,7 +1746,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     // 避免标题下出现两条近似文案（设计图 04/05 只有一行）。
     addLazyPage(tr("键盘"), QString(), &SettingsDialog::buildKeyboardPage);
     addLazyPage(tr("鼠标与滚轮"), QString(), &SettingsDialog::buildMousePage);
-    // 查看器右键菜单：QuikView 内的右键菜单，独立一页，与 Windows 侧集成分开。
+    // 查看器右键菜单：SoleView 内的右键菜单，独立一页，与 Windows 侧集成分开。
     m_appMenuPage = addLazyPage(tr("查看器右键菜单"), QString(),
                                 &SettingsDialog::buildAppMenuSections);
     // 索引在构造期就定位：列宽/页头动作位等判断不依赖该页是否已构建。
@@ -1730,7 +1755,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     addLazyPage(tr("Windows 集成"), QString(), &SettingsDialog::buildWindowsPage);
     addLazyPage(tr("扩展"), QString(), &SettingsDialog::buildExtensionsPage);
     m_extPageIndex = m_pages.size() - 1;
-    // 关于（2026-11-22 派单）：原侧栏底部的「关于 QuikView」弹窗入口改为普通
+    // 关于（2026-11-22 派单）：原侧栏底部的「关于 SoleView」弹窗入口改为普通
     // 设置页，排在「扩展」下一行，选中态 / 行高 / 键盘焦点与其他页完全同一套。
     addLazyPage(tr("关于"), QString(), &SettingsDialog::buildAboutPage);
     m_aboutPageIndex = m_pages.size() - 1;
@@ -1742,7 +1767,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     mark("pages");
 
     // 导航底部：弹簧把全部页签顶到上方。2026-11-22 起「关于」已是普通页，
-    // 底部不再有分隔线 + 「关于 QuikView」独立入口。
+    // 底部不再有分隔线 + 「关于 SoleView」独立入口。
     m_navLayout->addStretch(1);
 
     // —— footer：提示 … 恢复默认 / 取消 / 保存设置 ——
@@ -2848,13 +2873,15 @@ QString setioTr(const char *text)
 
 // 批次23 #88：语言页「下载更多语言」的发布页地址（改前硬编码在按钮 lambda 里，
 // 现在状态行也要给出同一个地址，提到一处常量避免两处走样）。
-constexpr const char *kLanguagePageUrl = "https://github.com/xdsT2/quikview";
+constexpr const char *kLanguagePageUrl = "https://github.com/xdsT2/soleview";
 
-// 批次23 #88/#89：外部打开的唯一入口。QUIKVIEW_TEST_OPENURL=ok|fail 时只注入
-// 结果、不真的拉起浏览器 / 文件管理器，取证不污染用户系统状态。
+// 批次23 #88/#89：外部打开的唯一入口。SOLEVIEW_TEST_OPENURL=ok|fail（兼容 QUIKVIEW_TEST_OPENURL）
+// 时只注入结果、不真的拉起浏览器 / 文件管理器，取证不污染用户系统状态。
 bool openExternalUrl(const QUrl &url)
 {
-    const QByteArray inject = qgetenv("QUIKVIEW_TEST_OPENURL").trimmed().toLower();
+    QByteArray inject = qgetenv("SOLEVIEW_TEST_OPENURL").trimmed().toLower();
+    if (inject.isEmpty())
+        inject = qgetenv("QUIKVIEW_TEST_OPENURL").trimmed().toLower();
     if (inject == "ok")
         return true;
     if (inject == "fail")
@@ -2905,7 +2932,7 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
     // 「图像编辑器」一行的控件列要单独放宽：输入框 + 浏览… + 预设 三个控件
     // 在 154/160 的统一控件列里放不下（英文下按钮文字会被截成 "owse"）。
     QWidget *editorControls = nullptr;
-    addSwitchRow(sec, tr("不允许多个实例"), tr("重启 QuikView 后生效"),
+    addSwitchRow(sec, tr("不允许多个实例"), tr("重启 SoleView 后生效"),
                  "allow_multiple_instances", true, true);
     auto *alwaysOnTop = addSwitchRow(sec, tr("总在最前 (Ctrl+A)"), QString(),
                                      "always_on_top", false, false);
@@ -2913,8 +2940,8 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
     auto *fitWin = addSwitchRow(sec, tr("根据图片大小调节窗口大小"), QString(),
                                 "etc/fit_window_to_image", false, false);
     m_liveChecks.append({ fitWin, "etc/fit_window_to_image", false, false });
-    auto *noSaver = addSwitchRow(sec, tr("运行 QuikView 时禁用 Windows 屏幕保护程序"),
-                                 tr("退出 QuikView 后恢复系统屏保设置"),
+    auto *noSaver = addSwitchRow(sec, tr("运行 SoleView 时禁用 Windows 屏幕保护程序"),
+                                 tr("退出 SoleView 后恢复系统屏保设置"),
                                  "etc/disable_screensaver", false, false);
     m_liveChecks.append({ noSaver, "etc/disable_screensaver", false, false });
 
@@ -3047,7 +3074,7 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
         btn->setObjectName(QStringLiteral("langDownloadBtn"));
         parts.controls->addWidget(btn, 0, Qt::AlignVCenter);
         m_langDownloadStatus = addHint(
-            sec, tr("点击后在系统浏览器打开 QuikView 发布页；应用内只报告系统是否接受打开请求。"));
+            sec, tr("点击后在系统浏览器打开 SoleView 发布页；应用内只报告系统是否接受打开请求。"));
         connect(btn, &QPushButton::clicked, this, [this, btn]() {
             btn->setEnabled(false);
             if (m_langDownloadStatus) {
@@ -3057,7 +3084,7 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
             QTimer::singleShot(0, this, [this, btn]() { openDownloadPageNow(btn); });
         });
     }
-    addHint(sec, tr("两个入口都会离开 QuikView，应用内只报告系统是否接受打开请求。"));
+    addHint(sec, tr("两个入口都会离开 SoleView，应用内只报告系统是否接受打开请求。"));
     refreshLanguageStatus();
 
     // —— 设置导出 / 导入（需求池 H1-3）——
@@ -3074,7 +3101,7 @@ void SettingsDialog::buildGeneralPage(QWidget *page)
     {
         SettingRowParts parts = addSettingRow(
             sec, setioTr("导入设置"),
-            setioTr("从 .ini 文件恢复设置，重启 QuikView 后生效"));
+            setioTr("从 .ini 文件恢复设置，重启 SoleView 后生效"));
         m_btnImportSettings = addButton(nullptr, setioTr("导入设置"));
         parts.controls->addWidget(m_btnImportSettings, 0, Qt::AlignVCenter);
         connect(m_btnImportSettings, &QPushButton::clicked,
@@ -4348,7 +4375,7 @@ void SettingsDialog::probeAppMenuWindow(const QString &out, int w, int h, const 
 
 // ---------------------------------------------------------------------------
 // 查看器右键菜单页 · 大纲视图与开关层级修订（2026-11-16）
-// 设计基准：管理/QuikView-右键菜单设计-20261114/全量配置修订/大纲视图方案-开关层级修订
+// 设计基准：管理/SoleView-右键菜单设计-20261114/全量配置修订/大纲视图方案-开关层级修订
 //
 // 结构：页内查找栏 → 固定列头 → 单一大纲表面（圆角 9，内部独立纵向滚动）。
 // 层级：五个根组各有总开关；三角只切设置页展开，开关只切右键菜单可见性。
@@ -4745,8 +4772,8 @@ void SettingsDialog::buildExtensionsPage(QWidget *page)
 // ===========================================================================
 // 关于页（派单 2026-11-22）
 // ===========================================================================
-// 原侧栏底部的「关于 QuikView」弹窗入口改成设置内的普通页面，层级沿用参考图：
-// 页标题「关于」→ QuikView 产品信息卡片 → 链接卡片。卡片 / 行高 / 字号 / 令牌
+// 原侧栏底部的「关于 SoleView」弹窗入口改成设置内的普通页面，层级沿用参考图：
+// 页标题「关于」→ SoleView 产品信息卡片 → 链接卡片。卡片 / 行高 / 字号 / 令牌
 // 全部复用 v2 母版，不另造样式；版本号取 QCoreApplication::applicationVersion()
 // （CMakeLists.txt 的 project(VERSION) 单一来源），界面里不写版本字面量。
 // 本页只有只读内容：不登记待保存项、不参与「恢复默认」、不会让页脚出现待保存提示。
@@ -4774,13 +4801,13 @@ void SettingsDialog::buildAboutPage(QWidget *page)
     };
 
     // —— 产品信息 ——
-    QWidget *secProduct = beginSection(page, tr("QuikView"));
+    QWidget *secProduct = beginSection(page, tr("SoleView"));
     addValueRow(secProduct, tr("版本号"),
                 version.isEmpty() ? tr("未知") : version,
                 tr("当前程序版本，取自构建配置"), false);
     addValueRow(secProduct, tr("开源许可"), QStringLiteral("MIT"),
                 tr("MIT 许可证，源码托管在 GitHub"), false);
-    addHint(secProduct, tr("QuikView 是开源的 Windows 图片查看器：C++ 与 Qt 6 构建，"
+    addHint(secProduct, tr("SoleView 是开源的 Windows 图片查看器：C++ 与 Qt 6 构建，"
                            "不收集使用数据，不含推广内容。"));
 
     // —— 链接：官网、GitHub 与 QQ 交流群 ——
@@ -4829,16 +4856,16 @@ void SettingsDialog::buildAboutPage(QWidget *page)
         }
     };
 
-    const QString websiteUrl = QStringLiteral("https://xdst2.github.io/quikview/");
+    const QString websiteUrl = QStringLiteral("https://xdst2.github.io/soleview/");
     addLinkRow(tr("官网"), websiteUrl, websiteUrl,
-               QStringLiteral("websiteLinkBtn"), tr("打开 QuikView 官网"),
+               QStringLiteral("websiteLinkBtn"), tr("打开 SoleView 官网"),
                [openExternalUrl, this, websiteUrl](QPushButton *) {
                    openExternalUrl(tr("官网"), websiteUrl);
                });
 
-    const QString repoUrl = QStringLiteral("https://github.com/xdsT2/quikview");
+    const QString repoUrl = QStringLiteral("https://github.com/xdsT2/soleview");
     addLinkRow(tr("GitHub"), repoUrl, repoUrl,
-               QStringLiteral("linkBtn"), tr("打开 QuikView GitHub 仓库"),
+               QStringLiteral("linkBtn"), tr("打开 SoleView GitHub 仓库"),
                [openExternalUrl, this, repoUrl](QPushButton *) {
                    openExternalUrl(tr("GitHub"), repoUrl);
                });
@@ -4846,7 +4873,7 @@ void SettingsDialog::buildAboutPage(QWidget *page)
     const QString qqGroup = QStringLiteral("1134122173");
     auto qqCopyGen = std::make_shared<quint64>(0);
     addLinkRow(tr("QQ 交流群"), qqGroup, tr("点击复制 QQ 群号：%1").arg(qqGroup),
-               QStringLiteral("qqGroupBtn"), tr("复制 QuikView QQ 交流群号"),
+               QStringLiteral("qqGroupBtn"), tr("复制 SoleView QQ 交流群号"),
                [qqGroup, qqCopyGen](QPushButton *btn) {
                    if (QClipboard *cb = QApplication::clipboard()) {
                        cb->setText(qqGroup);
@@ -5491,7 +5518,9 @@ void SettingsDialog::probeVisitAllPages()
 {
     // 延后构建的验收探针：按导航顺序逐页切一次，日志里每页一条
     // "visit<下标>,<毫秒>"（含构建 + 回填 + 布局），供外部脚本算首次打开耗时。
-    const QString shotDir = qEnvironmentVariable("QUIKVIEW_SETTINGS_PAGES_DIR");
+    QString shotDir = qEnvironmentVariable("SOLEVIEW_SETTINGS_PAGES_DIR");
+    if (shotDir.isEmpty())
+        shotDir = qEnvironmentVariable("QUIKVIEW_SETTINGS_PAGES_DIR");
     for (int i = 0; i < m_pages.size(); ++i) {
         QElapsedTimer t;
         t.start();
@@ -5938,15 +5967,15 @@ void SettingsDialog::buildWindowsPage(QWidget *page)
     partsDefault.controls->addWidget(btnDefault, 0, Qt::AlignVCenter);
     connect(btnDefault, &QPushButton::clicked, this, [this]() {
         const HINSTANCE r = ShellExecuteW(nullptr, L"open",
-                                          L"ms-settings:defaultapps?registeredAppMachine=QuikView",
+                                          L"ms-settings:defaultapps?registeredAppMachine=SoleView",
                                           nullptr, nullptr, SW_SHOWNORMAL);
         if (reinterpret_cast<INT_PTR>(r) <= 32) {
             QMessageBox::warning(this, tr("格式关联"),
                                  tr("无法打开 Windows 默认应用，请从 Windows 设置手动打开。"));
         }
     });
-    addHint(secWin, tr("默认打开方式由 Windows 管理，QuikView 不能直接改写；"
-                       "找不到 QuikView 时先运行安装包注册。"));
+    addHint(secWin, tr("默认打开方式由 Windows 管理，SoleView 不能直接改写；"
+                       "找不到 SoleView 时先运行安装包注册。"));
 
     // —— 资源管理器右键菜单（注册状态 / 开关 / 缩略图三段）——
     // 原页首的「资源管理器集成」空壳分组已删：它只留标题、没有任何行。
@@ -6048,16 +6077,16 @@ void SettingsDialog::buildWindowsPage(QWidget *page)
         SettingsDialog::ToggleRow row =
             addToggleRow(section, label, desc, label);
         if (row.toggle) {
-            // 键名与壳扩展共用 shared/quik_config_keys.h（唯一来源），
+            // 键名与壳扩展共用 shared/sole_config_keys.h（唯一来源），
             // 这边拼 "config/ctxmenu/<leaf>"，壳扩展读 [config] ctxmenu\<leaf>。
             const QString key =
-                QString::fromWCharArray(quikcfg::CtxSettingsKey(leaf).c_str());
+                QString::fromWCharArray(solecfg::CtxSettingsKey(leaf).c_str());
             row.toggle->setChecked(
                 Config::instance().settings().value(key, true).toBool());
             // 验收探针锚点：smoke settingsctx:<leaf> 按这个名字点开关
             row.toggle->setAccessibleName(
                 QStringLiteral("ctxmenu.")
-                + QString::fromWCharArray(quikcfg::CtxLeafName(leaf)));
+                + QString::fromWCharArray(solecfg::CtxLeafName(leaf)));
             connect(row.toggle, &PillToggle::toggled, this,
                     [this, row, key, leaf](bool on) mutable {
                 QString err;
@@ -6066,7 +6095,7 @@ void SettingsDialog::buildWindowsPage(QWidget *page)
                 // [config] ctxmenu\<leaf>，否则开关写到一个没人读的键上。
                 const QList<QPair<QString, QVariant>> vals = {
                     { QString::fromWCharArray(
-                          quikcfg::CtxSettingsSubKey(leaf).c_str()), on }
+                          solecfg::CtxSettingsSubKey(leaf).c_str()), on }
                 };
                 if (writeValues(vals, false, &err))
                     return;
@@ -6085,19 +6114,19 @@ void SettingsDialog::buildWindowsPage(QWidget *page)
     };
 
     const CtxToggleRow masterRow = ctxToggle(
-        sec, tr("在资源管理器右键菜单中显示 QuikView"),
+        sec, tr("在资源管理器右键菜单中显示 SoleView"),
         tr("关闭后不再插入菜单项；各细项的选择会保留"),
-        quikcfg::CtxUseShellMenu);
+        solecfg::CtxUseShellMenu);
     const CtxToggleRow browseRow = ctxToggle(
-        sec, tr("用 QuikView 浏览图片"), QString(),
-        quikcfg::CtxShowBrowse);
+        sec, tr("用 SoleView 浏览图片"), QString(),
+        solecfg::CtxShowBrowse);
     if (browseRow.row.row)
-        browseRow.row.row->setToolTip(tr("命令行：quikview.exe \"文件\""));
+        browseRow.row.row->setToolTip(tr("命令行：soleview.exe \"文件\""));
     const CtxToggleRow convertRow = ctxToggle(
-        sec, tr("用 QuikView 转换图片"), QString(),
-        quikcfg::CtxShowConvert);
+        sec, tr("用 SoleView 转换图片"), QString(),
+        solecfg::CtxShowConvert);
     if (convertRow.row.row)
-        convertRow.row.row->setToolTip(tr("命令行：quikview.exe --batch \"文件\""));
+        convertRow.row.row->setToolTip(tr("命令行：soleview.exe --batch \"文件\""));
     const CtxToggleRow previewRow = ctxToggle(
         sec, tr("菜单内预览"), QString(),
         quikcfg::CtxShowPreview);
@@ -6150,7 +6179,7 @@ void SettingsDialog::buildWindowsPage(QWidget *page)
                         "才能在这里控制右键菜单。")
                     .arg(menu.boundPath));
     } else if (!shellExtDllPresent()) {
-        addHint(sec, tr("未检测到壳扩展文件（quikthumb-*.dll）。"
+        addHint(sec, tr("未检测到壳扩展文件（solethumb-*.dll）。"
                         "运行安装包可修复；便携版不带安装器注册，右键菜单不可用。"));
     } else if (!menuUsable) {
         addHint(sec, tr("壳扩展文件存在，但右键菜单处理器未注册到本安装。"
@@ -6218,7 +6247,7 @@ void SettingsDialog::buildWindowsPage(QWidget *page)
 // 9.1 设置导出 / 导入（需求池 H1-3）
 // ===========================================================================
 
-// 当前生效的那份 ini：QUIKVIEW_CONFIG_PATH → 程序目录 config.ini → 系统配置目录，
+// 当前生效的那份 ini：SOLEVIEW_CONFIG_PATH → 程序目录 config.ini → 系统配置目录，
 // 判定顺序与 Config::defaultConfigPath 完全一致，这里只读 QSettings 已解析出的
 // 实际文件名，天然跟随便携模式与冒烟隔离路径，绝不写死 %APPDATA%。
 QString SettingsDialog::settingsIniPath() const
@@ -6257,7 +6286,7 @@ bool SettingsDialog::isValidSettingsFile(const QString &path, QString *error) co
             return fail(QStringLiteral("没有可读键"));
     }
 
-    // ② 必须含 [config] 段（QuikView 的业务键全在这一段下）。
+    // ② 必须含 [config] 段（SoleView 的业务键全在这一段下）。
     bool hasConfigSection = false;
     for (const QString &line : text.split(QLatin1Char('\n'))) {
         if (line.trimmed().compare(QStringLiteral("[config]"), Qt::CaseInsensitive) == 0) {
@@ -6376,7 +6405,7 @@ bool SettingsDialog::importSettingsPath(const QString &path)
         return false;
     }
     if (!isValidSettingsFile(path, &err)) {
-        showSettingsToast(setioTr("不是有效的 QuikView 设置文件"), false);
+        showSettingsToast(setioTr("不是有效的 SoleView 设置文件"), false);
         return false;
     }
     if (!applyImportedSettings(path, &err)) {
@@ -6388,18 +6417,18 @@ bool SettingsDialog::importSettingsPath(const QString &path)
     captureImgProcBaseline();
     capturePendingBaseline(0);
     updatePendingNote();
-    showSettingsToast(setioTr("导入成功，重启 QuikView 后生效"), true);
+    showSettingsToast(setioTr("导入成功，重启 SoleView 后生效"), true);
     return true;
 }
 
 void SettingsDialog::onExportSettings()
 {
-    const QString defName = QStringLiteral("quikview-settings-%1.ini")
+    const QString defName = QStringLiteral("soleview-settings-%1.ini")
                                 .arg(QDate::currentDate().toString(QStringLiteral("yyyyMMdd")));
     const QString defDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
     QString path = QFileDialog::getSaveFileName(
         this, setioTr("导出设置"), defDir.isEmpty() ? defName : defDir + QLatin1Char('/') + defName,
-        setioTr("QuikView 设置 (*.ini)"));
+        setioTr("SoleView 设置 (*.ini)"));
     if (path.isEmpty())
         return;
     if (!path.endsWith(QStringLiteral(".ini"), Qt::CaseInsensitive))
@@ -6411,7 +6440,7 @@ void SettingsDialog::onImportSettings()
 {
     QString path = QFileDialog::getOpenFileName(
         this, setioTr("导入设置"), QFileInfo(settingsIniPath()).absolutePath(),
-        setioTr("QuikView 设置 (*.ini);;所有文件 (*)"));
+        setioTr("SoleView 设置 (*.ini);;所有文件 (*)"));
     if (path.isEmpty())
         return;
     importSettingsPath(path);
@@ -8604,8 +8633,8 @@ void SettingsDialog::probeLanguageLive(const QString &root)
 {
     QDir().mkpath(root);
     const QString langDir = root + QStringLiteral("/languages");
-    qputenv("QUIKVIEW_TEST_LANGDIR", langDir.toLocal8Bit());
-    qputenv("QUIKVIEW_TEST_LANG_EXTRA", "1");
+    qputenv("SOLEVIEW_TEST_LANGDIR", langDir.toLocal8Bit());
+    qputenv("SOLEVIEW_TEST_LANG_EXTRA", "1");
     const QString logPath = root + QStringLiteral("/lang-live-probe.txt");
     QFile::remove(logPath);
 
@@ -8735,7 +8764,7 @@ void SettingsDialog::probeLanguageLive(const QString &root)
     });
     // #89 打开语言文件夹：新建 → 已存在 → 系统拒绝打开 → 建目录失败。
     steps->append([scrollBottom]() { scrollBottom(); });
-    steps->append([]() { qputenv("QUIKVIEW_TEST_OPENURL", "ok"); });
+    steps->append([]() { qputenv("SOLEVIEW_TEST_OPENURL", "ok"); });
     steps->append([clickBtn]() { clickBtn(QStringLiteral("langFolderBtn")); });
     steps->append([dump, grabPage]() {
         dump(QStringLiteral("folder-new"));
@@ -8746,7 +8775,7 @@ void SettingsDialog::probeLanguageLive(const QString &root)
         dump(QStringLiteral("folder-exists"));
         grabPage(QStringLiteral("07-folder-exists.png"));
     });
-    steps->append([]() { qputenv("QUIKVIEW_TEST_OPENURL", "fail"); });
+    steps->append([]() { qputenv("SOLEVIEW_TEST_OPENURL", "fail"); });
     steps->append([clickBtn]() { clickBtn(QStringLiteral("langFolderBtn")); });
     steps->append([dump, grabPage]() {
         dump(QStringLiteral("folder-open-refused"));
@@ -8754,7 +8783,7 @@ void SettingsDialog::probeLanguageLive(const QString &root)
     });
     steps->append([]() {
         // 不存在的盘符：mkpath 必然失败，验证「创建失败」这一态。
-        qputenv("QUIKVIEW_TEST_LANGDIR", "Z:/quikview-probe-no-drive/translations");
+        qputenv("SOLEVIEW_TEST_LANGDIR", "Z:/soleview-probe-no-drive/translations");
     });
     steps->append([clickBtn]() { clickBtn(QStringLiteral("langFolderBtn")); });
     steps->append([dump, grabPage]() {
@@ -8763,15 +8792,15 @@ void SettingsDialog::probeLanguageLive(const QString &root)
     });
     // #88 下载更多语言：成功 / 失败两态。
     steps->append([langDir]() {
-        qputenv("QUIKVIEW_TEST_LANGDIR", langDir.toLocal8Bit());
-        qputenv("QUIKVIEW_TEST_OPENURL", "ok");
+        qputenv("SOLEVIEW_TEST_LANGDIR", langDir.toLocal8Bit());
+        qputenv("SOLEVIEW_TEST_OPENURL", "ok");
     });
     steps->append([clickBtn]() { clickBtn(QStringLiteral("langDownloadBtn")); });
     steps->append([dump, grabPage]() {
         dump(QStringLiteral("download-ok"));
         grabPage(QStringLiteral("10-download-ok.png"));
     });
-    steps->append([]() { qputenv("QUIKVIEW_TEST_OPENURL", "fail"); });
+    steps->append([]() { qputenv("SOLEVIEW_TEST_OPENURL", "fail"); });
     steps->append([clickBtn]() { clickBtn(QStringLiteral("langDownloadBtn")); });
     steps->append([dump, grabPage]() {
         dump(QStringLiteral("download-refused"));
@@ -8989,8 +9018,9 @@ void SettingsDialog::probeFolderRestore(const QString &root)
 // 状态行 / 主窗口目录列表与实际上屏结果」，用来证明切换那一刻就生效，而不是只看 ini。
 void SettingsDialog::probeBatch21(const QString &spec)
 {
-    const QString dir = qEnvironmentVariable("QUIKVIEW_B21_PROBE_DIR",
-                                             QStringLiteral("Temp"));
+    QString dir = qEnvironmentVariable("SOLEVIEW_B21_PROBE_DIR");
+    if (dir.isEmpty())
+        dir = qEnvironmentVariable("QUIKVIEW_B21_PROBE_DIR", QStringLiteral("Temp"));
     QDir().mkpath(dir);
     const QString logPath = dir + QStringLiteral("/batch21-probe.txt");
     const QString mode = spec.section(u':', 0, 0).trimmed();
@@ -9487,8 +9517,10 @@ void SettingsDialog::probeImgProcDump(const QString &tag)
     // 三条页内状态行的可见性与文案——验收看的是「画面/运行态真的变了」。
     const QSettings &s = Config::instance().settings();
     MainWindow *host = qobject_cast<MainWindow *>(parentWidget());
-    const QString outPath = qEnvironmentVariable("QUIKVIEW_PROBE_OUT",
-                                                 QStringLiteral("Temp/imgproc-live-probe.txt"));
+    QString outPath = qEnvironmentVariable("SOLEVIEW_PROBE_OUT");
+    if (outPath.isEmpty())
+        outPath = qEnvironmentVariable("QUIKVIEW_PROBE_OUT",
+                                       QStringLiteral("Temp/imgproc-live-probe.txt"));
     QFile f(outPath);
     if (!f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
         return;
@@ -9607,15 +9639,20 @@ void SettingsDialog::probeImgProcLive(const QString &spec, const QString &closeM
     QPointer<MainWindow> host = qobject_cast<MainWindow *>(parentWidget());
     QPointer<QTimer> autoOkGuard(autoOk);
     QTimer::singleShot(400, this, [this, spec]() {
-        if (!QFile::exists(qEnvironmentVariable("QUIKVIEW_PROBE_OUT",
-                                                 QStringLiteral("Temp/imgproc-live-probe.txt"))))
+        QString probeOut = qEnvironmentVariable("SOLEVIEW_PROBE_OUT");
+        if (probeOut.isEmpty())
+            probeOut = qEnvironmentVariable("QUIKVIEW_PROBE_OUT",
+                                            QStringLiteral("Temp/imgproc-live-probe.txt"));
+        if (!QFile::exists(probeOut))
             probeImgProcDump(QStringLiteral("before-open"));
         if (!spec.isEmpty())
             probeImgProcApply(spec);
     });
-    // 可选动作（翻页 / 旋转这类要看画面的场景）：QUIKVIEW_PROBE_ACTIONS=next,rotateright
+    // 可选动作（翻页 / 旋转这类要看画面的场景）：SOLEVIEW_PROBE_ACTIONS=next,rotateright
     QTimer::singleShot(700, this, [this, host]() {
-        const QString acts = qEnvironmentVariable("QUIKVIEW_PROBE_ACTIONS");
+        QString acts = qEnvironmentVariable("SOLEVIEW_PROBE_ACTIONS");
+        if (acts.isEmpty())
+            acts = qEnvironmentVariable("QUIKVIEW_PROBE_ACTIONS");
         if (!host || acts.isEmpty())
             return;
         for (const QString &a : acts.split(u','))
@@ -9624,13 +9661,19 @@ void SettingsDialog::probeImgProcLive(const QString &spec, const QString &closeM
     });
     QTimer::singleShot(1500, this, [this, closeMode, host, autoOk]() {
         probeImgProcDump(QStringLiteral("before-close"));
-        const QString shot = qEnvironmentVariable("QUIKVIEW_PROBE_SHOT");
+        QString shot = qEnvironmentVariable("SOLEVIEW_PROBE_SHOT");
+        if (shot.isEmpty())
+            shot = qEnvironmentVariable("QUIKVIEW_PROBE_SHOT");
         if (!shot.isEmpty())
             grab().save(shot);
-        const QString canvasShot = qEnvironmentVariable("QUIKVIEW_PROBE_CANVAS");
+        QString canvasShot = qEnvironmentVariable("SOLEVIEW_PROBE_CANVAS");
+        if (canvasShot.isEmpty())
+            canvasShot = qEnvironmentVariable("QUIKVIEW_PROBE_CANVAS");
         if (host && !canvasShot.isEmpty())
             host->grabCanvasTo(canvasShot);
-        const QString jsonOut = qEnvironmentVariable("QUIKVIEW_PROBE_JSON");
+        QString jsonOut = qEnvironmentVariable("SOLEVIEW_PROBE_JSON");
+        if (jsonOut.isEmpty())
+            jsonOut = qEnvironmentVariable("QUIKVIEW_PROBE_JSON");
         if (host && !jsonOut.isEmpty()) {
             QFile jf(jsonOut);
             if (jf.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
@@ -9651,21 +9694,27 @@ void SettingsDialog::probeImgProcLive(const QString &spec, const QString &closeM
     });
     QTimer::singleShot(2400, keepAlive, [host, autoOkGuard, keepAlive]() {
         if (host) {
-            const QString outPath = qEnvironmentVariable(
-                "QUIKVIEW_PROBE_OUT", QStringLiteral("Temp/imgproc-live-probe.txt"));
+            QString outPath = qEnvironmentVariable("SOLEVIEW_PROBE_OUT");
+            if (outPath.isEmpty())
+                outPath = qEnvironmentVariable(
+                    "QUIKVIEW_PROBE_OUT", QStringLiteral("Temp/imgproc-live-probe.txt"));
             QFile f(outPath);
             if (f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
                 QTextStream ts(&f);
                 ts << "[after-close] " << host->imageProcLiveStateDump() << "\n";
             }
-            const QString jsonOut = qEnvironmentVariable("QUIKVIEW_PROBE_JSON");
+            QString jsonOut = qEnvironmentVariable("SOLEVIEW_PROBE_JSON");
+            if (jsonOut.isEmpty())
+                jsonOut = qEnvironmentVariable("QUIKVIEW_PROBE_JSON");
             if (!jsonOut.isEmpty()) {
                 QFile jf(jsonOut);
                 if (jf.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
                     jf.write(QStringLiteral("%1 | after-close\n")
                                  .arg(host->imageProcLiveStateDump()).toUtf8());
             }
-            const QString afterShot = qEnvironmentVariable("QUIKVIEW_PROBE_CANVAS_AFTER");
+            QString afterShot = qEnvironmentVariable("SOLEVIEW_PROBE_CANVAS_AFTER");
+            if (afterShot.isEmpty())
+                afterShot = qEnvironmentVariable("QUIKVIEW_PROBE_CANVAS_AFTER");
             if (!afterShot.isEmpty())
                 host->grabCanvasTo(afterShot);
         }

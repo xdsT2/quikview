@@ -267,8 +267,8 @@
             <translation>Настройки…</translation>
         </message>
         <message>
-            <source>关于 QuikView</source>
-            <translation>О QuikView</translation>
+            <source>关于 SoleView</source>
+            <translation>О SoleView</translation>
         </message>
         <message>
             <source>关闭窗口</source>
@@ -832,8 +832,8 @@
             <translation>Сделать фоном рабочего стола…</translation>
         </message>
         <message>
-            <source>关于 QuikView</source>
-            <translation>О QuikView</translation>
+            <source>关于 SoleView</source>
+            <translation>О SoleView</translation>
         </message>
         <message>
             <source>退出(&amp;Q)</source>
@@ -1516,8 +1516,8 @@
             <translation>Неизвестный мгновенный пункт настроек: %1</translation>
         </message>
         <message>
-            <source>&lt;h3&gt;QuikView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 许可证开源，零遥测、零推广。&lt;/p&gt;</source>
-            <translation>&lt;h3&gt;QuikView&lt;/h3&gt;&lt;p&gt;Версия %1&lt;/p&gt;&lt;p&gt;Открытый код под лицензией MIT. Без телеметрии и рекламы.&lt;/p&gt;</translation>
+            <source>&lt;h3&gt;SoleView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 许可证开源，零遥测、零推广。&lt;/p&gt;</source>
+            <translation>&lt;h3&gt;SoleView&lt;/h3&gt;&lt;p&gt;Версия %1&lt;/p&gt;&lt;p&gt;Открытый код под лицензией MIT. Без телеметрии и рекламы.&lt;/p&gt;</translation>
         </message>
         <message>
             <source>(无图片)</source>
@@ -1640,8 +1640,8 @@
             <translation>Недопустимый путь к редактору изображений; открыто программой по умолчанию.</translation>
         </message>
         <message>
-            <source>&lt;h3&gt;QuikView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 许可证开源，零遥测、零推广。&lt;/p&gt;&lt;p&gt;官网：&lt;a href="https://xdst2.github.io/quikview/"&gt;https://xdst2.github.io/quikview/&lt;/a&gt;&lt;br&gt;GitHub：&lt;a href="https://github.com/xdsT2/quikview"&gt;https://github.com/xdsT2/quikview&lt;/a&gt;&lt;br&gt;QQ 交流群：1134122173&lt;/p&gt;</source>
-            <translation>&lt;h3&gt;QuikView&lt;/h3&gt;&lt;p&gt;Версия %1&lt;/p&gt;&lt;p&gt;Открытый исходный код под лицензией MIT, без телеметрии и рекламы.&lt;/p&gt;&lt;p&gt;Сайт: &lt;a href="https://xdst2.github.io/quikview/"&gt;https://xdst2.github.io/quikview/&lt;/a&gt;&lt;br&gt;GitHub: &lt;a href="https://github.com/xdsT2/quikview"&gt;https://github.com/xdsT2/quikview&lt;/a&gt;&lt;br&gt;Группа QQ: 1134122173&lt;/p&gt;</translation>
+            <source>&lt;h3&gt;SoleView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 许可证开源，零遥测、零推广。&lt;/p&gt;&lt;p&gt;官网：&lt;a href="https://xdst2.github.io/soleview/"&gt;https://xdst2.github.io/soleview/&lt;/a&gt;&lt;br&gt;GitHub：&lt;a href="https://github.com/xdsT2/soleview"&gt;https://github.com/xdsT2/soleview&lt;/a&gt;&lt;br&gt;QQ 交流群：1134122173&lt;/p&gt;</source>
+            <translation>&lt;h3&gt;SoleView&lt;/h3&gt;&lt;p&gt;Версия %1&lt;/p&gt;&lt;p&gt;Открытый исходный код под лицензией MIT, без телеметрии и рекламы.&lt;/p&gt;&lt;p&gt;Сайт: &lt;a href="https://xdst2.github.io/soleview/"&gt;https://xdst2.github.io/soleview/&lt;/a&gt;&lt;br&gt;GitHub: &lt;a href="https://github.com/xdsT2/soleview"&gt;https://github.com/xdsT2/soleview&lt;/a&gt;&lt;br&gt;Группа QQ: 1134122173&lt;/p&gt;</translation>
         </message>
     </context>
     <context>
@@ -2035,12 +2035,12 @@
             <translation>Создаёт папку translations рядом с программой и открывает её в системном проводнике.</translation>
         </message>
         <message>
-            <source>点击后在系统浏览器打开 QuikView 发布页；应用内只报告系统是否接受打开请求。</source>
-            <translation>Открывает страницу загрузки QuikView в системном браузере; приложение сообщает только, приняла ли система запрос.</translation>
+            <source>点击后在系统浏览器打开 SoleView 发布页；应用内只报告系统是否接受打开请求。</source>
+            <translation>Открывает страницу загрузки SoleView в системном браузере; приложение сообщает только, приняла ли система запрос.</translation>
         </message>
         <message>
-            <source>两个入口都会离开 QuikView，应用内只报告系统是否接受打开请求。</source>
-            <translation>Обе кнопки покидают QuikView; приложение сообщает только, приняла ли система запрос.</translation>
+            <source>两个入口都会离开 SoleView，应用内只报告系统是否接受打开请求。</source>
+            <translation>Обе кнопки покидают SoleView; приложение сообщает только, приняла ли система запрос.</translation>
         </message>
         <message>
             <source>当前：%1（生效语言 %2）；选择后立即生效并写入配置。</source>
@@ -2163,8 +2163,8 @@
             <translation>Свернуть</translation>
         </message>
         <message>
-            <source>QuikView 扩展</source>
-            <translation>Расширения QuikView</translation>
+            <source>SoleView 扩展</source>
+            <translation>Расширения SoleView</translation>
         </message>
         <message>
             <source>暂未提供安装：当前版本没有扩展市场、安装包或加载开关。</source>
@@ -2191,22 +2191,22 @@
             <translation>Записывает текущие настройки в .ini — для резервной копии или переноса на ПК</translation>
             <source>导入设置</source>
             <translation>Импорт настроек</translation>
-            <source>从 .ini 文件恢复设置，重启 QuikView 后生效</source>
-            <translation>Восстанавливает настройки из файла .ini; применяется после перезапуска QuikView</translation>
+            <source>从 .ini 文件恢复设置，重启 SoleView 后生效</source>
+            <translation>Восстанавливает настройки из файла .ini; применяется после перезапуска SoleView</translation>
             <source>导出失败</source>
             <translation>Не удалось экспортировать</translation>
             <source>设置已导出</source>
             <translation>Настройки экспортированы</translation>
-            <source>不是有效的 QuikView 设置文件</source>
-            <translation>Это не файл настроек QuikView</translation>
+            <source>不是有效的 SoleView 设置文件</source>
+            <translation>Это не файл настроек SoleView</translation>
             <source>导入失败，原配置未改动</source>
             <translation>Не удалось импортировать; исходная конфигурация не изменена</translation>
-            <source>导入成功，重启 QuikView 后生效</source>
-            <translation>Импорт выполнен; применяется после перезапуска QuikView</translation>
-            <source>QuikView 设置 (*.ini)</source>
-            <translation>Настройки QuikView (*.ini)</translation>
-            <source>QuikView 设置 (*.ini);;所有文件 (*)</source>
-            <translation>Настройки QuikView (*.ini);;Все файлы (*)</translation>
+            <source>导入成功，重启 SoleView 后生效</source>
+            <translation>Импорт выполнен; применяется после перезапуска SoleView</translation>
+            <source>SoleView 设置 (*.ini)</source>
+            <translation>Настройки SoleView (*.ini)</translation>
+            <source>SoleView 设置 (*.ini);;所有文件 (*)</source>
+            <translation>Настройки SoleView (*.ini);;Все файлы (*)</translation>
         </message>
         <message>
             <source>按下组合键…</source>
@@ -2221,8 +2221,8 @@
             <translation>Настройки</translation>
         </message>
         <message>
-            <source>QuikView — 设置</source>
-            <translation>QuikView — Настройки</translation>
+            <source>SoleView — 设置</source>
+            <translation>SoleView — Настройки</translation>
         </message>
         <message>
             <source>搜索设置…</source>
@@ -2277,8 +2277,8 @@
             <translation>Ассоциации</translation>
         </message>
         <message>
-            <source>查看 QuikView 可打开的格式，并在 Windows 中选择默认应用。</source>
-            <translation>Посмотреть форматы, которые открывает QuikView, и выбрать приложения по умолчанию в Windows.</translation>
+            <source>查看 SoleView 可打开的格式，并在 Windows 中选择默认应用。</source>
+            <translation>Посмотреть форматы, которые открывает SoleView, и выбрать приложения по умолчанию в Windows.</translation>
         </message>
         <message>
             <source>键盘</source>
@@ -2313,8 +2313,8 @@
             <translation>Меню правого клика просмотрщика</translation>
         </message>
         <message>
-            <source>自定义 QuikView 查看器内的右键菜单与顶部快捷操作。</source>
-            <translation>Настройка меню правого клика и верхних быстрых действий в просмотрщике QuikView.</translation>
+            <source>自定义 SoleView 查看器内的右键菜单与顶部快捷操作。</source>
+            <translation>Настройка меню правого клика и верхних быстрых действий в просмотрщике SoleView.</translation>
         </message>
         <message>
             <source>杂项</source>
@@ -2333,12 +2333,12 @@
             <translation>Выбрать язык интерфейса и управлять языковыми файлами.</translation>
         </message>
         <message>
-            <source>关于 QuikView</source>
-            <translation>О QuikView</translation>
+            <source>关于 SoleView</source>
+            <translation>О SoleView</translation>
         </message>
         <message>
-            <source>&lt;b&gt;QuikView&lt;/b&gt; %1&lt;br&gt;轻量图片浏览器。</source>
-            <translation>&lt;b&gt;QuikView&lt;/b&gt; %1&lt;br&gt;Легкий просмотрщик изображений.</translation>
+            <source>&lt;b&gt;SoleView&lt;/b&gt; %1&lt;br&gt;轻量图片浏览器。</source>
+            <translation>&lt;b&gt;SoleView&lt;/b&gt; %1&lt;br&gt;Легкий просмотрщик изображений.</translation>
         </message>
         <message>
             <source>恢复默认</source>
@@ -2373,8 +2373,8 @@
             <translation>Не разрешать несколько экземпляров</translation>
         </message>
         <message>
-            <source>重启 QuikView 后生效</source>
-            <translation>Вступит в силу после перезапуска QuikView</translation>
+            <source>重启 SoleView 后生效</source>
+            <translation>Вступит в силу после перезапуска SoleView</translation>
         </message>
         <message>
             <source>总在最前 (Ctrl+A)</source>
@@ -2761,16 +2761,16 @@
             <translation>Не удалось открыть приложения по умолчанию Windows; откройте их вручную из настроек Windows.</translation>
         </message>
         <message>
-            <source>默认打开方式由 Windows 管理，QuikView 不能绕过系统直接改写；若系统里找不到 QuikView，请先运行安装包注册。</source>
-            <translation>Приложения по умолчанию управляются Windows; QuikView не может менять систему напрямую. Если система не находит QuikView, сначала запустите установочный пакет для регистрации.</translation>
+            <source>默认打开方式由 Windows 管理，SoleView 不能绕过系统直接改写；若系统里找不到 SoleView，请先运行安装包注册。</source>
+            <translation>Приложения по умолчанию управляются Windows; SoleView не может менять систему напрямую. Если система не находит SoleView, сначала запустите установочный пакет для регистрации.</translation>
         </message>
         <message>
             <source>支持的格式</source>
             <translation>Поддерживаемые форматы</translation>
         </message>
         <message>
-            <source>以上为 QuikView 能直接打开的全部格式；列表只读，新增格式请随程序版本更新。</source>
-            <translation>Это все форматы, которые QuikView открывает напрямую; список только для чтения и пополняется с версиями программы.</translation>
+            <source>以上为 SoleView 能直接打开的全部格式；列表只读，新增格式请随程序版本更新。</source>
+            <translation>Это все форматы, которые SoleView открывает напрямую; список только для чтения и пополняется с версиями программы.</translation>
         </message>
         <message>
             <source>双击热键录入，Esc 清空。勾选即时生效，改绑需保存。</source>
@@ -3019,8 +3019,8 @@
             <translation>Интеграция с Проводником</translation>
         </message>
         <message>
-            <source>沿用现有只读状态区。右键菜单可见性仅应用于 QuikView。</source>
-            <translation>Использует существующую зону состояния «только чтение». Видимость контекстного меню относится только к QuikView.</translation>
+            <source>沿用现有只读状态区。右键菜单可见性仅应用于 SoleView。</source>
+            <translation>Использует существующую зону состояния «только чтение». Видимость контекстного меню относится только к SoleView.</translation>
         </message>
         <message>
             <source>已注册（仅 64 位，32 位视图未绑定）</source>
@@ -3083,28 +3083,28 @@
             <translation>Переключатель меню оболочки</translation>
         </message>
         <message>
-            <source>在资源管理器右键菜单中显示 QuikView</source>
-            <translation>Показывать QuikView в меню оболочки Проводника</translation>
+            <source>在资源管理器右键菜单中显示 SoleView</source>
+            <translation>Показывать SoleView в меню оболочки Проводника</translation>
         </message>
         <message>
-            <source>关闭后下次右键不插入 QuikView 菜单项；开启恢复各细项的原有选择</source>
-            <translation>Выкл: при следующем щелчке правой кнопкой пункты QuikView не вставляются; вкл — возвращает прежний выбор каждого пункта</translation>
+            <source>关闭后下次右键不插入 SoleView 菜单项；开启恢复各细项的原有选择</source>
+            <translation>Выкл: при следующем щелчке правой кнопкой пункты SoleView не вставляются; вкл — возвращает прежний выбор каждого пункта</translation>
         </message>
         <message>
-            <source>用 QuikView 浏览图片</source>
-            <translation>Просмотр изображений через QuikView</translation>
+            <source>用 SoleView 浏览图片</source>
+            <translation>Просмотр изображений через SoleView</translation>
         </message>
         <message>
-            <source>命令行：quikview.exe "文件"</source>
-            <translation>Командная строка: quikview.exe "файл"</translation>
+            <source>命令行：soleview.exe "文件"</source>
+            <translation>Командная строка: soleview.exe "файл"</translation>
         </message>
         <message>
-            <source>用 QuikView 转换图片</source>
-            <translation>Преобразование изображений через QuikView</translation>
+            <source>用 SoleView 转换图片</source>
+            <translation>Преобразование изображений через SoleView</translation>
         </message>
         <message>
-            <source>命令行：quikview.exe --batch "文件"</source>
-            <translation>Командная строка: quikview.exe --batch "файл"</translation>
+            <source>命令行：soleview.exe --batch "文件"</source>
+            <translation>Командная строка: soleview.exe --batch "файл"</translation>
         </message>
         <message>
             <source>菜单内预览</source>
@@ -3127,8 +3127,8 @@
             <translation>Значок приложения</translation>
         </message>
         <message>
-            <source>菜单项左侧的内嵌 QuikView 图标</source>
-            <translation>Встроенный значок QuikView слева от пунктов меню</translation>
+            <source>菜单项左侧的内嵌 SoleView 图标</source>
+            <translation>Встроенный значок SoleView слева от пунктов меню</translation>
         </message>
         <message>
             <source>本机的右键菜单处理器指向另一处安装（%1）。运行安装包覆盖安装到该目录，或卸载该安装后重装，才能在这里控制右键菜单。</source>
@@ -3151,8 +3151,8 @@
             <translation>Миниатюры Проводника</translation>
         </message>
         <message>
-            <source>这些入口由 QuikView 壳扩展在资源管理器中提供，不是应用内图片右键菜单的功能开关；安装 / 卸载安装包时自动注册 / 移除。菜单开关不会改变文件默认打开方式与这里的缩略图注册。</source>
-            <translation>Эти входы предоставляет расширение оболочки QuikView в Проводнике, это не переключатели контекстного меню изображений в приложении; они регистрируются/снимаются автоматически при установке/удалении пакета. Переключатели меню не меняют приложение по умолчанию и регистрацию миниатюр здесь.</translation>
+            <source>这些入口由 SoleView 壳扩展在资源管理器中提供，不是应用内图片右键菜单的功能开关；安装 / 卸载安装包时自动注册 / 移除。菜单开关不会改变文件默认打开方式与这里的缩略图注册。</source>
+            <translation>Эти входы предоставляет расширение оболочки SoleView в Проводнике, это не переключатели контекстного меню изображений в приложении; они регистрируются/снимаются автоматически при установке/удалении пакета. Переключатели меню не меняют приложение по умолчанию и регистрацию миниатюр здесь.</translation>
         </message>
         <message>
             <source>资源管理器独立预览窗格为后续交付项：旧 shell/ 有实现，尚未接入当前安装包。</source>
@@ -3267,12 +3267,12 @@
             <translation>По умолчанию выключено; включённое действует со следующего открытого изображения</translation>
         </message>
         <message>
-            <source>运行 QuikView 时禁用 Windows 屏幕保护程序</source>
-            <translation>Отключать хранитель экрана Windows, пока работает QuikView</translation>
+            <source>运行 SoleView 时禁用 Windows 屏幕保护程序</source>
+            <translation>Отключать хранитель экрана Windows, пока работает SoleView</translation>
         </message>
         <message>
-            <source>退出 QuikView 后恢复系统屏保设置</source>
-            <translation>Восстанавливает системную настройку хранителя экрана при выходе из QuikView</translation>
+            <source>退出 SoleView 后恢复系统屏保设置</source>
+            <translation>Восстанавливает системную настройку хранителя экрана при выходе из SoleView</translation>
         </message>
         <message>
             <source>RAW 选项只影响 RAW 文件的打开方式；勾选「不打开 RAW 图片文件」时，JPEG 旁的 RAW 也不会被自动带出。翻页音效在下次翻页时生效。</source>
@@ -3283,8 +3283,8 @@
             <translation>Язык интерфейса</translation>
         </message>
         <message>
-            <source>保存后生效；重启 QuikView 后切换界面</source>
-            <translation>Действует после сохранения; интерфейс переключится после перезапуска QuikView</translation>
+            <source>保存后生效；重启 SoleView 后切换界面</source>
+            <translation>Действует после сохранения; интерфейс переключится после перезапуска SoleView</translation>
         </message>
         <message>
             <source>语言资源</source>
@@ -3308,13 +3308,13 @@
         </message>
         <message>
             <source>无法打开浏览器。请手动访问：
-https://github.com/xdsT2/quikview</source>
+https://github.com/xdsT2/soleview</source>
             <translation>Не удалось открыть браузер. Зайдите вручную:
-https://github.com/xdsT2/quikview</translation>
+https://github.com/xdsT2/soleview</translation>
         </message>
         <message>
-            <source>语言文件按程序目录下的 translations 加载；两个入口都会离开 QuikView，应用内只报告启动是否成功。语言选择是待保存项：关闭时可选「保存并关闭」，重启后生效。</source>
-            <translation>Языковые файлы загружаются из translations рядом с программой; оба входа покидают QuikView, приложение сообщает только об успехе запуска. Выбор языка — пункт, ожидающий сохранения: при закрытии можно выбрать «Сохранить и закрыть», действует после перезапуска.</translation>
+            <source>语言文件按程序目录下的 translations 加载；两个入口都会离开 SoleView，应用内只报告启动是否成功。语言选择是待保存项：关闭时可选「保存并关闭」，重启后生效。</source>
+            <translation>Языковые файлы загружаются из translations рядом с программой; оба входа покидают SoleView, приложение сообщает только об успехе запуска. Выбор языка — пункт, ожидающий сохранения: при закрытии можно выбрать «Сохранить и закрыть», действует после перезапуска.</translation>
         </message>
         <message>
             <source>配置文件写入失败（%1）</source>
@@ -3607,8 +3607,8 @@ https://github.com/xdsT2/quikview</translation>
             <translation>Лицензия MIT, исходный код размещён на GitHub</translation>
         </message>
         <message>
-            <source>QuikView 是开源的 Windows 图片查看器：C++ 与 Qt 6 构建，不收集使用数据，不含推广内容。</source>
-            <translation>QuikView — открытый просмотрщик изображений для Windows на C++ и Qt 6 без сбора данных и рекламы.</translation>
+            <source>SoleView 是开源的 Windows 图片查看器：C++ 与 Qt 6 构建，不收集使用数据，不含推广内容。</source>
+            <translation>SoleView — открытый просмотрщик изображений для Windows на C++ и Qt 6 без сбора данных и рекламы.</translation>
         </message>
         <message>
             <source>链接</source>
@@ -3619,12 +3619,12 @@ https://github.com/xdsT2/quikview</translation>
             <translation>Официальный сайт</translation>
         </message>
         <message>
-            <source>打开 QuikView 官网</source>
-            <translation>Открыть официальный сайт QuikView</translation>
+            <source>打开 SoleView 官网</source>
+            <translation>Открыть официальный сайт SoleView</translation>
         </message>
         <message>
-            <source>打开 QuikView GitHub 仓库</source>
-            <translation>Открыть репозиторий QuikView на GitHub</translation>
+            <source>打开 SoleView GitHub 仓库</source>
+            <translation>Открыть репозиторий SoleView на GitHub</translation>
         </message>
         <message>
             <source>无法打开浏览器。请手动访问：
@@ -3641,8 +3641,8 @@ https://github.com/xdsT2/quikview</translation>
             <translation>Нажмите, чтобы скопировать номер группы QQ: %1</translation>
         </message>
         <message>
-            <source>复制 QuikView QQ 交流群号</source>
-            <translation>Скопировать номер группы QQ QuikView</translation>
+            <source>复制 SoleView QQ 交流群号</source>
+            <translation>Скопировать номер группы QQ SoleView</translation>
         </message>
         <message>
             <source>%1（已复制）</source>

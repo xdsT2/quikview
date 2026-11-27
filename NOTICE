@@ -1,5 +1,5 @@
-QuikView
-Copyright (c) 2026 QuikView contributors
+SoleView
+Copyright (c) 2026 SoleView contributors
 
 本项目的源代码与界面素材以 MIT 许可证发布，全文见 LICENSE。
 
@@ -20,7 +20,7 @@ resources/skin/ 下的全部 PNG 均为本项目用程序化几何绘制（PIL �
 文件的尺寸、帧数、帧内状态语义（常态 / 悬停 / 按下 / 禁用）以及界面热区坐标，
 属于功能性参数，用于与既有代码的接口保持一致。
 
-应用图标 resources/quikview.ico 同样由本项目程序化生成（10 个尺寸，16–256 px），
+应用图标 resources/soleview.ico 与保留兼容图标 resources/quikview.ico 同样由本项目自绘，
 不含任何第三方图标素材。
 
 本文件所述的「自绘」指图形元素（形状、颜色、线宽、图标画法）由生成器从头绘制，
@@ -74,7 +74,7 @@ LGPL 组件的义务要点（以各组件许可证原文为准）：保留版权
 四、商标与关联声明
 ===============================================================================
 
-"QuikView" 是本项目的名称。
+"SoleView" 是本项目的名称（曾用名 "QuikView"）。
 
 本项目与 Bandisoft 及其产品 Honeyview 无任何隶属、授权、赞助或背书关系。
 "Honeyview" 是 Bandisoft 的商标，仅用于客观说明本项目所参照的行为规格来源。

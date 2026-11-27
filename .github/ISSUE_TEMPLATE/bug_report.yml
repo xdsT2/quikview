@@ -1,16 +1,16 @@
 name: Bug 反馈 / Bug Report
-description: 报告 QuikView 崩溃、显示异常或功能故障
+description: 报告 SoleView 崩溃、显示异常或功能故障
 title: "[Bug]: "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        感谢反馈 QuikView 使用中的问题！请尽量填写下方环境与复现信息，便于快速定位。
+        感谢反馈 SoleView 使用中的问题！请尽量填写下方环境与复现信息，便于快速定位。
   - type: input
     id: version
     attributes:
-      label: QuikView 版本（Version）
+      label: SoleView 版本（Version）
       description: 可在软件菜单「关于」中查看版本号，并注明安装版或便携版。
       placeholder: 例如：v0.6.0 安装版 / portable
     validations:

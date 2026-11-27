@@ -34,11 +34,13 @@
 namespace LangRuntime {
 
 // 「下载更多语言」与「打开语言文件夹」的落点都是程序目录下的 translations：
-// 用户把 quikview_<语言>.qm 放进去，apply() 就能装到。测试可用
-// QUIKVIEW_TEST_LANGDIR 指到隔离目录，避免在真实安装目录里造目录。
+// 用户把 soleview_<语言>.qm 放进去，apply() 就能装到（兼容旧 quikview_<语言>.qm）。
+// 测试可用 SOLEVIEW_TEST_LANGDIR（回退 QUIKVIEW_TEST_LANGDIR）指到隔离目录。
 inline QString translationsDir()
 {
-    const QByteArray override = qgetenv("QUIKVIEW_TEST_LANGDIR");
+    QByteArray override = qgetenv("SOLEVIEW_TEST_LANGDIR");
+    if (override.isEmpty())
+        override = qgetenv("QUIKVIEW_TEST_LANGDIR");
     if (!override.isEmpty())
         return QDir::cleanPath(QString::fromLocal8Bit(override));
     return QCoreApplication::applicationDirPath() + QStringLiteral("/translations");
@@ -126,9 +128,12 @@ public:
     bool loadQm(const QString &code)
     {
         auto *next = new QTranslator;
-        const QString base = QStringLiteral("quikview_") + code;
+        const QString base = QStringLiteral("soleview_") + code;
+        const QString legacyBase = QStringLiteral("quikview_") + code;
+        const QString dir = translationsDir();
         const bool ok = next->load(base, QStringLiteral(":/i18n"))
-                        || next->load(translationsDir() + QLatin1Char('/') + base);
+                        || next->load(dir + QLatin1Char('/') + base)
+                        || next->load(dir + QLatin1Char('/') + legacyBase);
         if (!ok) {
             delete next;
             return false;
@@ -204,7 +209,7 @@ public:
                 *error = QCoreApplication::translate(
                              "SettingsDialog",
                              "缺少 %1.qm（已查找内置 i18n 与 translations 目录）")
-                             .arg(QStringLiteral("quikview_") + eff);
+                             .arg(QStringLiteral("soleview_") + eff);
             }
             return false;
         }

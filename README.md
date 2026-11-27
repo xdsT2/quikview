@@ -1,27 +1,27 @@
-# QuikView
+# SoleView
 
-QuikView 是一款开源的 Windows 看图器，支持目录翻页、双页阅览、EXIF 查看和批量转换。使用 C++ 和 Qt 6 构建，采用 MIT 许可证。
+SoleView 是一款开源的 Windows 看图器，支持目录翻页、双页阅览、EXIF 查看和批量转换。使用 C++ 和 Qt 6 构建，采用 MIT 许可证。
 
-[![CI](https://github.com/xdsT2/quikview/actions/workflows/ci.yml/badge.svg)](https://github.com/xdsT2/quikview/actions/workflows/ci.yml)
-[![下载](https://img.shields.io/github/v/release/xdsT2/quikview?include_prereleases&label=%E4%B8%8B%E8%BD%BD)](https://github.com/xdsT2/quikview/releases)
+[![CI](https://github.com/xdsT2/soleview/actions/workflows/ci.yml/badge.svg)](https://github.com/xdsT2/soleview/actions/workflows/ci.yml)
+[![下载](https://img.shields.io/github/v/release/xdsT2/soleview?include_prereleases&label=%E4%B8%8B%E8%BD%BD)](https://github.com/xdsT2/soleview/releases)
 
 **简体中文** | [English](README.en.md)
 
-> **Windows x64 下载** · 到[最新发布页](https://github.com/xdsT2/quikview/releases/latest)选择安装版或便携 ZIP。便携版解压即可运行，无需另装 Qt。
-> **官方网站**：[https://xdst2.github.io/quikview/](https://xdst2.github.io/quikview/) · **QQ 交流群**：`1134122173`
+> **Windows x64 下载** · 到[最新发布页](https://github.com/xdsT2/soleview/releases/latest)选择安装版或便携 ZIP。便携版解压即可运行，无需另装 Qt。
+> **官方网站**：[https://xdst2.github.io/soleview/](https://xdst2.github.io/soleview/) · **QQ 交流群**：`1134122173`
 
-> **0.6.1** 是 0.6.0 的增量更新：启动恢复改为可选、默认关闭（升级后无参启动进欢迎页）；「打开」改用 Windows 原生文件对话框并合为一个入口，F / 自定义备用键修好；顶栏移除书签 / 幻灯片 / 编辑 / 复制到四个入口（功能仍在三横菜单、右键与快捷键），独立裁剪命令退役；十个设置项改为即时生效（强锐化、缓存、插值、翻页效果、幻灯片启用等），六个下拉与四个弹窗统一 Fluent 外壳，开关统一 40×22；总览缩略图支持五档缩放与缓存自适应，剪贴板增加裸位图解码与启动清理，「定位文件」在资源管理器中直接选中图片；全景修正仰视 / 俯视投影，关于页启用官网与 QQ 交流群。完整清单见 [更新日志](CHANGELOG.md) 与 [发布说明](https://github.com/xdsT2/quikview/releases/tag/v0.6.1)。
+> **0.6.1** 是 0.6.0 的增量更新（全项目已由 QuikView 统一更名为 **SoleView**）：启动恢复改为可选、默认关闭（升级后无参启动进欢迎页）；「打开」改用 Windows 原生文件对话框并合为一个入口，F / 自定义备用键修好；顶栏移除书签 / 幻灯片 / 编辑 / 复制到四个入口（功能仍在三横菜单、右键与快捷键），独立裁剪命令退役；十个设置项改为即时生效（强锐化、缓存、插值、翻页效果、幻灯片启用等），六个下拉与四个弹窗统一 Fluent 外壳，开关统一 40×22；总览缩略图支持五档缩放与缓存自适应，剪贴板增加裸位图解码与启动清理，「定位文件」在资源管理器中直接选中图片；全景修正仰视 / 俯视投影，关于页启用官网与 QQ 交流群。完整清单见 [更新日志](CHANGELOG.md) 与 [发布说明](https://github.com/xdsT2/soleview/releases/tag/v0.6.1)。
 
-![QuikView 主窗口：顶部栏与底部控制胶囊浮在照片上](docs/screenshots/01-main.webp)
+![SoleView 主窗口：顶部栏与底部控制胶囊浮在照片上](docs/screenshots/01-main.webp)
 
 > 想先知道**实现到什么程度、哪些还没做**？看 [ROADMAP.md](ROADMAP.md)。
 > 自测入口（`--smoke` / `--probe`）与架构取舍见 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-本项目**从零重写**，不包含任何第三方专有代码或二进制。其功能范围与架构理解，来自对 Honeyview（Bandisoft 已停更的免费看图器）官方安装包的逆向分析——但这是两个独立的工程：QuikView 是原创实现。
+本项目**从零重写**，不包含任何第三方专有代码或二进制。其功能范围与架构理解，来自对 Honeyview（Bandisoft 已停更的免费看图器）官方安装包的逆向分析——但这是两个独立的工程：SoleView 是原创实现。
 
 ## 界面一览
 
-截图全部由 QuikView 自己渲染（不是系统抓屏），点开任意一张看细节。
+截图全部由 SoleView 自己渲染（不是系统抓屏），点开任意一张看细节。
 
 | 浏览与查看 | 效果与配置 |
 |:--:|:--:|
@@ -85,7 +85,7 @@ cmake --build build
 ```bash
 cmake -S shell-ext -B build-shell64 -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
 cmake --build build-shell64
-# 管理员注册：shell-ext/scripts/Register-QuikThumb.ps1
+# 管理员注册：shell-ext/scripts/Register-SoleThumb.ps1
 ```
 
 32 位交叉构建、自测与卸载见 [shell-ext/README.md](shell-ext/README.md)。
@@ -108,14 +108,14 @@ translations/ 语言文件（9 种语言的 .ts）
 resources/    图标与界面素材（全部原创绘制，见 docs/ATTRIBUTION.md）
 config/       便携配置（config.ini，不入库）
 docs/         截图、素材来源与设计规范
-website/      官方静态网站源码（部署至 https://xdst2.github.io/quikview/）
+website/      官方静态网站源码（部署至 https://xdst2.github.io/soleview/）
 packaging/    NSIS 安装包脚本
 ```
 
 ## 素材与许可
 
-界面素材（`resources/skin/`）与应用图标（`resources/quikview.ico`）全部为本项目程序化绘制，
-不含任何第三方图像素材。每个文件的尺寸、字节数与 SHA-256 记在
+界面素材（`resources/skin/`）与保留图标（`resources/quikview.ico`）为本项目程序化绘制，
+并启用全新 SoleView 应用图标（`resources/soleview.ico`），不含任何第三方图像素材。每个文件的尺寸、字节数与 SHA-256 记在
 `resources/skin/PROVENANCE.json`（`source` 字段区分脚本生成与烘焙两类）；
 生成器与设计参数见 [docs/ATTRIBUTION.md](docs/ATTRIBUTION.md)。
 
@@ -123,7 +123,7 @@ packaging/    NSIS 安装包脚本
 
 ## 致谢
 
-QuikView 由作者与以下 AI 协作工具共同完成设计、实现、测试与文档工作：
+SoleView 由作者与以下 AI 协作工具共同完成设计、实现、测试与文档工作：
 
 - **Agent 平台**：ChatGPT、WorkBuddy、Trae、豆包、ZCode、OpenCode。
 - **模型**：DeepSeek-V4.1 flash、GLM-5.3 flash、GLM 5.3、ChatGPT 6.1 solo、ChatGPT 6.2 solo。

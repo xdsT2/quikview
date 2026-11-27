@@ -96,7 +96,7 @@ private:
     bool hasCurrentGenWork() const;
     // 快帧/RAW 缩略图回主线程上屏；代次不符（已被后续跳转作废）则丢弃。
     void emitPreview(const QString &path, const QImage &img, quint64 generation);
-    // 批次04 取证：QUIKVIEW_IMAGEPROC_PROBE=1 时把缓存上限/预读/命中写进
+    // 批次04 取证：SOLEVIEW_IMAGEPROC_PROBE=1（兼容 QUIKVIEW_IMAGEPROC_PROBE=1）时把缓存上限/预读/命中写进
     // Temp/imageproc-live-probe.txt；未置位时是空函数，不影响正常路径。
     void probeLog(const QString &line) const;
 

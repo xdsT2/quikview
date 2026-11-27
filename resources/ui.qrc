@@ -6,8 +6,9 @@
         <file>ui/check-light.png</file>
         <file>ui/chevron-down.png</file>
         <file>ui/chevron-right.png</file>
-        <!-- 应用图标：路径 :/quikview.ico。main.cpp 图标链的最后一层兜底，
-             保证安装目录里没有外部 .ico 时窗口/任务栏仍有图标。 -->
+        <!-- 应用图标：路径 :/soleview.ico（并保留 :/quikview.ico 兼容兜底）。
+             main.cpp 图标链的最后一层兜底，保证安装目录里没有外部 .ico 时窗口/任务栏仍有图标。 -->
+        <file>soleview.ico</file>
         <file>quikview.ico</file>
         <!-- Fluent 功能图标（图标派单 2026-11-18，唯一来源：src/AppIcon.cpp 映射表）。
              这一段由 tools/install-fluent-icons.py 生成，只登记程序实际使用的

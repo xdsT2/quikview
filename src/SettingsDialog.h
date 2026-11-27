@@ -39,7 +39,7 @@ namespace Chrome {
 class Toast;
 }
 
-// 设置对话框：QuikView 深色三栏布局（视觉真源 Temp/quikview-secondary-prototype.html）。
+// 设置对话框：SoleView 深色三栏布局（视觉真源 Temp/soleview-secondary-prototype.html）。
 // 顶部 43px 标题栏 + 左侧 204px 导航（搜索 + 11 个 navItem）+ 1px 竖分隔 + 内容区 + 62px footer。
 // 11 页：一般 / 浏览 / 外观 / 图像处理 / 格式关联 / 键盘 / 鼠标 / 书签 / 上下文菜单 / 杂项 / 语言。
 //
@@ -294,7 +294,7 @@ private:
     void buildAppMenuSections(QWidget *page);
 
     // —— 设置导出 / 导入（需求池 H1-3）——
-    // 作用对象是「当前生效的那份 ini」：QUIKVIEW_CONFIG_PATH > 便携目录 config.ini
+    // 作用对象是「当前生效的那份 ini」：SOLEVIEW_CONFIG_PATH > 便携目录 config.ini
     // > 系统配置目录，与 Config::defaultConfigPath 同一来源，不写死 %APPDATA%。
     QString settingsIniPath() const;
     // 三重校验：QSettings 能解析 / 含 [config] 段 / 至少 5 个本项目已知键。
