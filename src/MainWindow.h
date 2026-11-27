@@ -417,6 +417,9 @@ private:
     // 识别只读 JPEG 头部的 XMP，异步跑在线程池里；m_panoGen 是代次令牌，
     // 快速翻图时旧结果回来直接丢弃（「连续切到普通图时旧图的入口不会留在新图上」）。
     void updatePanoProbe(const QString &path);
+    // D1-2(b)：动图帧表/整套帧解码移出 GUI 线程，后台备好后按代次+路径双令牌换入；
+    // 首帧已随全图上屏，其余帧后台补齐。
+    void openFramesAsync(const QString &path);
     // 全景入口唯一落点：组件已装 → 显式启动独立进程；未装 → 定位到「设置 → 扩展」
     // 的组件行；启动失败保留原图与缩放，只给可操作的 toast。
     void onOpenPano();
