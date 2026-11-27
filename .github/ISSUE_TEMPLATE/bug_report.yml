@@ -1,0 +1,55 @@
+name: Bug 反馈 / Bug Report
+description: 报告 QuikView 崩溃、显示异常或功能故障
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈 QuikView 使用中的问题！请尽量填写下方环境与复现信息，便于快速定位。
+  - type: input
+    id: version
+    attributes:
+      label: QuikView 版本（Version）
+      description: 可在软件菜单「关于」中查看版本号，并注明安装版或便携版。
+      placeholder: 例如：v0.6.0 安装版 / portable
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Windows 版本（OS）
+      description: 请选择当前使用的操作系统。
+      options:
+        - Windows 11
+        - Windows 10
+        - 其他
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: 问题描述与预期行为（Summary & Expected Behavior）
+      description: 请描述发生了什么问题，以及正常情况下您期望出现什么结果。
+      placeholder: 实际现象：... / 预期行为：...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤（Steps to Reproduce）
+      description: 尽量写清触发步骤，以及涉及的图片格式、分辨率、是否使用多屏或高 DPI 缩放。
+      placeholder: |
+        1. 打开 ... 格式图片（分辨率 ...）
+        2. 执行 ... 操作
+        3. 出现 ... 异常
+    validations:
+      required: true
+  - type: textarea
+    id: attachments
+    attributes:
+      label: 截图、日志或复现样本（Screenshots / Logs，选填）
+      description: 可直接粘贴截图，或附带脱敏后的最小复现样本说明。注意：GitHub Issue 对所有人公开，请勿上传包含个人隐私的照片或信息。
+      placeholder: 截图、报错信息或补充说明（如多屏/DPI 缩放比例等）
+    validations:
+      required: false
