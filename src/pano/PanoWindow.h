@@ -13,7 +13,7 @@ class PanoWindow : public QWidget
     Q_OBJECT
 public:
     explicit PanoWindow(const QString &imagePath, double heading, double pitch, double fov,
-                        QWidget *parent = nullptr);
+                        double ev = 0.0, QWidget *parent = nullptr);
 
     bool ok() const { return m_ok; }
     PanoGlobe *globe() const { return m_globe; }
@@ -32,5 +32,6 @@ private:
     QWidget *m_hud = nullptr;
     QPushButton *m_resetBtn = nullptr;
     QLabel *m_fovLabel = nullptr;
+    QLabel *m_evLabel = nullptr;
     bool m_ok = false;
 };

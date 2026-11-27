@@ -292,8 +292,21 @@ add_executable(quikview-pano WIN32
     src/pano/PanoWindow.h
     src/pano/PanoGlobe.cpp
     src/pano/PanoGlobe.h
+    # HDR(Radiance RGBE) / EXR 查看器浮点纹理链路（派单 2026-11-27）：复用主程序
+    # 同一套自研解码内核与盒式降采样；miniz 复用 Psd 既有 Psdminiz.cpp，
+    # 不新增第三方库或 DLL。平面 HdrImageLoader 面向主窗 8bit 出图，组件不编入。
+    src/HdrError.cpp
+    src/HdrError.h
+    src/ExrStream.cpp
+    src/ExrStream.h
+    src/HdrRadiance.cpp
+    src/HdrRadiance.h
+    src/BoxDownsampler.h
+    src/Half.h
+    src/RenderSdr.h
+    third_party/psd_sdk/Psdminiz.cpp
 )
-target_include_directories(quikview-pano PRIVATE src)
+target_include_directories(quikview-pano PRIVATE src third_party/psd_sdk)
 target_compile_definitions(quikview-pano PRIVATE
     QUIKVIEW_PANO_VERSION="${PROJECT_VERSION}")
 target_link_libraries(quikview-pano PRIVATE Qt6::Widgets)

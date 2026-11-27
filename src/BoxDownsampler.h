@@ -31,6 +31,10 @@ public:
     const float* rowData(int y) const { return m_dst.data() + (size_t)y * m_dw * 3; }
     const float* frameData() const { return m_dst.data(); }
 
+    // 把内部累加帧移交给调用方（调用方需要持有持久线性纹理时，避免第二份整帧拷贝）；
+    // 调用后 frameData()/rowData() 不再有效。
+    std::vector<float> releaseFrame() { return std::move(m_dst); }
+
     // 推送一条源扫描线，rgb 长度 srcW*3（R,G,B 线性 float）。
     void pushRow(int srcY, const float* rgb) {
         int dy = std::min(m_dh - 1, std::max(0, srcY * m_dh / m_sh));
