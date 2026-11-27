@@ -5,7 +5,7 @@
 
 ## 模块划分
 
-`src/` 共 41 个 `.cpp` + 49 个 `.h`，合计 44,274 行（`.cpp` 37,211 + `.h` 7,063），其中 `src/pano/` 的 3+3 个文件属于独立可执行目标（见「子项目」）。按职责分五层（表内行数为模块规模快照，2026-11-22 实测，以文件实际内容为准）。
+`src/` 共 43 个 `.cpp` + 56 个 `.h`（不含 `src/pano/`），合计 50,971 行（`.cpp` 43,013 + `.h` 7,958），其中 `src/pano/` 的 3+2 个文件属于独立可执行目标（见「子项目」）。按职责分五层（表内行数为模块规模快照，2026-11-27 实测，以文件实际内容为准）。
 
 **入口与外壳**
 
@@ -41,6 +41,10 @@
 | `ExifParser` | 335 + 30 | 自研 EXIF / GPS 解析，无 GPL 依赖；提供打印尺寸用的 DPI |
 | `ImageFacts` | 201 + 26 | 只读文件头取像素尺寸与 EXIF 拍摄日期，供图片总览按日期 / 大小分组；读不到即「未知」，不拿文件修改时间冒充 |
 | `SvgLoader` | 179 + 36 | SVG 打开：头部嗅探 + `QSvgRenderer` 栅格化，8MB 读入上限、单边 4096px / 800 万像素栅格上限，不依赖 `imageformats/qsvg` 插件 |
+| `HdrImageLoader` | 305 + 45 | HDR / EXR 产品侧入口：扩展名识别、流式逐行 + 盒式降采样编排、默认 EV（环境变量 `QUIKVIEW_HDR_EV`，夹在 −8 ~ +8）、内核错误 → `LoadErrorCategory` 映射 |
+| `ExrStream` | 423 + 99 | OpenEXR 单帧 scanline 流式解析：头 / 通道 / 行数据逐行读取，ZIP 压缩复用 in-tree miniz 的 `tinfl`；一次只驻留当前行缓冲，不整帧常驻 |
+| `HdrRadiance` | 193 + 55 | Radiance RGBE（.hdr / .rgbe）自研解码，逐行返回线性 RGB float |
+| `HdrError` | 81 + 79 | HDR / EXR 错误状态与类别（`Ok` / `Corrupt` / `Unsupported` / `Io`），上层映射到 `LoadErrorCategory` |
 | `ZipArchive` | 495 + 102 | ZIP / CBZ 只读解析：自研 EOCD / 中央目录 / 局部头，解压复用 in-tree miniz 的 `tinfl` 与 `mz_crc32`；只认 store / deflate，不落盘、不解密、不支持分卷 |
 | `ArchiveStore` | 392 + 78 | 压缩包「虚拟目录」唯一入口：包注册表、虚拟路径拼装/拆分、条目解码；**包内条目路径 = 包路径 + `/` + 条目名** |
 | `PsdLoader` | 331 + 67 | PSD/PSB 解析：`psd_sdk`（BSD-2，vendor）适配层，只覆盖 8bit RGB / PSD v1；整图用文件内原始合成预览，逐层重合成不在范围内 |
@@ -80,7 +84,7 @@
 | 目录 | 说明 |
 |---|---|
 | `shell-ext/` | 资源管理器壳扩展：缩略图提供程序（`IThumbnailProvider`）+ 右键菜单（`IContextMenu`），纯 Win32 裸 COM，不依赖 Qt。64 位 MinGW 静态构建为主交付物 |
-| `src/pano/` | **360° 全景查看器**：独立可执行目标 `quikview-pano.exe`（`PanoGlobe` 每像素反投视线求经纬 + 双线性采样、横向环绕、纵向夹极；`PanoWindow` 拖动 / 滚轮 / 双击复位 / Esc 关闭 + 底部 HUD）。只链 `Qt6::Widgets`，**不引第三方全景库、不用 OpenGL**：软件光栅，交互期半分辨率、停手 120ms 补全分辨率。`main.cpp` 解析 `--image/--heading/--pitch/--fov/--bench/--bench-out/--bench-shot`，参数逐个传递不拼引号，退出码 2 表示参数或解码失败 |
+| `src/pano/` | **360° 全景查看器**：独立可执行目标 `quikview-pano.exe`（`PanoGlobe` 每像素反投视线求经纬 + 双线性采样、横向环绕、纵向夹极；`PanoWindow` 拖动 / 滚轮 / 双击复位 / Esc 关闭 + 底部 HUD）。只链 `Qt6::Widgets`，**不引第三方全景库、不用 OpenGL**：软件光栅，交互期半分辨率、停手 120ms 补全分辨率。`main.cpp` 解析 `--image/--heading/--pitch/--fov/--ev/--bench/--bench-out/--bench-shot`，参数逐个传递不拼引号，退出码 2 表示参数或解码失败 |
 | `shell/` | 早期壳扩展实现（缩略图 + 预览窗格），保留备查，不再是主交付物 |
 | `packaging/` | NSIS 安装包脚本（`quikview.nsi`） |
 | `translations/` | 9 种语言的 `.ts`（简繁中文、英、日、韩、法、德、西、俄） |
@@ -116,10 +120,41 @@
 - 构建：CMake ≥ 3.16 + Ninja；Qt 6（Widgets / Concurrent / PrintSupport / Network / Svg / LinguistTools）
 - `Qt6::Svg`（2026-11-18 起）：功能图标全部由 `QSvgRenderer` 渲染，`find_package(Qt6 ... Svg)` 是硬依赖（构建机必须补上这一模块）。运行期若安装目录缺 `Qt6Svg.dll`，`AppIcon::available()` 变 false，图标整体缺席但界面照常可用、不黑块不崩溃；打包时 `tools/package.sh` 硬校验 `Qt6Svg.dll` 在 staging 里，缺了直接失败。
 - 可选解码：libraw、libheif（都走 `pkg_check_modules`，缺失时降级而非编译失败）
-- 内嵌第三方（`third_party/`，随源码编译、不额外装 DLL）：`psd_sdk`（BSD-2，PSD/PSB 二进制解析，`PsdLoader` 只做适配）、`nanosvg`（zlib，壳扩展的 SVG 缩略图软渲染）、以及 psd_sdk 自带的 miniz（public domain，只编 `tinfl` 与 `mz_crc32`，供 `ZipArchive` 解压与校验）
+- 内嵌第三方（`third_party/`，随源码编译、不额外装 DLL）：`psd_sdk`（BSD-2，PSD/PSB 二进制解析，`PsdLoader` 只做适配）、`nanosvg`（zlib，壳扩展的 SVG 缩略图软渲染）、以及 psd_sdk 自带的 miniz（public domain，只编 `tinfl` 与 `mz_crc32`，供 `ZipArchive` 解压与校验；HDR/EXR 轮的 EXR ZIP 解压同样复用这份 miniz，未新增第三方库或 DLL）
 - Windows 专有：`winmm`（翻页音效，运行时合成 WAV 走 `PlaySoundW` 异步播放）
 - 打包期约定（0.5.6 起）：360° 组件**不进 staging**——`tools/package.sh` 把它放在输出目录的 `_pano-payload/`，`tools/package-installer.sh` 用 `/DEXTSRC` 指给 NSIS 的可选节；主安装节递归 `staging\*` 时目录里没有它，「不勾选就不装」由目录布局保证（早期 `/x "extensions\*.*"` 实测拦不住，已弃用）。
 - 说明：Honeyview 用到的 libbpg 生态已停更，BPG 支持列为可选、不阻塞主线
+
+## HDR / EXR 解码与色彩管线
+
+### 解码链
+
+- **Radiance RGBE**（`.hdr` / `.rgbe`）：`HdrRadiance` 自研解码，逐行返回线性 RGB float，无第三方依赖。
+- **OpenEXR**（`.exr`）：`ExrStream` 按 scanline 分块流式读取；只支持单帧、单部件、ZIP 压缩（UINT / HALF / FLOAT 像素类型）。ZIP 解压调用 in-tree miniz 的 `tinfl_decompress_mem_to_mem`，CRC / adler 用 miniz 既有能力；一次只驻留当前 chunk 与当前行，不做整帧 float 缓冲。
+- **降采样**：盒式（box）累加降采样器只驻留「一行源行缓冲 + 一份目标累加帧」；超上限先压到显示上限，再向视口 / 缩略图盒收缩，只缩不放。
+- **错误分类**：内核状态 `Ok` / `Corrupt` / `Unsupported` / `Io`，经 `HdrImageLoader` 映射到产品 `LoadErrorCategory`（`Corrupt` / `Unsupported`）；截断、读不出归 `Corrupt`，格式 / 压缩 / 部件不在白名单归 `Unsupported`，UI 按类别取文案，不把「打不开」一律说成格式不认识。
+
+### 色彩管线
+
+- 顺序：线性浮点帧 → 曝光增益 `2^EV`（负值压暗、正值提亮）→ 下限截零 → Reinhard 压缩 `v/(1+v)` → sRGB 查找表编码 → RGB888（色彩空间标记 sRGB）。
+- HDR 内核在出帧前已压到 SDR；既有 `ToneMap` / ICC 链路只作用在这份 SDR 图像上，不做第二次 HDR 映射，避免双重映射。
+- 主窗默认 EV 取环境变量 `QUIKVIEW_HDR_EV`（浮点，夹在 −8 ~ +8，缺省 0）；全景查看器 `--ev` 与键位 `[` / `]`、`+` / `-` 调档（−5 ~ +5），`0` 复位曝光，`R` 复位视角。
+
+### 依赖与许可证
+
+- 本轮**零新增第三方库、零新增 DLL**：EXR ZIP 复用仓库既有 miniz（Unlicense / 公有领域，vendored `third_party/psd_sdk/Psdminiz.cpp`，miniz v1.15, Rich Geldreich；上游 <https://github.com/richgel999/miniz>）；Radiance 为自研解码。未接入 OpenEXR（ASWF, BSD-3）/ tinyexr（BSD-3）/ stb_image：前者带来动态库与传递依赖，tinyexr V1 为整帧解码模型，stb 不支持 EXR。
+
+### 上限与内存口径
+
+- 主窗平面显示纹理上限 8192×4096（`QUIKVIEW_HDR_TEXW` / `QUIKVIEW_HDR_TEXH` 仅内存受限复测开关，不改默认）；16K 平面峰值内存约 600 MiB。
+- 全景查看器浮点纹理上限 4096×2048（`QUIKVIEW_PANO_TEXW` / `QUIKVIEW_PANO_TEXH` 复测开关），RGB float 纹理约 96 MiB，进程峰值约 145 MiB。
+- 超上限先盒式降采样，不在内存里常驻整帧线性浮点；内存口径以实测样本为准。
+
+### 支持范围与不支持清单
+
+- 支持：Radiance RGBE（`.hdr` / `.rgbe`）；OpenEXR 单帧 scanline ZIP，UINT / HALF / FLOAT。
+- 不支持（本轮）：tiled 分块、多部件（multi-part）、DEEP 数据、PIZ / RLE / B44 等非 ZIP 压缩、非 scanline 布局；不支持的类型在错误提示里与文件损坏区分。
+- 导出侧：现有另存 / 批量转换仍是 SDR 编码，不输出真 HDR（浮点或 HDR 编码）文件。
 
 ## 冒烟入口
 

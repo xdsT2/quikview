@@ -54,6 +54,7 @@ QuikView 是一款开源的 Windows 看图器，支持目录翻页、双页阅�
 - 常规：PNG / JPEG / BMP / GIF / WebP / TIFF / ICO 等
 - RAW：DNG / NEF / CR2 / ARW / RW2 等（libraw）
 - 现代：HEIC / AVIF（libheif）
+- HDR：Radiance RGBE（.hdr/.rgbe）/ OpenEXR 扫描线 ZIP（.exr）
 
 **元数据**
 - EXIF / GPS 面板（自研解析器，无 GPL 依赖），GPS 一键跳转地图
