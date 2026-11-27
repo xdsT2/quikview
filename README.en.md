@@ -62,7 +62,7 @@ full size.
 - Common: PNG / JPEG / BMP / GIF / WebP / TIFF / ICO and more
 - RAW: DNG / NEF / CR2 / ARW / RW2 and more (libraw)
 - Modern: HEIC / AVIF (libheif)
-- HDR: Radiance RGBE (.hdr/.rgbe) / OpenEXR scanline ZIP (.exr)
+- HDR: Radiance RGBE (.hdr/.rgbe) / OpenEXR scanline ZIP / ZIPS (.exr)
 
 **Metadata**
 

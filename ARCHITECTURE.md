@@ -42,7 +42,7 @@
 | `ImageFacts` | 201 + 26 | 只读文件头取像素尺寸与 EXIF 拍摄日期，供图片总览按日期 / 大小分组；读不到即「未知」，不拿文件修改时间冒充 |
 | `SvgLoader` | 179 + 36 | SVG 打开：头部嗅探 + `QSvgRenderer` 栅格化，8MB 读入上限、单边 4096px / 800 万像素栅格上限，不依赖 `imageformats/qsvg` 插件 |
 | `HdrImageLoader` | 305 + 45 | HDR / EXR 产品侧入口：扩展名识别、流式逐行 + 盒式降采样编排、默认 EV（环境变量 `QUIKVIEW_HDR_EV`，夹在 −8 ~ +8）、内核错误 → `LoadErrorCategory` 映射 |
-| `ExrStream` | 423 + 99 | OpenEXR 单帧 scanline 流式解析：头 / 通道 / 行数据逐行读取，ZIP 压缩复用 in-tree miniz 的 `tinfl`；一次只驻留当前行缓冲，不整帧常驻 |
+| `ExrStream` | 423 + 99 | OpenEXR 单帧 scanline 流式解析：头 / 通道 / 行数据逐行读取，ZIP / ZIPS 压缩复用 in-tree miniz 的 `tinfl`；一次只驻留当前行缓冲，不整帧常驻 |
 | `HdrRadiance` | 193 + 55 | Radiance RGBE（.hdr / .rgbe）自研解码，逐行返回线性 RGB float |
 | `HdrError` | 81 + 79 | HDR / EXR 错误状态与类别（`Ok` / `Corrupt` / `Unsupported` / `Io`），上层映射到 `LoadErrorCategory` |
 | `ZipArchive` | 495 + 102 | ZIP / CBZ 只读解析：自研 EOCD / 中央目录 / 局部头，解压复用 in-tree miniz 的 `tinfl` 与 `mz_crc32`；只认 store / deflate，不落盘、不解密、不支持分卷 |
@@ -104,7 +104,7 @@
 | 配置格式 | 自研 config.ini（`[config]` 节） | QSettings INI | 与 Honeyview 同思路，跨平台 |
 | EXIF | 内嵌第三方库 | 自研解析（`ExifParser`） | 避开 libexiv2 的 GPL |
 | 壳扩展 | HVShell32/64.dll | `shell-ext/` 独立工程 | 不把 Qt 运行时拖进 explorer.exe |
-| 360° 全景查看 | 内置球面视图 | **自研独立进程**（软件光栅，Qt Widgets 自绘） | 不引第三方全景库 / OpenGL：可选功能不该给主程序绑图形栈依赖，组件 exe 仅 183 KB；代价是 8K 全分辨率约 66ms/帧，交互期走半分辨率 |
+| 360° 全景查看 | 内置球面视图 | **自研独立进程**（软件光栅，Qt Widgets 自绘） | 不引第三方全景库 / OpenGL：可选功能不该给主程序绑图形栈依赖，组件 `quikview-pano.exe` 344.3 KiB（352,559 B，Release 构建、未 strip，内嵌 DWARF 调试段）；代价是 8K 全分辨率约 66ms/帧，交互期走半分辨率 |
 
 ## 「单一来源」硬规则
 
@@ -120,7 +120,7 @@
 - 构建：CMake ≥ 3.16 + Ninja；Qt 6（Widgets / Concurrent / PrintSupport / Network / Svg / LinguistTools）
 - `Qt6::Svg`（2026-11-18 起）：功能图标全部由 `QSvgRenderer` 渲染，`find_package(Qt6 ... Svg)` 是硬依赖（构建机必须补上这一模块）。运行期若安装目录缺 `Qt6Svg.dll`，`AppIcon::available()` 变 false，图标整体缺席但界面照常可用、不黑块不崩溃；打包时 `tools/package.sh` 硬校验 `Qt6Svg.dll` 在 staging 里，缺了直接失败。
 - 可选解码：libraw、libheif（都走 `pkg_check_modules`，缺失时降级而非编译失败）
-- 内嵌第三方（`third_party/`，随源码编译、不额外装 DLL）：`psd_sdk`（BSD-2，PSD/PSB 二进制解析，`PsdLoader` 只做适配）、`nanosvg`（zlib，壳扩展的 SVG 缩略图软渲染）、以及 psd_sdk 自带的 miniz（public domain，只编 `tinfl` 与 `mz_crc32`，供 `ZipArchive` 解压与校验；HDR/EXR 轮的 EXR ZIP 解压同样复用这份 miniz，未新增第三方库或 DLL）
+- 内嵌第三方（`third_party/`，随源码编译、不额外装 DLL）：`psd_sdk`（BSD-2，PSD/PSB 二进制解析，`PsdLoader` 只做适配）、`nanosvg`（zlib，壳扩展的 SVG 缩略图软渲染）、以及 psd_sdk 自带的 miniz（public domain，只编 `tinfl` 与 `mz_crc32`，供 `ZipArchive` 解压与校验；HDR/EXR 轮的 EXR ZIP / ZIPS 解压同样复用这份 miniz，未新增第三方库或 DLL）
 - Windows 专有：`winmm`（翻页音效，运行时合成 WAV 走 `PlaySoundW` 异步播放）
 - 打包期约定（0.5.6 起）：360° 组件**不进 staging**——`tools/package.sh` 把它放在输出目录的 `_pano-payload/`，`tools/package-installer.sh` 用 `/DEXTSRC` 指给 NSIS 的可选节；主安装节递归 `staging\*` 时目录里没有它，「不勾选就不装」由目录布局保证（早期 `/x "extensions\*.*"` 实测拦不住，已弃用）。
 - 说明：Honeyview 用到的 libbpg 生态已停更，BPG 支持列为可选、不阻塞主线
@@ -130,7 +130,7 @@
 ### 解码链
 
 - **Radiance RGBE**（`.hdr` / `.rgbe`）：`HdrRadiance` 自研解码，逐行返回线性 RGB float，无第三方依赖。
-- **OpenEXR**（`.exr`）：`ExrStream` 按 scanline 分块流式读取；只支持单帧、单部件、ZIP 压缩（UINT / HALF / FLOAT 像素类型）。ZIP 解压调用 in-tree miniz 的 `tinfl_decompress_mem_to_mem`，CRC / adler 用 miniz 既有能力；一次只驻留当前 chunk 与当前行，不做整帧 float 缓冲。
+- **OpenEXR**（`.exr`）：`ExrStream` 按 scanline 分块流式读取；只支持单帧、单部件、ZIP / ZIPS（scanline deflate）压缩，像素类型仅 HALF / FLOAT（UINT 不支持）。ZIP / ZIPS 解压调用 in-tree miniz 的 `tinfl_decompress_mem_to_mem`，CRC / adler 用 miniz 既有能力；一次只驻留当前 chunk 与当前行，不做整帧 float 缓冲。
 - **降采样**：盒式（box）累加降采样器只驻留「一行源行缓冲 + 一份目标累加帧」；超上限先压到显示上限，再向视口 / 缩略图盒收缩，只缩不放。
 - **错误分类**：内核状态 `Ok` / `Corrupt` / `Unsupported` / `Io`，经 `HdrImageLoader` 映射到产品 `LoadErrorCategory`（`Corrupt` / `Unsupported`）；截断、读不出归 `Corrupt`，格式 / 压缩 / 部件不在白名单归 `Unsupported`，UI 按类别取文案，不把「打不开」一律说成格式不认识。
 
@@ -142,7 +142,7 @@
 
 ### 依赖与许可证
 
-- 本轮**零新增第三方库、零新增 DLL**：EXR ZIP 复用仓库既有 miniz（Unlicense / 公有领域，vendored `third_party/psd_sdk/Psdminiz.cpp`，miniz v1.15, Rich Geldreich；上游 <https://github.com/richgel999/miniz>）；Radiance 为自研解码。未接入 OpenEXR（ASWF, BSD-3）/ tinyexr（BSD-3）/ stb_image：前者带来动态库与传递依赖，tinyexr V1 为整帧解码模型，stb 不支持 EXR。
+- 本轮**零新增第三方库、零新增 DLL**：EXR ZIP / ZIPS 复用仓库既有 miniz（Unlicense / 公有领域，vendored `third_party/psd_sdk/Psdminiz.cpp`，miniz v1.15, Rich Geldreich；上游 <https://github.com/richgel999/miniz>）；Radiance 为自研解码。未接入 OpenEXR（ASWF, BSD-3）/ tinyexr（BSD-3）/ stb_image：前者带来动态库与传递依赖，tinyexr V1 为整帧解码模型，stb 不支持 EXR。
 
 ### 上限与内存口径
 
@@ -152,8 +152,8 @@
 
 ### 支持范围与不支持清单
 
-- 支持：Radiance RGBE（`.hdr` / `.rgbe`）；OpenEXR 单帧 scanline ZIP，UINT / HALF / FLOAT。
-- 不支持（本轮）：tiled 分块、多部件（multi-part）、DEEP 数据、PIZ / RLE / B44 等非 ZIP 压缩、非 scanline 布局；不支持的类型在错误提示里与文件损坏区分。
+- 支持：Radiance RGBE（`.hdr` / `.rgbe`）；OpenEXR 单帧 scanline ZIP / ZIPS（deflate），像素类型 HALF / FLOAT。
+- 不支持（本轮）：tiled 分块、多部件（multi-part）、DEEP 数据、UINT 像素类型、PIZ / RLE / PXR24 / B44 / DWA 等非 ZIP / ZIPS 压缩、非 scanline 布局；不支持的类型在错误提示里与文件损坏区分。
 - 导出侧：现有另存 / 批量转换仍是 SDR 编码，不输出真 HDR（浮点或 HDR 编码）文件。
 
 ## 冒烟入口

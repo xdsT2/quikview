@@ -24,7 +24,7 @@
 | 14 | 信息面板 | M2 | ✅ | Tab-HUD 定稿实装：标题栏/键值栅格/中性直方图，画布采样模糊 + Esc 优先 + 失焦隐藏；0.5.6 起按 EXIF DPI 显示打印尺寸 |
 | 15 | 应用内右键菜单全量配置 | 0.5.2 | ✅ | `CtxMenu` / `MenuCatalog.h` / `MenuIcons`，三层收纳 + 顶部快捷区，可见性存 `config/appmenu/*` |
 | 16 | 360° 全景球形浏览（可选组件） | 0.6.0 | ✅ 首版 | 独立进程 `quikview-pano.exe`，自研软件光栅（不引第三方全景库 / 不是 OpenGL）；GPano 识别分五档，设置页安装 / 卸载 + 安装向导可选节（默认不勾选）。局部裁切、立方体贴图、视频全景不做 |
-| 17 | HDR / EXR 高动态范围图片 | 未发布 | ✅ 首轮 | 主窗解码 Radiance RGBE（.hdr / .rgbe）与扫描线 ZIP OpenEXR（.exr），平面显示上限 8192×4096；全景查看器浮点纹理上限 4096×2048，支持曝光调节（−5 ~ +5 档，`0` 复位）。仅单帧 scanline ZIP；tiled 分块、多部件、DEEP、PIZ / RLE / B44 等非 ZIP 压缩不支持 |
+| 17 | HDR / EXR 高动态范围图片 | 未发布 | ✅ 首轮 | 主窗解码 Radiance RGBE（.hdr / .rgbe）与扫描线 ZIP / ZIPS OpenEXR（.exr），平面显示上限 8192×4096；全景查看器浮点纹理上限 4096×2048，支持曝光调节（−5 ~ +5 档，`0` 复位）。仅单帧 scanline ZIP / ZIPS、HALF / FLOAT 像素类型；tiled 分块、多部件、DEEP、UINT 像素类型、PIZ / RLE / PXR24 / B44 / DWA 等非 ZIP/ZIPS 压缩不支持 |
 
 ## 里程碑
 
@@ -66,7 +66,7 @@
 - **实况照片插件（已纳入计划，版本待定）**：在「设置 → 扩展」提供一个可选组件，共用播放入口和界面。iPhone Live Photo 识别静态照片与配对视频，Android Motion Photo 首版按公开规范识别带内嵌视频的照片。其它厂商变体按真实样本逐步验证。首版打开时先显示静态图，用户主动触发短片播放。插件未安装、素材缺失或视频不兼容时继续显示静态图。已有识别与提取验证可作为实现起点。 [Apple 配对视频](https://developer.apple.com/documentation/photos/phassetresourcetype/pairedvideo) · [Android Motion Photo 规范](https://developer.android.com/media/platform/motion-photo-format)
 - **其他需求**：ZIP / CBZ 直读已交付（仅 store / deflate，不解密、不支持分卷，包内编辑类操作受限）。长图/放大图右下角鸟瞰导航器与平滑缩放动画已于 2026-11-27 在主线交付（待下次发版收录）。
 - **360° 全景首版的缺口**：①组件界面还没有 9 语言 `.ts`，只显示简体中文；②局部裁切全景、立方体贴图、球面拼图、视频全景都不支持，输入限本地已拼好的等距柱状图（JPEG，本轮加入 HDR / EXR）；③软件光栅 8K 全分辨率约 66ms/帧（交互期半分辨率约 17.5ms），要 60fps 顺滑得评估 D3D11/OpenGL 路线，未拍板不实施。
-- **HDR / EXR 本轮未覆盖**：①真 HDR 输出（另存为 / 批量转换导出浮点或 HDR 编码）未做，现有导出仍是 SDR 编码；②EXR 仅单帧扫描线 ZIP，tiled 分块、多部件、DEEP、PIZ / RLE / B44 / DWA 等非 ZIP 压缩未接入；③HDR / EXR 视频全景不在本轮范围。
+- **HDR / EXR 本轮未覆盖**：①真 HDR 输出（另存为 / 批量转换导出浮点或 HDR 编码）未做，现有导出仍是 SDR 编码；②EXR 仅单帧扫描线 ZIP / ZIPS，tiled 分块、多部件、DEEP、UINT 像素类型、PIZ / RLE / PXR24 / B44 / DWA 等非 ZIP/ZIPS 压缩未接入；③HDR / EXR 视频全景不在本轮范围。
 
 ## 远期探索方向（候选，未拍板）
 
