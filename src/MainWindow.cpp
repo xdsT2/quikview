@@ -445,6 +445,11 @@ MainWindow::MainWindow(QWidget *parent)
     m_slideshowRandom = Config::instance().slideshowRandom();
 
     connect(m_cache, &ImageCache::fullReady, this, &MainWindow::onFullReady);
+    // D2-1：预览快车道独立事件，走同一个上屏入口（preview=true）。
+    connect(m_cache, &ImageCache::previewReady, this,
+            [this](const QString &path, const QImage &image) {
+                onFullReady(path, image, true);
+            });
     connect(m_cache, &ImageCache::loadFailed, this, &MainWindow::onLoadFailed);
 
     // —— 铬件：38px 单行顶栏 + 44px 底部控制岛 ——
@@ -3886,12 +3891,26 @@ void MainWindow::openFile(const QString &path, bool transient)
     const QString canonical = fi.absoluteFilePath();
 
     // D1-4：切目录时回收上一目录缓存——整路清拖动预览、定向淘汰旧目录全图条目，
-    // 旧图不再长期占全图字节预算，新图反复解码的概率下降。包内条目不是磁盘路径，跳过。
-    const QString oldDir = QFileInfo(m_currentPath).absolutePath();
-    const QString newDir = fi.absolutePath();
-    if (!oldDir.isEmpty() && oldDir != newDir
-        && !ArchiveStore::isEntryPath(m_currentPath)) {
-        m_cache->evictDirectory(oldDir);
+    // 旧图不再长期占全图字节预算，新图反复解码的概率下降。
+    // 上一张在压缩包内时按「整包」淘汰：包内条目（包路径/条目名）不属于任何磁盘
+    // 目录，按目录前缀覆盖不到。仍在本包内翻页则不动缓存。
+    const QString previousPath = m_currentPath;
+    if (!previousPath.isEmpty()) {
+        if (ArchiveStore::isEntryPath(previousPath)) {
+            const QString oldArchive = ArchiveStore::archivePathOf(previousPath);
+            const QString newPath = fi.absoluteFilePath();
+            const bool staying = newPath.compare(oldArchive, Qt::CaseInsensitive) == 0
+                                 || newPath.startsWith(oldArchive + QLatin1Char('/'),
+                                                       Qt::CaseInsensitive);
+            if (!staying) {
+                m_cache->evictArchive(oldArchive);
+            }
+        } else {
+            const QString oldDir = QFileInfo(previousPath).absolutePath();
+            if (!oldDir.isEmpty() && oldDir != fi.absolutePath()) {
+                m_cache->evictDirectory(oldDir);
+            }
+        }
     }
 
     // 目录监视（外部增删/重命名自动刷新）：当前图所在目录是唯一监视目标。
@@ -4082,6 +4101,21 @@ void MainWindow::openArchive(const QString &archivePath, bool transient)
         return;
     }
     const QString canonical = fi.absoluteFilePath();
+    // D1-4 补：从上一个包/目录切过来时先回收，避免旧包条目长期占全图预算。
+    // 打开另一个包时按包路径整包淘汰；上一张是普通文件时按目录淘汰。
+    if (!m_currentPath.isEmpty()) {
+        if (ArchiveStore::isEntryPath(m_currentPath)) {
+            const QString oldArchive = ArchiveStore::archivePathOf(m_currentPath);
+            if (oldArchive.compare(canonical, Qt::CaseInsensitive) != 0) {
+                m_cache->evictArchive(oldArchive);
+            }
+        } else {
+            const QString oldDir = QFileInfo(m_currentPath).absolutePath();
+            if (!oldDir.isEmpty() && oldDir != fi.absolutePath()) {
+                m_cache->evictDirectory(oldDir);
+            }
+        }
+    }
     PerfProbe::mark(PerfProbe::currentSeq(), "request-sent", "");
     // 代次 +1：此前在飞的索引/解码结果全部作废
     const quint64 gen = ++m_openGeneration;

@@ -10,7 +10,9 @@
 #include <QThreadPool>
 
 #include <atomic>
+#include <memory>
 
+#include "DecodeQueue.h"
 #include "LoadError.h"
 
 class QImage;
@@ -39,7 +41,11 @@ public:
     // preempt=false：顺序翻页，保持 FIFO 单飞、逐张按序上屏（连按体感不变）。
     void requestFull(const QString &path, const QSize &previewSize = QSize(),
                      bool preempt = false);
-    void requestThumbnail(const QString &path, const QSize &size);
+    // 缩略图优先级（D2-3）：当前可见区域用 Visible，预取/未可见用 Prefetch。
+    // 同一 key 已在队列里时，Visible 会把 Prefetch 提前；在飞任务不受影响。
+    enum class ThumbPriority { Visible = 0, Prefetch = 1 };
+    void requestThumbnail(const QString &path, const QSize &size,
+                          ThumbPriority priority = ThumbPriority::Visible);
     // 外部刷新（同名文件被删后又保存回来）：丢弃该路径的全图/拖动/缩略图缓存与
     // 排队项，并作废此前的在飞结果，下一次请求从磁盘重新解码。
     void forgetPath(const QString &path);
@@ -48,6 +54,10 @@ public:
     // D1-4 切目录回收：移除缓存中属于指定目录（磁盘路径前缀）的全图条目，并整路
     // 清空拖动预览缓存；缩略图缓存保留（按路径隔离、体积小，跨目录回翻仍可命中）。
     void evictDirectory(const QString &dirPath);
+    // D1-4 压缩包整包回收：包内条目路径是「包路径/条目名」，不属于任何磁盘目录；
+    // 离开一个包时按包路径前缀淘汰全图/拖动/排队/在飞，避免换包后旧条目继续占预算
+    // （在飞项从 m_fullInFlight 摘除，解完回来直接丢弃，不再塞回缓存）。
+    void evictArchive(const QString &archivePath);
     void cancelPending();   // 显式跳转：清空待解队列，在飞结果静默入缓存不上屏
     // 空闲预读：只往原图缓存里填，不发信号不上屏；解码队列/在飞/已预读过的
     // 路径直接忽略。真正的「前后各一张」调度在 MainWindow（300ms 无输入才调）。
@@ -78,6 +88,9 @@ public:
 
 signals:
     void fullReady(const QString &path, const QImage &image, bool preview);
+    // D2-1 快车道独立事件：预览帧就绪。与 fullReady(preview=true) 语义相同，
+    // 但由独立的预览线程池发出，主窗口可以按「预览/全量」两类事件分别处理。
+    void previewReady(const QString &path, const QImage &image);
     void dragPreviewReady(const QString &path, const QImage &image);
     // A null image reports a failed preview decode.
     void thumbnailReady(const QString &path, const QImage &image);
@@ -90,15 +103,24 @@ private:
     void finishFullDecode(const QString &path, const QImage &img,
                              quint64 generation, const QString &error = QString(),
                              LoadErrorCategory category = LoadErrorCategory::None);
+    // D2-1：预览快车道。独立单线程池 + 每代次至多一条在飞，只发 previewReady，
+    // 不写全图缓存；全量先到时由 m_fullEmitted 把迟到的预览拦掉。
+    void startPreviewDecode(const QString &path, const QSize &previewSize,
+                            quint64 generation,
+                            const std::shared_ptr<std::atomic<bool>> &cancel);
+    void finishPreview(const QString &path, const QImage &img, quint64 generation);
     void startNext();
     void startNextPreload();
     void startDragDecode();
+    void startThumbJobs();
     void insertFull(const QString &path, const QImage &img);
     // 是否有「当前代次」尚未完成的工作（全图在飞 / 预读在飞）。
     // 只有它才会阻止下一次启动：旧代次的任务已被判定为过期，允许新目标并行解码。
     bool hasCurrentGenWork() const;
-    // 快帧/RAW 缩略图回主线程上屏；代次不符（已被后续跳转作废）则丢弃。
-    void emitPreview(const QString &path, const QImage &img, quint64 generation);
+    // 代次推进的唯一入口：置旧取消令牌 + 换新令牌 + 代次 +1 + 清「全量已上屏」表。
+    void bumpGeneration();
+    // 按路径前缀淘汰（目录 / 压缩包共用）：缓存、排队、预读、拖动与在飞全图。
+    void evictPrefix(const QString &prefix);
     // 批次04 取证：SOLEVIEW_IMAGEPROC_PROBE=1（兼容 QUIKVIEW_IMAGEPROC_PROBE=1）时把缓存上限/预读/命中写进
     // Temp/imageproc-live-probe.txt；未置位时是空函数，不影响正常路径。
     void probeLog(const QString &line) const;
@@ -108,7 +130,12 @@ private:
     int m_hits = 0;             // requestFull 时原图缓存命中次数
     int m_misses = 0;           // requestFull 时未命中次数
     int m_preloadStarts = 0;    // 预读实际启动次数（不是请求次数）
+    // D2-3 缩略图两级缓存：
+    //   m_thumbCache  = L1 解码后的缩放原图（按 key 复用，跨尺寸不串）；
+    //   m_thumbDisplay= L2 已转成上屏格式（ARGB32_Premultiplied / RGB32）的位图。
+    // 命中 L1 只做一次格式转换即可发图，不必重新解码；L2 直接发。
     QCache<QString, QImage> m_thumbCache;
+    QCache<QString, QImage> m_thumbDisplay;
     // 在飞全图任务：路径 → 提交时的代次。同一路径允许被新代次重新提交
     // （快速反向回到正在解的上一张），旧任务完成时因代次不符降级为只入缓存。
     QHash<QString, quint64> m_fullInFlight;
@@ -117,22 +144,51 @@ private:
     // 缩略图作废时间戳：forgetPath 时自增，在飞缩略图回来按此丢弃。
     QHash<QString, quint64> m_thumbEpoch;
     QSet<QString> m_thumbInFlight;
-    QList<QString> m_queue;     // 待解码队列（FIFO，去重，上限 8）
+    // D2-3 缩略图优先级队列：只排「尚未提交到池」的任务，在飞上限 = 池线程数 2。
+    // Visible（当前可见格）先于 Prefetch（预取）；同级按请求顺序。
+    struct ThumbTask
+    {
+        QString path;
+        QString key;
+        QSize size;
+        ThumbPriority priority = ThumbPriority::Visible;
+        quint64 order = 0;
+    };
+    QVector<ThumbTask> m_thumbQueue;
+    int m_thumbActive = 0;
+    quint64 m_thumbOrder = 0;
+    // D2-2 待解码队列：Preempt（显式跳转）优先于 Normal（顺序翻页），上限 8。
+    DecodeQueue m_queue;
+    quint64 m_queueOrder = 0;
     // 请求代次：每次显式跳转（cancelPending / preempt 请求）自增。解码结果只有
     // 代次仍等于当前值才允许上屏——替代原来的「一次性布尔标志」，连续多次跳转
     // 不会互相覆盖（A→B→A 往返靠它区分「哪一代的 A」）。
     // std::atomic：解码 worker 线程在 loader 调用前后轮询代次，旧代次任务跳过后续
     // 重活与后处理（D1-5）；主线程自增，worker 只读。
     std::atomic<quint64> m_generation{0};
+    // D2-2 在飞取消令牌：换代时把旧令牌置 true，worker 在下一个检查点直接放弃，
+    // 不再继续做预览/后处理（QtConcurrent 本身不可中断，这是「能停就停」的落点）。
+    std::shared_ptr<std::atomic<bool>> m_cancelToken;
+    // 本代次已经发过全量的路径：迟到的预览帧必须丢弃，否则会用低清图盖掉全图。
+    QSet<QString> m_fullEmitted;
+    // 预览在飞：路径 → 提交代次。同一路径允许新代次重新提交（快速 A→B→A），
+    // 旧预览回来时按代次丢弃，不会把新代次的在飞标记提前清掉。
+    QHash<QString, quint64> m_previewInFlight;
     // 全图解码专用线程池：上限 2（旧任务 + 抢占新目标各一条）。不走全局池：
     // QtConcurrent 默认按逻辑核数并发，连按/预读会把 CPU 打满，抢占时也未必
     // 立刻拿得到线程。这里的上限就是「线程数按实测有上限」的落点。
     QThreadPool m_decodePool;
+    // D2-1 预览快车道：单线程，只做降采样快帧/RAW 内嵌缩略图。与全量解码池分离，
+    // 全量不必等预览读完才开始，重活与轻活互不排队。
+    QThreadPool m_previewPool;
     QThreadPool m_dragPool;
     // D1-1 缩略图专用小池：胶片栏/总览的缩略图解码不再和全图解码、目录索引抢全局
     // 线程，上限 2，翻大目录时出图节奏更均匀。
     QThreadPool m_thumbPool;
     QSize m_previewSize;        // 快帧目标尺寸（视口像素）
+    // 最新一次 requestFull 的目标：预览车道只在它上面落屏。顺序翻页不换代次，
+    // 若允许旧目标的预览晚到，会把已经翻过去的新页盖回上一张。
+    QString m_lastRequestedPath;
     // 预读：同一时刻也只跑 1 个（与全图解码共用「单飞」），排到的路径放这里。
     QList<QString> m_preloadQueue;
     QString m_preloadPath;

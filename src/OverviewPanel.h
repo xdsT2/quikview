@@ -11,8 +11,10 @@
 #include <QWidget>
 
 #include "ImageFacts.h"
+#include "ImageProbe.h"
 
 class ImageCache;
+class QTimer;
 
 // 图片总览（2026-11-19 定稿；2026-11-21 按用户确认原型返工；2026-11-22 增加分组）：
 // 全窗自适应网格（列数随可用宽度增长，缩略图保持原始宽高比），默认省去元数据；
@@ -143,6 +145,9 @@ private:
     void requestVisible();
     void onThumbReady(const QString &path, const QImage &image);
     void moveSelection(int dx, int dy);
+    // 后台头信息探测的落点：只写 m_facts，重排交给合并定时器（见 flushRegroup）。
+    void applyProbeResult(const QString &path, const ImageProbeResult &result);
+    void flushRegroup();
 
     ImageCache *m_cache = nullptr;
     QStringList m_files;
@@ -166,4 +171,10 @@ private:
     mutable Layout m_layout;
     mutable bool m_layoutDirty = true;
     mutable QHash<QString, ImageFacts> m_facts;   // 跨分组切换复用，避免重复读头部
+
+    // 头信息预探测（需求池 D2-4）：分组所需的事实由后台线程填，切换分组时
+    // GUI 线程不再逐个文件读 256 KB 头。
+    ImageProbe *m_probe = nullptr;
+    QSet<QString> m_fileSet;        // 当前列表的路径集合：探测结果回来按它过滤旧目录
+    QTimer *m_regroupTimer = nullptr;   // 80ms 合并重排：一批探测结果只排一次
 };

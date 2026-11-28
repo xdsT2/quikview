@@ -88,6 +88,9 @@ const char *groupModeName(OverviewPanel::GroupMode mode)
     default: return "none";
     }
 }
+// 一次探测结果回填后不是立刻重排：大目录预探测会在几百毫秒内回来上千条结果，
+// 每条都 rebuildOrder 会把 GUI 线程重新占满。80ms 单次合并，既及时又只排一次。
+constexpr int kRegroupDelayMs = 80;
 } // namespace
 
 OverviewPanel::OverviewPanel(ImageCache *cache, QWidget *parent)
@@ -100,17 +103,98 @@ OverviewPanel::OverviewPanel(ImageCache *cache, QWidget *parent)
     setMouseTracking(true);
     setAttribute(Qt::WA_OpaquePaintEvent);
     connect(m_cache, &ImageCache::thumbnailReady, this, &OverviewPanel::onThumbReady);
+
+    // 头信息探测服务：只读文件头，专用 2 线程小池，不占 GUI 线程也不抢全局池。
+    m_probe = new ImageProbe(this);
+    connect(m_probe, &ImageProbe::probed, this, &OverviewPanel::applyProbeResult);
+    m_regroupTimer = new QTimer(this);
+    m_regroupTimer->setSingleShot(true);
+    m_regroupTimer->setInterval(kRegroupDelayMs);
+    connect(m_regroupTimer, &QTimer::timeout, this, &OverviewPanel::flushRegroup);
+}
+
+// 探测结果只写事实缓存：命中当前列表才收，旧目录在飞的结果直接丢。
+// 重排交给合并定时器，probed 里绝不直接调 rebuildOrder（会与正在进行的
+// 布局 / 绘制互相踩）。
+void OverviewPanel::applyProbeResult(const QString &path, const ImageProbeResult &result)
+{
+    if (!m_fileSet.contains(path))
+        return;
+    // 逐字段合并，不用探测结果整条覆盖：同步兜底可能已经读到过好值，而探测
+    // 偶发失败（被打不开 / 半截文件）会带回空值，覆盖过去等于把已知的组打散。
+    ImageFacts facts = m_facts.value(path);
+    if (result.hasSize())
+        facts.pixelSize = result.pixelSize;
+    if (result.shotDate.isValid())
+        facts.shotDate = result.shotDate;
+    const ImageFacts old = m_facts.value(path);
+    // 值没变也要落这一条：m_facts 里有这个键就等于「已经探过」，rebuildOrder
+    // 的同步兜底不会再为它读一次盘——没有 EXIF 日期的图（截图 / PNG）正是靠
+    // 这一条才不会在每次切换分组时被重复读文件头。
+    m_facts.insert(path, facts);
+    if (old.pixelSize == facts.pixelSize && old.shotDate == facts.shotDate)
+        return;   // 与同步兜底读到的值一致：没有任何分组会变，不必惊动界面
+    if (m_mode != GroupMode::None && !m_regroupTimer->isActive())
+        m_regroupTimer->start();   // 已在跑就让它覆盖这批，不重置倒计时
+}
+
+// 合并后的重排：不改选中文件、不动滚动原点，只把新的分组结果落到 m_order。
+void OverviewPanel::flushRegroup()
+{
+    if (m_mode == GroupMode::None)
+        return;
+    const QVector<int> beforeOrder = m_order;
+    const QVector<QString> beforeTitles = m_groupTitles;
+    const int hover = m_hover;
+    rebuildOrder();
+    if (m_order == beforeOrder && m_groupTitles == beforeTitles) {
+        // 探测结果没有改变任何位置（多数文件与同步兜底一致）：不重绘、不发信号，
+        // 否则大目录预热期间每 80ms 一次 orderChanged 会让底栏一直重算页码。
+        m_hover = hover;
+        return;
+    }
+    invalidateLayout();
+    // 分组边界变了，内容高度也变：把滚动量夹回新范围内，避免停在空白处。
+    m_scroll = qBound(0, m_scroll, maxScroll());
+    update();
+    emit orderChanged();   // 底栏页码按新位置重算（选中文件未变）
 }
 
 void OverviewPanel::setFiles(const QStringList &files, int currentIndex)
 {
     if (m_files != files) {
+        // 旧集合的差集要一起丢：事实缓存与在飞探测都只服务当前列表，
+        // 否则换目录后旧目录的结果回来还会写进 m_facts，白占内存。
+        const QSet<QString> previous = m_fileSet;
         m_files = files;
+        m_fileSet = QSet<QString>(files.begin(), files.end());
+        for (const QString &path : previous) {
+            if (!m_fileSet.contains(path)) {
+                // 只丢当前列表的分组事实；探测缓存保留（按 mtime+size 判新鲜），
+                // 切回旧目录时能直接命中，不必再读一遍头。
+                m_facts.remove(path);
+            }
+        }
+        m_regroupTimer->stop();   // 旧目录待重排作废
         m_images.clear();
         m_pending.clear();   // 旧目录在飞的缩略图回来后按路径找不到落点，直接丢弃
         m_failed.clear();
         m_hover = -1;
+        // 切回探过的目录：先把缓存结果灌进 m_facts，rebuildOrder 就不会逐文件同步读盘。
+        for (const QString &path : m_files) {
+            ImageProbeResult probed;
+            if (!m_probe->cached(path, &probed)) {
+                continue;
+            }
+            ImageFacts facts;
+            if (probed.hasSize())
+                facts.pixelSize = probed.pixelSize;
+            facts.shotDate = probed.shotDate;
+            m_facts.insert(path, facts);
+        }
         rebuildOrder();
+        // 预热：后台把头信息读好，之后切「按日期 / 按图片大小」不再卡主线程。
+        m_probe->requestAll(m_files);
     }
     setCurrent(currentIndex);
     if (m_files.isEmpty()) {
@@ -216,6 +300,8 @@ void OverviewPanel::rebuildOrder()
     }
 
     // 头部事实按路径缓存：切到另一种分组、来回反转都不必重新读文件。
+    // 后台探测（ImageProbe）会把结果提前写进 m_facts，命中即不再读盘；
+    // 没探到的文件仍走同步兜底，保证任何时刻都能分出正确的组。
     QVector<ImageFacts> facts(n);
     for (int i = 0; i < n; ++i) {
         const QString &path = m_files.at(i);

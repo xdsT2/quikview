@@ -58,6 +58,11 @@ add_executable(soleview WIN32
     src/ZoomMotion.h
     src/ImageCache.cpp
     src/ImageCache.h
+    src/DecodeQueue.cpp
+    src/DecodeQueue.h
+    src/ImageProbe.cpp
+    src/ImageProbe.h
+    src/MappedFile.h
     src/DirectoryLoader.cpp
     src/DirectoryLoader.h
     src/RawJpgGroup.cpp
@@ -362,6 +367,15 @@ if(BUILD_TESTING)
     target_include_directories(soleview-zoommotion-test PRIVATE src)
     add_test(NAME zoommotion.pure COMMAND soleview-zoommotion-test)
     soleview_reset_integrity_label(soleview-zoommotion-test)
+
+    # D2-2：解码优先级队列纯逻辑（抢占/去重/上限收敛），不依赖线程与解码器。
+    add_executable(soleview-decodequeue-test
+        tests/unit/decode_queue_test.cpp
+        src/DecodeQueue.cpp)
+    target_include_directories(soleview-decodequeue-test PRIVATE src)
+    target_link_libraries(soleview-decodequeue-test PRIVATE Qt6::Core)
+    add_test(NAME decodequeue.pure COMMAND soleview-decodequeue-test)
+    soleview_reset_integrity_label(soleview-decodequeue-test)
 
     add_executable(soleview-minimap-test tests/unit/minimap_math_test.cpp)
     target_include_directories(soleview-minimap-test PRIVATE src)
