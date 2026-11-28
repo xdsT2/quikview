@@ -29,7 +29,12 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <limits>
 #include <vector>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
 
 #ifdef HAS_OPENEXR
 #include <ImfIO.h>
@@ -90,6 +95,43 @@ double p90(std::vector<qint64> v)
     std::sort(v.begin(), v.end());
     const size_t idx = std::min(v.size() - 1, size_t(qsizetype(v.size() * 0.9)));
     return v[idx] / 1000.0;
+}
+
+double minMs(std::vector<qint64> v)
+{
+    if (v.empty()) return 0;
+    return *std::min_element(v.begin(), v.end()) / 1000.0;
+}
+
+double maxMs(std::vector<qint64> v)
+{
+    if (v.empty()) return 0;
+    return *std::max_element(v.begin(), v.end()) / 1000.0;
+}
+
+QString formatName(QImage::Format f)
+{
+    switch (f) {
+    case QImage::Format_RGBA32FPx4: return QStringLiteral("RGBA32FPx4");
+    case QImage::Format_RGBX32FPx4: return QStringLiteral("RGBX32FPx4");
+    case QImage::Format_RGBA16FPx4: return QStringLiteral("RGBA16FPx4");
+    case QImage::Format_RGBA64: return QStringLiteral("RGBA64");
+    case QImage::Format_RGB32: return QStringLiteral("RGB32");
+    case QImage::Format_ARGB32: return QStringLiteral("ARGB32");
+    case QImage::Format_Grayscale8: return QStringLiteral("Grayscale8");
+    default: return QStringLiteral("other(%1)").arg(int(f));
+    }
+}
+
+double availPhysMB()
+{
+#ifdef Q_OS_WIN
+    MEMORYSTATUSEX st;
+    st.dwLength = sizeof(st);
+    if (GlobalMemoryStatusEx(&st))
+        return double(st.ullAvailPhys) / 1048576.0;
+#endif
+    return -1.0;
 }
 
 // ---------------- 真 HDR 浮点直通（做法 B；仅 bench 层绕开解码层 8bit 折叠） ----------------
@@ -403,18 +445,19 @@ int main(int argc, char **argv)
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
     QApplication app(argc, argv);
 
-    QString samplesDir, floatDir, outCsv, mode = QStringLiteral("legacy"), prefix;
+    QString samplesDir, floatDir, isoDir, outCsv, mode = QStringLiteral("legacy"), prefix;
     int rounds = 5;
     for (int i = 1; i < argc; ++i) {
         const QString a = QString::fromLatin1(argv[i]);
         if (a == "--samples" && i + 1 < argc) samplesDir = QString::fromLatin1(argv[++i]);
         else if (a == "--float-dir" && i + 1 < argc) floatDir = QString::fromLatin1(argv[++i]);
+        else if (a == "--iso" && i + 1 < argc) isoDir = QString::fromLatin1(argv[++i]);
         else if (a == "--out" && i + 1 < argc) outCsv = QString::fromLatin1(argv[++i]);
         else if (a == "--mode" && i + 1 < argc) mode = QString::fromLatin1(argv[++i]);
         else if (a == "--rounds" && i + 1 < argc) rounds = QString::fromLatin1(argv[++i]).toInt();
         else if (a == "--prefix" && i + 1 < argc) prefix = QString::fromLatin1(argv[++i]);
     }
-    if (outCsv.isEmpty() || (samplesDir.isEmpty() && floatDir.isEmpty())) {
+    if (outCsv.isEmpty() || (samplesDir.isEmpty() && floatDir.isEmpty() && isoDir.isEmpty())) {
         std::fprintf(stderr, "usage: display-bench --samples <dir> --out <csv> [--mode legacy|new] [--rounds N]\n"
                              "       display-bench --float-dir <dir> --out <csv> [--rounds N]\n");
         return 2;
@@ -520,6 +563,146 @@ int main(int argc, char **argv)
         ts.flush();
         std::printf("bench float mode: dir=%s files=%d -> %s\n",
                     qPrintable(floatDir), ffiles.size(), qPrintable(outCsv));
+        return 0;
+    }
+
+    // ---- 隔离验证：同一浮点 buffer 上冷/热重复 toneMap，拆分转换/抽样/曲线/映射子段，
+    //      并 dump 输入 QImage 形态（格式/ stride / alpha / colorSpace）。仅 bench 取证，不改产品。 ----
+    if (!isoDir.isEmpty()) {
+        QDir idir(isoDir);
+        QStringList ifiles = idir.entryList(
+            {QStringLiteral("*.exr"), QStringLiteral("*.hdr")}, QDir::Files, QDir::Name);
+        std::sort(ifiles.begin(), ifiles.end(), [](const QString &a, const QString &b) {
+            const QString ta = tierOf(a), tb = tierOf(b);
+            return ta == tb ? a < b : ta < tb;
+        });
+        if (!prefix.isEmpty()) {
+            QStringList filtered;
+            for (const QString &f : ifiles)
+                if (f.startsWith(prefix))
+                    filtered.append(f);
+            ifiles = filtered;
+        }
+
+        QFile out(outCsv);
+        if (!out.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            std::fprintf(stderr, "无法写出 %s\n", qPrintable(outCsv));
+            return 3;
+        }
+        QTextStream ts(&out);
+        ts << "file,route,w,h,format,format_name,size_in_bytes,bytes_per_line,has_alpha,"
+              "colorspace_valid,avail_phys_mb,cold1_ms,cold2_ms,cold3_ms,rounds,"
+              "tot_min_ms,tot_med_ms,tot_p90_ms,tot_max_ms,conv_med_ms,luma_med_ms,"
+              "curve_med_ms,map_est_med_ms,note\n";
+
+        for (const QString &fn : ifiles) {
+            const QString path = idir.absoluteFilePath(fn);
+            QFile f(path);
+            if (!f.open(QIODevice::ReadOnly)) {
+                ts << fn << ",,,,,,,,,,,,,,,,,,,,,,cannot open\n";
+                continue;
+            }
+            const QByteArray data = f.readAll();
+            const bool isExr = fn.endsWith(QStringLiteral(".exr"), Qt::CaseInsensitive);
+
+            QString err, route;
+            QImage raw = isExr ? parseExrFloat(data, &err, &route)
+                               : parseHdrFloat(data, &err);
+            if (!isExr) route = QStringLiteral("RGBE-float");
+
+            if (raw.isNull()) {
+                ts << fn << ',' << route << ",,,,,,,,,,,,,,,,,,,,," << err << '\n';
+                continue;
+            }
+
+            const QImage::Format fmt = raw.format();
+            const bool hasA = raw.hasAlphaChannel();
+            const QColorSpace cs = raw.colorSpace();
+            const bool csValid = cs.isValid();
+            const double memBefore = availPhysMB();
+
+            // raw 浮点位分类（排查解析器是否写出反规格化/特殊位模式）。
+            {
+                const size_t n = size_t(raw.width()) * raw.height() * 4;
+                const float *fp = reinterpret_cast<const float *>(raw.constBits());
+                size_t zero = 0, sub = 0, normal = 0, special = 0;
+                float mn = std::numeric_limits<float>::infinity();
+                float mx = -std::numeric_limits<float>::infinity();
+                for (size_t i = 0; i < n; ++i) {
+                    quint32 u;
+                    std::memcpy(&u, &fp[i], 4);
+                    const quint32 e = (u >> 23) & 0xFF;
+                    const quint32 m = u & 0x7FFFFF;
+                    if (u == 0) ++zero;
+                    else if (e == 0 && m != 0) ++sub;
+                    else if (e == 255) ++special;
+                    else ++normal;
+                    if (std::isfinite(fp[i])) {
+                        mn = std::min(mn, fp[i]);
+                        mx = std::max(mx, fp[i]);
+                    }
+                }
+                std::printf("[iso] %s raw bits: zero=%.3f%% subnormal=%.3f%% normal=%.3f%% "
+                            "special=%.3f%% min=%.6g max=%.6g\n",
+                            qPrintable(fn), zero * 100.0 / n, sub * 100.0 / n,
+                            normal * 100.0 / n, special * 100.0 / n, mn, mx);
+            }
+
+            // 同一 buffer 连续三次：第 1 次为冷（含首次触页/TLB），第 2、3 次为同 buffer 热态。
+            qint64 cold1 = 0, cold2 = 0, cold3 = 0;
+            {
+                QElapsedTimer t;
+                t.start();
+                QImage s1 = ToneMap::toneMapToSdr(raw);
+                cold1 = t.nsecsElapsed() / 1000;
+                t.restart();
+                QImage s2 = ToneMap::toneMapToSdr(raw);
+                cold2 = t.nsecsElapsed() / 1000;
+                t.restart();
+                QImage s3 = ToneMap::toneMapToSdr(raw);
+                cold3 = t.nsecsElapsed() / 1000;
+                (void)s1; (void)s2; (void)s3;
+            }
+
+            std::vector<qint64> tot, conv, luma, curve;
+            for (int r = 0; r < rounds; ++r) {
+                QElapsedTimer t;
+                t.start();
+                QImage c = raw.convertToFormat(QImage::Format_RGBA64);
+                conv.push_back(t.nsecsElapsed() / 1000);
+                t.restart();
+                QVector<quint32> samples = ToneMap::sampleLuma16(c);
+                luma.push_back(t.nsecsElapsed() / 1000);
+                t.restart();
+                ToneMap::Curve16 cv = ToneMap::buildCurve16(samples);
+                curve.push_back(t.nsecsElapsed() / 1000);
+                t.restart();
+                QImage s = ToneMap::toneMapToSdr(raw);
+                tot.push_back(t.nsecsElapsed() / 1000);
+                (void)c; (void)samples; (void)cv; (void)s;
+            }
+
+            const double mapEst = std::max(0.0, median(tot) - median(conv) - median(luma) - median(curve));
+            std::printf("[iso] %s route=%s fmt=%s(%d) %dx%d bytes=%lld stride=%d alpha=%d "
+                        "csValid=%d availPhys=%.0fMB cold=%.2f/%.2f/%.2f ms tot med=%.2f max=%.2f\n",
+                        qPrintable(fn), qPrintable(route), qPrintable(formatName(fmt)), int(fmt),
+                        raw.width(), raw.height(), qlonglong(raw.sizeInBytes()), raw.bytesPerLine(),
+                        int(hasA), int(csValid), memBefore,
+                        cold1 / 1000.0, cold2 / 1000.0, cold3 / 1000.0,
+                        median(tot), maxMs(tot));
+
+            ts << fn << ',' << route << ',' << raw.width() << ',' << raw.height()
+               << ',' << int(fmt) << ',' << formatName(fmt) << ',' << raw.sizeInBytes()
+               << ',' << raw.bytesPerLine() << ',' << int(hasA) << ',' << int(csValid)
+               << ',' << memBefore << ',' << cold1 / 1000.0 << ',' << cold2 / 1000.0
+               << ',' << cold3 / 1000.0 << ',' << rounds << ','
+               << minMs(tot) << ',' << median(tot) << ',' << p90(tot) << ',' << maxMs(tot)
+               << ',' << median(conv) << ',' << median(luma) << ',' << median(curve)
+               << ',' << mapEst << ",\n";
+        }
+        ts.flush();
+        std::printf("bench iso mode: dir=%s files=%d -> %s\n",
+                    qPrintable(isoDir), ifiles.size(), qPrintable(outCsv));
         return 0;
     }
 
