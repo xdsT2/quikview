@@ -2975,6 +2975,14 @@
             <translation>메뉴 기본값 복원</translation>
         </message>
         <message>
+            <source>汉堡菜单同步隐藏</source>
+            <translation>햄버거 메뉴와 동기화하여 숨김</translation>
+        </message>
+        <message>
+            <source>开启后，右键菜单中隐藏的命令会在三横菜单中一并隐藏；关闭时两边各自独立。</source>
+            <translation>켜면 컨텍스트 메뉴에서 숨긴 명령을 햄버거 메뉴에서도 함께 숨깁니다. 끄면 두 메뉴가 독립됩니다.</translation>
+        </message>
+        <message>
             <source>重置全部可见性开关；不影响浏览模式、快捷键、图像效果或其他设置</source>
             <translation>모든 표시 스위치를 초기화합니다. 탐색 모드, 바로 가기 키, 이미지 효과, 기타 설정에는 영향을 주지 않습니다</translation>
         </message>

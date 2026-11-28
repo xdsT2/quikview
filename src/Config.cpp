@@ -7,6 +7,7 @@
 #include <new>
 
 #include <QCoreApplication>
+#include <QDebug>
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
@@ -80,6 +81,9 @@ Config::Config(const QString &path)
     }
 
     migrateKeyboardToCommandIds();
+
+    // J-2 防呆：启动即校正被配置隐藏的关键入口（设置…），回落可见并写日志。
+    repairCriticalMenuEntries();
 }
 
 // 键盘槽位 → 命令 ID 的一次性迁移（派单 2026-11-18 H1-7）。
@@ -787,6 +791,10 @@ bool Config::contextCopy() const
 
 bool Config::appMenuOwnVisible(const QString &id) const
 {
+    // 防呆关键入口（设置…）永不可被配置隐藏：无论库里存了什么值都强制可见。
+    if (AppMenu::isCriticalEntry(id)) {
+        return true;
+    }
     // 缺键（首次安装 / 旧配置 / 恢复默认）一律按 MenuCatalog 默认表出值；
     // 未知 id 视为不可见，避免拼错的键意外展开整组命令。
     const AppMenu::Node *node = AppMenu::find(id);
@@ -812,6 +820,11 @@ bool Config::appMenuOwnVisible(const QString &id) const
 
 bool Config::appMenuVisible(const QString &id) const
 {
+    // 防呆关键入口（设置…）强制可见：不受自身开关与任何祖先总开关影响，
+    // 保证任何配置下都留有通往设置页 / 恢复默认菜单的恢复路径。
+    if (AppMenu::isCriticalEntry(id)) {
+        return true;
+    }
     // 生效可见性：本项（有开关时）与各级祖先总开关全部为开。
     const AppMenu::Node *node = AppMenu::find(id);
     if (!node) {
@@ -849,6 +862,45 @@ bool Config::resetAppMenuVisibility()
     }
     m_settings.endGroup();
     return saved;
+}
+
+bool Config::appMenuUnifiedVisibility() const
+{
+    // 默认关：右键 / 汉堡两边各自独立，与旧版逐位一致；开启后汉堡菜单同步右键
+    // 的共有命令显隐（J-2）。
+    return m_settings.value(QStringLiteral("config/appmenu/unified_visibility"), false).toBool();
+}
+
+void Config::repairCriticalMenuEntries()
+{
+    // J-2 启动自愈：关键入口（设置…）被配置隐藏时回落为可见。设置…本是 Fixed
+    // 项、不该有独立开关；若旧版本残留或手工改 ini 把 config/appmenu/settings
+    // 写成 false，或把其父组 group_app 关掉导致设置入口一并被藏，这里去掉 / 回落，
+    // 并写日志说明检测到被藏、已回落。
+    m_settings.beginGroup(QStringLiteral("config/appmenu"));
+    QStringList repaired;
+    const QString settingsKey = QStringLiteral("settings");
+    if (m_settings.contains(settingsKey) && !m_settings.value(settingsKey, true).toBool()) {
+        m_settings.remove(settingsKey);
+        repaired << settingsKey;
+    }
+    const QString appGroup = QStringLiteral("group_app");
+    if (m_settings.contains(appGroup) && !m_settings.value(appGroup, true).toBool()) {
+        m_settings.setValue(appGroup, true);
+        repaired << appGroup;
+    }
+    m_settings.endGroup();
+    m_repairedCritical = repaired;
+    if (!repaired.isEmpty()) {
+        m_settings.sync();
+        qWarning() << "[appmenu] critical menu entry hidden by config, restored to visible:"
+                   << repaired.join(QLatin1String(", "));
+    }
+}
+
+QStringList Config::repairedCriticalEntries() const
+{
+    return m_repairedCritical;
 }
 
 bool Config::checkUpdatesOnStartup() const

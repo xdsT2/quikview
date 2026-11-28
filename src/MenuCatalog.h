@@ -152,6 +152,14 @@ inline bool canConfigure(const Node &n)
     return n.kind == Single || n.kind == Group || n.kind == Parent || n.kind == Section;
 }
 
+// 防呆关键入口（J-2）：永不可被配置隐藏。「设置…」是菜单内唯一通往设置页 /
+// 「恢复默认菜单」的恢复路径，无论配置如何改动都强制可见；启动时若被配置藏起，
+// Config 自愈回落为可见并写日志。新增关键入口只需补到这张判定里。
+inline bool isCriticalEntry(const QString &id)
+{
+    return id == QLatin1String("settings");
+}
+
 inline QString parentOf(const QString &id)
 {
     const Node *n = find(id);

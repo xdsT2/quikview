@@ -2975,6 +2975,14 @@
             <translation>メニューを既定に戻す</translation>
         </message>
         <message>
+            <source>汉堡菜单同步隐藏</source>
+            <translation>ハンバーガーメニューで同期して非表示</translation>
+        </message>
+        <message>
+            <source>开启后，右键菜单中隐藏的命令会在三横菜单中一并隐藏；关闭时两边各自独立。</source>
+            <translation>オンにすると、コンテキストメニューで非表示にしたコマンドをハンバーガーメニューでも非表示にします。オフのときは両者が独立します。</translation>
+        </message>
+        <message>
             <source>重置全部可见性开关；不影响浏览模式、快捷键、图像效果或其他设置</source>
             <translation>表示切り替えをすべてリセットします。閲覧モード、ショートカット、画像エフェクト、その他の設定には影響しません</translation>
         </message>

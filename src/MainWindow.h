@@ -297,6 +297,9 @@ private:
     // 三横菜单：完整一级信息架构（文件 / 幻灯片 / 书签 / 编辑与转换 / 复制到 /
     // 浏览与显示 / 参数 / 窗口与应用 / 危险操作）。每次弹出重建，勾选态取真实运行态。
     QMenu *buildHamburgerMenu();
+    // J-2：统一显隐开关开启后，按右键生效可见性过滤汉堡菜单里的共有命令；
+    // 关闭时原样返回、不改汉堡现状。构建末尾调用。
+    void applyHamburgerVisibility(QMenu *root) const;
 
     void applyRuntimeSettings();
     void setupPsdDocument(const QString &path);

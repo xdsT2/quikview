@@ -2987,6 +2987,14 @@ Restored to the current actual value.</translation>
             <translation>Restore Default Menu</translation>
         </message>
         <message>
+            <source>汉堡菜单同步隐藏</source>
+            <translation>Sync hide with hamburger menu</translation>
+        </message>
+        <message>
+            <source>开启后，右键菜单中隐藏的命令会在三横菜单中一并隐藏；关闭时两边各自独立。</source>
+            <translation>When on, commands hidden in the context menu are also hidden in the hamburger menu; when off, the two menus stay independent.</translation>
+        </message>
+        <message>
             <source>重置全部可见性开关；不影响浏览模式、快捷键、图像效果或其他设置</source>
             <translation>Resets all visibility toggles; does not affect browse mode, hotkeys, image effects or other settings</translation>
         </message>
