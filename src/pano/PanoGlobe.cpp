@@ -1,5 +1,9 @@
 #include "PanoGlobe.h"
 
+#include "HdrExrDecode.h"
+#include "MappedFile.h"
+
+#include <QFileInfo>
 #include <QImageReader>
 #include <QCoreApplication>
 #include <QElapsedTimer>
@@ -50,13 +54,37 @@ PanoGlobe::PanoGlobe(QWidget *parent)
 
 bool PanoGlobe::load(const QString &path, QString *error)
 {
-    QImageReader reader(path);
-    reader.setDecideFormatFromContent(false);
-    QImage img = reader.read();
-    if (img.isNull()) {
-        if (error)
-            *error = reader.errorString();
-        return false;
+    const QString suffix = QFileInfo(path).suffix().toLower();
+    QImage img;
+    if (HdrExrDecode::isHdrSuffix(suffix) || HdrExrDecode::isExrSuffix(suffix)) {
+        // HDR/EXR 没有对应的 Qt 图像插件：走主程序同一套解码与 SDR 预览曲线
+        // （I3-2），保证球面与平面看到的是同一次色调映射结果。大文件走内存
+        // 映射，避免再复制一整份（8K HDR 约 100 MB）。
+        MappedFile file;
+        QString err;
+        LoadErrorCategory cat = LoadErrorCategory::None;
+        if (!file.open(path, 256LL * 1024 * 1024, &err, &cat)) {
+            if (error)
+                *error = err;
+            return false;
+        }
+        img = HdrExrDecode::isExrSuffix(suffix)
+                  ? HdrExrDecode::decodeExr(file.bytes(), &err, &cat)
+                  : HdrExrDecode::decodeRadiance(file.bytes(), &err, &cat);
+        if (img.isNull()) {
+            if (error)
+                *error = err.isEmpty() ? QStringLiteral("无法解码该 HDR/EXR 文件") : err;
+            return false;
+        }
+    } else {
+        QImageReader reader(path);
+        reader.setDecideFormatFromContent(false);
+        img = reader.read();
+        if (img.isNull()) {
+            if (error)
+                *error = reader.errorString();
+            return false;
+        }
     }
     // 统一成 RGB32：渲染循环只处理 QRgb，避免每像素判格式。
     if (img.format() != QImage::Format_RGB32)

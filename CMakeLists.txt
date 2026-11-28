@@ -79,6 +79,12 @@ add_executable(soleview WIN32
     src/HeifLoader.h
     src/ExtraImageLoader.cpp
     src/ExtraImageLoader.h
+    # HDR/EXR 线性场景光 → SDR 预览（需求池 I3-2）：解码与曲线独立成文件，
+    # 全景组件 soleview-pano 也编译这两个，保证平面与球面同一次色调映射。
+    src/HdrPreview.cpp
+    src/HdrPreview.h
+    src/HdrExrDecode.cpp
+    src/HdrExrDecode.h
     src/MetadataPanel.cpp
     src/MetadataPanel.h
     src/HudShell.cpp
@@ -338,11 +344,20 @@ add_executable(soleview-pano WIN32
     src/pano/PanoWindow.h
     src/pano/PanoGlobe.cpp
     src/pano/PanoGlobe.h
+    # 全景也要能打开 .hdr/.exr：与平面共用同一份解码 + 预览曲线（I3-2）。
+    src/HdrPreview.cpp
+    src/HdrPreview.h
+    src/HdrExrDecode.cpp
+    src/HdrExrDecode.h
 )
 target_include_directories(soleview-pano PRIVATE src)
 target_compile_definitions(soleview-pano PRIVATE
     SOLEVIEW_PANO_VERSION="${PROJECT_VERSION}")
 target_link_libraries(soleview-pano PRIVATE Qt6::Widgets)
+if(OPENEXR_FOUND)
+    target_link_libraries(soleview-pano PRIVATE PkgConfig::OPENEXR)
+    target_compile_definitions(soleview-pano PRIVATE HAS_OPENEXR=1)
+endif()
 set_target_properties(soleview-pano PROPERTIES
     OUTPUT_NAME "soleview-pano"
     WIN32_EXECUTABLE TRUE
@@ -394,6 +409,14 @@ if(BUILD_TESTING)
     add_test(NAME minimap.pure COMMAND soleview-minimap-test)
     soleview_reset_integrity_label(soleview-minimap-test)
 
+    # HDR/EXR SDR 预览曲线纯逻辑单测（需求池 I3-2）：不依赖 Qt，只测曝光计量与曲线。
+    add_executable(soleview-hdrpreview-test
+        tests/unit/hdr_preview_test.cpp
+        src/HdrPreview.cpp)
+    target_include_directories(soleview-hdrpreview-test PRIVATE src)
+    add_test(NAME hdrpreview.pure COMMAND soleview-hdrpreview-test)
+    soleview_reset_integrity_label(soleview-hdrpreview-test)
+
     add_executable(soleview-batchrename-test tests/unit/batch_rename_test.cpp src/BatchRename.cpp)
     target_include_directories(soleview-batchrename-test PRIVATE src)
     target_link_libraries(soleview-batchrename-test PRIVATE Qt6::Core)
@@ -422,6 +445,8 @@ if(BUILD_TESTING)
         src/RawImageLoader.cpp
         src/HeifLoader.cpp
         src/ExtraImageLoader.cpp
+        src/HdrPreview.cpp
+        src/HdrExrDecode.cpp
         src/FrameNavigator.cpp
         src/RawJpgGroup.cpp
         src/RotateAutoSave.cpp
@@ -473,6 +498,8 @@ if(BUILD_TESTING)
         src/RawImageLoader.cpp
         src/HeifLoader.cpp
         src/ExtraImageLoader.cpp
+        src/HdrPreview.cpp
+        src/HdrExrDecode.cpp
         src/FrameNavigator.cpp
         src/RawJpgGroup.cpp
         src/RotateAutoSave.cpp
@@ -534,6 +561,8 @@ if(BUILD_TESTING)
         src/RawImageLoader.cpp
         src/HeifLoader.cpp
         src/ExtraImageLoader.cpp
+        src/HdrPreview.cpp
+        src/HdrExrDecode.cpp
         src/FrameNavigator.cpp
         src/RawJpgGroup.cpp
         src/RotateAutoSave.cpp

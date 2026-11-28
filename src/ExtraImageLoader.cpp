@@ -1,6 +1,7 @@
 #include "ExtraImageLoader.h"
 
 #include "HeifLoader.h"
+#include "HdrExrDecode.h"
 #include "MappedFile.h"
 #include "PsdPch.h"
 #include "Psdminiz.h"
@@ -37,13 +38,6 @@
 #include <jxl/decode_cxx.h>
 #include <jxl/thread_parallel_runner.h>
 #include <jxl/thread_parallel_runner_cxx.h>
-#endif
-
-#ifdef HAS_OPENEXR
-#include <ImfIO.h>
-#include <ImfRgbaFile.h>
-#include <ImathBox.h>
-#include <ImfArray.h>
 #endif
 
 #ifdef Q_OS_WIN
@@ -276,180 +270,8 @@ QImage decodeQoi(const QByteArray &data, QString *errOut, LoadErrorCategory *cat
 // ===========================================================================
 QImage decodeRadianceHdr(const QByteArray &data, QString *errOut, LoadErrorCategory *catOut)
 {
-    if (data.size() < 16 || (!data.startsWith("#?RADIANCE") && !data.startsWith("#?RGBE"))) {
-        setFail(QStringLiteral("hdr invalid magic"), LoadErrorCategory::Unsupported, errOut, catOut);
-        return QImage();
-    }
-    int pos = 0;
-    const int n = data.size();
-    auto readLine = [&data, &pos, n]() -> QByteArray {
-        const int start = pos;
-        while (pos < n && data.at(pos) != '\n') {
-            ++pos;
-        }
-        QByteArray line = data.mid(start, pos - start);
-        if (pos < n && data.at(pos) == '\n') {
-            ++pos;
-        }
-        if (line.endsWith('\r')) {
-            line.chop(1);
-        }
-        return line;
-    };
-
-    float exposure = 1.0f;
-    bool foundBlank = false;
-    while (pos < n) {
-        const QByteArray line = readLine();
-        if (line.isEmpty()) {
-            foundBlank = true;
-            break;
-        }
-        if (line.startsWith("EXPOSURE=")) {
-            bool ok = false;
-            const float ex = line.mid(9).trimmed().toFloat(&ok);
-            if (ok && ex > 0.0f && std::isfinite(ex)) {
-                exposure *= ex;
-            }
-        }
-    }
-    if (!foundBlank || pos >= n) {
-        setFail(QStringLiteral("hdr header truncated"), LoadErrorCategory::Corrupt, errOut, catOut);
-        return QImage();
-    }
-
-    const QByteArray dimLine = readLine();
-    const QList<QByteArray> parts = dimLine.simplified().split(' ');
-    if (parts.size() != 4) {
-        setFail(QStringLiteral("hdr invalid resolution line"), LoadErrorCategory::Corrupt, errOut, catOut);
-        return QImage();
-    }
-    bool okH = false, okW = false;
-    const int h = parts[1].toInt(&okH);
-    const int w = parts[3].toInt(&okW);
-    if (!okH || !okW || !validRasterSize(w, h)
-        || (parts[0] != "-Y" && parts[0] != "+Y")
-        || (parts[2] != "+X" && parts[2] != "-X")) {
-        setFail(QStringLiteral("hdr unsupported orientation or size"), LoadErrorCategory::Corrupt, errOut, catOut);
-        return QImage();
-    }
-    const bool flipY = (parts[0] == "+Y");
-    const bool flipX = (parts[2] == "-X");
-
-    QImage img(w, h, QImage::Format_RGB888);
-    if (img.isNull()) {
-        setFail(QStringLiteral("hdr alloc failed"), LoadErrorCategory::Corrupt, errOut, catOut);
-        return QImage();
-    }
-
-    const uchar *p = reinterpret_cast<const uchar *>(data.constData());
-    std::vector<uchar> scan(size_t(w) * 4);
-    const float invExp = 1.0f / exposure;
-
-    for (int y = 0; y < h; ++y) {
-        if (pos + 4 > n) {
-            setFail(QStringLiteral("hdr truncated scanline"), LoadErrorCategory::Corrupt, errOut, catOut);
-            return QImage();
-        }
-        const bool newRle = (w >= 8 && w <= 0x7FFF && p[pos] == 2 && p[pos + 1] == 2
-                             && (p[pos + 2] & 0x80) == 0
-                             && ((int(p[pos + 2]) << 8) | p[pos + 3]) == w);
-        if (newRle) {
-            pos += 4;
-            for (int ch = 0; ch < 4; ++ch) {
-                int x = 0;
-                while (x < w) {
-                    if (pos >= n) {
-                        setFail(QStringLiteral("hdr rle eof"), LoadErrorCategory::Corrupt, errOut, catOut);
-                        return QImage();
-                    }
-                    const uchar code = p[pos++];
-                    if (code > 128) {
-                        const int cnt = code & 127;
-                        if (pos >= n || x + cnt > w) {
-                            setFail(QStringLiteral("hdr rle overflow"), LoadErrorCategory::Corrupt, errOut, catOut);
-                            return QImage();
-                        }
-                        const uchar val = p[pos++];
-                        for (int k = 0; k < cnt; ++k) {
-                            scan[size_t(ch) * w + x++] = val;
-                        }
-                    } else {
-                        const int cnt = code;
-                        if (cnt == 0 || pos + cnt > n || x + cnt > w) {
-                            setFail(QStringLiteral("hdr rle raw overflow"), LoadErrorCategory::Corrupt, errOut, catOut);
-                            return QImage();
-                        }
-                        for (int k = 0; k < cnt; ++k) {
-                            scan[size_t(ch) * w + x++] = p[pos++];
-                        }
-                    }
-                }
-            }
-        } else {
-            // Flat / Old RLE
-            int x = 0;
-            int rshift = 0;
-            while (x < w) {
-                if (pos + 4 > n) {
-                    setFail(QStringLiteral("hdr flat eof"), LoadErrorCategory::Corrupt, errOut, catOut);
-                    return QImage();
-                }
-                const uchar r = p[pos++];
-                const uchar g = p[pos++];
-                const uchar b = p[pos++];
-                const uchar e = p[pos++];
-                if (r == 1 && g == 1 && b == 1) {
-                    if (x == 0 || rshift >= 24) {
-                        setFail(QStringLiteral("hdr old rle invalid"), LoadErrorCategory::Corrupt, errOut, catOut);
-                        return QImage();
-                    }
-                    const int cnt = int(e) << rshift;
-                    rshift += 8;
-                    const uchar pr = scan[size_t(x - 1)];
-                    const uchar pg = scan[size_t(w) + x - 1];
-                    const uchar pb = scan[size_t(w) * 2 + x - 1];
-                    const uchar pe = scan[size_t(w) * 3 + x - 1];
-                    if (x + cnt > w) {
-                        setFail(QStringLiteral("hdr old rle overflow"), LoadErrorCategory::Corrupt, errOut, catOut);
-                        return QImage();
-                    }
-                    for (int k = 0; k < cnt; ++k) {
-                        scan[size_t(x)] = pr;
-                        scan[size_t(w) + x] = pg;
-                        scan[size_t(w) * 2 + x] = pb;
-                        scan[size_t(w) * 3 + x] = pe;
-                        ++x;
-                    }
-                } else {
-                    scan[size_t(x)] = r;
-                    scan[size_t(w) + x] = g;
-                    scan[size_t(w) * 2 + x] = b;
-                    scan[size_t(w) * 3 + x] = e;
-                    ++x;
-                    rshift = 0;
-                }
-            }
-        }
-
-        const int dstY = flipY ? (h - 1 - y) : y;
-        uchar *dst = img.scanLine(dstY);
-        for (int x = 0; x < w; ++x) {
-            const int sx = flipX ? (w - 1 - x) : x;
-            const uchar e = scan[size_t(w) * 3 + sx];
-            if (e == 0) {
-                dst[x * 3 + 0] = 0;
-                dst[x * 3 + 1] = 0;
-                dst[x * 3 + 2] = 0;
-            } else {
-                const float f = std::ldexp(1.0f, int(e) - 128 - 8) * invExp;
-                dst[x * 3 + 0] = linearToSrgbByte((scan[size_t(sx)] + 0.5f) * f);
-                dst[x * 3 + 1] = linearToSrgbByte((scan[size_t(w) + sx] + 0.5f) * f);
-                dst[x * 3 + 2] = linearToSrgbByte((scan[size_t(w) * 2 + sx] + 0.5f) * f);
-            }
-        }
-    }
-    return img;
+    // 解码与 SDR 预览曲线抽到 HdrExrDecode：全景组件共用同一份实现（I3-2）。
+    return HdrExrDecode::decodeRadiance(data, errOut, catOut);
 }
 
 // ===========================================================================
@@ -2352,87 +2174,11 @@ bool decodeJxlFrames(const QByteArray &data, bool onlyFirst, QVector<QImage> &fr
 #endif
 
 #ifdef HAS_OPENEXR
-class MemoryExrIStream : public Imf::IStream
-{
-public:
-    explicit MemoryExrIStream(const QByteArray &buf)
-        : Imf::IStream("memory.exr"), m_buf(buf) {}
-    bool isMemoryMapped() const override { return true; }
-    char *readMemoryMapped(int n) override
-    {
-        if (m_pos + quint64(n) > quint64(m_buf.size())) {
-            throw IEX_NAMESPACE::InputExc("Unexpected EOF in EXR memory stream");
-        }
-        char *ptr = const_cast<char *>(m_buf.constData() + m_pos);
-        m_pos += quint64(n);
-        return ptr;
-    }
-    bool read(char c[], int n) override
-    {
-        if (m_pos + quint64(n) > quint64(m_buf.size())) {
-            throw IEX_NAMESPACE::InputExc("Unexpected EOF in EXR memory stream");
-        }
-        std::memcpy(c, m_buf.constData() + m_pos, size_t(n));
-        m_pos += quint64(n);
-        return m_pos < quint64(m_buf.size());
-    }
-    uint64_t tellg() override { return m_pos; }
-    void seekg(uint64_t pos) override
-    {
-        if (pos > quint64(m_buf.size())) {
-            throw IEX_NAMESPACE::InputExc("Seek beyond EOF in EXR memory stream");
-        }
-        m_pos = pos;
-    }
 
-private:
-    const QByteArray &m_buf;
-    uint64_t m_pos = 0;
-};
 
 QImage decodeExr(const QByteArray &data, QString *errOut, LoadErrorCategory *catOut)
 {
-    try {
-        MemoryExrIStream stream(data);
-        Imf::RgbaInputFile file(stream);
-        if (!file.isComplete()) {
-            setFail(QStringLiteral("exr incomplete file"), LoadErrorCategory::Corrupt, errOut, catOut);
-            return QImage();
-        }
-        const Imath::Box2i dw = file.dataWindow();
-        const int w = dw.max.x - dw.min.x + 1;
-        const int h = dw.max.y - dw.min.y + 1;
-        if (!validRasterSize(w, h)) {
-            setFail(QStringLiteral("exr invalid dataWindow"), LoadErrorCategory::Corrupt, errOut, catOut);
-            return QImage();
-        }
-        Imf::Array2D<Imf::Rgba> pixels(h, w);
-        file.setFrameBuffer(&pixels[0][0] - dw.min.x - dw.min.y * ptrdiff_t(w), 1, w);
-        file.readPixels(dw.min.y, dw.max.y);
-
-        QImage img(w, h, QImage::Format_RGBA8888);
-        if (img.isNull()) return QImage();
-        for (int y = 0; y < h; ++y) {
-            uchar *dst = img.scanLine(y);
-            for (int x = 0; x < w; ++x) {
-                const Imf::Rgba &px = pixels[y][x];
-                dst[x * 4 + 0] = linearToSrgbByte(float(px.r));
-                dst[x * 4 + 1] = linearToSrgbByte(float(px.g));
-                dst[x * 4 + 2] = linearToSrgbByte(float(px.b));
-                const float a = float(px.a);
-                dst[x * 4 + 3] = std::isfinite(a)
-                    ? uchar(std::clamp(int(std::lround(a * 255.0f)), 0, 255))
-                    : 255;
-            }
-        }
-        return img;
-    } catch (const std::exception &ex) {
-        setFail(QString::fromUtf8(ex.what()), LoadErrorCategory::Corrupt, errOut, catOut);
-        return QImage();
-    } catch (...) {
-        setFail(QStringLiteral("exr unknown decode error"), LoadErrorCategory::Corrupt, errOut, catOut);
-        return QImage();
-    }
+    return HdrExrDecode::decodeExr(data, errOut, catOut);
 }
 #endif
 
