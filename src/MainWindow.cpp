@@ -3590,15 +3590,11 @@ QMenu *MainWindow::buildContextMenu()
               QString(), false);
         reuse(show, actTwoR2L, "book", AppMenu::label(QLatin1String("view_two_r2l")),
               QString(), false);
-        // 360° 全景（派单 2026-11-20）：入口只对「可用的球形图」出现，属于随图
-        // 变化的上下文命令，因此不进 MenuCatalog 的可见性开关表（那里是全局配置）。
-        //   完整球形（未关提示）→「360° 查看」，与主窗常驻入口同一个落点；
-        //   已关提示 / 仅 2:1 宽图 →「尝试以 360° 查看」，只有手动入口；
-        //   局部裁切与其它投影 → 不给入口（首版不把局部图强行绕满一圈）。
-        if (m_pano.eligible() && !m_panoPath.isEmpty() && m_panoPath == m_currentPath) {
-            cmd(show, "view", m_pano.autoEntry ? tr("360° 查看")
-                                               : tr("尝试以 360° 查看"),
-                QString(), [this]() { onOpenPano(); }, false);
+        // 360° 全景入口（2026-11-28 起常驻）：不再按识别结果决定显隐，普通图也给
+        // 入口；开关收进 MenuCatalog（view_pano），可在「设置 → 查看器右键菜单」
+        // 关闭。已识别球形图仍走真实初始视角，未识别图按默认视角强制打开。
+        if (vis("view_pano")) {
+            cmdId(show, "view_pano", QString(), [this]() { onOpenPano(); });
         }
         attachDirect(show, "parent_view");
     }
@@ -5309,17 +5305,32 @@ void MainWindow::openFramesAsync(const QString &path)
 
 // 全景入口唯一落点：组件已装 → 独立进程；未装 → 定位「设置 → 扩展」的组件行；
 // 启动失败 → 保留原图与原缩放，只给可操作提示（派单「组件缺失/启动失败」条）。
+// 2026-11-28 起右键入口常驻：未识别图也允许按等距柱状图强制打开；已识别球形图
+// 沿用 GPano 真实初始视角。识别口径与主窗胶囊（PanoChip）条件均不在此改动。
 void MainWindow::onOpenPano()
 {
-    if (m_panoPath.isEmpty() || !m_pano.eligible()) {
+    const QString path = !m_panoPath.isEmpty() ? m_panoPath
+                        : (!m_currentPath.isEmpty() ? m_currentPath : m_displayedPath);
+    if (path.isEmpty()) {
         if (m_toast) {
-            m_toast->showMessage(tr("当前图片不是可用的 360° 全景图"),
-                                 Chrome::Toast::Tone::Warning);
+            m_toast->showMessage(tr("当前图片不可用"), Chrome::Toast::Tone::Warning);
         }
         return;
     }
+    Pano::Info view = m_pano;
+    const bool eligible = m_pano.eligible() && m_panoPath == path;
+    if (!eligible) {
+        // 未识别 / 标记不可用：回落默认视角（heading 0 / pitch 0 / fov 75），
+        // 先给一条轻提示再拉起组件。
+        view = Pano::Info();
+        view.fov = 75.0;
+        if (m_toast) {
+            m_toast->showMessage(tr("未检测到全景标记，按等距柱状图打开"),
+                                 Chrome::Toast::Tone::Info);
+        }
+    }
     QString error;
-    if (PanoExt::Manager::instance().launch(m_panoPath, m_pano, &error)) {
+    if (PanoExt::Manager::instance().launch(path, view, &error)) {
         return;
     }
     const PanoExt::Status st = PanoExt::Manager::instance().status();
