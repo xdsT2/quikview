@@ -2478,7 +2478,7 @@ PlayBar::PlayBar(QWidget *parent)
     setFixedHeight(kPlayBarH);
     setGraphicsEffect(new HudEffect(this, kPlayBarRadius));
     setAccessibleName(tr("动画播放控制栏"));
-    setAccessibleDescription(tr("首帧、上一帧、播放暂停、下一帧、末帧与帧进度滑条"));
+    setAccessibleDescription(tr("首帧、上一帧、播放暂停、下一帧、末帧、复制当前帧与帧进度滑条"));
     m_feedback = new ButtonFeedback(this);
     connect(m_feedback, &ButtonFeedback::changed, this, [this]() { update(); });
     m_tip = new TooltipHint(this);
@@ -2486,7 +2486,7 @@ PlayBar::PlayBar(QWidget *parent)
 
 int PlayBar::preferredWidth() const
 {
-    return 2 * kPlayBarPadX + 5 * kPlayBarBtn + 4 * kPlayBarGap
+    return 2 * kPlayBarPadX + 6 * kPlayBarBtn + 5 * kPlayBarGap
            + kPlayBarSliderGap + kPlayBarSliderW;
 }
 
@@ -2512,6 +2512,7 @@ QVector<PlayBar::Item> PlayBar::items() const
     place(Action::Play);
     place(Action::Next);
     place(Action::Last);
+    place(Action::CopyFrame);
     x -= kPlayBarGap;
     out.append(Item{ Action::FrameSlider,
                      QRect(x + kPlayBarSliderGap, y, kPlayBarSliderW, kPlayBarBtn) });
@@ -2571,6 +2572,7 @@ QString PlayBar::tipText(Action action) const
     case Action::Play: return m_playing ? tr("暂停") : tr("播放");
     case Action::Next: return tr("下一帧");
     case Action::Last: return canJumpEnds() ? tr("末帧") : tr("末帧（帧数未知）");
+    case Action::CopyFrame: return tr("复制当前帧");
     case Action::FrameSlider:
         return sliderEnabled() ? tr("帧进度：拖动定位到帧") : tr("帧进度：帧数未知");
     default: break;
@@ -2593,6 +2595,7 @@ QString PlayBar::layoutDump() const
         case Action::Play: name = "play"; break;
         case Action::Next: name = "next"; break;
         case Action::Last: name = "last"; break;
+        case Action::CopyFrame: name = "copyframe"; break;
         case Action::FrameSlider: name = "slider"; break;
         default: break;
         }
@@ -2614,6 +2617,7 @@ void PlayBar::activate(Action action)
     case Action::Last:
         if (canJumpEnds()) emit lastClicked();
         break;
+    case Action::CopyFrame: emit copyFrameClicked(); break;
     default: break;
     }
 }
@@ -2710,6 +2714,7 @@ void PlayBar::paintEvent(QPaintEvent *)
             break;
         case Action::Next: drawIcon(p, "chevron-right", icon, drawInk, iconStyle); break;
         case Action::Last: drawIcon(p, "last", icon, drawInk, iconStyle); break;
+        case Action::CopyFrame: drawIcon(p, "copy", icon, drawInk, iconStyle); break;
         default: break;
         }
         endButton(p);

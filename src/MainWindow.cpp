@@ -564,6 +564,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_playBar, &Chrome::PlayBar::playToggleClicked, this, &MainWindow::onPlayPause);
     connect(m_playBar, &Chrome::PlayBar::nextClicked, this, &MainWindow::onNextFrame);
     connect(m_playBar, &Chrome::PlayBar::lastClicked, this, &MainWindow::onLastFrame);
+    // 复制当前帧（J-4）：播放栏只在可播多帧时出现，入口天然限定在动图上下文。
+    connect(m_playBar, &Chrome::PlayBar::copyFrameClicked, this, &MainWindow::onCopyCurrentFrame);
     // 拖滑条松手：定位到目标帧并保持暂停；点播放从该帧继续。
     connect(m_playBar, &Chrome::PlayBar::frameRequested, this, &MainWindow::onSeekFrame);
     // 拖动跟手预览：节流后即时上屏，松手仍由 frameRequested 落一次最终帧。
@@ -8713,6 +8715,8 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         else if (kind == QLatin1String("visible"))  onCopyVisibleImage();
         else if (kind == QLatin1String("file"))     onCopyImageFile();
         else if (kind == QLatin1String("orig"))     onCopyToClipboard();
+        // J-4 取证：复制动图当前帧，配合 clipdump 校验剪贴板里的图与当前帧一致。
+        else if (kind == QLatin1String("frame"))    onCopyCurrentFrame();
     }
     else if (c == QLatin1String("clippaste")) {
         onPasteFromClipboard();
@@ -9293,7 +9297,15 @@ void MainWindow::syncPlayBarState()
     m_playBar->setState(m_frames->frameIndex(), m_frames->frameCount(), m_animPlaying);
     // 窄档由「更多」菜单接管播放/暂停与逐帧，播放栏不得被状态同步重新唤出。
     const bool narrowDock = m_control && m_control->tierLevel() == 2;
+    const bool wasVisible = m_playBar->isVisible();
     m_playBar->setVisible(!narrowDock && (!m_pictureBorderless || m_dockVisible));
+    // 帧表由后台异步打开（D1-2b）：到达时窗口通常不会再收到 resize，播放栏会
+    // 带着构造时的默认几何（100×40）贴在左上角。刚显示出来、或几何还是默认值时
+    // 补一次重排；几何正常后不再每次状态同步都重排（播放中每帧都会走到这里）。
+    const bool staleGeometry = m_playBar->width() != m_playBar->preferredWidth();
+    if (m_playBar->isVisible() && (!wasVisible || staleGeometry)) {
+        layoutPlayBar();
+    }
 }
 
 // 播放栏几何：底栏展开时贴其上方 8px；收起时与浏览器同为 16px 底边距。
@@ -10809,6 +10821,32 @@ void MainWindow::onCopyImageFile()
     mime->setUrls({ QUrl::fromLocalFile(QFileInfo(m_currentPath).absoluteFilePath()) });
     QGuiApplication::clipboard()->setMimeData(mime);
     m_toast->showMessage(tr("已复制图像文件"), Chrome::Toast::Tone::Success);
+}
+
+// J-4：复制播放栏当前帧。取 m_currentImage——它就是 showAnimFrame 刚上屏的那一帧
+// （若用户给 GIF 选了铺底，铺底已合成在内）。不走 frameAt() 重新解码：顺序模式会
+// 重建 reader 从头读，既慢又可能扰动播放位置。粘贴结果因此与暂停时的画面一致。
+void MainWindow::onCopyCurrentFrame()
+{
+    if (!m_frames || !m_frames->hasFrames()) {
+        m_toast->showMessage(tr("当前图片不是多帧图片"), Chrome::Toast::Tone::Warning);
+        return;
+    }
+    if (m_currentImage.isNull()) {
+        m_toast->showMessage(tr("复制当前帧失败"), Chrome::Toast::Tone::Error);
+        return;
+    }
+    QGuiApplication::clipboard()->setImage(m_currentImage);
+    const int total = m_frames->frameCount();
+    if (total > 1) {
+        m_toast->showMessage(tr("已复制当前帧 · 第 %1/%2 帧")
+                                 .arg(m_frames->frameIndex() + 1)
+                                 .arg(total),
+                             Chrome::Toast::Tone::Success);
+    } else {
+        // 顺序模式（MNG）帧数未知，只报「已复制」，不编造序号。
+        m_toast->showMessage(tr("已复制当前帧"), Chrome::Toast::Tone::Success);
+    }
 }
 
 // 前向声明：下方粘贴槽引用的匿名命名空间助手定义在文件后部（拖放链同区）。
