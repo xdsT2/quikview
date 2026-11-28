@@ -188,6 +188,8 @@ private slots:
     void onCopyImagePath();
     void onCopyVisibleImage();
     void onCopyImageFile();
+    // J-4：播放栏「复制当前帧」——把正在显示的那一帧放进剪贴板（不写盘）。
+    void onCopyCurrentFrame();
     // Ctrl+V 从剪贴板取图（图像 → 文件 URL → 文本路径 → toast）
     void onPasteFromClipboard();
     void onSetWallpaper();

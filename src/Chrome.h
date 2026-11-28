@@ -383,7 +383,9 @@ private:
 };
 
 // ==================== GIF / MNG 播放控制栏（40px 胶囊，贴底栏上方居中） ====================
-// 五个图标钮：首帧 / 上一帧 / 播放暂停 / 下一帧 / 末帧；右侧一条细帧进度滑条。
+// 六个图标钮：首帧 / 上一帧 / 播放暂停 / 下一帧 / 末帧 / 复制当前帧；右侧一条细帧进度滑条。
+// 「复制当前帧」只在动图播放栏出现（本栏本就只在可播多帧时显示），点击把当前显示帧
+// 送进剪贴板，不写盘、不弹确认。
 // 滑条只对当前动图的帧生效，与底栏文件进度条互相独立。总帧数未知（顺序模式
 // MNG，frameCount()==0）时滑条与首尾帧钮禁用，上一/下一帧保留可用。
 class PlayBar : public QWidget
@@ -412,6 +414,8 @@ signals:
     void playToggleClicked();
     void nextClicked();
     void lastClicked();
+    // 复制当前帧（J-4）：由主窗口把「正在显示的那一帧」放进剪贴板。
+    void copyFrameClicked();
     // 拖动松手：定位到目标帧（0-based），保持暂停；播放从该帧继续。
     void frameRequested(int index);
     // 拖动跟手预览：经过的帧即时上屏（Chrome 侧已节流），松手仍由 frameRequested 落一次。
@@ -427,7 +431,7 @@ protected:
 
 private:
     enum class Action {
-        None, First, Prev, Play, Next, Last, FrameSlider
+        None, First, Prev, Play, Next, Last, CopyFrame, FrameSlider
     };
     struct Item {
         Action action = Action::None;
