@@ -13,6 +13,7 @@
 #include <QFocusEvent>
 #include <QFontMetrics>
 #include <QGraphicsOpacityEffect>
+#include <QIcon>
 #include <QKeyEvent>
 #include <QLinearGradient>
 #include <QMouseEvent>
@@ -1027,14 +1028,29 @@ void TopBar::paintEvent(QPaintEvent *)
         surface.setAlphaF(0.88);
     p.fillRect(rect(), surface);
 
-    // 应用标识：22×22 蓝色圆角方块 + Q
+    // 应用标识：取与 exe / 任务栏同一份品牌图标（resources/soleview.ico → :/soleview.ico），
+    // 换图标只改那一个文件，顶栏、任务栏、资源管理器三处自动一致。旧版这里自绘
+    // 「蓝底白字 Q」是 QuikView 时代的遗留，改名后一直没跟着换。
     const QRectF logo(kTopMargin, (height() - kTopLogoW) / 2.0, kTopLogoW, kTopLogoW);
-    p.setPen(Qt::NoPen);
-    p.setBrush(QColor(QStringLiteral("#1688f8")));
-    p.drawRoundedRect(logo, 6, 6);
-    p.setFont(uiFont(11, QFont::DemiBold));
-    p.setPen(QColor(Qt::white));
-    p.drawText(logo, Qt::AlignCenter, QStringLiteral("Q"));
+    {
+        static const QIcon brand(QStringLiteral(":/soleview.ico"));
+        const QPixmap pm = brand.pixmap(QSize(kTopLogoW, kTopLogoW), devicePixelRatioF());
+        if (!pm.isNull()) {
+            p.drawPixmap(logo, pm, QRectF(pm.rect()));
+        } else {
+            // RCC 缺失兜底：品牌几何（圆角方块 + 白环 + 右下短尾），绝不退回旧 Q。
+            p.setPen(Qt::NoPen);
+            p.setBrush(QColor(QStringLiteral("#1688f8")));
+            p.drawRoundedRect(logo, 6, 6);
+            const QPointF c = logo.center();
+            const qreal r = logo.width() * 0.26;
+            p.setBrush(Qt::NoBrush);
+            p.setPen(QPen(Qt::white, qMax(1.2, logo.width() * 0.10)));
+            p.drawEllipse(c, r, r);
+            p.drawLine(QPointF(c.x() + r * 0.72, c.y() + r * 0.72),
+                       QPointF(c.x() + r * 1.30, c.y() + r * 1.30));
+        }
+    }
 
     const QVector<Btn> list = buttons();
 
