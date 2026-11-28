@@ -200,7 +200,42 @@ void ImageCache::probeLog(const QString &line) const
 
 QImage ImageCache::cachedFull(const QString &path) const
 {
-    return m_fullCache.contains(path) ? *m_fullCache.object(path) : QImage();
+    return cacheFresh(path) ? *m_fullCache.object(path) : QImage();
+}
+
+void ImageCache::removeFullEntry(const QString &path)
+{
+    m_fullCache.remove(path);
+    m_fullMeta.remove(path);
+}
+
+bool ImageCache::cacheFresh(const QString &path) const
+{
+    if (!m_fullCache.contains(path)) {
+        return false;
+    }
+    const auto it = m_fullMeta.constFind(path);
+    if (it == m_fullMeta.constEnd()) {
+        // 无元数据的旧条目：不作沿用，交出去重做（const 方法内不就地删，调用方按需 remove）。
+        return false;
+    }
+    const FrameMeta &meta = it.value();
+    // 选项维度：帧是按某档 ICC / tone map 准备的，开关变了旧帧不得复用。
+    if (meta.imageIcc != Config::instance().imageIcc()
+        || meta.hdrTonemap != Config::instance().hdrTonemap()) {
+        return false;
+    }
+    // 图源内容维度：包内条目不是独立磁盘文件，mtime/size 不参与比对（归档整体新鲜度
+    // 由 forgetPath / evictArchive 管）。普通文件比对最后修改时间与字节数，同路径被
+    // 外部覆盖后旧帧立即作废。
+    if (!ArchiveStore::isEntryPath(path)) {
+        const QFileInfo fi(path);
+        if (!fi.exists() || fi.lastModified().toSecsSinceEpoch() != meta.mtimeSec
+            || fi.size() != meta.sizeBytes) {
+            return false;
+        }
+    }
+    return true;
 }
 
 void ImageCache::bumpGeneration()
@@ -219,13 +254,17 @@ void ImageCache::requestFull(const QString &path, const QSize &previewSize, bool
 {
     m_previewSize = previewSize;
     m_lastRequestedPath = path;
-    if (m_fullCache.contains(path))
+    const bool fresh = cacheFresh(path);
+    if (fresh)
         ++m_hits;
-    else
+    else {
         ++m_misses;
+        if (m_fullCache.contains(path))
+            removeFullEntry(path);   // 旧帧（文件覆盖/开关变更）作废重做
+    }
     probeLog(QStringLiteral("request file=%1 hit=%2 misses=%3 used=%4")
                  .arg(QFileInfo(path).fileName())
-                 .arg(m_fullCache.contains(path) ? 1 : 0)
+                 .arg(fresh ? 1 : 0)
                  .arg(m_misses)
                  .arg(m_fullCache.totalCost()));
     if (preempt) {
@@ -236,7 +275,7 @@ void ImageCache::requestFull(const QString &path, const QSize &previewSize, bool
     // 拿掉，否则从邻居预读切过去会直接命中缓存、绕开下面所有解码守卫，开关看着像
     // 没生效。这里只拦 RAW，JPEG/PNG 等照旧；与解码线程里的那道守卫同一口径。
     if (isRawFilePath(path) && Config::instance().noRawLoad()) {
-        m_fullCache.remove(path);
+        removeFullEntry(path);
         if (path == m_preloadPath) {
             m_preloadPath.clear();
             m_preloadPromote = false;
@@ -277,14 +316,14 @@ void ImageCache::requestFull(const QString &path, const QSize &previewSize, bool
         return;
     }
     const bool busy = hasCurrentGenWork() || !m_queue.isEmpty();
-    if (m_fullCache.contains(path) && !busy) {
+    if (fresh && !busy) {
         // 空闲时缓存命中直接上屏；忙时也必须排队，否则会插队破坏
         // 「emit 顺序 == requestFull 调用顺序」
         m_fullEmitted.insert(path);
         emit fullReady(path, *m_fullCache.object(path), false);
         return;
     }
-    if (!m_fullCache.contains(path)) {
+    if (!fresh) {
         // D2-1：全量之前先让预览快车道出一张降采样帧。预览只写自己的在飞集合，
         // 不占全量队列；全量先到也没关系，finishPreview 会按 m_fullEmitted 丢弃。
         // 顺序翻页（不换代次）时，只有队列与在飞都空才允许抢跑：否则上一页的
@@ -309,6 +348,16 @@ void ImageCache::insertFull(const QString &path, const QImage &img)
     // （此前 insert 不传成本=每条记 1，512MB 上限形同虚设）
     m_fullCache.insert(path, new QImage(img),
                        static_cast<int>(qMin<qint64>(img.sizeInBytes(), qint64(INT_MAX))));
+    // P0-d：记录该就绪帧生成时的图源新鲜度与选项快照，供命中时校验防错帧。
+    FrameMeta meta;
+    meta.imageIcc = Config::instance().imageIcc();
+    meta.hdrTonemap = Config::instance().hdrTonemap();
+    if (!ArchiveStore::isEntryPath(path)) {
+        const QFileInfo fi(path);
+        meta.mtimeSec = fi.lastModified().toSecsSinceEpoch();
+        meta.sizeBytes = fi.size();
+    }
+    m_fullMeta.insert(path, meta);
     probeLog(QStringLiteral("cache_insert file=%1 bytes=%2 used=%3 limit_mb=%4")
                  .arg(QFileInfo(path).fileName())
                  .arg(img.sizeInBytes())
@@ -318,7 +367,7 @@ void ImageCache::insertFull(const QString &path, const QImage &img)
 
 void ImageCache::preload(const QString &path)
 {
-    if (path.isEmpty() || m_fullCache.contains(path) || m_queue.contains(path)
+    if (path.isEmpty() || cacheFresh(path) || m_queue.contains(path)
         || m_fullInFlight.contains(path) || path == m_preloadPath
         || m_preloadQueue.contains(path)) {
         probeLog(QStringLiteral("preload_skip file=%1 reason=hit_or_pending")
@@ -415,7 +464,7 @@ void ImageCache::requestDragPreview(const QString &path, const QSize &size)
     m_dragMuted = false;   // 又回到拖动：重新允许上屏
     m_dragSize = size;
     // 全图缓存优先（拖动方向已经走过的那张站住就用它，0ms），其次拖动预览缓存
-    if (m_fullCache.contains(path)) {
+    if (cacheFresh(path)) {
         m_dragPending.clear();
         emit dragPreviewReady(path, *m_fullCache.object(path));
         return;
@@ -483,7 +532,7 @@ void ImageCache::startDragDecode()
             if (!img.isNull()) {
                 m_dragCache.insert(path, new QImage(img),
                                    static_cast<int>(qMin<qint64>(img.sizeInBytes(), qint64(INT_MAX))));
-                if (promote && !m_fullCache.contains(path)) {
+                if (promote && !cacheFresh(path)) {
                     // 落点被真要：这张缩放图正好当快帧顶住，全图随后覆盖
                     emit fullReady(path, img, true);
                 } else if (!promote && !muted) {
@@ -499,7 +548,7 @@ void ImageCache::startNext()
 {
     while (!m_queue.isEmpty() && !hasCurrentGenWork()) {
         const QString path = m_queue.takeNext();
-        if (m_fullCache.contains(path)) {
+        if (cacheFresh(path)) {
             // 排队期间被缓存命中（如先前的解码完成入缓存）：按序直接上屏
             m_fullEmitted.insert(path);
             emit fullReady(path, *m_fullCache.object(path), false);
@@ -593,7 +642,7 @@ void ImageCache::finishPreview(const QString &path, const QImage &img, quint64 g
     if (path != m_lastRequestedPath) {
         return;
     }
-    if (m_fullEmitted.contains(path) || m_fullCache.contains(path)) {
+    if (m_fullEmitted.contains(path) || cacheFresh(path)) {
         return;
     }
     emit previewReady(path, img);
@@ -836,7 +885,7 @@ void ImageCache::forgetPath(const QString &path)
     bumpGeneration();
     m_minGen.insert(path, m_generation.load());
 
-    m_fullCache.remove(path);
+    removeFullEntry(path);
     m_dragCache.remove(path);
     m_queue.remove(path);
     m_preloadQueue.removeAll(path);
@@ -1037,6 +1086,7 @@ void ImageCache::startThumbJobs()
 void ImageCache::clear()
 {
     m_fullCache.clear();
+    m_fullMeta.clear();
     m_thumbCache.clear();
     m_thumbDisplay.clear();
     m_thumbQueue.clear();
@@ -1048,6 +1098,7 @@ void ImageCache::clearFull()
     m_fullInFlight.clear();
     bumpGeneration();   // 已清掉的任务即使回来也不再被认作当前结果
     m_fullCache.clear();
+    m_fullMeta.clear();
     m_queue.clear();
     m_preloadQueue.clear();
     m_preloadPath.clear();
@@ -1102,7 +1153,7 @@ void ImageCache::evictPrefix(const QString &prefix)
     const QList<QString> keys = m_fullCache.keys();
     for (const QString &key : keys) {
         if (key.startsWith(prefix, Qt::CaseInsensitive)) {
-            m_fullCache.remove(key);
+            removeFullEntry(key);
             ++removed;
         }
     }

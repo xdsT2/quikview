@@ -6,6 +6,7 @@
 #include "ToneMap.h"
 
 #include <QApplication>
+#include <QByteArray>
 #include <QColorSpace>
 #include <QDir>
 #include <QFile>
@@ -173,6 +174,26 @@ int main(int argc, char **argv)
             continue;
         }
         samples.push_back({name, img});
+    }
+
+    // 大图（可选目录，由 SOLEVIEW_EQ_BIG_DIR 指定）：4000×3000 内嵌 AdobeRGB ICC、
+    // 4000×3000 RGBA 透明、两张 Z049 实拍 3648×5472 / 5472×3648。覆盖整图与大 stride
+    // 路径；目录或缺任一图时跳过并计入 skipped，不判失败。
+    const QString bigDir = QString::fromLocal8Bit(qgetenv("SOLEVIEW_EQ_BIG_DIR"));
+    if (!bigDir.isEmpty()) {
+        const QStringList bigNames = {
+            "perf_adobe.jpg", "perf_transparent.png",
+            "perf_z049_0001.jpg", "perf_z049_0003.jpg",
+        };
+        for (const QString &name : bigNames) {
+            const QImage img = decodeAny(QDir(bigDir).absoluteFilePath(name));
+            if (img.isNull()) {
+                ++g_skipped;
+                std::fprintf(stderr, "NOTE: 大图解码跳过 %s\n", qPrintable(name));
+                continue;
+            }
+            samples.push_back({QStringLiteral("big-") + name, img});
+        }
     }
 
     const DisplayFrame::PrepareOptions opts[2] = {

@@ -511,6 +511,11 @@ if(BUILD_TESTING)
         target_compile_definitions(soleview-display-frame-test PRIVATE HAS_OPENEXR=1)
     endif()
     add_test(NAME display-frame.pure COMMAND soleview-display-frame-test)
+    # 可选大图样本目录（4000×3000 AdobeRGB / RGBA、两张实拍大图）；目录缺失时测试内部跳过。
+    set(SOLEVIEW_EQ_BIG_DIR "E:/Agent/ByteDance/Doubao/Temp/display-frame-20261128/samples"
+        CACHE PATH "等价校验大图样本目录")
+    set_tests_properties(display-frame.pure PROPERTIES
+        ENVIRONMENT "SOLEVIEW_EQ_BIG_DIR=${SOLEVIEW_EQ_BIG_DIR}")
     soleview_reset_integrity_label(soleview-display-frame-test)
 
     # 显示管线分段基准（离线 offscreen，不注册 ctest；由测量脚本手动调用）。
