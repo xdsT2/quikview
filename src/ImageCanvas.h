@@ -3,6 +3,7 @@
 #include <QColor>
 #include <QElapsedTimer>
 #include <QGraphicsView>
+#include <QHash>
 #include <QImage>
 #include <QMargins>
 #include <QString>
@@ -289,6 +290,10 @@ private:
     // 显示器 ICC SDR 验证版：sRGB 显示图 → 当前屏幕 profile（ACM 开启的
     // 屏幕跳过，避免与系统合成转换叠加）。非 Windows / 开关关 = 原样返回。
     QPixmap toMonitorSpace(const QPixmap &src) const;
+    // P0-b：显示器 profile 转换结果位图缓存。键含屏幕标识 + profile 路径/修改时间 +
+    // 源图 cacheKey；首屏/换屏/profile 变化/换图都不会取到错帧。toMonitorSpace 为 const，
+    // 缓存置 mutable。
+    mutable QHash<QString, QPixmap> m_monitorFrameCache;
     QImage m_sourceImage;        // 与 m_sourcePixmap 同源（隐式共享），后台线程只读重采样
     QPixmap m_previewPixmap;     // 廉价预览帧：等采样结果时顶画面，避免重绘几十 MP 原图
     qint64 m_previewSourceKey = 0;   // 预览帧对应的原图 cacheKey（换图就重建）

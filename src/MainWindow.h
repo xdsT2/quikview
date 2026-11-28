@@ -412,6 +412,7 @@ private:
     int spreadBackwardStep() const;
     QImage readImageSync(const QString &path) const;   // 同步解码（双页拼图用）
     void refreshSpread();                    // 按当前索引重新拼接跨页
+    void composePendingSpread(const QImage &second); // 第二页后台就绪后补拼跨页
     void updateCanvasLogo();
     void updateInfoOverlay();
     // 播放控制栏：当前图是否 eligible（多帧可播、非双页、设置开关开）；同步栏上状态。
@@ -689,6 +690,9 @@ private:
     // 页码 / 缩略图选中 / 信息浮层全部对应它；m_currentPath 是请求中的目标。
     QString m_displayedPath;
     int m_displayedIndex = -1;
+    // P0-c：双页第二页后台解码期间，登记等待补拼的第一/第二页路径；代次不符即丢弃。
+    QString m_pendingSpreadFirst;
+    QString m_pendingSpreadSecond;
     // 目录监视（外部增删）：防抖后的后台重扫状态与取证计数。
     bool m_dirRefreshInFlight = false;
     bool m_dirRefreshDirty = false;

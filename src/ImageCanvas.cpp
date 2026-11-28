@@ -32,6 +32,7 @@
 #include <vector>
 
 #include "Config.h"
+#include "DisplayFrame.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -1198,6 +1199,14 @@ QPixmap ImageCanvas::toMonitorSpace(const QPixmap &src) const
         logOnce(QStringLiteral("%1 的目标配置即 sRGB，恒等跳过").arg(screen->name()));
         return src;
     }
+    // P0-b：转换结果位图缓存。同一屏 + 同一 profile（路径/修改时间）+ 同一源图
+    // cacheKey 命中即复用，不再每次 setPixmap 整图重转；换屏/profile 更新/换图靠键区分。
+    const QString tag = DisplayFrame::monitorTag(screen->name(), geo, path, mt);
+    const QString key = tag + QLatin1String("|src=") + QString::number(src.cacheKey());
+    const auto cacheIt = m_monitorFrameCache.constFind(key);
+    if (cacheIt != m_monitorFrameCache.constEnd()) {
+        return cacheIt.value();
+    }
     QImage img = src.toImage();
     if (!img.colorSpace().isValid()) {
         img.setColorSpace(QColorSpace::SRgb);
@@ -1207,8 +1216,13 @@ QPixmap ImageCanvas::toMonitorSpace(const QPixmap &src) const
         logOnce(QStringLiteral("%1 色彩空间转换失败，保持 sRGB 显示").arg(screen->name()));
         return src;
     }
+    const QPixmap out = QPixmap::fromImage(img);
+    if (m_monitorFrameCache.size() >= 8) {
+        m_monitorFrameCache.clear();   // 只留当前会话少量帧，防止跨页堆积位图
+    }
+    m_monitorFrameCache.insert(key, out);
     logOnce(QStringLiteral("%1 应用 sRGB→%2 显示转换").arg(screen->name(), path));
-    return QPixmap::fromImage(img);
+    return out;
 #endif
 }
 

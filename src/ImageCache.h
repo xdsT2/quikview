@@ -36,6 +36,12 @@ public:
     ~ImageCache() override;
 
     QImage cachedFull(const QString &path) const;
+    // P0-d：就绪帧新鲜度校验。条目命中时比对图源 mtime/size 与帧准备选项
+    // （imageIcc / hdrTonemap），任一不符即把该条目从缓存与元数据表一并作废，
+    // 返回 false 走重新解码；包内条目无独立磁盘文件，跳过 mtime/size 比对，只比选项。
+    bool cacheFresh(const QString &path) const;
+    // 同时移除全图位图缓存条目与其新鲜度元数据。
+    void removeFullEntry(const QString &path);
     // preempt=true：显式跳转（打开/换目录/滑杆落点/缩略图/书签/首尾/快速反向）。
     // 进入新代次并允许在旧任务仍在解码时立刻启动新目标，旧结果只入缓存不上屏。
     // preempt=false：顺序翻页，保持 FIFO 单飞、逐张按序上屏（连按体感不变）。
@@ -126,6 +132,14 @@ private:
     void probeLog(const QString &line) const;
 
     QCache<QString, QImage> m_fullCache;
+    // P0-d：就绪帧条目新鲜度元数据，与 m_fullCache 同键平行存放。
+    struct FrameMeta {
+        qint64 mtimeSec = 0;       // 图源最后修改时间（秒）；包内条目为 0（不参与比对）
+        qint64 sizeBytes = 0;      // 图源字节数；包内条目为 0
+        bool imageIcc = true;      // 生成该帧时的「图片内嵌 ICC」开关快照
+        bool hdrTonemap = false;   // 生成该帧时的 HDR tone map 开关快照
+    };
+    QHash<QString, FrameMeta> m_fullMeta;
     int m_limitMb = 300;        // 当前原图缓存上限（MB，运行态口径）
     int m_hits = 0;             // requestFull 时原图缓存命中次数
     int m_misses = 0;           // requestFull 时未命中次数
