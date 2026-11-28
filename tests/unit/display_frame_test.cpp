@@ -221,8 +221,45 @@ int main(int argc, char **argv)
         }
     }
 
-    std::printf("\n== 等价结论：比对 %d 组（%d 张样本 × 2 选项），跳过 %d，不一致 %d ==\n",
-                g_pairs, samples.size(), g_skipped, g_failures);
+    // 真 HDR 素材目录（可选，SOLEVIEW_EQ_HDR_DIR）：文件经现有 loader 解码——解码层
+    // linearToSrgbByte 已在解码时把浮点折成 8bit，这里只作为超大全景样本纳入逐位等价，
+    // 不等同于「真浮点输入进 tone map」（真浮点 bench 见 tests/bench/display_bench.cpp
+    // 浮点直通路径）。逐份解码、比对完即释放，不在样本向量常驻；目录或缺图计入 skipped。
+    const QString hdrDir = QString::fromLocal8Bit(qgetenv("SOLEVIEW_EQ_HDR_DIR"));
+    int hdrSamples = 0;
+    if (!hdrDir.isEmpty()) {
+        const QDir hd(hdrDir);
+        const QStringList hdrFiles = hd.entryList(
+            {QStringLiteral("*.exr"), QStringLiteral("*.hdr")}, QDir::Files, QDir::Name);
+        for (const QString &name : hdrFiles) {
+            const QImage img = decodeAny(hd.absoluteFilePath(name));
+            if (img.isNull()) {
+                ++g_skipped;
+                std::fprintf(stderr, "NOTE: HDR 样本解码跳过 %s\n", qPrintable(name));
+                continue;
+            }
+            ++hdrSamples;
+            for (const DisplayFrame::PrepareOptions &opt : opts) {
+                const QImage legacy = DisplayFrame::legacyPrepare(img, opt);
+                const QImage fresh = DisplayFrame::prepare(img, opt);
+                ++g_pairs;
+                QString detail;
+                if (!imagesEqual(legacy, fresh, detail)) {
+                    ++g_failures;
+                    std::fprintf(stderr, "MISMATCH [hdr-%s] icc=%d tonemap=%d: %s\n",
+                                 qPrintable(name), opt.imageIcc, opt.hdrTonemap, qPrintable(detail));
+                } else {
+                    std::printf("OK [hdr-%s] icc=%d tonemap=%d  size=%dx%d fmt=%d bytes=%lld\n",
+                                qPrintable(name), opt.imageIcc, opt.hdrTonemap,
+                                fresh.width(), fresh.height(), fresh.format(),
+                                static_cast<long long>(fresh.sizeInBytes()));
+                }
+            }
+        }
+    }
+
+    std::printf("\n== 等价结论：比对 %d 组（%d 张内置样本 + %d 张 HDR 样本 × 2 选项），跳过 %d，不一致 %d ==\n",
+                g_pairs, samples.size(), hdrSamples, g_skipped, g_failures);
     if (g_failures != 0)
         return 1;
     return 0;
