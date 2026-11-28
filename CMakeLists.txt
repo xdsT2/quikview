@@ -98,6 +98,8 @@ add_executable(soleview WIN32
     src/ZipArchive.h
     src/ArchiveStore.cpp
     src/ArchiveStore.h
+    # 容器后缀唯一判定表（2026-11-28 I4-1）：header-only，纯函数，便于单测
+    src/ArchiveKinds.h
     src/SettingsDialog.cpp
     src/SettingsDialog.h
     src/PillToggle.cpp
@@ -376,6 +378,13 @@ if(BUILD_TESTING)
     target_link_libraries(soleview-decodequeue-test PRIVATE Qt6::Core)
     add_test(NAME decodequeue.pure COMMAND soleview-decodequeue-test)
     soleview_reset_integrity_label(soleview-decodequeue-test)
+
+    # I4-1：容器后缀表纯逻辑（ArchiveKinds，header-only，只需 Qt6::Core 的 QString）。
+    add_executable(soleview-archivekinds-test tests/unit/archive_kinds_test.cpp)
+    target_include_directories(soleview-archivekinds-test PRIVATE src)
+    target_link_libraries(soleview-archivekinds-test PRIVATE Qt6::Core)
+    add_test(NAME archivekinds.pure COMMAND soleview-archivekinds-test)
+    soleview_reset_integrity_label(soleview-archivekinds-test)
 
     add_executable(soleview-minimap-test tests/unit/minimap_math_test.cpp)
     target_include_directories(soleview-minimap-test PRIVATE src)
