@@ -304,6 +304,28 @@ QString Config::theme() const
     return m_settings.value(QStringLiteral("config/theme"), QStringLiteral("dark")).toString();
 }
 
+QString Config::dockStyle() const
+{
+    // 2026-11-28《可选底栏样式》：默认悬浮，已有用户首次升级沿用现有样式。
+    // 未知值一律按悬浮处理，避免配置被手改成怪值时底栏消失。
+    const QString v = m_settings.value(QStringLiteral("config/dock/style"),
+                                       QStringLiteral("floating")).toString();
+    return v == QLatin1String("edge") ? QStringLiteral("edge") : QStringLiteral("floating");
+}
+
+bool Config::dockLocked() const
+{
+    // 锁定常显：底栏锁图标是唯一入口，状态要跨重启记住（此前只在内存里，
+    // 重启即丢，用户每次都得重新锁一遍）。
+    return m_settings.value(QStringLiteral("config/dock/locked"), false).toBool();
+}
+
+void Config::setDockLocked(bool locked)
+{
+    m_settings.setValue(QStringLiteral("config/dock/locked"), locked);
+    m_settings.sync();
+}
+
 bool Config::blurMaterial() const
 {
     // 第 18 期④：磨砂材质。默认关——只在右键菜单与信息浮层上尝试 DWM Acrylic，

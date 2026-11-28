@@ -21,6 +21,10 @@ public:
 
     QString language() const;
     QString theme() const;   // "dark" | "light" | "system"
+    QString dockStyle() const;   // "floating" | "edge"（默认 floating，升级沿用悬浮）
+    // 底栏锁定常显（2026-11-28）：底栏锁图标状态跨重启保留，默认关。
+    bool dockLocked() const;
+    void setDockLocked(bool locked);
     bool blurMaterial() const;   // 磨砂材质（右键菜单与信息浮层，默认关）
     int slideshowIntervalMs() const;  // 默认 3000
     bool slideshowRandom() const;     // 幻灯片随机播放（默认 false）
