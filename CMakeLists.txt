@@ -514,8 +514,12 @@ if(BUILD_TESTING)
     # 可选大图样本目录（4000×3000 AdobeRGB / RGBA、两张实拍大图）；目录缺失时测试内部跳过。
     set(SOLEVIEW_EQ_BIG_DIR "E:/Agent/ByteDance/Doubao/Temp/display-frame-20261128/samples"
         CACHE PATH "等价校验大图样本目录")
+    # 可选真 HDR 素材目录（EXR/RGBE；经现有 loader 折 8bit 后作为超大全景样本入等价）。
+    # 指向 ASCII junction，避开中文路径在 CTest/运行时的编码风险；目录缺失时测试内部跳过。
+    set(SOLEVIEW_EQ_HDR_DIR "E:/Agent/ByteDance/Doubao/Temp/hdr-samples"
+        CACHE PATH "等价校验真 HDR 素材目录（解码层折 8bit）")
     set_tests_properties(display-frame.pure PROPERTIES
-        ENVIRONMENT "SOLEVIEW_EQ_BIG_DIR=${SOLEVIEW_EQ_BIG_DIR}")
+        ENVIRONMENT "SOLEVIEW_EQ_BIG_DIR=${SOLEVIEW_EQ_BIG_DIR};SOLEVIEW_EQ_HDR_DIR=${SOLEVIEW_EQ_HDR_DIR}")
     soleview_reset_integrity_label(soleview-display-frame-test)
 
     # 显示管线分段基准（离线 offscreen，不注册 ctest；由测量脚本手动调用）。
