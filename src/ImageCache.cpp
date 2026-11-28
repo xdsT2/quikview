@@ -85,6 +85,58 @@ LoadErrorCategory classifyByMagic(const QString &path)
     return known ? LoadErrorCategory::Corrupt : LoadErrorCategory::Unsupported;
 }
 
+// D2-1 快帧：按视口尺寸降采样读一帧；后端不支持 / 读回尺寸不符就返回空图，
+// 调用方静默退回全量。RAW/PSD/SVG 不走这里（各自 loader 没有廉价降采样路径）。
+QImage scaledReaderPreview(const QString &path, const QSize &previewSize)
+{
+    if (!previewSize.isValid()) {
+        return QImage();
+    }
+    QImageReader fast(path);
+    fast.setAutoTransform(true);
+    QSize src = fast.size();
+    if (!src.isValid() || src.width() <= 0 || src.height() <= 0
+        || !fast.supportsOption(QImageIOHandler::ScaledSize)) {
+        return QImage();
+    }
+    // EXIF 旋转 90/270 时 size() 是转之前的，先转置再按视口适配
+    const QImageIOHandler::Transformations t = fast.transformation();
+    if (t.testFlag(QImageIOHandler::TransformationRotate90)
+        || t.testFlag(QImageIOHandler::TransformationRotate270)) {
+        src.transpose();
+    }
+    const QSize scaled = src.scaled(previewSize, Qt::KeepAspectRatio);
+    if (!scaled.isValid() || scaled.width() <= 0 || scaled.height() <= 0
+        || scaled == src) {
+        return QImage();
+    }
+    fast.setScaledSize(scaled);
+    const QImage prev = fast.read();
+    // 个别插件谎报支持 ScaledSize：读回尺寸不符就当没有快帧
+    return (prev.isNull() || prev.size() != scaled) ? QImage() : prev;
+}
+
+// D2-3 L2：转成上屏最省事的格式（无 alpha 用 RGB32、有 alpha 用
+// ARGB32_Premultiplied）。只是同一份像素的格式转换，不重新解码。
+QImage toDisplayFormat(const QImage &src)
+{
+    if (src.isNull()) {
+        return src;
+    }
+    if (src.format() == QImage::Format_RGB32
+        || src.format() == QImage::Format_ARGB32_Premultiplied) {
+        return src;
+    }
+    return src.hasAlphaChannel()
+               ? src.convertToFormat(QImage::Format_ARGB32_Premultiplied)
+               : src.convertToFormat(QImage::Format_RGB32);
+}
+
+int imageCostBytes(const QImage &img)
+{
+    return static_cast<int>(qMin<qint64>(img.sizeInBytes(), qint64(INT_MAX)));
+}
+
 } // namespace
 
 ImageCache::ImageCache(QObject *parent)
@@ -94,18 +146,24 @@ ImageCache::ImageCache(QObject *parent)
     qRegisterMetaType<LoadErrorCategory>("LoadErrorCategory");
     setFullCacheLimit(Config::instance().cacheSizeMb());   // 原图缓存上限（MB，读配置）
     m_thumbCache.setMaxCost(64 * 1024 * 1024);   // 缩略图缓存上限 ~64MB
+    m_thumbDisplay.setMaxCost(64 * 1024 * 1024); // D2-3 L2：上屏格式位图，独立预算
     m_dragCache.setMaxCost(64 * 1024 * 1024);    // 拖动预览（缩放到视口）上限 64MB：24 张目录回拖也要命中
     // 全图解码专用池：最多 2 条并行 = 在飞的旧任务 + 抢占式新目标各一条。
     // 这是「线程数按实测有上限」的落点：再快也不允许无限并发抢 CPU。
     m_decodePool.setMaxThreadCount(2);
+    // D2-1：预览快车道单线程。它只做降采样，任务轻；独占一条线程保证
+    // 「全量在解」时预览仍能先出，不被重活压在后面。
+    m_previewPool.setMaxThreadCount(1);
     m_dragPool.setMaxThreadCount(1);
     // D1-1：缩略图独立小池 2 线程，与全图/拖动池互不挤占。
     m_thumbPool.setMaxThreadCount(2);
+    m_cancelToken = std::make_shared<std::atomic<bool>>(false);
 }
 
 ImageCache::~ImageCache()
 {
     m_decodePool.waitForDone();
+    m_previewPool.waitForDone();
     m_dragPool.waitForDone();
     m_thumbPool.waitForDone();
 }
@@ -144,9 +202,22 @@ QImage ImageCache::cachedFull(const QString &path) const
     return m_fullCache.contains(path) ? *m_fullCache.object(path) : QImage();
 }
 
+void ImageCache::bumpGeneration()
+{
+    // 先取消旧令牌：在飞任务在下一个检查点直接放弃剩余重活；再换新令牌给
+    // 之后提交的任务。代次只决定「结果要不要」，取消标志决定「还要不要继续解」。
+    if (m_cancelToken) {
+        m_cancelToken->store(true);
+    }
+    m_cancelToken = std::make_shared<std::atomic<bool>>(false);
+    m_generation.fetch_add(1);
+    m_fullEmitted.clear();
+}
+
 void ImageCache::requestFull(const QString &path, const QSize &previewSize, bool preempt)
 {
     m_previewSize = previewSize;
+    m_lastRequestedPath = path;
     if (m_fullCache.contains(path))
         ++m_hits;
     else
@@ -158,7 +229,7 @@ void ImageCache::requestFull(const QString &path, const QSize &previewSize, bool
                  .arg(m_fullCache.totalCost()));
     if (preempt) {
         // 显式跳转：进入新代次。此刻之前提交的所有结果只入缓存、不再上屏。
-        m_generation.fetch_add(1);
+        bumpGeneration();
     }
     // 「不打开 RAW 图片文件」= 请求这一层就拒：缓存里有（预读早就解过的）也必须
     // 拿掉，否则从邻居预读切过去会直接命中缓存、绕开下面所有解码守卫，开关看着像
@@ -181,6 +252,7 @@ void ImageCache::requestFull(const QString &path, const QSize &previewSize, bool
         // （否则同一页两个解码，先到的可能是后一页，画面会回跳）
         m_preloadPromote = true;
         m_preloadGeneration = m_generation.load();   // 认领为当前代次，结果可上屏
+        startPreviewDecode(path, previewSize, m_generation.load(), m_cancelToken);
         return;
     }
     if (path == m_dragInFlight) {
@@ -196,31 +268,33 @@ void ImageCache::requestFull(const QString &path, const QSize &previewSize, bool
         return;   // 正在解
     }
     if (m_queue.contains(path)) {
-        return;   // 已在队列
+        // 已在队列：若这次是显式跳转，把它的优先级提上来（后到的跳转是用户最新意图）。
+        if (preempt) {
+            m_queue.remove(path);
+            m_queue.push(path, true, ++m_queueOrder);
+        }
+        return;
     }
     const bool busy = hasCurrentGenWork() || !m_queue.isEmpty();
     if (m_fullCache.contains(path) && !busy) {
         // 空闲时缓存命中直接上屏；忙时也必须排队，否则会插队破坏
         // 「emit 顺序 == requestFull 调用顺序」
+        m_fullEmitted.insert(path);
         emit fullReady(path, *m_fullCache.object(path), false);
         return;
     }
-    m_queue.append(path);
-    // 队列上限 8：超出丢最旧的「尚未开始解码」项（在飞队首不动），
-    // 最新请求永远在队尾，最终必停在最新那张
-    while (m_queue.size() > 8) {
-        bool dropped = false;
-        for (int i = 0; i < m_queue.size(); ++i) {
-            if (!m_fullInFlight.contains(m_queue.at(i))) {
-                m_queue.removeAt(i);
-                dropped = true;
-                break;
-            }
-        }
-        if (!dropped) {
-            break;   // 理论到不了：在飞至多 1 个 < 队列上限
+    if (!m_fullCache.contains(path)) {
+        // D2-1：全量之前先让预览快车道出一张降采样帧。预览只写自己的在飞集合，
+        // 不占全量队列；全量先到也没关系，finishPreview 会按 m_fullEmitted 丢弃。
+        // 顺序翻页（不换代次）时，只有队列与在飞都空才允许抢跑：否则上一页的
+        // 全量/下一页的预览到达顺序可能颠倒，画面会来回跳。显式跳转已换代次，
+        // 旧结果全部作废，可以立刻发预览。
+        const bool previewSafe = preempt || (m_queue.isEmpty() && !hasCurrentGenWork());
+        if (previewSafe) {
+            startPreviewDecode(path, previewSize, m_generation.load(), m_cancelToken);
         }
     }
+    m_queue.push(path, preempt, ++m_queueOrder);
     // 只要没有「当前代次」的工作在跑就立刻启动。旧代次在飞不阻塞新目标：
     // 它的结果会被代次检查丢弃，新目标与它并行解码（池上限 2 保证不失控）。
     if (!hasCurrentGenWork()) {
@@ -302,6 +376,7 @@ void ImageCache::startNextPreload()
             if (!img.isNull()) {
                 insertFull(path, img);
                 if (promote) {
+                    m_fullEmitted.insert(path);
                     emit fullReady(path, img, false);
                 }
             }
@@ -422,9 +497,10 @@ void ImageCache::startDragDecode()
 void ImageCache::startNext()
 {
     while (!m_queue.isEmpty() && !hasCurrentGenWork()) {
-        const QString path = m_queue.takeFirst();
+        const QString path = m_queue.takeNext();
         if (m_fullCache.contains(path)) {
             // 排队期间被缓存命中（如先前的解码完成入缓存）：按序直接上屏
+            m_fullEmitted.insert(path);
             emit fullReady(path, *m_fullCache.object(path), false);
             continue;
         }
@@ -446,16 +522,80 @@ bool ImageCache::hasCurrentGenWork() const
     return !m_preloadPath.isEmpty() && m_preloadGeneration == m_generation.load();
 }
 
-// 快帧/RAW 缩略图在后台线程解出，回主线程前先核对代次：过期结果一律丢弃，
-// 否则跳走后旧图的快帧会盖在新目标上（全图有 finishFullDecode 拦，快帧原本没有）。
-void ImageCache::emitPreview(const QString &path, const QImage &img, quint64 generation)
+void ImageCache::startPreviewDecode(const QString &path, const QSize &previewSize,
+                                    quint64 generation,
+                                    const std::shared_ptr<std::atomic<bool>> &cancel)
 {
-    QMetaObject::invokeMethod(this, [this, path, img, generation]() {
-        if (generation != m_generation.load()) {
-            return;
+    if (path.isEmpty() || !previewSize.isValid() || !cancel) {
+        return;
+    }
+    // 提交时在 GUI 线程读一次配置（跨线程读 QSettings 不安全），与全量车道同口径。
+    const bool previewLive = m_previewLiveKnown.load();
+    const bool previewOn = previewLive ? m_previewLiveOn.load()
+                                       : Config::instance().previewMode();
+    if (!previewOn) {
+        return;
+    }
+    const bool noRaw = Config::instance().noRawLoad();
+    const bool rawThumb = Config::instance().rawThumbnail();
+    if (isRawFilePath(path) && (noRaw || !rawThumb)) {
+        return;
+    }
+    // 同一代次内去重；旧代次的在飞条目允许被新代次覆盖（A→B→A 快速回跳）。
+    if (m_previewInFlight.value(path, 0) == generation) {
+        return;
+    }
+    m_previewInFlight.insert(path, generation);
+
+    QtConcurrent::run(&m_previewPool, [this, path, previewSize, generation, cancel,
+                                       rawThumb]() {
+        const auto stale = [this, generation, cancel]() {
+            return cancel->load() || generation != m_generation.load();
+        };
+        QImage img;
+        if (ArchiveStore::isEntryPath(path)) {
+            if (!stale()) {
+                QString ignored;
+                img = ArchiveStore::decode(path, previewSize, &ignored);
+            }
+        } else if (PsdLoader::isPsdPath(path) || SvgLoader::isSvgPath(path)) {
+            // PSD/SVG 没有「按比例读一帧」的廉价路径：全量车道本身就是一次
+            // 合成/栅格化，再解一遍预览只会翻倍耗时。
+        } else if (ExtraImageLoader::isExtraPath(path)) {
+            if (!stale()) {
+                img = scaledReaderPreview(path, previewSize);
+            }
+        } else if (isRawFilePath(path)) {
+            // RAW 内嵌缩略图通常几十毫秒：先顶住首屏，全尺寸在重车道继续解。
+            if (!stale() && rawThumb) {
+                img = loadRawThumbnail(path);
+            }
+        } else if (!stale()) {
+            img = scaledReaderPreview(path, previewSize);
         }
-        emit fullReady(path, img, true);
-    }, Qt::QueuedConnection);
+        // 取消后也回主线程清在飞标记；img 为空时 finishPreview 只做清理。
+        QMetaObject::invokeMethod(this, [this, path, img, generation]() {
+            finishPreview(path, img, generation);
+        }, Qt::QueuedConnection);
+    });
+}
+
+void ImageCache::finishPreview(const QString &path, const QImage &img, quint64 generation)
+{
+    if (m_previewInFlight.value(path, 0) == generation) {
+        m_previewInFlight.remove(path);
+    }
+    if (img.isNull() || generation != m_generation.load()) {
+        return;
+    }
+    // 顺序翻页不换代次：只允许「最新目标」的预览落屏，旧页预览晚到不能盖回去。
+    if (path != m_lastRequestedPath) {
+        return;
+    }
+    if (m_fullEmitted.contains(path) || m_fullCache.contains(path)) {
+        return;
+    }
+    emit previewReady(path, img);
 }
 
 void ImageCache::setPreviewModeLive(bool known, bool on)
@@ -468,23 +608,18 @@ void ImageCache::setPreviewModeLive(bool known, bool on)
 void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
                                  quint64 generation)
 {
-    // 批次05 #24：提交任务时在 GUI 线程取一次「是否先出快帧」——会话内覆盖优先，
-    // 没有覆盖时读配置。这样解码线程不必再读 QSettings（跨线程读配置不安全），
-    // 且设置页切换的那一下对「下一次请求」立即成立。
-    const bool previewLive = m_previewLiveKnown.load();
-    const bool previewOn = previewLive ? m_previewLiveOn.load()
-                                       : Config::instance().previewMode();
+    // 本车道只解全量；预览快帧由独立预览池先发（D2-1），这里不再重复解一遍。
     const bool noRaw = Config::instance().noRawLoad();
-    const bool rawThumb = Config::instance().rawThumbnail();
     const bool hdrTonemap = Config::instance().hdrTonemap();
+    const auto cancel = m_cancelToken;
     m_fullInFlight.insert(path, generation);
-    QtConcurrent::run(&m_decodePool, [this, path, previewSize, generation, previewOn,
-                                      noRaw, rawThumb, hdrTonemap]() {
-        // D1-5：代次快照轮询。worker 拦不住 loader 内部循环，但进入每一道重活之前先
-        // 核对代次：已被显式跳转作废的任务跳过后续解码与后处理，结果回主线程由
-        // finishFullDecode 按 stale 静默丢弃（不上屏、不发 loadFailed），少做无用功。
-        const auto stillCurrent = [this, generation]() {
-            return generation == m_generation.load();
+    QtConcurrent::run(&m_decodePool, [this, path, previewSize, generation, noRaw,
+                                      hdrTonemap, cancel]() {
+        // D1-5 / D2-2：取消令牌 + 代次双判。令牌在换代时立刻置真，worker 在进入
+        // 每一道重活之前先看它：已被作废的任务不再继续解码与后处理，结果回主线程
+        // 由 finishFullDecode 按 stale 静默丢弃（不上屏、不发 loadFailed）。
+        const auto stillCurrent = [this, generation, cancel]() {
+            return !cancel->load() && generation == m_generation.load();
         };
         const auto abandon = [this, path, generation]() {
             QMetaObject::invokeMethod(this, [this, path, generation]() {
@@ -493,16 +628,8 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
             }, Qt::QueuedConnection);
         };
         // 包内条目（.zip/.cbz 里的文件）：解压进内存 → QImageReader 从内存流解码。
-        // 与文件路径同构：先按视口出一张快帧顶住连按，再解全图；解码完的字节即弃，
-        // 全程不落盘（派单 §二.3 / §四.5 的内存峰值就落在这两条）。
+        // 解码完的字节即弃，全程不落盘（派单 §二.3 / §四.5 的内存峰值就落在这两条）。
         if (ArchiveStore::isEntryPath(path)) {
-            if (previewSize.isValid() && previewOn) {
-                QString ignored;
-                const QImage prev = ArchiveStore::decode(path, previewSize, &ignored);
-                if (!prev.isNull()) {
-                    emitPreview(path, prev, generation);
-                }
-            }
             if (!stillCurrent()) {
                 abandon();
                 return;
@@ -551,31 +678,8 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
             return;
         }
         if (ExtraImageLoader::isExtraPath(path)) {
-            // D1-3：Extra/重格式先试 QImageReader 按视口出一张降采样快帧顶住首屏；
-            // 插件读不出尺寸、不支持 ScaledSize 或读回尺寸不符时静默放弃，仍走
-            // ExtraImageLoader 全量。拿不到后端缩放能力的格式不兜底，不假称全覆盖。
-            if (previewSize.isValid() && previewOn) {
-                QImageReader fast(path);
-                fast.setAutoTransform(true);
-                QSize src = fast.size();
-                if (src.isValid() && src.width() > 0 && src.height() > 0
-                    && fast.supportsOption(QImageIOHandler::ScaledSize)) {
-                    const QImageIOHandler::Transformations t = fast.transformation();
-                    if (t.testFlag(QImageIOHandler::TransformationRotate90)
-                        || t.testFlag(QImageIOHandler::TransformationRotate270)) {
-                        src.transpose();
-                    }
-                    const QSize scaled = src.scaled(previewSize, Qt::KeepAspectRatio);
-                    if (scaled.isValid() && scaled.width() > 0 && scaled.height() > 0
-                        && scaled != src) {
-                        fast.setScaledSize(scaled);
-                        const QImage prev = fast.read();
-                        if (!prev.isNull() && prev.size() == scaled) {
-                            emitPreview(path, prev, generation);
-                        }
-                    }
-                }
-            }
+            // 降采样快帧已由预览快车道负责（D2-1）：本车道只解全量，避免同一张图
+            // 在两条线程里各读一遍。插件不支持缩放时预览池会静默无输出。
             if (!stillCurrent()) {
                 abandon();
                 return;
@@ -600,47 +704,11 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
             }, Qt::QueuedConnection);
             return;
         }
-        // RAW 内嵌缩略图优先上屏（键 "config/etc/raw_thumbnail"，默认开）：
-        // libraw unpack_thumb 通常几十毫秒，先顶住首屏，全尺寸随后在同一后台
-        // 线程继续解。「不打开 RAW」时连缩略图也不出，交给 onLoadFailed 提示。
-        if (rawFile && rawThumb && !noRaw) {
-            const QImage thumb = loadRawThumbnail(path);
-            if (!thumb.isNull()) {
-                emitPreview(path, thumb, generation);
-            }
-        }
-        // 快帧先上屏：JPEG 走 DCT 缩放（12MP 约 10-20ms）、PNG 等同样支持
-        // 按比例解码，先按视口像素出一张顶住连按体感，全图随后替换。
-        // HEIC/RAW 的 QImageReader 读不出 size()，自然跳过快帧，仍走各自 Loader。
-        // 「先显示低品质图片以加速渲染」（C14）关闭时跳过这一级，等全图一次上屏。
-        if (previewSize.isValid() && previewOn) {
-            QImageReader fast(path);
-            fast.setAutoTransform(true);
-            QSize src = fast.size();
-            if (src.isValid() && src.width() > 0 && src.height() > 0
-                && fast.supportsOption(QImageIOHandler::ScaledSize)) {
-                // EXIF 旋转 90/270 时 size() 是转之前的，先转置再按视口适配
-                const QImageIOHandler::Transformations t = fast.transformation();
-                if (t.testFlag(QImageIOHandler::TransformationRotate90)
-                    || t.testFlag(QImageIOHandler::TransformationRotate270)) {
-                    src.transpose();
-                }
-                const QSize scaled = src.scaled(previewSize, Qt::KeepAspectRatio);
-                if (scaled.isValid() && scaled.width() > 0 && scaled.height() > 0
-                    && scaled != src) {
-                    fast.setScaledSize(scaled);
-                    const QImage prev = fast.read();
-                    // 个别插件谎报支持 ScaledSize：读回尺寸不符就当没有快帧
-                    if (!prev.isNull() && prev.size() == scaled) {
-                        emitPreview(path, prev, generation);
-                    }
-                }
-            }
-        }
+        // RAW 内嵌缩略图由预览快车道先发（D2-1）；本车道只做全尺寸解码。
         // RAW 不走通用 QImageReader：NEF/CR2/DNG 本身就是 TIFF 容器，Qt 的 tiff
         // 插件会按内容嗅探读出内嵌预览（Nikon D1 是 160×120）并「成功」返回，
         // libraw 全尺寸解码就永远轮不到，画面一直停在小缩略图。缩略图这一级由
-        // 上面 raw_thumbnail 链路负责，这里只做全尺寸解码，职责分开。
+        // 预览池负责，这里只做全尺寸解码，职责分开。
         if (!stillCurrent()) {
             abandon();
             return;
@@ -693,7 +761,6 @@ void ImageCache::finishFullDecode(const QString &path, const QImage &img,
         return;
     }
     m_fullInFlight.remove(path);
-    m_fullInFlight.remove(path);
     PerfProbe::mark(PerfProbe::currentSeq(), "decode-full", "");
     // 唯一的上屏判据：结果仍属于当前代次。显式跳转在 cancelPending 里自增代次，
     // 「跳走后旧图才解完」自然被拦下；不再依赖会被多次跳转互相覆盖的布尔标志。
@@ -714,7 +781,9 @@ void ImageCache::finishFullDecode(const QString &path, const QImage &img,
             insertFull(path, img);
         }
         if (!stale && generation >= floorGen) {
-            // FIFO：按入队顺序无条件上屏（显式跳转的在飞旧结果除外）
+            // FIFO：按入队顺序无条件上屏（显式跳转的在飞旧结果除外）。
+            // 记下「本代次已发全量」，迟到的预览帧据此丢弃（D2-1）。
+            m_fullEmitted.insert(path);
             emit fullReady(path, img, false);
         }
     }
@@ -727,10 +796,10 @@ void ImageCache::finishFullDecode(const QString &path, const QImage &img,
 
 void ImageCache::cancelPending()
 {
-    // 进入新代次：在飞任务拦不住（QtConcurrent 不可取消），但结果到达时会因
-    // 代次不符只入缓存不上屏。用代次替代单个布尔标志，连续跳转不会互相覆盖
-    // （A→B→A 往返也能正确区分「哪一代的 A」）。
-    m_generation.fetch_add(1);
+    // 进入新代次：在飞任务收到取消令牌后会在下一个检查点放弃剩余重活；即使
+    // loader 内部停不下来，结果到达时也会因代次不符只入缓存不上屏（A→B→A 往返
+    // 靠代次区分「哪一代的 A」）。
+    bumpGeneration();
     m_queue.clear();
     // 旧页面的邻居预读在新位置已经没意义：待预读清掉
     m_preloadQueue.clear();
@@ -738,6 +807,8 @@ void ImageCache::cancelPending()
     // 拖动预览的旧落点同理：在飞结果只入缓存，别把松手后的新页面盖回去
     m_dragPending.clear();
     m_dragMuted = true;
+    // 预览在飞标记按代次清理：新目标同路径时可以立刻重新发预览。
+    m_previewInFlight.clear();
 }
 
 // 同名文件在外部被删掉后又保存回来：磁盘上已经是新内容，缓存里的旧图必须作废。
@@ -751,13 +822,14 @@ void ImageCache::forgetPath(const QString &path)
     if (path.isEmpty()) {
         return;
     }
-    m_generation.fetch_add(1);
+    bumpGeneration();
     m_minGen.insert(path, m_generation.load());
 
     m_fullCache.remove(path);
     m_dragCache.remove(path);
-    m_queue.removeAll(path);
+    m_queue.remove(path);
     m_preloadQueue.removeAll(path);
+    m_previewInFlight.remove(path);
     if (m_preloadPath == path) {
         m_preloadPath.clear();
         m_preloadPromote = false;
@@ -777,6 +849,17 @@ void ImageCache::forgetPath(const QString &path)
             m_thumbCache.remove(key);
         }
     }
+    const QList<QString> displayKeys = m_thumbDisplay.keys();
+    for (const QString &key : displayKeys) {
+        if (key.startsWith(prefix)) {
+            m_thumbDisplay.remove(key);
+        }
+    }
+    for (int i = m_thumbQueue.size() - 1; i >= 0; --i) {
+        if (m_thumbQueue.at(i).path == path) {
+            m_thumbQueue.removeAt(i);
+        }
+    }
     const QList<QString> inFlight = m_thumbInFlight.values();
     for (const QString &key : inFlight) {
         if (key.startsWith(prefix)) {
@@ -786,99 +869,173 @@ void ImageCache::forgetPath(const QString &path)
     m_thumbEpoch.insert(path, m_thumbEpoch.value(path) + 1);
 }
 
-void ImageCache::requestThumbnail(const QString &path, const QSize &size)
+void ImageCache::requestThumbnail(const QString &path, const QSize &size,
+                                  ThumbPriority priority)
 {
-    const QString key = path + QLatin1Char('@') + QString::number(size.width()) + QLatin1Char('x') + QString::number(size.height());
+    if (path.isEmpty() || size.isEmpty()) {
+        return;
+    }
+    const QString key = path + QLatin1Char('@') + QString::number(size.width())
+                        + QLatin1Char('x') + QString::number(size.height());
+    // D2-3 L2：已是上屏格式，直接发。
+    if (m_thumbDisplay.contains(key)) {
+        emit thumbnailReady(path, *m_thumbDisplay.object(key));
+        return;
+    }
+    // D2-3 L1：有缩放原图，只做一次格式转换，不重新解码。
+    if (m_thumbCache.contains(key)) {
+        const QImage display = toDisplayFormat(*m_thumbCache.object(key));
+        m_thumbDisplay.insert(key, new QImage(display), qMax(1, imageCostBytes(display)));
+        emit thumbnailReady(path, display);
+        return;
+    }
     if (m_thumbInFlight.contains(key)) {
         return;
     }
-    if (m_thumbCache.contains(key)) {
-        emit thumbnailReady(path, *m_thumbCache.object(key));
-        return;
-    }
-    m_thumbInFlight.insert(key);
-    const quint64 epoch = m_thumbEpoch.value(path);
-
-    // D1-1：缩略图投递到独立小池，不与全图/拖动解码抢线程。
-    auto future = QtConcurrent::run(&m_thumbPool, [path, size]() {
-        if (ArchiveStore::isEntryPath(path)) {
-            // 包内缩略图：解压入口字节 → 按缩略图尺寸解码（ArchiveStore 负责最终缩比）
-            QString ignored;
-            return ArchiveStore::decode(path, size, &ignored);
-        }
-        if (PsdLoader::isPsdPath(path)) {
-            QImage thumb = PsdLoader::load(path, false).composite;
-            if (!thumb.isNull() && (thumb.width() > size.width() || thumb.height() > size.height()))
-                thumb = thumb.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-            return thumb;
-        }
-        if (SvgLoader::isSvgPath(path)) {
-            // 缩略图/胶片栏/总览网格：直接按请求盒栅格化（矢量按目标尺寸渲染，
-            // 比「先渲原尺寸再缩」既快又不糊）
-            QString ignored;
-            return SvgLoader::render(path, size, false, &ignored);
-        }
-        if (ExtraImageLoader::isExtraPath(path)) {
-            QString ignored;
-            QImage thumb = ExtraImageLoader::load(path, size, &ignored);
-            if (!thumb.isNull() && (thumb.width() > size.width() || thumb.height() > size.height())) {
-                thumb = thumb.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    // 已在队列：本次是 Visible 就把优先级提上来，不重复入队。
+    for (int i = 0; i < m_thumbQueue.size(); ++i) {
+        if (m_thumbQueue.at(i).key == key) {
+            if (priority == ThumbPriority::Visible) {
+                m_thumbQueue[i].priority = ThumbPriority::Visible;
             }
-            return thumb;
-        }
-        QImageReader reader(path);
-        reader.setAutoTransform(true);
-        // 先按 KeepAspectRatio 算出真正要解码的尺寸，再 setScaledSize。
-        // 直接 setScaledSize(方形) 会把图片硬拉到正方形——缩略图被拉伸就是这么来的。
-        // EXIF 旋转 90/270 时宽高互换，判断错了同样会算歪。
-        QSize src = reader.size();
-        if (src.isValid() && src.width() > 0 && src.height() > 0) {
-            const QImageIOHandler::Transformations t = reader.transformation();
-            if (t.testFlag(QImageIOHandler::TransformationRotate90)
-                || t.testFlag(QImageIOHandler::TransformationRotate270)) {
-                src.transpose();
-            }
-            const QSize fit = src.scaled(size, Qt::KeepAspectRatio);
-            if (fit.isValid() && fit.width() > 0 && fit.height() > 0) {
-                reader.setScaledSize(fit);
-            }
-        }
-        QImage img = reader.read();
-        // 兜底：个别解码器不认 setScaledSize，读回来再缩一次（同样保持比例）
-        if (!img.isNull() && (img.width() > size.width() || img.height() > size.height())) {
-            img = img.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-        }
-        return img;
-    });
-
-    auto *watcher = new QFutureWatcher<QImage>(this);
-    connect(watcher, &QFutureWatcher<QImage>::finished, this, [this, path, key, epoch, watcher]() {
-        m_thumbInFlight.remove(key);
-        const QImage img = watcher->result();
-        watcher->deleteLater();
-        // 解码期间文件被同名新内容替换（forgetPath）：这张旧缩略图不许进缓存，
-        // 也不许发出去覆盖已经重建的胶片栏；重新可见时自然会重新请求。
-        if (m_thumbEpoch.value(path) != epoch) {
             return;
         }
-        if (!img.isNull())
-            m_thumbCache.insert(key, new QImage(img),
-                                static_cast<int>(qMax<qint64>(1, qMin<qint64>(img.sizeInBytes(), qint64(INT_MAX)))));
-        emit thumbnailReady(path, img);
-    });
-    watcher->setFuture(future);
+    }
+    m_thumbQueue.append({path, key, size, priority, ++m_thumbOrder});
+    startThumbJobs();
+}
+
+// D2-3：缩略图调度。池仍是 2 线程，但不再「请求即提交」——先按优先级排，
+// 当前可见格（Visible）压在预取（Prefetch）前面；在飞上限 = 池线程数。
+void ImageCache::startThumbJobs()
+{
+    constexpr int kMaxActive = 2;
+    while (m_thumbActive < kMaxActive && !m_thumbQueue.isEmpty()) {
+        int best = 0;
+        for (int i = 1; i < m_thumbQueue.size(); ++i) {
+            const ThumbTask &a = m_thumbQueue.at(i);
+            const ThumbTask &b = m_thumbQueue.at(best);
+            if (a.priority != b.priority) {
+                if (a.priority == ThumbPriority::Visible) {
+                    best = i;
+                }
+            } else if (a.order < b.order) {
+                best = i;
+            }
+        }
+        const ThumbTask task = m_thumbQueue.takeAt(best);
+        if (m_thumbDisplay.contains(task.key)) {
+            emit thumbnailReady(task.path, *m_thumbDisplay.object(task.key));
+            continue;
+        }
+        if (m_thumbCache.contains(task.key)) {
+            const QImage display = toDisplayFormat(*m_thumbCache.object(task.key));
+            m_thumbDisplay.insert(task.key, new QImage(display),
+                                  qMax(1, imageCostBytes(display)));
+            emit thumbnailReady(task.path, display);
+            continue;
+        }
+        if (m_thumbInFlight.contains(task.key)) {
+            continue;
+        }
+        m_thumbInFlight.insert(task.key);
+        ++m_thumbActive;
+        const quint64 epoch = m_thumbEpoch.value(task.path);
+        const QString path = task.path;
+        const QString key = task.key;
+        const QSize size = task.size;
+
+        // D1-1：缩略图投递到独立小池，不与全图/拖动解码抢线程。
+        auto future = QtConcurrent::run(&m_thumbPool, [path, size]() {
+            if (ArchiveStore::isEntryPath(path)) {
+                // 包内缩略图：解压入口字节 → 按缩略图尺寸解码（ArchiveStore 负责最终缩比）
+                QString ignored;
+                return ArchiveStore::decode(path, size, &ignored);
+            }
+            if (PsdLoader::isPsdPath(path)) {
+                QImage thumb = PsdLoader::load(path, false).composite;
+                if (!thumb.isNull() && (thumb.width() > size.width() || thumb.height() > size.height()))
+                    thumb = thumb.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                return thumb;
+            }
+            if (SvgLoader::isSvgPath(path)) {
+                // 缩略图/胶片栏/总览网格：直接按请求盒栅格化（矢量按目标尺寸渲染，
+                // 比「先渲原尺寸再缩」既快又不糊）
+                QString ignored;
+                return SvgLoader::render(path, size, false, &ignored);
+            }
+            if (ExtraImageLoader::isExtraPath(path)) {
+                QString ignored;
+                QImage thumb = ExtraImageLoader::load(path, size, &ignored);
+                if (!thumb.isNull() && (thumb.width() > size.width() || thumb.height() > size.height())) {
+                    thumb = thumb.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                }
+                return thumb;
+            }
+            QImageReader reader(path);
+            reader.setAutoTransform(true);
+            // 先按 KeepAspectRatio 算出真正要解码的尺寸，再 setScaledSize。
+            // 直接 setScaledSize(方形) 会把图片硬拉到正方形——缩略图被拉伸就是这么来的。
+            // EXIF 旋转 90/270 时宽高互换，判断错了同样会算歪。
+            QSize src = reader.size();
+            if (src.isValid() && src.width() > 0 && src.height() > 0) {
+                const QImageIOHandler::Transformations t = reader.transformation();
+                if (t.testFlag(QImageIOHandler::TransformationRotate90)
+                    || t.testFlag(QImageIOHandler::TransformationRotate270)) {
+                    src.transpose();
+                }
+                const QSize fit = src.scaled(size, Qt::KeepAspectRatio);
+                if (fit.isValid() && fit.width() > 0 && fit.height() > 0) {
+                    reader.setScaledSize(fit);
+                }
+            }
+            QImage img = reader.read();
+            // 兜底：个别解码器不认 setScaledSize，读回来再缩一次（同样保持比例）
+            if (!img.isNull() && (img.width() > size.width() || img.height() > size.height())) {
+                img = img.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            }
+            return img;
+        });
+
+        auto *watcher = new QFutureWatcher<QImage>(this);
+        connect(watcher, &QFutureWatcher<QImage>::finished, this,
+                [this, path, key, epoch, watcher]() {
+            m_thumbInFlight.remove(key);
+            --m_thumbActive;
+            const QImage img = watcher->result();
+            watcher->deleteLater();
+            // 解码期间文件被同名新内容替换（forgetPath）：这张旧缩略图不许进缓存，
+            // 也不许发出去覆盖已经重建的胶片栏；重新可见时自然会重新请求。
+            if (m_thumbEpoch.value(path) == epoch) {
+                if (!img.isNull()) {
+                    m_thumbCache.insert(key, new QImage(img), qMax(1, imageCostBytes(img)));
+                    const QImage display = toDisplayFormat(img);
+                    m_thumbDisplay.insert(key, new QImage(display),
+                                          qMax(1, imageCostBytes(display)));
+                    emit thumbnailReady(path, display);
+                } else {
+                    emit thumbnailReady(path, QImage());
+                }
+            }
+            startThumbJobs();
+        });
+        watcher->setFuture(future);
+    }
 }
 
 void ImageCache::clear()
 {
     m_fullCache.clear();
     m_thumbCache.clear();
+    m_thumbDisplay.clear();
+    m_thumbQueue.clear();
+    m_thumbInFlight.clear();
 }
 
 void ImageCache::clearFull()
 {
     m_fullInFlight.clear();
-    m_generation.fetch_add(1);   // 已清掉的任务即使回来也不再被认作当前结果
+    bumpGeneration();   // 已清掉的任务即使回来也不再被认作当前结果
     m_fullCache.clear();
     m_queue.clear();
     m_preloadQueue.clear();
@@ -890,6 +1047,8 @@ void ImageCache::clearFull()
     m_dragPending.clear();
     m_dragPromote = false;
     m_dragMuted = false;
+    m_previewInFlight.clear();
+    m_lastRequestedPath.clear();
 }
 
 // D1-4 切目录回收：按目录前缀淘汰上一目录的全图条目，拖动预览缓存整路清空（旧落点
@@ -900,12 +1059,79 @@ void ImageCache::evictDirectory(const QString &dirPath)
     if (dirPath.isEmpty()) {
         return;
     }
-    const QString prefix = QFileInfo(dirPath).absoluteFilePath() + QLatin1Char('/');
+    evictPrefix(QFileInfo(dirPath).absoluteFilePath() + QLatin1Char('/'));
+}
+
+// D1-4 补：包内条目路径 = 包文件绝对路径 + '/' + 条目名，不属于任何磁盘目录，
+// evictDirectory 的目录前缀覆盖不到。离开一个包时按包路径前缀整包淘汰。
+void ImageCache::evictArchive(const QString &archivePath)
+{
+    if (archivePath.isEmpty()) {
+        return;
+    }
+    evictPrefix(QFileInfo(archivePath).absoluteFilePath() + QLatin1Char('/'));
+}
+
+// 前缀淘汰的唯一实现。除了缓存，还要处理「还在路上」的三类任务：
+//   ① 待解队列/预读队列：直接移除；
+//   ② 在飞全图：从 m_fullInFlight 摘除（回来找不到条目即丢弃），并给该路径立
+//      「下一代次」门限——防止用户快速切回同一路径时，旧任务按「同路径被重新
+//      提交」的分支把淘汰掉的内容插回缓存；
+//   ③ 拖动预览在飞/待解：清空路径，回来按路径不符丢弃。
+void ImageCache::evictPrefix(const QString &prefix)
+{
+    if (prefix.isEmpty()) {
+        return;
+    }
     m_dragCache.clear();
+    // 旧目标的预览不再有落屏资格：淘汰后到下一次 requestFull 之间到达的结果全部丢弃。
+    m_lastRequestedPath.clear();
+
+    int removed = 0;
     const QList<QString> keys = m_fullCache.keys();
     for (const QString &key : keys) {
         if (key.startsWith(prefix, Qt::CaseInsensitive)) {
             m_fullCache.remove(key);
+            ++removed;
         }
     }
+
+    const QStringList queued = m_queue.paths();
+    for (const QString &path : queued) {
+        if (path.startsWith(prefix, Qt::CaseInsensitive)) {
+            m_queue.remove(path);
+        }
+    }
+    for (int i = m_preloadQueue.size() - 1; i >= 0; --i) {
+        if (m_preloadQueue.at(i).startsWith(prefix, Qt::CaseInsensitive)) {
+            m_preloadQueue.removeAt(i);
+        }
+    }
+    if (m_preloadPath.startsWith(prefix, Qt::CaseInsensitive)) {
+        m_preloadPath.clear();
+        m_preloadPromote = false;
+    }
+    if (m_dragInFlight.startsWith(prefix, Qt::CaseInsensitive)) {
+        m_dragInFlight.clear();
+    }
+    if (m_dragPending.startsWith(prefix, Qt::CaseInsensitive)) {
+        m_dragPending.clear();
+    }
+
+    QList<QString> inFlight;
+    for (auto it = m_fullInFlight.constBegin(); it != m_fullInFlight.constEnd(); ++it) {
+        if (it.key().startsWith(prefix, Qt::CaseInsensitive)) {
+            inFlight.append(it.key());
+        }
+    }
+    const quint64 floor = m_generation.load() + 1;
+    for (const QString &path : inFlight) {
+        m_fullInFlight.remove(path);
+        m_previewInFlight.remove(path);
+        m_minGen.insert(path, floor);
+    }
+    probeLog(QStringLiteral("evict prefix=%1 cached=%2 inflight=%3")
+                 .arg(prefix)
+                 .arg(removed)
+                 .arg(inFlight.size()));
 }

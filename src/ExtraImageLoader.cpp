@@ -1,6 +1,7 @@
 #include "ExtraImageLoader.h"
 
 #include "HeifLoader.h"
+#include "MappedFile.h"
 #include "PsdPch.h"
 #include "Psdminiz.h"
 #include "ZipArchive.h"
@@ -109,25 +110,8 @@ QSize clampVectorSize(int natW, int natH, const QSize &box, bool allowUpscale)
     return out;
 }
 
-bool readFileBytes(const QString &path, qint64 maxBytes, QByteArray &out,
-                   QString *errOut, LoadErrorCategory *catOut)
-{
-    QFile f(path);
-    if (!f.open(QIODevice::ReadOnly)) {
-        setFail(QStringLiteral("file open failed"), LoadErrorCategory::Corrupt, errOut, catOut);
-        return false;
-    }
-    if (f.size() > maxBytes) {
-        setFail(QStringLiteral("file exceeds size limit"), LoadErrorCategory::Corrupt, errOut, catOut);
-        return false;
-    }
-    out = f.read(maxBytes);
-    if (out.isEmpty()) {
-        setFail(QStringLiteral("file is empty"), LoadErrorCategory::Corrupt, errOut, catOut);
-        return false;
-    }
-    return true;
-}
+// 取数入口已下沉到 MappedFile（D3-2）：小文件整读、大文件内存映射，
+// 语义与错误文案与被替换掉的 readFileBytes 完全一致。
 
 inline quint16 rd16le(const uchar *p) { return qFromLittleEndian<quint16>(p); }
 inline quint32 rd32le(const uchar *p) { return qFromLittleEndian<quint32>(p); }
@@ -2515,8 +2499,9 @@ bool hasMultipleFrames(const QString &path)
         return hasApngAnimationFast(path);
     }
     if (s == QLatin1String("ani")) {
-        QByteArray data;
-        if (!readFileBytes(path, kMaxFileBytes, data, nullptr, nullptr)) return false;
+        MappedFile file;
+        if (!file.open(path, kMaxFileBytes, nullptr, nullptr)) return false;
+        const QByteArray &data = file.bytes();
         QVector<QImage> f;
         QVector<int> d;
         return decodeAniFrames(data, f, d, nullptr, nullptr) && f.size() > 1;
@@ -2556,10 +2541,13 @@ QImage load(const QString &path, const QSize &viewportHint, QString *errorOut,
         return decodeKritaOrOra(path, errorOut, categoryOut);
     }
 
-    QByteArray data;
-    if (!readFileBytes(path, kMaxFileBytes, data, errorOut, categoryOut)) {
+    // 大文件走内存映射，解码器只拿只读视图；file 的生命周期覆盖下面所有解码调用，
+    // 因此整个 switch 链执行完才解除映射。
+    MappedFile file;
+    if (!file.open(path, kMaxFileBytes, errorOut, categoryOut)) {
         return QImage();
     }
+    const QByteArray &data = file.bytes();
 
     if (s == QLatin1String("qoi")) return decodeQoi(data, errorOut, categoryOut);
     if (s == QLatin1String("hdr") || s == QLatin1String("pic")) return decodeRadianceHdr(data, errorOut, categoryOut);
@@ -2633,10 +2621,11 @@ bool loadAnimationFrames(const QString &path, QVector<QImage> &frames,
         return loadHeifAnimationFrames(path, frames, delaysMs, errorOut);
     }
 
-    QByteArray data;
-    if (!readFileBytes(path, kMaxFileBytes, data, errorOut, &cat)) {
+    MappedFile file;
+    if (!file.open(path, kMaxFileBytes, errorOut, &cat)) {
         return false;
     }
+    const QByteArray &data = file.bytes();
 
     if (s == QLatin1String("webp")) {
         return decodeWebpAnimFrames(data, frames, delaysMs, errorOut, &cat);
