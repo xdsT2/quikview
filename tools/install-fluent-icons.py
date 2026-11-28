@@ -9,13 +9,21 @@ Size policy (dispatch section 5):
   20px - top toolbar, bottom island, settings nav, normal buttons
   24px - large standalone entries (only the empty-state "image" glyph today)
 """
+import argparse
 import pathlib
 import re
 import shutil
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
-PACK = pathlib.Path(r"E:\A1\XiaoMiFeng\管理\SoleView-图标系统-20261118\icons")
-PACK_LICENSE = PACK.parent / "LICENSE-Microsoft-Fluent.txt"
+# 精选图标包在仓外：由脚本位置推导到仓根，再取仓根同级的 资料与设计\_历史\...。
+# 不在代码里写死绝对路径；素材位置变动时用 --icons-dir 覆盖。
+DEFAULT_PACK = (
+    REPO.parent
+    / "资料与设计"
+    / "_历史"
+    / "SoleView-图标系统-20261118"
+    / "icons"
+)
 APPICON = REPO / "src" / "AppIcon.cpp"
 DEST = REPO / "resources" / "icons" / "fluent"
 QRC = REPO / "resources" / "ui.qrc"
@@ -37,6 +45,22 @@ def parse_table():
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--icons-dir",
+        default=None,
+        help="精选图标包目录（含 16/20/24 子目录与 LICENSE）；默认按仓外相对位置推导。",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="只解析路径、统计计划与缺失项，不复制文件、不写 ui.qrc。",
+    )
+    args = parser.parse_args()
+
+    pack = pathlib.Path(args.icons_dir).resolve() if args.icons_dir else DEFAULT_PACK
+    pack_license = pack.parent / "LICENSE-Microsoft-Fluent.txt"
+
     regular, filled = parse_table()
     plan = []
     for fam in sorted(regular):
@@ -48,17 +72,37 @@ def main():
         plan.append((fam, "filled", 16))
         plan.append((fam, "filled", 20))
 
+    def plan_source(fam, style, size):
+        return pack / str(size) / style / (
+            "ic_fluent_%s_%d_%s.svg" % (fam, size, style)
+        )
+
+    missing = [
+        str(plan_source(*item))
+        for item in plan
+        if not plan_source(*item).exists()
+    ]
+
+    if args.dry_run:
+        print("PACK (resolved): %s" % pack)
+        print("PACK exists: %s" % pack.exists())
+        print("LICENSE: %s (exists: %s)" % (pack_license, pack_license.exists()))
+        print("plan entries: %d" % len(plan))
+        print("missing: %d" % len(missing))
+        for m in missing:
+            print("  " + m)
+        print("dry-run: no files copied, ui.qrc not written.")
+        return
+
     if DEST.exists():
         shutil.rmtree(DEST)
     DEST.mkdir(parents=True, exist_ok=True)
     # 许可证随图标目录一起分发（NOTICE 第二节引用这个文件名），不通过 qrc 打包。
-    shutil.copy2(PACK_LICENSE, DEST / "LICENSE-Microsoft-Fluent.txt")
+    shutil.copy2(pack_license, DEST / "LICENSE-Microsoft-Fluent.txt")
     copied = []
-    missing = []
     for fam, style, size in plan:
-        src = PACK / str(size) / style / ("ic_fluent_%s_%d_%s.svg" % (fam, size, style))
+        src = plan_source(fam, style, size)
         if not src.exists():
-            missing.append(str(src))
             continue
         dst = DEST / str(size) / style / src.name
         dst.parent.mkdir(parents=True, exist_ok=True)
