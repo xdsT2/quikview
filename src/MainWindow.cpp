@@ -504,6 +504,13 @@ MainWindow::MainWindow(QWidget *parent)
     m_hdrTonemap = Config::instance().hdrTonemap();   // 本版恒 false：HDR 入口已移除，旧配置不激活
 
     m_control = new Chrome::ControlBar(this);
+    // 底栏样式（2026-11-28 施工方案）：默认悬浮，配置为 edge 时用贴边工具条。
+    m_control->setStyle(Config::instance().dockStyle() == QLatin1String("edge")
+                            ? Chrome::ControlBar::Style::Edge
+                            : Chrome::ControlBar::Style::Floating);
+    // 锁定常显跨重启保留：锁图标是唯一入口，配置缺失时按未锁（自动隐藏）处理。
+    m_dockLocked = Config::instance().dockLocked();
+    m_control->setLocked(m_dockLocked);
 
     connect(m_control, &Chrome::ControlBar::openClicked, this,
             [this] { onOpen(OpenSource::ControlBar); });
@@ -816,9 +823,18 @@ void MainWindow::applyChromeLayout()
             m_overview->raise();
     }
     if (m_control) {
-        // 控件高 54 = 44 外壳 + 10 内绘阴影；外壳底边距画布底 17px。
+        // 悬浮：控件高 54 = 44 外壳 + 10 内绘阴影；外壳底边距画布底 17px，水平居中。
+        // 贴边：整条贴住内容区下沿、横跨全宽（宽度由 ControlBar 按可用宽自己固定）。
         m_control->setAvailableWidth(w);
-        m_control->move(x + (w - m_control->width()) / 2, y + h - 61);
+        if (m_control->style() == Chrome::ControlBar::Style::Edge) {
+            // 贴边宽档横跨全宽；贴边中/窄档按自然宽居中贴底（无滑条时不铺空白）。
+            const int cx = (m_control->tierLevel() == 0)
+                               ? x
+                               : x + (w - m_control->width()) / 2;
+            m_control->move(cx, y + h - m_control->height());
+        } else {
+            m_control->move(x + (w - m_control->width()) / 2, y + h - 61);
+        }
         m_control->raise();
     }
     if (m_panoChip && m_panoChip->isVisible()) {
@@ -1024,10 +1040,27 @@ void MainWindow::updateStatusBottomInset()
             inset = qMax(inset, (height() - 9) - (pbTop - gap));
         }
     }
+    // 贴边底栏横跨全宽、直接压在两角文字带上（悬浮胶囊在中间，不挡两角）。
+    // 底栏可见时把文字整体抬到条上缘之上 8px，方案验收「不遮挡角落状态」。
+    // 用 m_control->isVisible() 而不是 dockChromeShown()：setDockVisible 内部
+    // 先 show() 再回调本函数，相位（m_dockPhase）此刻还是旧值，读相位会漏掉
+    // 「刚锁定常显」这一拍，中档短条会继续压住左下信息。
+    if (m_control && m_control->isVisible()
+        && m_control->style() == Chrome::ControlBar::Style::Edge) {
+        const int dockTop = m_control->y();
+        const int textTop0 = height() - 25;
+        if (dockTop + m_control->height() > textTop0) {
+            const int gap = 8;
+            inset = qMax(inset, (height() - 9) - (dockTop - gap));
+        }
+    }
     m_statusOverlay->setBottomInset(qMax(0, inset));
     if (m_canvas) {
         int minimapInset = 32;
-        if (m_control && dockChromeShown() && width() < 920) {
+        if (m_control && dockChromeShown()
+            && (width() < 920
+                || m_control->style() == Chrome::ControlBar::Style::Edge)) {
+            // 贴边底栏横跨全宽，窄窗判定之外也必须给鸟瞰图让位。
             minimapInset = qMax(minimapInset, height() - m_control->y() + 10);
         }
         if (m_playBar && m_playBar->isVisible() && width() < 760) {
@@ -1350,6 +1383,8 @@ void MainWindow::toggleDockLock()
     setDockVisible(true);
     m_dockPhase = ChromePhase::Visible;
     m_dockHideTimer->stop();
+    // 锁定态落盘（2026-11-28）：重启后按上次的锁/未锁继续，不再每次重新锁一遍。
+    Config::instance().setDockLocked(m_dockLocked);
     if (m_toast) {
         m_toast->showMessage(m_dockLocked ? tr("底部控制胶囊已锁定")
                                           : tr("底部控制胶囊已解锁"));
@@ -3599,15 +3634,11 @@ QMenu *MainWindow::buildContextMenu()
               QString(), false);
         reuse(show, actTwoR2L, "book", AppMenu::label(QLatin1String("view_two_r2l")),
               QString(), false);
-        // 360° 全景（派单 2026-11-20）：入口只对「可用的球形图」出现，属于随图
-        // 变化的上下文命令，因此不进 MenuCatalog 的可见性开关表（那里是全局配置）。
-        //   完整球形（未关提示）→「360° 查看」，与主窗常驻入口同一个落点；
-        //   已关提示 / 仅 2:1 宽图 →「尝试以 360° 查看」，只有手动入口；
-        //   局部裁切与其它投影 → 不给入口（首版不把局部图强行绕满一圈）。
-        if (m_pano.eligible() && !m_panoPath.isEmpty() && m_panoPath == m_currentPath) {
-            cmd(show, "view", m_pano.autoEntry ? tr("360° 查看")
-                                               : tr("尝试以 360° 查看"),
-                QString(), [this]() { onOpenPano(); }, false);
+        // 360° 全景入口（2026-11-28 起常驻）：不再按识别结果决定显隐，普通图也给
+        // 入口；开关收进 MenuCatalog（view_pano），可在「设置 → 查看器右键菜单」
+        // 关闭。已识别球形图仍走真实初始视角，未识别图按默认视角强制打开。
+        if (vis("view_pano")) {
+            cmdId(show, "view_pano", QString(), [this]() { onOpenPano(); });
         }
         attachDirect(show, "parent_view");
     }
@@ -5318,17 +5349,32 @@ void MainWindow::openFramesAsync(const QString &path)
 
 // 全景入口唯一落点：组件已装 → 独立进程；未装 → 定位「设置 → 扩展」的组件行；
 // 启动失败 → 保留原图与原缩放，只给可操作提示（派单「组件缺失/启动失败」条）。
+// 2026-11-28 起右键入口常驻：未识别图也允许按等距柱状图强制打开；已识别球形图
+// 沿用 GPano 真实初始视角。识别口径与主窗胶囊（PanoChip）条件均不在此改动。
 void MainWindow::onOpenPano()
 {
-    if (m_panoPath.isEmpty() || !m_pano.eligible()) {
+    const QString path = !m_panoPath.isEmpty() ? m_panoPath
+                        : (!m_currentPath.isEmpty() ? m_currentPath : m_displayedPath);
+    if (path.isEmpty()) {
         if (m_toast) {
-            m_toast->showMessage(tr("当前图片不是可用的 360° 全景图"),
-                                 Chrome::Toast::Tone::Warning);
+            m_toast->showMessage(tr("当前图片不可用"), Chrome::Toast::Tone::Warning);
         }
         return;
     }
+    Pano::Info view = m_pano;
+    const bool eligible = m_pano.eligible() && m_panoPath == path;
+    if (!eligible) {
+        // 未识别 / 标记不可用：回落默认视角（heading 0 / pitch 0 / fov 75），
+        // 先给一条轻提示再拉起组件。
+        view = Pano::Info();
+        view.fov = 75.0;
+        if (m_toast) {
+            m_toast->showMessage(tr("未检测到全景标记，按等距柱状图打开"),
+                                 Chrome::Toast::Tone::Info);
+        }
+    }
     QString error;
-    if (PanoExt::Manager::instance().launch(m_panoPath, m_pano, &error)) {
+    if (PanoExt::Manager::instance().launch(path, view, &error)) {
         return;
     }
     const PanoExt::Status st = PanoExt::Manager::instance().status();
@@ -6352,6 +6398,18 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     else if (c == QLatin1String("lockdock")) { if (!m_dockLocked) toggleDockLock(); }
     else if (c == QLatin1String("unlocktop")) { if (m_topLocked) toggleTopLock(); }
     else if (c == QLatin1String("unlockdock")) { if (m_dockLocked) toggleDockLock(); }
+    // dockstyle:floating|edge —— 底栏样式探针：切换后立即按新外壳重排铬件，
+    // 供两套样式 × 深浅主题的截图验收使用（不写配置）。
+    else if (c.startsWith(QLatin1String("dockstyle:"))) {
+        const QString v = c.mid(10);
+        if (m_control) {
+            m_control->setStyle(v == QLatin1String("edge")
+                                    ? Chrome::ControlBar::Style::Edge
+                                    : Chrome::ControlBar::Style::Floating);
+            applyChromeLayout();
+            layoutPlayBar();
+        }
+    }
     // topshow/tophide/dockshow/dockhide —— 联动验收探针：直接驱动显隐状态机（不走热区
     // 150ms 滞回），相位赋值与 updateTopProximity/updateDockProximity 同一套；已在目标态
     // 时不重写相位，避免动画未启动、finished 回调不复位而把相位卡在 Hiding/Showing。
@@ -11715,6 +11773,20 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         return true;
     }
 
+    if (key == QLatin1String("dock/style")) {
+        // 2026-11-28《可选底栏样式》：换样式只改外壳与滑条长度，动作/锁定/
+        // 自动显隐全共用。这里同时重排铬件，播放栏、总览、缩略图栏的让位关系
+        // 都挂在 m_control 的几何上，必须立刻跟着走。
+        if (m_control) {
+            m_control->setStyle(value.toString() == QLatin1String("edge")
+                                    ? Chrome::ControlBar::Style::Edge
+                                    : Chrome::ControlBar::Style::Floating);
+            applyChromeLayout();
+            layoutPlayBar();
+        }
+        return true;
+    }
+
     if (key == QLatin1String("imageproc/canvas_bg")) {
         // UI-001 §3.8：画布背景材质即时预览（棋盘/纯色），颜色随当前主题令牌。
         if (m_canvas)
@@ -12000,6 +12072,11 @@ QVariant MainWindow::liveSettingValue(const QString &key) const
         return m_canvas ? (m_canvas->canvasBackdrop() == int(UiStyle::canvas::Backdrop::Solid)
                                ? QStringLiteral("solid") : QStringLiteral("checker"))
                         : Config::instance().canvasBackdrop();
+    // 底栏样式（2026-11-28 施工方案）：运行态读控件自身，回滚基线以此为准。
+    if (key == QLatin1String("dock/style"))
+        return (m_control && m_control->style() == Chrome::ControlBar::Style::Edge)
+                   ? QStringLiteral("edge")
+                   : QStringLiteral("floating");
     return QVariant();
 }
 

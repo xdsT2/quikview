@@ -326,6 +326,10 @@
             <source>显示原始数据</source>
             <translation>Show original data</translation>
         </message>
+        <message>
+            <source>以 360° 查看</source>
+            <translation>View in 360°</translation>
+        </message>
     </context>
         <context>
         <name>BatchConvertDialog</name>

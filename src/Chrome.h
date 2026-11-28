@@ -282,6 +282,15 @@ public:
     // 冒烟取证：档位、可用宽、实际宽、轨道宽、隐藏 id、更多按钮矩形一次一行。
     QString layoutDump() const;
 
+    // 底栏样式（2026-11-28《可选底栏样式》施工方案）：
+    //   Floating = 现有悬浮控制岛（44px 高、14px 圆角、贴画布下缘 17px 居中）；
+    //   Edge     = 贴窗口下沿的扁平工具条：无圆角外壳、无投影，整体占满可用宽度，
+    //              图标列之外剩余宽度优先给进度滑条（短窗先压滑条，保留翻页）。
+    // 两套共用动作、锁定、自动显隐与文件序号，只是外壳与滑条长度不同。
+    enum class Style { Floating, Edge };
+    void setStyle(Style style);
+    Style style() const { return m_style; }
+
     // 冒烟取证：合成 hover / pressed（不依赖真实光标）。
     void probeHover(int index);
     void probePress(int index);
@@ -377,6 +386,7 @@ private:
     int m_preferredWidth = 0;
     int m_trackWidth = 188;
     Tier m_tier = Tier::Wide;
+    Style m_style = Style::Floating;
     bool m_tierResolved = false;
     ButtonFeedback *m_feedback = nullptr;
     TooltipHint *m_tip = nullptr;

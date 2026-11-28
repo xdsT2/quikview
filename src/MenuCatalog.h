@@ -91,6 +91,10 @@ inline const Node kNodes[] = {
     {"parent_group",   "images",       Parent, true,  "group_browse"},
     {"group_raw_jpg",  "images",       Leaf,   true,  "parent_group"},
     {"group_show_raw", "image",        Leaf,   true,  "parent_group"},
+    // 360° 全景入口（2026-11-28 起常驻右键）：默认开启，可在「设置 → 查看器
+    // 右键菜单」独立关闭。目录父级挂在「浏览与显示」分组下：parent_view 的其余
+    // 子项都是 Leaf（不可配置），若挂在它下面按开关层级规则不会得到独立开关。
+    {"view_pano",      "view",         Single, true,  "group_browse"},
     // —— 图像处理（外层分组，总开关；默认四个子项全关，整组不出现父入口）——
     {"group_image",    "imageproc",    Group,  true,  "group_task"},
     {"parent_interp",  "interp",       Parent, false, "group_image"},
@@ -273,6 +277,7 @@ inline const char *labelSource(const QString &id)
     if (id == QLatin1String("parent_nav"))        return QT_TRANSLATE_NOOP("AppMenu", "浏览导航");
     if (id == QLatin1String("parent_sort"))       return QT_TRANSLATE_NOOP("AppMenu", "排序方式");
     if (id == QLatin1String("parent_view"))       return QT_TRANSLATE_NOOP("AppMenu", "浏览方式");
+    if (id == QLatin1String("view_pano"))         return QT_TRANSLATE_NOOP("AppMenu", "以 360° 查看");
     if (id == QLatin1String("parent_zoom"))       return QT_TRANSLATE_NOOP("AppMenu", "缩放工具");
     if (id == QLatin1String("group_image"))       return QT_TRANSLATE_NOOP("AppMenu", "图像处理");
     if (id == QLatin1String("parent_interp"))     return QT_TRANSLATE_NOOP("AppMenu", "插值算法");

@@ -3281,6 +3281,22 @@ void SettingsDialog::buildAppearancePage(QWidget *page)
 {
     // 九页重组（2026-11-21）：主题与材质（原样）+ 画面信息（原浏览页视觉项）
     // + 画布与透明背景（原图像处理画布组）。键与即时下发链路全部不变。
+    // —— 底栏样式（2026-11-28《可选底栏样式》施工方案）——
+    // 即时预览：切换即改运行态并写盘，取消/关闭时由 rollbackImgProcBaseline
+    // 回到进入设置时的值；重启按已保存的选择构建。
+    QWidget *dockSec = beginSection(page, tr("底栏"));
+    {
+        auto *dockCombo = addComboRow(
+            dockSec, tr("底栏样式"),
+            tr("悬浮底栏浮在画布下缘；贴边底栏贴住窗口下沿，带分隔线，进度滑条更长"),
+            "dock/style", QStringLiteral("floating"),
+            { { QStringLiteral("floating"), tr("悬浮底栏") },
+              { QStringLiteral("edge"), tr("贴边底栏") } },
+            kGenComboW);
+        m_liveCombos.append({ dockCombo, QStringLiteral("dock/style"),
+                              tr("底栏样式"), QString() });
+    }
+
     // —— 主题 ——
     QWidget *sec = beginSection(page, tr("主题"));
     {
@@ -7551,6 +7567,8 @@ static QString imgProcNormValue(MainWindow *host, const QString &key)
             return QString::number(Config::instance().gifTransparent());
         if (key == QLatin1String("imageproc/canvas_bg"))
             return Config::instance().canvasBackdrop();
+        if (key == QLatin1String("dock/style"))
+            return Config::instance().dockStyle();
         return QStringLiteral("1");   // interpolate：运行态默认 bicubic
     }
     if (key == QLatin1String("imageproc/interpolate"))
@@ -7564,7 +7582,7 @@ void SettingsDialog::captureImgProcBaseline()
     m_imgProcBaseline.clear();
     for (const char *key : { "imageproc/preview_mode", "imageproc/interpolate",
                              "imageproc/pageturn_fx", "imageproc/gif_transparent",
-                             "imageproc/canvas_bg" }) {
+                             "imageproc/canvas_bg", "dock/style" }) {
         const QString k = QString::fromLatin1(key);
         m_imgProcBaseline.insert(k, imgProcNormValue(host, k));
     }

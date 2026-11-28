@@ -1469,7 +1469,6 @@ constexpr int kZoomCapsuleW = 52;   // 缩放胶囊：点击在 100% / 适合窗
 constexpr int kZoomCapsuleH = 30;   // 与按钮同高，8px 圆角（不再是全圆胶囊）
 constexpr int kPageValueW = 41;
 constexpr int kProgressPadX = 7;     // 进度区左右呼吸位（定稿无内嵌底）
-constexpr int kProgressInnerGap = 6; // 滑杆与页码之间
 
 } // namespace
 
@@ -1515,6 +1514,24 @@ void ControlBar::setLocked(bool locked)
     m_locked = locked;
     // 锁图标的插值按动作标识保存，与窄窗换档后的按钮位置无关。
     m_feedback->setChecked(static_cast<int>(Action::Lock), locked);
+    update();
+}
+
+void ControlBar::setStyle(Style style)
+{
+    if (m_style == style) {
+        return;
+    }
+    m_style = style;
+    // 投影只属于悬浮外壳：贴边条贴在窗口下沿，投影会被窗口边缘裁掉并与
+    // 顶部条的分隔线打架。这里只把投影强度清零，不替换/删除 effect ——
+    // MainWindow 持有 HudEffect 指针做显隐淡入淡出，删掉会变悬空指针。
+    if (auto *fx = qobject_cast<HudEffect *>(graphicsEffect())) {
+        fx->setShadowOpacity(style == Style::Edge ? 0.0 : 1.0);
+        fx->invalidateShadow();
+    }
+    m_tierResolved = false;   // 宽度口径变了，强制按新样式重算
+    recomputeWidth();
     update();
 }
 
@@ -1668,8 +1685,20 @@ void ControlBar::setAvailableWidth(int width)
 
 void ControlBar::recomputeWidth()
 {
+    const bool edge = (m_style == Style::Edge);
     // 只有宽档带进度滑杆；中/窄档滑杆收进「更多」，页码/倍率占独立宽度。
-    m_trackWidth = (m_tier == Tier::Wide) ? kIslandTrackWide : 0;
+    // 贴边样式按施工方案图三「图标列之外的剩余宽度优先留给滑条」：滑条 =
+    // 可用宽度 - 不含滑条的自然宽（下限 120，与悬浮同款轨道高度/滑块尺寸）。
+    if (m_tier == Tier::Wide) {
+        if (edge) {
+            const int fixed = naturalWidthFor(Tier::Wide, 0);
+            m_trackWidth = qMax(kIslandTrackWide, m_availableWidth - fixed);
+        } else {
+            m_trackWidth = kIslandTrackWide;
+        }
+    } else {
+        m_trackWidth = 0;
+    }
     int width = naturalWidthFor(m_tier, m_trackWidth);
     // 宽档极窄窗：先缩短轨道（下限 48），保留翻页热区与页码/倍率。
     if (width > m_availableWidth && m_trackWidth > 48) {
@@ -1677,8 +1706,11 @@ void ControlBar::recomputeWidth()
         width = naturalWidthFor(m_tier, m_trackWidth);
     }
     m_preferredWidth = width;
-    // 任何档位都不得宽于可用宽度：宁可两侧留白，也不让岛被窗口裁掉。
-    setFixedWidth(qMin(width, m_availableWidth));
+    // 悬浮：任何档位都不得宽于可用宽度（宁可两侧留白，也不让岛被窗口裁掉）；
+    // 贴边：只有宽档（带长滑条）占满可用宽横向铺开，中/窄档没有滑条、按自然宽
+    // 收成一条居中贴底的短条——否则窄档只剩三个按钮时会拖出一条全宽空白带。
+    const bool fillWidth = edge && m_tier == Tier::Wide;
+    setFixedWidth(fillWidth ? m_availableWidth : qMin(width, m_availableWidth));
     update();
 }
 
@@ -1739,10 +1771,11 @@ QVector<ControlBar::Item> ControlBar::itemsFor(Tier t, int trackWidth) const
     if (wide) {
         x += kProgressPadX;
         place(Action::PageSlider, trackWidth);
-        x += kProgressInnerGap;
-        place(Action::PageValue, kPageValueW);
-        x += kProgressPadX + 8;
+        // 施工方案：滑条旁不再常驻张数（两套样式一致），张数改为滑条悬停
+        // 提示「当前/总张数」。滑条右缘只留翻页前的 8px 呼吸位。
+        x += 8;
     } else if (medium) {
+        // 中档没有滑条，页码是唯一的进度读数，保留常驻。
         place(Action::PageValue, kPageValueW);
         x += 8;
     }
@@ -1917,8 +1950,9 @@ QString ControlBar::tipText(Action action) const
     case Action::Fullscreen: return tr("全屏 / 还原 (F11)");
     case Action::Prev: return tr("上一张图片 (←)");
     case Action::PageSlider:
-        return sliderEnabled() ? tr("浏览进度：拖动切换图片；滚轮上一张/下一张")
-                               : tr("浏览进度：只有一张图片");
+        // 施工方案：滑条上方只显示「当前张数/总张数」（单张也显示 1/1），
+        // 不再输出「拖动切换图片；滚轮上一张/下一张」这类说明文字。
+        return QStringLiteral("%1/%2").arg(clampedPage(m_page)).arg(qMax(1, m_pageCount));
     case Action::PageValue: return tr("当前页码 / 总页数");
     case Action::Next: return tr("下一张图片 (→)");
     case Action::Lock: return tr("保持底部控制栏显示");
@@ -1952,15 +1986,26 @@ void ControlBar::paintEvent(QPaintEvent *)
 
     const QRectF capsule(0.5, 0.5, width() - 1.0, kIslandH - 1.0);
 
-    // 底栏外壳：14px 圆角长矩形（Fluent 图标统一审图修订 2026-11-18）。
-    // 定稿 596×44：四角 14px 圆角 → 两端各留 44-2*14=16px 直边；
-    // 进度条与页码直接落在外壳上，不再套内嵌底（2026-11-19 定稿）。
-    p.setPen(QPen((UiStyle::isLight() ? QColor(0, 0, 0, 28) : QColor(255, 255, 255, 30)), 1));
-    p.setBrush(UiStyle::isLight() ? QColor(250, 250, 251, 242)
-                                  : QColor(31, 32, 35, 227));
-    p.drawRoundedRect(capsule, kIslandRadius, kIslandRadius);
-
-    // 进度条与页码直接落在外壳上（定稿无内嵌底）。
+    if (m_style == Style::Edge) {
+        // 贴边底栏（施工方案）：无圆角、无描边、无投影，整条贴住窗口下沿。
+        // 仍保留一块扁平背板 —— 图片铺满画布时，纯浮空图标在亮/杂色图片上
+        // 读不清；顶部一条 1px 分隔线收住工具条与画布的边界。
+        p.setPen(Qt::NoPen);
+        p.setBrush(UiStyle::isLight() ? QColor(250, 250, 251)
+                                      : QColor(31, 32, 35));
+        p.drawRect(QRectF(0, 0, width(), kIslandH));
+        p.setPen(QPen(UiStyle::isLight() ? QColor(0, 0, 0, 34)
+                                         : QColor(255, 255, 255, 26), 1));
+        p.drawLine(QPointF(0, 0.5), QPointF(width(), 0.5));
+    } else {
+        // 悬浮底栏外壳：14px 圆角长矩形（Fluent 图标统一审图修订 2026-11-18）。
+        // 定稿 596×44：四角 14px 圆角 → 两端各留 44-2*14=16px 直边；
+        // 进度条直接落在外壳上，不再套内嵌底（2026-11-19 定稿）。
+        p.setPen(QPen((UiStyle::isLight() ? QColor(0, 0, 0, 28) : QColor(255, 255, 255, 30)), 1));
+        p.setBrush(UiStyle::isLight() ? QColor(250, 250, 251, 242)
+                                      : QColor(31, 32, 35, 227));
+        p.drawRoundedRect(capsule, kIslandRadius, kIslandRadius);
+    }
 
     const QVector<Item> list = items();
     const QColor ink = QColor(QString::fromLatin1(UiStyle::pick("#d7d9dc", "#26282a")));
