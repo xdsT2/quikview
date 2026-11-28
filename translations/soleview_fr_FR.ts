@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <TS version="2.1" language="fr_FR" sourcelanguage="zh_CN">
-    <context>
+        <context>
         <name>AppMenu</name>
         <message>
             <source>下一张</source>
@@ -327,7 +327,7 @@
             <translation>Afficher les données originales</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>BatchConvertDialog</name>
         <message>
             <source>图片转换</source>
@@ -474,7 +474,7 @@
             <translation> (%1 en échec)</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>ControlBar</name>
         <message>
             <source>底部控制栏</source>
@@ -495,6 +495,18 @@
         <message>
             <source>缩小</source>
             <translation>Réduire</translation>
+        </message>
+        <message>
+            <source>缩小缩略图</source>
+            <translation>Réduire les vignettes</translation>
+        </message>
+        <message>
+            <source>缩略图大小</source>
+            <translation>Taille des vignettes</translation>
+        </message>
+        <message>
+            <source>放大缩略图</source>
+            <translation>Agrandir les vignettes</translation>
         </message>
         <message>
             <source>适合窗口</source>
@@ -544,8 +556,68 @@
             <source>%1 / %2</source>
             <translation>%1 / %2</translation>
         </message>
+        <message>
+            <source>打开、缩略图、缩放、旋转、全屏、上一张、进度、下一张、锁定与更多</source>
+            <translation>Ouvrir, pellicule, zoom, rotation, plein écran, précédent, progression, suivant, verrouillage et plus</translation>
+        </message>
+        <message>
+            <source>分组方式</source>
+            <translation>Grouper par</translation>
+        </message>
+        <message>
+            <source>图片总览</source>
+            <translation>Vue d'ensemble</translation>
+        </message>
+        <message>
+            <source>更多命令</source>
+            <translation>Plus de commandes</translation>
+        </message>
+        <message>
+            <source>动画播放控制栏</source>
+            <translation>Barre de lecture des animations</translation>
+        </message>
+        <message>
+            <source>首帧、上一帧、播放暂停、下一帧、末帧、复制当前帧与帧进度滑条</source>
+            <translation>Première image, image précédente, lecture/pause, image suivante, dernière image, copier l'image courante et curseur de progression</translation>
+        </message>
+        <message>
+            <source>首帧</source>
+            <translation>Première image</translation>
+        </message>
+        <message>
+            <source>首帧（帧数未知）</source>
+            <translation>Première image (nombre d'images inconnu)</translation>
+        </message>
+        <message>
+            <source>暂停</source>
+            <translation>Pause</translation>
+        </message>
+        <message>
+            <source>播放</source>
+            <translation>Lecture</translation>
+        </message>
+        <message>
+            <source>末帧</source>
+            <translation>Dernière image</translation>
+        </message>
+        <message>
+            <source>末帧（帧数未知）</source>
+            <translation>Dernière image (nombre d'images inconnu)</translation>
+        </message>
+        <message>
+            <source>复制当前帧</source>
+            <translation>Copier l'image courante</translation>
+        </message>
+        <message>
+            <source>帧进度：拖动定位到帧</source>
+            <translation>Progression : glisser pour atteindre l'image</translation>
+        </message>
+        <message>
+            <source>帧进度：帧数未知</source>
+            <translation>Progression : nombre d'images inconnu</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>DirectoryLoader</name>
         <message>
             <source>常用图片</source>
@@ -588,7 +660,7 @@
             <translation>Aucune image affichable dans cette archive</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>EmptyState</name>
         <message>
             <source>开始查看图片</source>
@@ -618,8 +690,12 @@
             <source>设置</source>
             <translation>Paramètres</translation>
         </message>
+        <message>
+            <source>把图片拖到这里，或点「打开」选择图片或文件夹</source>
+            <translation>Déposez des images ici, ou cliquez sur « Ouvrir » pour choisir des images ou un dossier</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>ExifParser</name>
         <message>
             <source>1/%1 秒</source>
@@ -630,7 +706,7 @@
             <translation>%1 s</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>GammaDialog</name>
         <message>
             <source>Gamma 补偿</source>
@@ -653,7 +729,7 @@
             <translation>OK</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>HeifLoader</name>
         <message>
             <source>libheif 上下文分配失败</source>
@@ -679,15 +755,27 @@
             <source>libheif 图像尺寸无效</source>
             <translation>Taille d'image libheif invalide</translation>
         </message>
+        <message>
+            <source>libheif 图像尺寸超出限制</source>
+            <translation>La taille de l'image libheif dépasse la limite</translation>
+        </message>
+        <message>
+            <source>libheif 图像尺寸或行距无效</source>
+            <translation>La taille ou le pas de ligne libheif est invalide</translation>
+        </message>
+        <message>
+            <source>当前构建未启用 libheif，无法解码 HEIC/AVIF</source>
+            <translation>Cette version est compilée sans libheif ; HEIC/AVIF ne peut pas être décodé</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>ImageCache</name>
         <message>
             <source>无法解码</source>
             <translation>Décodage impossible</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>KeySeqStateFilter</name>
         <message>
             <source>按下组合键…</source>
@@ -698,7 +786,7 @@
             <translation>Non défini</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>LayerPanel</name>
         <message>
             <source>图层</source>
@@ -757,7 +845,7 @@
             <translation>Ce calque ne peut pas être prévisualisé seul</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>MainWindow</name>
         <message>
             <source>未打开图片</source>
@@ -1643,8 +1731,332 @@
             <source>&lt;h3&gt;SoleView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 许可证开源，零遥测、零推广。&lt;/p&gt;&lt;p&gt;官网：&lt;a href="https://xdst2.github.io/soleview/"&gt;https://xdst2.github.io/soleview/&lt;/a&gt;&lt;br&gt;GitHub：&lt;a href="https://github.com/xdsT2/soleview"&gt;https://github.com/xdsT2/soleview&lt;/a&gt;&lt;br&gt;QQ 交流群：1134122173&lt;/p&gt;</source>
             <translation>&lt;h3&gt;SoleView&lt;/h3&gt;&lt;p&gt;Version %1&lt;/p&gt;&lt;p&gt;Open source sous licence MIT, sans télémétrie ni publicité.&lt;/p&gt;&lt;p&gt;Site officiel : &lt;a href="https://xdst2.github.io/soleview/"&gt;https://xdst2.github.io/soleview/&lt;/a&gt;&lt;br&gt;GitHub : &lt;a href="https://github.com/xdsT2/soleview"&gt;https://github.com/xdsT2/soleview&lt;/a&gt;&lt;br&gt;Groupe QQ : 1134122173&lt;/p&gt;</translation>
         </message>
+        <message>
+            <source>拖入图片或 Ctrl+O 打开</source>
+            <translation>Glissez une image ici ou appuyez sur Ctrl+O</translation>
+        </message>
+        <message>
+            <source>文件(&amp;F)</source>
+            <translation>&amp;Fichier</translation>
+        </message>
+        <message>
+            <source>视图(&amp;V)</source>
+            <translation>&amp;Affichage</translation>
+        </message>
+        <message>
+            <source>适配窗口(&amp;F)</source>
+            <translation>Ajuster à la &amp;fenêtre</translation>
+        </message>
+        <message>
+            <source>实际大小(&amp;1)</source>
+            <translation>&amp;Taille réelle</translation>
+        </message>
+        <message>
+            <source>幻灯片(&amp;S)</source>
+            <translation>&amp;Diaporama</translation>
+        </message>
+        <message>
+            <source>工具(&amp;T)</source>
+            <translation>&amp;Outils</translation>
+        </message>
+        <message>
+            <source>设为壁纸(&amp;W)</source>
+            <translation>Définir comme &amp;fond d'écran</translation>
+        </message>
+        <message>
+            <source>加载中… %1</source>
+            <translation>Chargement… %1</translation>
+        </message>
+        <message>
+            <source>无法打开：%1（%2）</source>
+            <translation>Impossible d'ouvrir : %1 (%2)</translation>
+        </message>
+        <message>
+            <source>%1 x %2 · %3 / %4 · %5</source>
+            <translation>%1 x %2 · %3 / %4 · %5</translation>
+        </message>
+        <message>
+            <source>%1 x %2 · %3</source>
+            <translation>%1 x %2 · %3</translation>
+        </message>
+        <message>
+            <source>图片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有文件 (*)</source>
+            <translation>Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;Tous les fichiers (*)</translation>
+        </message>
+        <message>
+            <source>无法读取压缩包：%1</source>
+            <translation>Impossible de lire l'archive : %1</translation>
+        </message>
+        <message>
+            <source>压缩包内文件暂不支持此操作</source>
+            <translation>Action indisponible pour les fichiers d'une archive</translation>
+        </message>
+        <message>
+            <source>当前没有可浏览的图片</source>
+            <translation>Aucune image à parcourir pour le moment</translation>
+        </message>
+        <message>
+            <source>分组方式…</source>
+            <translation>Grouper par…</translation>
+        </message>
+        <message>
+            <source>当前倍率 %1</source>
+            <translation>Zoom %1</translation>
+        </message>
+        <message>
+            <source>全屏 / 还原</source>
+            <translation>Plein écran / Restaurer</translation>
+        </message>
+        <message>
+            <source>退出无边框查看</source>
+            <translation>Quitter la vue sans bordure</translation>
+        </message>
+        <message>
+            <source>无边框查看</source>
+            <translation>Vue sans bordure</translation>
+        </message>
+        <message>
+            <source>第 %1 / %2 张</source>
+            <translation>%1 / %2</translation>
+        </message>
+        <message>
+            <source>当前未打开图片</source>
+            <translation>Aucune image ouverte</translation>
+        </message>
+        <message>
+            <source>跳转…</source>
+            <translation>Aller à…</translation>
+        </message>
+        <message>
+            <source>重命名…</source>
+            <translation>Renommer…</translation>
+        </message>
+        <message>
+            <source>照片文件夹面板…</source>
+            <translation>Panneau des dossiers photo…</translation>
+        </message>
+        <message>
+            <source>请先在「设置 → 浏览」中配置图片文件夹</source>
+            <translation>Configurez d'abord les dossiers d'images dans « Paramètres → Affichage »</translation>
+        </message>
+        <message>
+            <source>当前没有打开的图片</source>
+            <translation>Aucune image n'est ouverte</translation>
+        </message>
+        <message>
+            <source>图片文件夹不存在或不完整：%1</source>
+            <translation>Dossier d'images manquant ou incomplet : %1</translation>
+        </message>
+        <message>
+            <source>复制到 %1 (%2)</source>
+            <translation>Copier vers %1 (%2)</translation>
+        </message>
+        <message>
+            <source>移动到 %1 (%2)</source>
+            <translation>Déplacer vers %1 (%2)</translation>
+        </message>
+        <message>
+            <source>显示鸟瞰图</source>
+            <translation>Afficher la vue d'ensemble</translation>
+        </message>
+        <message>
+            <source>退出无边框</source>
+            <translation>Quitter le sans-bordure</translation>
+        </message>
+        <message>
+            <source>无边框模式</source>
+            <translation>Mode sans bordure</translation>
+        </message>
+        <message>
+            <source>360° 查看</source>
+            <translation>Voir en 360°</translation>
+        </message>
+        <message>
+            <source>尝试以 360° 查看</source>
+            <translation>Essayer la vue 360°</translation>
+        </message>
+        <message>
+            <source>%1（当前文件夹 %2 张）</source>
+            <translation>%1 (%2 dans le dossier courant)</translation>
+        </message>
+        <message>
+            <source>当前图片已在外部被删除</source>
+            <translation>L'image courante a été supprimée hors de SoleView</translation>
+        </message>
+        <message>
+            <source>当前图片不是可用的 360° 全景图</source>
+            <translation>L'image courante n'est pas un panorama 360° exploitable</translation>
+        </message>
+        <message>
+            <source>360° 全景查看器未安装，已定位到「设置 → 扩展」</source>
+            <translation>La visionneuse 360° n'est pas installée ; « Paramètres → Extensions » a été ouvert</translation>
+        </message>
+        <message>
+            <source>已经是最后一张图片。要转到第一张继续吗？</source>
+            <translation>C'est la dernière image. Continuer depuis la première ?</translation>
+        </message>
+        <message>
+            <source>已经是第一张图片。要转到最后一张继续吗？</source>
+            <translation>C'est la première image. Continuer depuis la dernière ?</translation>
+        </message>
+        <message>
+            <source>继续(&amp;C)</source>
+            <translation>Continuer</translation>
+        </message>
+        <message>
+            <source>停止(&amp;S)</source>
+            <translation>Arrêter</translation>
+        </message>
+        <message>
+            <source>还没有书签。在查看器里按 B，可把当前图片加为书签。</source>
+            <translation>Pas encore de signets. Appuyez sur B dans la visionneuse pour ajouter l'image courante.</translation>
+        </message>
+        <message>
+            <source>改动即时保存</source>
+            <translation>Les modifications sont enregistrées immédiatement</translation>
+        </message>
+        <message>
+            <source>共 %1 条</source>
+            <translation>%1 au total</translation>
+        </message>
+        <message>
+            <source>打开图片或文件夹</source>
+            <translation>Ouvrir une image ou un dossier</translation>
+        </message>
+        <message>
+            <source>打开当前所在文件夹（或列表中选中的子文件夹）里的第一张图片</source>
+            <translation>Ouvrir la première image du dossier courant (ou du sous-dossier sélectionné dans la liste)</translation>
+        </message>
+        <message>
+            <source>该文件夹没有可识别的图片：%1</source>
+            <translation>Aucune image reconnaissable dans ce dossier : %1</translation>
+        </message>
+        <message>
+            <source>压缩包内图片不支持重命名</source>
+            <translation>Les images dans une archive ne peuvent pas être renommées</translation>
+        </message>
+        <message>
+            <source>已重命名 %1 个文件</source>
+            <translation>%1 fichiers renommés</translation>
+        </message>
+        <message>
+            <source>图片文件夹 %1 未配置或不存在</source>
+            <translation>Le dossier d'images %1 n'est pas configuré ou n'existe pas</translation>
+        </message>
+        <message>
+            <source>当前图片不是多帧图片</source>
+            <translation>L'image courante n'a qu'une seule vue</translation>
+        </message>
+        <message>
+            <source>复制当前帧失败</source>
+            <translation>Échec de la copie de l'image courante</translation>
+        </message>
+        <message>
+            <source>已复制当前帧 · 第 %1/%2 帧</source>
+            <translation>Image courante copiée · image %1/%2</translation>
+        </message>
+        <message>
+            <source>已复制当前帧</source>
+            <translation>Image courante copiée</translation>
+        </message>
+        <message>
+            <source>图片保存到临时目录失败</source>
+            <translation>Échec de l'enregistrement de l'image dans le dossier temporaire</translation>
+        </message>
+        <message>
+            <source>剪贴板中的图片无法解码</source>
+            <translation>L'image du presse-papiers ne peut pas être décodée</translation>
+        </message>
+        <message>
+            <source>模拟失败：运行态拒绝本次即时应用（验收注入）。</source>
+            <translation>Échec simulé : l'exécution a refusé cette application immédiate (injection d'acceptation).</translation>
+        </message>
+        <message>
+            <source>通知已改到右下角</source>
+            <translation>Notifications déplacées en bas à droite</translation>
+        </message>
+        <message>
+            <source>通知已改到顶部居中</source>
+            <translation>Notifications déplacées en haut au centre</translation>
+        </message>
+        <message>
+            <source>已禁用屏幕保护（退出后自动恢复）</source>
+            <translation>Économiseur d'écran désactivé (rétabli automatiquement à la fermeture)</translation>
+        </message>
+        <message>
+            <source>已恢复屏幕保护</source>
+            <translation>Économiseur d'écran rétabli</translation>
+        </message>
+        <message>
+            <source>已按图片大小调整窗口</source>
+            <translation>Fenêtre ajustée à la taille de l'image</translation>
+        </message>
+        <message>
+            <source>已关闭按图调窗，窗口尺寸不再自动变化</source>
+            <translation>L'ajustement à l'image est désactivé ; la fenêtre ne change plus de taille</translation>
+        </message>
+        <message>
+            <source>已开启 RAW 内嵌缩略图（下次打开 RAW 生效）</source>
+            <translation>Vignettes RAW intégrées activées (effectif au prochain RAW ouvert)</translation>
+        </message>
+        <message>
+            <source>已关闭 RAW 内嵌缩略图（下次打开 RAW 生效）</source>
+            <translation>Vignettes RAW intégrées désactivées (effectif au prochain RAW ouvert)</translation>
+        </message>
+        <message>
+            <source>已开启翻页音效：翻页与幻灯片切页会响一声</source>
+            <translation>Son de page activé : le passage de page et les transitions jouent un clic</translation>
+        </message>
+        <message>
+            <source>已关闭翻页音效：翻页将静音</source>
+            <translation>Son de page désactivé : le passage est silencieux</translation>
+        </message>
+        <message>
+            <source>已禁止打开 RAW：再打开 .nef/.cr2/.dng 会提示「已在设置中禁用 RAW 解码」</source>
+            <translation>Ouverture RAW bloquée : ouvrir un .nef/.cr2/.dng affiche « Décodage RAW désactivé dans les paramètres »</translation>
+        </message>
+        <message>
+            <source>已允许打开 RAW：下次打开 RAW 走正常解码</source>
+            <translation>Ouverture RAW autorisée : le prochain RAW est décodé normalement</translation>
+        </message>
+        <message>
+            <source>已保存同名 RAW 过滤设置：当前没有打开的文件夹，下次打开时生效</source>
+            <translation>Filtre RAW homonyme enregistré : aucun dossier ouvert, effectif à la prochaine ouverture</translation>
+        </message>
+        <message>
+            <source>正在扫描当前文件夹，完成后按新设置刷新列表</source>
+            <translation>Analyse du dossier courant ; la liste sera actualisée avec le nouveau réglage ensuite</translation>
+        </message>
+        <message>
+            <source>已按新设置重扫：同名 RAW 不再带进列表</source>
+            <translation>Réanalysé avec le nouveau réglage : les RAW homonymes ne sont plus listés</translation>
+        </message>
+        <message>
+            <source>已按新设置重扫：同名 RAW 重新带进列表</source>
+            <translation>Réanalysé avec le nouveau réglage : les RAW homonymes sont de nouveau listés</translation>
+        </message>
+        <message>
+            <source>未知的插值档位：%1</source>
+            <translation>Niveau d'interpolation inconnu : %1</translation>
+        </message>
+        <message>
+            <source>已开启缓存下一张：正在预读相邻图片</source>
+            <translation>Cache de l'image suivante activé : prélecture des images voisines</translation>
+        </message>
+        <message>
+            <source>已关闭缓存下一张：不再预读相邻图片（已缓存的图保留）</source>
+            <translation>Cache de l'image suivante désactivé : plus de prélecture (les images déjà en cache restent)</translation>
+        </message>
+        <message>
+            <source>缓存上限已改为 %1 MB（当前已用 %2 MB）</source>
+            <translation>Limite du cache fixée à %1 Mo (%2 Mo utilisés)</translation>
+        </message>
+        <message>
+            <source>该 PSD 未保存兼容性预览；请在 Photoshop「首选项 → 文件处理」勾选</source>
+            <translation>Ce PSD n'a pas d'aperçu de compatibilité ; activez-le dans Photoshop « Préférences → Gestion des fichiers »</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>MetadataPanel</name>
         <message>
             <source>相机制造商</source>
@@ -1794,8 +2206,48 @@
             <source>%1 × %2 cm</source>
             <translation>%1 × %2 cm</translation>
         </message>
+        <message>
+            <source>信息</source>
+            <translation>Informations</translation>
+        </message>
+        <message>
+            <source>文件</source>
+            <translation>Fichier</translation>
+        </message>
+        <message>
+            <source>路径</source>
+            <translation>Chemin</translation>
+        </message>
+        <message>
+            <source>大小</source>
+            <translation>Taille</translation>
+        </message>
+        <message>
+            <source>修改时间</source>
+            <translation>Modifié</translation>
+        </message>
+        <message>
+            <source>图像</source>
+            <translation>Image</translation>
+        </message>
+        <message>
+            <source>尺寸</source>
+            <translation>Dimensions</translation>
+        </message>
+        <message>
+            <source>%1 x %2</source>
+            <translation>%1 x %2</translation>
+        </message>
+        <message>
+            <source>格式</source>
+            <translation>Format</translation>
+        </message>
+        <message>
+            <source>EXIF</source>
+            <translation>EXIF</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>PsdLoader</name>
         <message>
             <source>无法打开 PSD 文件</source>
@@ -1877,8 +2329,20 @@
             <source>图像数据不完整（文件可能被截断或写入中断）</source>
             <translation>Données d'image incomplètes (fichier tronqué ou écriture interrompue)</translation>
         </message>
+        <message>
+            <source>PSD 画布尺寸异常或超出限制</source>
+            <translation>La taille de la toile PSD est invalide ou dépasse la limite</translation>
+        </message>
+        <message>
+            <source>不支持的 PSD 位深（%1 bit）</source>
+            <translation>Profondeur de bits PSD non prise en charge (%1 bit)</translation>
+        </message>
+        <message>
+            <source>不支持的 PSD 通道数（%1）</source>
+            <translation>Nombre de couches PSD non pris en charge (%1)</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>QObject</name>
         <message>
             <source>打开</source>
@@ -1997,7 +2461,7 @@
             <translation>Aller au téléchargement</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>RawImageLoader</name>
         <message>
             <source>libraw 打开失败</source>
@@ -2019,8 +2483,16 @@
             <source>不支持的位深 %1</source>
             <translation>Profondeur de bits non gérée %1</translation>
         </message>
+        <message>
+            <source>不支持的 RAW 图像参数（colors=%1, bits=%2）</source>
+            <translation>Paramètres d'image RAW non pris en charge (colors=%1, bits=%2)</translation>
+        </message>
+        <message>
+            <source>当前构建未启用 libraw，无法解码 RAW</source>
+            <translation>Cette version est compilée sans libraw ; RAW ne peut pas être décodé</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>SettingsDialog</name>
         <message>
             <source>选择后立即切换界面语言并写入配置</source>
@@ -2177,34 +2649,64 @@
         <message>
             <source>开</source>
             <translation>Activé</translation>
+        </message>
+        <message>
             <source>关</source>
             <translation>Désactivé</translation>
+        </message>
+        <message>
             <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
             <translation>Modifications abandonnées : les éléments instantanés de la page Affichage reviennent à l’état d’ouverture des Réglages.</translation>
+        </message>
+        <message>
             <source>已关闭设置，未保留即时改动。</source>
             <translation>Réglages fermés ; les modifications instantanées n’ont pas été conservées.</translation>
+        </message>
+        <message>
             <source>设置备份</source>
             <translation>Sauvegarde des paramètres</translation>
+        </message>
+        <message>
             <source>导出设置</source>
             <translation>Exporter les paramètres</translation>
+        </message>
+        <message>
             <source>把当前设置写入 .ini，便于备份或换机</source>
             <translation>Écrit les paramètres actuels dans un .ini, pour sauvegarde ou autre PC</translation>
+        </message>
+        <message>
             <source>导入设置</source>
             <translation>Importer les paramètres</translation>
+        </message>
+        <message>
             <source>从 .ini 文件恢复设置，重启 SoleView 后生效</source>
             <translation>Restaure les paramètres depuis un fichier .ini ; pris en compte après redémarrage de SoleView</translation>
+        </message>
+        <message>
             <source>导出失败</source>
             <translation>Échec de l'exportation</translation>
+        </message>
+        <message>
             <source>设置已导出</source>
             <translation>Paramètres exportés</translation>
+        </message>
+        <message>
             <source>不是有效的 SoleView 设置文件</source>
             <translation>Fichier de paramètres SoleView non valide</translation>
+        </message>
+        <message>
             <source>导入失败，原配置未改动</source>
             <translation>Échec de l'importation ; la configuration d'origine n'a pas été modifiée</translation>
+        </message>
+        <message>
             <source>导入成功，重启 SoleView 后生效</source>
             <translation>Importation réussie ; prise en compte après redémarrage de SoleView</translation>
+        </message>
+        <message>
             <source>SoleView 设置 (*.ini)</source>
             <translation>Paramètres SoleView (*.ini)</translation>
+        </message>
+        <message>
             <source>SoleView 设置 (*.ini);;所有文件 (*)</source>
             <translation>Paramètres SoleView (*.ini);;Tous les fichiers (*)</translation>
         </message>
@@ -2490,11 +2992,11 @@
         </message>
         <message>
             <source>显示动画播放控制</source>
-            <translation type="unfinished">Afficher les numéros de frame</translation>
+            <translation>Afficher les commandes de lecture des animations</translation>
         </message>
         <message>
             <source>GIF / MNG 时显示底部播放控制栏，并在信息行显示「第 n/N 帧」；关闭后两者一并隐藏</source>
-            <translation type="unfinished">La ligne d'infos du bas des GIF/MNG montre « Frame n/N »</translation>
+            <translation>Pour les GIF/MNG, afficher la barre de lecture en bas et « Image n/N » dans la ligne d'infos ; désactivé, les deux sont masqués</translation>
         </message>
         <message>
             <source>显示缩放浮标</source>
@@ -3235,6 +3737,10 @@ Restauré à la valeur réelle courante.</translation>
             <translation>Ne pas ouvrir les fichiers images RAW</translation>
         </message>
         <message>
+            <source>开启后打开 RAW 只提示「已在设置中禁用 RAW 解码」；已在屏上的图不撤掉</source>
+            <translation>À l'ouverture d'un RAW, seul le message « Décodage RAW désactivé dans les paramètres » s'affiche ; les images déjà affichées restent</translation>
+        </message>
+        <message>
             <source>下次打开 RAW 时生效</source>
             <translation>S'applique à la prochaine ouverture d'un RAW</translation>
         </message>
@@ -3660,8 +4166,444 @@ Valeur d'origine restaurée ; rien n'a été écrit dans la configuration.</tran
             <source>官网与 GitHub 在默认浏览器中打开；点击 QQ 交流群号可复制到剪贴板。</source>
             <translation>Le site officiel et GitHub s’ouvrent dans le navigateur par défaut ; cliquez sur le numéro du groupe QQ pour le copier.</translation>
         </message>
+        <message>
+            <source>打开（备用键）</source>
+            <translation>Ouvrir (touche de secours)</translation>
+        </message>
+        <message>
+            <source>启动</source>
+            <translation>Démarrage</translation>
+        </message>
+        <message>
+            <source>启动时恢复上次查看的图片</source>
+            <translation>Restaurer la dernière image consultée au démarrage</translation>
+        </message>
+        <message>
+            <source>通过文件直接启动时，以选中的文件为准；下次启动生效</source>
+            <translation>Au lancement avec un fichier, ce fichier prime ; effectif au prochain démarrage</translation>
+        </message>
+        <message>
+            <source>「询问」在翻到边界时弹确认；单图目录直接停住，不弹框</source>
+            <translation>« Demander » affiche une confirmation à la limite ; un dossier à une seule image s'arrête sans boîte</translation>
+        </message>
+        <message>
+            <source>「转到首个文件」在末尾继续时回绕到首个；「停止」停在当前图片；「询问」弹确认框，确认后从另一端继续，取消留在当前图片。</source>
+            <translation>« Première image » revient à la première à la fin ; « Arrêter » reste sur l'image courante ; « Demander » affiche une boîte, puis reprend par l'autre bout, ou reste sur place si vous annulez.</translation>
+        </message>
+        <message>
+            <source>只对「换到另一张图」生效：翻到下一张、缩略图跳转、幻灯片切页</source>
+            <translation>S'applique seulement au changement d'image : image suivante, saut par la pellicule, transition de diaporama</translation>
+        </message>
+        <message>
+            <source>翻页时播放音效；关闭后静音</source>
+            <translation>Jouer un son lors du passage ; désactivé = silencieux</translation>
+        </message>
+        <message>
+            <source>翻页音效仅在单张翻页与幻灯片切页时播放</source>
+            <translation>Le son de page ne joue que pour un pas simple et les transitions de diaporama</translation>
+        </message>
+        <message>
+            <source>下次打开这张图时恢复；当前画面不变</source>
+            <translation>Rétabli à la prochaine ouverture de cette image ; la vue actuelle ne change pas</translation>
+        </message>
+        <message>
+            <source>适配宽度／实际大小下、图片高于窗口时生效</source>
+            <translation>S'applique en ajustement à la largeur / taille réelle quand l'image est plus haute que la fenêtre</translation>
+        </message>
+        <message>
+            <source>输入或选择文件夹后立即生效，无需保存；留空表示不使用该文件夹</source>
+            <translation>Prend effet dès qu'un dossier est saisi ou choisi, sans enregistrer ; vide = inutilisé</translation>
+        </message>
+        <message>
+            <source>选好文件夹后立即生效，并马上用于本页「打开」与菜单动作</source>
+            <translation>Prend effet dès qu'un dossier est choisi, et sert aussitôt à « Ouvrir » de cette page et aux actions du menu</translation>
+        </message>
+        <message>
+            <source>用当前已生效的路径打开所在文件夹</source>
+            <translation>Ouvrir le dossier contenant, avec le chemin actuellement effectif</translation>
+        </message>
+        <message>
+            <source>未设置：复制到 / 移动到「图片文件夹 1」的动作不会执行。</source>
+            <translation>Non défini : les actions Copier vers / Déplacer vers « Dossier d'images 1 » ne s'exécuteront pas.</translation>
+        </message>
+        <message>
+            <source>已取消选择，路径没有改动：%1</source>
+            <translation>Sélection annulée, le chemin est inchangé : %1</translation>
+        </message>
+        <message>
+            <source>（仍为未设置）</source>
+            <translation>(toujours non défini)</translation>
+        </message>
+        <message>
+            <source>翻页不追加</source>
+            <translation>Ne pas ajouter au passage</translation>
+        </message>
+        <message>
+            <source>文件移动或重命名后原条目失效；书签只存本机配置，不随安装包或账户同步。</source>
+            <translation>Les signets deviennent invalides si le fichier est déplacé ou renommé ; ils ne vivent que dans la configuration locale et ne se synchronisent ni avec l'installateur ni avec un compte.</translation>
+        </message>
+        <message>
+            <source>跟随系统时由 Windows 深浅色设置决定</source>
+            <translation>En mode « Suivre le système », c'est le réglage clair/sombre de Windows qui décide</translation>
+        </message>
+        <message>
+            <source>仅作用于右键菜单与信息浮层；Windows 11 效果最佳</source>
+            <translation>N'agit que sur le menu contextuel et la surcouche d'infos ; meilleur rendu sous Windows 11</translation>
+        </message>
+        <message>
+            <source>隐藏顶端菜单时按 Shift+Tab 显隐</source>
+            <translation>Menu supérieur masqué : Shift+Tab l'affiche ou le masque</translation>
+        </message>
+        <message>
+            <source>铺满整个画布视口，颜色随深浅主题自动变化，切换主题即时生效</source>
+            <translation>Remplit toute la zone de la toile, suit le thème clair/sombre et change instantanément avec lui</translation>
+        </message>
+        <message>
+            <source>关闭后透明像素直接透出画布背景</source>
+            <translation>Désactivé : les pixels transparents laissent voir le fond de la toile</translation>
+        </message>
+        <message>
+            <source>棋盘格固定在屏幕坐标，不随图片缩放和平移</source>
+            <translation>Le damier est fixé aux coordonnées écran et ne suit ni le zoom ni le déplacement</translation>
+        </message>
+        <message>
+            <source>GIF 透明背景</source>
+            <translation>Fond de transparence GIF</translation>
+        </message>
+        <message>
+            <source>默认调色板</source>
+            <translation>Palette par défaut</translation>
+        </message>
+        <message>
+            <source>白色</source>
+            <translation>Blanc</translation>
+        </message>
+        <message>
+            <source>黑色</source>
+            <translation>Noir</translation>
+        </message>
+        <message>
+            <source>中灰背景</source>
+            <translation>Gris moyen</translation>
+        </message>
+        <message>
+            <source>自定义颜色</source>
+            <translation>Couleur personnalisée</translation>
+        </message>
+        <message>
+            <source>只影响 GIF 显示铺底；源文件、复制与导出保持原透明信息</source>
+            <translation>N'agit que sur le fond du GIF ; le fichier source, la copie et l'export gardent la transparence d'origine</translation>
+        </message>
+        <message>
+            <source>点击选择 GIF 透明区域的铺底颜色，选色即时重绘当前 GIF</source>
+            <translation>Cliquez pour choisir la couleur de fond de la transparence GIF ; le GIF courant est redessiné aussitôt</translation>
+        </message>
+        <message>
+            <source>Lanczos 且缩小到 100% 以下时生效</source>
+            <translation>S'applique avec Lanczos lors d'une réduction sous 100 %</translation>
+        </message>
+        <message>
+            <source>开启时大图先按视口尺寸出一张快帧，随后替换为清晰全图；关闭后直接等全图上屏</source>
+            <translation>Activé : les grandes images affichent d'abord une image rapide à la taille de la vue, puis l'image nette ; désactivé : attente directe de l'image complète</translation>
+        </message>
+        <message>
+            <source>拦的是「打开」这一步：翻到 RAW 时同样给这条提示，不显示也不解码</source>
+            <translation>Bloque l'étape « ouvrir » : passer sur un RAW affiche le même message, sans affichage ni décodage</translation>
+        </message>
+        <message>
+            <source>只影响打开 JPEG 时是否带出同目录同名 RAW；直接打开 RAW 时列表照旧全带</source>
+            <translation>N'agit que sur l'inclusion d'un RAW homonyme à côté d'un JPEG ; ouvrir un RAW directement liste toujours tout</translation>
+        </message>
+        <message>
+            <source>切换后立即重扫当前文件夹，不用重新打开目录</source>
+            <translation>Réanalyse le dossier courant immédiatement ; pas besoin de le rouvrir</translation>
+        </message>
+        <message>
+            <source>SDR 验证版：显示出口把 sRGB 转到当前屏幕关联配置；已开 Windows 自动颜色管理的屏幕跳过，跨屏自动重估</source>
+            <translation>Version de validation SDR : la sortie convertit sRGB vers le profil associé à l'écran courant ; les écrans gérés automatiquement par Windows sont ignorés, le changement d'écran réévalue</translation>
+        </message>
+        <message>
+            <source>无有效配置或转换失败时保持 sRGB 显示，原因见临时目录日志</source>
+            <translation>Reste en sRGB sans profil valide ou en cas d'échec ; la raison est dans le journal du dossier temporaire</translation>
+        </message>
+        <message>
+            <source>单击手势不支持拖拽平移；拖动请在「中键拖动」单独设置</source>
+            <translation>Les gestes de clic ne peuvent pas déplacer ; réglez le glisser dans « Glisser bouton du milieu »</translation>
+        </message>
+        <message>
+            <source>拖动手势仅支持「无操作 / 拖拽平移」；点击动作请在「中键单击」单独设置</source>
+            <translation>Les gestes de glisser ne gèrent que « Rien / Déplacer » ; réglez le clic dans « Clic bouton du milieu »</translation>
+        </message>
+        <message>
+            <source>滚轮仅支持「无操作 / 放大 / 缩小 / 翻下一张 / 翻上一张」；单向选「无」只停用该方向</source>
+            <translation>La molette ne gère que « Rien / Zoom avant / Zoom arrière / Image suivante / Image précédente » ; « Rien » ne désactive que ce sens</translation>
+        </message>
+        <message>
+            <source>「无」保留内置行为：左键拖拽平移、边缘单击翻页、右键菜单。中键单击与拖动分别设置（默认单击全屏、拖动平移）；滚轮上下独立生效，单向选「无」只停用该方向。映射在下次触发该按键时生效。</source>
+            <translation>« Rien » garde le comportement intégré : glisser gauche déplace, clic sur le bord tourne la page, clic droit ouvre le menu. Clic et glisser du milieu se règlent séparément (clic = plein écran, glisser = déplacement par défaut) ; la molette agit par sens, « Rien » ne désactive que ce sens. Les changements s'appliquent à la prochaine utilisation de la touche.</translation>
+        </message>
+        <message>
+            <source>可选组件</source>
+            <translation>Composant facultatif</translation>
+        </message>
+        <message>
+            <source>360° 全景查看器</source>
+            <translation>Visionneuse 360°</translation>
+        </message>
+        <message>
+            <source>把等距柱状全景图渲染成可拖动的球形视图，独立进程运行；组件缺失时普通看图不受影响。</source>
+            <translation>Affiche un panorama équirectangulaire comme une sphère déplaçable, dans un processus séparé ; sans le composant, la consultation normale n'est pas affectée.</translation>
+        </message>
+        <message>
+            <source>组件下载进度</source>
+            <translation>Progression du téléchargement du composant</translation>
+        </message>
+        <message>
+            <source>安装</source>
+            <translation>Installer</translation>
+        </message>
+        <message>
+            <source>360° 全景查看器：安装</source>
+            <translation>Visionneuse 360° : installer</translation>
+        </message>
+        <message>
+            <source>首版范围为本地已拼好的 360°×180° 等距柱状 JPG：带完整 GPano 标记的图在主窗给出「360° 查看」入口，2:1 宽图只在右键提供「尝试以 360° 查看」。局部裁切、其它投影与相片拼接不在本版。</source>
+            <translation>La première version couvre les JPG équirectangulaires 360°×180° assemblés localement : les images avec des métadonnées GPano complètes proposent « Voir en 360° » dans la fenêtre principale, les images 2:1 seulement « Essayer la vue 360° » dans le menu contextuel. Recadrages partiels, autres projections et assemblage photo sont hors périmètre.</translation>
+        </message>
+        <message>
+            <source>组件信息</source>
+            <translation>Infos du composant</translation>
+        </message>
+        <message>
+            <source>安装位置</source>
+            <translation>Emplacement d'installation</translation>
+        </message>
+        <message>
+            <source>下载源</source>
+            <translation>Source de téléchargement</translation>
+        </message>
+        <message>
+            <source>组件包地址</source>
+            <translation>URL du paquet du composant</translation>
+        </message>
+        <message>
+            <source>未配置</source>
+            <translation>Non configuré</translation>
+        </message>
+        <message>
+            <source>受控下载入口：用户不需要访问代码托管站点。安装包自带组件时无需下载；未配置地址可运行安装包勾选该组件，或在 config.ini 写入 config/ext/pano_source（支持 http(s) 与本地 file:// 测试源）。</source>
+            <translation>Entrée de téléchargement contrôlée : l'utilisateur n'a pas besoin d'aller sur un site d'hébergement de code. Aucun téléchargement si l'installateur inclut le composant ; sans URL, lancez l'installateur et cochez le composant, ou écrivez config/ext/pano_source dans config.ini (http(s) et sources locales file:// acceptées pour les tests).</translation>
+        </message>
+        <message>
+            <source>下载包须带同址 .sha256 摘要，校验通过才落盘；取消、断网、摘要不符都保留原有可用状态。卸载只删组件自身文件，不碰主程序与设置。</source>
+            <translation>Le téléchargement doit fournir une empreinte .sha256 au même endroit et n'est écrit qu'après vérification ; annulation, coupure réseau ou empreinte différente conservent l'état utilisable précédent. La désinstallation ne supprime que les fichiers du composant, jamais le programme ni les réglages.</translation>
+        </message>
+        <message>
+            <source>SoleView</source>
+            <translation>SoleView</translation>
+        </message>
+        <message>
+            <source>GitHub</source>
+            <translation>GitHub</translation>
+        </message>
+        <message>
+            <source>安装中 %1%</source>
+            <translation>Installation %1%</translation>
+        </message>
+        <message>
+            <source>正在连接下载源</source>
+            <translation>Connexion à la source de téléchargement</translation>
+        </message>
+        <message>
+            <source>已安装 %1</source>
+            <translation>%1 installé</translation>
+        </message>
+        <message>
+            <source>已安装 %1（版本不兼容）</source>
+            <translation>%1 installé (version incompatible)</translation>
+        </message>
+        <message>
+            <source>卸载</source>
+            <translation>Désinstaller</translation>
+        </message>
+        <message>
+            <source>安装失败</source>
+            <translation>Échec de l'installation</translation>
+        </message>
+        <message>
+            <source>重试</source>
+            <translation>Réessayer</translation>
+        </message>
+        <message>
+            <source>上次操作没有完成：%1</source>
+            <translation>La dernière opération ne s'est pas terminée : %1</translation>
+        </message>
+        <message>
+            <source>组件文件位于 %1，与安装向导勾选安装共用同一份状态；主程序升级保留已安装的兼容组件，不会替未安装的用户安装。</source>
+            <translation>Les fichiers du composant sont dans %1 et partagent un état avec la case de l'installateur ; les mises à jour conservent un composant compatible installé et ne l'installent jamais pour ceux qui l'ont ignoré.</translation>
+        </message>
+        <message>
+            <source>正在获取组件包：校验通过后才写入 %1。</source>
+            <translation>Récupération du paquet : écriture dans %1 seulement après vérification.</translation>
+        </message>
+        <message>
+            <source>尚未安装。安装向导与这里使用同一组件版本；安装目录需可写（%1）。</source>
+            <translation>Pas encore installé. L'installateur et cette page utilisent la même version ; le dossier d'installation doit être inscriptible (%1).</translation>
+        </message>
+        <message>
+            <source>已卸载 360° 全景查看器</source>
+            <translation>Visionneuse 360° désinstallée</translation>
+        </message>
+        <message>
+            <source>360° 全景查看器尚未安装：点右侧「安装」后即可用原图打开</source>
+            <translation>La visionneuse 360° n'est pas installée : cliquez sur « Installer » à droite, puis ouvrez l'image d'origine</translation>
+        </message>
+        <message>
+            <source>固定项不提供开关；关闭所属分组时一并隐藏。</source>
+            <translation>Les éléments fixes n'ont pas d'interrupteur ; ils se masquent avec leur groupe.</translation>
+        </message>
+        <message>
+            <source>关闭后仍可展开查看命令。</source>
+            <translation>Désactivé : le groupe reste dépliable pour voir ses commandes.</translation>
+        </message>
+        <message>
+            <source>默认打开方式由 Windows 管理，SoleView 不能直接改写；找不到 SoleView 时先运行安装包注册。</source>
+            <translation>Windows gère les applications par défaut et SoleView ne peut pas les modifier ; si SoleView est absent, lancez l'installateur pour l'enregistrer.</translation>
+        </message>
+        <message>
+            <source>占用方：%1</source>
+            <translation>Utilisé par : %1</translation>
+        </message>
+        <message>
+            <source>已被其他程序占用（不接管）</source>
+            <translation>Utilisé par un autre programme (non repris)</translation>
+        </message>
+        <message>
+            <source>SVG 缩略图</source>
+            <translation>Vignettes SVG</translation>
+        </message>
+        <message>
+            <source>只注册缩略图（主程序打不开 SVG）；用户级注册优先，被占用时不接管</source>
+            <translation>N'enregistre que les vignettes (le programme ne peut pas ouvrir le SVG) ; l'enregistrement utilisateur prime, un propriétaire existant n'est pas repris</translation>
+        </message>
+        <message>
+            <source>关闭后不再插入菜单项；各细项的选择会保留</source>
+            <translation>Désactivé : aucune entrée de menu n'est insérée ; les choix individuels sont conservés</translation>
+        </message>
+        <message>
+            <source>未检测到壳扩展文件（solethumb-*.dll）。运行安装包可修复；便携版不带安装器注册，右键菜单不可用。</source>
+            <translation>Aucun fichier d'extension shell trouvé (solethumb-*.dll). L'installateur corrige cela ; les versions portables n'enregistrent rien, le menu contextuel est alors indisponible.</translation>
+        </message>
+        <message>
+            <source>改动即时写入，下次右键时生效，无需重装或管理员权限；菜单未变化时重启资源管理器。</source>
+            <translation>Les modifications sont écrites aussitôt et s'appliquent au prochain clic droit, sans réinstallation ni droits admin ; si le menu ne change pas, redémarrez l'Explorateur.</translation>
+        </message>
+        <message>
+            <source>这些入口由壳扩展在资源管理器中提供，安装／卸载安装包时自动注册／移除；与文件默认打开方式无关。</source>
+            <translation>Ces entrées viennent de l'extension shell dans l'Explorateur ; elles s'enregistrent et se retirent avec l'installateur et n'ont rien à voir avec les applications par défaut.</translation>
+        </message>
+        <message>
+            <source>按扩展名分组，列表只读；新增格式随程序版本更新</source>
+            <translation>Groupées par extension, liste en lecture seule ; les nouveaux formats arrivent avec les versions</translation>
+        </message>
+        <message>
+            <source>列表只读；新增格式随程序版本更新。</source>
+            <translation>La liste est en lecture seule ; les nouveaux formats arrivent avec les versions.</translation>
+        </message>
+        <message>
+            <source>点击选择 GIF 透明区域的铺底颜色</source>
+            <translation>Cliquez pour choisir la couleur de fond de la transparence GIF</translation>
+        </message>
+        <message>
+            <source>先在上方「GIF 透明背景」选择「自定义颜色」</source>
+            <translation>Choisissez d'abord « Couleur personnalisée » sous « Fond de transparence GIF » ci-dessus</translation>
+        </message>
+        <message>
+            <source>正在应用：停止输入 0.3 秒后立即生效（无需保存）</source>
+            <translation>Application : effectif 0,3 s après la dernière frappe (sans enregistrer)</translation>
+        </message>
+        <message>
+            <source>未设置：复制到 / 移动到「图片文件夹 1」与图片转换默认目录都不会使用空路径。</source>
+            <translation>Non défini : Copier vers / Déplacer vers « Dossier d'images 1 » et le dossier par défaut de conversion n'utiliseront pas un chemin vide.</translation>
+        </message>
+        <message>
+            <source>路径不存在：%1 —— 动作时不会写入文件。</source>
+            <translation>Chemin inexistant : %1 — aucun fichier ne sera écrit lors de l'action.</translation>
+        </message>
+        <message>
+            <source>这不是文件夹：%1 —— 请改成文件夹路径。</source>
+            <translation>Ce n'est pas un dossier : %1 — indiquez un chemin de dossier.</translation>
+        </message>
+        <message>
+            <source>已即时生效，无需保存：复制到 / 移动到 1、图片转换默认目录立即使用 %1。</source>
+            <translation>Effectif immédiatement, sans enregistrer : Copier vers / Déplacer vers 1 et le dossier par défaut de conversion utilisent désormais %1.</translation>
+        </message>
+        <message>
+            <source>「图片文件夹 1」未能即时生效：%1
+已恢复原值。</source>
+            <translation>« Dossier d'images 1 » n'a pas pu être appliqué : %1\nValeur précédente rétablie.</translation>
+        </message>
+        <message>
+            <source>请先填写文件夹路径，或点「浏览…」选择一个文件夹。</source>
+            <translation>Saisissez un chemin de dossier, ou cliquez sur « Parcourir… ».</translation>
+        </message>
+        <message>
+            <source>无法调用系统文件管理器打开：%1</source>
+            <translation>Impossible d'ouvrir le gestionnaire de fichiers : %1</translation>
+        </message>
+        <message>
+            <source>已在文件管理器中打开：%1</source>
+            <translation>Ouvert dans le gestionnaire de fichiers : %1</translation>
+        </message>
+        <message>
+            <source>选择 GIF 背景色</source>
+            <translation>Choisir la couleur de fond du GIF</translation>
+        </message>
+        <message>
+            <source>即时可见</source>
+            <translation>Visible immédiatement</translation>
+        </message>
+        <message>
+            <source>已关闭设置，图像处理页未保留即时改动。</source>
+            <translation>Paramètres fermés ; les modifications immédiates de la page Traitement d'images n'ont pas été conservées.</translation>
+        </message>
+        <message>
+            <source>已关闭设置，翻页效果保持进入设置时的档位。</source>
+            <translation>Paramètres fermés ; l'effet de page reste au niveau qu'il avait à l'ouverture.</translation>
+        </message>
+        <message>
+            <source>「%1」已即时生效：%2 · 无需保存，关闭设置后保留。</source>
+            <translation>« %1 » appliqué immédiatement : %2 · sans enregistrer, conservé après fermeture des paramètres.</translation>
+        </message>
+        <message>
+            <source>已放弃本次改动：图像处理页即时项已回到进入设置时的状态。</source>
+            <translation>Modifications abandonnées : les éléments immédiats de la page Traitement d'images sont revenus à l'état d'ouverture des paramètres.</translation>
+        </message>
+        <message>
+            <source>「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。
+运行态：%3</source>
+            <translation>« %1 » appliqué immédiatement : %2 · sans enregistrer ; Annuler / Échap revient à l'état d'ouverture des paramètres.\nÉtat : %3</translation>
+        </message>
+        <message>
+            <source>勾选即时生效：在热键栏按所录键即可触发，不必保存或重启</source>
+            <translation>Cocher applique aussitôt : appuyer sur la touche enregistrée dans la ligne de raccourci déclenche, sans enregistrer ni redémarrer</translation>
+        </message>
+        <message>
+            <source>本行还没有热键：先在热键栏录入并保存，再启用；空热键时勾选不会生效</source>
+            <translation>Cette ligne n'a pas encore de raccourci : enregistrez-en un dans la ligne puis activez ; cocher sans raccourci ne fait rien</translation>
+        </message>
+        <message>
+            <source>无热键</source>
+            <translation>Aucun raccourci</translation>
+        </message>
+        <message>
+            <source>待保存：%1
+
+「不保存」只放弃这些草稿；浏览页与图像处理/外观页的即时项（缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示 / 强锐化 / 缓存下一张 / 缓存大小 / 大图顶部对齐 / 插值 / 快帧策略 / 翻页效果 / GIF 底色 / 画布背景）会回到进入设置时的状态，其余即时设置保留。</source>
+            <translation>En attente : %1\n\n« Ne pas enregistrer » n'abandonne que ces brouillons ; les éléments immédiats des pages Affichage et Traitement d'images/Apparence (mémoire de zoom / nom de fichier / numéros d'image d'animation / infobulles / accentuation forte / cache de l'image suivante / taille du cache / aligner les grandes images en haut / interpolation / stratégie d'image rapide / effet de page / fond GIF / fond de toile) reviennent à l'état d'ouverture des paramètres, les autres réglages immédiats sont conservés.</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>ThumbnailBrowser</name>
         <message>
             <source>缩略图栏</source>
@@ -3672,7 +4614,7 @@ Valeur d'origine restaurée ; rien n'a été écrit dans la configuration.</tran
             <translation>Aperçu impossible</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>TopBar</name>
         <message>
             <source>顶部工具栏</source>
@@ -3746,15 +4688,23 @@ Valeur d'origine restaurée ; rien n'a été écrit dans la configuration.</tran
             <source>关闭</source>
             <translation>Fermer</translation>
         </message>
+        <message>
+            <source>HDR</source>
+            <translation>HDR</translation>
+        </message>
+        <message>
+            <source>HDR 显示与曝光</source>
+            <translation>Affichage et exposition HDR</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>UpdateChecker</name>
         <message>
             <source>检查更新</source>
             <translation>Vérifier les màj</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>UpdateNotifier</name>
         <message>
             <source>发现新版本 %1</source>
@@ -3769,7 +4719,7 @@ Valeur d'origine restaurée ; rien n'a été écrit dans la configuration.</tran
             <translation>Vérification échouée — vérifiez le réseau</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>Wallpaper</name>
         <message>
             <source>SystemParametersInfo 失败 (GetLastError=%1)</source>
@@ -3780,183 +4730,14 @@ Valeur d'origine restaurée ; rien n'a été écrit dans la configuration.</tran
             <translation>Fond d'écran : Windows uniquement</translation>
         </message>
     </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>拖入图片或 Ctrl+O 打开</source>
-            <translation>Glissez une image ici ou appuyez sur Ctrl+O</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>文件(&amp;F)</source>
-            <translation>&amp;Fichier</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>视图(&amp;V)</source>
-            <translation>&amp;Affichage</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>适配窗口(&amp;F)</source>
-            <translation>Ajuster à la &amp;fenêtre</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>实际大小(&amp;1)</source>
-            <translation>&amp;Taille réelle</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>幻灯片(&amp;S)</source>
-            <translation>&amp;Diaporama</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>工具(&amp;T)</source>
-            <translation>&amp;Outils</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>设为壁纸(&amp;W)</source>
-            <translation>Définir comme &amp;fond d'écran</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>加载中… %1</source>
-            <translation>Chargement… %1</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>无法打开：%1（%2）</source>
-            <translation>Impossible d'ouvrir : %1 (%2)</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>%1 x %2 · %3 / %4 · %5</source>
-            <translation>%1 x %2 · %3 / %4 · %5</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>%1 x %2 · %3</source>
-            <translation>%1 x %2 · %3</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>图片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有文件 (*)</source>
-            <translation>Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;Tous les fichiers (*)</translation>
-        </message>
-        <message>
-            <source>无法读取压缩包：%1</source>
-            <translation>Impossible de lire l'archive : %1</translation>
-        </message>
-        <message>
-            <source>压缩包内文件暂不支持此操作</source>
-            <translation>Action indisponible pour les fichiers d'une archive</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>信息</source>
-            <translation>Informations</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>文件</source>
-            <translation>Fichier</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>路径</source>
-            <translation>Chemin</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>大小</source>
-            <translation>Taille</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>修改时间</source>
-            <translation>Modifié</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>图像</source>
-            <translation>Image</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>尺寸</source>
-            <translation>Dimensions</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>%1 x %2</source>
-            <translation>%1 x %2</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>格式</source>
-            <translation>Format</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>EXIF</source>
-            <translation>EXIF</translation>
-        </message>
-    </context>
-    <context>
+        <context>
         <name>AppMenuPreview</name>
         <message>
             <source>当前没有可显示的菜单项</source>
             <translation>Aucun élément de menu à afficher.</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>ZipArchive</name>
         <message>
             <source>文件不存在或无法读取</source>
@@ -3995,7 +4776,7 @@ Valeur d'origine restaurée ; rien n'a été écrit dans la configuration.</tran
             <translation>Somme de contrôle incorrecte dans l'archive (CRC)</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>ArchiveStore</name>
         <message>
             <source>文件不存在或无法读取</source>
@@ -4014,7 +4795,7 @@ Valeur d'origine restaurée ; rien n'a été écrit dans la configuration.</tran
             <translation>Échec du décodage du fichier dans l'archive</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>RotateAutoSave</name>
         <message>
             <source>文件不存在或图像为空</source>
@@ -4039,6 +4820,348 @@ Valeur d'origine restaurée ; rien n'a été écrit dans la configuration.</tran
         <message>
             <source>替换原文件失败</source>
             <translation>Échec du remplacement du fichier d'origine</translation>
+        </message>
+        <message>
+            <source>读取原文件失败</source>
+            <translation>Impossible de lire le fichier d'origine</translation>
+        </message>
+    </context>
+    <context>
+        <name>OverviewPanel</name>
+        <message>
+            <source>按日期</source>
+            <translation>Par date</translation>
+        </message>
+        <message>
+            <source>按图片大小</source>
+            <translation>Par taille d'image</translation>
+        </message>
+        <message>
+            <source>不分组</source>
+            <translation>Sans groupement</translation>
+        </message>
+        <message>
+            <source>从旧到新</source>
+            <translation>Plus anciennes d'abord</translation>
+        </message>
+        <message>
+            <source>从新到旧</source>
+            <translation>Plus récentes d'abord</translation>
+        </message>
+        <message>
+            <source>从小到大</source>
+            <translation>Plus petites d'abord</translation>
+        </message>
+        <message>
+            <source>从大到小</source>
+            <translation>Plus grandes d'abord</translation>
+        </message>
+        <message>
+            <source>无拍摄日期</source>
+            <translation>Pas de date de prise de vue</translation>
+        </message>
+        <message>
+            <source>未知大小</source>
+            <translation>Taille inconnue</translation>
+        </message>
+        <message>
+            <source>图片总览 · %1 张</source>
+            <translation>Vue d'ensemble · %1 images</translation>
+        </message>
+        <message>
+            <source>小于 2 MP</source>
+            <translation>Moins de 2 MP</translation>
+        </message>
+        <message>
+            <source>2 至不足 8 MP</source>
+            <translation>2 à moins de 8 MP</translation>
+        </message>
+        <message>
+            <source>8 MP 及以上</source>
+            <translation>8 MP et plus</translation>
+        </message>
+    </context>
+    <context>
+        <name>PanoChip</name>
+        <message>
+            <source>用 360° 全景查看器打开这张球形图（可选组件）</source>
+            <translation>Ouvrir cette image sphérique dans la visionneuse 360° (composant facultatif)</translation>
+        </message>
+    </context>
+    <context>
+        <name>PanoExt::Manager</name>
+        <message>
+            <source>组件下载超时，请检查网络后重试</source>
+            <translation>Délai dépassé pour le téléchargement du composant ; vérifiez le réseau et réessayez</translation>
+        </message>
+        <message>
+            <source>组件下载源未配置。请运行安装包并勾选「360° 全景查看器」，或在 config.ini 里配置 config/ext/pano_source 后重试。</source>
+            <translation>Aucune source de téléchargement de composant n'est configurée. Lancez l'installateur et cochez « Visionneuse 360° », ou renseignez config/ext/pano_source dans config.ini puis réessayez.</translation>
+        </message>
+        <message>
+            <source>不支持 UNC 网络共享路径作为组件下载源</source>
+            <translation>Les chemins UNC partagés ne peuvent pas servir de source de téléchargement</translation>
+        </message>
+        <message>
+            <source>组件下载源仅支持 HTTPS 地址</source>
+            <translation>La source de téléchargement doit être une adresse HTTPS</translation>
+        </message>
+        <message>
+            <source>组件包超出预期大小，已取消安装</source>
+            <translation>Le paquet du composant dépasse la taille attendue ; installation annulée</translation>
+        </message>
+        <message>
+            <source>连不上下载源，检查网络或 config/ext/pano_source 里的地址</source>
+            <translation>Source de téléchargement injoignable ; vérifiez le réseau ou l'adresse dans config/ext/pano_source</translation>
+        </message>
+        <message>
+            <source>下载源无响应，检查网络或稍后重试</source>
+            <translation>La source de téléchargement ne répond pas ; vérifiez le réseau ou réessayez plus tard</translation>
+        </message>
+        <message>
+            <source>下载源上找不到组件包，检查文件名或目录</source>
+            <translation>Paquet du composant introuvable sur la source ; vérifiez le nom de fichier ou le dossier</translation>
+        </message>
+        <message>
+            <source>无法获取组件包：%1</source>
+            <translation>Impossible d'obtenir le paquet du composant : %1</translation>
+        </message>
+        <message>
+            <source>无法获取组件包：%1（%2）</source>
+            <translation>Impossible d'obtenir le paquet du composant : %1 (%2)</translation>
+        </message>
+        <message>
+            <source>组件包为空或超出预期大小</source>
+            <translation>Le paquet du composant est vide ou dépasse la taille attendue</translation>
+        </message>
+        <message>
+            <source>组件包缺少校验摘要，已拒绝安装</source>
+            <translation>Le paquet du composant n'a pas d'empreinte ; installation refusée</translation>
+        </message>
+        <message>
+            <source>无法读取本地组件包：%1</source>
+            <translation>Impossible de lire le paquet local du composant : %1</translation>
+        </message>
+        <message>
+            <source>本地组件包为空或超出预期大小</source>
+            <translation>Le paquet local du composant est vide ou dépasse la taille attendue</translation>
+        </message>
+        <message>
+            <source>组件包缺少可用的 SHA-256 摘要，已拒绝安装</source>
+            <translation>Le paquet du composant n'a pas d'empreinte SHA-256 utilisable ; installation refusée</translation>
+        </message>
+        <message>
+            <source>组件包校验失败（摘要不一致），已保留原有状态</source>
+            <translation>Échec de la vérification du paquet (empreinte différente) ; état précédent conservé</translation>
+        </message>
+        <message>
+            <source>无法写入临时文件</source>
+            <translation>Impossible d'écrire le fichier temporaire</translation>
+        </message>
+        <message>
+            <source>无法读取临时文件</source>
+            <translation>Impossible de lire le fichier temporaire</translation>
+        </message>
+        <message>
+            <source>组件包不是有效的 zip：%1</source>
+            <translation>Le paquet du composant n'est pas un zip valide : %1</translation>
+        </message>
+        <message>
+            <source>组件包内容不完整（缺少 soleview-pano.exe 或 pano-version.txt）</source>
+            <translation>Le paquet du composant est incomplet (soleview-pano.exe ou pano-version.txt manquant)</translation>
+        </message>
+        <message>
+            <source>组件包解压失败：%1</source>
+            <translation>Échec de l'extraction du paquet : %1</translation>
+        </message>
+        <message>
+            <source>组件包里的 soleview-pano.exe 不是有效的可执行文件</source>
+            <translation>soleview-pano.exe dans le paquet n'est pas un exécutable valide</translation>
+        </message>
+        <message>
+            <source>组件版本 %1 与当前 SoleView %2 不兼容，已拒绝安装</source>
+            <translation>La version du composant %1 est incompatible avec SoleView %2 ; installation refusée</translation>
+        </message>
+        <message>
+            <source>安装目录不可写（%1）。请把 SoleView 装到有写权限的目录，或在安装向导里勾选该组件。</source>
+            <translation>Le dossier d'installation n'est pas accessible en écriture (%1). Installez SoleView dans un dossier inscriptible, ou cochez ce composant dans l'installateur.</translation>
+        </message>
+        <message>
+            <source>组件写入失败（磁盘空间或权限不足）</source>
+            <translation>Échec de l'écriture du composant (espace disque ou droits)</translation>
+        </message>
+        <message>
+            <source>旧组件正在运行或被占用，已保留原有状态，请关闭全景窗口后重试</source>
+            <translation>L'ancien composant est en cours d'exécution ou utilisé ; état précédent conservé. Fermez la fenêtre panorama et réessayez</translation>
+        </message>
+        <message>
+            <source>旧组件正在运行或被占用，请先关闭全景窗口再重试</source>
+            <translation>L'ancien composant est en cours d'exécution ou utilisé ; fermez d'abord la fenêtre panorama et réessayez</translation>
+        </message>
+        <message>
+            <source>组件文件改名失败，已保留原有状态</source>
+            <translation>Échec du renommage du fichier du composant ; état précédent conservé</translation>
+        </message>
+        <message>
+            <source>组件正在运行或被占用：请先关闭所有 360° 全景窗口再卸载</source>
+            <translation>Le composant est en cours d'exécution ou utilisé : fermez toutes les fenêtres 360° avant de désinstaller</translation>
+        </message>
+        <message>
+            <source>360° 全景查看器尚未安装</source>
+            <translation>La visionneuse 360° n'est pas installée</translation>
+        </message>
+        <message>
+            <source>已安装的组件版本 %1 与当前 QuikView 不兼容，请在「设置 → 扩展」重新安装</source>
+            <translation>La version installée %1 est incompatible avec QuikView ; réinstallez depuis « Paramètres → Extensions »</translation>
+        </message>
+        <message>
+            <source>无法启动 360° 全景查看器（组件文件可能已被删除或阻止运行）</source>
+            <translation>Impossible de lancer la visionneuse 360° (fichier supprimé ou bloqué ?)</translation>
+        </message>
+    </context>
+    <context>
+        <name>PhotoFolderPanel</name>
+        <message>
+            <source>照片文件夹</source>
+            <translation>Dossiers photo</translation>
+        </message>
+        <message>
+            <source>+ 添加文件夹</source>
+            <translation>+ Ajouter un dossier</translation>
+        </message>
+        <message>
+            <source>可配置 1–20 个目标文件夹；Insert 复制到文件夹 1，Ctrl+Insert 移动到文件夹 1，Alt+P 开合本面板。</source>
+            <translation>1 à 20 dossiers cibles ; Inser copie vers le dossier 1, Ctrl+Inser déplace vers le dossier 1, Alt+P ouvre/ferme ce panneau.</translation>
+        </message>
+        <message>
+            <source>(%1 / %2)</source>
+            <translation>(%1 / %2)</translation>
+        </message>
+        <message>
+            <source>选择或输入文件夹 %1 路径…</source>
+            <translation>Choisir ou saisir le chemin du dossier %1…</translation>
+        </message>
+        <message>
+            <source>浏览文件夹</source>
+            <translation>Parcourir les dossiers</translation>
+        </message>
+        <message>
+            <source>选择图片文件夹 %1</source>
+            <translation>Choisir le dossier d'images %1</translation>
+        </message>
+        <message>
+            <source>上移</source>
+            <translation>Monter</translation>
+        </message>
+        <message>
+            <source>下移</source>
+            <translation>Descendre</translation>
+        </message>
+        <message>
+            <source>删除此行</source>
+            <translation>Supprimer cette ligne</translation>
+        </message>
+        <message>
+            <source>复制</source>
+            <translation>Copier</translation>
+        </message>
+        <message>
+            <source>移动</source>
+            <translation>Déplacer</translation>
+        </message>
+    </context>
+    <context>
+        <name>RenameDialog</name>
+        <message>
+            <source>重命名</source>
+            <translation>Renommer</translation>
+        </message>
+        <message>
+            <source>仅当前文件</source>
+            <translation>Fichier courant uniquement</translation>
+        </message>
+        <message>
+            <source>当前目录全部图片 (%1 张)</source>
+            <translation>Toutes les images du dossier (%1)</translation>
+        </message>
+        <message>
+            <source>命名模板：</source>
+            <translation>Modèle de nom :</translation>
+        </message>
+        <message>
+            <source>例如：{name}_{index:03} 或 {date}_{index:03}</source>
+            <translation>Par exemple : {name}_{index:03} ou {date}_{index:03}</translation>
+        </message>
+        <message>
+            <source>起始序号：</source>
+            <translation>Numéro de départ :</translation>
+        </message>
+        <message>
+            <source>保留原扩展名</source>
+            <translation>Conserver l'extension d'origine</translation>
+        </message>
+        <message>
+            <source>插入变量：</source>
+            <translation>Insérer une variable :</translation>
+        </message>
+        <message>
+            <source>原文件名</source>
+            <translation>Nom d'origine</translation>
+        </message>
+        <message>
+            <source>新文件名</source>
+            <translation>Nouveau nom</translation>
+        </message>
+        <message>
+            <source>状态</source>
+            <translation>État</translation>
+        </message>
+        <message>
+            <source>执行重命名</source>
+            <translation>Lancer le renommage</translation>
+        </message>
+        <message>
+            <source>无变化</source>
+            <translation>Aucun changement</translation>
+        </message>
+        <message>
+            <source>就绪</source>
+            <translation>Prêt</translation>
+        </message>
+        <message>
+            <source>发现 %1 处冲突，已阻止整批执行</source>
+            <translation>%1 conflits détectés ; tout le lot a été bloqué</translation>
+        </message>
+        <message>
+            <source>共 %1 项，当前无文件名变更</source>
+            <translation>%1 éléments, aucun nom de fichier ne change</translation>
+        </message>
+        <message>
+            <source>共 %1 项，将重命名 %2 项</source>
+            <translation>%1 éléments, %2 seront renommés</translation>
+        </message>
+    </context>
+    <context>
+        <name>PanoWindow</name>
+        <message>
+            <source>360° 全景 — %1</source>
+            <translation>Panorama 360° — %1</translation>
+        </message>
+        <message>
+            <source>重置视角</source>
+            <translation>Réinitialiser la vue</translation>
+        </message>
+        <message>
+            <source>回到图片标记的初始方向与初始视野（R）</source>
+            <translation>Revenir à l'orientation et au champ de vision initiaux de l'image (R)</translation>
+        </message>
+        <message>
+            <source>拖动转视角 · 滚轮调整视野 · 双击重置 · Esc 退出</source>
+            <translation>Glisser pour regarder · molette pour le champ · double-clic pour réinitialiser · Échap pour quitter</translation>
+        </message>
+        <message>
+            <source>视野 %1°</source>
+            <translation>Champ de vision %1°</translation>
         </message>
     </context>
 </TS>

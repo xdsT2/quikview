@@ -10,6 +10,7 @@
 #include <QIcon>
 #include <QLocalServer>
 #include <QLocalSocket>
+#include <QLocale>
 #include <QStandardPaths>
 
 #include <QTimer>
@@ -78,6 +79,15 @@ int main(int argc, char *argv[])
 
     // Honeyview 铬件：默认 UI 字体（微软雅黑 9pt）
     QApplication::setFont(QFont(QStringLiteral("Microsoft YaHei UI"), 9));
+
+    // 数字一律用 ASCII 0-9（BUG-20261128-01）。
+    // 用户在繁体中文环境里看到设置页「缓存大小」的 300 被画成苏州码子「〣〇〇」：
+    // QSpinBox/QDoubleSpinBox 走 QLocale 格式化数字，一旦系统 locale 的数字表不是 0-9，
+    // 界面上就全是本地数字。这里把「数字/日期等格式」的默认 locale 钉成 C（ASCII 数字、
+    // 小数点「.」、无千分位）；界面语言仍由 LangRuntime 的 .qm 决定，QLocale::system()
+    // 保持不变（「跟随系统」判语言还要用它）。必须在建任何控件之前调用——控件的
+    // locale 是构造时从默认 locale 继承的。
+    QLocale::setDefault(QLocale::c());
 
     // 应用图标：先找磁盘上的 ico（方便换肤/调试），落空则用 RCC 内嵌的 :/soleview.ico（兼容 :/quikview.ico）。
     // 安装目录里只有 exe + DLL、没有外部 .ico 时，全靠内嵌这一层；
