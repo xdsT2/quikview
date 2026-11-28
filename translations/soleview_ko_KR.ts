@@ -497,6 +497,18 @@
             <translation>축소</translation>
         </message>
         <message>
+            <source>缩小缩略图</source>
+            <translation>썸네일 축소</translation>
+        </message>
+        <message>
+            <source>缩略图大小</source>
+            <translation>썸네일 크기</translation>
+        </message>
+        <message>
+            <source>放大缩略图</source>
+            <translation>썸네일 확대</translation>
+        </message>
+        <message>
             <source>适合窗口</source>
             <translation>창에 맞춤</translation>
         </message>
@@ -2177,34 +2189,64 @@
         <message>
             <source>开</source>
             <translation>켬</translation>
+        </message>
+        <message>
             <source>关</source>
             <translation>끔</translation>
+        </message>
+        <message>
             <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
             <translation>변경 사항을 버렸습니다: 보기 페이지의 즉시 항목이 설정을 열었던 상태로 돌아갔습니다.</translation>
+        </message>
+        <message>
             <source>已关闭设置，未保留即时改动。</source>
             <translation>설정을 닫았습니다. 즉시 변경은 유지되지 않았습니다.</translation>
+        </message>
+        <message>
             <source>设置备份</source>
             <translation>설정 백업</translation>
+        </message>
+        <message>
             <source>导出设置</source>
             <translation>설정 내보내기</translation>
+        </message>
+        <message>
             <source>把当前设置写入 .ini，便于备份或换机</source>
             <translation>현재 설정을 .ini로 저장합니다. 백업이나 다른 PC로 옮길 때 편리합니다</translation>
+        </message>
+        <message>
             <source>导入设置</source>
             <translation>설정 가져오기</translation>
+        </message>
+        <message>
             <source>从 .ini 文件恢复设置，重启 SoleView 后生效</source>
             <translation>.ini 파일에서 설정을 복원합니다. SoleView를 다시 시작한 후 적용됩니다</translation>
+        </message>
+        <message>
             <source>导出失败</source>
             <translation>내보내기 실패</translation>
+        </message>
+        <message>
             <source>设置已导出</source>
             <translation>설정을 내보냈습니다</translation>
+        </message>
+        <message>
             <source>不是有效的 SoleView 设置文件</source>
             <translation>유효한 SoleView 설정 파일이 아닙니다</translation>
+        </message>
+        <message>
             <source>导入失败，原配置未改动</source>
             <translation>가져오기 실패: 기존 설정은 변경되지 않았습니다</translation>
+        </message>
+        <message>
             <source>导入成功，重启 SoleView 后生效</source>
             <translation>가져오기 성공: SoleView를 다시 시작한 후 적용됩니다</translation>
+        </message>
+        <message>
             <source>SoleView 设置 (*.ini)</source>
             <translation>SoleView 설정 (*.ini)</translation>
+        </message>
+        <message>
             <source>SoleView 设置 (*.ini);;所有文件 (*)</source>
             <translation>SoleView 설정 (*.ini);;모든 파일 (*)</translation>
         </message>
@@ -2490,11 +2532,11 @@
         </message>
         <message>
             <source>显示动画播放控制</source>
-            <translation type="unfinished">애니메이션 프레임 번호 표시</translation>
+            <translation>애니메이션 재생 컨트롤 표시</translation>
         </message>
         <message>
             <source>GIF / MNG 时显示底部播放控制栏，并在信息行显示「第 n/N 帧」；关闭后两者一并隐藏</source>
-            <translation type="unfinished">GIF / MNG 아래쪽 정보 행에 "프레임 n/N" 표시</translation>
+            <translation>GIF / MNG일 때 아래쪽 재생 컨트롤 막대와 정보 행의 &quot;프레임 n/N&quot;을 표시합니다. 끄면 둘 다 숨겨집니다</translation>
         </message>
         <message>
             <source>显示缩放浮标</source>
@@ -3233,6 +3275,10 @@
         <message>
             <source>不打开 RAW 图片文件</source>
             <translation>RAW 이미지 파일 열지 않음</translation>
+        </message>
+        <message>
+            <source>开启后打开 RAW 只提示「已在设置中禁用 RAW 解码」；已在屏上的图不撤掉</source>
+            <translation>켜면 RAW를 열 때 &quot;설정에서 RAW 디코딩이 사용 안 함입니다&quot;만 표시하며, 이미 표시된 이미지는 그대로 둡니다</translation>
         </message>
         <message>
             <source>下次打开 RAW 时生效</source>

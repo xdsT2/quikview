@@ -497,6 +497,18 @@
             <translation>Уменьшить</translation>
         </message>
         <message>
+            <source>缩小缩略图</source>
+            <translation>Уменьшить миниатюры</translation>
+        </message>
+        <message>
+            <source>缩略图大小</source>
+            <translation>Размер миниатюр</translation>
+        </message>
+        <message>
+            <source>放大缩略图</source>
+            <translation>Увеличить миниатюры</translation>
+        </message>
+        <message>
             <source>适合窗口</source>
             <translation>По размеру окна</translation>
         </message>
@@ -2177,34 +2189,64 @@
         <message>
             <source>开</source>
             <translation>Вкл.</translation>
+        </message>
+        <message>
             <source>关</source>
             <translation>Выкл.</translation>
+        </message>
+        <message>
             <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
             <translation>Изменения отменены: мгновенные пункты страницы «Просмотр» возвращены к состоянию на момент открытия настроек.</translation>
+        </message>
+        <message>
             <source>已关闭设置，未保留即时改动。</source>
             <translation>Настройки закрыты; мгновенные изменения не сохранены.</translation>
+        </message>
+        <message>
             <source>设置备份</source>
             <translation>Резервная копия настроек</translation>
+        </message>
+        <message>
             <source>导出设置</source>
             <translation>Экспорт настроек</translation>
+        </message>
+        <message>
             <source>把当前设置写入 .ini，便于备份或换机</source>
             <translation>Записывает текущие настройки в .ini — для резервной копии или переноса на ПК</translation>
+        </message>
+        <message>
             <source>导入设置</source>
             <translation>Импорт настроек</translation>
+        </message>
+        <message>
             <source>从 .ini 文件恢复设置，重启 SoleView 后生效</source>
             <translation>Восстанавливает настройки из файла .ini; применяется после перезапуска SoleView</translation>
+        </message>
+        <message>
             <source>导出失败</source>
             <translation>Не удалось экспортировать</translation>
+        </message>
+        <message>
             <source>设置已导出</source>
             <translation>Настройки экспортированы</translation>
+        </message>
+        <message>
             <source>不是有效的 SoleView 设置文件</source>
             <translation>Это не файл настроек SoleView</translation>
+        </message>
+        <message>
             <source>导入失败，原配置未改动</source>
             <translation>Не удалось импортировать; исходная конфигурация не изменена</translation>
+        </message>
+        <message>
             <source>导入成功，重启 SoleView 后生效</source>
             <translation>Импорт выполнен; применяется после перезапуска SoleView</translation>
+        </message>
+        <message>
             <source>SoleView 设置 (*.ini)</source>
             <translation>Настройки SoleView (*.ini)</translation>
+        </message>
+        <message>
             <source>SoleView 设置 (*.ini);;所有文件 (*)</source>
             <translation>Настройки SoleView (*.ini);;Все файлы (*)</translation>
         </message>
@@ -2490,11 +2532,11 @@
         </message>
         <message>
             <source>显示动画播放控制</source>
-            <translation type="unfinished">Показывать номера кадров</translation>
+            <translation>Показывать элементы управления воспроизведением анимации</translation>
         </message>
         <message>
             <source>GIF / MNG 时显示底部播放控制栏，并在信息行显示「第 n/N 帧」；关闭后两者一并隐藏</source>
-            <translation type="unfinished">Нижняя строка GIF/MNG показывает «Кадр n/N»</translation>
+            <translation>Для GIF/MNG показывать нижнюю панель воспроизведения и «Кадр n/N» в строке информации; при отключении скрывается и то, и другое</translation>
         </message>
         <message>
             <source>显示缩放浮标</source>
@@ -3233,6 +3275,10 @@
         <message>
             <source>不打开 RAW 图片文件</source>
             <translation>Не открывать файлы RAW-изображений</translation>
+        </message>
+        <message>
+            <source>开启后打开 RAW 只提示「已在设置中禁用 RAW 解码」；已在屏上的图不撤掉</source>
+            <translation>При включении при открытии RAW показывается только «Декодирование RAW отключено в настройках»; уже показанные изображения остаются</translation>
         </message>
         <message>
             <source>下次打开 RAW 时生效</source>

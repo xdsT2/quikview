@@ -497,6 +497,18 @@
             <translation>縮小</translation>
         </message>
         <message>
+            <source>缩小缩略图</source>
+            <translation>縮小縮圖</translation>
+        </message>
+        <message>
+            <source>缩略图大小</source>
+            <translation>縮圖大小</translation>
+        </message>
+        <message>
+            <source>放大缩略图</source>
+            <translation>放大縮圖</translation>
+        </message>
+        <message>
             <source>适合窗口</source>
             <translation>符合視窗</translation>
         </message>
@@ -543,6 +555,66 @@
         <message>
             <source>%1 / %2</source>
             <translation>%1 / %2</translation>
+        </message>
+        <message>
+            <source>打开、缩略图、缩放、旋转、全屏、上一张、进度、下一张、锁定与更多</source>
+            <translation>開啟、縮圖、縮放、旋轉、全螢幕、上一張、進度、下一張、鎖定與更多</translation>
+        </message>
+        <message>
+            <source>分组方式</source>
+            <translation>分組方式</translation>
+        </message>
+        <message>
+            <source>图片总览</source>
+            <translation>圖片總覽</translation>
+        </message>
+        <message>
+            <source>更多命令</source>
+            <translation>更多指令</translation>
+        </message>
+        <message>
+            <source>动画播放控制栏</source>
+            <translation>動畫播放控制列</translation>
+        </message>
+        <message>
+            <source>首帧、上一帧、播放暂停、下一帧、末帧、复制当前帧与帧进度滑条</source>
+            <translation>第一個影格、上一個影格、播放／暫停、下一個影格、最後一個影格、複製目前影格與影格進度滑桿</translation>
+        </message>
+        <message>
+            <source>首帧</source>
+            <translation>第一個影格</translation>
+        </message>
+        <message>
+            <source>首帧（帧数未知）</source>
+            <translation>第一個影格（影格數未知）</translation>
+        </message>
+        <message>
+            <source>暂停</source>
+            <translation>暫停</translation>
+        </message>
+        <message>
+            <source>播放</source>
+            <translation>播放</translation>
+        </message>
+        <message>
+            <source>末帧</source>
+            <translation>最後一個影格</translation>
+        </message>
+        <message>
+            <source>末帧（帧数未知）</source>
+            <translation>最後一個影格（影格數未知）</translation>
+        </message>
+        <message>
+            <source>复制当前帧</source>
+            <translation>複製目前影格</translation>
+        </message>
+        <message>
+            <source>帧进度：拖动定位到帧</source>
+            <translation>影格進度：拖曳定位到影格</translation>
+        </message>
+        <message>
+            <source>帧进度：帧数未知</source>
+            <translation>影格進度：影格數未知</translation>
         </message>
     </context>
     <context>
@@ -618,6 +690,10 @@
             <source>设置</source>
             <translation>設定</translation>
         </message>
+        <message>
+            <source>把图片拖到这里，或点「打开」选择图片或文件夹</source>
+            <translation>將圖片拖到這裡，或按「開啟」選擇圖片或資料夾</translation>
+        </message>
     </context>
     <context>
         <name>ExifParser</name>
@@ -678,6 +754,18 @@
         <message>
             <source>libheif 图像尺寸无效</source>
             <translation>libheif 影像尺寸無效</translation>
+        </message>
+        <message>
+            <source>libheif 图像尺寸超出限制</source>
+            <translation>libheif 圖片尺寸超出限制</translation>
+        </message>
+        <message>
+            <source>libheif 图像尺寸或行距无效</source>
+            <translation>libheif 圖片尺寸或行距無效</translation>
+        </message>
+        <message>
+            <source>当前构建未启用 libheif，无法解码 HEIC/AVIF</source>
+            <translation>目前建置未啟用 libheif，無法解碼 HEIC/AVIF</translation>
         </message>
     </context>
     <context>
@@ -1643,6 +1731,270 @@
             <source>&lt;h3&gt;SoleView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 许可证开源，零遥测、零推广。&lt;/p&gt;&lt;p&gt;官网：&lt;a href="https://xdst2.github.io/soleview/"&gt;https://xdst2.github.io/soleview/&lt;/a&gt;&lt;br&gt;GitHub：&lt;a href="https://github.com/xdsT2/soleview"&gt;https://github.com/xdsT2/soleview&lt;/a&gt;&lt;br&gt;QQ 交流群：1134122173&lt;/p&gt;</source>
             <translation>&lt;h3&gt;SoleView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 授權開源，零遙測、零推廣。&lt;/p&gt;&lt;p&gt;官方網站：&lt;a href="https://xdst2.github.io/soleview/"&gt;https://xdst2.github.io/soleview/&lt;/a&gt;&lt;br&gt;GitHub：&lt;a href="https://github.com/xdsT2/soleview"&gt;https://github.com/xdsT2/soleview&lt;/a&gt;&lt;br&gt;QQ 交流群：1134122173&lt;/p&gt;</translation>
         </message>
+        <message>
+            <source>当前没有可浏览的图片</source>
+            <translation>目前沒有可瀏覽的圖片</translation>
+        </message>
+        <message>
+            <source>分组方式…</source>
+            <translation>分組方式…</translation>
+        </message>
+        <message>
+            <source>当前倍率 %1</source>
+            <translation>目前倍率 %1</translation>
+        </message>
+        <message>
+            <source>全屏 / 还原</source>
+            <translation>全螢幕 / 還原</translation>
+        </message>
+        <message>
+            <source>退出无边框查看</source>
+            <translation>結束無邊框檢視</translation>
+        </message>
+        <message>
+            <source>无边框查看</source>
+            <translation>無邊框檢視</translation>
+        </message>
+        <message>
+            <source>第 %1 / %2 张</source>
+            <translation>第 %1 / %2 張</translation>
+        </message>
+        <message>
+            <source>当前未打开图片</source>
+            <translation>目前未開啟圖片</translation>
+        </message>
+        <message>
+            <source>跳转…</source>
+            <translation>跳至…</translation>
+        </message>
+        <message>
+            <source>重命名…</source>
+            <translation>重新命名…</translation>
+        </message>
+        <message>
+            <source>照片文件夹面板…</source>
+            <translation>相片資料夾面板…</translation>
+        </message>
+        <message>
+            <source>请先在「设置 → 浏览」中配置图片文件夹</source>
+            <translation>請先在「設定 → 瀏覽」中設定圖片資料夾</translation>
+        </message>
+        <message>
+            <source>当前没有打开的图片</source>
+            <translation>目前沒有開啟的圖片</translation>
+        </message>
+        <message>
+            <source>图片文件夹不存在或不完整：%1</source>
+            <translation>圖片資料夾不存在或不完整：%1</translation>
+        </message>
+        <message>
+            <source>复制到 %1 (%2)</source>
+            <translation>複製到 %1 (%2)</translation>
+        </message>
+        <message>
+            <source>移动到 %1 (%2)</source>
+            <translation>移到 %1 (%2)</translation>
+        </message>
+        <message>
+            <source>显示鸟瞰图</source>
+            <translation>顯示鳥瞰圖</translation>
+        </message>
+        <message>
+            <source>退出无边框</source>
+            <translation>結束無邊框</translation>
+        </message>
+        <message>
+            <source>无边框模式</source>
+            <translation>無邊框模式</translation>
+        </message>
+        <message>
+            <source>360° 查看</source>
+            <translation>360° 檢視</translation>
+        </message>
+        <message>
+            <source>尝试以 360° 查看</source>
+            <translation>嘗試以 360° 檢視</translation>
+        </message>
+        <message>
+            <source>%1（当前文件夹 %2 张）</source>
+            <translation>%1（目前資料夾 %2 張）</translation>
+        </message>
+        <message>
+            <source>当前图片已在外部被删除</source>
+            <translation>目前圖片已在外部被刪除</translation>
+        </message>
+        <message>
+            <source>当前图片不是可用的 360° 全景图</source>
+            <translation>目前圖片不是可用的 360° 全景圖</translation>
+        </message>
+        <message>
+            <source>360° 全景查看器未安装，已定位到「设置 → 扩展」</source>
+            <translation>360° 全景檢視器尚未安裝，已定位到「設定 → 擴充功能」</translation>
+        </message>
+        <message>
+            <source>已经是最后一张图片。要转到第一张继续吗？</source>
+            <translation>已經是最後一張圖片。要回到第一張繼續嗎？</translation>
+        </message>
+        <message>
+            <source>已经是第一张图片。要转到最后一张继续吗？</source>
+            <translation>已經是第一張圖片。要跳到最後一張繼續嗎？</translation>
+        </message>
+        <message>
+            <source>继续(&amp;C)</source>
+            <translation>繼續(&amp;C)</translation>
+        </message>
+        <message>
+            <source>停止(&amp;S)</source>
+            <translation>停止(&amp;S)</translation>
+        </message>
+        <message>
+            <source>还没有书签。在查看器里按 B，可把当前图片加为书签。</source>
+            <translation>還沒有書籤。在檢視器中按 B，可將目前圖片加入書籤。</translation>
+        </message>
+        <message>
+            <source>改动即时保存</source>
+            <translation>變更即時儲存</translation>
+        </message>
+        <message>
+            <source>共 %1 条</source>
+            <translation>共 %1 筆</translation>
+        </message>
+        <message>
+            <source>打开图片或文件夹</source>
+            <translation>開啟圖片或資料夾</translation>
+        </message>
+        <message>
+            <source>打开当前所在文件夹（或列表中选中的子文件夹）里的第一张图片</source>
+            <translation>開啟目前所在資料夾（或清單中選取的子資料夾）裡的第一張圖片</translation>
+        </message>
+        <message>
+            <source>该文件夹没有可识别的图片：%1</source>
+            <translation>該資料夾沒有可辨識的圖片：%1</translation>
+        </message>
+        <message>
+            <source>压缩包内图片不支持重命名</source>
+            <translation>壓縮檔內的圖片不支援重新命名</translation>
+        </message>
+        <message>
+            <source>已重命名 %1 个文件</source>
+            <translation>已重新命名 %1 個檔案</translation>
+        </message>
+        <message>
+            <source>图片文件夹 %1 未配置或不存在</source>
+            <translation>圖片資料夾 %1 未設定或不存在</translation>
+        </message>
+        <message>
+            <source>当前图片不是多帧图片</source>
+            <translation>目前圖片不是多影格圖片</translation>
+        </message>
+        <message>
+            <source>复制当前帧失败</source>
+            <translation>複製目前影格失敗</translation>
+        </message>
+        <message>
+            <source>已复制当前帧 · 第 %1/%2 帧</source>
+            <translation>已複製目前影格 · 第 %1/%2 個影格</translation>
+        </message>
+        <message>
+            <source>已复制当前帧</source>
+            <translation>已複製目前影格</translation>
+        </message>
+        <message>
+            <source>图片保存到临时目录失败</source>
+            <translation>圖片儲存到暫存資料夾失敗</translation>
+        </message>
+        <message>
+            <source>剪贴板中的图片无法解码</source>
+            <translation>剪貼簿中的圖片無法解碼</translation>
+        </message>
+        <message>
+            <source>模拟失败：运行态拒绝本次即时应用（验收注入）。</source>
+            <translation>模擬失敗：執行時拒絕本次即時套用（驗收注入）。</translation>
+        </message>
+        <message>
+            <source>通知已改到右下角</source>
+            <translation>通知已改到右下角</translation>
+        </message>
+        <message>
+            <source>通知已改到顶部居中</source>
+            <translation>通知已改到頂端置中</translation>
+        </message>
+        <message>
+            <source>已禁用屏幕保护（退出后自动恢复）</source>
+            <translation>已停用螢幕保護（結束後自動恢復）</translation>
+        </message>
+        <message>
+            <source>已恢复屏幕保护</source>
+            <translation>已恢復螢幕保護</translation>
+        </message>
+        <message>
+            <source>已按图片大小调整窗口</source>
+            <translation>已依圖片大小調整視窗</translation>
+        </message>
+        <message>
+            <source>已关闭按图调窗，窗口尺寸不再自动变化</source>
+            <translation>已關閉依圖調整視窗，視窗尺寸不再自動變化</translation>
+        </message>
+        <message>
+            <source>已开启 RAW 内嵌缩略图（下次打开 RAW 生效）</source>
+            <translation>已開啟 RAW 內嵌縮圖（下次開啟 RAW 生效）</translation>
+        </message>
+        <message>
+            <source>已关闭 RAW 内嵌缩略图（下次打开 RAW 生效）</source>
+            <translation>已關閉 RAW 內嵌縮圖（下次開啟 RAW 生效）</translation>
+        </message>
+        <message>
+            <source>已开启翻页音效：翻页与幻灯片切页会响一声</source>
+            <translation>已開啟翻頁音效：翻頁與投影片切頁會響一聲</translation>
+        </message>
+        <message>
+            <source>已关闭翻页音效：翻页将静音</source>
+            <translation>已關閉翻頁音效：翻頁將靜音</translation>
+        </message>
+        <message>
+            <source>已禁止打开 RAW：再打开 .nef/.cr2/.dng 会提示「已在设置中禁用 RAW 解码」</source>
+            <translation>已禁止開啟 RAW：再開啟 .nef/.cr2/.dng 會提示「已在設定中停用 RAW 解碼」</translation>
+        </message>
+        <message>
+            <source>已允许打开 RAW：下次打开 RAW 走正常解码</source>
+            <translation>已允許開啟 RAW：下次開啟 RAW 會正常解碼</translation>
+        </message>
+        <message>
+            <source>已保存同名 RAW 过滤设置：当前没有打开的文件夹，下次打开时生效</source>
+            <translation>已儲存同名 RAW 篩選設定：目前沒有開啟的資料夾，下次開啟時生效</translation>
+        </message>
+        <message>
+            <source>正在扫描当前文件夹，完成后按新设置刷新列表</source>
+            <translation>正在掃描目前資料夾，完成後依新設定重新整理清單</translation>
+        </message>
+        <message>
+            <source>已按新设置重扫：同名 RAW 不再带进列表</source>
+            <translation>已依新設定重新掃描：同名 RAW 不再帶入清單</translation>
+        </message>
+        <message>
+            <source>已按新设置重扫：同名 RAW 重新带进列表</source>
+            <translation>已依新設定重新掃描：同名 RAW 重新帶入清單</translation>
+        </message>
+        <message>
+            <source>未知的插值档位：%1</source>
+            <translation>未知的插值等級：%1</translation>
+        </message>
+        <message>
+            <source>已开启缓存下一张：正在预读相邻图片</source>
+            <translation>已開啟快取下一張：正在預讀相鄰圖片</translation>
+        </message>
+        <message>
+            <source>已关闭缓存下一张：不再预读相邻图片（已缓存的图保留）</source>
+            <translation>已關閉快取下一張：不再預讀相鄰圖片（已快取的圖片保留）</translation>
+        </message>
+        <message>
+            <source>缓存上限已改为 %1 MB（当前已用 %2 MB）</source>
+            <translation>快取上限已改為 %1 MB（目前使用 %2 MB）</translation>
+        </message>
+        <message>
+            <source>该 PSD 未保存兼容性预览；请在 Photoshop「首选项 → 文件处理」勾选</source>
+            <translation>該 PSD 未儲存相容性預覽；請在 Photoshop「偏好設定 → 檔案處理」勾選</translation>
+        </message>
     </context>
     <context>
         <name>MetadataPanel</name>
@@ -1877,6 +2229,18 @@
             <source>图像数据不完整（文件可能被截断或写入中断）</source>
             <translation>影像資料不完整（檔案可能被截斷或寫入中斷）</translation>
         </message>
+        <message>
+            <source>PSD 画布尺寸异常或超出限制</source>
+            <translation>PSD 畫布尺寸異常或超出限制</translation>
+        </message>
+        <message>
+            <source>不支持的 PSD 位深（%1 bit）</source>
+            <translation>不支援的 PSD 位元深度（%1 bit）</translation>
+        </message>
+        <message>
+            <source>不支持的 PSD 通道数（%1）</source>
+            <translation>不支援的 PSD 色版數（%1）</translation>
+        </message>
     </context>
     <context>
         <name>QObject</name>
@@ -2018,6 +2382,14 @@
         <message>
             <source>不支持的位深 %1</source>
             <translation>不支援的位元深度 %1</translation>
+        </message>
+        <message>
+            <source>不支持的 RAW 图像参数（colors=%1, bits=%2）</source>
+            <translation>不支援的 RAW 圖片參數（colors=%1, bits=%2）</translation>
+        </message>
+        <message>
+            <source>当前构建未启用 libraw，无法解码 RAW</source>
+            <translation>目前建置未啟用 libraw，無法解碼 RAW</translation>
         </message>
     </context>
     <context>
@@ -2177,34 +2549,64 @@
         <message>
             <source>开</source>
             <translation>開</translation>
+        </message>
+        <message>
             <source>关</source>
             <translation>關</translation>
+        </message>
+        <message>
             <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
             <translation>已放棄本次改動：瀏覽頁即時項已回到進入設定時的狀態。</translation>
+        </message>
+        <message>
             <source>已关闭设置，未保留即时改动。</source>
             <translation>已關閉設定，未保留即時改動。</translation>
+        </message>
+        <message>
             <source>设置备份</source>
             <translation>設定備份</translation>
+        </message>
+        <message>
             <source>导出设置</source>
             <translation>匯出設定</translation>
+        </message>
+        <message>
             <source>把当前设置写入 .ini，便于备份或换机</source>
             <translation>將目前設定寫入 .ini，方便備份或換機</translation>
+        </message>
+        <message>
             <source>导入设置</source>
             <translation>匯入設定</translation>
+        </message>
+        <message>
             <source>从 .ini 文件恢复设置，重启 SoleView 后生效</source>
             <translation>從 .ini 檔案還原設定，重新啟動 SoleView 後生效</translation>
+        </message>
+        <message>
             <source>导出失败</source>
             <translation>匯出失敗</translation>
+        </message>
+        <message>
             <source>设置已导出</source>
             <translation>設定已匯出</translation>
+        </message>
+        <message>
             <source>不是有效的 SoleView 设置文件</source>
             <translation>不是有效的 SoleView 設定檔</translation>
+        </message>
+        <message>
             <source>导入失败，原配置未改动</source>
             <translation>匯入失敗，原設定未變動</translation>
+        </message>
+        <message>
             <source>导入成功，重启 SoleView 后生效</source>
             <translation>匯入成功，重新啟動 SoleView 後生效</translation>
+        </message>
+        <message>
             <source>SoleView 设置 (*.ini)</source>
             <translation>SoleView 設定 (*.ini)</translation>
+        </message>
+        <message>
             <source>SoleView 设置 (*.ini);;所有文件 (*)</source>
             <translation>SoleView 設定 (*.ini);;所有檔案 (*)</translation>
         </message>
@@ -2494,7 +2896,7 @@
         </message>
         <message>
             <source>GIF / MNG 时显示底部播放控制栏，并在信息行显示「第 n/N 帧」；关闭后两者一并隐藏</source>
-            <translation type="unfinished">GIF / MNG 底部資訊列顯示「第 n/N 影格」</translation>
+            <translation>GIF / MNG 時顯示底部播放控制列，並在資訊列顯示「第 n/N 影格」；關閉後兩者一併隱藏</translation>
         </message>
         <message>
             <source>显示缩放浮标</source>
@@ -3235,6 +3637,10 @@
             <translation>不開啟 RAW 圖片檔案</translation>
         </message>
         <message>
+            <source>开启后打开 RAW 只提示「已在设置中禁用 RAW 解码」；已在屏上的图不撤掉</source>
+            <translation>開啟後，開啟 RAW 僅提示「已在設定中停用 RAW 解碼」；已在畫面上的圖片不會被移除</translation>
+        </message>
+        <message>
             <source>下次打开 RAW 时生效</source>
             <translation>下次開啟 RAW 時生效</translation>
         </message>
@@ -3660,6 +4066,442 @@ https://github.com/xdsT2/soleview</translation>
             <source>官网与 GitHub 在默认浏览器中打开；点击 QQ 交流群号可复制到剪贴板。</source>
             <translation>官方網站與 GitHub 在預設瀏覽器中開啟；點擊 QQ 交流群號可複製到剪貼簿。</translation>
         </message>
+        <message>
+            <source>打开（备用键）</source>
+            <translation>開啟（備用鍵）</translation>
+        </message>
+        <message>
+            <source>启动</source>
+            <translation>啟動</translation>
+        </message>
+        <message>
+            <source>启动时恢复上次查看的图片</source>
+            <translation>啟動時恢復上次檢視的圖片</translation>
+        </message>
+        <message>
+            <source>通过文件直接启动时，以选中的文件为准；下次启动生效</source>
+            <translation>直接以檔案啟動時，以選取的檔案為準；下次啟動生效</translation>
+        </message>
+        <message>
+            <source>「询问」在翻到边界时弹确认；单图目录直接停住，不弹框</source>
+            <translation>「詢問」在翻到邊界時彈出確認；單張圖片的資料夾會直接停住，不彈出視窗</translation>
+        </message>
+        <message>
+            <source>「转到首个文件」在末尾继续时回绕到首个；「停止」停在当前图片；「询问」弹确认框，确认后从另一端继续，取消留在当前图片。</source>
+            <translation>「跳至第一個檔案」在結尾繼續時會繞回第一個；「停止」停在目前圖片；「詢問」會彈出確認框，確認後從另一端繼續，取消則留在目前圖片。</translation>
+        </message>
+        <message>
+            <source>只对「换到另一张图」生效：翻到下一张、缩略图跳转、幻灯片切页</source>
+            <translation>僅對「換到另一張圖」生效：翻到下一張、縮圖跳轉、投影片切頁</translation>
+        </message>
+        <message>
+            <source>翻页时播放音效；关闭后静音</source>
+            <translation>翻頁時播放音效；關閉後靜音</translation>
+        </message>
+        <message>
+            <source>翻页音效仅在单张翻页与幻灯片切页时播放</source>
+            <translation>翻頁音效僅在單張翻頁與投影片切頁時播放</translation>
+        </message>
+        <message>
+            <source>下次打开这张图时恢复；当前画面不变</source>
+            <translation>下次開啟這張圖時恢復；目前畫面不變</translation>
+        </message>
+        <message>
+            <source>适配宽度／实际大小下、图片高于窗口时生效</source>
+            <translation>在符合寬度／實際大小下、圖片高於視窗時生效</translation>
+        </message>
+        <message>
+            <source>输入或选择文件夹后立即生效，无需保存；留空表示不使用该文件夹</source>
+            <translation>輸入或選擇資料夾後立即生效，無需儲存；留空表示不使用該資料夾</translation>
+        </message>
+        <message>
+            <source>选好文件夹后立即生效，并马上用于本页「打开」与菜单动作</source>
+            <translation>選好資料夾後立即生效，並馬上用於本頁「開啟」與選單動作</translation>
+        </message>
+        <message>
+            <source>用当前已生效的路径打开所在文件夹</source>
+            <translation>用目前已生效的路徑開啟所在資料夾</translation>
+        </message>
+        <message>
+            <source>未设置：复制到 / 移动到「图片文件夹 1」的动作不会执行。</source>
+            <translation>未設定：複製到 / 移到「圖片資料夾 1」的動作不會執行。</translation>
+        </message>
+        <message>
+            <source>已取消选择，路径没有改动：%1</source>
+            <translation>已取消選擇，路徑沒有變更：%1</translation>
+        </message>
+        <message>
+            <source>（仍为未设置）</source>
+            <translation>（仍為未設定）</translation>
+        </message>
+        <message>
+            <source>翻页不追加</source>
+            <translation>翻頁不追加</translation>
+        </message>
+        <message>
+            <source>文件移动或重命名后原条目失效；书签只存本机配置，不随安装包或账户同步。</source>
+            <translation>檔案移動或重新命名後原項目會失效；書籤只存在本機設定，不會隨安裝程式或帳戶同步。</translation>
+        </message>
+        <message>
+            <source>跟随系统时由 Windows 深浅色设置决定</source>
+            <translation>跟隨系統時由 Windows 深淺色設定決定</translation>
+        </message>
+        <message>
+            <source>仅作用于右键菜单与信息浮层；Windows 11 效果最佳</source>
+            <translation>僅作用於右鍵選單與資訊浮層；Windows 11 效果最佳</translation>
+        </message>
+        <message>
+            <source>隐藏顶端菜单时按 Shift+Tab 显隐</source>
+            <translation>隱藏頂端選單時按 Shift+Tab 顯示／隱藏</translation>
+        </message>
+        <message>
+            <source>铺满整个画布视口，颜色随深浅主题自动变化，切换主题即时生效</source>
+            <translation>鋪滿整個畫布檢視區，顏色隨深淺主題自動變化，切換主題即時生效</translation>
+        </message>
+        <message>
+            <source>关闭后透明像素直接透出画布背景</source>
+            <translation>關閉後透明像素直接透出畫布背景</translation>
+        </message>
+        <message>
+            <source>棋盘格固定在屏幕坐标，不随图片缩放和平移</source>
+            <translation>棋盤格固定在螢幕座標，不隨圖片縮放和平移</translation>
+        </message>
+        <message>
+            <source>GIF 透明背景</source>
+            <translation>GIF 透明背景</translation>
+        </message>
+        <message>
+            <source>默认调色板</source>
+            <translation>預設調色盤</translation>
+        </message>
+        <message>
+            <source>白色</source>
+            <translation>白色</translation>
+        </message>
+        <message>
+            <source>黑色</source>
+            <translation>黑色</translation>
+        </message>
+        <message>
+            <source>中灰背景</source>
+            <translation>中灰背景</translation>
+        </message>
+        <message>
+            <source>自定义颜色</source>
+            <translation>自訂顏色</translation>
+        </message>
+        <message>
+            <source>只影响 GIF 显示铺底；源文件、复制与导出保持原透明信息</source>
+            <translation>僅影響 GIF 顯示底色；原始檔案、複製與匯出保留原透明資訊</translation>
+        </message>
+        <message>
+            <source>点击选择 GIF 透明区域的铺底颜色，选色即时重绘当前 GIF</source>
+            <translation>點擊選擇 GIF 透明區域的底色，選色後立即重繪目前 GIF</translation>
+        </message>
+        <message>
+            <source>Lanczos 且缩小到 100% 以下时生效</source>
+            <translation>Lanczos 且縮小到 100% 以下時生效</translation>
+        </message>
+        <message>
+            <source>开启时大图先按视口尺寸出一张快帧，随后替换为清晰全图；关闭后直接等全图上屏</source>
+            <translation>開啟時大圖先依檢視區尺寸出一張快照，隨後替換為清晰全圖；關閉後直接等全圖顯示</translation>
+        </message>
+        <message>
+            <source>拦的是「打开」这一步：翻到 RAW 时同样给这条提示，不显示也不解码</source>
+            <translation>攔的是「開啟」這一步：翻到 RAW 時同樣給這則提示，不顯示也不解碼</translation>
+        </message>
+        <message>
+            <source>只影响打开 JPEG 时是否带出同目录同名 RAW；直接打开 RAW 时列表照旧全带</source>
+            <translation>僅影響開啟 JPEG 時是否帶出同目錄同名 RAW；直接開啟 RAW 時清單照舊全帶</translation>
+        </message>
+        <message>
+            <source>切换后立即重扫当前文件夹，不用重新打开目录</source>
+            <translation>切換後立即重新掃描目前資料夾，不用重新開啟目錄</translation>
+        </message>
+        <message>
+            <source>SDR 验证版：显示出口把 sRGB 转到当前屏幕关联配置；已开 Windows 自动颜色管理的屏幕跳过，跨屏自动重估</source>
+            <translation>SDR 驗證版：顯示輸出會把 sRGB 轉到目前螢幕關聯的設定；已開啟 Windows 自動色彩管理的螢幕會跳過，跨螢幕自動重新評估</translation>
+        </message>
+        <message>
+            <source>无有效配置或转换失败时保持 sRGB 显示，原因见临时目录日志</source>
+            <translation>無有效設定或轉換失敗時維持 sRGB 顯示，原因見暫存目錄記錄</translation>
+        </message>
+        <message>
+            <source>单击手势不支持拖拽平移；拖动请在「中键拖动」单独设置</source>
+            <translation>單擊手勢不支援拖曳平移；拖曳請在「中鍵拖曳」另外設定</translation>
+        </message>
+        <message>
+            <source>拖动手势仅支持「无操作 / 拖拽平移」；点击动作请在「中键单击」单独设置</source>
+            <translation>拖曳手勢僅支援「不動作 / 拖曳平移」；點擊動作請在「中鍵單擊」另外設定</translation>
+        </message>
+        <message>
+            <source>滚轮仅支持「无操作 / 放大 / 缩小 / 翻下一张 / 翻上一张」；单向选「无」只停用该方向</source>
+            <translation>滾輪僅支援「不動作 / 放大 / 縮小 / 翻下一張 / 翻上一張」；單向選「無」只停用該方向</translation>
+        </message>
+        <message>
+            <source>「无」保留内置行为：左键拖拽平移、边缘单击翻页、右键菜单。中键单击与拖动分别设置（默认单击全屏、拖动平移）；滚轮上下独立生效，单向选「无」只停用该方向。映射在下次触发该按键时生效。</source>
+            <translation>「無」保留內建行為：左鍵拖曳平移、邊緣單擊翻頁、右鍵選單。中鍵單擊與拖曳分開設定（預設單擊全螢幕、拖曳平移）；滾輪上下獨立生效，單向選「無」只停用該方向。對應在下次觸發該按鍵時生效。</translation>
+        </message>
+        <message>
+            <source>可选组件</source>
+            <translation>選用元件</translation>
+        </message>
+        <message>
+            <source>360° 全景查看器</source>
+            <translation>360° 全景檢視器</translation>
+        </message>
+        <message>
+            <source>把等距柱状全景图渲染成可拖动的球形视图，独立进程运行；组件缺失时普通看图不受影响。</source>
+            <translation>將等距柱狀全景圖算繪成可拖曳的球形檢視，以獨立處理程序執行；元件缺少時一般看圖不受影響。</translation>
+        </message>
+        <message>
+            <source>组件下载进度</source>
+            <translation>元件下載進度</translation>
+        </message>
+        <message>
+            <source>安装</source>
+            <translation>安裝</translation>
+        </message>
+        <message>
+            <source>360° 全景查看器：安装</source>
+            <translation>360° 全景檢視器：安裝</translation>
+        </message>
+        <message>
+            <source>首版范围为本地已拼好的 360°×180° 等距柱状 JPG：带完整 GPano 标记的图在主窗给出「360° 查看」入口，2:1 宽图只在右键提供「尝试以 360° 查看」。局部裁切、其它投影与相片拼接不在本版。</source>
+            <translation>首版範圍為本機已拼接好的 360°×180° 等距柱狀 JPG：帶完整 GPano 標記的圖會在主視窗提供「360° 檢視」入口，2:1 寬圖只在右鍵提供「嘗試以 360° 檢視」。局部裁切、其他投影與相片拼接不在本版。</translation>
+        </message>
+        <message>
+            <source>组件信息</source>
+            <translation>元件資訊</translation>
+        </message>
+        <message>
+            <source>安装位置</source>
+            <translation>安裝位置</translation>
+        </message>
+        <message>
+            <source>下载源</source>
+            <translation>下載來源</translation>
+        </message>
+        <message>
+            <source>组件包地址</source>
+            <translation>元件封裝檔位址</translation>
+        </message>
+        <message>
+            <source>未配置</source>
+            <translation>未設定</translation>
+        </message>
+        <message>
+            <source>受控下载入口：用户不需要访问代码托管站点。安装包自带组件时无需下载；未配置地址可运行安装包勾选该组件，或在 config.ini 写入 config/ext/pano_source（支持 http(s) 与本地 file:// 测试源）。</source>
+            <translation>受控下載入口：使用者不需要存取程式碼代管網站。安裝程式自帶元件時無需下載；未設定位址可執行安裝程式勾選該元件，或在 config.ini 寫入 config/ext/pano_source（支援 http(s) 與本機 file:// 測試來源）。</translation>
+        </message>
+        <message>
+            <source>下载包须带同址 .sha256 摘要，校验通过才落盘；取消、断网、摘要不符都保留原有可用状态。卸载只删组件自身文件，不碰主程序与设置。</source>
+            <translation>下載封裝檔須附同址 .sha256 摘要，校驗通過才寫入磁碟；取消、斷網、摘要不符都會保留原有可用狀態。解除安裝只刪除元件自身檔案，不碰主程式與設定。</translation>
+        </message>
+        <message>
+            <source>SoleView</source>
+            <translation>SoleView</translation>
+        </message>
+        <message>
+            <source>GitHub</source>
+            <translation>GitHub</translation>
+        </message>
+        <message>
+            <source>安装中 %1%</source>
+            <translation>安裝中 %1%</translation>
+        </message>
+        <message>
+            <source>正在连接下载源</source>
+            <translation>正在連線下載來源</translation>
+        </message>
+        <message>
+            <source>已安装 %1</source>
+            <translation>已安裝 %1</translation>
+        </message>
+        <message>
+            <source>已安装 %1（版本不兼容）</source>
+            <translation>已安裝 %1（版本不相容）</translation>
+        </message>
+        <message>
+            <source>卸载</source>
+            <translation>解除安裝</translation>
+        </message>
+        <message>
+            <source>安装失败</source>
+            <translation>安裝失敗</translation>
+        </message>
+        <message>
+            <source>重试</source>
+            <translation>重試</translation>
+        </message>
+        <message>
+            <source>上次操作没有完成：%1</source>
+            <translation>上次操作沒有完成：%1</translation>
+        </message>
+        <message>
+            <source>组件文件位于 %1，与安装向导勾选安装共用同一份状态；主程序升级保留已安装的兼容组件，不会替未安装的用户安装。</source>
+            <translation>元件檔案位於 %1，與安裝精靈勾選安裝共用同一份狀態；主程式升級會保留已安裝的相容元件，不會替未安裝的使用者安裝。</translation>
+        </message>
+        <message>
+            <source>正在获取组件包：校验通过后才写入 %1。</source>
+            <translation>正在取得元件封裝檔：校驗通過後才寫入 %1。</translation>
+        </message>
+        <message>
+            <source>尚未安装。安装向导与这里使用同一组件版本；安装目录需可写（%1）。</source>
+            <translation>尚未安裝。安裝精靈與這裡使用同一元件版本；安裝目錄需可寫入（%1）。</translation>
+        </message>
+        <message>
+            <source>已卸载 360° 全景查看器</source>
+            <translation>已解除安裝 360° 全景檢視器</translation>
+        </message>
+        <message>
+            <source>360° 全景查看器尚未安装：点右侧「安装」后即可用原图打开</source>
+            <translation>360° 全景檢視器尚未安裝：點右側「安裝」後即可用原圖開啟</translation>
+        </message>
+        <message>
+            <source>固定项不提供开关；关闭所属分组时一并隐藏。</source>
+            <translation>固定項目不提供開關；關閉所屬群組時一併隱藏。</translation>
+        </message>
+        <message>
+            <source>关闭后仍可展开查看命令。</source>
+            <translation>關閉後仍可展開查看指令。</translation>
+        </message>
+        <message>
+            <source>默认打开方式由 Windows 管理，SoleView 不能直接改写；找不到 SoleView 时先运行安装包注册。</source>
+            <translation>預設開啟方式由 Windows 管理，SoleView 無法直接改寫；找不到 SoleView 時請先執行安裝程式註冊。</translation>
+        </message>
+        <message>
+            <source>占用方：%1</source>
+            <translation>占用者：%1</translation>
+        </message>
+        <message>
+            <source>已被其他程序占用（不接管）</source>
+            <translation>已被其他程式占用（不接管）</translation>
+        </message>
+        <message>
+            <source>SVG 缩略图</source>
+            <translation>SVG 縮圖</translation>
+        </message>
+        <message>
+            <source>只注册缩略图（主程序打不开 SVG）；用户级注册优先，被占用时不接管</source>
+            <translation>只註冊縮圖（主程式打不開 SVG）；使用者層級註冊優先，被占用時不接管</translation>
+        </message>
+        <message>
+            <source>关闭后不再插入菜单项；各细项的选择会保留</source>
+            <translation>關閉後不再插入選單項目；各細項的選擇會保留</translation>
+        </message>
+        <message>
+            <source>未检测到壳扩展文件（solethumb-*.dll）。运行安装包可修复；便携版不带安装器注册，右键菜单不可用。</source>
+            <translation>未偵測到殼層擴充檔案（solethumb-*.dll）。執行安裝程式可修復；免安裝版不帶安裝程式註冊，右鍵選單無法使用。</translation>
+        </message>
+        <message>
+            <source>改动即时写入，下次右键时生效，无需重装或管理员权限；菜单未变化时重启资源管理器。</source>
+            <translation>變更即時寫入，下次按右鍵時生效，無需重新安裝或管理員權限；選單未變化時請重新啟動檔案總管。</translation>
+        </message>
+        <message>
+            <source>这些入口由壳扩展在资源管理器中提供，安装／卸载安装包时自动注册／移除；与文件默认打开方式无关。</source>
+            <translation>這些入口由殼層擴充在檔案總管中提供，安裝／解除安裝安裝程式時自動註冊／移除；與檔案預設開啟方式無關。</translation>
+        </message>
+        <message>
+            <source>按扩展名分组，列表只读；新增格式随程序版本更新</source>
+            <translation>依副檔名分組，清單唯讀；新增格式隨程式版本更新</translation>
+        </message>
+        <message>
+            <source>列表只读；新增格式随程序版本更新。</source>
+            <translation>清單唯讀；新增格式隨程式版本更新。</translation>
+        </message>
+        <message>
+            <source>点击选择 GIF 透明区域的铺底颜色</source>
+            <translation>點擊選擇 GIF 透明區域的底色</translation>
+        </message>
+        <message>
+            <source>先在上方「GIF 透明背景」选择「自定义颜色」</source>
+            <translation>先在上方「GIF 透明背景」選擇「自訂顏色」</translation>
+        </message>
+        <message>
+            <source>正在应用：停止输入 0.3 秒后立即生效（无需保存）</source>
+            <translation>正在套用：停止輸入 0.3 秒後立即生效（無需儲存）</translation>
+        </message>
+        <message>
+            <source>未设置：复制到 / 移动到「图片文件夹 1」与图片转换默认目录都不会使用空路径。</source>
+            <translation>未設定：複製到 / 移到「圖片資料夾 1」與圖片轉檔預設目錄都不會使用空路徑。</translation>
+        </message>
+        <message>
+            <source>路径不存在：%1 —— 动作时不会写入文件。</source>
+            <translation>路徑不存在：%1 —— 執行動作時不會寫入檔案。</translation>
+        </message>
+        <message>
+            <source>这不是文件夹：%1 —— 请改成文件夹路径。</source>
+            <translation>這不是資料夾：%1 —— 請改成資料夾路徑。</translation>
+        </message>
+        <message>
+            <source>已即时生效，无需保存：复制到 / 移动到 1、图片转换默认目录立即使用 %1。</source>
+            <translation>已即時生效，無需儲存：複製到 / 移到 1、圖片轉檔預設目錄立即使用 %1。</translation>
+        </message>
+        <message>
+            <source>「图片文件夹 1」未能即时生效：%1
+已恢复原值。</source>
+            <translation>「圖片資料夾 1」未能即時生效：%1\n已恢復原值。</translation>
+        </message>
+        <message>
+            <source>请先填写文件夹路径，或点「浏览…」选择一个文件夹。</source>
+            <translation>請先填寫資料夾路徑，或點「瀏覽…」選擇一個資料夾。</translation>
+        </message>
+        <message>
+            <source>无法调用系统文件管理器打开：%1</source>
+            <translation>無法呼叫系統檔案總管開啟：%1</translation>
+        </message>
+        <message>
+            <source>已在文件管理器中打开：%1</source>
+            <translation>已在檔案總管中開啟：%1</translation>
+        </message>
+        <message>
+            <source>选择 GIF 背景色</source>
+            <translation>選擇 GIF 背景色</translation>
+        </message>
+        <message>
+            <source>即时可见</source>
+            <translation>即時可見</translation>
+        </message>
+        <message>
+            <source>已关闭设置，图像处理页未保留即时改动。</source>
+            <translation>已關閉設定，影像處理頁未保留即時變更。</translation>
+        </message>
+        <message>
+            <source>已关闭设置，翻页效果保持进入设置时的档位。</source>
+            <translation>已關閉設定，翻頁效果維持進入設定時的等級。</translation>
+        </message>
+        <message>
+            <source>「%1」已即时生效：%2 · 无需保存，关闭设置后保留。</source>
+            <translation>「%1」已即時生效：%2 · 無需儲存，關閉設定後保留。</translation>
+        </message>
+        <message>
+            <source>已放弃本次改动：图像处理页即时项已回到进入设置时的状态。</source>
+            <translation>已放棄本次變更：影像處理頁即時項目已回到進入設定時的狀態。</translation>
+        </message>
+        <message>
+            <source>「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。
+运行态：%3</source>
+            <translation>「%1」已即時生效：%2 · 無需儲存；按「取消」/ Esc 會回到進入設定時的狀態。\n執行狀態：%3</translation>
+        </message>
+        <message>
+            <source>勾选即时生效：在热键栏按所录键即可触发，不必保存或重启</source>
+            <translation>勾選即時生效：在快速鍵欄按所錄的鍵即可觸發，不必儲存或重新啟動</translation>
+        </message>
+        <message>
+            <source>本行还没有热键：先在热键栏录入并保存，再启用；空热键时勾选不会生效</source>
+            <translation>本列還沒有快速鍵：先在快速鍵欄錄製並儲存，再啟用；快速鍵為空時勾選不會生效</translation>
+        </message>
+        <message>
+            <source>无热键</source>
+            <translation>無快速鍵</translation>
+        </message>
+        <message>
+            <source>待保存：%1
+
+「不保存」只放弃这些草稿；浏览页与图像处理/外观页的即时项（缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示 / 强锐化 / 缓存下一张 / 缓存大小 / 大图顶部对齐 / 插值 / 快帧策略 / 翻页效果 / GIF 底色 / 画布背景）会回到进入设置时的状态，其余即时设置保留。</source>
+            <translation>待儲存：%1\n\n「不儲存」只放棄這些草稿；瀏覽頁與影像處理／外觀頁的即時項目（縮放記憶 / 檔名浮層 / 動畫影格編號 / 懸浮提示 / 強銳化 / 快取下一張 / 快取大小 / 大圖頂端對齊 / 插值 / 快照策略 / 翻頁效果 / GIF 底色 / 畫布背景）會回到進入設定時的狀態，其餘即時設定保留。</translation>
+        </message>
     </context>
     <context>
         <name>ThumbnailBrowser</name>
@@ -4039,6 +4881,348 @@ https://github.com/xdsT2/soleview</translation>
         <message>
             <source>替换原文件失败</source>
             <translation>取代原始檔案失敗</translation>
+        </message>
+        <message>
+            <source>读取原文件失败</source>
+            <translation>讀取原始檔案失敗</translation>
+        </message>
+    </context>
+    <context>
+        <name>OverviewPanel</name>
+        <message>
+            <source>按日期</source>
+            <translation>依日期</translation>
+        </message>
+        <message>
+            <source>按图片大小</source>
+            <translation>依圖片大小</translation>
+        </message>
+        <message>
+            <source>不分组</source>
+            <translation>不分組</translation>
+        </message>
+        <message>
+            <source>从旧到新</source>
+            <translation>由舊到新</translation>
+        </message>
+        <message>
+            <source>从新到旧</source>
+            <translation>由新到舊</translation>
+        </message>
+        <message>
+            <source>从小到大</source>
+            <translation>由小到大</translation>
+        </message>
+        <message>
+            <source>从大到小</source>
+            <translation>由大到小</translation>
+        </message>
+        <message>
+            <source>无拍摄日期</source>
+            <translation>無拍攝日期</translation>
+        </message>
+        <message>
+            <source>未知大小</source>
+            <translation>未知大小</translation>
+        </message>
+        <message>
+            <source>图片总览 · %1 张</source>
+            <translation>圖片總覽 · %1 張</translation>
+        </message>
+        <message>
+            <source>小于 2 MP</source>
+            <translation>小於 2 MP</translation>
+        </message>
+        <message>
+            <source>2 至不足 8 MP</source>
+            <translation>2 至未滿 8 MP</translation>
+        </message>
+        <message>
+            <source>8 MP 及以上</source>
+            <translation>8 MP 以上</translation>
+        </message>
+    </context>
+    <context>
+        <name>PanoChip</name>
+        <message>
+            <source>用 360° 全景查看器打开这张球形图（可选组件）</source>
+            <translation>用 360° 全景檢視器開啟這張球形圖（選用元件）</translation>
+        </message>
+    </context>
+    <context>
+        <name>PanoExt::Manager</name>
+        <message>
+            <source>组件下载超时，请检查网络后重试</source>
+            <translation>元件的下載逾時，請檢查網路後重試</translation>
+        </message>
+        <message>
+            <source>组件下载源未配置。请运行安装包并勾选「360° 全景查看器」，或在 config.ini 里配置 config/ext/pano_source 后重试。</source>
+            <translation>未設定元件下載來源。請執行安裝程式並勾選「360° 全景檢視器」，或在 config.ini 設定 config/ext/pano_source 後重試。</translation>
+        </message>
+        <message>
+            <source>不支持 UNC 网络共享路径作为组件下载源</source>
+            <translation>不支援 UNC 網路共用路徑作為元件下載來源</translation>
+        </message>
+        <message>
+            <source>组件下载源仅支持 HTTPS 地址</source>
+            <translation>元件下載來源僅支援 HTTPS 位址</translation>
+        </message>
+        <message>
+            <source>组件包超出预期大小，已取消安装</source>
+            <translation>元件封裝檔超出預期大小，已取消安裝</translation>
+        </message>
+        <message>
+            <source>连不上下载源，检查网络或 config/ext/pano_source 里的地址</source>
+            <translation>無法連線到下載來源，請檢查網路或 config/ext/pano_source 內的位址</translation>
+        </message>
+        <message>
+            <source>下载源无响应，检查网络或稍后重试</source>
+            <translation>下載來源沒有回應，請檢查網路或稍後重試</translation>
+        </message>
+        <message>
+            <source>下载源上找不到组件包，检查文件名或目录</source>
+            <translation>在下載來源找不到元件封裝檔，請檢查檔名或目錄</translation>
+        </message>
+        <message>
+            <source>无法获取组件包：%1</source>
+            <translation>無法取得元件封裝檔：%1</translation>
+        </message>
+        <message>
+            <source>无法获取组件包：%1（%2）</source>
+            <translation>無法取得元件封裝檔：%1（%2）</translation>
+        </message>
+        <message>
+            <source>组件包为空或超出预期大小</source>
+            <translation>元件封裝檔為空或超出預期大小</translation>
+        </message>
+        <message>
+            <source>组件包缺少校验摘要，已拒绝安装</source>
+            <translation>元件封裝檔缺少校驗摘要，已拒絕安裝</translation>
+        </message>
+        <message>
+            <source>无法读取本地组件包：%1</source>
+            <translation>無法讀取本機元件封裝檔：%1</translation>
+        </message>
+        <message>
+            <source>本地组件包为空或超出预期大小</source>
+            <translation>本機元件封裝檔為空或超出預期大小</translation>
+        </message>
+        <message>
+            <source>组件包缺少可用的 SHA-256 摘要，已拒绝安装</source>
+            <translation>元件封裝檔缺少可用的 SHA-256 摘要，已拒絕安裝</translation>
+        </message>
+        <message>
+            <source>组件包校验失败（摘要不一致），已保留原有状态</source>
+            <translation>元件封裝檔校驗失敗（摘要不一致），已保留原有狀態</translation>
+        </message>
+        <message>
+            <source>无法写入临时文件</source>
+            <translation>無法寫入暫存檔案</translation>
+        </message>
+        <message>
+            <source>无法读取临时文件</source>
+            <translation>無法讀取暫存檔案</translation>
+        </message>
+        <message>
+            <source>组件包不是有效的 zip：%1</source>
+            <translation>元件封裝檔不是有效的 zip：%1</translation>
+        </message>
+        <message>
+            <source>组件包内容不完整（缺少 soleview-pano.exe 或 pano-version.txt）</source>
+            <translation>元件封裝檔內容不完整（缺少 soleview-pano.exe 或 pano-version.txt）</translation>
+        </message>
+        <message>
+            <source>组件包解压失败：%1</source>
+            <translation>元件封裝檔解壓縮失敗：%1</translation>
+        </message>
+        <message>
+            <source>组件包里的 soleview-pano.exe 不是有效的可执行文件</source>
+            <translation>元件封裝檔內的 soleview-pano.exe 不是有效的執行檔</translation>
+        </message>
+        <message>
+            <source>组件版本 %1 与当前 SoleView %2 不兼容，已拒绝安装</source>
+            <translation>元件版本 %1 與目前的 SoleView %2 不相容，已拒絕安裝</translation>
+        </message>
+        <message>
+            <source>安装目录不可写（%1）。请把 SoleView 装到有写权限的目录，或在安装向导里勾选该组件。</source>
+            <translation>安裝目錄無法寫入（%1）。請將 SoleView 安裝到有寫入權限的目錄，或在安裝精靈中勾選該元件。</translation>
+        </message>
+        <message>
+            <source>组件写入失败（磁盘空间或权限不足）</source>
+            <translation>元件寫入失敗（磁碟空間或權限不足）</translation>
+        </message>
+        <message>
+            <source>旧组件正在运行或被占用，已保留原有状态，请关闭全景窗口后重试</source>
+            <translation>舊元件正在執行或被占用，已保留原有狀態，請關閉全景視窗後重試</translation>
+        </message>
+        <message>
+            <source>旧组件正在运行或被占用，请先关闭全景窗口再重试</source>
+            <translation>舊元件正在執行或被占用，請先關閉全景視窗再重試</translation>
+        </message>
+        <message>
+            <source>组件文件改名失败，已保留原有状态</source>
+            <translation>元件檔案改名失敗，已保留原有狀態</translation>
+        </message>
+        <message>
+            <source>组件正在运行或被占用：请先关闭所有 360° 全景窗口再卸载</source>
+            <translation>元件正在執行或被占用：請先關閉所有 360° 全景視窗再解除安裝</translation>
+        </message>
+        <message>
+            <source>360° 全景查看器尚未安装</source>
+            <translation>360° 全景檢視器尚未安裝</translation>
+        </message>
+        <message>
+            <source>已安装的组件版本 %1 与当前 QuikView 不兼容，请在「设置 → 扩展」重新安装</source>
+            <translation>已安裝的元件版本 %1 與目前的 QuikView 不相容，請在「設定 → 擴充功能」重新安裝</translation>
+        </message>
+        <message>
+            <source>无法启动 360° 全景查看器（组件文件可能已被删除或阻止运行）</source>
+            <translation>無法啟動 360° 全景檢視器（元件檔案可能已被刪除或禁止執行）</translation>
+        </message>
+    </context>
+    <context>
+        <name>PhotoFolderPanel</name>
+        <message>
+            <source>照片文件夹</source>
+            <translation>相片資料夾</translation>
+        </message>
+        <message>
+            <source>+ 添加文件夹</source>
+            <translation>+ 新增資料夾</translation>
+        </message>
+        <message>
+            <source>可配置 1–20 个目标文件夹；Insert 复制到文件夹 1，Ctrl+Insert 移动到文件夹 1，Alt+P 开合本面板。</source>
+            <translation>可設定 1–20 個目標資料夾；Insert 複製到資料夾 1，Ctrl+Insert 移到資料夾 1，Alt+P 開關本面板。</translation>
+        </message>
+        <message>
+            <source>(%1 / %2)</source>
+            <translation>(%1 / %2)</translation>
+        </message>
+        <message>
+            <source>选择或输入文件夹 %1 路径…</source>
+            <translation>選擇或輸入資料夾 %1 路徑…</translation>
+        </message>
+        <message>
+            <source>浏览文件夹</source>
+            <translation>瀏覽資料夾</translation>
+        </message>
+        <message>
+            <source>选择图片文件夹 %1</source>
+            <translation>選擇圖片資料夾 %1</translation>
+        </message>
+        <message>
+            <source>上移</source>
+            <translation>上移</translation>
+        </message>
+        <message>
+            <source>下移</source>
+            <translation>下移</translation>
+        </message>
+        <message>
+            <source>删除此行</source>
+            <translation>刪除此列</translation>
+        </message>
+        <message>
+            <source>复制</source>
+            <translation>複製</translation>
+        </message>
+        <message>
+            <source>移动</source>
+            <translation>移動</translation>
+        </message>
+    </context>
+    <context>
+        <name>RenameDialog</name>
+        <message>
+            <source>重命名</source>
+            <translation>重新命名</translation>
+        </message>
+        <message>
+            <source>仅当前文件</source>
+            <translation>僅目前檔案</translation>
+        </message>
+        <message>
+            <source>当前目录全部图片 (%1 张)</source>
+            <translation>目前目錄全部圖片 (%1 張)</translation>
+        </message>
+        <message>
+            <source>命名模板：</source>
+            <translation>命名範本：</translation>
+        </message>
+        <message>
+            <source>例如：{name}_{index:03} 或 {date}_{index:03}</source>
+            <translation>例如：{name}_{index:03} 或 {date}_{index:03}</translation>
+        </message>
+        <message>
+            <source>起始序号：</source>
+            <translation>起始編號：</translation>
+        </message>
+        <message>
+            <source>保留原扩展名</source>
+            <translation>保留原副檔名</translation>
+        </message>
+        <message>
+            <source>插入变量：</source>
+            <translation>插入變數：</translation>
+        </message>
+        <message>
+            <source>原文件名</source>
+            <translation>原檔名</translation>
+        </message>
+        <message>
+            <source>新文件名</source>
+            <translation>新檔名</translation>
+        </message>
+        <message>
+            <source>状态</source>
+            <translation>狀態</translation>
+        </message>
+        <message>
+            <source>执行重命名</source>
+            <translation>執行重新命名</translation>
+        </message>
+        <message>
+            <source>无变化</source>
+            <translation>無變化</translation>
+        </message>
+        <message>
+            <source>就绪</source>
+            <translation>就緒</translation>
+        </message>
+        <message>
+            <source>发现 %1 处冲突，已阻止整批执行</source>
+            <translation>發現 %1 處衝突，已阻止整批執行</translation>
+        </message>
+        <message>
+            <source>共 %1 项，当前无文件名变更</source>
+            <translation>共 %1 項，目前沒有檔名變更</translation>
+        </message>
+        <message>
+            <source>共 %1 项，将重命名 %2 项</source>
+            <translation>共 %1 項，將重新命名 %2 項</translation>
+        </message>
+    </context>
+    <context>
+        <name>PanoWindow</name>
+        <message>
+            <source>360° 全景 — %1</source>
+            <translation>360° 全景 — %1</translation>
+        </message>
+        <message>
+            <source>重置视角</source>
+            <translation>重設視角</translation>
+        </message>
+        <message>
+            <source>回到图片标记的初始方向与初始视野（R）</source>
+            <translation>回到圖片標記的初始方向與初始視野（R）</translation>
+        </message>
+        <message>
+            <source>拖动转视角 · 滚轮调整视野 · 双击重置 · Esc 退出</source>
+            <translation>拖曳轉視角 · 滾輪調整視野 · 雙擊重設 · Esc 結束</translation>
+        </message>
+        <message>
+            <source>视野 %1°</source>
+            <translation>視野 %1°</translation>
         </message>
     </context>
 </TS>

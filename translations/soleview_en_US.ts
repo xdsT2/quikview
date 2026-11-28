@@ -2189,34 +2189,64 @@
         <message>
             <source>开</source>
             <translation>On</translation>
+        </message>
+        <message>
             <source>关</source>
             <translation>Off</translation>
+        </message>
+        <message>
             <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
             <translation>Changes discarded: the live items on the Browse page are back to the state from when Settings was opened.</translation>
+        </message>
+        <message>
             <source>已关闭设置，未保留即时改动。</source>
             <translation>Settings closed; live changes were not kept.</translation>
+        </message>
+        <message>
             <source>设置备份</source>
             <translation>Settings backup</translation>
+        </message>
+        <message>
             <source>导出设置</source>
             <translation>Export settings</translation>
+        </message>
+        <message>
             <source>把当前设置写入 .ini，便于备份或换机</source>
             <translation>Write current settings to an .ini for backup or moving to another PC</translation>
+        </message>
+        <message>
             <source>导入设置</source>
             <translation>Import settings</translation>
+        </message>
+        <message>
             <source>从 .ini 文件恢复设置，重启 SoleView 后生效</source>
             <translation>Restore settings from an .ini file; takes effect after restarting SoleView</translation>
+        </message>
+        <message>
             <source>导出失败</source>
             <translation>Export failed</translation>
+        </message>
+        <message>
             <source>设置已导出</source>
             <translation>Settings exported</translation>
+        </message>
+        <message>
             <source>不是有效的 SoleView 设置文件</source>
             <translation>Not a valid SoleView settings file</translation>
+        </message>
+        <message>
             <source>导入失败，原配置未改动</source>
             <translation>Import failed; the original configuration was not changed</translation>
+        </message>
+        <message>
             <source>导入成功，重启 SoleView 后生效</source>
             <translation>Import successful; takes effect after restarting SoleView</translation>
+        </message>
+        <message>
             <source>SoleView 设置 (*.ini)</source>
             <translation>SoleView settings (*.ini)</translation>
+        </message>
+        <message>
             <source>SoleView 设置 (*.ini);;所有文件 (*)</source>
             <translation>SoleView settings (*.ini);;All files (*)</translation>
         </message>
@@ -3245,6 +3275,10 @@ Restored to the current actual value.</translation>
         <message>
             <source>不打开 RAW 图片文件</source>
             <translation>Don't open RAW image files</translation>
+        </message>
+        <message>
+            <source>开启后打开 RAW 只提示「已在设置中禁用 RAW 解码」；已在屏上的图不撤掉</source>
+            <translation>When on, opening a RAW only shows 「RAW decoding is disabled in Settings」; images already on screen stay put</translation>
         </message>
         <message>
             <source>下次打开 RAW 时生效</source>

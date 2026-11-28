@@ -497,6 +497,18 @@
             <translation>Verkleinern</translation>
         </message>
         <message>
+            <source>缩小缩略图</source>
+            <translation>Miniaturen verkleinern</translation>
+        </message>
+        <message>
+            <source>缩略图大小</source>
+            <translation>Miniaturgröße</translation>
+        </message>
+        <message>
+            <source>放大缩略图</source>
+            <translation>Miniaturen vergrößern</translation>
+        </message>
+        <message>
             <source>适合窗口</source>
             <translation>An Fenster anpassen</translation>
         </message>
@@ -2177,34 +2189,64 @@
         <message>
             <source>开</source>
             <translation>Ein</translation>
+        </message>
+        <message>
             <source>关</source>
             <translation>Aus</translation>
+        </message>
+        <message>
             <source>已放弃本次改动：浏览页即时项已回到进入设置时的状态。</source>
             <translation>Änderungen verworfen: Die Sofort-Elemente der Seite „Anzeigen“ sind wieder im Zustand beim Öffnen der Einstellungen.</translation>
+        </message>
+        <message>
             <source>已关闭设置，未保留即时改动。</source>
             <translation>Einstellungen geschlossen; Sofortänderungen wurden nicht behalten.</translation>
+        </message>
+        <message>
             <source>设置备份</source>
             <translation>Einstellungen sichern</translation>
+        </message>
+        <message>
             <source>导出设置</source>
             <translation>Einstellungen exportieren</translation>
+        </message>
+        <message>
             <source>把当前设置写入 .ini，便于备份或换机</source>
             <translation>Aktuelle Einstellungen in eine .ini schreiben – zum Sichern oder für einen anderen PC</translation>
+        </message>
+        <message>
             <source>导入设置</source>
             <translation>Einstellungen importieren</translation>
+        </message>
+        <message>
             <source>从 .ini 文件恢复设置，重启 SoleView 后生效</source>
             <translation>Einstellungen aus einer .ini-Datei wiederherstellen; wirksam nach Neustart von SoleView</translation>
+        </message>
+        <message>
             <source>导出失败</source>
             <translation>Export fehlgeschlagen</translation>
+        </message>
+        <message>
             <source>设置已导出</source>
             <translation>Einstellungen exportiert</translation>
+        </message>
+        <message>
             <source>不是有效的 SoleView 设置文件</source>
             <translation>Keine gültige SoleView-Einstellungsdatei</translation>
+        </message>
+        <message>
             <source>导入失败，原配置未改动</source>
             <translation>Import fehlgeschlagen; die ursprüngliche Konfiguration wurde nicht geändert</translation>
+        </message>
+        <message>
             <source>导入成功，重启 SoleView 后生效</source>
             <translation>Import erfolgreich; wirksam nach Neustart von SoleView</translation>
+        </message>
+        <message>
             <source>SoleView 设置 (*.ini)</source>
             <translation>SoleView-Einstellungen (*.ini)</translation>
+        </message>
+        <message>
             <source>SoleView 设置 (*.ini);;所有文件 (*)</source>
             <translation>SoleView-Einstellungen (*.ini);;Alle Dateien (*)</translation>
         </message>
@@ -2490,11 +2532,11 @@
         </message>
         <message>
             <source>显示动画播放控制</source>
-            <translation type="unfinished">Frame-Nummern zeigen</translation>
+            <translation>Wiedergabesteuerung für Animationen anzeigen</translation>
         </message>
         <message>
             <source>GIF / MNG 时显示底部播放控制栏，并在信息行显示「第 n/N 帧」；关闭后两者一并隐藏</source>
-            <translation type="unfinished">Die untere Infozeile von GIF/MNG zeigt „Frame n/N“</translation>
+            <translation>Bei GIF/MNG die untere Wiedergabeleiste und in der Infozeile „Frame n/N“ zeigen; beim Ausschalten wird beides ausgeblendet</translation>
         </message>
         <message>
             <source>显示缩放浮标</source>
@@ -3233,6 +3275,10 @@ Auf den aktuellen Ist-Wert zurückgesetzt.</translation>
         <message>
             <source>不打开 RAW 图片文件</source>
             <translation>RAW-Bilddateien nicht öffnen</translation>
+        </message>
+        <message>
+            <source>开启后打开 RAW 只提示「已在设置中禁用 RAW 解码」；已在屏上的图不撤掉</source>
+            <translation>Beim Öffnen einer RAW-Datei nur der Hinweis „RAW-Dekodierung ist in den Einstellungen deaktiviert“; bereits angezeigte Bilder bleiben stehen</translation>
         </message>
         <message>
             <source>下次打开 RAW 时生效</source>
