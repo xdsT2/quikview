@@ -10,7 +10,7 @@ SoleView 是一款开源的 Windows 看图器，支持目录翻页、双页阅�
 > **Windows x64 下载** · 到[最新发布页](https://github.com/xdsT2/soleview/releases/latest)选择安装版或便携 ZIP。便携版解压即可运行，无需另装 Qt。
 > **官方网站**：[https://xdst2.github.io/soleview/](https://xdst2.github.io/soleview/) · **QQ 交流群**：`1134122173`
 
-> **0.6.1** 是 0.6.0 的增量更新（全项目已由 QuikView 统一更名为 **SoleView**）：启动恢复改为可选、默认关闭（升级后无参启动进欢迎页）；「打开」改用 Windows 原生文件对话框并合为一个入口，F / 自定义备用键修好；顶栏移除书签 / 幻灯片 / 编辑 / 复制到四个入口（功能仍在三横菜单、右键与快捷键），独立裁剪命令退役；十个设置项改为即时生效（强锐化、缓存、插值、翻页效果、幻灯片启用等），六个下拉与四个弹窗统一 Fluent 外壳，开关统一 40×22；总览缩略图支持五档缩放与缓存自适应，剪贴板增加裸位图解码与启动清理，「定位文件」在资源管理器中直接选中图片；全景修正仰视 / 俯视投影，关于页启用官网与 QQ 交流群。完整清单见 [更新日志](CHANGELOG.md) 与 [发布说明](https://github.com/xdsT2/soleview/releases/tag/v0.6.1)。
+> **0.6.2** 是 0.6.1 的增量更新，也是第一个以 **SoleView** 名义发布的正式版（0.6.1 及以前叫 QuikView，旧包仍留在发布页）：程序、安装包、壳扩展与官网全部改名，旧文件关联、右键菜单、配置与缩略图备份自动继承。解码白名单从 35 种扩到 109 种，新增 QOI / DDS / EXR / JXL / JP2 / APNG / KRA / ORA 等 74 个扩展名与 26 种相机 RAW；带色彩配置或 HDR 的大图不再卡界面，同一张图来回切不再重算。新增 `F6` 批量重命名、鸟瞰导航器、最多 20 个照片文件夹、平滑缩放与汉堡菜单同步隐藏，应用图标重绘并按任务栏归组。完整清单见 [更新日志](CHANGELOG.md) 与 [发布说明](https://github.com/xdsT2/soleview/releases/tag/v0.6.2)。
 
 ![SoleView 主窗口：顶部栏与底部控制胶囊浮在照片上](docs/screenshots/01-main.webp)
 

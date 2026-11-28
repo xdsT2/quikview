@@ -1,6 +1,6 @@
 # SoleView 架构
 
-> 当前版本 **0.6.1**（2026-11-26 发布，tag `v0.6.1`；全项目已由 QuikView 统一更名为 SoleView）。`0.5.1` 从未发布、已跳过，其变更并入 0.5.2。本文按 `src/` 实际代码写，改动后请同步。
+> 当前版本 **0.6.2**（2026-11-28 发布，tag `v0.6.2`；全项目已由 QuikView 统一更名为 SoleView）。`0.5.1` 从未发布、已跳过，其变更并入 0.5.2。本文按 `src/` 实际代码写，改动后请同步。
 > 视觉与交互规范另见 [docs/design/SOLEVIEW-DESIGN.md](docs/design/SOLEVIEW-DESIGN.md)。
 
 ## 模块划分
