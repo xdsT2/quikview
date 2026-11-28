@@ -3265,13 +3265,13 @@ QMenu *MainWindow::buildHamburgerMenu()
 void MainWindow::applyHamburgerVisibility(QMenu *root) const
 {
     const Config &cfg = Config::instance();
-    // 开关默认关：汉堡菜单保持现状，不做任何过滤（两边各自独立）。
-    if (!cfg.appMenuUnifiedVisibility()) {
-        return;
-    }
+    const bool unified = cfg.appMenuUnifiedVisibility();
 
-    // 递归过滤：挂了目录 id 的共有命令按右键生效可见性显隐；关键入口恒可见；
-    // 无 id 的汉堡独有条目原样保留。子菜单内无可显示项时，父入口一并隐藏。
+    // 递归判定：挂了目录 id 的共有命令纳入 J-2 幂等双向显隐；关键入口恒可见；
+    // 无 id 的汉堡独有条目不参与，保留其既有可见性。
+    // 每次构建都按当前配置把最终可见性**双向**写入（该显 setVisible(true)、该藏
+    // setVisible(false)），而不是只单向隐藏、指望别处恢复——否则上一轮开态藏掉的
+    // 共享成员 action，在关态重建菜单后会残留 visible=0。
     std::function<bool(QMenu *)> prune = [&](QMenu *m) -> bool {
         bool anyVisible = false;
         const QList<QAction *> acts = m->actions();
@@ -3292,9 +3292,14 @@ void MainWindow::applyHamburgerVisibility(QMenu *root) const
                 anyVisible = true;  // 汉堡独有条目：不参与同步
                 continue;
             }
-            const bool visible = AppMenu::isCriticalEntry(id) || cfg.appMenuVisible(id);
-            a->setVisible(visible);
-            if (visible) {
+            // 统一开关关：两边独立，汉堡侧共有命令回到上下文应有的显示态（复位可见）；
+            // 开：同步右键生效可见性。汉堡菜单场景下这些命令无额外上下文隐藏，
+            // 上下文可见性恒为真；若后续加入上下文隐藏，在 switchVisible 之后 AND。
+            const bool switchVisible = !unified
+                || AppMenu::isCriticalEntry(id)
+                || cfg.appMenuVisible(id);
+            a->setVisible(switchVisible);
+            if (switchVisible) {
                 anyVisible = true;
             }
         }
