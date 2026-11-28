@@ -1,5 +1,6 @@
 #include "DirectoryLoader.h"
 
+#include "ArchiveKinds.h"
 #include "ArchiveStore.h"
 #include "Config.h"
 #include "ExtraImageLoader.h"
@@ -213,17 +214,29 @@ QStringList DirectoryLoader::imageExtensions()
 QString DirectoryLoader::imageFilter()
 {
     QStringList entries;
+    // 容器后缀统一从 ArchiveKinds 取（zip/cbz 也在表内），这里先拼一次，
+    // 首项与「压缩包」分组用同一份列表——否则加一个后缀要改两处、还容易漏。
+    QStringList containerPatterns;
+    for (const QString &suffix : ArchiveKinds::openableSuffixes()) {
+        containerPatterns << QStringLiteral("*.") + suffix;
+    }
     // QFileDialog 默认选中第一个过滤器。把「所有图片」放在首位，避免 PSD、
     // RAW 等已支持格式因为落在类型分组里而在打开窗口中被默认隐藏。
-    // 2026-11-19：首项同时收 *.zip / *.cbz，压缩包不必切到「所有文件」才看得见。
+    // 2026-11-19：首项同时收压缩包，不必切到「所有文件」才看得见；
+    // 2026-11-28：压缩包扩到 zip 系文档/安装包（docx/epub/apk 等，见 ArchiveKinds）。
     QStringList allPatterns = imageExtensions();
-    allPatterns << QStringLiteral("*.zip") << QStringLiteral("*.cbz");
+    allPatterns << containerPatterns;
+    // 图片表与容器表理论上不相交，但仍去重：将来某格式两边都列时不会出现
+    // 过滤器里同一个 pattern 出现两次。
+    allPatterns.removeDuplicates();
     entries << QStringLiteral("%1 (%2)")
                    .arg(QCoreApplication::translate("DirectoryLoader", "图片与压缩包"),
                         allPatterns.join(QLatin1Char(' ')));
+    // 标签文案保持「压缩包」不变：docx 本质就是 zip，语义不冲突，也就不必动
+    // 8 个 .ts（改文案要重跑 lupdate/lrelease）。
     entries << QStringLiteral("%1 (%2)")
                    .arg(QCoreApplication::translate("DirectoryLoader", "压缩包"),
-                        QStringLiteral("*.zip *.cbz"));
+                        containerPatterns.join(QLatin1Char(' ')));
     for (const ImageGroup &g : kImageGroups) {
         entries << QStringLiteral("%1 (%2)")
                        .arg(QCoreApplication::translate("DirectoryLoader", g.label),

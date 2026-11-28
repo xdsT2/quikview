@@ -1,11 +1,14 @@
 #include "ArchiveStore.h"
 
+#include "ArchiveKinds.h"
+
 #include <QBuffer>
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QImageReader>
 #include <QList>
 #include <QMutexLocker>
+#include <QStringList>
 
 QMutex ArchiveStore::s_mutex;
 QHash<QString, QSharedPointer<ZipArchive>> ArchiveStore::s_archives;
@@ -40,12 +43,31 @@ FileStamp stampOf(const QString &path)
 
 // 虚拟路径的快速判据：包文件后缀后面紧跟 '/' 或 '\'。这一条不过就不必取锁，
 // 解码热路径（每张图若干次）不会被注册表的互斥量反复拦住。
+// 实现上不做「拼 ".<后缀>/" 再 contains」：后缀表有十几项，那样每次判定要造
+// 三十多个临时 QString。改成扫一遍找 '.'，按分隔符切出裸后缀直接比表 —— 零分配。
 bool looksVirtual(const QString &path)
 {
-    return path.contains(QLatin1String(".zip/"), Qt::CaseInsensitive)
-           || path.contains(QLatin1String(".cbz/"), Qt::CaseInsensitive)
-           || path.contains(QLatin1String(".zip\\"), Qt::CaseInsensitive)
-           || path.contains(QLatin1String(".cbz\\"), Qt::CaseInsensitive);
+    const int n = path.size();
+    for (int i = 0; i < n; ++i) {
+        if (path.at(i) != QLatin1Char('.')) {
+            continue;
+        }
+        int j = i + 1;
+        while (j < n && path.at(j) != QLatin1Char('/') && path.at(j) != QLatin1Char('\\')) {
+            ++j;
+        }
+        if (j >= n) {
+            break;   // 末尾的点后面没有分隔符，不可能是「包/条目」边界
+        }
+        // 两种分隔符都要认：虚拟路径统一用 '/'，但外部传进来的原始字符串可能
+        // 是反斜杠写法（Windows 拖放、shell 命令行）。
+        const QStringView suffix(path.constData() + i + 1, j - i - 1);
+        if (ArchiveKinds::isOpenableSuffixView(suffix)) {
+            return true;
+        }
+        i = j;   // 这一段已扫完，从分隔符继续
+    }
+    return false;
 }
 
 QString canonicalKey(const QString &absPath)
@@ -88,8 +110,9 @@ bool ArchiveStore::isArchiveFile(const QString &path)
     if (path.isEmpty()) {
         return false;
     }
-    const QString suffix = QFileInfo(path).suffix().toLower();
-    return suffix == QLatin1String("zip") || suffix == QLatin1String("cbz");
+    // 后缀表见 ArchiveKinds.h：zip/cbz 与 Office、EPUB、APK 等 zip 系容器共用
+    // 同一份判定，避免「能拖进来但对话框看不见」这类两处表不同步的问题。
+    return ArchiveKinds::isOpenableSuffix(QFileInfo(path).suffix());
 }
 
 QString ArchiveStore::entryPathPrefix(const QString &archivePath)

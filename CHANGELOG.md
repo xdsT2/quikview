@@ -5,6 +5,8 @@
 
 ## [未发布]
 
+- **ZIP 容器通用抽图**：`.docx` / `.pptx` / `.xlsx` / `.epub` / `.apk` / `.jar` 等 zip 系文档与安装包可直接拖入按图片容器浏览，自动过滤出内嵌图片；内嵌图可单张「另存为」导出（批量转换仍不支持包内条目）。后缀判定统一到 `ArchiveKinds`，新增 `archivekinds.pure` 单测。
+
 - **解码链路提速（内部改造，感知为更跟手）**：预览帧与全量解码分车道、旧任务可取消，连翻与跳转不再互相等；缩略图两级缓存并优先当前可见格；图片总览头信息改后台预探测，切「按日期 / 按大小」分组不再逐个同步读文件头；重格式大文件（>8MB）改用内存映射取数，少一份整读副本。
 
 - **全项目更名为 SoleView**：程序（`soleview.exe` / `soleview-pano.exe`）、壳扩展（`solethumb.dll`）、安装包（`SoleView-<ver>-setup.exe`）与官网全线迁移至 SoleView；保留既有 COM CLSID、`QuikView.<ext>` 兼容关联、单实例旧管道监听与 `%LOCALAPPDATA%\QuikView\QuikView\config.ini` 自动继承迁移，已发布的 QuikView v0.5.0–v0.6.1 原包与校验清单保持只读兼容。

@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 
+#include "ArchiveKinds.h"
 #include "CommandCatalog.h"
 #include "DialogShell.h"
 #include "FlipProbe.h"
@@ -10330,10 +10331,17 @@ void MainWindow::onOpen(OpenSource source)
                                        .value(QStringLiteral("config/last_open_dir"))
                                        .toString();
 
+    // 容器过滤器与 ArchiveStore::isArchiveFile 同源（ArchiveKinds 后缀表），
+    // 否则会出现「拖进来能看、对话框里选不到」的两套口径。
+    QStringList archivePatterns;
+    for (const QString &suffix : ArchiveKinds::openableSuffixes()) {
+        archivePatterns << QStringLiteral("*.") + suffix;
+    }
+
     const OpenPicker::Result res = OpenPicker::showNativeDialog(
         reinterpret_cast<void *>(winId()), startDir,
         DirectoryLoader::imageExtensions(),
-        { QStringLiteral("*.zip"), QStringLiteral("*.cbz") },
+        archivePatterns,
         tr("打开文件夹"), tr("打开图片或文件夹"));
 
     // 对话框生命周期结束（确认选图 / 确认打开文件夹 / 取消 / Esc / 右上角关闭 / 早退）：
