@@ -3885,6 +3885,15 @@ void MainWindow::openFile(const QString &path, bool transient)
     }
     const QString canonical = fi.absoluteFilePath();
 
+    // D1-4：切目录时回收上一目录缓存——整路清拖动预览、定向淘汰旧目录全图条目，
+    // 旧图不再长期占全图字节预算，新图反复解码的概率下降。包内条目不是磁盘路径，跳过。
+    const QString oldDir = QFileInfo(m_currentPath).absolutePath();
+    const QString newDir = fi.absolutePath();
+    if (!oldDir.isEmpty() && oldDir != newDir
+        && !ArchiveStore::isEntryPath(m_currentPath)) {
+        m_cache->evictDirectory(oldDir);
+    }
+
     // 目录监视（外部增删/重命名自动刷新）：当前图所在目录是唯一监视目标。
     // 目录不可达/网络盘断开时 watchDirectory 内部静默降级，不影响打开流程。
     m_dir->watchDirectory(fi.absolutePath());
@@ -5016,7 +5025,8 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     }
     setWindowTitle(ArchiveStore::displayName(path) + QStringLiteral(" - SoleView"));
     m_topBar->setTitle(ArchiveStore::displayName(path));
-    m_frames->open(path);
+    // D1-2(b)：帧导航（多帧探测/整套帧解码）移出 GUI 线程，后台备好再换入。
+    openFramesAsync(path);
     // 动图打开即自动播放（P0：仅 GIF）；换到静态图 / 多页 TIFF / 双页模式则停。
     // 这里不弹 toast（自动行为不打扰），空格切换时才提示。
     if (m_frames->hasFrames() && m_frames->animatable() && !isSpreadMode()) {
@@ -5071,6 +5081,40 @@ void MainWindow::updatePanoProbe(const QString &path)
         }
     });
     watcher->setFuture(QtConcurrent::run(&Pano::probeFile, path));
+}
+
+// D1-2(b)：动图帧表/整套帧解码移出 GUI 线程。首帧已随全图上屏，FrameNavigator 在
+// 后台线程构造并 open(path)，完成后按「开图代次 + 当前显示路径」双令牌校验：旧图的
+// 后台结果回来直接删除，不换入、不启动播放。
+void MainWindow::openFramesAsync(const QString &path)
+{
+    const quint64 gen = m_openGeneration;
+    auto *watcher = new QFutureWatcher<FrameNavigator *>(this);
+    connect(watcher, &QFutureWatcher<FrameNavigator *>::finished, this,
+            [this, watcher, gen, path]() {
+        FrameNavigator *nav = watcher->result();
+        watcher->deleteLater();
+        if (!nav) {
+            return;
+        }
+        if (gen != m_openGeneration || path != m_displayedPath) {
+            delete nav;
+            return;
+        }
+        stopAnimation();
+        delete m_frames;
+        m_frames = nav;
+        if (m_frames->hasFrames() && m_frames->animatable() && !isSpreadMode()) {
+            startAnimation();
+        }
+        syncPlayBarState();
+        updateInfoOverlay();
+    });
+    watcher->setFuture(QtConcurrent::run([path]() -> FrameNavigator * {
+        auto *nav = new FrameNavigator;
+        nav->open(path);
+        return nav;
+    }));
 }
 
 // 全景入口唯一落点：组件已装 → 独立进程；未装 → 定位「设置 → 扩展」的组件行；
