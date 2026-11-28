@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <TS version="2.1" language="ru_RU" sourcelanguage="zh_CN">
-    <context>
+        <context>
         <name>AppMenu</name>
         <message>
             <source>下一张</source>
@@ -327,7 +327,7 @@
             <translation>Показывать исходные данные</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>BatchConvertDialog</name>
         <message>
             <source>图片转换</source>
@@ -474,7 +474,7 @@
             <translation> (с ошибками: %1)</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>ControlBar</name>
         <message>
             <source>底部控制栏</source>
@@ -556,8 +556,68 @@
             <source>%1 / %2</source>
             <translation>%1 / %2</translation>
         </message>
+        <message>
+            <source>打开、缩略图、缩放、旋转、全屏、上一张、进度、下一张、锁定与更多</source>
+            <translation>Открыть, лента миниатюр, масштаб, поворот, полный экран, назад, прогресс, вперёд, блокировка и другое</translation>
+        </message>
+        <message>
+            <source>分组方式</source>
+            <translation>Группировать по</translation>
+        </message>
+        <message>
+            <source>图片总览</source>
+            <translation>Обзор</translation>
+        </message>
+        <message>
+            <source>更多命令</source>
+            <translation>Другие команды</translation>
+        </message>
+        <message>
+            <source>动画播放控制栏</source>
+            <translation>Панель воспроизведения анимации</translation>
+        </message>
+        <message>
+            <source>首帧、上一帧、播放暂停、下一帧、末帧、复制当前帧与帧进度滑条</source>
+            <translation>Первый кадр, предыдущий кадр, воспроизведение/пауза, следующий кадр, последний кадр, копировать текущий кадр и ползунок прогресса</translation>
+        </message>
+        <message>
+            <source>首帧</source>
+            <translation>Первый кадр</translation>
+        </message>
+        <message>
+            <source>首帧（帧数未知）</source>
+            <translation>Первый кадр (число кадров неизвестно)</translation>
+        </message>
+        <message>
+            <source>暂停</source>
+            <translation>Пауза</translation>
+        </message>
+        <message>
+            <source>播放</source>
+            <translation>Воспроизведение</translation>
+        </message>
+        <message>
+            <source>末帧</source>
+            <translation>Последний кадр</translation>
+        </message>
+        <message>
+            <source>末帧（帧数未知）</source>
+            <translation>Последний кадр (число кадров неизвестно)</translation>
+        </message>
+        <message>
+            <source>复制当前帧</source>
+            <translation>Копировать текущий кадр</translation>
+        </message>
+        <message>
+            <source>帧进度：拖动定位到帧</source>
+            <translation>Прогресс кадров: перетащите, чтобы перейти</translation>
+        </message>
+        <message>
+            <source>帧进度：帧数未知</source>
+            <translation>Прогресс кадров: число кадров неизвестно</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>DirectoryLoader</name>
         <message>
             <source>常用图片</source>
@@ -600,7 +660,7 @@
             <translation>В архиве нет изображений для показа</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>EmptyState</name>
         <message>
             <source>开始查看图片</source>
@@ -630,8 +690,12 @@
             <source>设置</source>
             <translation>Настройки</translation>
         </message>
+        <message>
+            <source>把图片拖到这里，或点「打开」选择图片或文件夹</source>
+            <translation>Перетащите изображения сюда или нажмите «Открыть», чтобы выбрать изображения или папку</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>ExifParser</name>
         <message>
             <source>1/%1 秒</source>
@@ -642,7 +706,7 @@
             <translation>%1 с</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>GammaDialog</name>
         <message>
             <source>Gamma 补偿</source>
@@ -665,7 +729,7 @@
             <translation>ОК</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>HeifLoader</name>
         <message>
             <source>libheif 上下文分配失败</source>
@@ -691,15 +755,27 @@
             <source>libheif 图像尺寸无效</source>
             <translation>Недопустимый размер изображения libheif</translation>
         </message>
+        <message>
+            <source>libheif 图像尺寸超出限制</source>
+            <translation>Размер изображения libheif превышает предел</translation>
+        </message>
+        <message>
+            <source>libheif 图像尺寸或行距无效</source>
+            <translation>Размер изображения или шаг строк libheif недопустимы</translation>
+        </message>
+        <message>
+            <source>当前构建未启用 libheif，无法解码 HEIC/AVIF</source>
+            <translation>Эта сборка собрана без libheif; декодирование HEIC/AVIF невозможно</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>ImageCache</name>
         <message>
             <source>无法解码</source>
             <translation>Не удалось декодировать</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>KeySeqStateFilter</name>
         <message>
             <source>按下组合键…</source>
@@ -710,7 +786,7 @@
             <translation>Не задано</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>LayerPanel</name>
         <message>
             <source>图层</source>
@@ -769,7 +845,7 @@
             <translation>Этот слой нельзя показать отдельно</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>MainWindow</name>
         <message>
             <source>未打开图片</source>
@@ -1655,8 +1731,332 @@
             <source>&lt;h3&gt;SoleView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 许可证开源，零遥测、零推广。&lt;/p&gt;&lt;p&gt;官网：&lt;a href="https://xdst2.github.io/soleview/"&gt;https://xdst2.github.io/soleview/&lt;/a&gt;&lt;br&gt;GitHub：&lt;a href="https://github.com/xdsT2/soleview"&gt;https://github.com/xdsT2/soleview&lt;/a&gt;&lt;br&gt;QQ 交流群：1134122173&lt;/p&gt;</source>
             <translation>&lt;h3&gt;SoleView&lt;/h3&gt;&lt;p&gt;Версия %1&lt;/p&gt;&lt;p&gt;Открытый исходный код под лицензией MIT, без телеметрии и рекламы.&lt;/p&gt;&lt;p&gt;Сайт: &lt;a href="https://xdst2.github.io/soleview/"&gt;https://xdst2.github.io/soleview/&lt;/a&gt;&lt;br&gt;GitHub: &lt;a href="https://github.com/xdsT2/soleview"&gt;https://github.com/xdsT2/soleview&lt;/a&gt;&lt;br&gt;Группа QQ: 1134122173&lt;/p&gt;</translation>
         </message>
+        <message>
+            <source>拖入图片或 Ctrl+O 打开</source>
+            <translation>Перетащите изображение сюда или нажмите Ctrl+O</translation>
+        </message>
+        <message>
+            <source>文件(&amp;F)</source>
+            <translation>&amp;Файл</translation>
+        </message>
+        <message>
+            <source>视图(&amp;V)</source>
+            <translation>&amp;Вид</translation>
+        </message>
+        <message>
+            <source>适配窗口(&amp;F)</source>
+            <translation>По &amp;размеру окна</translation>
+        </message>
+        <message>
+            <source>实际大小(&amp;1)</source>
+            <translation>&amp;Реальный размер</translation>
+        </message>
+        <message>
+            <source>幻灯片(&amp;S)</source>
+            <translation>&amp;Слайд-шоу</translation>
+        </message>
+        <message>
+            <source>工具(&amp;T)</source>
+            <translation>&amp;Инструменты</translation>
+        </message>
+        <message>
+            <source>设为壁纸(&amp;W)</source>
+            <translation>Установить как &amp;обои</translation>
+        </message>
+        <message>
+            <source>加载中… %1</source>
+            <translation>Загрузка… %1</translation>
+        </message>
+        <message>
+            <source>无法打开：%1（%2）</source>
+            <translation>Не удалось открыть: %1 (%2)</translation>
+        </message>
+        <message>
+            <source>%1 x %2 · %3 / %4 · %5</source>
+            <translation>%1 x %2 · %3 / %4 · %5</translation>
+        </message>
+        <message>
+            <source>%1 x %2 · %3</source>
+            <translation>%1 x %2 · %3</translation>
+        </message>
+        <message>
+            <source>图片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有文件 (*)</source>
+            <translation>Изображения (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;Все файлы (*)</translation>
+        </message>
+        <message>
+            <source>无法读取压缩包：%1</source>
+            <translation>Не удалось прочитать архив: %1</translation>
+        </message>
+        <message>
+            <source>压缩包内文件暂不支持此操作</source>
+            <translation>Это действие недоступно для файлов внутри архива</translation>
+        </message>
+        <message>
+            <source>当前没有可浏览的图片</source>
+            <translation>Сейчас нет изображений для просмотра</translation>
+        </message>
+        <message>
+            <source>分组方式…</source>
+            <translation>Группировать по…</translation>
+        </message>
+        <message>
+            <source>当前倍率 %1</source>
+            <translation>Масштаб %1</translation>
+        </message>
+        <message>
+            <source>全屏 / 还原</source>
+            <translation>Полный экран / Восстановить</translation>
+        </message>
+        <message>
+            <source>退出无边框查看</source>
+            <translation>Выйти из режима без рамки</translation>
+        </message>
+        <message>
+            <source>无边框查看</source>
+            <translation>Режим без рамки</translation>
+        </message>
+        <message>
+            <source>第 %1 / %2 张</source>
+            <translation>%1 / %2</translation>
+        </message>
+        <message>
+            <source>当前未打开图片</source>
+            <translation>Изображение не открыто</translation>
+        </message>
+        <message>
+            <source>跳转…</source>
+            <translation>Перейти…</translation>
+        </message>
+        <message>
+            <source>重命名…</source>
+            <translation>Переименовать…</translation>
+        </message>
+        <message>
+            <source>照片文件夹面板…</source>
+            <translation>Панель папок для фото…</translation>
+        </message>
+        <message>
+            <source>请先在「设置 → 浏览」中配置图片文件夹</source>
+            <translation>Сначала настройте папки изображений в «Настройки → Просмотр»</translation>
+        </message>
+        <message>
+            <source>当前没有打开的图片</source>
+            <translation>Нет открытого изображения</translation>
+        </message>
+        <message>
+            <source>图片文件夹不存在或不完整：%1</source>
+            <translation>Папка изображений отсутствует или неполна: %1</translation>
+        </message>
+        <message>
+            <source>复制到 %1 (%2)</source>
+            <translation>Копировать в %1 (%2)</translation>
+        </message>
+        <message>
+            <source>移动到 %1 (%2)</source>
+            <translation>Переместить в %1 (%2)</translation>
+        </message>
+        <message>
+            <source>显示鸟瞰图</source>
+            <translation>Показать обзор</translation>
+        </message>
+        <message>
+            <source>退出无边框</source>
+            <translation>Выйти из режима без рамки</translation>
+        </message>
+        <message>
+            <source>无边框模式</source>
+            <translation>Режим без рамки</translation>
+        </message>
+        <message>
+            <source>360° 查看</source>
+            <translation>Смотреть в 360°</translation>
+        </message>
+        <message>
+            <source>尝试以 360° 查看</source>
+            <translation>Попробовать вид 360°</translation>
+        </message>
+        <message>
+            <source>%1（当前文件夹 %2 张）</source>
+            <translation>%1 (%2 в текущей папке)</translation>
+        </message>
+        <message>
+            <source>当前图片已在外部被删除</source>
+            <translation>Текущее изображение удалено вне SoleView</translation>
+        </message>
+        <message>
+            <source>当前图片不是可用的 360° 全景图</source>
+            <translation>Текущее изображение не является пригодной панорамой 360°</translation>
+        </message>
+        <message>
+            <source>360° 全景查看器未安装，已定位到「设置 → 扩展」</source>
+            <translation>Просмотрщик панорам 360° не установлен; открыты «Настройки → Расширения»</translation>
+        </message>
+        <message>
+            <source>已经是最后一张图片。要转到第一张继续吗？</source>
+            <translation>Это последнее изображение. Продолжить с первого?</translation>
+        </message>
+        <message>
+            <source>已经是第一张图片。要转到最后一张继续吗？</source>
+            <translation>Это первое изображение. Продолжить с последнего?</translation>
+        </message>
+        <message>
+            <source>继续(&amp;C)</source>
+            <translation>Продолжить</translation>
+        </message>
+        <message>
+            <source>停止(&amp;S)</source>
+            <translation>Остановить</translation>
+        </message>
+        <message>
+            <source>还没有书签。在查看器里按 B，可把当前图片加为书签。</source>
+            <translation>Закладок пока нет. Нажмите B в просмотрщике, чтобы добавить текущее изображение в закладки.</translation>
+        </message>
+        <message>
+            <source>改动即时保存</source>
+            <translation>Изменения сохраняются сразу</translation>
+        </message>
+        <message>
+            <source>共 %1 条</source>
+            <translation>Всего %1</translation>
+        </message>
+        <message>
+            <source>打开图片或文件夹</source>
+            <translation>Открыть изображение или папку</translation>
+        </message>
+        <message>
+            <source>打开当前所在文件夹（或列表中选中的子文件夹）里的第一张图片</source>
+            <translation>Открыть первое изображение в текущей папке (или в выбранной в списке подпапке)</translation>
+        </message>
+        <message>
+            <source>该文件夹没有可识别的图片：%1</source>
+            <translation>В этой папке нет распознаваемых изображений: %1</translation>
+        </message>
+        <message>
+            <source>压缩包内图片不支持重命名</source>
+            <translation>Изображения внутри архива нельзя переименовать</translation>
+        </message>
+        <message>
+            <source>已重命名 %1 个文件</source>
+            <translation>Переименовано файлов: %1</translation>
+        </message>
+        <message>
+            <source>图片文件夹 %1 未配置或不存在</source>
+            <translation>Папка изображений %1 не настроена или не существует</translation>
+        </message>
+        <message>
+            <source>当前图片不是多帧图片</source>
+            <translation>У текущего изображения только один кадр</translation>
+        </message>
+        <message>
+            <source>复制当前帧失败</source>
+            <translation>Не удалось скопировать текущий кадр</translation>
+        </message>
+        <message>
+            <source>已复制当前帧 · 第 %1/%2 帧</source>
+            <translation>Текущий кадр скопирован · кадр %1/%2</translation>
+        </message>
+        <message>
+            <source>已复制当前帧</source>
+            <translation>Текущий кадр скопирован</translation>
+        </message>
+        <message>
+            <source>图片保存到临时目录失败</source>
+            <translation>Не удалось сохранить изображение во временную папку</translation>
+        </message>
+        <message>
+            <source>剪贴板中的图片无法解码</source>
+            <translation>Изображение в буфере обмена не декодируется</translation>
+        </message>
+        <message>
+            <source>模拟失败：运行态拒绝本次即时应用（验收注入）。</source>
+            <translation>Имитация сбоя: среда отклонила немедленное применение (внедрение для приёмки).</translation>
+        </message>
+        <message>
+            <source>通知已改到右下角</source>
+            <translation>Уведомления перемещены в правый нижний угол</translation>
+        </message>
+        <message>
+            <source>通知已改到顶部居中</source>
+            <translation>Уведомления перемещены вверх по центру</translation>
+        </message>
+        <message>
+            <source>已禁用屏幕保护（退出后自动恢复）</source>
+            <translation>Хранитель экрана отключён (восстановится при выходе)</translation>
+        </message>
+        <message>
+            <source>已恢复屏幕保护</source>
+            <translation>Хранитель экрана восстановлен</translation>
+        </message>
+        <message>
+            <source>已按图片大小调整窗口</source>
+            <translation>Окно подстроено под размер изображения</translation>
+        </message>
+        <message>
+            <source>已关闭按图调窗，窗口尺寸不再自动变化</source>
+            <translation>Подстройка окна под изображение отключена; размер окна больше не меняется</translation>
+        </message>
+        <message>
+            <source>已开启 RAW 内嵌缩略图（下次打开 RAW 生效）</source>
+            <translation>Встроенные миниатюры RAW включены (действует при следующем открытии RAW)</translation>
+        </message>
+        <message>
+            <source>已关闭 RAW 内嵌缩略图（下次打开 RAW 生效）</source>
+            <translation>Встроенные миниатюры RAW отключены (действует при следующем открытии RAW)</translation>
+        </message>
+        <message>
+            <source>已开启翻页音效：翻页与幻灯片切页会响一声</source>
+            <translation>Звук перелистывания включён: перелистывание и переходы слайдов издают щелчок</translation>
+        </message>
+        <message>
+            <source>已关闭翻页音效：翻页将静音</source>
+            <translation>Звук перелистывания отключён: перелистывание беззвучно</translation>
+        </message>
+        <message>
+            <source>已禁止打开 RAW：再打开 .nef/.cr2/.dng 会提示「已在设置中禁用 RAW 解码」</source>
+            <translation>Открытие RAW запрещено: при открытии .nef/.cr2/.dng показывается «Декодирование RAW отключено в настройках»</translation>
+        </message>
+        <message>
+            <source>已允许打开 RAW：下次打开 RAW 走正常解码</source>
+            <translation>Открытие RAW разрешено: следующий файл RAW декодируется как обычно</translation>
+        </message>
+        <message>
+            <source>已保存同名 RAW 过滤设置：当前没有打开的文件夹，下次打开时生效</source>
+            <translation>Фильтр одноимённых RAW сохранён: папка не открыта, применится при следующем открытии</translation>
+        </message>
+        <message>
+            <source>正在扫描当前文件夹，完成后按新设置刷新列表</source>
+            <translation>Идёт сканирование текущей папки; по завершении список обновится с новой настройкой</translation>
+        </message>
+        <message>
+            <source>已按新设置重扫：同名 RAW 不再带进列表</source>
+            <translation>Пересканировано с новой настройкой: одноимённые RAW больше не попадают в список</translation>
+        </message>
+        <message>
+            <source>已按新设置重扫：同名 RAW 重新带进列表</source>
+            <translation>Пересканировано с новой настройкой: одноимённые RAW снова попадают в список</translation>
+        </message>
+        <message>
+            <source>未知的插值档位：%1</source>
+            <translation>Неизвестный уровень интерполяции: %1</translation>
+        </message>
+        <message>
+            <source>已开启缓存下一张：正在预读相邻图片</source>
+            <translation>Кэш следующего включён: идёт предзагрузка соседних изображений</translation>
+        </message>
+        <message>
+            <source>已关闭缓存下一张：不再预读相邻图片（已缓存的图保留）</source>
+            <translation>Кэш следующего отключён: предзагрузка прекращена (уже кэшированные остаются)</translation>
+        </message>
+        <message>
+            <source>缓存上限已改为 %1 MB（当前已用 %2 MB）</source>
+            <translation>Предел кэша изменён на %1 МБ (используется %2 МБ)</translation>
+        </message>
+        <message>
+            <source>该 PSD 未保存兼容性预览；请在 Photoshop「首选项 → 文件处理」勾选</source>
+            <translation>У этого PSD нет предпросмотра совместимости; включите его в Photoshop «Установки → Обработка файлов»</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>MetadataPanel</name>
         <message>
             <source>相机制造商</source>
@@ -1806,8 +2206,48 @@
             <source>%1 × %2 cm</source>
             <translation>%1 × %2 cm</translation>
         </message>
+        <message>
+            <source>信息</source>
+            <translation>Сведения</translation>
+        </message>
+        <message>
+            <source>文件</source>
+            <translation>Файл</translation>
+        </message>
+        <message>
+            <source>路径</source>
+            <translation>Путь</translation>
+        </message>
+        <message>
+            <source>大小</source>
+            <translation>Размер</translation>
+        </message>
+        <message>
+            <source>修改时间</source>
+            <translation>Изменён</translation>
+        </message>
+        <message>
+            <source>图像</source>
+            <translation>Изображение</translation>
+        </message>
+        <message>
+            <source>尺寸</source>
+            <translation>Размеры</translation>
+        </message>
+        <message>
+            <source>%1 x %2</source>
+            <translation>%1 x %2</translation>
+        </message>
+        <message>
+            <source>格式</source>
+            <translation>Формат</translation>
+        </message>
+        <message>
+            <source>EXIF</source>
+            <translation>EXIF</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>PsdLoader</name>
         <message>
             <source>无法打开 PSD 文件</source>
@@ -1889,8 +2329,20 @@
             <source>图像数据不完整（文件可能被截断或写入中断）</source>
             <translation>Данные изображения неполные (файл усечён или запись прервана)</translation>
         </message>
+        <message>
+            <source>PSD 画布尺寸异常或超出限制</source>
+            <translation>Размер холста PSD недопустим или превышает предел</translation>
+        </message>
+        <message>
+            <source>不支持的 PSD 位深（%1 bit）</source>
+            <translation>Неподдерживаемая битовая глубина PSD (%1 бит)</translation>
+        </message>
+        <message>
+            <source>不支持的 PSD 通道数（%1）</source>
+            <translation>Неподдерживаемое число каналов PSD (%1)</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>QObject</name>
         <message>
             <source>打开</source>
@@ -2009,7 +2461,7 @@
             <translation>К загрузке</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>RawImageLoader</name>
         <message>
             <source>libraw 打开失败</source>
@@ -2031,8 +2483,16 @@
             <source>不支持的位深 %1</source>
             <translation>Неподдерживаемая разрядность %1</translation>
         </message>
+        <message>
+            <source>不支持的 RAW 图像参数（colors=%1, bits=%2）</source>
+            <translation>Неподдерживаемые параметры изображения RAW (colors=%1, bits=%2)</translation>
+        </message>
+        <message>
+            <source>当前构建未启用 libraw，无法解码 RAW</source>
+            <translation>Эта сборка собрана без libraw; декодирование RAW невозможно</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>SettingsDialog</name>
         <message>
             <source>选择后立即切换界面语言并写入配置</source>
@@ -3706,8 +4166,444 @@ https://github.com/xdsT2/soleview</translation>
             <source>官网与 GitHub 在默认浏览器中打开；点击 QQ 交流群号可复制到剪贴板。</source>
             <translation>Сайт и GitHub открываются в браузере по умолчанию; нажмите на номер группы QQ, чтобы скопировать его в буфер обмена.</translation>
         </message>
+        <message>
+            <source>打开（备用键）</source>
+            <translation>Открыть (резервная клавиша)</translation>
+        </message>
+        <message>
+            <source>启动</source>
+            <translation>Запуск</translation>
+        </message>
+        <message>
+            <source>启动时恢复上次查看的图片</source>
+            <translation>Восстанавливать последнее просмотренное изображение при запуске</translation>
+        </message>
+        <message>
+            <source>通过文件直接启动时，以选中的文件为准；下次启动生效</source>
+            <translation>При запуске с файлом приоритет у выбранного файла; действует со следующего запуска</translation>
+        </message>
+        <message>
+            <source>「询问」在翻到边界时弹确认；单图目录直接停住，不弹框</source>
+            <translation>«Спрашивать» запрашивает подтверждение на границе; папка с одним изображением просто останавливается без диалога</translation>
+        </message>
+        <message>
+            <source>「转到首个文件」在末尾继续时回绕到首个；「停止」停在当前图片；「询问」弹确认框，确认后从另一端继续，取消留在当前图片。</source>
+            <translation>«Первый файл» в конце возвращается к первому; «Остановить» остаётся на текущем изображении; «Спрашивать» показывает диалог и продолжает с другого конца, а при отмене остаётся на текущем.</translation>
+        </message>
+        <message>
+            <source>只对「换到另一张图」生效：翻到下一张、缩略图跳转、幻灯片切页</source>
+            <translation>Действует только при смене изображения: следующее, переход по ленте миниатюр, смена слайда</translation>
+        </message>
+        <message>
+            <source>翻页时播放音效；关闭后静音</source>
+            <translation>Воспроизводить звук при перелистывании; выключено — беззвучно</translation>
+        </message>
+        <message>
+            <source>翻页音效仅在单张翻页与幻灯片切页时播放</source>
+            <translation>Звук перелистывания звучит только при пошаговом перелистывании и смене слайдов</translation>
+        </message>
+        <message>
+            <source>下次打开这张图时恢复；当前画面不变</source>
+            <translation>Восстановится при следующем открытии этого изображения; текущий вид не меняется</translation>
+        </message>
+        <message>
+            <source>适配宽度／实际大小下、图片高于窗口时生效</source>
+            <translation>Действует в режиме «По ширине» / «Реальный размер», когда изображение выше окна</translation>
+        </message>
+        <message>
+            <source>输入或选择文件夹后立即生效，无需保存；留空表示不使用该文件夹</source>
+            <translation>Действует сразу после ввода или выбора папки, сохранять не нужно; пусто — не использовать</translation>
+        </message>
+        <message>
+            <source>选好文件夹后立即生效，并马上用于本页「打开」与菜单动作</source>
+            <translation>Действует сразу после выбора папки и тут же используется «Открыть» на этой странице и командами меню</translation>
+        </message>
+        <message>
+            <source>用当前已生效的路径打开所在文件夹</source>
+            <translation>Открыть содержащую папку по текущему действующему пути</translation>
+        </message>
+        <message>
+            <source>未设置：复制到 / 移动到「图片文件夹 1」的动作不会执行。</source>
+            <translation>Не задано: действия «Копировать в / Переместить в папку изображений 1» не выполняются.</translation>
+        </message>
+        <message>
+            <source>已取消选择，路径没有改动：%1</source>
+            <translation>Выбор отменён, путь не изменён: %1</translation>
+        </message>
+        <message>
+            <source>（仍为未设置）</source>
+            <translation>(по-прежнему не задано)</translation>
+        </message>
+        <message>
+            <source>翻页不追加</source>
+            <translation>Не добавлять при перелистывании</translation>
+        </message>
+        <message>
+            <source>文件移动或重命名后原条目失效；书签只存本机配置，不随安装包或账户同步。</source>
+            <translation>Закладки теряют силу, если файл перемещён или переименован; они хранятся только в локальной конфигурации и не синхронизируются с установщиком или учётной записью.</translation>
+        </message>
+        <message>
+            <source>跟随系统时由 Windows 深浅色设置决定</source>
+            <translation>В режиме «Как в системе» это определяет светлая/тёмная тема Windows</translation>
+        </message>
+        <message>
+            <source>仅作用于右键菜单与信息浮层；Windows 11 效果最佳</source>
+            <translation>Действует только на контекстное меню и информационный слой; лучше всего в Windows 11</translation>
+        </message>
+        <message>
+            <source>隐藏顶端菜单时按 Shift+Tab 显隐</source>
+            <translation>При скрытом верхнем меню Shift+Tab показывает или скрывает его</translation>
+        </message>
+        <message>
+            <source>铺满整个画布视口，颜色随深浅主题自动变化，切换主题即时生效</source>
+            <translation>Заполняет всю область холста, следует светлой/тёмной теме и меняется сразу вместе с ней</translation>
+        </message>
+        <message>
+            <source>关闭后透明像素直接透出画布背景</source>
+            <translation>Выключено: прозрачные пиксели показывают фон холста</translation>
+        </message>
+        <message>
+            <source>棋盘格固定在屏幕坐标，不随图片缩放和平移</source>
+            <translation>Шахматка привязана к экранным координатам и не следует за масштабом и сдвигом</translation>
+        </message>
+        <message>
+            <source>GIF 透明背景</source>
+            <translation>Фон прозрачности GIF</translation>
+        </message>
+        <message>
+            <source>默认调色板</source>
+            <translation>Палитра по умолчанию</translation>
+        </message>
+        <message>
+            <source>白色</source>
+            <translation>Белый</translation>
+        </message>
+        <message>
+            <source>黑色</source>
+            <translation>Чёрный</translation>
+        </message>
+        <message>
+            <source>中灰背景</source>
+            <translation>Средне-серый</translation>
+        </message>
+        <message>
+            <source>自定义颜色</source>
+            <translation>Свой цвет</translation>
+        </message>
+        <message>
+            <source>只影响 GIF 显示铺底；源文件、复制与导出保持原透明信息</source>
+            <translation>Действует только на подложку GIF; исходный файл, копия и экспорт сохраняют исходную прозрачность</translation>
+        </message>
+        <message>
+            <source>点击选择 GIF 透明区域的铺底颜色，选色即时重绘当前 GIF</source>
+            <translation>Нажмите, чтобы выбрать цвет подложки для прозрачности GIF; текущий GIF сразу перерисуется</translation>
+        </message>
+        <message>
+            <source>Lanczos 且缩小到 100% 以下时生效</source>
+            <translation>Действует с Lanczos при уменьшении ниже 100 %</translation>
+        </message>
+        <message>
+            <source>开启时大图先按视口尺寸出一张快帧，随后替换为清晰全图；关闭后直接等全图上屏</source>
+            <translation>Включено: большие изображения сначала показывают быстрый кадр по размеру области, затем чёткое полное изображение; выключено: ожидание полного изображения</translation>
+        </message>
+        <message>
+            <source>拦的是「打开」这一步：翻到 RAW 时同样给这条提示，不显示也不解码</source>
+            <translation>Блокирует шаг «открыть»: при переходе на RAW показывается та же подсказка, без показа и декодирования</translation>
+        </message>
+        <message>
+            <source>只影响打开 JPEG 时是否带出同目录同名 RAW；直接打开 RAW 时列表照旧全带</source>
+            <translation>Влияет только на то, подхватывается ли одноимённый RAW рядом с JPEG; при прямом открытии RAW список по-прежнему содержит все</translation>
+        </message>
+        <message>
+            <source>切换后立即重扫当前文件夹，不用重新打开目录</source>
+            <translation>Сразу пересканирует текущую папку; заново открывать её не нужно</translation>
+        </message>
+        <message>
+            <source>SDR 验证版：显示出口把 sRGB 转到当前屏幕关联配置；已开 Windows 自动颜色管理的屏幕跳过，跨屏自动重估</source>
+            <translation>Проверочная сборка SDR: вывод преобразует sRGB в профиль, связанный с текущим экраном; экраны с автоуправлением цветом Windows пропускаются, при переходе между экранами выполняется пересчёт</translation>
+        </message>
+        <message>
+            <source>无有效配置或转换失败时保持 sRGB 显示，原因见临时目录日志</source>
+            <translation>Без действующего профиля или при сбое преобразования остаётся sRGB; причина в журнале временной папки</translation>
+        </message>
+        <message>
+            <source>单击手势不支持拖拽平移；拖动请在「中键拖动」单独设置</source>
+            <translation>Жесты клика не поддерживают перетаскивание; настройте перетаскивание в «Перетаскивание средней кнопкой»</translation>
+        </message>
+        <message>
+            <source>拖动手势仅支持「无操作 / 拖拽平移」；点击动作请在「中键单击」单独设置</source>
+            <translation>Жесты перетаскивания поддерживают только «Ничего / Перетаскивание»; действие клика настройте в «Клик средней кнопкой»</translation>
+        </message>
+        <message>
+            <source>滚轮仅支持「无操作 / 放大 / 缩小 / 翻下一张 / 翻上一张」；单向选「无」只停用该方向</source>
+            <translation>Колесо поддерживает только «Ничего / Увеличить / Уменьшить / Следующее изображение / Предыдущее изображение»; «Ничего» отключает только это направление</translation>
+        </message>
+        <message>
+            <source>「无」保留内置行为：左键拖拽平移、边缘单击翻页、右键菜单。中键单击与拖动分别设置（默认单击全屏、拖动平移）；滚轮上下独立生效，单向选「无」只停用该方向。映射在下次触发该按键时生效。</source>
+            <translation>«Ничего» сохраняет встроенное поведение: перетаскивание левой кнопкой перемещает, клик у края перелистывает, правый клик открывает меню. Клик и перетаскивание средней кнопкой настраиваются отдельно (по умолчанию клик — полный экран, перетаскивание — перемещение); колесо работает по направлениям, «Ничего» отключает только это направление. Изменения применяются при следующем использовании кнопки.</translation>
+        </message>
+        <message>
+            <source>可选组件</source>
+            <translation>Необязательный компонент</translation>
+        </message>
+        <message>
+            <source>360° 全景查看器</source>
+            <translation>Просмотрщик панорам 360°</translation>
+        </message>
+        <message>
+            <source>把等距柱状全景图渲染成可拖动的球形视图，独立进程运行；组件缺失时普通看图不受影响。</source>
+            <translation>Показывает эквиректангулярную панораму как вращаемую сферу в отдельном процессе; без компонента обычный просмотр не страдает.</translation>
+        </message>
+        <message>
+            <source>组件下载进度</source>
+            <translation>Ход загрузки компонента</translation>
+        </message>
+        <message>
+            <source>安装</source>
+            <translation>Установить</translation>
+        </message>
+        <message>
+            <source>360° 全景查看器：安装</source>
+            <translation>Просмотрщик панорам 360°: установить</translation>
+        </message>
+        <message>
+            <source>首版范围为本地已拼好的 360°×180° 等距柱状 JPG：带完整 GPano 标记的图在主窗给出「360° 查看」入口，2:1 宽图只在右键提供「尝试以 360° 查看」。局部裁切、其它投影与相片拼接不在本版。</source>
+            <translation>Первая версия охватывает локально склеенные эквиректангулярные JPG 360°×180°: изображения с полными метаданными GPano получают в главном окне пункт «Смотреть в 360°», изображения 2:1 — только «Попробовать вид 360°» в контекстном меню. Частичные кадрирования, другие проекции и склейка фото в эту версию не входят.</translation>
+        </message>
+        <message>
+            <source>组件信息</source>
+            <translation>Сведения о компоненте</translation>
+        </message>
+        <message>
+            <source>安装位置</source>
+            <translation>Место установки</translation>
+        </message>
+        <message>
+            <source>下载源</source>
+            <translation>Источник загрузки</translation>
+        </message>
+        <message>
+            <source>组件包地址</source>
+            <translation>Адрес пакета компонента</translation>
+        </message>
+        <message>
+            <source>未配置</source>
+            <translation>Не настроено</translation>
+        </message>
+        <message>
+            <source>受控下载入口：用户不需要访问代码托管站点。安装包自带组件时无需下载；未配置地址可运行安装包勾选该组件，或在 config.ini 写入 config/ext/pano_source（支持 http(s) 与本地 file:// 测试源）。</source>
+            <translation>Контролируемый вход загрузки: пользователю не нужно заходить на сайт хостинга кода. Если установщик содержит компонент, загрузка не нужна; без адреса запустите установщик и отметьте компонент либо укажите config/ext/pano_source в config.ini (поддерживаются http(s) и локальные тестовые источники file://).</translation>
+        </message>
+        <message>
+            <source>下载包须带同址 .sha256 摘要，校验通过才落盘；取消、断网、摘要不符都保留原有可用状态。卸载只删组件自身文件，不碰主程序与设置。</source>
+            <translation>Загрузка должна сопровождаться дайджестом .sha256 по тому же адресу и сохраняется только после проверки; отмена, обрыв сети и несовпадение дайджеста сохраняют прежнее рабочее состояние. Удаление убирает только файлы компонента, не трогая программу и настройки.</translation>
+        </message>
+        <message>
+            <source>SoleView</source>
+            <translation>SoleView</translation>
+        </message>
+        <message>
+            <source>GitHub</source>
+            <translation>GitHub</translation>
+        </message>
+        <message>
+            <source>安装中 %1%</source>
+            <translation>Установка %1%</translation>
+        </message>
+        <message>
+            <source>正在连接下载源</source>
+            <translation>Подключение к источнику загрузки</translation>
+        </message>
+        <message>
+            <source>已安装 %1</source>
+            <translation>%1 установлен</translation>
+        </message>
+        <message>
+            <source>已安装 %1（版本不兼容）</source>
+            <translation>%1 установлен (несовместимая версия)</translation>
+        </message>
+        <message>
+            <source>卸载</source>
+            <translation>Удалить</translation>
+        </message>
+        <message>
+            <source>安装失败</source>
+            <translation>Установка не удалась</translation>
+        </message>
+        <message>
+            <source>重试</source>
+            <translation>Повторить</translation>
+        </message>
+        <message>
+            <source>上次操作没有完成：%1</source>
+            <translation>Предыдущая операция не завершилась: %1</translation>
+        </message>
+        <message>
+            <source>组件文件位于 %1，与安装向导勾选安装共用同一份状态；主程序升级保留已安装的兼容组件，不会替未安装的用户安装。</source>
+            <translation>Файлы компонента находятся в %1 и используют то же состояние, что и флажок в установщике; обновление программы сохраняет установленный совместимый компонент и никогда не ставит его тем, кто его пропустил.</translation>
+        </message>
+        <message>
+            <source>正在获取组件包：校验通过后才写入 %1。</source>
+            <translation>Получение пакета компонента; запись в %1 только после проверки.</translation>
+        </message>
+        <message>
+            <source>尚未安装。安装向导与这里使用同一组件版本；安装目录需可写（%1）。</source>
+            <translation>Ещё не установлено. Установщик и эта страница используют одну версию компонента; папка установки должна быть доступна для записи (%1).</translation>
+        </message>
+        <message>
+            <source>已卸载 360° 全景查看器</source>
+            <translation>Просмотрщик панорам 360° удалён</translation>
+        </message>
+        <message>
+            <source>360° 全景查看器尚未安装：点右侧「安装」后即可用原图打开</source>
+            <translation>Просмотрщик панорам 360° не установлен: нажмите «Установить» справа, затем откройте исходное изображение</translation>
+        </message>
+        <message>
+            <source>固定项不提供开关；关闭所属分组时一并隐藏。</source>
+            <translation>У фиксированных пунктов нет переключателя; они скрываются вместе со своей группой.</translation>
+        </message>
+        <message>
+            <source>关闭后仍可展开查看命令。</source>
+            <translation>Когда выключено, группу всё равно можно раскрыть и увидеть команды.</translation>
+        </message>
+        <message>
+            <source>默认打开方式由 Windows 管理，SoleView 不能直接改写；找不到 SoleView 时先运行安装包注册。</source>
+            <translation>Приложения по умолчанию управляются Windows, SoleView не может менять их напрямую; если SoleView не найден, запустите установщик для регистрации.</translation>
+        </message>
+        <message>
+            <source>占用方：%1</source>
+            <translation>Используется: %1</translation>
+        </message>
+        <message>
+            <source>已被其他程序占用（不接管）</source>
+            <translation>Используется другой программой (не перехватывается)</translation>
+        </message>
+        <message>
+            <source>SVG 缩略图</source>
+            <translation>Миниатюры SVG</translation>
+        </message>
+        <message>
+            <source>只注册缩略图（主程序打不开 SVG）；用户级注册优先，被占用时不接管</source>
+            <translation>Регистрирует только миниатюры (программа не открывает SVG); регистрация пользователя в приоритете, занятое место не перехватывается</translation>
+        </message>
+        <message>
+            <source>关闭后不再插入菜单项；各细项的选择会保留</source>
+            <translation>Когда выключено, пункты меню не вставляются; отдельные выборы сохраняются</translation>
+        </message>
+        <message>
+            <source>未检测到壳扩展文件（solethumb-*.dll）。运行安装包可修复；便携版不带安装器注册，右键菜单不可用。</source>
+            <translation>Файлы расширения оболочки (solethumb-*.dll) не найдены. Запуск установщика исправит это; портативные сборки не регистрируются, поэтому контекстное меню недоступно.</translation>
+        </message>
+        <message>
+            <source>改动即时写入，下次右键时生效，无需重装或管理员权限；菜单未变化时重启资源管理器。</source>
+            <translation>Изменения записываются сразу и действуют при следующем правом клике, без переустановки и прав администратора; если меню не изменилось, перезапустите Проводник.</translation>
+        </message>
+        <message>
+            <source>这些入口由壳扩展在资源管理器中提供，安装／卸载安装包时自动注册／移除；与文件默认打开方式无关。</source>
+            <translation>Эти пункты предоставляет расширение оболочки в Проводнике; они регистрируются и снимаются установщиком и не связаны с приложениями по умолчанию.</translation>
+        </message>
+        <message>
+            <source>按扩展名分组，列表只读；新增格式随程序版本更新</source>
+            <translation>Сгруппировано по расширению, список только для чтения; новые форматы приходят с версиями программы</translation>
+        </message>
+        <message>
+            <source>列表只读；新增格式随程序版本更新。</source>
+            <translation>Список только для чтения; новые форматы приходят с версиями программы.</translation>
+        </message>
+        <message>
+            <source>点击选择 GIF 透明区域的铺底颜色</source>
+            <translation>Нажмите, чтобы выбрать цвет подложки для прозрачности GIF</translation>
+        </message>
+        <message>
+            <source>先在上方「GIF 透明背景」选择「自定义颜色」</source>
+            <translation>Сначала выберите «Свой цвет» в разделе «Фон прозрачности GIF» выше</translation>
+        </message>
+        <message>
+            <source>正在应用：停止输入 0.3 秒后立即生效（无需保存）</source>
+            <translation>Применение: действует через 0,3 с после остановки ввода (сохранять не нужно)</translation>
+        </message>
+        <message>
+            <source>未设置：复制到 / 移动到「图片文件夹 1」与图片转换默认目录都不会使用空路径。</source>
+            <translation>Не задано: «Копировать в / Переместить в папку изображений 1» и папка по умолчанию для конвертации не используют пустой путь.</translation>
+        </message>
+        <message>
+            <source>路径不存在：%1 —— 动作时不会写入文件。</source>
+            <translation>Путь не существует: %1 — при выполнении файлы не записываются.</translation>
+        </message>
+        <message>
+            <source>这不是文件夹：%1 —— 请改成文件夹路径。</source>
+            <translation>Это не папка: %1 — укажите путь к папке.</translation>
+        </message>
+        <message>
+            <source>已即时生效，无需保存：复制到 / 移动到 1、图片转换默认目录立即使用 %1。</source>
+            <translation>Действует сразу, сохранять не нужно: «Копировать в / Переместить в 1» и папка по умолчанию для конвертации уже используют %1.</translation>
+        </message>
+        <message>
+            <source>「图片文件夹 1」未能即时生效：%1
+已恢复原值。</source>
+            <translation>«Папка изображений 1» не применилась сразу: %1\nПрежнее значение восстановлено.</translation>
+        </message>
+        <message>
+            <source>请先填写文件夹路径，或点「浏览…」选择一个文件夹。</source>
+            <translation>Введите путь к папке или нажмите «Обзор…», чтобы выбрать папку.</translation>
+        </message>
+        <message>
+            <source>无法调用系统文件管理器打开：%1</source>
+            <translation>Не удалось открыть системный файловый менеджер: %1</translation>
+        </message>
+        <message>
+            <source>已在文件管理器中打开：%1</source>
+            <translation>Открыто в файловом менеджере: %1</translation>
+        </message>
+        <message>
+            <source>选择 GIF 背景色</source>
+            <translation>Выбрать цвет фона GIF</translation>
+        </message>
+        <message>
+            <source>即时可见</source>
+            <translation>Видно сразу</translation>
+        </message>
+        <message>
+            <source>已关闭设置，图像处理页未保留即时改动。</source>
+            <translation>Настройки закрыты; немедленные изменения на странице «Обработка изображений» не сохранены.</translation>
+        </message>
+        <message>
+            <source>已关闭设置，翻页效果保持进入设置时的档位。</source>
+            <translation>Настройки закрыты; эффект перелистывания остался на уровне, который был при открытии настроек.</translation>
+        </message>
+        <message>
+            <source>「%1」已即时生效：%2 · 无需保存，关闭设置后保留。</source>
+            <translation>«%1» применено сразу: %2 · сохранять не нужно, останется после закрытия настроек.</translation>
+        </message>
+        <message>
+            <source>已放弃本次改动：图像处理页即时项已回到进入设置时的状态。</source>
+            <translation>Изменения отменены: немедленные пункты страницы «Обработка изображений» вернулись к состоянию при открытии настроек.</translation>
+        </message>
+        <message>
+            <source>「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。
+运行态：%3</source>
+            <translation>«%1» применено сразу: %2 · сохранять не нужно; «Отмена» / Esc вернёт состояние при открытии настроек.\nСостояние: %3</translation>
+        </message>
+        <message>
+            <source>勾选即时生效：在热键栏按所录键即可触发，不必保存或重启</source>
+            <translation>Отметка действует сразу: нажатие записанной клавиши в строке горячих клавиш срабатывает, сохранять и перезапускать не нужно</translation>
+        </message>
+        <message>
+            <source>本行还没有热键：先在热键栏录入并保存，再启用；空热键时勾选不会生效</source>
+            <translation>В этой строке ещё нет горячей клавиши: сначала запишите и сохраните её в строке горячих клавиш, затем включите; при пустой клавише отметка ничего не даёт</translation>
+        </message>
+        <message>
+            <source>无热键</source>
+            <translation>Нет горячей клавиши</translation>
+        </message>
+        <message>
+            <source>待保存：%1
+
+「不保存」只放弃这些草稿；浏览页与图像处理/外观页的即时项（缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示 / 强锐化 / 缓存下一张 / 缓存大小 / 大图顶部对齐 / 插值 / 快帧策略 / 翻页效果 / GIF 底色 / 画布背景）会回到进入设置时的状态，其余即时设置保留。</source>
+            <translation>Ожидают сохранения: %1\n\n«Не сохранять» отменяет только эти черновики; немедленные пункты страниц «Просмотр» и «Обработка изображений/Оформление» (память масштаба / слой имени файла / номера кадров анимации / подсказки при наведении / сильное повышение резкости / кэш следующего / размер кэша / выравнивание больших изображений по верху / интерполяция / стратегия быстрого кадра / эффект перелистывания / фон GIF / фон холста) вернутся к состоянию при открытии настроек, остальные немедленные настройки сохранятся.</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>ThumbnailBrowser</name>
         <message>
             <source>缩略图栏</source>
@@ -3718,7 +4614,7 @@ https://github.com/xdsT2/soleview</translation>
             <translation>Невозможно предпросмотреть</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>TopBar</name>
         <message>
             <source>顶部工具栏</source>
@@ -3792,15 +4688,23 @@ https://github.com/xdsT2/soleview</translation>
             <source>关闭</source>
             <translation>Закрыть</translation>
         </message>
+        <message>
+            <source>HDR</source>
+            <translation>HDR</translation>
+        </message>
+        <message>
+            <source>HDR 显示与曝光</source>
+            <translation>Отображение HDR и экспозиция</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>UpdateChecker</name>
         <message>
             <source>检查更新</source>
             <translation>Проверить обновления</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>UpdateNotifier</name>
         <message>
             <source>发现新版本 %1</source>
@@ -3815,7 +4719,7 @@ https://github.com/xdsT2/soleview</translation>
             <translation>Проверка не удалась — проверьте сеть</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>Wallpaper</name>
         <message>
             <source>SystemParametersInfo 失败 (GetLastError=%1)</source>
@@ -3826,183 +4730,14 @@ https://github.com/xdsT2/soleview</translation>
             <translation>Обои только для Windows</translation>
         </message>
     </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>拖入图片或 Ctrl+O 打开</source>
-            <translation>Перетащите изображение сюда или нажмите Ctrl+O</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>文件(&amp;F)</source>
-            <translation>&amp;Файл</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>视图(&amp;V)</source>
-            <translation>&amp;Вид</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>适配窗口(&amp;F)</source>
-            <translation>По &amp;размеру окна</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>实际大小(&amp;1)</source>
-            <translation>&amp;Реальный размер</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>幻灯片(&amp;S)</source>
-            <translation>&amp;Слайд-шоу</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>工具(&amp;T)</source>
-            <translation>&amp;Инструменты</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>设为壁纸(&amp;W)</source>
-            <translation>Установить как &amp;обои</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>加载中… %1</source>
-            <translation>Загрузка… %1</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>无法打开：%1（%2）</source>
-            <translation>Не удалось открыть: %1 (%2)</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>%1 x %2 · %3 / %4 · %5</source>
-            <translation>%1 x %2 · %3 / %4 · %5</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>%1 x %2 · %3</source>
-            <translation>%1 x %2 · %3</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>图片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有文件 (*)</source>
-            <translation>Изображения (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;Все файлы (*)</translation>
-        </message>
-        <message>
-            <source>无法读取压缩包：%1</source>
-            <translation>Не удалось прочитать архив: %1</translation>
-        </message>
-        <message>
-            <source>压缩包内文件暂不支持此操作</source>
-            <translation>Это действие недоступно для файлов внутри архива</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>信息</source>
-            <translation>Сведения</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>文件</source>
-            <translation>Файл</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>路径</source>
-            <translation>Путь</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>大小</source>
-            <translation>Размер</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>修改时间</source>
-            <translation>Изменён</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>图像</source>
-            <translation>Изображение</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>尺寸</source>
-            <translation>Размеры</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>%1 x %2</source>
-            <translation>%1 x %2</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>格式</source>
-            <translation>Формат</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>EXIF</source>
-            <translation>EXIF</translation>
-        </message>
-    </context>
-    <context>
+        <context>
         <name>AppMenuPreview</name>
         <message>
             <source>当前没有可显示的菜单项</source>
             <translation>Нет пунктов меню для отображения.</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>ZipArchive</name>
         <message>
             <source>文件不存在或无法读取</source>
@@ -4041,7 +4776,7 @@ https://github.com/xdsT2/soleview</translation>
             <translation>Несовпадение контрольной суммы в архиве (CRC)</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>ArchiveStore</name>
         <message>
             <source>文件不存在或无法读取</source>
@@ -4060,7 +4795,7 @@ https://github.com/xdsT2/soleview</translation>
             <translation>Не удалось декодировать файл в архиве</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>RotateAutoSave</name>
         <message>
             <source>文件不存在或图像为空</source>
@@ -4085,6 +4820,348 @@ https://github.com/xdsT2/soleview</translation>
         <message>
             <source>替换原文件失败</source>
             <translation>Не удалось заменить исходный файл</translation>
+        </message>
+        <message>
+            <source>读取原文件失败</source>
+            <translation>Не удалось прочитать исходный файл</translation>
+        </message>
+    </context>
+    <context>
+        <name>OverviewPanel</name>
+        <message>
+            <source>按日期</source>
+            <translation>По дате</translation>
+        </message>
+        <message>
+            <source>按图片大小</source>
+            <translation>По размеру изображения</translation>
+        </message>
+        <message>
+            <source>不分组</source>
+            <translation>Без группировки</translation>
+        </message>
+        <message>
+            <source>从旧到新</source>
+            <translation>Сначала старые</translation>
+        </message>
+        <message>
+            <source>从新到旧</source>
+            <translation>Сначала новые</translation>
+        </message>
+        <message>
+            <source>从小到大</source>
+            <translation>Сначала меньшие</translation>
+        </message>
+        <message>
+            <source>从大到小</source>
+            <translation>Сначала большие</translation>
+        </message>
+        <message>
+            <source>无拍摄日期</source>
+            <translation>Нет даты съёмки</translation>
+        </message>
+        <message>
+            <source>未知大小</source>
+            <translation>Размер неизвестен</translation>
+        </message>
+        <message>
+            <source>图片总览 · %1 张</source>
+            <translation>Обзор · %1 изображений</translation>
+        </message>
+        <message>
+            <source>小于 2 MP</source>
+            <translation>Меньше 2 MP</translation>
+        </message>
+        <message>
+            <source>2 至不足 8 MP</source>
+            <translation>От 2 до 8 MP</translation>
+        </message>
+        <message>
+            <source>8 MP 及以上</source>
+            <translation>8 MP и больше</translation>
+        </message>
+    </context>
+    <context>
+        <name>PanoChip</name>
+        <message>
+            <source>用 360° 全景查看器打开这张球形图（可选组件）</source>
+            <translation>Открыть это сферическое изображение в просмотрщике панорам 360° (необязательный компонент)</translation>
+        </message>
+    </context>
+    <context>
+        <name>PanoExt::Manager</name>
+        <message>
+            <source>组件下载超时，请检查网络后重试</source>
+            <translation>Истекло время ожидания загрузки компонента; проверьте сеть и повторите попытку</translation>
+        </message>
+        <message>
+            <source>组件下载源未配置。请运行安装包并勾选「360° 全景查看器」，或在 config.ini 里配置 config/ext/pano_source 后重试。</source>
+            <translation>Источник загрузки компонента не настроен. Запустите установщик и отметьте «Просмотрщик панорам 360°» либо укажите config/ext/pano_source в config.ini и повторите попытку.</translation>
+        </message>
+        <message>
+            <source>不支持 UNC 网络共享路径作为组件下载源</source>
+            <translation>Сетевые пути UNC нельзя использовать как источник загрузки компонента</translation>
+        </message>
+        <message>
+            <source>组件下载源仅支持 HTTPS 地址</source>
+            <translation>Источник загрузки компонента должен быть адресом HTTPS</translation>
+        </message>
+        <message>
+            <source>组件包超出预期大小，已取消安装</source>
+            <translation>Пакет компонента больше ожидаемого; установка отменена</translation>
+        </message>
+        <message>
+            <source>连不上下载源，检查网络或 config/ext/pano_source 里的地址</source>
+            <translation>Не удаётся подключиться к источнику загрузки; проверьте сеть или адрес в config/ext/pano_source</translation>
+        </message>
+        <message>
+            <source>下载源无响应，检查网络或稍后重试</source>
+            <translation>Источник загрузки не отвечает; проверьте сеть или повторите позже</translation>
+        </message>
+        <message>
+            <source>下载源上找不到组件包，检查文件名或目录</source>
+            <translation>Пакет компонента не найден в источнике; проверьте имя файла или папку</translation>
+        </message>
+        <message>
+            <source>无法获取组件包：%1</source>
+            <translation>Не удалось получить пакет компонента: %1</translation>
+        </message>
+        <message>
+            <source>无法获取组件包：%1（%2）</source>
+            <translation>Не удалось получить пакет компонента: %1 (%2)</translation>
+        </message>
+        <message>
+            <source>组件包为空或超出预期大小</source>
+            <translation>Пакет компонента пуст или больше ожидаемого</translation>
+        </message>
+        <message>
+            <source>组件包缺少校验摘要，已拒绝安装</source>
+            <translation>В пакете компонента нет контрольной суммы; установка отклонена</translation>
+        </message>
+        <message>
+            <source>无法读取本地组件包：%1</source>
+            <translation>Не удалось прочитать локальный пакет компонента: %1</translation>
+        </message>
+        <message>
+            <source>本地组件包为空或超出预期大小</source>
+            <translation>Локальный пакет компонента пуст или больше ожидаемого</translation>
+        </message>
+        <message>
+            <source>组件包缺少可用的 SHA-256 摘要，已拒绝安装</source>
+            <translation>В пакете компонента нет пригодного дайджеста SHA-256; установка отклонена</translation>
+        </message>
+        <message>
+            <source>组件包校验失败（摘要不一致），已保留原有状态</source>
+            <translation>Проверка пакета компонента не удалась (дайджест не совпал); прежнее состояние сохранено</translation>
+        </message>
+        <message>
+            <source>无法写入临时文件</source>
+            <translation>Не удалось записать временный файл</translation>
+        </message>
+        <message>
+            <source>无法读取临时文件</source>
+            <translation>Не удалось прочитать временный файл</translation>
+        </message>
+        <message>
+            <source>组件包不是有效的 zip：%1</source>
+            <translation>Пакет компонента не является корректным zip: %1</translation>
+        </message>
+        <message>
+            <source>组件包内容不完整（缺少 soleview-pano.exe 或 pano-version.txt）</source>
+            <translation>Пакет компонента неполон (нет soleview-pano.exe или pano-version.txt)</translation>
+        </message>
+        <message>
+            <source>组件包解压失败：%1</source>
+            <translation>Не удалось распаковать пакет компонента: %1</translation>
+        </message>
+        <message>
+            <source>组件包里的 soleview-pano.exe 不是有效的可执行文件</source>
+            <translation>soleview-pano.exe в пакете не является корректным исполняемым файлом</translation>
+        </message>
+        <message>
+            <source>组件版本 %1 与当前 SoleView %2 不兼容，已拒绝安装</source>
+            <translation>Версия компонента %1 несовместима с SoleView %2; установка отклонена</translation>
+        </message>
+        <message>
+            <source>安装目录不可写（%1）。请把 SoleView 装到有写权限的目录，或在安装向导里勾选该组件。</source>
+            <translation>Папка установки недоступна для записи (%1). Установите SoleView в папку с правами записи или отметьте компонент в установщике.</translation>
+        </message>
+        <message>
+            <source>组件写入失败（磁盘空间或权限不足）</source>
+            <translation>Не удалось записать компонент (место на диске или права)</translation>
+        </message>
+        <message>
+            <source>旧组件正在运行或被占用，已保留原有状态，请关闭全景窗口后重试</source>
+            <translation>Старый компонент запущен или используется; прежнее состояние сохранено. Закройте окно панорамы и повторите попытку</translation>
+        </message>
+        <message>
+            <source>旧组件正在运行或被占用，请先关闭全景窗口再重试</source>
+            <translation>Старый компонент запущен или используется; сначала закройте окно панорамы и повторите попытку</translation>
+        </message>
+        <message>
+            <source>组件文件改名失败，已保留原有状态</source>
+            <translation>Не удалось переименовать файл компонента; прежнее состояние сохранено</translation>
+        </message>
+        <message>
+            <source>组件正在运行或被占用：请先关闭所有 360° 全景窗口再卸载</source>
+            <translation>Компонент запущен или используется: перед удалением закройте все окна панорам 360°</translation>
+        </message>
+        <message>
+            <source>360° 全景查看器尚未安装</source>
+            <translation>Просмотрщик панорам 360° не установлен</translation>
+        </message>
+        <message>
+            <source>已安装的组件版本 %1 与当前 QuikView 不兼容，请在「设置 → 扩展」重新安装</source>
+            <translation>Установленная версия компонента %1 несовместима с QuikView; переустановите из «Настройки → Расширения»</translation>
+        </message>
+        <message>
+            <source>无法启动 360° 全景查看器（组件文件可能已被删除或阻止运行）</source>
+            <translation>Не удалось запустить просмотрщик панорам 360° (файл компонента удалён или заблокирован)</translation>
+        </message>
+    </context>
+    <context>
+        <name>PhotoFolderPanel</name>
+        <message>
+            <source>照片文件夹</source>
+            <translation>Папки для фото</translation>
+        </message>
+        <message>
+            <source>+ 添加文件夹</source>
+            <translation>+ Добавить папку</translation>
+        </message>
+        <message>
+            <source>可配置 1–20 个目标文件夹；Insert 复制到文件夹 1，Ctrl+Insert 移动到文件夹 1，Alt+P 开合本面板。</source>
+            <translation>Можно задать 1–20 папок назначения; Insert копирует в папку 1, Ctrl+Insert перемещает в папку 1, Alt+P открывает и закрывает эту панель.</translation>
+        </message>
+        <message>
+            <source>(%1 / %2)</source>
+            <translation>(%1 / %2)</translation>
+        </message>
+        <message>
+            <source>选择或输入文件夹 %1 路径…</source>
+            <translation>Выберите или введите путь папки %1…</translation>
+        </message>
+        <message>
+            <source>浏览文件夹</source>
+            <translation>Обзор папок</translation>
+        </message>
+        <message>
+            <source>选择图片文件夹 %1</source>
+            <translation>Выбрать папку изображений %1</translation>
+        </message>
+        <message>
+            <source>上移</source>
+            <translation>Вверх</translation>
+        </message>
+        <message>
+            <source>下移</source>
+            <translation>Вниз</translation>
+        </message>
+        <message>
+            <source>删除此行</source>
+            <translation>Удалить эту строку</translation>
+        </message>
+        <message>
+            <source>复制</source>
+            <translation>Копировать</translation>
+        </message>
+        <message>
+            <source>移动</source>
+            <translation>Переместить</translation>
+        </message>
+    </context>
+    <context>
+        <name>RenameDialog</name>
+        <message>
+            <source>重命名</source>
+            <translation>Переименовать</translation>
+        </message>
+        <message>
+            <source>仅当前文件</source>
+            <translation>Только текущий файл</translation>
+        </message>
+        <message>
+            <source>当前目录全部图片 (%1 张)</source>
+            <translation>Все изображения в текущей папке (%1)</translation>
+        </message>
+        <message>
+            <source>命名模板：</source>
+            <translation>Шаблон имени:</translation>
+        </message>
+        <message>
+            <source>例如：{name}_{index:03} 或 {date}_{index:03}</source>
+            <translation>Например: {name}_{index:03} или {date}_{index:03}</translation>
+        </message>
+        <message>
+            <source>起始序号：</source>
+            <translation>Начальный номер:</translation>
+        </message>
+        <message>
+            <source>保留原扩展名</source>
+            <translation>Сохранить исходное расширение</translation>
+        </message>
+        <message>
+            <source>插入变量：</source>
+            <translation>Вставить переменную:</translation>
+        </message>
+        <message>
+            <source>原文件名</source>
+            <translation>Исходное имя</translation>
+        </message>
+        <message>
+            <source>新文件名</source>
+            <translation>Новое имя</translation>
+        </message>
+        <message>
+            <source>状态</source>
+            <translation>Состояние</translation>
+        </message>
+        <message>
+            <source>执行重命名</source>
+            <translation>Выполнить переименование</translation>
+        </message>
+        <message>
+            <source>无变化</source>
+            <translation>Без изменений</translation>
+        </message>
+        <message>
+            <source>就绪</source>
+            <translation>Готово</translation>
+        </message>
+        <message>
+            <source>发现 %1 处冲突，已阻止整批执行</source>
+            <translation>Найдено конфликтов: %1; весь пакет заблокирован</translation>
+        </message>
+        <message>
+            <source>共 %1 项，当前无文件名变更</source>
+            <translation>Всего %1, имена файлов не меняются</translation>
+        </message>
+        <message>
+            <source>共 %1 项，将重命名 %2 项</source>
+            <translation>Всего %1, будет переименовано %2</translation>
+        </message>
+    </context>
+    <context>
+        <name>PanoWindow</name>
+        <message>
+            <source>360° 全景 — %1</source>
+            <translation>Панорама 360° — %1</translation>
+        </message>
+        <message>
+            <source>重置视角</source>
+            <translation>Сбросить вид</translation>
+        </message>
+        <message>
+            <source>回到图片标记的初始方向与初始视野（R）</source>
+            <translation>Вернуться к исходному направлению и исходному полю зрения изображения (R)</translation>
+        </message>
+        <message>
+            <source>拖动转视角 · 滚轮调整视野 · 双击重置 · Esc 退出</source>
+            <translation>Перетаскивание — обзор · колесо — поле зрения · двойной щелчок — сброс · Esc — выход</translation>
+        </message>
+        <message>
+            <source>视野 %1°</source>
+            <translation>Поле зрения %1°</translation>
         </message>
     </context>
 </TS>

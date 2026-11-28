@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <TS version="2.1" language="ja_JP" sourcelanguage="zh_CN">
-    <context>
+        <context>
         <name>AppMenu</name>
         <message>
             <source>下一张</source>
@@ -327,7 +327,7 @@
             <translation>元データを表示</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>BatchConvertDialog</name>
         <message>
             <source>图片转换</source>
@@ -474,7 +474,7 @@
             <translation>（%1 件失敗）</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>ControlBar</name>
         <message>
             <source>底部控制栏</source>
@@ -556,8 +556,68 @@
             <source>%1 / %2</source>
             <translation>%1 / %2</translation>
         </message>
+        <message>
+            <source>打开、缩略图、缩放、旋转、全屏、上一张、进度、下一张、锁定与更多</source>
+            <translation>開く、フィルムストリップ、ズーム、回転、フルスクリーン、前へ、進度、次へ、ロックとその他</translation>
+        </message>
+        <message>
+            <source>分组方式</source>
+            <translation>グループ化</translation>
+        </message>
+        <message>
+            <source>图片总览</source>
+            <translation>画像一覧</translation>
+        </message>
+        <message>
+            <source>更多命令</source>
+            <translation>その他のコマンド</translation>
+        </message>
+        <message>
+            <source>动画播放控制栏</source>
+            <translation>アニメーション再生バー</translation>
+        </message>
+        <message>
+            <source>首帧、上一帧、播放暂停、下一帧、末帧、复制当前帧与帧进度滑条</source>
+            <translation>先頭フレーム、前のフレーム、再生/一時停止、次のフレーム、最終フレーム、現在のフレームをコピー、フレーム進行スライダー</translation>
+        </message>
+        <message>
+            <source>首帧</source>
+            <translation>先頭フレーム</translation>
+        </message>
+        <message>
+            <source>首帧（帧数未知）</source>
+            <translation>先頭フレーム（フレーム数不明）</translation>
+        </message>
+        <message>
+            <source>暂停</source>
+            <translation>一時停止</translation>
+        </message>
+        <message>
+            <source>播放</source>
+            <translation>再生</translation>
+        </message>
+        <message>
+            <source>末帧</source>
+            <translation>最終フレーム</translation>
+        </message>
+        <message>
+            <source>末帧（帧数未知）</source>
+            <translation>最終フレーム（フレーム数不明）</translation>
+        </message>
+        <message>
+            <source>复制当前帧</source>
+            <translation>現在のフレームをコピー</translation>
+        </message>
+        <message>
+            <source>帧进度：拖动定位到帧</source>
+            <translation>フレーム進行：ドラッグして移動</translation>
+        </message>
+        <message>
+            <source>帧进度：帧数未知</source>
+            <translation>フレーム進行：フレーム数不明</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>DirectoryLoader</name>
         <message>
             <source>常用图片</source>
@@ -600,7 +660,7 @@
             <translation>アーカイブ内に表示できる画像がありません</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>EmptyState</name>
         <message>
             <source>开始查看图片</source>
@@ -630,8 +690,12 @@
             <source>设置</source>
             <translation>設定</translation>
         </message>
+        <message>
+            <source>把图片拖到这里，或点「打开」选择图片或文件夹</source>
+            <translation>ここに画像をドラッグするか、「開く」を押して画像またはフォルダーを選択します</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>ExifParser</name>
         <message>
             <source>1/%1 秒</source>
@@ -642,7 +706,7 @@
             <translation>%1 秒</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>GammaDialog</name>
         <message>
             <source>Gamma 补偿</source>
@@ -665,7 +729,7 @@
             <translation>OK</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>HeifLoader</name>
         <message>
             <source>libheif 上下文分配失败</source>
@@ -691,15 +755,27 @@
             <source>libheif 图像尺寸无效</source>
             <translation>libheif 画像サイズが不正です</translation>
         </message>
+        <message>
+            <source>libheif 图像尺寸超出限制</source>
+            <translation>libheif の画像サイズが上限を超えています</translation>
+        </message>
+        <message>
+            <source>libheif 图像尺寸或行距无效</source>
+            <translation>libheif の画像サイズまたは行幅が不正です</translation>
+        </message>
+        <message>
+            <source>当前构建未启用 libheif，无法解码 HEIC/AVIF</source>
+            <translation>このビルドは libheif を有効にしていないため、HEIC/AVIF をデコードできません</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>ImageCache</name>
         <message>
             <source>无法解码</source>
             <translation>デコードできません</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>KeySeqStateFilter</name>
         <message>
             <source>按下组合键…</source>
@@ -710,7 +786,7 @@
             <translation>未設定</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>LayerPanel</name>
         <message>
             <source>图层</source>
@@ -769,7 +845,7 @@
             <translation>このレイヤーは単独でプレビューできません</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>MainWindow</name>
         <message>
             <source>未打开图片</source>
@@ -1655,8 +1731,332 @@
             <source>&lt;h3&gt;SoleView&lt;/h3&gt;&lt;p&gt;版本 %1&lt;/p&gt;&lt;p&gt;MIT 许可证开源，零遥测、零推广。&lt;/p&gt;&lt;p&gt;官网：&lt;a href="https://xdst2.github.io/soleview/"&gt;https://xdst2.github.io/soleview/&lt;/a&gt;&lt;br&gt;GitHub：&lt;a href="https://github.com/xdsT2/soleview"&gt;https://github.com/xdsT2/soleview&lt;/a&gt;&lt;br&gt;QQ 交流群：1134122173&lt;/p&gt;</source>
             <translation>&lt;h3&gt;SoleView&lt;/h3&gt;&lt;p&gt;バージョン %1&lt;/p&gt;&lt;p&gt;MIT ライセンスで公開、テレメトリや広告はありません。&lt;/p&gt;&lt;p&gt;公式サイト: &lt;a href="https://xdst2.github.io/soleview/"&gt;https://xdst2.github.io/soleview/&lt;/a&gt;&lt;br&gt;GitHub: &lt;a href="https://github.com/xdsT2/soleview"&gt;https://github.com/xdsT2/soleview&lt;/a&gt;&lt;br&gt;QQ グループ: 1134122173&lt;/p&gt;</translation>
         </message>
+        <message>
+            <source>拖入图片或 Ctrl+O 打开</source>
+            <translation>画像をここにドラッグするか Ctrl+O で開く</translation>
+        </message>
+        <message>
+            <source>文件(&amp;F)</source>
+            <translation>ファイル(&amp;F)</translation>
+        </message>
+        <message>
+            <source>视图(&amp;V)</source>
+            <translation>表示(&amp;V)</translation>
+        </message>
+        <message>
+            <source>适配窗口(&amp;F)</source>
+            <translation>ウィンドウに合わせる(&amp;F)</translation>
+        </message>
+        <message>
+            <source>实际大小(&amp;1)</source>
+            <translation>実際のサイズ(&amp;1)</translation>
+        </message>
+        <message>
+            <source>幻灯片(&amp;S)</source>
+            <translation>スライドショー(&amp;S)</translation>
+        </message>
+        <message>
+            <source>工具(&amp;T)</source>
+            <translation>ツール(&amp;T)</translation>
+        </message>
+        <message>
+            <source>设为壁纸(&amp;W)</source>
+            <translation>壁紙に設定(&amp;W)</translation>
+        </message>
+        <message>
+            <source>加载中… %1</source>
+            <translation>読み込み中… %1</translation>
+        </message>
+        <message>
+            <source>无法打开：%1（%2）</source>
+            <translation>開けません：%1（%2）</translation>
+        </message>
+        <message>
+            <source>%1 x %2 · %3 / %4 · %5</source>
+            <translation>%1 x %2 · %3 / %4 · %5</translation>
+        </message>
+        <message>
+            <source>%1 x %2 · %3</source>
+            <translation>%1 x %2 · %3</translation>
+        </message>
+        <message>
+            <source>图片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有文件 (*)</source>
+            <translation>画像 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;すべてのファイル (*)</translation>
+        </message>
+        <message>
+            <source>无法读取压缩包：%1</source>
+            <translation>アーカイブを読み取れません：%1</translation>
+        </message>
+        <message>
+            <source>压缩包内文件暂不支持此操作</source>
+            <translation>アーカイブ内のファイルではこの操作はまだできません</translation>
+        </message>
+        <message>
+            <source>当前没有可浏览的图片</source>
+            <translation>表示できる画像がありません</translation>
+        </message>
+        <message>
+            <source>分组方式…</source>
+            <translation>グループ化…</translation>
+        </message>
+        <message>
+            <source>当前倍率 %1</source>
+            <translation>ズーム %1</translation>
+        </message>
+        <message>
+            <source>全屏 / 还原</source>
+            <translation>フルスクリーン / 元に戻す</translation>
+        </message>
+        <message>
+            <source>退出无边框查看</source>
+            <translation>ボーダーレス表示を終了</translation>
+        </message>
+        <message>
+            <source>无边框查看</source>
+            <translation>ボーダーレス表示</translation>
+        </message>
+        <message>
+            <source>第 %1 / %2 张</source>
+            <translation>%1 / %2</translation>
+        </message>
+        <message>
+            <source>当前未打开图片</source>
+            <translation>画像を開いていません</translation>
+        </message>
+        <message>
+            <source>跳转…</source>
+            <translation>移動…</translation>
+        </message>
+        <message>
+            <source>重命名…</source>
+            <translation>名前を変更…</translation>
+        </message>
+        <message>
+            <source>照片文件夹面板…</source>
+            <translation>写真フォルダーパネル…</translation>
+        </message>
+        <message>
+            <source>请先在「设置 → 浏览」中配置图片文件夹</source>
+            <translation>先に「設定 → 表示」で画像フォルダーを設定してください</translation>
+        </message>
+        <message>
+            <source>当前没有打开的图片</source>
+            <translation>開いている画像がありません</translation>
+        </message>
+        <message>
+            <source>图片文件夹不存在或不完整：%1</source>
+            <translation>画像フォルダーが存在しないか不完全です：%1</translation>
+        </message>
+        <message>
+            <source>复制到 %1 (%2)</source>
+            <translation>%1 にコピー (%2)</translation>
+        </message>
+        <message>
+            <source>移动到 %1 (%2)</source>
+            <translation>%1 に移動 (%2)</translation>
+        </message>
+        <message>
+            <source>显示鸟瞰图</source>
+            <translation>全体表示を表示</translation>
+        </message>
+        <message>
+            <source>退出无边框</source>
+            <translation>ボーダーレスを終了</translation>
+        </message>
+        <message>
+            <source>无边框模式</source>
+            <translation>ボーダーレスモード</translation>
+        </message>
+        <message>
+            <source>360° 查看</source>
+            <translation>360° で表示</translation>
+        </message>
+        <message>
+            <source>尝试以 360° 查看</source>
+            <translation>360° 表示を試す</translation>
+        </message>
+        <message>
+            <source>%1（当前文件夹 %2 张）</source>
+            <translation>%1（現在のフォルダー %2 枚）</translation>
+        </message>
+        <message>
+            <source>当前图片已在外部被删除</source>
+            <translation>現在の画像は外部で削除されました</translation>
+        </message>
+        <message>
+            <source>当前图片不是可用的 360° 全景图</source>
+            <translation>現在の画像は使用可能な 360° パノラマではありません</translation>
+        </message>
+        <message>
+            <source>360° 全景查看器未安装，已定位到「设置 → 扩展」</source>
+            <translation>360° パノラマビューアーがインストールされていないため、「設定 → 拡張機能」を開きました</translation>
+        </message>
+        <message>
+            <source>已经是最后一张图片。要转到第一张继续吗？</source>
+            <translation>最後の画像です。先頭から続けますか？</translation>
+        </message>
+        <message>
+            <source>已经是第一张图片。要转到最后一张继续吗？</source>
+            <translation>最初の画像です。最後から続けますか？</translation>
+        </message>
+        <message>
+            <source>继续(&amp;C)</source>
+            <translation>続ける</translation>
+        </message>
+        <message>
+            <source>停止(&amp;S)</source>
+            <translation>停止</translation>
+        </message>
+        <message>
+            <source>还没有书签。在查看器里按 B，可把当前图片加为书签。</source>
+            <translation>ブックマークはまだありません。ビューアーで B を押すと現在の画像をブックマークできます。</translation>
+        </message>
+        <message>
+            <source>改动即时保存</source>
+            <translation>変更はすぐに保存されます</translation>
+        </message>
+        <message>
+            <source>共 %1 条</source>
+            <translation>全 %1 件</translation>
+        </message>
+        <message>
+            <source>打开图片或文件夹</source>
+            <translation>画像またはフォルダーを開く</translation>
+        </message>
+        <message>
+            <source>打开当前所在文件夹（或列表中选中的子文件夹）里的第一张图片</source>
+            <translation>現在のフォルダー（またはリストで選択したサブフォルダー）の最初の画像を開く</translation>
+        </message>
+        <message>
+            <source>该文件夹没有可识别的图片：%1</source>
+            <translation>このフォルダーに認識できる画像がありません：%1</translation>
+        </message>
+        <message>
+            <source>压缩包内图片不支持重命名</source>
+            <translation>圧縮ファイル内の画像は名前を変更できません</translation>
+        </message>
+        <message>
+            <source>已重命名 %1 个文件</source>
+            <translation>%1 件のファイル名を変更しました</translation>
+        </message>
+        <message>
+            <source>图片文件夹 %1 未配置或不存在</source>
+            <translation>画像フォルダー %1 が未設定か存在しません</translation>
+        </message>
+        <message>
+            <source>当前图片不是多帧图片</source>
+            <translation>現在の画像は 1 フレームのみです</translation>
+        </message>
+        <message>
+            <source>复制当前帧失败</source>
+            <translation>現在のフレームをコピーできませんでした</translation>
+        </message>
+        <message>
+            <source>已复制当前帧 · 第 %1/%2 帧</source>
+            <translation>現在のフレームをコピーしました · %1/%2 フレーム</translation>
+        </message>
+        <message>
+            <source>已复制当前帧</source>
+            <translation>現在のフレームをコピーしました</translation>
+        </message>
+        <message>
+            <source>图片保存到临时目录失败</source>
+            <translation>画像を一時フォルダーに保存できませんでした</translation>
+        </message>
+        <message>
+            <source>剪贴板中的图片无法解码</source>
+            <translation>クリップボードの画像をデコードできません</translation>
+        </message>
+        <message>
+            <source>模拟失败：运行态拒绝本次即时应用（验收注入）。</source>
+            <translation>シミュレーション失敗：実行時に今回の即時適用を拒否しました（検収用注入）。</translation>
+        </message>
+        <message>
+            <source>通知已改到右下角</source>
+            <translation>通知を右下に移動しました</translation>
+        </message>
+        <message>
+            <source>通知已改到顶部居中</source>
+            <translation>通知を上部中央に移動しました</translation>
+        </message>
+        <message>
+            <source>已禁用屏幕保护（退出后自动恢复）</source>
+            <translation>スクリーンセーバーを無効にしました（終了時に自動で戻ります）</translation>
+        </message>
+        <message>
+            <source>已恢复屏幕保护</source>
+            <translation>スクリーンセーバーを元に戻しました</translation>
+        </message>
+        <message>
+            <source>已按图片大小调整窗口</source>
+            <translation>画像のサイズに合わせてウィンドウを調整しました</translation>
+        </message>
+        <message>
+            <source>已关闭按图调窗，窗口尺寸不再自动变化</source>
+            <translation>画像に合わせたウィンドウ調整はオフです。ウィンドウサイズは自動で変わらなくなります</translation>
+        </message>
+        <message>
+            <source>已开启 RAW 内嵌缩略图（下次打开 RAW 生效）</source>
+            <translation>RAW の埋め込みサムネイルを有効にしました（次回 RAW を開いたときから有効）</translation>
+        </message>
+        <message>
+            <source>已关闭 RAW 内嵌缩略图（下次打开 RAW 生效）</source>
+            <translation>RAW の埋め込みサムネイルを無効にしました（次回 RAW を開いたときから有効）</translation>
+        </message>
+        <message>
+            <source>已开启翻页音效：翻页与幻灯片切页会响一声</source>
+            <translation>ページ送り効果音をオンにしました：ページ送りとスライド切り替えで音が鳴ります</translation>
+        </message>
+        <message>
+            <source>已关闭翻页音效：翻页将静音</source>
+            <translation>ページ送り効果音をオフにしました：ページ送りは無音になります</translation>
+        </message>
+        <message>
+            <source>已禁止打开 RAW：再打开 .nef/.cr2/.dng 会提示「已在设置中禁用 RAW 解码」</source>
+            <translation>RAW を開くのを禁止しました：.nef/.cr2/.dng を開くと「設定で RAW デコードが無効です」と表示します</translation>
+        </message>
+        <message>
+            <source>已允许打开 RAW：下次打开 RAW 走正常解码</source>
+            <translation>RAW を開くのを許可しました：次回 RAW を開くと通常どおりデコードします</translation>
+        </message>
+        <message>
+            <source>已保存同名 RAW 过滤设置：当前没有打开的文件夹，下次打开时生效</source>
+            <translation>同名 RAW のフィルター設定を保存しました：開いているフォルダーがないため、次回開いたときに有効になります</translation>
+        </message>
+        <message>
+            <source>正在扫描当前文件夹，完成后按新设置刷新列表</source>
+            <translation>現在のフォルダーをスキャン中です。完了後に新しい設定で一覧を更新します</translation>
+        </message>
+        <message>
+            <source>已按新设置重扫：同名 RAW 不再带进列表</source>
+            <translation>新しい設定で再スキャンしました：同名 RAW は一覧に含まれません</translation>
+        </message>
+        <message>
+            <source>已按新设置重扫：同名 RAW 重新带进列表</source>
+            <translation>新しい設定で再スキャンしました：同名 RAW を再び一覧に含めます</translation>
+        </message>
+        <message>
+            <source>未知的插值档位：%1</source>
+            <translation>不明な補間レベル：%1</translation>
+        </message>
+        <message>
+            <source>已开启缓存下一张：正在预读相邻图片</source>
+            <translation>次の画像のキャッシュをオンにしました：隣接画像を先読みしています</translation>
+        </message>
+        <message>
+            <source>已关闭缓存下一张：不再预读相邻图片（已缓存的图保留）</source>
+            <translation>次の画像のキャッシュをオフにしました：先読みを停止します（キャッシュ済みの画像は残ります）</translation>
+        </message>
+        <message>
+            <source>缓存上限已改为 %1 MB（当前已用 %2 MB）</source>
+            <translation>キャッシュ上限を %1 MB に変更しました（現在 %2 MB 使用）</translation>
+        </message>
+        <message>
+            <source>该 PSD 未保存兼容性预览；请在 Photoshop「首选项 → 文件处理」勾选</source>
+            <translation>この PSD には互換性プレビューがありません。Photoshop の「環境設定 → ファイル処理」で有効にしてください</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>MetadataPanel</name>
         <message>
             <source>相机制造商</source>
@@ -1806,8 +2206,48 @@
             <source>%1 × %2 cm</source>
             <translation>%1 × %2 cm</translation>
         </message>
+        <message>
+            <source>信息</source>
+            <translation>情報</translation>
+        </message>
+        <message>
+            <source>文件</source>
+            <translation>ファイル</translation>
+        </message>
+        <message>
+            <source>路径</source>
+            <translation>パス</translation>
+        </message>
+        <message>
+            <source>大小</source>
+            <translation>サイズ</translation>
+        </message>
+        <message>
+            <source>修改时间</source>
+            <translation>更新日時</translation>
+        </message>
+        <message>
+            <source>图像</source>
+            <translation>画像</translation>
+        </message>
+        <message>
+            <source>尺寸</source>
+            <translation>寸法</translation>
+        </message>
+        <message>
+            <source>%1 x %2</source>
+            <translation>%1 x %2</translation>
+        </message>
+        <message>
+            <source>格式</source>
+            <translation>形式</translation>
+        </message>
+        <message>
+            <source>EXIF</source>
+            <translation>EXIF</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>PsdLoader</name>
         <message>
             <source>无法打开 PSD 文件</source>
@@ -1889,8 +2329,20 @@
             <source>图像数据不完整（文件可能被截断或写入中断）</source>
             <translation>画像データが不完全です（ファイルが切り詰められているか、書き込みが中断された可能性があります）</translation>
         </message>
+        <message>
+            <source>PSD 画布尺寸异常或超出限制</source>
+            <translation>PSD のキャンバスサイズが不正か上限を超えています</translation>
+        </message>
+        <message>
+            <source>不支持的 PSD 位深（%1 bit）</source>
+            <translation>未対応の PSD ビット深度（%1 bit）</translation>
+        </message>
+        <message>
+            <source>不支持的 PSD 通道数（%1）</source>
+            <translation>未対応の PSD チャンネル数（%1）</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>QObject</name>
         <message>
             <source>打开</source>
@@ -2009,7 +2461,7 @@
             <translation>ダウンロードへ</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>RawImageLoader</name>
         <message>
             <source>libraw 打开失败</source>
@@ -2031,8 +2483,16 @@
             <source>不支持的位深 %1</source>
             <translation>未対応のビット深度 %1</translation>
         </message>
+        <message>
+            <source>不支持的 RAW 图像参数（colors=%1, bits=%2）</source>
+            <translation>未対応の RAW 画像パラメーター（colors=%1, bits=%2）</translation>
+        </message>
+        <message>
+            <source>当前构建未启用 libraw，无法解码 RAW</source>
+            <translation>このビルドは libraw を有効にしていないため、RAW をデコードできません</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>SettingsDialog</name>
         <message>
             <source>选择后立即切换界面语言并写入配置</source>
@@ -3706,8 +4166,444 @@ https://github.com/xdsT2/soleview</translation>
             <source>官网与 GitHub 在默认浏览器中打开；点击 QQ 交流群号可复制到剪贴板。</source>
             <translation>公式サイトと GitHub は既定のブラウザーで開きます。QQ グループ番号をクリックするとクリップボードにコピーされます。</translation>
         </message>
+        <message>
+            <source>打开（备用键）</source>
+            <translation>開く（代替キー）</translation>
+        </message>
+        <message>
+            <source>启动</source>
+            <translation>起動</translation>
+        </message>
+        <message>
+            <source>启动时恢复上次查看的图片</source>
+            <translation>起動時に前回表示した画像を復元</translation>
+        </message>
+        <message>
+            <source>通过文件直接启动时，以选中的文件为准；下次启动生效</source>
+            <translation>ファイルを指定して起動した場合はそのファイルを優先します。次回起動から有効</translation>
+        </message>
+        <message>
+            <source>「询问」在翻到边界时弹确认；单图目录直接停住，不弹框</source>
+            <translation>「確認」は端で確認を表示します。1 枚だけのフォルダーでは確認なしで停止します</translation>
+        </message>
+        <message>
+            <source>「转到首个文件」在末尾继续时回绕到首个；「停止」停在当前图片；「询问」弹确认框，确认后从另一端继续，取消留在当前图片。</source>
+            <translation>「最初のファイル」は末尾で先頭に戻ります。「停止」は現在の画像で止まります。「確認」はダイアログを表示し、OK で反対側から続行、キャンセルで現在の画像に留まります。</translation>
+        </message>
+        <message>
+            <source>只对「换到另一张图」生效：翻到下一张、缩略图跳转、幻灯片切页</source>
+            <translation>「別の画像に切り替える」ときだけ有効：次の画像、サムネイルからのジャンプ、スライド切り替え</translation>
+        </message>
+        <message>
+            <source>翻页时播放音效；关闭后静音</source>
+            <translation>ページ送り時に効果音を再生します。オフで無音</translation>
+        </message>
+        <message>
+            <source>翻页音效仅在单张翻页与幻灯片切页时播放</source>
+            <translation>ページ送り効果音は 1 枚ずつのページ送りとスライド切り替え時のみ鳴ります</translation>
+        </message>
+        <message>
+            <source>下次打开这张图时恢复；当前画面不变</source>
+            <translation>次回この画像を開いたときに復元します。現在の表示は変わりません</translation>
+        </message>
+        <message>
+            <source>适配宽度／实际大小下、图片高于窗口时生效</source>
+            <translation>幅に合わせる／実寸表示で、画像がウィンドウより高い場合に有効</translation>
+        </message>
+        <message>
+            <source>输入或选择文件夹后立即生效，无需保存；留空表示不使用该文件夹</source>
+            <translation>フォルダーを入力または選択するとすぐに有効になります（保存不要）。空欄は未使用</translation>
+        </message>
+        <message>
+            <source>选好文件夹后立即生效，并马上用于本页「打开」与菜单动作</source>
+            <translation>フォルダーを選ぶとすぐに有効になり、このページの「開く」とメニュー操作ですぐに使われます</translation>
+        </message>
+        <message>
+            <source>用当前已生效的路径打开所在文件夹</source>
+            <translation>現在有効なパスで格納フォルダーを開く</translation>
+        </message>
+        <message>
+            <source>未设置：复制到 / 移动到「图片文件夹 1」的动作不会执行。</source>
+            <translation>未設定：「画像フォルダー 1」へのコピー／移動は実行されません。</translation>
+        </message>
+        <message>
+            <source>已取消选择，路径没有改动：%1</source>
+            <translation>選択をキャンセルしました。パスは変更されていません：%1</translation>
+        </message>
+        <message>
+            <source>（仍为未设置）</source>
+            <translation>（未設定のまま）</translation>
+        </message>
+        <message>
+            <source>翻页不追加</source>
+            <translation>ページ送りで追加しない</translation>
+        </message>
+        <message>
+            <source>文件移动或重命名后原条目失效；书签只存本机配置，不随安装包或账户同步。</source>
+            <translation>ファイルを移動・名前変更するとブックマークは無効になります。ブックマークはローカル設定にのみ保存され、インストーラーやアカウントとは同期しません。</translation>
+        </message>
+        <message>
+            <source>跟随系统时由 Windows 深浅色设置决定</source>
+            <translation>「システムに従う」では Windows のライト／ダーク設定で決まります</translation>
+        </message>
+        <message>
+            <source>仅作用于右键菜单与信息浮层；Windows 11 效果最佳</source>
+            <translation>右クリックメニューと情報オーバーレイにのみ作用します。Windows 11 で最適</translation>
+        </message>
+        <message>
+            <source>隐藏顶端菜单时按 Shift+Tab 显隐</source>
+            <translation>上部メニューを隠しているときは Shift+Tab で表示／非表示</translation>
+        </message>
+        <message>
+            <source>铺满整个画布视口，颜色随深浅主题自动变化，切换主题即时生效</source>
+            <translation>キャンバス表示領域全体を塗り、ライト／ダークテーマに追従して即座に切り替わります</translation>
+        </message>
+        <message>
+            <source>关闭后透明像素直接透出画布背景</source>
+            <translation>オフの場合、透明部分はキャンバスの背景がそのまま見えます</translation>
+        </message>
+        <message>
+            <source>棋盘格固定在屏幕坐标，不随图片缩放和平移</source>
+            <translation>市松模様は画面座標に固定され、ズームや移動に追従しません</translation>
+        </message>
+        <message>
+            <source>GIF 透明背景</source>
+            <translation>GIF の透明背景</translation>
+        </message>
+        <message>
+            <source>默认调色板</source>
+            <translation>既定のパレット</translation>
+        </message>
+        <message>
+            <source>白色</source>
+            <translation>白</translation>
+        </message>
+        <message>
+            <source>黑色</source>
+            <translation>黒</translation>
+        </message>
+        <message>
+            <source>中灰背景</source>
+            <translation>中間グレー</translation>
+        </message>
+        <message>
+            <source>自定义颜色</source>
+            <translation>カスタム色</translation>
+        </message>
+        <message>
+            <source>只影响 GIF 显示铺底；源文件、复制与导出保持原透明信息</source>
+            <translation>GIF の下地表示にのみ作用します。元ファイル、コピー、書き出しは元の透過情報を保ちます</translation>
+        </message>
+        <message>
+            <source>点击选择 GIF 透明区域的铺底颜色，选色即时重绘当前 GIF</source>
+            <translation>クリックして GIF 透過部分の下地色を選択します。選ぶと現在の GIF をすぐに再描画します</translation>
+        </message>
+        <message>
+            <source>Lanczos 且缩小到 100% 以下时生效</source>
+            <translation>Lanczos で 100% 未満に縮小するときに有効</translation>
+        </message>
+        <message>
+            <source>开启时大图先按视口尺寸出一张快帧，随后替换为清晰全图；关闭后直接等全图上屏</source>
+            <translation>オンの場合、大きな画像はまず表示領域サイズの速いフレームを表示し、その後くっきりした全体画像に置き換えます。オフの場合は全体画像を待ちます</translation>
+        </message>
+        <message>
+            <source>拦的是「打开」这一步：翻到 RAW 时同样给这条提示，不显示也不解码</source>
+            <translation>「開く」段階を止めます。RAW に移動したときも同じヒントを表示し、表示もデコードもしません</translation>
+        </message>
+        <message>
+            <source>只影响打开 JPEG 时是否带出同目录同名 RAW；直接打开 RAW 时列表照旧全带</source>
+            <translation>JPEG を開くときに同じフォルダーの同名 RAW を一緒に開くかだけに作用します。RAW を直接開くときは従来どおりすべて並びます</translation>
+        </message>
+        <message>
+            <source>切换后立即重扫当前文件夹，不用重新打开目录</source>
+            <translation>切り替えると現在のフォルダーをすぐに再スキャンします。フォルダーを開き直す必要はありません</translation>
+        </message>
+        <message>
+            <source>SDR 验证版：显示出口把 sRGB 转到当前屏幕关联配置；已开 Windows 自动颜色管理的屏幕跳过，跨屏自动重估</source>
+            <translation>SDR 検証版：出力時に sRGB を現在の画面に関連付けられたプロファイルへ変換します。Windows の自動色管理が有効な画面はスキップし、画面をまたぐと再評価します</translation>
+        </message>
+        <message>
+            <source>无有效配置或转换失败时保持 sRGB 显示，原因见临时目录日志</source>
+            <translation>有効なプロファイルがない場合や変換に失敗した場合は sRGB のまま表示します。理由は一時フォルダーのログを参照してください</translation>
+        </message>
+        <message>
+            <source>单击手势不支持拖拽平移；拖动请在「中键拖动」单独设置</source>
+            <translation>クリック操作ではドラッグ移動できません。ドラッグは「中ボタンのドラッグ」で別に設定してください</translation>
+        </message>
+        <message>
+            <source>拖动手势仅支持「无操作 / 拖拽平移」；点击动作请在「中键单击」单独设置</source>
+            <translation>ドラッグ操作は「なし／ドラッグ移動」のみ対応です。クリック動作は「中ボタンのクリック」で別に設定してください</translation>
+        </message>
+        <message>
+            <source>滚轮仅支持「无操作 / 放大 / 缩小 / 翻下一张 / 翻上一张」；单向选「无」只停用该方向</source>
+            <translation>ホイールは「なし／拡大／縮小／次の画像／前の画像」のみ対応です。片方向で「なし」を選ぶとその方向だけ無効になります</translation>
+        </message>
+        <message>
+            <source>「无」保留内置行为：左键拖拽平移、边缘单击翻页、右键菜单。中键单击与拖动分别设置（默认单击全屏、拖动平移）；滚轮上下独立生效，单向选「无」只停用该方向。映射在下次触发该按键时生效。</source>
+            <translation>「なし」は組み込みの動作を保ちます：左ドラッグで移動、端のクリックでページ送り、右クリックでメニュー。中ボタンのクリックとドラッグは別々に設定します（既定はクリックでフルスクリーン、ドラッグで移動）。ホイールは上下それぞれ独立して働き、「なし」はその方向だけ無効にします。設定は次にそのボタンを使ったときから有効です。</translation>
+        </message>
+        <message>
+            <source>可选组件</source>
+            <translation>オプションコンポーネント</translation>
+        </message>
+        <message>
+            <source>360° 全景查看器</source>
+            <translation>360° パノラマビューアー</translation>
+        </message>
+        <message>
+            <source>把等距柱状全景图渲染成可拖动的球形视图，独立进程运行；组件缺失时普通看图不受影响。</source>
+            <translation>正距円筒パノラマをドラッグできる球体表示として別プロセスで描画します。コンポーネントがない場合も通常の閲覧には影響しません。</translation>
+        </message>
+        <message>
+            <source>组件下载进度</source>
+            <translation>コンポーネントのダウンロード進行状況</translation>
+        </message>
+        <message>
+            <source>安装</source>
+            <translation>インストール</translation>
+        </message>
+        <message>
+            <source>360° 全景查看器：安装</source>
+            <translation>360° パノラマビューアー：インストール</translation>
+        </message>
+        <message>
+            <source>首版范围为本地已拼好的 360°×180° 等距柱状 JPG：带完整 GPano 标记的图在主窗给出「360° 查看」入口，2:1 宽图只在右键提供「尝试以 360° 查看」。局部裁切、其它投影与相片拼接不在本版。</source>
+            <translation>初版の対象はローカルで合成済みの 360°×180° 正距円筒 JPG です。完全な GPano 情報がある画像はメインウィンドウに「360° で表示」を出し、2:1 の画像は右クリックの「360° 表示を試す」のみです。部分切り抜き、他の投影方式、写真のスティッチは対象外です。</translation>
+        </message>
+        <message>
+            <source>组件信息</source>
+            <translation>コンポーネント情報</translation>
+        </message>
+        <message>
+            <source>安装位置</source>
+            <translation>インストール先</translation>
+        </message>
+        <message>
+            <source>下载源</source>
+            <translation>ダウンロード元</translation>
+        </message>
+        <message>
+            <source>组件包地址</source>
+            <translation>コンポーネントパッケージの URL</translation>
+        </message>
+        <message>
+            <source>未配置</source>
+            <translation>未設定</translation>
+        </message>
+        <message>
+            <source>受控下载入口：用户不需要访问代码托管站点。安装包自带组件时无需下载；未配置地址可运行安装包勾选该组件，或在 config.ini 写入 config/ext/pano_source（支持 http(s) 与本地 file:// 测试源）。</source>
+            <translation>制御されたダウンロード入口：ユーザーがコードホスティングサイトへ行く必要はありません。インストーラーにコンポーネントが同梱されている場合はダウンロード不要です。URL がない場合はインストーラーを実行してコンポーネントにチェックするか、config.ini に config/ext/pano_source を書き込みます（http(s) とローカルの file:// テスト元に対応）。</translation>
+        </message>
+        <message>
+            <source>下载包须带同址 .sha256 摘要，校验通过才落盘；取消、断网、摘要不符都保留原有可用状态。卸载只删组件自身文件，不碰主程序与设置。</source>
+            <translation>ダウンロードには同じ場所の .sha256 ダイジェストが必要で、検証に通ってから保存します。キャンセル、切断、ダイジェスト不一致のいずれも以前の使用可能な状態を保ちます。アンインストールはコンポーネント自身のファイルだけを削除し、本体や設定には触れません。</translation>
+        </message>
+        <message>
+            <source>SoleView</source>
+            <translation>SoleView</translation>
+        </message>
+        <message>
+            <source>GitHub</source>
+            <translation>GitHub</translation>
+        </message>
+        <message>
+            <source>安装中 %1%</source>
+            <translation>インストール中 %1%</translation>
+        </message>
+        <message>
+            <source>正在连接下载源</source>
+            <translation>ダウンロード元に接続しています</translation>
+        </message>
+        <message>
+            <source>已安装 %1</source>
+            <translation>%1 をインストール済み</translation>
+        </message>
+        <message>
+            <source>已安装 %1（版本不兼容）</source>
+            <translation>%1 をインストール済み（バージョン非互換）</translation>
+        </message>
+        <message>
+            <source>卸载</source>
+            <translation>アンインストール</translation>
+        </message>
+        <message>
+            <source>安装失败</source>
+            <translation>インストールに失敗しました</translation>
+        </message>
+        <message>
+            <source>重试</source>
+            <translation>再試行</translation>
+        </message>
+        <message>
+            <source>上次操作没有完成：%1</source>
+            <translation>前回の操作が完了していません：%1</translation>
+        </message>
+        <message>
+            <source>组件文件位于 %1，与安装向导勾选安装共用同一份状态；主程序升级保留已安装的兼容组件，不会替未安装的用户安装。</source>
+            <translation>コンポーネントのファイルは %1 にあり、インストーラーのチェックと状態を共有します。本体の更新ではインストール済みの互換コンポーネントを保持し、未インストールのユーザーに勝手にインストールすることはありません。</translation>
+        </message>
+        <message>
+            <source>正在获取组件包：校验通过后才写入 %1。</source>
+            <translation>コンポーネントパッケージを取得しています。検証に通ってから %1 に書き込みます。</translation>
+        </message>
+        <message>
+            <source>尚未安装。安装向导与这里使用同一组件版本；安装目录需可写（%1）。</source>
+            <translation>未インストールです。インストーラーとこのページは同じコンポーネントバージョンを使います。インストール先に書き込み権限が必要です（%1）。</translation>
+        </message>
+        <message>
+            <source>已卸载 360° 全景查看器</source>
+            <translation>360° パノラマビューアーをアンインストールしました</translation>
+        </message>
+        <message>
+            <source>360° 全景查看器尚未安装：点右侧「安装」后即可用原图打开</source>
+            <translation>360° パノラマビューアーは未インストールです。右側の「インストール」を押すと元の画像で開けます</translation>
+        </message>
+        <message>
+            <source>固定项不提供开关；关闭所属分组时一并隐藏。</source>
+            <translation>固定項目にはスイッチがありません。所属グループを閉じると一緒に隠れます。</translation>
+        </message>
+        <message>
+            <source>关闭后仍可展开查看命令。</source>
+            <translation>オフでもグループを展開してコマンドを確認できます。</translation>
+        </message>
+        <message>
+            <source>默认打开方式由 Windows 管理，SoleView 不能直接改写；找不到 SoleView 时先运行安装包注册。</source>
+            <translation>既定のアプリは Windows が管理しており、SoleView から直接変更できません。SoleView が見つからない場合はインストーラーを実行して登録してください。</translation>
+        </message>
+        <message>
+            <source>占用方：%1</source>
+            <translation>使用中：%1</translation>
+        </message>
+        <message>
+            <source>已被其他程序占用（不接管）</source>
+            <translation>他のプログラムが使用中（引き継ぎません）</translation>
+        </message>
+        <message>
+            <source>SVG 缩略图</source>
+            <translation>SVG サムネイル</translation>
+        </message>
+        <message>
+            <source>只注册缩略图（主程序打不开 SVG）；用户级注册优先，被占用时不接管</source>
+            <translation>サムネイルのみ登録します（本体は SVG を開けません）。ユーザー単位の登録を優先し、既に使われている場合は引き継ぎません</translation>
+        </message>
+        <message>
+            <source>关闭后不再插入菜单项；各细项的选择会保留</source>
+            <translation>オフの場合、メニュー項目を挿入しません。個別の選択は保持されます</translation>
+        </message>
+        <message>
+            <source>未检测到壳扩展文件（solethumb-*.dll）。运行安装包可修复；便携版不带安装器注册，右键菜单不可用。</source>
+            <translation>シェル拡張ファイル（solethumb-*.dll）が見つかりません。インストーラーを実行すると修復できます。ポータブル版は登録を行わないため右クリックメニューは使えません。</translation>
+        </message>
+        <message>
+            <source>改动即时写入，下次右键时生效，无需重装或管理员权限；菜单未变化时重启资源管理器。</source>
+            <translation>変更はすぐに書き込まれ、次回の右クリックから有効になります。再インストールや管理者権限は不要です。メニューが変わらない場合はエクスプローラーを再起動してください。</translation>
+        </message>
+        <message>
+            <source>这些入口由壳扩展在资源管理器中提供，安装／卸载安装包时自动注册／移除；与文件默认打开方式无关。</source>
+            <translation>これらの入口はエクスプローラーのシェル拡張が提供します。インストーラーのインストール／アンインストールで自動的に登録／解除され、既定のアプリとは関係ありません。</translation>
+        </message>
+        <message>
+            <source>按扩展名分组，列表只读；新增格式随程序版本更新</source>
+            <translation>拡張子ごとにグループ化、一覧は読み取り専用。新しい形式はプログラムのバージョンとともに追加されます</translation>
+        </message>
+        <message>
+            <source>列表只读；新增格式随程序版本更新。</source>
+            <translation>一覧は読み取り専用です。新しい形式はプログラムのバージョンとともに追加されます。</translation>
+        </message>
+        <message>
+            <source>点击选择 GIF 透明区域的铺底颜色</source>
+            <translation>クリックして GIF 透過部分の下地色を選択</translation>
+        </message>
+        <message>
+            <source>先在上方「GIF 透明背景」选择「自定义颜色」</source>
+            <translation>先に上の「GIF の透明背景」で「カスタム色」を選んでください</translation>
+        </message>
+        <message>
+            <source>正在应用：停止输入 0.3 秒后立即生效（无需保存）</source>
+            <translation>適用中：入力停止から 0.3 秒後に有効になります（保存不要）</translation>
+        </message>
+        <message>
+            <source>未设置：复制到 / 移动到「图片文件夹 1」与图片转换默认目录都不会使用空路径。</source>
+            <translation>未設定：「画像フォルダー 1」へのコピー／移動と画像変換の既定フォルダーは空のパスを使いません。</translation>
+        </message>
+        <message>
+            <source>路径不存在：%1 —— 动作时不会写入文件。</source>
+            <translation>パスが存在しません：%1 — 実行時にファイルは書き込まれません。</translation>
+        </message>
+        <message>
+            <source>这不是文件夹：%1 —— 请改成文件夹路径。</source>
+            <translation>フォルダーではありません：%1 — フォルダーのパスを指定してください。</translation>
+        </message>
+        <message>
+            <source>已即时生效，无需保存：复制到 / 移动到 1、图片转换默认目录立即使用 %1。</source>
+            <translation>すぐに有効になりました（保存不要）：コピー／移動先 1 と画像変換の既定フォルダーは %1 をすぐに使います。</translation>
+        </message>
+        <message>
+            <source>「图片文件夹 1」未能即时生效：%1
+已恢复原值。</source>
+            <translation>「画像フォルダー 1」を即時反映できませんでした：%1\n元の値に戻しました。</translation>
+        </message>
+        <message>
+            <source>请先填写文件夹路径，或点「浏览…」选择一个文件夹。</source>
+            <translation>フォルダーのパスを入力するか、「参照…」でフォルダーを選択してください。</translation>
+        </message>
+        <message>
+            <source>无法调用系统文件管理器打开：%1</source>
+            <translation>システムのファイルマネージャーを開けません：%1</translation>
+        </message>
+        <message>
+            <source>已在文件管理器中打开：%1</source>
+            <translation>ファイルマネージャーで開きました：%1</translation>
+        </message>
+        <message>
+            <source>选择 GIF 背景色</source>
+            <translation>GIF の背景色を選択</translation>
+        </message>
+        <message>
+            <source>即时可见</source>
+            <translation>すぐに反映</translation>
+        </message>
+        <message>
+            <source>已关闭设置，图像处理页未保留即时改动。</source>
+            <translation>設定を閉じました。画像処理ページの即時変更は保持されていません。</translation>
+        </message>
+        <message>
+            <source>已关闭设置，翻页效果保持进入设置时的档位。</source>
+            <translation>設定を閉じました。ページ送り効果は設定を開いたときの段階のままです。</translation>
+        </message>
+        <message>
+            <source>「%1」已即时生效：%2 · 无需保存，关闭设置后保留。</source>
+            <translation>「%1」はすぐに有効になりました：%2 · 保存不要、設定を閉じても保持されます。</translation>
+        </message>
+        <message>
+            <source>已放弃本次改动：图像处理页即时项已回到进入设置时的状态。</source>
+            <translation>今回の変更を破棄しました：画像処理ページの即時項目は設定を開いたときの状態に戻りました。</translation>
+        </message>
+        <message>
+            <source>「%1」已即时生效：%2 · 无需保存；按「取消」/ Esc 会回到进入设置时的状态。
+运行态：%3</source>
+            <translation>「%1」はすぐに有効になりました：%2 · 保存不要。「キャンセル」/ Esc で設定を開いたときの状態に戻ります。\n実行状態：%3</translation>
+        </message>
+        <message>
+            <source>勾选即时生效：在热键栏按所录键即可触发，不必保存或重启</source>
+            <translation>チェックで即時有効：ホットキー列で記録したキーを押すと実行されます。保存や再起動は不要</translation>
+        </message>
+        <message>
+            <source>本行还没有热键：先在热键栏录入并保存，再启用；空热键时勾选不会生效</source>
+            <translation>この行にはまだホットキーがありません。先にホットキー列で記録して保存してから有効にしてください。空のままチェックしても効果はありません</translation>
+        </message>
+        <message>
+            <source>无热键</source>
+            <translation>ホットキーなし</translation>
+        </message>
+        <message>
+            <source>待保存：%1
+
+「不保存」只放弃这些草稿；浏览页与图像处理/外观页的即时项（缩放记忆 / 文件名浮层 / 动画帧号 / 悬浮提示 / 强锐化 / 缓存下一张 / 缓存大小 / 大图顶部对齐 / 插值 / 快帧策略 / 翻页效果 / GIF 底色 / 画布背景）会回到进入设置时的状态，其余即时设置保留。</source>
+            <translation>保存待ち：%1\n\n「保存しない」はこれらの下書きだけを破棄します。表示ページと画像処理／外観ページの即時項目（ズーム記憶 / ファイル名オーバーレイ / アニメーションのフレーム番号 / ホバーヒント / 強シャープ / 次の画像のキャッシュ / キャッシュサイズ / 大きな画像を上揃え / 補間 / 速いフレーム戦略 / ページ送り効果 / GIF 下地色 / キャンバス背景）は設定を開いたときの状態に戻り、その他の即時設定は保持されます。</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>ThumbnailBrowser</name>
         <message>
             <source>缩略图栏</source>
@@ -3718,7 +4614,7 @@ https://github.com/xdsT2/soleview</translation>
             <translation>プレビューできません</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>TopBar</name>
         <message>
             <source>顶部工具栏</source>
@@ -3792,15 +4688,23 @@ https://github.com/xdsT2/soleview</translation>
             <source>关闭</source>
             <translation>閉じる</translation>
         </message>
+        <message>
+            <source>HDR</source>
+            <translation>HDR</translation>
+        </message>
+        <message>
+            <source>HDR 显示与曝光</source>
+            <translation>HDR 表示と露出</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>UpdateChecker</name>
         <message>
             <source>检查更新</source>
             <translation>更新を確認</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>UpdateNotifier</name>
         <message>
             <source>发现新版本 %1</source>
@@ -3815,7 +4719,7 @@ https://github.com/xdsT2/soleview</translation>
             <translation>確認に失敗しました。ネットワークを確認してください</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>Wallpaper</name>
         <message>
             <source>SystemParametersInfo 失败 (GetLastError=%1)</source>
@@ -3826,183 +4730,14 @@ https://github.com/xdsT2/soleview</translation>
             <translation>壁紙設定は Windows のみ対応</translation>
         </message>
     </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>拖入图片或 Ctrl+O 打开</source>
-            <translation>画像をここにドラッグするか Ctrl+O で開く</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>文件(&amp;F)</source>
-            <translation>ファイル(&amp;F)</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>视图(&amp;V)</source>
-            <translation>表示(&amp;V)</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>适配窗口(&amp;F)</source>
-            <translation>ウィンドウに合わせる(&amp;F)</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>实际大小(&amp;1)</source>
-            <translation>実際のサイズ(&amp;1)</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>幻灯片(&amp;S)</source>
-            <translation>スライドショー(&amp;S)</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>工具(&amp;T)</source>
-            <translation>ツール(&amp;T)</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>设为壁纸(&amp;W)</source>
-            <translation>壁紙に設定(&amp;W)</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>加载中… %1</source>
-            <translation>読み込み中… %1</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>无法打开：%1（%2）</source>
-            <translation>開けません：%1（%2）</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>%1 x %2 · %3 / %4 · %5</source>
-            <translation>%1 x %2 · %3 / %4 · %5</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>%1 x %2 · %3</source>
-            <translation>%1 x %2 · %3</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>图片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有文件 (*)</source>
-            <translation>画像 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;すべてのファイル (*)</translation>
-        </message>
-        <message>
-            <source>无法读取压缩包：%1</source>
-            <translation>アーカイブを読み取れません：%1</translation>
-        </message>
-        <message>
-            <source>压缩包内文件暂不支持此操作</source>
-            <translation>アーカイブ内のファイルではこの操作はまだできません</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>信息</source>
-            <translation>情報</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>文件</source>
-            <translation>ファイル</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>路径</source>
-            <translation>パス</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>大小</source>
-            <translation>サイズ</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>修改时间</source>
-            <translation>更新日時</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>图像</source>
-            <translation>画像</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>尺寸</source>
-            <translation>寸法</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>%1 x %2</source>
-            <translation>%1 x %2</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>格式</source>
-            <translation>形式</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>EXIF</source>
-            <translation>EXIF</translation>
-        </message>
-    </context>
-    <context>
+        <context>
         <name>AppMenuPreview</name>
         <message>
             <source>当前没有可显示的菜单项</source>
             <translation>表示できるメニュー項目がありません。</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>ZipArchive</name>
         <message>
             <source>文件不存在或无法读取</source>
@@ -4041,7 +4776,7 @@ https://github.com/xdsT2/soleview</translation>
             <translation>アーカイブ内のファイルのチェックサムが一致しません（CRC）</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>ArchiveStore</name>
         <message>
             <source>文件不存在或无法读取</source>
@@ -4060,7 +4795,7 @@ https://github.com/xdsT2/soleview</translation>
             <translation>アーカイブ内のファイルのデコードに失敗しました</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>RotateAutoSave</name>
         <message>
             <source>文件不存在或图像为空</source>
@@ -4085,6 +4820,348 @@ https://github.com/xdsT2/soleview</translation>
         <message>
             <source>替换原文件失败</source>
             <translation>元のファイルの置き換えに失敗しました</translation>
+        </message>
+        <message>
+            <source>读取原文件失败</source>
+            <translation>元のファイルを読み取れませんでした</translation>
+        </message>
+    </context>
+    <context>
+        <name>OverviewPanel</name>
+        <message>
+            <source>按日期</source>
+            <translation>日付順</translation>
+        </message>
+        <message>
+            <source>按图片大小</source>
+            <translation>画像サイズ順</translation>
+        </message>
+        <message>
+            <source>不分组</source>
+            <translation>グループ化しない</translation>
+        </message>
+        <message>
+            <source>从旧到新</source>
+            <translation>古い順</translation>
+        </message>
+        <message>
+            <source>从新到旧</source>
+            <translation>新しい順</translation>
+        </message>
+        <message>
+            <source>从小到大</source>
+            <translation>小さい順</translation>
+        </message>
+        <message>
+            <source>从大到小</source>
+            <translation>大きい順</translation>
+        </message>
+        <message>
+            <source>无拍摄日期</source>
+            <translation>撮影日時なし</translation>
+        </message>
+        <message>
+            <source>未知大小</source>
+            <translation>サイズ不明</translation>
+        </message>
+        <message>
+            <source>图片总览 · %1 张</source>
+            <translation>画像一覧 · %1 枚</translation>
+        </message>
+        <message>
+            <source>小于 2 MP</source>
+            <translation>2 MP 未満</translation>
+        </message>
+        <message>
+            <source>2 至不足 8 MP</source>
+            <translation>2 MP 以上 8 MP 未満</translation>
+        </message>
+        <message>
+            <source>8 MP 及以上</source>
+            <translation>8 MP 以上</translation>
+        </message>
+    </context>
+    <context>
+        <name>PanoChip</name>
+        <message>
+            <source>用 360° 全景查看器打开这张球形图（可选组件）</source>
+            <translation>この球面画像を 360° パノラマビューアーで開く（オプションコンポーネント）</translation>
+        </message>
+    </context>
+    <context>
+        <name>PanoExt::Manager</name>
+        <message>
+            <source>组件下载超时，请检查网络后重试</source>
+            <translation>コンポーネントのダウンロードがタイムアウトしました。ネットワークを確認して再試行してください</translation>
+        </message>
+        <message>
+            <source>组件下载源未配置。请运行安装包并勾选「360° 全景查看器」，或在 config.ini 里配置 config/ext/pano_source 后重试。</source>
+            <translation>コンポーネントのダウンロード元が設定されていません。インストーラーを実行して「360° パノラマビューアー」にチェックするか、config.ini に config/ext/pano_source を設定して再試行してください。</translation>
+        </message>
+        <message>
+            <source>不支持 UNC 网络共享路径作为组件下载源</source>
+            <translation>コンポーネントのダウンロード元に UNC ネットワーク共有パスは使えません</translation>
+        </message>
+        <message>
+            <source>组件下载源仅支持 HTTPS 地址</source>
+            <translation>コンポーネントのダウンロード元は HTTPS アドレスのみ対応しています</translation>
+        </message>
+        <message>
+            <source>组件包超出预期大小，已取消安装</source>
+            <translation>コンポーネントパッケージが想定サイズを超えたため、インストールを中止しました</translation>
+        </message>
+        <message>
+            <source>连不上下载源，检查网络或 config/ext/pano_source 里的地址</source>
+            <translation>ダウンロード元に接続できません。ネットワークまたは config/ext/pano_source のアドレスを確認してください</translation>
+        </message>
+        <message>
+            <source>下载源无响应，检查网络或稍后重试</source>
+            <translation>ダウンロード元が応答しません。ネットワークを確認するか、後で再試行してください</translation>
+        </message>
+        <message>
+            <source>下载源上找不到组件包，检查文件名或目录</source>
+            <translation>ダウンロード元にコンポーネントパッケージが見つかりません。ファイル名またはフォルダーを確認してください</translation>
+        </message>
+        <message>
+            <source>无法获取组件包：%1</source>
+            <translation>コンポーネントパッケージを取得できません：%1</translation>
+        </message>
+        <message>
+            <source>无法获取组件包：%1（%2）</source>
+            <translation>コンポーネントパッケージを取得できません：%1（%2）</translation>
+        </message>
+        <message>
+            <source>组件包为空或超出预期大小</source>
+            <translation>コンポーネントパッケージが空か、想定サイズを超えています</translation>
+        </message>
+        <message>
+            <source>组件包缺少校验摘要，已拒绝安装</source>
+            <translation>コンポーネントパッケージにチェックサムがないため、インストールを拒否しました</translation>
+        </message>
+        <message>
+            <source>无法读取本地组件包：%1</source>
+            <translation>ローカルのコンポーネントパッケージを読み取れません：%1</translation>
+        </message>
+        <message>
+            <source>本地组件包为空或超出预期大小</source>
+            <translation>ローカルのコンポーネントパッケージが空か、想定サイズを超えています</translation>
+        </message>
+        <message>
+            <source>组件包缺少可用的 SHA-256 摘要，已拒绝安装</source>
+            <translation>コンポーネントパッケージに有効な SHA-256 ダイジェストがないため、インストールを拒否しました</translation>
+        </message>
+        <message>
+            <source>组件包校验失败（摘要不一致），已保留原有状态</source>
+            <translation>コンポーネントパッケージの検証に失敗しました（ダイジェスト不一致）。以前の状態を保持します</translation>
+        </message>
+        <message>
+            <source>无法写入临时文件</source>
+            <translation>一時ファイルに書き込めません</translation>
+        </message>
+        <message>
+            <source>无法读取临时文件</source>
+            <translation>一時ファイルを読み取れません</translation>
+        </message>
+        <message>
+            <source>组件包不是有效的 zip：%1</source>
+            <translation>コンポーネントパッケージが有効な zip ではありません：%1</translation>
+        </message>
+        <message>
+            <source>组件包内容不完整（缺少 soleview-pano.exe 或 pano-version.txt）</source>
+            <translation>コンポーネントパッケージの内容が不完全です（soleview-pano.exe または pano-version.txt がありません）</translation>
+        </message>
+        <message>
+            <source>组件包解压失败：%1</source>
+            <translation>コンポーネントパッケージの展開に失敗しました：%1</translation>
+        </message>
+        <message>
+            <source>组件包里的 soleview-pano.exe 不是有效的可执行文件</source>
+            <translation>コンポーネントパッケージ内の soleview-pano.exe が有効な実行ファイルではありません</translation>
+        </message>
+        <message>
+            <source>组件版本 %1 与当前 SoleView %2 不兼容，已拒绝安装</source>
+            <translation>コンポーネントのバージョン %1 は現在の SoleView %2 と互換性がないため、インストールを拒否しました</translation>
+        </message>
+        <message>
+            <source>安装目录不可写（%1）。请把 SoleView 装到有写权限的目录，或在安装向导里勾选该组件。</source>
+            <translation>インストール先に書き込めません（%1）。書き込み権限のあるフォルダーに SoleView をインストールするか、インストーラーでこのコンポーネントにチェックしてください。</translation>
+        </message>
+        <message>
+            <source>组件写入失败（磁盘空间或权限不足）</source>
+            <translation>コンポーネントの書き込みに失敗しました（空き容量または権限不足）</translation>
+        </message>
+        <message>
+            <source>旧组件正在运行或被占用，已保留原有状态，请关闭全景窗口后重试</source>
+            <translation>古いコンポーネントが実行中か使用中です。以前の状態を保持します。パノラマウィンドウを閉じて再試行してください</translation>
+        </message>
+        <message>
+            <source>旧组件正在运行或被占用，请先关闭全景窗口再重试</source>
+            <translation>古いコンポーネントが実行中か使用中です。先にパノラマウィンドウを閉じて再試行してください</translation>
+        </message>
+        <message>
+            <source>组件文件改名失败，已保留原有状态</source>
+            <translation>コンポーネントファイルの名前変更に失敗しました。以前の状態を保持します</translation>
+        </message>
+        <message>
+            <source>组件正在运行或被占用：请先关闭所有 360° 全景窗口再卸载</source>
+            <translation>コンポーネントが実行中か使用中です：アンインストールする前にすべての 360° パノラマウィンドウを閉じてください</translation>
+        </message>
+        <message>
+            <source>360° 全景查看器尚未安装</source>
+            <translation>360° パノラマビューアーはインストールされていません</translation>
+        </message>
+        <message>
+            <source>已安装的组件版本 %1 与当前 QuikView 不兼容，请在「设置 → 扩展」重新安装</source>
+            <translation>インストール済みのコンポーネント %1 は現在の QuikView と互換性がありません。「設定 → 拡張機能」から再インストールしてください</translation>
+        </message>
+        <message>
+            <source>无法启动 360° 全景查看器（组件文件可能已被删除或阻止运行）</source>
+            <translation>360° パノラマビューアーを起動できません（コンポーネントファイルが削除またはブロックされた可能性があります）</translation>
+        </message>
+    </context>
+    <context>
+        <name>PhotoFolderPanel</name>
+        <message>
+            <source>照片文件夹</source>
+            <translation>写真フォルダー</translation>
+        </message>
+        <message>
+            <source>+ 添加文件夹</source>
+            <translation>+ フォルダーを追加</translation>
+        </message>
+        <message>
+            <source>可配置 1–20 个目标文件夹；Insert 复制到文件夹 1，Ctrl+Insert 移动到文件夹 1，Alt+P 开合本面板。</source>
+            <translation>1〜20 個の保存先フォルダーを設定できます。Insert でフォルダー 1 にコピー、Ctrl+Insert でフォルダー 1 に移動、Alt+P でこのパネルを開閉します。</translation>
+        </message>
+        <message>
+            <source>(%1 / %2)</source>
+            <translation>(%1 / %2)</translation>
+        </message>
+        <message>
+            <source>选择或输入文件夹 %1 路径…</source>
+            <translation>フォルダー %1 のパスを選択または入力…</translation>
+        </message>
+        <message>
+            <source>浏览文件夹</source>
+            <translation>フォルダーを参照</translation>
+        </message>
+        <message>
+            <source>选择图片文件夹 %1</source>
+            <translation>画像フォルダー %1 を選択</translation>
+        </message>
+        <message>
+            <source>上移</source>
+            <translation>上へ</translation>
+        </message>
+        <message>
+            <source>下移</source>
+            <translation>下へ</translation>
+        </message>
+        <message>
+            <source>删除此行</source>
+            <translation>この行を削除</translation>
+        </message>
+        <message>
+            <source>复制</source>
+            <translation>コピー</translation>
+        </message>
+        <message>
+            <source>移动</source>
+            <translation>移動</translation>
+        </message>
+    </context>
+    <context>
+        <name>RenameDialog</name>
+        <message>
+            <source>重命名</source>
+            <translation>名前を変更</translation>
+        </message>
+        <message>
+            <source>仅当前文件</source>
+            <translation>現在のファイルのみ</translation>
+        </message>
+        <message>
+            <source>当前目录全部图片 (%1 张)</source>
+            <translation>現在のフォルダーのすべての画像（%1 枚）</translation>
+        </message>
+        <message>
+            <source>命名模板：</source>
+            <translation>名前のテンプレート：</translation>
+        </message>
+        <message>
+            <source>例如：{name}_{index:03} 或 {date}_{index:03}</source>
+            <translation>例：{name}_{index:03} または {date}_{index:03}</translation>
+        </message>
+        <message>
+            <source>起始序号：</source>
+            <translation>開始番号：</translation>
+        </message>
+        <message>
+            <source>保留原扩展名</source>
+            <translation>元の拡張子を保持</translation>
+        </message>
+        <message>
+            <source>插入变量：</source>
+            <translation>変数を挿入：</translation>
+        </message>
+        <message>
+            <source>原文件名</source>
+            <translation>元のファイル名</translation>
+        </message>
+        <message>
+            <source>新文件名</source>
+            <translation>新しいファイル名</translation>
+        </message>
+        <message>
+            <source>状态</source>
+            <translation>状態</translation>
+        </message>
+        <message>
+            <source>执行重命名</source>
+            <translation>名前の変更を実行</translation>
+        </message>
+        <message>
+            <source>无变化</source>
+            <translation>変更なし</translation>
+        </message>
+        <message>
+            <source>就绪</source>
+            <translation>準備完了</translation>
+        </message>
+        <message>
+            <source>发现 %1 处冲突，已阻止整批执行</source>
+            <translation>%1 件の競合が見つかったため、一括実行を中止しました</translation>
+        </message>
+        <message>
+            <source>共 %1 项，当前无文件名变更</source>
+            <translation>全 %1 件、ファイル名の変更はありません</translation>
+        </message>
+        <message>
+            <source>共 %1 项，将重命名 %2 项</source>
+            <translation>全 %1 件、%2 件の名前を変更します</translation>
+        </message>
+    </context>
+    <context>
+        <name>PanoWindow</name>
+        <message>
+            <source>360° 全景 — %1</source>
+            <translation>360° パノラマ — %1</translation>
+        </message>
+        <message>
+            <source>重置视角</source>
+            <translation>視点をリセット</translation>
+        </message>
+        <message>
+            <source>回到图片标记的初始方向与初始视野（R）</source>
+            <translation>画像の初期の向きと初期の視野に戻る（R）</translation>
+        </message>
+        <message>
+            <source>拖动转视角 · 滚轮调整视野 · 双击重置 · Esc 退出</source>
+            <translation>ドラッグで視点移動 · ホイールで視野調整 · ダブルクリックでリセット · Esc で終了</translation>
+        </message>
+        <message>
+            <source>视野 %1°</source>
+            <translation>視野 %1°</translation>
         </message>
     </context>
 </TS>

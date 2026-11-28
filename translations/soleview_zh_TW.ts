@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <TS version="2.1" language="zh_TW" sourcelanguage="zh_CN">
-    <context>
+        <context>
         <name>AppMenu</name>
         <message>
             <source>下一张</source>
@@ -327,7 +327,7 @@
             <translation>顯示原始資料</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>BatchConvertDialog</name>
         <message>
             <source>图片转换</source>
@@ -474,7 +474,7 @@
             <translation>（失敗 %1 張）</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>ControlBar</name>
         <message>
             <source>底部控制栏</source>
@@ -617,7 +617,7 @@
             <translation>影格進度：影格數未知</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>DirectoryLoader</name>
         <message>
             <source>常用图片</source>
@@ -660,7 +660,7 @@
             <translation>壓縮檔內沒有可顯示的圖片</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>EmptyState</name>
         <message>
             <source>开始查看图片</source>
@@ -695,7 +695,7 @@
             <translation>將圖片拖到這裡，或按「開啟」選擇圖片或資料夾</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>ExifParser</name>
         <message>
             <source>1/%1 秒</source>
@@ -706,7 +706,7 @@
             <translation>%1 秒</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>GammaDialog</name>
         <message>
             <source>Gamma 补偿</source>
@@ -729,7 +729,7 @@
             <translation>確定</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>HeifLoader</name>
         <message>
             <source>libheif 上下文分配失败</source>
@@ -768,14 +768,14 @@
             <translation>目前建置未啟用 libheif，無法解碼 HEIC/AVIF</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>ImageCache</name>
         <message>
             <source>无法解码</source>
             <translation>無法解碼</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>KeySeqStateFilter</name>
         <message>
             <source>按下组合键…</source>
@@ -786,7 +786,7 @@
             <translation>未設定</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>LayerPanel</name>
         <message>
             <source>图层</source>
@@ -845,7 +845,7 @@
             <translation>此圖層無法單獨預覽</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>MainWindow</name>
         <message>
             <source>未打开图片</source>
@@ -1995,8 +1995,68 @@
             <source>该 PSD 未保存兼容性预览；请在 Photoshop「首选项 → 文件处理」勾选</source>
             <translation>該 PSD 未儲存相容性預覽；請在 Photoshop「偏好設定 → 檔案處理」勾選</translation>
         </message>
+        <message>
+            <source>拖入图片或 Ctrl+O 打开</source>
+            <translation>拖入圖片或 Ctrl+O 開啟</translation>
+        </message>
+        <message>
+            <source>文件(&amp;F)</source>
+            <translation>檔案(&amp;F)</translation>
+        </message>
+        <message>
+            <source>视图(&amp;V)</source>
+            <translation>檢視(&amp;V)</translation>
+        </message>
+        <message>
+            <source>适配窗口(&amp;F)</source>
+            <translation>符合視窗(&amp;F)</translation>
+        </message>
+        <message>
+            <source>实际大小(&amp;1)</source>
+            <translation>實際大小(&amp;1)</translation>
+        </message>
+        <message>
+            <source>幻灯片(&amp;S)</source>
+            <translation>投影片放映(&amp;S)</translation>
+        </message>
+        <message>
+            <source>工具(&amp;T)</source>
+            <translation>工具(&amp;T)</translation>
+        </message>
+        <message>
+            <source>设为壁纸(&amp;W)</source>
+            <translation>設為桌面背景(&amp;W)</translation>
+        </message>
+        <message>
+            <source>加载中… %1</source>
+            <translation>載入中… %1</translation>
+        </message>
+        <message>
+            <source>无法打开：%1（%2）</source>
+            <translation>無法開啟：%1（%2）</translation>
+        </message>
+        <message>
+            <source>%1 x %2 · %3 / %4 · %5</source>
+            <translation>%1 x %2 · %3 / %4 · %5</translation>
+        </message>
+        <message>
+            <source>%1 x %2 · %3</source>
+            <translation>%1 x %2 · %3</translation>
+        </message>
+        <message>
+            <source>图片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有文件 (*)</source>
+            <translation>圖片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有檔案 (*)</translation>
+        </message>
+        <message>
+            <source>无法读取压缩包：%1</source>
+            <translation>無法讀取壓縮檔：%1</translation>
+        </message>
+        <message>
+            <source>压缩包内文件暂不支持此操作</source>
+            <translation>壓縮檔內檔案暫不支援此操作</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>MetadataPanel</name>
         <message>
             <source>相机制造商</source>
@@ -2146,8 +2206,48 @@
             <source>%1 × %2 cm</source>
             <translation>%1 × %2 cm</translation>
         </message>
+        <message>
+            <source>信息</source>
+            <translation>資訊</translation>
+        </message>
+        <message>
+            <source>文件</source>
+            <translation>檔案</translation>
+        </message>
+        <message>
+            <source>路径</source>
+            <translation>路徑</translation>
+        </message>
+        <message>
+            <source>大小</source>
+            <translation>大小</translation>
+        </message>
+        <message>
+            <source>修改时间</source>
+            <translation>修改時間</translation>
+        </message>
+        <message>
+            <source>图像</source>
+            <translation>圖片</translation>
+        </message>
+        <message>
+            <source>尺寸</source>
+            <translation>尺寸</translation>
+        </message>
+        <message>
+            <source>%1 x %2</source>
+            <translation>%1 x %2</translation>
+        </message>
+        <message>
+            <source>格式</source>
+            <translation>格式</translation>
+        </message>
+        <message>
+            <source>EXIF</source>
+            <translation>EXIF</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>PsdLoader</name>
         <message>
             <source>无法打开 PSD 文件</source>
@@ -2242,7 +2342,7 @@
             <translation>不支援的 PSD 色版數（%1）</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>QObject</name>
         <message>
             <source>打开</source>
@@ -2361,7 +2461,7 @@
             <translation>前往下載</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>RawImageLoader</name>
         <message>
             <source>libraw 打开失败</source>
@@ -2392,7 +2492,7 @@
             <translation>目前建置未啟用 libraw，無法解碼 RAW</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>SettingsDialog</name>
         <message>
             <source>选择后立即切换界面语言并写入配置</source>
@@ -4503,7 +4603,7 @@ https://github.com/xdsT2/soleview</translation>
             <translation>待儲存：%1\n\n「不儲存」只放棄這些草稿；瀏覽頁與影像處理／外觀頁的即時項目（縮放記憶 / 檔名浮層 / 動畫影格編號 / 懸浮提示 / 強銳化 / 快取下一張 / 快取大小 / 大圖頂端對齊 / 插值 / 快照策略 / 翻頁效果 / GIF 底色 / 畫布背景）會回到進入設定時的狀態，其餘即時設定保留。</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>ThumbnailBrowser</name>
         <message>
             <source>缩略图栏</source>
@@ -4514,7 +4614,7 @@ https://github.com/xdsT2/soleview</translation>
             <translation>無法預覽</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>TopBar</name>
         <message>
             <source>顶部工具栏</source>
@@ -4588,15 +4688,23 @@ https://github.com/xdsT2/soleview</translation>
             <source>关闭</source>
             <translation>關閉</translation>
         </message>
+        <message>
+            <source>HDR</source>
+            <translation>HDR</translation>
+        </message>
+        <message>
+            <source>HDR 显示与曝光</source>
+            <translation>HDR 顯示與曝光</translation>
+        </message>
     </context>
-    <context>
+        <context>
         <name>UpdateChecker</name>
         <message>
             <source>检查更新</source>
             <translation>檢查更新</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>UpdateNotifier</name>
         <message>
             <source>发现新版本 %1</source>
@@ -4611,7 +4719,7 @@ https://github.com/xdsT2/soleview</translation>
             <translation>檢查失敗，請檢查網路</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>Wallpaper</name>
         <message>
             <source>SystemParametersInfo 失败 (GetLastError=%1)</source>
@@ -4622,183 +4730,14 @@ https://github.com/xdsT2/soleview</translation>
             <translation>設桌布僅支援 Windows</translation>
         </message>
     </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>拖入图片或 Ctrl+O 打开</source>
-            <translation>拖入圖片或 Ctrl+O 開啟</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>文件(&amp;F)</source>
-            <translation>檔案(&amp;F)</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>视图(&amp;V)</source>
-            <translation>檢視(&amp;V)</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>适配窗口(&amp;F)</source>
-            <translation>符合視窗(&amp;F)</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>实际大小(&amp;1)</source>
-            <translation>實際大小(&amp;1)</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>幻灯片(&amp;S)</source>
-            <translation>投影片放映(&amp;S)</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>工具(&amp;T)</source>
-            <translation>工具(&amp;T)</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>设为壁纸(&amp;W)</source>
-            <translation>設為桌面背景(&amp;W)</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>加载中… %1</source>
-            <translation>載入中… %1</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>无法打开：%1（%2）</source>
-            <translation>無法開啟：%1（%2）</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>%1 x %2 · %3 / %4 · %5</source>
-            <translation>%1 x %2 · %3 / %4 · %5</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>%1 x %2 · %3</source>
-            <translation>%1 x %2 · %3</translation>
-        </message>
-    </context>
-    <context>
-        <name>MainWindow</name>
-        <message>
-            <source>图片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有文件 (*)</source>
-            <translation>圖片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.avif *.heic *.dng *.nef *.cr2 *.arw *.rw2 *.orf *.raf *.pef *.raw);;所有檔案 (*)</translation>
-        </message>
-        <message>
-            <source>无法读取压缩包：%1</source>
-            <translation>無法讀取壓縮檔：%1</translation>
-        </message>
-        <message>
-            <source>压缩包内文件暂不支持此操作</source>
-            <translation>壓縮檔內檔案暫不支援此操作</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>信息</source>
-            <translation>資訊</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>文件</source>
-            <translation>檔案</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>路径</source>
-            <translation>路徑</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>大小</source>
-            <translation>大小</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>修改时间</source>
-            <translation>修改時間</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>图像</source>
-            <translation>圖片</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>尺寸</source>
-            <translation>尺寸</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>%1 x %2</source>
-            <translation>%1 x %2</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>格式</source>
-            <translation>格式</translation>
-        </message>
-    </context>
-    <context>
-        <name>MetadataPanel</name>
-        <message>
-            <source>EXIF</source>
-            <translation>EXIF</translation>
-        </message>
-    </context>
-    <context>
+        <context>
         <name>AppMenuPreview</name>
         <message>
             <source>当前没有可显示的菜单项</source>
             <translation>目前沒有可顯示的功能表項目。</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>ZipArchive</name>
         <message>
             <source>文件不存在或无法读取</source>
@@ -4837,7 +4776,7 @@ https://github.com/xdsT2/soleview</translation>
             <translation>壓縮檔內檔案校驗失敗（CRC 不符）</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>ArchiveStore</name>
         <message>
             <source>文件不存在或无法读取</source>
@@ -4856,7 +4795,7 @@ https://github.com/xdsT2/soleview</translation>
             <translation>壓縮檔內檔案解碼失敗</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>RotateAutoSave</name>
         <message>
             <source>文件不存在或图像为空</source>
@@ -4887,7 +4826,7 @@ https://github.com/xdsT2/soleview</translation>
             <translation>讀取原始檔案失敗</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>OverviewPanel</name>
         <message>
             <source>按日期</source>
@@ -4942,14 +4881,14 @@ https://github.com/xdsT2/soleview</translation>
             <translation>8 MP 以上</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>PanoChip</name>
         <message>
             <source>用 360° 全景查看器打开这张球形图（可选组件）</source>
             <translation>用 360° 全景檢視器開啟這張球形圖（選用元件）</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>PanoExt::Manager</name>
         <message>
             <source>组件下载超时，请检查网络后重试</source>
@@ -5080,7 +5019,7 @@ https://github.com/xdsT2/soleview</translation>
             <translation>無法啟動 360° 全景檢視器（元件檔案可能已被刪除或禁止執行）</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>PhotoFolderPanel</name>
         <message>
             <source>照片文件夹</source>
@@ -5131,7 +5070,7 @@ https://github.com/xdsT2/soleview</translation>
             <translation>移動</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>RenameDialog</name>
         <message>
             <source>重命名</source>
@@ -5202,7 +5141,7 @@ https://github.com/xdsT2/soleview</translation>
             <translation>共 %1 項，將重新命名 %2 項</translation>
         </message>
     </context>
-    <context>
+        <context>
         <name>PanoWindow</name>
         <message>
             <source>360° 全景 — %1</source>
