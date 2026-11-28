@@ -98,6 +98,7 @@
 #include "ImageEffects.h"
 #include "MetadataPanel.h"
 #include "ToneMap.h"
+#include "DisplayFrame.h"
 #include "RawImageLoader.h"
 #include "RotateAutoSave.h"
 #include "SettingsDialog.h"
@@ -4742,6 +4743,18 @@ void MainWindow::refreshPsdView()
 
 void MainWindow::onFullReady(const QString &path, const QImage &image, bool preview)
 {
+    // P0-c：第二页后台就绪，且仍对应等待中的第一页、仍在双页模式 → 补拼跨页上屏，
+    // 不走单图 showImage；代次/路径/模式任一不符就丢弃这帧，避免串页。
+    if (!preview && !m_pendingSpreadSecond.isEmpty()
+        && path == m_pendingSpreadSecond
+        && m_currentPath == m_pendingSpreadFirst) {
+        m_pendingSpreadFirst.clear();
+        m_pendingSpreadSecond.clear();
+        if (isSpreadMode() && !image.isNull()) {
+            composePendingSpread(image);
+            return;
+        }
+    }
     // 探针：只记录「当前目标」的画面。连按时中间过渡帧 path != m_currentPath，
     // 不计入目标响应，否则测到的是别人的帧而非最终要看的这张。
     if (path == m_currentPath) {
@@ -4904,14 +4917,17 @@ void MainWindow::onLoadFailed(const QString &path, const QString &error,
     } else {
         QImage rawImg = loadRawImage(path, &rawErr, m_hdrTonemap);
         if (!rawImg.isNull()) {
-            showImage(rawImg, path);
+            // 兜底直显罕见走主线程：调用点补齐帧准备，颜色语义与后台链路一致。
+            const DisplayFrame::PrepareOptions opt{Config::instance().imageIcc(), m_hdrTonemap};
+            showImage(DisplayFrame::prepare(rawImg, opt), path);
             return;
         }
     }
     QString heifErr;
     QImage img = loadHeifImage(path, &heifErr, m_hdrTonemap);
     if (!img.isNull()) {
-        showImage(img, path);
+        const DisplayFrame::PrepareOptions opt{Config::instance().imageIcc(), m_hdrTonemap};
+        showImage(DisplayFrame::prepare(img, opt), path);
         return;
     }
     QString lastErr = rawErr.isEmpty() ? heifErr : rawErr;
@@ -5048,24 +5064,33 @@ void MainWindow::showImage(const QImage &image, const QString &path, bool previe
     // 的图原样直通，普通截图的像素不受影响。
     // 成功上屏即清空上一次的失败记录，loadreport 才不会被旧错误污染。
     m_lastLoadError.clear();
-    const bool icc = Config::instance().imageIcc();
-    auto toSrgb = [icc](QImage img) {
-        if (!icc) {
-            return img;
-        }
-        const QColorSpace cs = img.colorSpace();
-        if (cs.isValid() && cs != QColorSpace::SRgb) {
-            img.convertToColorSpace(QColorSpace::SRgb);
-        }
-        return img;
-    };
-    const QImage sdr = toSrgb(m_hdrTonemap ? ToneMap::toneMapToSdr(image) : image);
-    // 双页模式先把相邻两页拼成一张大图，后面所有几何/颜色变换都作用在整跨页上，
-    // 视图层面永远只有「一张图」，不需要两套坐标。
-    QImage base = sdr;
+    // P0-a：image 已是后台解码链路产出的显示就绪帧（ICC→sRGB / HDR tone map 已在
+    // worker 线程完成，顺序与旧路径一致）；主线程这里只剩双页合成与上屏，不再整图转换。
+    QImage base = image;
     if (isSpreadMode()) {
-        const QImage second = toSrgb(readImageSync(spreadSecondPath()));
-        base = (m_spreadMode == 3) ? composeSpread(sdr, second) : composeSpread(second, sdr);
+        const QString secondPath = spreadSecondPath();
+        if (!secondPath.isEmpty()) {
+            QImage second = m_cache ? m_cache->cachedFull(secondPath) : QImage();
+            if (second.isNull()) {
+                // P0-c：第二页不再 readImageSync 阻塞主线程；后台请求，先顶第一页单图，
+                // 帧到齐后由 onFullReady → composePendingSpread 补拼跨页。
+                if (m_cache)
+                    m_cache->requestFull(secondPath, QSize(), false);
+                m_pendingSpreadFirst = path;
+                m_pendingSpreadSecond = secondPath;
+            } else {
+                m_pendingSpreadFirst.clear();
+                m_pendingSpreadSecond.clear();
+                base = (m_spreadMode == 3) ? composeSpread(base, second)
+                                           : composeSpread(second, base);
+            }
+        } else {
+            m_pendingSpreadFirst.clear();
+            m_pendingSpreadSecond.clear();
+        }
+    } else {
+        m_pendingSpreadFirst.clear();
+        m_pendingSpreadSecond.clear();
     }
     // m_sourceImage 保存「文件里的原始像素」，旋转/翻转/反相/Gamma 全都从它派生。
     // 这样「不旋转」才能真回到原样，而不是靠撤销栈一层层退。
@@ -10322,6 +10347,32 @@ void MainWindow::refreshSpread()
     updateInfoOverlay();
 }
 
+// P0-c：第二页后台解码完成后的补拼。first 取当前已上屏的第一页就绪帧，second 为
+// 后台回传帧；代次/路径校验在 onFullReady 入口已做，这里只负责合成与上屏。
+void MainWindow::composePendingSpread(const QImage &second)
+{
+    if (!isSpreadMode() || m_currentPath.isEmpty() || second.isNull())
+        return;
+    const QImage first = m_sourceImage;
+    if (first.isNull())
+        return;
+    m_sourceImage = (m_spreadMode == 3) ? composeSpread(first, second)
+                                        : composeSpread(second, first);
+    m_netRotation = 0;
+    m_flipH = false;
+    m_flipV = false;
+    m_negative = false;
+    m_gamma = 1.0;
+    m_effect = 0;
+    if (actEffectNone)
+        actEffectNone->setChecked(true);
+    m_currentImage = m_sourceImage;
+    m_originalImage = m_sourceImage;
+    applyAdjustments(QPointF(0.5, 0.5));
+    applyCurrentZoom();
+    updateInfoOverlay();
+}
+
 // 双页维度统一入口：mode 0=关 3=左→右 4=左←右。缩放维度原样保留。
 void MainWindow::setSpreadMode(int mode)
 {
@@ -11687,6 +11738,14 @@ bool MainWindow::applyLiveSetting(const QString &key, const QVariant &value, QSt
         // 当场按新档位过渡；实际用到的档位记进 m_lastPageTurnFxUsed 供验收。
         const int fx = qBound(0, value.toInt(), 3);
         m_livePageTurnFx = fx;
+        return true;
+    }
+
+    if (key == QLatin1String("imageproc/image_icc")) {
+        // P0-d：就绪帧缓存键含 ICC 开关；切换后旧就绪帧作废，强制按新开关重解，不串帧。
+        // （HDR tone map 开关同理：本版无入口，若后续启用也须在此 clearFull。）
+        if (m_cache)
+            m_cache->clearFull();
         return true;
     }
 

@@ -15,6 +15,7 @@
 #include <QtConcurrent/QtConcurrent>
 
 #include "Config.h"
+#include "DisplayFrame.h"
 #include "RawImageLoader.h"
 #include "ArchiveStore.h"   // 压缩包内条目：从内存流解码，不落盘（派单 2026-11-18）
 
@@ -612,9 +613,17 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
     const bool noRaw = Config::instance().noRawLoad();
     const bool hdrTonemap = Config::instance().hdrTonemap();
     const auto cancel = m_cancelToken;
+    // P0-a：ICC→sRGB / HDR tone map 随解码在后台线程完成，产出显示就绪帧。
+    // 选项在提交任务的 GUI 线程取一次快照带入 worker，worker 不读 QSettings。
+    const bool imageIcc = Config::instance().imageIcc();
     m_fullInFlight.insert(path, generation);
     QtConcurrent::run(&m_decodePool, [this, path, previewSize, generation, noRaw,
-                                      hdrTonemap, cancel]() {
+                                      hdrTonemap, imageIcc, cancel]() {
+        // 后台帧准备：与基线主线程旧路径同一操作、同一顺序（先 toneMap 再 ICC→sRGB）。
+        const DisplayFrame::PrepareOptions frameOpt{imageIcc, hdrTonemap};
+        auto prepareFrame = [&frameOpt](const QImage &im) {
+            return DisplayFrame::prepare(im, frameOpt);
+        };
         // D1-5 / D2-2：取消令牌 + 代次双判。令牌在换代时立刻置真，worker 在进入
         // 每一道重活之前先看它：已被作废的任务不再继续解码与后处理，结果回主线程
         // 由 finishFullDecode 按 stale 静默丢弃（不上屏、不发 loadFailed）。
@@ -636,7 +645,7 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
             }
             QString entryError;
             LoadErrorCategory entryCategory = LoadErrorCategory::None;
-            const QImage img = ArchiveStore::decode(path, QSize(), &entryError, &entryCategory);
+            const QImage img = prepareFrame(ArchiveStore::decode(path, QSize(), &entryError, &entryCategory));
             QMetaObject::invokeMethod(this, [this, path, img, entryError, entryCategory,
                                              generation]() {
                 finishFullDecode(path, img, generation, entryError, entryCategory);
@@ -651,7 +660,7 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
                 return;
             }
             const PsdDocument psdDoc = PsdLoader::load(path, false);
-            const QImage img = psdDoc.composite;
+            const QImage img = prepareFrame(psdDoc.composite);
             const QString err = psdDoc.error;   // 例如「ZIP 压缩的 PSD 暂不支持」
             // 类别由 PsdLoader 判定（含 PSD 专属的 NoCompatPreview），UI 只取文案
             const LoadErrorCategory cat = psdDoc.errorCategory;
@@ -671,7 +680,7 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
             }
             QString svgErr;
             LoadErrorCategory svgCat = LoadErrorCategory::None;
-            const QImage img = SvgLoader::render(path, previewSize, true, &svgErr, &svgCat);
+            const QImage img = prepareFrame(SvgLoader::render(path, previewSize, true, &svgErr, &svgCat));
             QMetaObject::invokeMethod(this, [this, path, img, svgErr, svgCat, generation]() {
                 finishFullDecode(path, img, generation, svgErr, svgCat);
             }, Qt::QueuedConnection);
@@ -686,7 +695,7 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
             }
             QString extraErr;
             LoadErrorCategory extraCat = LoadErrorCategory::None;
-            const QImage img = ExtraImageLoader::load(path, previewSize, &extraErr, &extraCat, hdrTonemap);
+            const QImage img = prepareFrame(ExtraImageLoader::load(path, previewSize, &extraErr, &extraCat, hdrTonemap));
             QMetaObject::invokeMethod(this, [this, path, img, extraErr, extraCat, generation]() {
                 finishFullDecode(path, img, generation, extraErr, extraCat);
             }, Qt::QueuedConnection);
@@ -713,13 +722,13 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
             abandon();
             return;
         }
-        QImage img;
+        QImage rawImg;
         QString readerError;
         if (!rawFile) {
             QImageReader reader(path);
             reader.setAutoTransform(true);
-            img = reader.read();
-            if (img.isNull()) {
+            rawImg = reader.read();
+            if (rawImg.isNull()) {
                 const QByteArray formats = QImageReader::supportedImageFormats().join(',');
                 readerError = QStringLiteral("QImageReader: %1; format=%2; supported=%3")
                                   .arg(reader.errorString(),
@@ -731,10 +740,12 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
         // 「不打开 RAW」时 requestFull 已拦截，这里是并发/在飞任务的兜底。
         if (rawFile && !noRaw) {
             QString rawErr;
-            img = loadRawImage(path, &rawErr, hdrTonemap);
-            if (img.isNull() && !rawErr.isEmpty())
+            rawImg = loadRawImage(path, &rawErr, hdrTonemap);
+            if (rawImg.isNull() && !rawErr.isEmpty())
                 readerError = rawErr;   // RAW 自己的失败原因比一句「无法解码」有用
         }
+        // 全图解码完成：后台一次性做完 ICC→sRGB / tone map，就绪帧再回主线程。
+        const QImage img = prepareFrame(rawImg);
         QMetaObject::invokeMethod(this, [this, path, img, readerError, generation]() {
             finishFullDecode(path, img, generation, readerError);
         }, Qt::QueuedConnection);

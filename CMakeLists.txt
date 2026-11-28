@@ -70,6 +70,8 @@ add_executable(soleview WIN32
     src/ImageEffects.cpp
     src/ToneMap.cpp
     src/ToneMap.h
+    src/DisplayFrame.cpp
+    src/DisplayFrame.h
     src/ImageEffects.h
     src/RawImageLoader.cpp
     src/RawImageLoader.h
@@ -459,6 +461,106 @@ if(BUILD_TESTING)
     endif()
     add_test(NAME formats.pure COMMAND soleview-formats-test)
     soleview_reset_integrity_label(soleview-formats-test)
+
+    add_executable(soleview-display-frame-test
+        tests/unit/display_frame_test.cpp
+        src/DisplayFrame.cpp
+        src/DirectoryLoader.cpp
+        src/ArchiveStore.cpp
+        src/ZipArchive.cpp
+        src/PsdLoader.cpp
+        src/SvgLoader.cpp
+        src/RawImageLoader.cpp
+        src/HeifLoader.cpp
+        src/ExtraImageLoader.cpp
+        src/FrameNavigator.cpp
+        src/RawJpgGroup.cpp
+        src/RotateAutoSave.cpp
+        src/ToneMap.cpp
+        src/Config.cpp
+    )
+    target_include_directories(soleview-display-frame-test PRIVATE src third_party/psd_sdk ${CMAKE_CURRENT_SOURCE_DIR}/shared)
+    target_compile_definitions(soleview-display-frame-test PRIVATE
+        SOLEVIEW_FORMAT_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/format-samples")
+    target_link_libraries(soleview-display-frame-test PRIVATE Qt6::Widgets Qt6::Svg Psd)
+    if(WIN32)
+        target_link_libraries(soleview-display-frame-test PRIVATE windowscodecs gdiplus)
+    endif()
+    if(LIBRAW_FOUND)
+        target_link_libraries(soleview-display-frame-test PRIVATE PkgConfig::LIBRAW)
+        target_compile_definitions(soleview-display-frame-test PRIVATE HAS_LIBRAW=1)
+    endif()
+    if(LIBHEIF_FOUND)
+        target_link_libraries(soleview-display-frame-test PRIVATE PkgConfig::LIBHEIF)
+        target_compile_definitions(soleview-display-frame-test PRIVATE HAS_LIBHEIF=1)
+    endif()
+    if(LIBWEBPDEMUX_FOUND)
+        target_link_libraries(soleview-display-frame-test PRIVATE PkgConfig::LIBWEBPDEMUX)
+        target_compile_definitions(soleview-display-frame-test PRIVATE HAS_LIBWEBPDEMUX=1)
+    endif()
+    if(LIBOPENJP2_FOUND)
+        target_link_libraries(soleview-display-frame-test PRIVATE PkgConfig::LIBOPENJP2)
+        target_compile_definitions(soleview-display-frame-test PRIVATE HAS_LIBOPENJP2=1)
+    endif()
+    if(LIBJXL_FOUND)
+        target_link_libraries(soleview-display-frame-test PRIVATE PkgConfig::LIBJXL)
+        target_compile_definitions(soleview-display-frame-test PRIVATE HAS_LIBJXL=1)
+    endif()
+    if(OPENEXR_FOUND)
+        target_link_libraries(soleview-display-frame-test PRIVATE PkgConfig::OPENEXR)
+        target_compile_definitions(soleview-display-frame-test PRIVATE HAS_OPENEXR=1)
+    endif()
+    add_test(NAME display-frame.pure COMMAND soleview-display-frame-test)
+    soleview_reset_integrity_label(soleview-display-frame-test)
+
+    # 显示管线分段基准（离线 offscreen，不注册 ctest；由测量脚本手动调用）。
+    add_executable(soleview-display-bench
+        tests/bench/display_bench.cpp
+        src/DisplayFrame.cpp
+        src/DirectoryLoader.cpp
+        src/ArchiveStore.cpp
+        src/ZipArchive.cpp
+        src/PsdLoader.cpp
+        src/SvgLoader.cpp
+        src/RawImageLoader.cpp
+        src/HeifLoader.cpp
+        src/ExtraImageLoader.cpp
+        src/FrameNavigator.cpp
+        src/RawJpgGroup.cpp
+        src/RotateAutoSave.cpp
+        src/ToneMap.cpp
+        src/Config.cpp
+    )
+    target_include_directories(soleview-display-bench PRIVATE src third_party/psd_sdk ${CMAKE_CURRENT_SOURCE_DIR}/shared)
+    target_link_libraries(soleview-display-bench PRIVATE Qt6::Widgets Qt6::Svg Psd)
+    if(WIN32)
+        target_link_libraries(soleview-display-bench PRIVATE windowscodecs gdiplus)
+    endif()
+    if(LIBRAW_FOUND)
+        target_link_libraries(soleview-display-bench PRIVATE PkgConfig::LIBRAW)
+        target_compile_definitions(soleview-display-bench PRIVATE HAS_LIBRAW=1)
+    endif()
+    if(LIBHEIF_FOUND)
+        target_link_libraries(soleview-display-bench PRIVATE PkgConfig::LIBHEIF)
+        target_compile_definitions(soleview-display-bench PRIVATE HAS_LIBHEIF=1)
+    endif()
+    if(LIBWEBPDEMUX_FOUND)
+        target_link_libraries(soleview-display-bench PRIVATE PkgConfig::LIBWEBPDEMUX)
+        target_compile_definitions(soleview-display-bench PRIVATE HAS_LIBWEBPDEMUX=1)
+    endif()
+    if(LIBOPENJP2_FOUND)
+        target_link_libraries(soleview-display-bench PRIVATE PkgConfig::LIBOPENJP2)
+        target_compile_definitions(soleview-display-bench PRIVATE HAS_LIBOPENJP2=1)
+    endif()
+    if(LIBJXL_FOUND)
+        target_link_libraries(soleview-display-bench PRIVATE PkgConfig::LIBJXL)
+        target_compile_definitions(soleview-display-bench PRIVATE HAS_LIBJXL=1)
+    endif()
+    if(OPENEXR_FOUND)
+        target_link_libraries(soleview-display-bench PRIVATE PkgConfig::OPENEXR)
+        target_compile_definitions(soleview-display-bench PRIVATE HAS_OPENEXR=1)
+    endif()
+    soleview_reset_integrity_label(soleview-display-bench)
 
     include("${CMAKE_CURRENT_SOURCE_DIR}/tests/chrome_popup_cases.cmake")
     foreach(_chrome_case IN LISTS SOLEVIEW_CHROME_CASES)
