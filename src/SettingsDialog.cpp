@@ -5068,42 +5068,6 @@ void SettingsDialog::buildAppMenuSections(QWidget *page)
     reset->setMinimumWidth(118);
     m_pageActionHost->layout()->addWidget(reset);
 
-    // J-2 统一显隐开关（键 config/appmenu/unified_visibility，默认关 = 两边独立）。
-    // 开启后右键隐藏的共有命令在三横（汉堡）菜单同步隐藏；保存即落盘，下次打开
-    // 菜单按新规则重建，无需重启。
-    auto *unifiedRow = new QWidget(page);
-    auto *unifiedLay = new QHBoxLayout(unifiedRow);
-    unifiedLay->setContentsMargins(0, 0, 0, 14);
-    unifiedLay->setSpacing(12);
-    auto *unifiedToggle = new PillToggle(unifiedRow);
-    unifiedToggle->setFluent(true);
-    unifiedToggle->setLargeTrack(true);
-    unifiedToggle->setObjectName(QStringLiteral("appMenuUnifiedToggle"));
-    unifiedToggle->setChecked(Config::instance().appMenuUnifiedVisibility());
-    unifiedToggle->setAccessibleName(tr("汉堡菜单同步隐藏"));
-    auto *unifiedText = new QWidget(unifiedRow);
-    auto *unifiedTextLay = new QVBoxLayout(unifiedText);
-    unifiedTextLay->setContentsMargins(0, 0, 0, 0);
-    unifiedTextLay->setSpacing(2);
-    auto *unifiedLabel = new QLabel(tr("汉堡菜单同步隐藏"), unifiedText);
-    unifiedLabel->setObjectName(QStringLiteral("appMenuBranchName"));
-    auto *unifiedDesc = new QLabel(tr("开启后，右键菜单中隐藏的命令会在三横菜单中一并隐藏；关闭时两边各自独立。"), unifiedText);
-    unifiedDesc->setWordWrap(true);
-    unifiedDesc->setObjectName(QStringLiteral("appMenuDescription"));
-    unifiedTextLay->addWidget(unifiedLabel);
-    unifiedTextLay->addWidget(unifiedDesc);
-    unifiedLay->addWidget(unifiedToggle, 0, Qt::AlignTop);
-    unifiedLay->addWidget(unifiedText, 1);
-    pageLay->addWidget(unifiedRow);
-    connect(unifiedToggle, &PillToggle::toggled, this, [this, unifiedToggle](bool on) {
-        QString error;
-        if (!writeValues({{QStringLiteral("appmenu/unified_visibility"), on}}, false, &error)) {
-            const QSignalBlocker blocker(unifiedToggle);
-            unifiedToggle->setChecked(Config::instance().appMenuUnifiedVisibility());
-            QMessageBox::warning(this, tr("查看器右键菜单"), error);
-        }
-    });
-
     auto *findHost = new QWidget(page);
     auto *findLay = new QHBoxLayout(findHost);
     findLay->setContentsMargins(0, 0, 0, 14);
@@ -5459,11 +5423,6 @@ void SettingsDialog::buildAppMenuSections(QWidget *page)
                 const QSignalBlocker blocker(item.toggle);
                 item.toggle->setChecked(AppMenu::defaultOn(item.id));
             }
-        }
-        // 恢复默认会清掉 config/appmenu/*（含统一开关），同步复位该行显示。
-        if (auto *unified = findChild<PillToggle *>(QStringLiteral("appMenuUnifiedToggle"))) {
-            const QSignalBlocker blocker(*unified);
-            unified->setChecked(Config::instance().appMenuUnifiedVisibility());
         }
         st->refresh();
         refreshAppMenuPreview(false);

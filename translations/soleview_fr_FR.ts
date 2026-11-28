@@ -3481,14 +3481,6 @@ Restauré à la valeur réelle courante.</translation>
             <translation>Rétablir le menu par défaut</translation>
         </message>
         <message>
-            <source>汉堡菜单同步隐藏</source>
-            <translation>Masquage synchronisé avec le menu hamburger</translation>
-        </message>
-        <message>
-            <source>开启后，右键菜单中隐藏的命令会在三横菜单中一并隐藏；关闭时两边各自独立。</source>
-            <translation>Activé, les commandes masquées dans le menu contextuel le sont aussi dans le menu hamburger ; désactivé, les deux menus restent indépendants.</translation>
-        </message>
-        <message>
             <source>重置全部可见性开关；不影响浏览模式、快捷键、图像效果或其他设置</source>
             <translation>Réinitialise tous les interrupteurs de visibilité ; n'affecte ni le mode de parcours, ni les raccourcis, ni les effets d'image, ni les autres réglages</translation>
         </message>

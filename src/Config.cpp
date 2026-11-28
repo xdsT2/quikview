@@ -910,13 +910,6 @@ bool Config::resetAppMenuVisibility()
     return saved;
 }
 
-bool Config::appMenuUnifiedVisibility() const
-{
-    // 默认关：右键 / 汉堡两边各自独立，与旧版逐位一致；开启后汉堡菜单同步右键
-    // 的共有命令显隐（J-2）。
-    return m_settings.value(QStringLiteral("config/appmenu/unified_visibility"), false).toBool();
-}
-
 void Config::repairCriticalMenuEntries()
 {
     // J-2 启动自愈：关键入口（设置…）被配置隐藏时回落为可见。设置…本是 Fixed

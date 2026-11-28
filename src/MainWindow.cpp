@@ -227,8 +227,8 @@ void addHamburgerAction(CtxMenu *menu, QAction *action, const char *icon,
 {
     menu->addAction(action);
     menu->setActionIcon(action, icon);
-    // J-2：共有命令挂目录 id，供统一显隐开关按右键生效可见性过滤；
-    // menuId 为空 = 汉堡独有条目，不参与同步。
+    // menuId 非空 = 与右键菜单共有的目录条目；id 仅作结构标记（探针报告展示用），
+    // 汉堡菜单显隐独立于右键自定义；menuId 为空 = 汉堡独有条目。
     if (menuId) {
         action->setProperty("appmenu.id", QLatin1String(menuId));
     }
@@ -3296,93 +3296,11 @@ QMenu *MainWindow::buildHamburgerMenu()
     addHamburgerAction(menu, actAbout, "info", "about");
     menu->addSeparator();
 
-    // —— 危险操作 ——
-    addHamburgerAction(menu, actDelete, "trash", "delete_file");
-    menu->addSeparator();
+    // 退出(Q)：汉堡菜单底部唯一的应用级收尾项；删除文件不在汉堡菜单暴露，
+    // 仍走查看器右键菜单 / 快捷图标 / Del 键三处既有入口。
     addHamburgerAction(menu, actQuit, "logout", "quit");
 
-    // J-2：统一显隐开关开启后，按右键生效可见性过滤共有命令；关闭则原样保留。
-    applyHamburgerVisibility(menu);
-
     return menu;
-}
-
-void MainWindow::applyHamburgerVisibility(QMenu *root) const
-{
-    const Config &cfg = Config::instance();
-    const bool unified = cfg.appMenuUnifiedVisibility();
-
-    // 递归判定：挂了目录 id 的共有命令纳入 J-2 幂等双向显隐；关键入口恒可见；
-    // 无 id 的汉堡独有条目不参与，保留其既有可见性。
-    // 每次构建都按当前配置把最终可见性**双向**写入（该显 setVisible(true)、该藏
-    // setVisible(false)），而不是只单向隐藏、指望别处恢复——否则上一轮开态藏掉的
-    // 共享成员 action，在关态重建菜单后会残留 visible=0。
-    std::function<bool(QMenu *)> prune = [&](QMenu *m) -> bool {
-        bool anyVisible = false;
-        const QList<QAction *> acts = m->actions();
-        for (QAction *a : acts) {
-            if (!a || a->isSeparator()) {
-                continue;
-            }
-            if (QMenu *sub = a->menu()) {
-                const bool subVisible = prune(sub);
-                a->setVisible(subVisible);
-                if (subVisible) {
-                    anyVisible = true;
-                }
-                continue;
-            }
-            const QString id = a->property("appmenu.id").toString();
-            if (id.isEmpty()) {
-                anyVisible = true;  // 汉堡独有条目：不参与同步
-                continue;
-            }
-            // 统一开关关：两边独立，汉堡侧共有命令回到上下文应有的显示态（复位可见）；
-            // 开：同步右键生效可见性。汉堡菜单场景下这些命令无额外上下文隐藏，
-            // 上下文可见性恒为真；若后续加入上下文隐藏，在 switchVisible 之后 AND。
-            const bool switchVisible = !unified
-                || AppMenu::isCriticalEntry(id)
-                || cfg.appMenuVisible(id);
-            a->setVisible(switchVisible);
-            if (switchVisible) {
-                anyVisible = true;
-            }
-        }
-        return anyVisible;
-    };
-    prune(root);
-
-    // 收敛分隔线：隐藏条目后去掉首/尾与相邻重复的空分隔。
-    std::function<void(QMenu *)> stripSeparators = [&](QMenu *m) {
-        const QList<QAction *> acts = m->actions();
-        QAction *lastVisible = nullptr;
-        for (QAction *a : acts) {
-            if (!a->isVisible()) {
-                continue;
-            }
-            if (a->isSeparator()) {
-                if (!lastVisible || lastVisible->isSeparator()) {
-                    a->setVisible(false);
-                }
-            } else {
-                lastVisible = a;
-            }
-        }
-        for (int i = acts.size() - 1; i >= 0; --i) {
-            if (acts[i]->isVisible()) {
-                if (acts[i]->isSeparator()) {
-                    acts[i]->setVisible(false);
-                }
-                break;
-            }
-        }
-        for (QAction *a : acts) {
-            if (a->menu()) {
-                stripSeparators(a->menu());
-            }
-        }
-    };
-    stripSeparators(root);
 }
 
 QMenu *MainWindow::buildContextMenu()
@@ -6484,8 +6402,8 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         menu->popup(m_topBar ? m_topBar->menuAnchorGlobal()
                              : mapToGlobal(QPoint(width() - 120, 20)));
     }
-    // J-2 验收探针：导出三横（汉堡）菜单结构到 Temp/hamburger-report.txt，
-    // 逐项给出 visible= 与目录 id，断言统一显隐开关下共有命令是否同步隐藏。
+    // 验收探针：导出三横（汉堡）菜单结构到 Temp/hamburger-report.txt，
+    // 逐项给出 visible= 与目录 id，供断言汉堡菜单最终可见条目集合。
     else if (c == QLatin1String("hamburgerreport")) {
         QMenu *menu = buildHamburgerMenu();
         if (QFile f(QStringLiteral("Temp/hamburger-report.txt"));

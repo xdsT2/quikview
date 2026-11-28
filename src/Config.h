@@ -163,9 +163,6 @@ public:
     // = 本项开关 × 各级祖先总开关（无开关的 Fixed / Leaf 完全由祖先决定）。
     bool appMenuOwnVisible(const QString &id) const;
     bool appMenuVisible(const QString &id) const;
-    // 汉堡菜单与右键菜单显隐统一开关（键 config/appmenu/unified_visibility，默认关）。
-    // 关 = 两边各自独立（现状不变）；开 = 右键隐藏的共有命令在汉堡菜单同步隐藏。
-    bool appMenuUnifiedVisibility() const;
     // 启动自愈（J-2 防呆）：关键入口（设置…）若被配置隐藏，回落为可见并写日志。
     void repairCriticalMenuEntries();
     // 本次启动自愈回落的关键入口 id（空 = 无需回落）；供启动后落盘取证。
