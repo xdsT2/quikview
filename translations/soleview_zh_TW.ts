@@ -2975,6 +2975,14 @@
             <translation>還原預設選單</translation>
         </message>
         <message>
+            <source>汉堡菜单同步隐藏</source>
+            <translation>漢堡選單同步隱藏</translation>
+        </message>
+        <message>
+            <source>开启后，右键菜单中隐藏的命令会在三横菜单中一并隐藏；关闭时两边各自独立。</source>
+            <translation>開啟後，右鍵選單中隱藏的命令會在三橫選單中一併隱藏；關閉時兩邊各自獨立。</translation>
+        </message>
+        <message>
             <source>重置全部可见性开关；不影响浏览模式、快捷键、图像效果或其他设置</source>
             <translation>重設全部可見性開關；不影響瀏覽模式、快速鍵、影像效果或其他設定</translation>
         </message>

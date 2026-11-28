@@ -220,10 +220,16 @@ CtxMenu *addHamburgerSubmenu(CtxMenu *parent, const QString &title, const char *
     return menu;
 }
 
-void addHamburgerAction(CtxMenu *menu, QAction *action, const char *icon)
+void addHamburgerAction(CtxMenu *menu, QAction *action, const char *icon,
+                        const char *menuId = nullptr)
 {
     menu->addAction(action);
     menu->setActionIcon(action, icon);
+    // J-2：共有命令挂目录 id，供统一显隐开关按右键生效可见性过滤；
+    // menuId 为空 = 汉堡独有条目，不参与同步。
+    if (menuId) {
+        action->setProperty("appmenu.id", QLatin1String(menuId));
+    }
 }
 
 // 双页拼图：两页等高并排，高度取较高的一页，另一页按比例放大，
@@ -2971,7 +2977,7 @@ QMenu *MainWindow::buildCopytoMenu(CtxMenu *parentMenu)
     if (Config::instance().contextCopy()) {
         menu->addSeparator();
         if (styled) {
-            addHamburgerAction(styled, actCopyToClipboard, "copy");
+            addHamburgerAction(styled, actCopyToClipboard, "copy", "copy_clipboard");
         } else {
             menu->addAction(actCopyToClipboard);
             style(actCopyToClipboard, "copy");
@@ -3030,7 +3036,7 @@ QMenu *MainWindow::buildHamburgerMenu()
     auto *menu = makeHamburgerMenu(this, 256);
 
     // —— 文件 ——
-    addHamburgerAction(menu, actOpen, "image");
+    addHamburgerAction(menu, actOpen, "image", "open_image");
     addHamburgerAction(menu, actSaveAs, "save");
     addHamburgerAction(menu, actRename, "pencil");
     menu->addSeparator();
@@ -3062,16 +3068,16 @@ QMenu *MainWindow::buildHamburgerMenu()
     addHamburgerAction(edit, actResize, "size");
     edit->addSeparator();
     actNegative->setChecked(m_negative);
-    addHamburgerAction(edit, actNegative, "invert");
-    addHamburgerAction(edit, actGamma, "eq");
-    addHamburgerAction(edit, actFlipV, "flip-v");
-    addHamburgerAction(edit, actFlipH, "flip-h");
+    addHamburgerAction(edit, actNegative, "invert", "fx_negative");
+    addHamburgerAction(edit, actGamma, "eq", "fx_gamma");
+    addHamburgerAction(edit, actFlipV, "flip-v", "fx_flipv");
+    addHamburgerAction(edit, actFlipH, "flip-h", "fx_fliph");
     edit->addSeparator();
     edit->setActionIcon(addMenuItem(edit, tr("转换图片 (旋转/裁剪)"), QStringLiteral("Ctrl+T"),
                                    [this]() { onBatchConvert(); }), "imageproc");
-    addHamburgerAction(edit, actWallpaper, "monitor");
-    addHamburgerAction(edit, actPrint, "printer");
-    addHamburgerAction(edit, actOpenWithEditor, "pencil");
+    addHamburgerAction(edit, actWallpaper, "monitor", "wallpaper");
+    addHamburgerAction(edit, actPrint, "printer", "print");
+    addHamburgerAction(edit, actOpenWithEditor, "pencil", "open_editor");
 
     // —— 复制到 › ——
     QMenu *copyto = buildCopytoMenu(menu);
@@ -3091,27 +3097,41 @@ QMenu *MainWindow::buildHamburgerMenu()
         }
     });
     view->addSeparator();
-    addHamburgerAction(view, actPrev, "chev-left");
-    addHamburgerAction(view, actNext, "chev-right");
-    addMenuItem(view, tr("首张图片"), QStringLiteral("Home"), [this]() { onFirst(); });
-    addMenuItem(view, tr("末尾图片"), QStringLiteral("End"), [this]() { onLast(); });
-    addMenuItem(view, tr("向下 10 张图片"), QStringLiteral("Ctrl+PageDown"),
-                [this]() { onNext10(); });
-    addMenuItem(view, tr("向上 10 张图片"), QStringLiteral("Ctrl+PageUp"),
-                [this]() { onPrev10(); });
-    addMenuItem(view, tr("向后随机转到某张图片"), QStringLiteral("Ctrl+Alt+PageDown"),
-                [this]() { onJumpRandom(true); });
-    addMenuItem(view, tr("向前随机转到某张图片"), QStringLiteral("Ctrl+Alt+PageUp"),
-                [this]() { onJumpRandom(false); });
-    addMenuItem(view, tr("下一个文件夹"), QStringLiteral("]"), [this]() { onNextFolder(); });
-    addMenuItem(view, tr("上一个文件夹"), QStringLiteral("["), [this]() { onPrevFolder(); });
+    addHamburgerAction(view, actPrev, "chev-left", "nav_prev");
+    addHamburgerAction(view, actNext, "chev-right", "nav_next");
+    {
+        auto *aFirst = addMenuItem(view, tr("首张图片"), QStringLiteral("Home"), [this]() { onFirst(); });
+        aFirst->setProperty("appmenu.id", QLatin1String("nav_first"));
+        auto *aLast = addMenuItem(view, tr("末尾图片"), QStringLiteral("End"), [this]() { onLast(); });
+        aLast->setProperty("appmenu.id", QLatin1String("nav_last"));
+        auto *aNext10 = addMenuItem(view, tr("向下 10 张图片"), QStringLiteral("Ctrl+PageDown"),
+                                    [this]() { onNext10(); });
+        aNext10->setProperty("appmenu.id", QLatin1String("nav_next10"));
+        auto *aPrev10 = addMenuItem(view, tr("向上 10 张图片"), QStringLiteral("Ctrl+PageUp"),
+                                   [this]() { onPrev10(); });
+        aPrev10->setProperty("appmenu.id", QLatin1String("nav_prev10"));
+        auto *aRandBack = addMenuItem(view, tr("向后随机转到某张图片"), QStringLiteral("Ctrl+Alt+PageDown"),
+                                     [this]() { onJumpRandom(true); });
+        aRandBack->setProperty("appmenu.id", QLatin1String("nav_rand_back"));
+        auto *aRandFwd = addMenuItem(view, tr("向前随机转到某张图片"), QStringLiteral("Ctrl+Alt+PageUp"),
+                                     [this]() { onJumpRandom(false); });
+        aRandFwd->setProperty("appmenu.id", QLatin1String("nav_rand_fwd"));
+        auto *aNextFolder = addMenuItem(view, tr("下一个文件夹"), QStringLiteral("]"),
+                                       [this]() { onNextFolder(); });
+        aNextFolder->setProperty("appmenu.id", QLatin1String("nav_folder_next"));
+        auto *aPrevFolder = addMenuItem(view, tr("上一个文件夹"), QStringLiteral("["),
+                                       [this]() { onPrevFolder(); });
+        aPrevFolder->setProperty("appmenu.id", QLatin1String("nav_folder_prev"));
+    }
     view->addSeparator();
     addHamburgerAction(view, actPrevFrame, "chev-left");
     addHamburgerAction(view, actNextFrame, "chev-right");
-    view->setActionIcon(addCheckableItem(view, tr("EXIF 信息"), QStringLiteral("Tab"),
+    auto *metaAct = addCheckableItem(view, tr("EXIF 信息"), QStringLiteral("Tab"),
                      m_metadata && m_metadata->isVisible(), [this]() {
         actToggleMeta->setChecked(!(m_metadata && m_metadata->isVisible()));
-    }), "info");
+    });
+    metaAct->setProperty("appmenu.id", QLatin1String("image_info"));
+    view->setActionIcon(metaAct, "info");
     QAction *layers = addCheckableItem(view, tr("图层"), QString(),
                                        m_layerPanel && m_layerPanel->isVisible(),
                                        [this]() { togglePsdLayers(); });
@@ -3134,39 +3154,53 @@ QMenu *MainWindow::buildHamburgerMenu()
 
     auto *show = addHamburgerSubmenu(params, tr("浏览方式"), "view");
     syncViewModeActions();
-    addHamburgerAction(show, actActualSize, "frame");
-    addHamburgerAction(show, actFit, "fit-window");
-    addHamburgerAction(show, actFitWidth, "fit-width");
-    addHamburgerAction(show, actTwoL2R, "book");
-    addHamburgerAction(show, actTwoR2L, "book");
+    addHamburgerAction(show, actActualSize, "frame", "view_actual");
+    addHamburgerAction(show, actFit, "fit-window", "view_fit");
+    addHamburgerAction(show, actFitWidth, "fit-width", "view_fitwidth");
+    addHamburgerAction(show, actTwoL2R, "book", "view_two_l2r");
+    addHamburgerAction(show, actTwoR2L, "book", "view_two_r2l");
     actStretchSmall->setChecked(Config::instance().stretchSmall());
     addHamburgerAction(show, actStretchSmall, "size");
 
     auto *zoom = addHamburgerSubmenu(params, tr("缩放"), "zoom");
-    addMenuItem(zoom, tr("放大"), QStringLiteral("+"), [this]() { onZoomIn(); });
-    addMenuItem(zoom, tr("缩小"), QStringLiteral("−"), [this]() { onZoomOut(); });
-    addMenuItem(zoom, tr("100%"), QString(), [this]() { setZoomMode(0); });
-    addMenuItem(zoom, tr("放大 (1%)"), QStringLiteral("Ctrl++"), [this]() {
-        if (m_overview && m_overview->isVisible()) return;
-        if (!m_currentImage.isNull()) {
-            m_canvas->setZoom(m_canvas->zoom() + 0.01);
-        }
-    });
-    addMenuItem(zoom, tr("缩小 (1%)"), QStringLiteral("Ctrl+−"), [this]() {
-        if (m_overview && m_overview->isVisible()) return;
-        if (!m_currentImage.isNull()) {
-            m_canvas->setZoom(m_canvas->zoom() - 0.01);
-        }
-    });
+    {
+        auto *zIn = addMenuItem(zoom, tr("放大"), QStringLiteral("+"), [this]() { onZoomIn(); });
+        zIn->setProperty("appmenu.id", QLatin1String("zoom_in"));
+        auto *zOut = addMenuItem(zoom, tr("缩小"), QStringLiteral("−"), [this]() { onZoomOut(); });
+        zOut->setProperty("appmenu.id", QLatin1String("zoom_out"));
+        auto *z100 = addMenuItem(zoom, tr("100%"), QString(), [this]() { setZoomMode(0); });
+        z100->setProperty("appmenu.id", QLatin1String("zoom_100"));
+        auto *zIn1 = addMenuItem(zoom, tr("放大 (1%)"), QStringLiteral("Ctrl++"), [this]() {
+            if (m_overview && m_overview->isVisible()) return;
+            if (!m_currentImage.isNull()) {
+                m_canvas->setZoom(m_canvas->zoom() + 0.01);
+            }
+        });
+        zIn1->setProperty("appmenu.id", QLatin1String("zoom_in1"));
+        auto *zOut1 = addMenuItem(zoom, tr("缩小 (1%)"), QStringLiteral("Ctrl+−"), [this]() {
+            if (m_overview && m_overview->isVisible()) return;
+            if (!m_currentImage.isNull()) {
+                m_canvas->setZoom(m_canvas->zoom() - 0.01);
+            }
+        });
+        zOut1->setProperty("appmenu.id", QLatin1String("zoom_out1"));
+    }
     actZoomLock->setChecked(m_zoomLocked);
-    addHamburgerAction(zoom, actZoomLock, "lock");
+    addHamburgerAction(zoom, actZoomLock, "lock", "zoom_lock");
 
     auto *rot = addHamburgerSubmenu(params, tr("旋转"), "rotate");
-    addCheckableItem(rot, tr("不旋转"), QStringLiteral("Alt+Up"),
-                     m_netRotation == 0 && !m_flipH && !m_flipV, [this]() { resetGeometry(); });
-    addHamburgerAction(rot, actRotateLeft, "rotate");
-    addHamburgerAction(rot, actRotateRight, "rotate-cw");
-    addMenuItem(rot, tr("旋转 180°"), QStringLiteral("Alt+Down"), [this]() { rotateImage(180); });
+    {
+        auto *rNone = addCheckableItem(rot, tr("不旋转"), QStringLiteral("Alt+Up"),
+                         m_netRotation == 0 && !m_flipH && !m_flipV, [this]() { resetGeometry(); });
+        rNone->setProperty("appmenu.id", QLatin1String("rot_none"));
+    }
+    addHamburgerAction(rot, actRotateLeft, "rotate", "rot_left");
+    addHamburgerAction(rot, actRotateRight, "rotate-cw", "rot_right");
+    {
+        auto *r180 = addMenuItem(rot, tr("旋转 180°"), QStringLiteral("Alt+Down"),
+                                [this]() { rotateImage(180); });
+        r180->setProperty("appmenu.id", QLatin1String("rot_180"));
+    }
 
     auto *sort = addHamburgerSubmenu(params, tr("排序方式"), "sort");
     const int sortMode = Config::instance().sortMode();
@@ -3175,25 +3209,25 @@ QMenu *MainWindow::buildHamburgerMenu()
     actSortSize->setChecked(sortMode == 2);
     actSortType->setChecked(sortMode == 3);
     actSortDesc->setChecked(Config::instance().sortDescending());
-    addHamburgerAction(sort, actSortName, "text");
-    addHamburgerAction(sort, actSortTime, "clock");
-    addHamburgerAction(sort, actSortSize, "size");
-    addHamburgerAction(sort, actSortType, "tag");
+    addHamburgerAction(sort, actSortName, "text", "sort_name");
+    addHamburgerAction(sort, actSortTime, "clock", "sort_time");
+    addHamburgerAction(sort, actSortSize, "size", "sort_size");
+    addHamburgerAction(sort, actSortType, "tag", "sort_type");
     sort->addSeparator();
-    addHamburgerAction(sort, actSortDesc, "sort-desc");
+    addHamburgerAction(sort, actSortDesc, "sort-desc", "sort_desc");
 
     auto *fx = addHamburgerSubmenu(params, tr("显示效果"), "transition");
-    addHamburgerAction(fx, actEffectNone, "minus");
-    addHamburgerAction(fx, actEffectSoften, "transition");
-    addHamburgerAction(fx, actEffectSharpen, "sparkle");
+    addHamburgerAction(fx, actEffectNone, "minus", "fx_none");
+    addHamburgerAction(fx, actEffectSoften, "transition", "fx_soften");
+    addHamburgerAction(fx, actEffectSharpen, "sparkle", "fx_sharpen");
 
     auto *interp = addHamburgerSubmenu(params, tr("插值算法"), "interp");
     actInterpFast->setChecked(m_interpMode == 0);
     actInterpSmooth->setChecked(m_interpMode == 1);
     actInterpLanczos->setChecked(m_interpMode == 2);
-    addHamburgerAction(interp, actInterpFast, "interp");
-    addHamburgerAction(interp, actInterpSmooth, "interp");
-    addHamburgerAction(interp, actInterpLanczos, "interp");
+    addHamburgerAction(interp, actInterpFast, "interp", "interp_bilinear");
+    addHamburgerAction(interp, actInterpSmooth, "interp", "interp_bicubic");
+    addHamburgerAction(interp, actInterpLanczos, "interp", "interp_lanczos");
 
     // HDR 色调映射入口已移除（批次 1）：开关只对部分高位深图生效却提示
     // 「HDR 已开启」，与实际不符；Config::hdrTonemap() 恒 false，旧配置不激活。
@@ -3211,18 +3245,94 @@ QMenu *MainWindow::buildHamburgerMenu()
                                        [this]() { toggleDockLock(); }),
                         m_dockLocked ? "lock" : "lock-open");
     actAlwaysOnTop->setChecked(actualTopmost());
-    addHamburgerAction(menu, actAlwaysOnTop, "pin");
+    addHamburgerAction(menu, actAlwaysOnTop, "pin", "always_on_top");
     menu->addSeparator();
-    addHamburgerAction(menu, actSettings, "sliders");
-    addHamburgerAction(menu, actAbout, "info");
+    addHamburgerAction(menu, actSettings, "sliders", "settings");
+    addHamburgerAction(menu, actAbout, "info", "about");
     menu->addSeparator();
 
     // —— 危险操作 ——
-    addHamburgerAction(menu, actDelete, "trash");
+    addHamburgerAction(menu, actDelete, "trash", "delete_file");
     menu->addSeparator();
-    addHamburgerAction(menu, actQuit, "logout");
+    addHamburgerAction(menu, actQuit, "logout", "quit");
+
+    // J-2：统一显隐开关开启后，按右键生效可见性过滤共有命令；关闭则原样保留。
+    applyHamburgerVisibility(menu);
 
     return menu;
+}
+
+void MainWindow::applyHamburgerVisibility(QMenu *root) const
+{
+    const Config &cfg = Config::instance();
+    // 开关默认关：汉堡菜单保持现状，不做任何过滤（两边各自独立）。
+    if (!cfg.appMenuUnifiedVisibility()) {
+        return;
+    }
+
+    // 递归过滤：挂了目录 id 的共有命令按右键生效可见性显隐；关键入口恒可见；
+    // 无 id 的汉堡独有条目原样保留。子菜单内无可显示项时，父入口一并隐藏。
+    std::function<bool(QMenu *)> prune = [&](QMenu *m) -> bool {
+        bool anyVisible = false;
+        const QList<QAction *> acts = m->actions();
+        for (QAction *a : acts) {
+            if (!a || a->isSeparator()) {
+                continue;
+            }
+            if (QMenu *sub = a->menu()) {
+                const bool subVisible = prune(sub);
+                a->setVisible(subVisible);
+                if (subVisible) {
+                    anyVisible = true;
+                }
+                continue;
+            }
+            const QString id = a->property("appmenu.id").toString();
+            if (id.isEmpty()) {
+                anyVisible = true;  // 汉堡独有条目：不参与同步
+                continue;
+            }
+            const bool visible = AppMenu::isCriticalEntry(id) || cfg.appMenuVisible(id);
+            a->setVisible(visible);
+            if (visible) {
+                anyVisible = true;
+            }
+        }
+        return anyVisible;
+    };
+    prune(root);
+
+    // 收敛分隔线：隐藏条目后去掉首/尾与相邻重复的空分隔。
+    std::function<void(QMenu *)> stripSeparators = [&](QMenu *m) {
+        const QList<QAction *> acts = m->actions();
+        QAction *lastVisible = nullptr;
+        for (QAction *a : acts) {
+            if (!a->isVisible()) {
+                continue;
+            }
+            if (a->isSeparator()) {
+                if (!lastVisible || lastVisible->isSeparator()) {
+                    a->setVisible(false);
+                }
+            } else {
+                lastVisible = a;
+            }
+        }
+        for (int i = acts.size() - 1; i >= 0; --i) {
+            if (acts[i]->isVisible()) {
+                if (acts[i]->isSeparator()) {
+                    acts[i]->setVisible(false);
+                }
+                break;
+            }
+        }
+        for (QAction *a : acts) {
+            if (a->menu()) {
+                stripSeparators(a->menu());
+            }
+        }
+    };
+    stripSeparators(root);
 }
 
 QMenu *MainWindow::buildContextMenu()
@@ -3701,6 +3811,19 @@ void MainWindow::contextMenuEvent(QContextMenuEvent *event)
 void MainWindow::applyRuntimeSettings()
 {
     const Config &cfg = Config::instance();
+
+    // J-2 启动自愈取证：关键入口被配置隐藏并已回落时，落一条记录到
+    // Temp/appmenu-selfheal.txt（沿用既有探针落盘惯例），便于验收对账。
+    const QStringList repaired = cfg.repairedCriticalEntries();
+    if (!repaired.isEmpty()) {
+        QFile healLog(QStringLiteral("Temp/appmenu-selfheal.txt"));
+        if (healLog.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&healLog);
+            ts.setEncoding(QStringConverter::Utf8);
+            ts << "critical menu entries hidden by config, restored to visible: "
+               << repaired.join(QLatin1String(", ")) << '\n';
+        }
+    }
 
     // 置顶只在**原生带**真的变化时才下发。运行期一律走 applyTopmost 的
     // SetWindowPos 原生切带（不隐藏、不重建、不夺焦点）；setWindowFlag 的
@@ -6250,6 +6373,46 @@ void MainWindow::runSmokeCommand(const QString &cmd)
         menu->setAttribute(Qt::WA_DeleteOnClose);
         menu->popup(m_topBar ? m_topBar->menuAnchorGlobal()
                              : mapToGlobal(QPoint(width() - 120, 20)));
+    }
+    // J-2 验收探针：导出三横（汉堡）菜单结构到 Temp/hamburger-report.txt，
+    // 逐项给出 visible= 与目录 id，断言统一显隐开关下共有命令是否同步隐藏。
+    else if (c == QLatin1String("hamburgerreport")) {
+        QMenu *menu = buildHamburgerMenu();
+        if (QFile f(QStringLiteral("Temp/hamburger-report.txt"));
+            f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream ts(&f);
+            ts.setEncoding(QStringConverter::Utf8);
+            menu->ensurePolished();
+            menu->adjustSize();
+            int seq = 0;
+            const std::function<void(QMenu *, int, const QString &)> dump =
+                [&](QMenu *m, int depth, const QString &path) {
+                    const QList<QAction *> acts = m->actions();
+                    for (int i = 0; i < acts.size(); ++i) {
+                        QAction *a = acts.at(i);
+                        const QString here = path + QString::number(i);
+                        const QString indent(depth * 2, QChar(' '));
+                        if (a->isSeparator()) {
+                            ts << here << '\t' << indent << "<sep>\n";
+                            continue;
+                        }
+                        ++seq;
+                        const QString label = a->text().section(QLatin1Char('\t'), 0, 0);
+                        const QString id = a->property("appmenu.id").toString();
+                        ts << here << '\t' << indent << label
+                           << "\tvisible=" << (a->isVisible() ? 1 : 0)
+                           << "\tid=" << id
+                           << "\tchecked=" << (a->isCheckable() && a->isChecked() ? 1 : 0)
+                           << '\n';
+                        if (a->menu()) {
+                            dump(a->menu(), depth + 1, here + QLatin1Char('.'));
+                        }
+                    }
+                };
+            dump(menu, 0, QString());
+            ts << "commands=" << seq << '\n';
+        }
+        menu->deleteLater();
     }
     else if (c.startsWith(QLatin1String("tophover:"))) {
         if (m_topBar) m_topBar->probeHover(c.mid(9).toInt());
