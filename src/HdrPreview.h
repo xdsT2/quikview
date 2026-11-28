@@ -42,7 +42,8 @@ public:
     static constexpr int kSize = 4096;
     static constexpr float kMaxX = 4.0f;
 
-    explicit Curve(float whitePoint);
+    // ev：曝光补偿（每 ±1 档线性值 ×2 / ×0.5），在查表前乘上；0 与自动预览完全一致。
+    explicit Curve(float whitePoint, float ev = 0.0f);
 
     // 线性值 → 8bit sRGB；NaN/负数 → 0。
     unsigned char operator()(float linear) const;
@@ -52,6 +53,7 @@ public:
 private:
     float m_white = 1.0f;
     float m_invWhite = 1.0f;
+    float m_gain = 1.0f;      // 2^ev
     unsigned char m_lut[kSize + 1] = {};
 };
 
@@ -59,7 +61,7 @@ private:
 struct AutoExposure
 {
     Meter meter;
-    Curve curve() const { return Curve(meter.whitePoint()); }
+    Curve curve(float ev = 0.0f) const { return Curve(meter.whitePoint(), ev); }
 };
 
 } // namespace HdrPreview

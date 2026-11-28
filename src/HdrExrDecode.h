@@ -20,7 +20,11 @@ bool isHdrSuffix(const QString &suffixLower);
 bool isExrSuffix(const QString &suffixLower);
 
 // 解析失败时 *errOut / *catOut 与 ExtraImageLoader 既有口径一致。
-QImage decodeRadiance(const QByteArray &data, QString *errOut, LoadErrorCategory *catOut);
-QImage decodeExr(const QByteArray &data, QString *errOut, LoadErrorCategory *catOut);
+// exposureEv：曝光补偿（每 ±1 档线性值 ×2 / ×0.5），在色调映射前生效；
+// 0 与自动预览（I3-2 验收基线）逐像素一致（H1-8）。
+QImage decodeRadiance(const QByteArray &data, QString *errOut, LoadErrorCategory *catOut,
+                      float exposureEv = 0.0f);
+QImage decodeExr(const QByteArray &data, QString *errOut, LoadErrorCategory *catOut,
+                 float exposureEv = 0.0f);
 
 } // namespace HdrExrDecode

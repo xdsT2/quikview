@@ -190,6 +190,11 @@ private slots:
     void onCopyImageFile();
     // J-4：播放栏「复制当前帧」——把正在显示的那一帧放进剪贴板（不写盘）。
     void onCopyCurrentFrame();
+    // H1-8 顶栏 HDR 浮层：三档显示模式 + 曝光 EV（解码期生效，0 EV = 自动预览）。
+    void toggleHdrPanel();
+    void applyHdrMode(int mode);
+    void applyHdrExposure(double ev);
+    bool currentIsHdrImage() const;
     // Ctrl+V 从剪贴板取图（图像 → 文件 URL → 文本路径 → toast）
     void onPasteFromClipboard();
     void onSetWallpaper();
@@ -709,6 +714,7 @@ private:
     QLabel *m_loadStatus = nullptr;      // 浮动状态标签（页码旁 / 空状态共用文案）
     QImage m_sourceImage;      // 文件原始像素，不做任何旋转/翻转/效果（「不旋转」的基准）
     QImage m_currentImage;
+    class HdrPanel *m_hdrPanel = nullptr;
     QImage m_originalImage;
     int m_effect = 0;
     int m_netRotation = 0;     // 净旋转角：0 / 90 / 180 / 270

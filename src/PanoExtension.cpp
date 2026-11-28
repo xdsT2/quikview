@@ -600,6 +600,8 @@ bool PanoExt::Manager::launch(const QString &imagePath, const Pano::Info &view, 
         QStringLiteral("--heading"), QString::number(view.heading, 'f', 3),
         QStringLiteral("--pitch"), QString::number(view.pitch, 'f', 3),
         QStringLiteral("--fov"), QString::number(view.fov, 'f', 3),
+        // H1-8：曝光与主程序顶栏 HDR 浮层同一语义（平面/全景方向一致）。
+        QStringLiteral("--ev"), QString::number(double(Config::instance().hdrExposureEv()), 'f', 2),
     };
     if (!QProcess::startDetached(s.path, args, QCoreApplication::applicationDirPath())) {
         if (error)

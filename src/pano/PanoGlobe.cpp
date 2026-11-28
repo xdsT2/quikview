@@ -52,7 +52,7 @@ PanoGlobe::PanoGlobe(QWidget *parent)
     });
 }
 
-bool PanoGlobe::load(const QString &path, QString *error)
+bool PanoGlobe::load(const QString &path, QString *error, float exposureEv)
 {
     const QString suffix = QFileInfo(path).suffix().toLower();
     QImage img;

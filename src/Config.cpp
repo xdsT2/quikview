@@ -544,6 +544,30 @@ bool Config::stretchSmall() const
     return m_settings.value(QStringLiteral("config/stretch_small"), false).toBool();
 }
 
+int Config::hdrMode() const
+{
+    // 0 自动检测（默认）/ 1 开启 / 2 关闭。用户选择与实际生效输出分开记录：
+    // 本版无原生 HDR 输出路径，三种模式都落到 I3-2 的 SDR 预览，面板上说明原因。
+    return qBound(0, m_settings.value(QStringLiteral("config/imageproc/hdr_mode"), 0).toInt(), 2);
+}
+
+void Config::setHdrMode(int mode)
+{
+    m_settings.setValue(QStringLiteral("config/imageproc/hdr_mode"), qBound(0, mode, 2));
+}
+
+float Config::hdrExposureEv() const
+{
+    const double v = m_settings.value(QStringLiteral("config/imageproc/hdr_exposure_ev"), 0.0).toDouble();
+    return float(qBound(-8.0, v, 8.0));
+}
+
+void Config::setHdrExposureEv(float ev)
+{
+    m_settings.setValue(QStringLiteral("config/imageproc/hdr_exposure_ev"),
+                        double(qBound(-8.0f, ev, 8.0f)));
+}
+
 bool Config::hdrTonemap() const
 {
     // 本版已移除 HDR 启用入口（右键「图片参数」项，批次 1）：色调映射只在部分

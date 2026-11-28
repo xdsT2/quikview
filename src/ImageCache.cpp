@@ -744,7 +744,7 @@ void ImageCache::startFullDecode(const QString &path, const QSize &previewSize,
             }
             QString extraErr;
             LoadErrorCategory extraCat = LoadErrorCategory::None;
-            const QImage img = prepareFrame(ExtraImageLoader::load(path, previewSize, &extraErr, &extraCat, hdrTonemap));
+            const QImage img = prepareFrame(ExtraImageLoader::load(path, previewSize, &extraErr, &extraCat, hdrTonemap, m_hdrEv));
             QMetaObject::invokeMethod(this, [this, path, img, extraErr, extraCat, generation]() {
                 finishFullDecode(path, img, generation, extraErr, extraCat);
             }, Qt::QueuedConnection);
@@ -877,6 +877,18 @@ void ImageCache::cancelPending()
 //   ② 在飞全图任务直接从 m_fullInFlight 摘除，完成回调找不到条目即整体丢弃；
 //   ③ 预读/拖动预览命中同一路径时一并清空，回调按「路径不符」丢弃；
 //   ④ 缩略图缓存按 key 前缀清掉，在飞缩略图用 epoch 作废。
+void ImageCache::setHdrExposureEv(float ev)
+{
+    ev = qBound(-8.0f, ev, 8.0f);
+    if (qFuzzyCompare(ev + 1.0f, m_hdrEv + 1.0f)) {
+        return;
+    }
+    m_hdrEv = ev;
+    // 曝光是解码期参数：缓存里的 HDR/EXR 全部作废（缩略图同一套曲线，一并清），
+    // 在飞任务由调用方的换代请求作废。8bit 图重解一次代价可接受（EV 调整不频繁）。
+    clear();
+}
+
 void ImageCache::forgetPath(const QString &path)
 {
     if (path.isEmpty()) {
@@ -1006,7 +1018,8 @@ void ImageCache::startThumbJobs()
         const QSize size = task.size;
 
         // D1-1：缩略图投递到独立小池，不与全图/拖动解码抢线程。
-        auto future = QtConcurrent::run(&m_thumbPool, [path, size]() {
+        const float hdrEv = m_hdrEv;
+        auto future = QtConcurrent::run(&m_thumbPool, [path, size, hdrEv]() {
             if (ArchiveStore::isEntryPath(path)) {
                 // 包内缩略图：解压入口字节 → 按缩略图尺寸解码（ArchiveStore 负责最终缩比）
                 QString ignored;
@@ -1026,7 +1039,7 @@ void ImageCache::startThumbJobs()
             }
             if (ExtraImageLoader::isExtraPath(path)) {
                 QString ignored;
-                QImage thumb = ExtraImageLoader::load(path, size, &ignored);
+                QImage thumb = ExtraImageLoader::load(path, size, &ignored, nullptr, false, hdrEv);
                 if (!thumb.isNull() && (thumb.width() > size.width() || thumb.height() > size.height())) {
                     thumb = thumb.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
                 }

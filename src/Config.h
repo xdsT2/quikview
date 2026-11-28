@@ -101,6 +101,12 @@ public:
     QString interpolation() const;     // "bilinear" | "bicubic" | "lanczos"（默认 "bicubic"）
     bool stretchSmall() const;         // 适合窗口时把小于窗口的图放大填满（默认 false）
     bool hdrTonemap() const;           // HDR 色调映射（本版恒 false：启用入口已移除，旧配置不激活）
+    // 顶栏 HDR 浮层（H1-8）：模式 0 自动检测 / 1 开启 / 2 关闭；曝光补偿单位档。
+    // 与 hdrTonemap() 的旧布尔分开：旧键不再读取，这两项是新语义（用户选择）。
+    int hdrMode() const;
+    void setHdrMode(int mode);
+    float hdrExposureEv() const;
+    void setHdrExposureEv(float ev);
     bool imageIcc() const;             // 使用图片内嵌 ICC（非 sRGB 图转 sRGB，默认 true）
     bool monitorIcc() const;           // 显示器 ICC（SDR 验证版：ACM 关闭的屏幕做应用侧目标转换，默认 false）
     int gifTransparent() const;        // GIF 透明背景 0=默认调色板 1=白 2=黑 3=中灰 4=自定义（默认 0；批次 2 重新暴露并加自定义取色）

@@ -79,6 +79,8 @@ signals:
     void selected(int index);
     void activated(int index);
     void escapePressed();
+    // Ctrl+滚轮改档后通知底栏胶囊（与底栏 ＋/－、Ctrl＋/－ 共用同一套 n/5 显示）。
+    void zoomStepChanged();
     // 显示顺序改变（切换分组 / 反转方向 / 换目录 / 首末变化）：底栏页码需重算。
     void orderChanged();
 

@@ -40,7 +40,7 @@ bool hasMultipleFrames(const QString &path);
 // 主解码入口（静态图或动画首帧）。viewportHint 对 WMF/EMF 等矢量格式生效。
 QImage load(const QString &path, const QSize &viewportHint = QSize(),
             QString *errorOut = nullptr, LoadErrorCategory *categoryOut = nullptr,
-            bool toneMapSdr = false);
+            bool toneMapSdr = false, float hdrExposureEv = 0.0f);
 
 // 解码完整动画帧与每帧时长（毫秒）。支持 Animated WebP、APNG（.apng/.png）、
 // ANI 动标、Animated AVIF/HEICS（T3）、Animated JXL（T3）。

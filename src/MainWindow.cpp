@@ -77,6 +77,7 @@
 
 #include "BatchConvertDialog.h"
 #include "Chrome.h"
+#include "HdrPanel.h"
 #include "HudShell.h"
 #include "CtxMenu.h"
 #include "MenuIcons.h"
@@ -425,6 +426,9 @@ MainWindow::MainWindow(QWidget *parent)
         m_control->setGroupingActive(m_overview->groupMode() != OverviewPanel::GroupMode::None);
         syncOverviewPage(m_overview->currentIndex());
     });
+    // Ctrl+滚轮改档：与底栏 ＋/－、Ctrl＋/－ 落同一个 n/5 胶囊（2026-11-28）。
+    connect(m_overview, &OverviewPanel::zoomStepChanged,
+            this, &MainWindow::syncOverviewZoomCapsule);
 
     // PSD 图层：工具栏一级入口（仅 PSD 可见）+ 右侧浮层面板。
     m_layerPanel = new LayerPanel(this);
@@ -473,6 +477,11 @@ MainWindow::MainWindow(QWidget *parent)
     });
     connect(m_topBar, &Chrome::TopBar::layersClicked, this, &MainWindow::togglePsdLayers);
     connect(m_topBar, &Chrome::TopBar::topLockToggled, this, &MainWindow::toggleTopLock);
+    // 顶栏 HDR 文字入口（H1-8）：点击开合浮层；三档与 EV 都写进配置。
+    m_hdrPanel = new HdrPanel(this);
+    connect(m_topBar, &Chrome::TopBar::hdrClicked, this, &MainWindow::toggleHdrPanel);
+    connect(m_hdrPanel, &HdrPanel::modePicked, this, &MainWindow::applyHdrMode);
+    connect(m_hdrPanel, &HdrPanel::evPicked, this, &MainWindow::applyHdrExposure);
     connect(m_topBar, &Chrome::TopBar::pinToggled, this, &MainWindow::toggleAlwaysOnTop);
     connect(m_topBar, &Chrome::TopBar::menuRequested, this, [this](const QPoint &g) {
         QMenu *menu = buildHamburgerMenu();
@@ -6094,6 +6103,19 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     else if (c == QLatin1String("ovzoomout") && m_overview && m_overview->isVisible()) {
         onZoomOut();
     }
+    // ovwheel:up|down[:ctrl] —— 总览滚轮验收探针：构造真实 QWheelEvent 送进网格。
+    // 带 ctrl 走 Ctrl+滚轮改档分支；不带 ctrl 用于对照「仍只滚网格、不改档」。
+    else if (c.startsWith(QLatin1String("ovwheel:")) && m_overview && m_overview->isVisible()) {
+        const QStringList a = c.mid(8).split(QLatin1Char(':'));
+        const int dy = (a.value(0) == QLatin1String("up")) ? 120 : -120;
+        const bool ctrl = (a.value(1) == QLatin1String("ctrl"));
+        const QPointF local(m_overview->width() / 2.0, m_overview->height() / 2.0);
+        QWheelEvent ev(local, m_overview->mapToGlobal(local.toPoint()), QPoint(0, 0),
+                       QPoint(0, dy), Qt::NoButton,
+                       ctrl ? Qt::ControlModifier : Qt::NoModifier,
+                       Qt::NoScrollPhase, false);
+        QApplication::sendEvent(m_overview, &ev);
+    }
     else if (c == QLatin1String("ovopen") && m_overview && m_overview->isVisible()) {
         const int index = m_overview->currentIndex();
         if (index >= 0) {
@@ -8777,6 +8799,13 @@ void MainWindow::runSmokeCommand(const QString &cmd)
     }
     // frameseek:<index> / framefirst / framelast / framerev / framefwd /
     // frameplaypause —— 播放栏动作的冒烟通道，走真实槽位，仅 --smoke 用。
+    // hdrpanel / hdrev:<档> —— HDR 浮层验收（H1-8）：开合面板、设曝光。
+    else if (c == QLatin1String("hdrpanel")) {
+        toggleHdrPanel();
+    }
+    else if (c.startsWith(QLatin1String("hdrev:"))) {
+        applyHdrExposure(c.mid(6).toDouble());
+    }
     else if (c.startsWith(QLatin1String("frameseek:"))) {
         onSeekFrame(c.mid(10).toInt());
     }
@@ -11045,6 +11074,68 @@ void MainWindow::onCopyImageFile()
 // J-4：复制播放栏当前帧。取 m_currentImage——它就是 showAnimFrame 刚上屏的那一帧
 // （若用户给 GIF 选了铺底，铺底已合成在内）。不走 frameAt() 重新解码：顺序模式会
 // 重建 reader 从头读，既慢又可能扰动播放位置。粘贴结果因此与暂停时的画面一致。
+// ---------------------------------------------------------------------------
+// 顶栏 HDR 浮层（H1-8）
+// ---------------------------------------------------------------------------
+
+// 当前图是否走 HdrPreview 曲线的格式。包内条目暂不判定（后缀里带条目名）。
+bool MainWindow::currentIsHdrImage() const
+{
+    if (m_currentPath.isEmpty()) {
+        return false;
+    }
+    const QString suffix = QFileInfo(m_currentPath).suffix().toLower();
+    return suffix == QLatin1String("hdr") || suffix == QLatin1String("pic")
+           || suffix == QLatin1String("exr");
+}
+
+void MainWindow::toggleHdrPanel()
+{
+    if (!m_hdrPanel) {
+        return;
+    }
+    if (m_hdrPanel->isVisible()) {
+        m_hdrPanel->hide();
+        return;
+    }
+    m_hdrPanel->setState(Config::instance().hdrMode(), Config::instance().hdrExposureEv(),
+                         currentIsHdrImage());
+    if (m_topBar) {
+        // 贴顶栏左组下方，避免盖住右侧窗口按钮。
+        const QPoint anchor = m_topBar->mapToGlobal(QPoint(96, 0));
+        QPoint target(anchor.x(), anchor.y() + m_topBar->height() + 6);
+        const QRect screen = m_topBar->screen() ? m_topBar->screen()->availableGeometry()
+                                                : QRect(0, 0, 1920, 1080);
+        target.setX(qBound(screen.left() + 8, target.x(),
+                           screen.right() - m_hdrPanel->width() - 8));
+        target.setY(qBound(screen.top() + 8, target.y(),
+                           screen.bottom() - m_hdrPanel->height() - 8));
+        m_hdrPanel->move(target);
+    }
+    m_hdrPanel->show();
+    m_hdrPanel->setFocus();
+}
+
+void MainWindow::applyHdrMode(int mode)
+{
+    Config::instance().setHdrMode(mode);
+    // 本版没有原生 HDR 输出路径：三档都落到 SDR 预览，面板底部已写清原因。
+    // 仍按用户选择持久化，等真 HDR 输出（H1-8 后半）接回来时语义不变。
+}
+
+void MainWindow::applyHdrExposure(double ev)
+{
+    Config::instance().setHdrExposureEv(float(ev));
+    if (!m_cache) {
+        return;
+    }
+    m_cache->setHdrExposureEv(float(ev));
+    if (!m_currentPath.isEmpty()) {
+        // 换代重解：旧 EV 的在飞结果作废，当前图按新曝光重新上屏。
+        loadAsync(m_currentPath, true);
+    }
+}
+
 void MainWindow::onCopyCurrentFrame()
 {
     if (!m_frames || !m_frames->hasFrames()) {

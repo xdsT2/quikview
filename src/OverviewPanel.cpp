@@ -998,6 +998,18 @@ void OverviewPanel::wheelEvent(QWheelEvent *event)
 {
     const QPoint pixels = event->pixelDelta();
     const QPoint angle = event->angleDelta();
+    const int raw = !pixels.isNull() ? (pixels.y() ? pixels.y() : pixels.x())
+                                     : (angle.y() ? angle.y() : angle.x());
+    // Ctrl+滚轮：总览内调缩略图档位（与底栏 ＋/－、Ctrl＋/－ 同一套 5 档），
+    // 向上放大、向下缩小，一格一档；此时不滚网格。其他修饰键仍按滚轮滚动处理。
+    if ((event->modifiers() & Qt::ControlModifier) && raw != 0) {
+        const bool changed = raw > 0 ? zoomStepIn() : zoomStepOut();
+        if (changed) {
+            emit zoomStepChanged();
+        }
+        event->accept();
+        return;
+    }
     const int delta = !pixels.isNull() ? (pixels.y() ? pixels.y() : pixels.x())
                                        : (angle.y() ? angle.y() : angle.x()) / 2;
     m_scroll = qBound(0, m_scroll - delta, maxScroll());

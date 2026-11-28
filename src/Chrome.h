@@ -158,6 +158,8 @@ signals:
     void openClicked();
     void browseMenuRequested(const QPoint &globalPos);
     void layersClicked();
+    // 顶栏 HDR 文字入口（H1-8）：点击开合浮层，浮层本身由主窗口管理。
+    void hdrClicked();
     void topLockToggled();
     void pinToggled();
     void menuRequested(const QPoint &globalPos);
@@ -185,7 +187,7 @@ protected:
 
 private:
     enum class Action {
-        None, Open, Browse, Layers, TopLock, Pin, Menu, Minimize, Maximize, Close
+        None, Open, Browse, Hdr, Layers, TopLock, Pin, Menu, Minimize, Maximize, Close
     };
     struct Btn {
         Action action = Action::None;

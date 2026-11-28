@@ -69,7 +69,8 @@ bool isExrSuffix(const QString &suffixLower)
 // 游标推进的，第一遍读完必须回到像素起点重来；这样峰值内存仍只有一条扫描线，
 // 不会为 8K 图额外开一整幅浮点缓冲。
 // ---------------------------------------------------------------------------
-QImage decodeRadiance(const QByteArray &data, QString *errOut, LoadErrorCategory *catOut)
+QImage decodeRadiance(const QByteArray &data, QString *errOut, LoadErrorCategory *catOut,
+                      float exposureEv)
 {
     if (data.size() < 16 || (!data.startsWith("#?RADIANCE") && !data.startsWith("#?RGBE"))) {
         setFail(QStringLiteral("hdr invalid magic"), LoadErrorCategory::Unsupported, errOut, catOut);
@@ -354,7 +355,8 @@ bool chromaticitiesToSrgb(const Imf::Header &header, Imath::M44f *out)
 } // namespace
 #endif
 
-QImage decodeExr(const QByteArray &data, QString *errOut, LoadErrorCategory *catOut)
+QImage decodeExr(const QByteArray &data, QString *errOut, LoadErrorCategory *catOut,
+                 float exposureEv)
 {
 #ifdef HAS_OPENEXR
     try {
@@ -406,7 +408,7 @@ QImage decodeExr(const QByteArray &data, QString *errOut, LoadErrorCategory *cat
                 meter.add(r, g, b);
             }
         }
-        const HdrPreview::Curve curve(meter.whitePoint());
+        const HdrPreview::Curve curve(meter.whitePoint(), exposureEv);
 
         QImage img(w, h, QImage::Format_RGBA8888);
         if (img.isNull()) return QImage();

@@ -79,12 +79,13 @@ float Meter::whitePoint() const
     return std::clamp(white, kMinWhite, kMaxWhite);
 }
 
-Curve::Curve(float whitePoint)
+Curve::Curve(float whitePoint, float ev)
 {
     m_white = (std::isfinite(whitePoint) && whitePoint > kBlackLuma)
                   ? std::clamp(whitePoint, kMinWhite, kMaxWhite)
                   : 1.0f;
     m_invWhite = 1.0f / m_white;
+    m_gain = std::isfinite(ev) ? std::exp2(std::clamp(ev, -8.0f, 8.0f)) : 1.0f;
     const double whiteOut = acesWhite();
     for (int i = 0; i <= kSize; ++i) {
         // sqrt 分布：t = i/N，x = t²·kMaxX
@@ -101,7 +102,7 @@ unsigned char Curve::operator()(float linear) const
     if (!std::isfinite(linear) || linear <= 0.0f) {
         return 0;
     }
-    const float x = linear * m_invWhite;
+    const float x = linear * m_gain * m_invWhite;
     if (x >= kMaxX) {
         return 255;
     }

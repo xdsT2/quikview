@@ -17,7 +17,8 @@ class PanoGlobe : public QWidget
 public:
     explicit PanoGlobe(QWidget *parent = nullptr);
 
-    bool load(const QString &path, QString *error);
+    // exposureEv：HDR/EXR 曝光补偿（档），与主程序顶栏 HDR 浮层同一语义。
+    bool load(const QString &path, QString *error, float exposureEv = 0.0f);
     bool hasImage() const { return !m_src.isNull(); }
     QSize sourceSize() const { return m_src.size(); }
 

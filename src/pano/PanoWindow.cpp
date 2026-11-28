@@ -35,7 +35,7 @@ QString hudQss()
 } // namespace
 
 PanoWindow::PanoWindow(const QString &imagePath, double heading, double pitch, double fov,
-                       QWidget *parent)
+                       QWidget *parent, float exposureEv)
     : QWidget(parent, Qt::Window)
 {
     setAttribute(Qt::WA_DeleteOnClose, false);
@@ -48,7 +48,7 @@ PanoWindow::PanoWindow(const QString &imagePath, double heading, double pitch, d
 
     m_globe = new PanoGlobe(this);
     QString error;
-    if (!m_globe->load(imagePath, &error)) {
+    if (!m_globe->load(imagePath, &error, exposureEv)) {
         // 主程序已在入口处确认过可读性；走到这里说明文件在打开瞬间被改/被锁，
         // 直接把原因带回去，由主程序 toast 出来，不让用户面对一块黑屏。
         setProperty("panoError", error);

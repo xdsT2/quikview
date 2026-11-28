@@ -55,6 +55,10 @@ public:
     // 外部刷新（同名文件被删后又保存回来）：丢弃该路径的全图/拖动/缩略图缓存与
     // 排队项，并作废此前的在飞结果，下一次请求从磁盘重新解码。
     void forgetPath(const QString &path);
+    // HDR/EXR 曝光补偿（H1-8）：解码期参数，改变后已缓存的 HDR/EXR 结果全部失效。
+    // 只影响走 HdrPreview 曲线的格式（hdr/pic/exr），8bit 图一个像素都不动。
+    void setHdrExposureEv(float ev);
+    float hdrExposureEv() const { return m_hdrEv; }
     void clear();
     void clearFull();   // 只清原图缓存（缩略图不受 HDR 开关影响）
     // D1-4 切目录回收：移除缓存中属于指定目录（磁盘路径前缀）的全图条目，并整路
@@ -179,6 +183,7 @@ private:
     // 不会互相覆盖（A→B→A 往返靠它区分「哪一代的 A」）。
     // std::atomic：解码 worker 线程在 loader 调用前后轮询代次，旧代次任务跳过后续
     // 重活与后处理（D1-5）；主线程自增，worker 只读。
+    float m_hdrEv = 0.0f;       // HDR/EXR 曝光补偿（档），0 = 自动预览
     std::atomic<quint64> m_generation{0};
     // D2-2 在飞取消令牌：换代时把旧令牌置 true，worker 在下一个检查点直接放弃，
     // 不再继续做预览/后处理（QtConcurrent 本身不可中断，这是「能停就停」的落点）。

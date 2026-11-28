@@ -85,6 +85,9 @@ add_executable(soleview WIN32
     src/HdrPreview.h
     src/HdrExrDecode.cpp
     src/HdrExrDecode.h
+    # 顶栏 HDR 浮层（H1-8）：三档显示模式 + 曝光 EV。
+    src/HdrPanel.cpp
+    src/HdrPanel.h
     src/MetadataPanel.cpp
     src/MetadataPanel.h
     src/HudShell.cpp

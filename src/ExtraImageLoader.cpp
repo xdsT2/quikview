@@ -268,10 +268,11 @@ QImage decodeQoi(const QByteArray &data, QString *errOut, LoadErrorCategory *cat
 // ===========================================================================
 // 2. Radiance HDR (.hdr, .pic)
 // ===========================================================================
-QImage decodeRadianceHdr(const QByteArray &data, QString *errOut, LoadErrorCategory *catOut)
+QImage decodeRadianceHdr(const QByteArray &data, QString *errOut, LoadErrorCategory *catOut,
+                         float hdrExposureEv)
 {
     // 解码与 SDR 预览曲线抽到 HdrExrDecode：全景组件共用同一份实现（I3-2）。
-    return HdrExrDecode::decodeRadiance(data, errOut, catOut);
+    return HdrExrDecode::decodeRadiance(data, errOut, catOut, hdrExposureEv);
 }
 
 // ===========================================================================
@@ -2176,9 +2177,10 @@ bool decodeJxlFrames(const QByteArray &data, bool onlyFirst, QVector<QImage> &fr
 #ifdef HAS_OPENEXR
 
 
-QImage decodeExr(const QByteArray &data, QString *errOut, LoadErrorCategory *catOut)
+QImage decodeExr(const QByteArray &data, QString *errOut, LoadErrorCategory *catOut,
+                 float hdrExposureEv)
 {
-    return HdrExrDecode::decodeExr(data, errOut, catOut);
+    return HdrExrDecode::decodeExr(data, errOut, catOut, hdrExposureEv);
 }
 #endif
 
@@ -2264,7 +2266,7 @@ bool hasMultipleFrames(const QString &path)
 }
 
 QImage load(const QString &path, const QSize &viewportHint, QString *errorOut,
-            LoadErrorCategory *categoryOut, bool toneMapSdr)
+            LoadErrorCategory *categoryOut, bool toneMapSdr, float hdrExposureEv)
 {
     Q_UNUSED(toneMapSdr);
     if (errorOut) errorOut->clear();
@@ -2296,7 +2298,7 @@ QImage load(const QString &path, const QSize &viewportHint, QString *errorOut,
     const QByteArray &data = file.bytes();
 
     if (s == QLatin1String("qoi")) return decodeQoi(data, errorOut, categoryOut);
-    if (s == QLatin1String("hdr") || s == QLatin1String("pic")) return decodeRadianceHdr(data, errorOut, categoryOut);
+    if (s == QLatin1String("hdr") || s == QLatin1String("pic")) return decodeRadianceHdr(data, errorOut, categoryOut, hdrExposureEv);
     if (s == QLatin1String("dds")) return decodeDds(path, data, errorOut, categoryOut);
     if (s == QLatin1String("pcx")) return decodePcx(data, errorOut, categoryOut);
     if (s == QLatin1String("sgi") || s == QLatin1String("rgb") || s == QLatin1String("rgba")
@@ -2347,7 +2349,7 @@ QImage load(const QString &path, const QSize &viewportHint, QString *errorOut,
 
 #ifdef HAS_OPENEXR
     if (s == QLatin1String("exr")) {
-        return decodeExr(data, errorOut, categoryOut);
+        return decodeExr(data, errorOut, categoryOut, hdrExposureEv);
     }
 #endif
 

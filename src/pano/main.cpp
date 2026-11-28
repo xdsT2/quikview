@@ -58,6 +58,9 @@ int main(int argc, char **argv)
                                 QStringLiteral("deg"));
     QCommandLineOption fovOpt(QStringLiteral("fov"), QStringLiteral("初始垂直视野（度）"),
                               QStringLiteral("deg"));
+    QCommandLineOption evOpt(QStringLiteral("ev"),
+                             QStringLiteral("HDR/EXR 曝光补偿（档，0 为自动预览）"),
+                             QStringLiteral("ev"));
     QCommandLineOption benchOpt(QStringLiteral("bench"), QStringLiteral("渲染耗时验收：帧数"),
                                 QStringLiteral("frames"));
     QCommandLineOption benchOutOpt(QStringLiteral("bench-out"),
@@ -70,6 +73,7 @@ int main(int argc, char **argv)
     parser.addOption(headingOpt);
     parser.addOption(pitchOpt);
     parser.addOption(fovOpt);
+    parser.addOption(evOpt);
     parser.addOption(benchOpt);
     parser.addOption(benchOutOpt);
     parser.addOption(benchShotOpt);
@@ -95,7 +99,12 @@ int main(int argc, char **argv)
     if (parser.isSet(fovOpt) && !toDouble(parser.value(fovOpt), &fov))
         fov = 75.0;
 
-    PanoWindow window(path, heading, pitch, std::fabs(fov) > 0.0 ? fov : 75.0);
+    double exposureEv = 0.0;
+    if (parser.isSet(evOpt) && !toDouble(parser.value(evOpt), &exposureEv))
+        exposureEv = 0.0;
+
+    PanoWindow window(path, heading, pitch, std::fabs(fov) > 0.0 ? fov : 75.0, nullptr,
+                      float(exposureEv));
     if (!window.ok()) {
         qCritical() << "无法解码" << path << window.property("panoError").toString();
         return 2;

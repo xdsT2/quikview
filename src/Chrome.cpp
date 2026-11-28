@@ -771,6 +771,7 @@ QVector<TopBar::Btn> TopBar::buttons() const
         bool browseLabel = true;
         int filenameMin = 0;
         bool browse = true;
+        bool hdr = true;
         bool layers = true;
         bool topLock = true;
         bool pin = true;
@@ -785,6 +786,7 @@ QVector<TopBar::Btn> TopBar::buttons() const
         p.browseLabel = stage <= 2;
         p.filenameMin = stage == 0 ? 140 : 0;
         p.browse = stage < 6;
+        p.hdr = stage < 3;
         p.layers = m_showLayers && stage < 3;
         p.topLock = stage < 4;
         p.pin = stage < 5;
@@ -794,6 +796,10 @@ QVector<TopBar::Btn> TopBar::buttons() const
         left += topButtonWidth(topActionLabel(0), true) + gapFor(true);
         if (p.browse) {
             left += topButtonWidth(topActionLabel(1), p.browseLabel);
+        }
+        // HDR 文字入口（H1-8）：纯文字，不算图标位。
+        if (p.hdr) {
+            left += 8 + topTextWidth(QObject::tr("HDR")) + 20;
         }
 
         int right = 3 * kTopWinBtn + 8 + kTopBtn;   // 菜单常驻
@@ -840,6 +846,16 @@ QVector<TopBar::Btn> TopBar::buttons() const
         x += browseW;
     } else {
         m_hiddenIds.append(1);
+    }
+
+    // —— HDR 文字入口（H1-8）：纯文字，右侧不排图标 ——
+    if (plan.hdr) {
+        const int hdrW = 8 + topTextWidth(QObject::tr("HDR")) + 20;
+        out.append(Btn{ Action::Hdr, QRect(x + 6, y, hdrW, kTopBtn), QObject::tr("HDR"),
+                        false, false, false });
+        x += 6 + hdrW;
+    } else {
+        m_hiddenIds.append(9);
     }
     const int leftEnd = x;
 
@@ -1000,6 +1016,7 @@ QString TopBar::tipText(Action action) const
     switch (action) {
     case Action::Open: return tr("打开");
     case Action::Browse: return tr("浏览");
+    case Action::Hdr: return tr("HDR 显示与曝光");
     case Action::Layers:
         return m_layersAvailable ? (m_layersOpen ? tr("隐藏 PSD 图层") : tr("PSD 图层"))
                                  : tr("PSD 图层（当前图片没有可用图层）");
@@ -1181,7 +1198,8 @@ void TopBar::paintEvent(QPaintEvent *)
             const QFont f = uiFont(12);
             p.setFont(f);
             p.setPen(drawInk);
-            const int textX = b.rect.x() + 10 + 18 + 8;
+            const int textX = (b.action == Action::Hdr) ? b.rect.x() + 8
+                                                        : b.rect.x() + 10 + 18 + 8;
             const QRect textRect(textX, b.rect.y(), b.rect.right() - textX - 10,
                                  b.rect.height());
             p.drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft, b.label);
@@ -1199,6 +1217,7 @@ void TopBar::activate(Action action, const QPoint &globalPos)
     switch (action) {
     case Action::Open: emit openClicked(); break;
     case Action::Browse: emit browseMenuRequested(globalPos); break;
+    case Action::Hdr: emit hdrClicked(); break;
     case Action::Layers:
         if (m_layersAvailable) {
             emit layersClicked();
